@@ -18,6 +18,9 @@ type ParsedMenu = {
         price_cents: number | null;
         image_path: string | null;
         category_name: string;
+        is_pizza_flavor: boolean;
+        pizza_sizes: Array<{ name: string; price_cents: number | null }>;
+        pizza_crusts: Array<{ name: string; price_cents: number | null }>;
     }>;
     categories: Array<{ name: string }>;
 };
@@ -49,6 +52,27 @@ type GeminiGenerateResponse = {
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com";
 const MAX_FILE_BYTES = 50 * 1024 * 1024;
 const FILE_PROCESSING_TIMEOUT_MS = 30_000;
+
+const PIZZA_OPTION_SCHEMA = {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+        name: { type: "string" },
+        price_cents: { type: ["integer", "null"], minimum: 0 },
+    },
+    required: ["name", "price_cents"],
+} as const;
+
+const PIZZA_SCAN_INSTRUCTIONS = [
+    "Para pizzas, extraia cada sabor individual como produto separado; nunca crie um produto por tamanho ou borda.",
+    "Use is_pizza_flavor=true apenas para sabores individuais combináveis. Bebidas, combos fechados e acompanhamentos devem ser false.",
+    "Agrupe sabores em categorias próprias de pizzas; preserve divisões reais entre tradicionais e especiais.",
+    "pizza_sizes traz os tamanhos do sabor com os preços FINAIS inteiros (não acréscimos). Repita opções compartilhadas apenas quando se aplicam inequivocamente ao sabor.",
+    "pizza_crusts traz tipos de borda recheada e seus ACRÉSCIMOS. Borda não é produto, e não invente uma opção sem borda.",
+    "Se houver tamanhos com preços, price_cents deve ser o menor preço final legível. Sem tamanhos, use o preço por sabor.",
+    "Para preço de opção ilegível ou não explícito, use null. Nunca invente preços ou opções.",
+    "Para outros produtos, is_pizza_flavor=false e os dois arrays devem ser vazios.",
+].join("\n- ");
 
 const MENU_RESPONSE_SCHEMA = {
     type: "object",
@@ -84,6 +108,9 @@ const MENU_RESPONSE_SCHEMA = {
                         description:
                             "Categoria explícita ou categoria coerente inferida para o item.",
                     },
+                    is_pizza_flavor: { type: "boolean" },
+                    pizza_sizes: { type: "array", items: PIZZA_OPTION_SCHEMA },
+                    pizza_crusts: { type: "array", items: PIZZA_OPTION_SCHEMA },
                 },
                 required: [
                     "name",
@@ -91,6 +118,9 @@ const MENU_RESPONSE_SCHEMA = {
                     "price_cents",
                     "image_path",
                     "category_name",
+                    "is_pizza_flavor",
+                    "pizza_sizes",
+                    "pizza_crusts",
                 ],
             },
         },
@@ -191,6 +221,16 @@ function inferMimeType(url: string, responseContentType: string | null): string 
     return "image/jpeg";
 }
 
+function parsePizzaOptions(value: unknown): Array<{ name: string; price_cents: number | null }> {
+    if (!Array.isArray(value)) return [];
+    return value.filter(option => option && typeof option.name === "string" && option.name.trim())
+        .map(option => ({
+            name: option.name.trim(),
+            price_cents: Number.isSafeInteger(option.price_cents) && option.price_cents >= 0
+                ? option.price_cents : null,
+        }));
+}
+
 function parseMenuJson(outputText: string): ParsedMenu {
     const cleaned = outputText
         .trim()
@@ -266,6 +306,9 @@ function parseMenuJson(outputText: string): ParsedMenu {
                     item.category_name.trim()
                         ? item.category_name.trim()
                         : "Outros",
+                is_pizza_flavor: item.is_pizza_flavor === true,
+                pizza_sizes: parsePizzaOptions(item.pizza_sizes),
+                pizza_crusts: parsePizzaOptions(item.pizza_crusts),
             }))
             .filter((item) => item.name.length > 0),
     };
@@ -517,6 +560,7 @@ Regras:
 - Não invente itens, descrições ou preços que não estejam visíveis no cardápio.
 - Quando um preço não estiver legível com segurança, use null.
 - image_path deve ser sempre null.
+- ${PIZZA_SCAN_INSTRUCTIONS}
 - Não combine itens diferentes.
 - Preserve nomes e descrições conforme aparecem no cardápio.
 `,
@@ -642,7 +686,10 @@ Retorne somente um objeto JSON neste formato:
       "description": "string ou null",
       "price_cents": 0,
       "image_path": null,
-      "category_name": "string"
+      "category_name": "string",
+      "is_pizza_flavor": false,
+      "pizza_sizes": [],
+      "pizza_crusts": []
     }
   ],
   "categories": [
@@ -657,6 +704,7 @@ Regras:
 - Não inclua markdown, comentários, explicações ou blocos de código.
 - Não invente itens que não estejam visíveis no cardápio.
 - image_path deve ser sempre null.
+- ${PIZZA_SCAN_INSTRUCTIONS}
 `,
                     },
                 ],
@@ -674,7 +722,7 @@ Regras:
                 ],
             },
         ],
-        max_output_tokens: 8000,
+        max_output_tokens: 16000,
         store: false,
     });
 
@@ -735,6 +783,9 @@ function buildResponse(parsed: ParsedMenu, restaurantId: string) {
         price_cents: item.price_cents,
         image_path: null,
         category_name: item.category_name,
+        is_pizza_flavor: item.is_pizza_flavor,
+        pizza_sizes: item.pizza_sizes,
+        pizza_crusts: item.pizza_crusts,
         restaurant_id: restaurantId,
         is_available: true,
         position: index,

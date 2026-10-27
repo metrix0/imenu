@@ -16,6 +16,8 @@ import Dropdown from "@/components/ui/Dropdown";
 import Toast from "@/components/ui/Toast";
 import LoadingBar from "@/components/ui/LoadingBar";
 import { uploadFullMenuImageAI } from "@/lib/database/uploadFullMenuImageAI";
+import { arePizzaFlavorsCompatible, prepareScannedPizza, type ScannedPizzaOption } from "@/lib/menu/scannedPizza";
+import { parsePizzaSettings } from "@/lib/pizza/pricing";
 import Loader from "@/components/ui/Loader";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
@@ -28,6 +30,9 @@ type ScannedItem = {
     image_path: string | null;
     category_name?: string;
     category_id?: string | null;
+    is_pizza_flavor?: boolean;
+    pizza_sizes?: ScannedPizzaOption[];
+    pizza_crusts?: ScannedPizzaOption[];
     [key: string]: any;
 };
 
@@ -289,7 +294,12 @@ function ScanModal({
         setScanResult(aiResult);
         const newMap: Record<string, CategoryMapping> = {};
         (aiResult.categories || []).forEach((category) => {
-            newMap[category.name] = { mappedId: null, createNew: true };
+            const match = existingCategories.find(existing =>
+                existing.name.trim().localeCompare(category.name.trim(), "pt-BR", { sensitivity: "base" }) === 0
+            );
+            newMap[category.name] = match
+                ? { mappedId: match.id, createNew: false }
+                : { mappedId: null, createNew: true };
         });
         setCategoryMap(newMap);
     }
@@ -373,132 +383,152 @@ function ScanModal({
     }
 
     async function handleSaveAll() {
-        if (!scanResult) return;
+        if (!scanResult || isSaving) return;
         setIsSaving(true);
 
         try {
-            const createPromises: Promise<{ name: string; id: string }>[] = [];
-
-            for (const [categoryName, mapping] of Object.entries(categoryMap)) {
-                if (mapping.mappedId || !mapping.createNew) continue;
-
-                createPromises.push(
-                    (async () => {
-                        const response = await fetch("/api/categories/create", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                restaurant_id: restaurantId,
-                                name: categoryName,
-                                position: 99,
-                            }),
-                        });
-                        const json = await response.json();
-
-                        if (!response.ok) {
-                            throw new Error(
-                                json?.error || "create category failed"
-                            );
-                        }
-
-                        return {
-                            name: categoryName,
-                            id: json.category.id,
-                        };
-                    })()
-                );
+            const resolvedCategoryIds = new Map<string, string>();
+            for (const category of scanResult.categories) {
+                const mapping = categoryMap[category.name];
+                if (mapping?.mappedId) {
+                    resolvedCategoryIds.set(category.name, mapping.mappedId);
+                    continue;
+                }
+                const response = await fetch("/api/categories/create", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        restaurant_id: restaurantId,
+                        name: category.name,
+                        position: 99,
+                    }),
+                });
+                const json = await response.json();
+                if (!response.ok || !json?.category?.id) {
+                    throw new Error(json?.error || `Não foi possível criar a categoria ${category.name}.`);
+                }
+                resolvedCategoryIds.set(category.name, json.category.id);
             }
 
-            const createdCategories = await Promise.all(createPromises);
-            const resolvedCategoryMap = { ...categoryMap };
+            const imported = await Promise.all(scanResult.items.map(async (item, index) => {
+                const categoryId = resolvedCategoryIds.get(item.category_name ?? "");
+                if (!categoryId) throw new Error(`Categoria não encontrada para ${item.name}.`);
+                const prepared = prepareScannedPizza(item);
+                const hasPrice = (Number.isSafeInteger(item.price_cents) && Number(item.price_cents) >= 0) ||
+                    (item.is_pizza_flavor === true &&
+                        prepared.complements.some(group => group.name === "Tamanho"));
+                const response = await fetch("/api/items/create", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        restaurant_id: restaurantId,
+                        category_id: categoryId,
+                        name: item.name,
+                        description: item.description,
+                        price_cents: prepared.price_cents,
+                        image_path: item.image_path ?? null,
+                        is_available: Boolean(hasPrice),
+                        position: index,
+                    }),
+                });
+                const json = await response.json();
+                if (!response.ok || !json?.item?.id) {
+                    throw new Error(json?.error || `Não foi possível criar ${item.name}.`);
+                }
+                return { item, categoryId, itemId: json.item.id as string, prepared };
+            }));
 
-            createdCategories.forEach((category) => {
-                resolvedCategoryMap[category.name] = {
-                    mappedId: category.id,
-                    createNew: false,
-                };
-            });
-
-            const createItemPromises: Promise<any>[] = [];
-
-            scanResult.items.forEach((item, index) => {
-                const categoryName = item.category_name ?? "Uncategorized";
-                const categoryId =
-                    resolvedCategoryMap[categoryName]?.mappedId ?? null;
-
-                if (!categoryId) {
-                    createItemPromises.push(
-                        (async () => {
-                            const categoryResponse = await fetch(
-                                "/api/categories/create",
-                                {
-                                    method: "POST",
-                                    headers: {
-                                        "Content-Type": "application/json",
-                                    },
-                                    body: JSON.stringify({
-                                        restaurant_id: restaurantId,
-                                        name: categoryName,
-                                        position: 0,
-                                    }),
-                                }
-                            );
-                            const categoryJson = await categoryResponse.json();
-
-                            const itemResponse = await fetch("/api/items/create", {
-                                method: "POST",
-                                headers: {
-                                    "Content-Type": "application/json",
-                                },
-                                body: JSON.stringify({
-                                    restaurant_id: restaurantId,
-                                    category_id: categoryJson.category.id,
-                                    name: item.name,
-                                    description: item.description,
-                                    price_cents: item.price_cents ?? 0,
-                                    image_path: item.image_path ?? null,
-                                    position: index,
-                                }),
-                            });
-
-                            return itemResponse.json();
-                        })()
-                    );
-                    return;
+            const groupPlans = imported.flatMap(({ itemId, prepared }) =>
+                prepared.complements.map(group => ({ itemId, ...group }))
+            );
+            if (groupPlans.length) {
+                const { data: createdGroups, error: groupError } = await supabase
+                    .from("item_subcategories")
+                    .insert(groupPlans.map(group => ({
+                        item_id: group.itemId,
+                        name: group.name,
+                        min_select: group.min_select,
+                        max_select: group.max_select,
+                        allow_multiple_units: false,
+                        position: group.name === "Tamanho" ? 0 : 1,
+                    })))
+                    .select("id, item_id, name");
+                if (groupError || !createdGroups || createdGroups.length !== groupPlans.length) {
+                    throw new Error(groupError?.message || "Não foi possível criar tamanhos e bordas.");
                 }
 
-                createItemPromises.push(
-                    fetch("/api/items/create", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            restaurant_id: restaurantId,
-                            category_id: categoryId,
-                            name: item.name,
-                            description: item.description,
-                            price_cents: item.price_cents ?? 0,
-                            image_path: item.image_path ?? null,
-                            position: index,
-                        }),
-                    }).then((response) => response.json())
-                );
-            });
+                const options = createdGroups.flatMap(created => {
+                    const group = groupPlans.find(plan =>
+                        plan.itemId === created.item_id && plan.name === created.name
+                    );
+                    if (!group) throw new Error("Grupo de pizza não encontrado.");
+                    return group.options.map((option, position) => ({
+                        item_subcategory_id: created.id,
+                        name: option.name,
+                        description: null,
+                        price_cents: option.price_cents,
+                        is_available: true,
+                        position,
+                    }));
+                });
+                if (options.length) {
+                    const { error: optionError } = await supabase.from("subitems").insert(options);
+                    if (optionError) throw new Error(optionError.message);
+                }
+            }
 
-            await Promise.all(createItemPromises);
+            const pizzaFlavors = imported.filter(row => row.item.is_pizza_flavor === true);
+            const pizzaCategoryIds = [...new Set(pizzaFlavors.map(row => row.categoryId))]
+                .filter(categoryId => !imported.some(row =>
+                    row.categoryId === categoryId && row.item.is_pizza_flavor !== true
+                ));
+            let needsPizzaReview = pizzaFlavors.length >= 2 && pizzaCategoryIds.length === 0;
+            if (pizzaFlavors.length >= 2 && pizzaCategoryIds.length) {
+                const { data: allCategoryItems, error: itemsError } = await supabase.from("items")
+                    .select("id, category_id").in("category_id", pizzaCategoryIds);
+                if (itemsError) throw new Error(itemsError.message);
+                const createdItemIds = new Set(imported.map(row => row.itemId));
+                const safeIds = pizzaCategoryIds.filter(categoryId =>
+                    !(allCategoryItems || []).some(row =>
+                        row.category_id === categoryId && !createdItemIds.has(row.id)
+                    )
+                );
+                const eligibleFlavors = pizzaFlavors.filter(row => safeIds.includes(row.categoryId));
+                if (eligibleFlavors.length >= 2 &&
+                    arePizzaFlavorsCompatible(eligibleFlavors.map(row => row.item))) {
+                    const { data: restaurant, error: restaurantError } = await supabase
+                        .from("restaurants").select("pizza_settings").eq("id", restaurantId).single();
+                    if (restaurantError) throw new Error(restaurantError.message);
+                    const current = parsePizzaSettings(restaurant.pizza_settings);
+                    const { error: settingsError } = await supabase.from("restaurants")
+                        .update({ pizza_settings: {
+                            ...current,
+                            enabled: true,
+                            category_ids: [...new Set([...current.category_ids, ...safeIds])],
+                        } })
+                        .eq("id", restaurantId);
+                    if (settingsError) throw new Error(settingsError.message);
+                } else {
+                    needsPizzaReview = true;
+                }
+            }
 
             setToast({
-                message: "Salvo com sucesso",
+                message: needsPizzaReview
+                    ? "Cardápio importado. Revise os tamanhos e bordas dos sabores para ativar o Modo Pizza."
+                    : "Cardápio importado com sucesso",
                 type: "success",
             });
             scheduleToastClear(2500);
             onClose();
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error(error);
             setToast({
-                message: "Erro ao salvar: " + (error?.message ?? error),
+                message: "Erro ao importar. Confira os itens já criados antes de tentar novamente: " +
+                    (error instanceof Error ? error.message : String(error)),
                 type: "error",
             });
-            scheduleToastClear(4000);
+            scheduleToastClear(6000);
         } finally {
             onRefresh();
             setIsSaving(false);
@@ -821,11 +851,18 @@ function ScanModal({
                                                                 <div className="text-sm text-gray-600 mt-1">
                                                                     {item.description}
                                                                 </div>
+                                                                {item.is_pizza_flavor && (
+                                                                    <div className="mt-1 text-xs text-gray-500">
+                                                                        Sabor de pizza
+                                                                        {item.pizza_sizes?.length ? ` · Tamanhos: ${item.pizza_sizes.map(size => size.name).join(", ")}` : ""}
+                                                                        {item.pizza_crusts?.length ? ` · Bordas: ${item.pizza_crusts.map(crust => crust.name).join(", ")}` : ""}
+                                                                    </div>
+                                                                )}
                                                                 <div className="text-sm font-semibold mt-2">
-                                                                    {typeof item.price_cents ===
-                                                                        "number" &&
-                                                                    item.price_cents >= 0
-                                                                        ? `R$ ${(item.price_cents / 100).toFixed(2).replace(".", ",")}`
+                                                                    {(typeof item.price_cents === "number" ||
+                                                                        (item.is_pizza_flavor && prepareScannedPizza(item).complements.some(group => group.name === "Tamanho"))) &&
+                                                                    prepareScannedPizza(item).price_cents >= 0
+                                                                        ? `R$ ${(prepareScannedPizza(item).price_cents / 100).toFixed(2).replace(".", ",")}`
                                                                         : "—"}
                                                                 </div>
                                                             </div>
