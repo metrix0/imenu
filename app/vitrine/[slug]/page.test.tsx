@@ -105,25 +105,12 @@ test.each(["qr_code_mesa", "ia_plus"])("Vitrine accepts an active %s subscriptio
     await expect(MenuPage({ params: Promise.resolve({ slug: "test" }), searchParams: Promise.resolve({ origem: "vitrine" }) })).resolves.toBeTruthy();
 });
 
-test("Vitrine requires subscription access even when enabled; delivery still renders", async () => {
-    (getPublicMenuRestaurant as jest.Mock).mockResolvedValue({ ...restaurant, vitrine_enabled: true });
-    const params = Promise.resolve({ slug: "test" });
-    await expect(MenuPage({ params, searchParams: Promise.resolve({ origem: "vitrine" }) })).rejects.toThrow("NOT_FOUND");
-    await expect(MenuPage({ params, searchParams: Promise.resolve({}) })).resolves.toBeTruthy();
-});
-
-test("Vitrine preserves access through the paid period and rejects expired access", async () => {
+test("enabled Vitrine remains free without a subscription and after Plus expiry", async () => {
     (getPublicMenuRestaurant as jest.Mock).mockResolvedValue({ ...restaurant, vitrine_enabled: true });
     const props = { params: Promise.resolve({ slug: "test" }), searchParams: Promise.resolve({ origem: "vitrine" }) };
-    mockAddons = [{ product_key: "ia_plus", status: "canceled", current_period_ends_at: new Date(Date.now() + 86400000).toISOString() }];
     await expect(MenuPage(props)).resolves.toBeTruthy();
-    mockAddons[0].current_period_ends_at = new Date(Date.now() - 86400000).toISOString();
-    await expect(MenuPage(props)).rejects.toThrow("NOT_FOUND");
-});
-
-test("Vitrine denies access when subscription lookup fails", async () => {
-    (getPublicMenuRestaurant as jest.Mock).mockResolvedValue({ ...restaurant, vitrine_enabled: true });
-    mockAddons = [{ product_key: "qr_code_mesa", status: "active", current_period_ends_at: null }];
+    mockAddons = [{ product_key: "ia_plus", status: "canceled", current_period_ends_at: "2020-01-01T00:00:00Z" }];
+    await expect(MenuPage(props)).resolves.toBeTruthy();
     mockAddonError = new Error("Subscription lookup failed");
-    await expect(MenuPage({ params: Promise.resolve({ slug: "test" }), searchParams: Promise.resolve({ origem: "vitrine" }) })).rejects.toThrow("NOT_FOUND");
+    await expect(MenuPage(props)).resolves.toBeTruthy();
 });

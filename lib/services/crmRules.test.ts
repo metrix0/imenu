@@ -22,7 +22,7 @@ describe("CRM rules", () => {
     expect(customerSegment(50, 200000, "2026-09-20T20:00:00Z", now)).toBe(
       "Em risco",
     );
-    expect(customerSegment(10, 90000, "2026-10-20T20:00:00Z", now)).toBe("VIP");
+    expect(customerSegment(10, 90000, "2026-10-20T20:00:00Z", now)).toBe("Destaque");
     expect(customerSegment(3, 9000, "2026-10-20T20:00:00Z", now)).toBe(
       "Frequente",
     );

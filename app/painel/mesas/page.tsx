@@ -31,8 +31,7 @@ import { supabase } from "@/lib/database/supabaseClient";
 import { captureQrTableEvent } from "@/lib/qr-table/analytics";
 import { updateQrTableDesign, qrTableAuthenticatedFetch } from "@/lib/qr-table/clientApi";
 import { downloadQrDesign } from "@/lib/qr-table/downloadQrDesign";
-import type { QrTableAddon } from "@/lib/qr-table/types";
-import { hasQrTableAccess, resolveQrTableAddon } from "@/lib/qr-table/types";
+import type { QrTableSettings } from "@/lib/qr-table/types";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 
 type Restaurant = {
@@ -70,7 +69,7 @@ function qrImageUrl(value: string, size = 220): string {
 export default function MesasPage() {
     const { restaurantId, setRestaurantId } = useCreationStore();
     const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
-    const [addon, setAddon] = useState<QrTableAddon | null>(null);
+    const [addon, setAddon] = useState<QrTableSettings | null>(null);
     const [tables, setTables] = useState<RestaurantTable[]>([]);
     const [loading, setLoading] = useState(true);
     const [salesOpen, setSalesOpen] = useState(false);
@@ -86,7 +85,7 @@ export default function MesasPage() {
     const [deletingTable, setDeletingTable] = useState(false);
     const [toast, setToast] = useState<ToastState | null>(null);
 
-    const active = hasQrTableAccess(addon);
+    const active = true;
 
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -124,16 +123,9 @@ export default function MesasPage() {
             });
             if (!activation.ok) throw new Error("Não foi possível ativar o QR Code gratuito.");
 
-            const { data: addonData, error: addonError } = await supabase
-                .from("restaurant_addons")
-                .select("*")
-                .eq("restaurant_id", targetRestaurantId)
-                .in("product_key", ["qr_code_mesa", "ia_plus"]);
-            if (addonError) throw addonError;
-
-            const normalizedAddon = resolveQrTableAddon((addonData || []) as QrTableAddon[]);
-            setAddon(normalizedAddon);
-            const isActive = hasQrTableAccess(normalizedAddon);
+            const { settings } = await activation.json() as { settings: QrTableSettings };
+            setAddon(settings);
+            const isActive = true;
 
             if (isActive) {
                 const { data: tableData, error: tableError } = await supabase

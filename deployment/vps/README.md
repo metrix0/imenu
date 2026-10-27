@@ -202,3 +202,7 @@ Before starting the restricted VPS operations service after a restore, recreate 
 
 Live Storage directory-list changes during tar are accepted only when tar exits 1 and every diagnostic identifies an existing directory inside Storage. Changed regular files, unreadable files, other warnings and encryption failures still reject the archive. This does not make the live database/files archive atomic.
 
+
+## Customer Marketing schedule
+
+Install `deployment/vps/systemd/imenu-job-customer-automations.{service,timer}` in /etc/systemd/system and register customer-automations in ops/job-config/managed-jobs.json for the existing run_job.py runner. Install `imenu-job-customer-automations-cutover.conf` as imenu-job-customer-automations.service.d/route-cutover.conf. The enabled 15-minute timer uses production runtime credentials and skips while its production Next.js route artifact is absent. The preview cutover drop-in (`imenu-preview-customer-automations-cutover.conf`, installed as imenu-preview-customer-automations.service.d/production-cutover.conf) skips the preview sender after that artifact appears. This switches scheduled processing when the normal main release deploys; it does not trigger a deployment or send a test message.

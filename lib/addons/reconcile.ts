@@ -216,7 +216,7 @@ async function reconcileMercadoPagoPix(addon: QrTableAddon, product: AddonProduc
         ? await getMercadoPagoPixPayment({ id: addon.mercadopago_order_id }) : null;
     if (!payment) return { active: hasQrTableAccess(addon), activatedNow: false, status: addon.status, paymentStatus: addon.mercadopago_order_status };
     const promotional = addon.product_key === "ia_plus" && payment.externalReference?.startsWith(`${product.referencePrefix}:${addon.id}:${PROMO_QR_CODE}:`);
-    const expectedCents = promotional ? PROMO_QR_PRICE_CENTS : product.priceCents;
+    const expectedCents = product.key === "ia_plus" ? (promotional ? PROMO_QR_PRICE_CENTS : product.priceCents) : (addon.price_cents || 500);
     if (payment.id !== addon.mercadopago_order_id || payment.paymentMethodId !== "pix" ||
         Math.round(payment.amount * 100) !== expectedCents || !payment.externalReference?.startsWith(`${product.referencePrefix}:${addon.id}:`)) {
         throw new Error("Cobrança Mercado Pago divergente do adicional.");

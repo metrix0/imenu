@@ -113,3 +113,10 @@ it.each([
     expect((await send()).status).toBe(200);
     expect(activateMercadoPagoQrTablePrepaid).toHaveBeenCalledTimes(activates ? 1 : 0);
 });
+
+it.each([490,500])("reconciles a historical QR payment of %i cents after QR becomes free",async(price_cents)=>{
+ (getMercadoPagoPixPayment as jest.Mock).mockResolvedValue({...payment,amount:price_cents/100,externalReference:`qr-table:${id}:legacy`});
+ (query as jest.Mock).mockResolvedValue({rows:[{id,product_key:"qr_code_mesa",price_cents,payment_provider:"mercadopago",mercadopago_order_id:"123"}]});
+ expect((await send()).status).toBe(200);
+ expect(activateMercadoPagoQrTablePrepaid).toHaveBeenCalledWith(expect.objectContaining({addonId:id,paymentId:"123"}));
+});

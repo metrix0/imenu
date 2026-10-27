@@ -18,10 +18,8 @@ import PickupAvailabilityGuard from "./PickupAvailabilityGuard";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 import { getPublicMenuRestaurant } from "./restaurant-data";
 import type {
-  QrTableAddon,
   QrTableMenuContext,
 } from "@/lib/qr-table/types";
-import { hasQrTableAccess, resolveQrTableAddon } from "@/lib/qr-table/types";
 
 const getPublicUrl = (supabase: any, bucket: string, path: string | null) => {
   if (!path) return null;
@@ -123,23 +121,21 @@ export default async function Page({
   if (readOnly && restaurantData.vitrine_enabled !== true) return notFound();
   let tableOrder: QrTableMenuContext | null = null;
   if (p.origem === "mesa") {
-    const { data: addonData } = await supabase
-      .from("restaurant_addons")
-      .select("product_key, status, current_period_ends_at, universal_token")
-      .eq("restaurant_id", restaurantData.id)
-      .in("product_key", ["qr_code_mesa", "ia_plus"]);
+    const [{ data: settings }, { data: legacyTokens }] = await Promise.all([
+      supabase.from("restaurant_qr_settings").select("universal_token")
+        .eq("restaurant_id", restaurantData.id).maybeSingle(),
+      supabase.from("restaurant_addons").select("universal_token")
+        .eq("restaurant_id", restaurantData.id).in("product_key", ["qr_code_mesa", "ia_plus"]),
+    ]);
 
-    const addon = resolveQrTableAddon(addonData || []);
-    if (!addon || !hasQrTableAccess(addon)) return notFound();
-
-    const token = String(p.mesa || addon.universal_token || "").trim();
+    const token = String(p.mesa || settings?.universal_token || "").trim();
     const isUuid =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
         token,
       );
     if (!isUuid) return notFound();
 
-    if (addonData?.some((row) => token === row.universal_token)) {
+    if (settings?.universal_token === token || legacyTokens?.some((row) => token === row.universal_token)) {
       const { data: tableRows } = await supabase
         .from("restaurant_tables")
         .select("id, name")

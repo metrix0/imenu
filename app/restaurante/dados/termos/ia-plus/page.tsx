@@ -52,10 +52,11 @@ export default function IaPlusTermsPage() {
                         </p>
                         <p className="mt-2">
                             O plano inclui Automações de Marketing WhatsApp,
-                            Assistente IA, Vendas IA e iMenu QR Code. Os bônus são
-                            atendimento exclusivo, upsells automáticos, Modo Vitrine,
-                            Painel Garçom e download do cardápio em PDF. O QR Code
-                            acompanha a vigência do iMenu Plus, sem cobrança adicional.
+                            Assistente IA e Vendas IA. Os bônus são atendimento exclusivo,
+                            upsells automáticos, atualizações de pedidos pelo WhatsApp
+                            e download do cardápio em PDF. A exportação em PDF exige
+                            iMenu Plus ativo. QR Code Mesa, Painel Garçom e Modo Vitrine
+                            são gratuitos e permanecem disponíveis sem o plano.
                             As automações dependem de conexão WhatsApp ativa, consentimento
                             dos clientes e limites de envio configurados.
                         </p>

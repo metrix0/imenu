@@ -145,8 +145,8 @@ export function qrTableStatusLabel(status: string): string {
 export function ProductOverviewSections({ metrics }: { metrics: ProductOverview }) {
     const products = [
         { key: "imenu", name: "iMenu", paths: "/", price: "-", priceInfo: "Referência do dashboard: sem mensalidade.", },
-        { key: "ia_plus", name: "iMenu Plus", paths: "/painel/marketing + /painel/vendas-ia + /painel/assistente-ia + /painel/mesas", price: "R$ 49,99/m", priceInfo: "Inclui iMenu QR Code.", },
-        { key: "qr_code_mesa", name: "iMenu QR", paths: "/painel/mesas", price: "R$ 5/m", priceInfo: "Preço de referência: 500 centavos/mês.", },
+        { key: "ia_plus", name: "iMenu Plus", paths: "/painel/marketing + /painel/vendas-ia + /painel/assistente-ia", price: "R$ 49,99/m", priceInfo: "Marketing, Assistente IA e Vendas IA.", },
+        { key: "qr_code_mesa", name: "iMenu QR", paths: "/painel/mesas", price: "Grátis", priceInfo: "QR Code Mesa gratuito; pagamentos antigos são apenas históricos.", },
     ] as const;
     return (
         <>

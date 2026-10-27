@@ -24,7 +24,7 @@ test("iMenu Plus details use meaningful icons and concise customer-facing benefi
   expect(html).toContain("Automações de Marketing WhatsApp");
   expect(html).toContain("Upsells automáticos");
   expect(html).toContain("lucide-megaphone");
-  expect(html).toContain("lucide-scan-line");
+  expect(html).toContain("lucide-message-circle");
   expect(html).not.toContain("lucide-check");
   expect(html).not.toContain("a partir de 2 produtos cadastrados");
   expect(html).not.toContain("deduplicação");

@@ -57,13 +57,13 @@ export async function POST(request: Request) {
 
         const result = await query<{ id: string }>(
             `
-                UPDATE public.restaurant_addons
+                UPDATE public.restaurant_qr_settings
                 SET
                     qr_design_template = $1,
                     qr_design_color = $2,
                     updated_at = NOW()
-                WHERE id = (SELECT id FROM public.restaurant_addons WHERE restaurant_id=$3 AND product_key IN ('qr_code_mesa','ia_plus') ORDER BY (product_key='qr_code_mesa') DESC LIMIT 1)
-                RETURNING id
+                WHERE restaurant_id = $3
+                RETURNING restaurant_id AS id
             `,
             [template, color.toUpperCase(), restaurantId]
         );

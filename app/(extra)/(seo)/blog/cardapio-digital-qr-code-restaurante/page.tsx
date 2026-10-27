@@ -54,7 +54,7 @@ const faq = [
     {
         question: "Quanto custa o QR Code para pedidos na mesa no iMenu?",
         answer:
-            "O cardápio digital do iMenu é grátis para sempre, sem limites. O recurso iMenu QR Code Mesa custa R$ 5,00 por mês, com cobrança mensal no cartão e cancelamento quando quiser.",
+            "O cardápio digital do iMenu é grátis para sempre, sem limites. O QR Code Mesa e o Painel Garçom também são gratuitos, com mesas e QR Codes ilimitados, sem assinatura.",
     },
     {
         question: "O cliente paga pelo QR Code da mesa?",
@@ -376,9 +376,9 @@ export default function CardapioDigitalQrCodeRestaurantePage() {
                     </div>
                     <div className="rounded-2xl border border-orange-200 bg-orange-50/50 p-5">
                         <p className="text-sm font-semibold text-brand">iMenu QR Code Mesa</p>
-                        <p className="mt-2 text-2xl font-bold text-gray-950">R$ 5,00/mês</p>
+                        <p className="mt-2 text-2xl font-bold text-gray-950">Grátis para sempre</p>
                         <p className="mt-2 text-sm leading-6 text-gray-600">
-                            Cobrança mensal no cartão. Cancele quando quiser. Inclui pedidos
+                            Sem mensalidade e sem assinatura. Inclui pedidos
                             identificados por mesa, QR individual e QR universal.
                         </p>
                     </div>

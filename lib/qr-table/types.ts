@@ -50,15 +50,17 @@ export type QrTableAddon = {
     included_in_plus?: boolean;
 };
 
-// Keep the QR token/design stable when an existing QR subscription is bundled.
-export function resolveQrTableAddon<T extends Pick<QrTableAddon, "product_key" | "status" | "current_period_ends_at">>(addons: T[], now = Date.now()): (T & { included_in_plus: boolean }) | null {
-    const qr = addons.find((addon) => addon.product_key === "qr_code_mesa");
-    const plus = addons.find((addon) => addon.product_key === "ia_plus" && hasQrTableAccess(addon, now));
-    const base = qr || plus;
-    if (!base) return null;
-    return { ...base, ...(plus && !hasQrTableAccess(base, now) ? { status: plus.status, current_period_ends_at: plus.current_period_ends_at } : {}), included_in_plus: Boolean(plus) };
+export type QrTableSettings = Pick<QrTableAddon,
+    "restaurant_id" | "universal_token" | "qr_design_template" | "qr_design_color">;
+
+// Legacy QR metadata is usable independently of subscription validity.
+export function resolveQrTableAddon<T extends Pick<QrTableAddon, "product_key" | "status" | "current_period_ends_at">>(addons: T[]): (T & { included_in_plus: boolean }) | null {
+    const base = addons.find(addon => addon.product_key === "qr_code_mesa")
+        || addons.find(addon => addon.product_key === "ia_plus");
+    return base ? { ...base, included_in_plus: false } : null;
 }
 
+// Paid add-on period semantics. Free QR routes must not use this billing check.
 export function hasQrTableAccess(
     addon: (Pick<QrTableAddon, "status" | "current_period_ends_at"> & { product_key?: QrTableAddon["product_key"] }) | null,
     now = Date.now()

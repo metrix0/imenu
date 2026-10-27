@@ -64,7 +64,7 @@ export const BLOG_ARTICLES: BlogArticleDefinition[] = [
         shortTitle: "Cardápio Vitrine: consulta sem pedidos",
         metaTitle: "Cardápio Vitrine: Menu Digital sem Pedidos | iMenu",
         metaDescription:
-            "Conheça o Modo Vitrine do iMenu: um link separado para consultar produtos, fotos e preços sem fazer pedidos. Veja como ativar com iMenu QR ou iMenu Plus.",
+            "Conheça o Modo Vitrine do iMenu: um link separado para consultar produtos, fotos e preços sem fazer pedidos. Veja como ativar gratuitamente, sem assinatura.",
         excerpt:
             "Seu cliente quer conhecer o cardápio, e sua equipe continua cuidando do pedido. Use um link só para consulta, com os mesmos produtos e preços, sem alterar o delivery ou as mesas.",
         category: "Cardápio",

@@ -91,7 +91,7 @@ beforeEach(() => {
             },
           ],
         };
-      if (sql.includes("FROM public.restaurant_addons"))
+      if (sql.includes("FROM public.restaurant_tables AS table_entry"))
         return { rows: [{ id: tableId, name: "Mesa 1" }] };
       if (/FROM items\s+WHERE id/.test(sql))
         return {

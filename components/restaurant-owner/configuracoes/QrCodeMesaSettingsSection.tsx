@@ -1,4 +1,5 @@
 "use client";
+import { hasLegacyQrPurchase } from "@/lib/addons/promoQrEligibility";
 
 import { useCallback, useEffect, useState } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
@@ -294,7 +295,7 @@ export default function QrCodeMesaSettingsSection({
     const qrLegacy = billing?.addons.find(item => item.addon.product_key === "qr_code_mesa");
     const plusHistory = billing?.addons.find(item => item.addon.product_key === "ia_plus");
     const eligiblePromo = promoQr && isPromoQrDate() && !loading &&
-        ((qrLegacy && qrLegacy.addon.price_cents > 0 && qrLegacy.active) || billing?.promoQrOwnerOverride === true) &&
+        ((qrLegacy && hasLegacyQrPurchase(qrLegacy.payments)) || billing?.promoQrOwnerOverride === true) &&
         !plusHistory?.active && !plusHistory?.payments.some(p => p.amount_cents === PROMO_QR_PRICE_CENTS && ["APPROVED", "COMPLETED", "CONFIRMED", "RECEIVED", "RECEIVED_IN_CASH"].includes(p.status.toUpperCase()));
     const appliedCoupon = eligiblePromo ? PROMO_QR_CODE : undefined;
     const cancelBilling =

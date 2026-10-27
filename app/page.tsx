@@ -808,14 +808,16 @@ export default function LandingPage() {
                                     ))}
                                 </ul>
                             </div>
-                            <Button
-                                variant="secondary"
-                                className="mt-auto w-full !min-h-10 !text-sm"
-                                onClick={() => router.push("/restaurante/registrar")}
-                            >
-                                Criar meu cardápio grátis
-                                <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" className="ml-2" />
-                            </Button>
+                            <div className="mt-auto pt-8">
+                                <Button
+                                    variant="secondary"
+                                    className="w-full shrink-0 !min-h-10 !text-sm"
+                                    onClick={() => router.push("/restaurante/registrar")}
+                                >
+                                    Criar meu cardápio grátis
+                                    <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" className="ml-2" />
+                                </Button>
+                            </div>
                         </article>
 
                         <article className="flex min-w-0 flex-col rounded-2xl border border-brand/30 bg-white p-6 shadow-[0_18px_44px_-28px_rgba(217,61,0,0.3)] sm:p-7">
@@ -867,13 +869,15 @@ export default function LandingPage() {
                                     </ul>
                                 </div>
                             </div>
-                            <Button
-                                className="mt-8 w-full !min-h-10 !text-sm"
-                                onClick={() => router.push("/painel/planos")}
-                            >
-                                Conhecer iMenu Plus no painel
-                                <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" className="ml-2" />
-                            </Button>
+                            <div className="mt-auto pt-8">
+                                <Button
+                                    className="w-full shrink-0 !min-h-10 !text-sm"
+                                    onClick={() => router.push("/painel/planos")}
+                                >
+                                    Conhecer iMenu Plus no painel
+                                    <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" className="ml-2" />
+                                </Button>
+                            </div>
                         </article>
                     </div>
                 </div>

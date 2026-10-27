@@ -48,11 +48,11 @@ test("Planos shows one free base plan and a full-width Plus plan without a separ
     expect(html).toContain("Seu cardápio delivery com produtos, pedidos e gestão pelo painel.");
     expect(html).not.toContain("iMenu Cardápio Digital");
     expect(html).toContain("Venda mais com iMenu Plus.");
-    expect(html).toContain("IAPlusCombinationMarkLogo_Brand.png");
+    expect(html).toContain("PlusCombinationMarkLogo_Brand.png");
     expect(html).not.toContain("iMenu QR Code Mesa");
     expect(html).toContain("Atualizações de pedidos pelo WhatsApp");
     expect(html).not.toContain("Modo vitrine");
-    expect(html).toContain("Scan de cardápio com IA");
+    expect(html).toContain("QR Code Mesa");
     expect(html).not.toContain("Já gratuitos em qualquer plano");
     expect(html).toContain("plans-plus-bonus-grid");
     expect(html).toContain("plans-plus-footer");

@@ -17,3 +17,9 @@ test("Plus remains paid: missing, inactive and expired entitlements stay blocked
     expect(hasQrTableAccess({ status: "canceled", current_period_ends_at: past })).toBe(false);
     expect(hasQrTableAccess({ status: "active", current_period_ends_at: null })).toBe(true);
 });
+
+test("legacy universal QR metadata survives expired Plus without a QR subscription", () => {
+    const { resolveQrTableAddon } = require("./types");
+    const legacy = { product_key: "ia_plus", status: "canceled", current_period_ends_at: "2020-01-01T00:00:00Z", universal_token: "printed" };
+    expect(resolveQrTableAddon([legacy])).toMatchObject({ universal_token: "printed", included_in_plus: false });
+});

@@ -61,7 +61,10 @@ afterEach(() => jest.restoreAllMocks());
 function renderBilling(payload: typeof fixtures.empty | typeof fixtures.active | typeof fixtures.mixed, wholePage = false, coupon?: string) {
     const state = jest.spyOn(React, "useState");
     // SSR does not run the authenticated load effect; seed only its existing state.
-    if (wholePage) state.mockImplementationOnce(() => [false, jest.fn()] as never);
+    if (wholePage) {
+        state.mockImplementationOnce(() => [false, jest.fn()] as never);
+        state.mockImplementationOnce(() => [undefined, jest.fn()] as never);
+    }
     state.mockImplementationOnce(() => [payload, jest.fn()] as never);
     state.mockImplementationOnce(() => [false, jest.fn()] as never);
     return renderToStaticMarkup(<PanelAppearance>{wholePage ? <PlanosPage /> :
@@ -133,7 +136,7 @@ test.each(Object.entries(fixtures))("render the actual plans page for visual QA:
     expect(html).toMatch(/<h3>iMenu<\/h3><span data-ui="badge"[^>]*>Grátis para sempre, sem limites<\/span>/);
     expect(html).toContain("Atendimento exclusivo");
     expect(html).toContain("Atualizações de pedidos pelo WhatsApp");
-    expect(html).toContain("Scan de cardápio com IA");
+    expect(html).toContain("QR Code Mesa");
     expect(html).toContain("Upsells automáticos");
     expect(html).toContain("Download Cardápio em PDF");
     expect(html).not.toContain("Modo vitrine");
@@ -147,7 +150,7 @@ test.each(Object.entries(fixtures))("render the actual plans page for visual QA:
     expect(html).toContain("plans-plus-bonus-icon");
     expect(html).not.toContain("Cardápio digital nas mesas com QR Code, sem cobrança.");
     expect(html.match(/class="plans-included"/g)).toHaveLength(1);
-    expect(html).toContain("IAPlusCombinationMarkLogo_Brand.png");
+    expect(html).toContain("PlusCombinationMarkLogo_Brand.png");
     if (process.env.PLANS_VISUAL_DIR) {
         mkdirSync(process.env.PLANS_VISUAL_DIR, { recursive: true });
         writeFileSync(join(process.env.PLANS_VISUAL_DIR, name + ".html"), html);

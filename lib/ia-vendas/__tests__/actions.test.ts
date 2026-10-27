@@ -240,3 +240,31 @@ test('undo restores numeric discounts returned as strings by PostgreSQL', async 
   expect(result.status).toBe('undone');
   expect(calls.find(x=>x.sql.includes('UPDATE public.promotions'))?.params).toEqual([restaurant,id,10]);
 });
+
+test("Marketing apply and undo preserve independent order notification settings", async () => {
+  const { DEFAULT_AUTOMATIONS } = await import("@/lib/services/crmRules");
+  current = { restaurant_id: restaurant, automations: { ...structuredClone(DEFAULT_AUTOMATIONS), order_notifications_enabled: true } };
+  const originalImpl = c.query.getMockImplementation()!;
+  c.query.mockImplementation(async (sql: string, params: any[] = []) => {
+    if (sql.includes("UPDATE public.whatsapp_bot_settings")) {
+      calls.push({ sql, params });
+      const incoming = JSON.parse(params[2]);
+      current.automations = sql.includes("||") ? { ...current.automations, ...incoming } : incoming;
+      return { rows: [structuredClone(current)], rowCount: 1 };
+    }
+    return originalImpl(sql, params);
+  });
+  try {
+    const settings = { ...structuredClone(DEFAULT_AUTOMATIONS), cart: { ...DEFAULT_AUTOMATIONS.cart, message: "Nova mensagem" } };
+    const proposal = await propose(restaurant, id, id, { title: "Editar Marketing", reason: "Revisão", operations: [
+      { entity: "whatsapp_bot_settings", kind: "update", id: restaurant, values: { automations: settings } },
+    ] });
+    action.operations = proposal.operations;
+    action = await execute(restaurant, id, false);
+    expect(current.automations.order_notifications_enabled).toBe(true);
+    current.automations.order_notifications_enabled = false;
+    await execute(restaurant, id, true);
+    expect(current.automations.order_notifications_enabled).toBe(false);
+    expect(current.automations.cart.message).toBe(DEFAULT_AUTOMATIONS.cart.message);
+  } finally { c.query.mockImplementation(originalImpl); }
+});

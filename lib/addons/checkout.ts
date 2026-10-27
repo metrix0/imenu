@@ -1,4 +1,3 @@
-import { hasIMenuPlusAccess } from "@/lib/addons/access";
 import type { AddonProduct } from "@/lib/addons/products";
 import { isPromoQrDate, PROMO_QR_CODE, PROMO_QR_PRICE_CENTS } from "@/lib/addons/promoQr";
 import { isPromoQrAllowlistedOwnerEmail } from "@/lib/addons/promoQrEligibility";
@@ -322,8 +321,11 @@ export async function checkoutAddon(request: Request, product: AddonProduct) {
                     ($3::boolean OR EXISTS (
                         SELECT 1 FROM public.restaurant_addons qr
                         WHERE qr.restaurant_id = $1 AND qr.product_key = 'qr_code_mesa'
-                          AND qr.price_cents > 0
-                          AND (qr.status = 'active' OR (qr.status IN ('canceled', 'past_due') AND qr.current_period_ends_at > NOW()))
+                          AND EXISTS (
+                            SELECT 1 FROM public.restaurant_addon_payments legacy_payment
+                            WHERE legacy_payment.addon_id=qr.id AND legacy_payment.amount_cents > 0
+                              AND UPPER(legacy_payment.status) IN ('APPROVED','COMPLETED','CONFIRMED','RECEIVED','RECEIVED_IN_CASH')
+                          )
                     )) AND NOT EXISTS (
                         SELECT 1 FROM public.restaurant_addons plus
                         WHERE plus.restaurant_id = $1 AND plus.product_key = 'ia_plus'
@@ -345,9 +347,6 @@ export async function checkoutAddon(request: Request, product: AddonProduct) {
             }
         }
         const expectedPriceCents = wantsPromo ? PROMO_QR_PRICE_CENTS : product.priceCents;
-        if (product.key === "qr_code_mesa" && await hasIMenuPlusAccess(restaurantId)) {
-            return NextResponse.json({ error: "O iMenu QR Code já está incluso no seu iMenu Plus." }, { status: 409 });
-        }
         const addon = await prepareAddon(restaurantId, source, product);
         const hasAccess = hasQrTableAccess(addon);
         const prepaidAccess =

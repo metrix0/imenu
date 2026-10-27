@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
 import { query } from "@/lib/database/sql";
-import { hasQrTableAccess } from "@/lib/qr-table/types";
+import { hasIMenuPlusAccess } from "@/lib/addons/access";
 import { buildPrintableMenuPdf, type PrintableMenuCategory } from "@/lib/menu/printPdf";
 
 export const runtime = "nodejs";
@@ -25,13 +25,9 @@ export async function GET(request: Request) {
 
     try {
         const { restaurant } = await requireRestaurantOwner(request, restaurantId);
-        const addons = await query<{ status: string; current_period_ends_at: string | null }>(
-            "SELECT status, current_period_ends_at FROM restaurant_addons WHERE restaurant_id = $1 AND product_key IN ('qr_code_mesa', 'ia_plus')",
-            [restaurantId],
-        );
-        if (!addons.rows.some((addon) => hasQrTableAccess(addon))) {
+        if (!(await hasIMenuPlusAccess(restaurantId))) {
             return NextResponse.json(
-                { error: "Disponível com iMenu QR ou iMenu Plus." },
+                { error: "Exportar o cardápio em PDF é uma função do iMenu Plus." },
                 { status: 403, headers: { "Cache-Control": "no-store" } },
             );
         }

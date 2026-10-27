@@ -129,7 +129,7 @@ test("locked analysis keeps the full report scrollable and overlays only its fin
   expect(html).toContain("paper paperLocked");
   expect(html).not.toContain('class="previewContent"><section aria-label="Prioridades"');
   expect(html).toContain("PlusCombinationMarkLogo_Brand.png");
-  expect(html).toContain("/logos/PlusCombinationMarkLogo_Brand.png");
+  expect(html).toContain(encodeURIComponent("/logos/PlusCombinationMarkLogo_Brand.png"));
   expect(html).toContain('class="structuredContent"');
   expect(html).toContain('class="paywallCard"');
   expect(html).toContain('aria-label="Comparações"');

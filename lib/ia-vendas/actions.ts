@@ -125,7 +125,8 @@ async function deletable(c: PoolClient, entity: string, id: string) {
     throw new SalesError("O registro está em uso por uma configuração.");
 }
 const selectFields = (r: Data, names: string[]) =>
-  Object.fromEntries(names.map((k) => [k, r[k] ?? null]));
+  Object.fromEntries(names.map((k) => [k, k === "automations" && r[k]
+    ? readAutomationSettings(r[k]) : r[k] ?? null]));
 const parameter = (e: string, k: string, v: any) =>
   fields(e)[k]?.type === "jsonb" ? JSON.stringify(v) : v;
 async function write(c: PoolClient, restaurant: string, op: Operation) {
@@ -142,7 +143,9 @@ async function write(c: PoolClient, restaurant: string, op: Operation) {
     if (!entries.length) throw new SalesError("Alteração vazia.");
     return (
       await c.query(
-        `UPDATE public.${op.entity} t SET ${entries.map(([k], i) => `"${k}"=$${i + 3}`).join(",")} WHERE ${scope(op.entity)} AND t.${key(op.entity)}=$2 RETURNING t.*`,
+        `UPDATE public.${op.entity} t SET ${entries.map(([k], i) => op.entity === "whatsapp_bot_settings" && k === "automations"
+          ? `"${k}"=COALESCE(t."${k}",'{}'::jsonb) || $${i + 3}::jsonb`
+          : `"${k}"=$${i + 3}`).join(",")} WHERE ${scope(op.entity)} AND t.${key(op.entity)}=$2 RETURNING t.*`,
         [
           restaurant,
           op.id,

@@ -5,22 +5,9 @@ import {
     requireRestaurantOwner,
 } from "@/lib/auth/restaurantOwner";
 import { query } from "@/lib/database/sql";
-import type { QrTableAddon } from "@/lib/qr-table/types";
-import { hasQrTableAccess, resolveQrTableAddon } from "@/lib/qr-table/types";
-
+import type { QrTableSettings } from "@/lib/qr-table/types";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-type PaymentRow = {
-    id: string;
-    amount_cents: number;
-    status: string;
-    billing_type: string | null;
-    due_date: string | null;
-    paid_at: string | null;
-    invoice_url: string | null;
-    created_at: string;
-};
 
 export async function GET(request: Request) {
     try {
@@ -36,45 +23,11 @@ export async function GET(request: Request) {
 
         await requireRestaurantOwner(request, restaurantId);
 
-        const addonResult = await query<QrTableAddon>(
-            `
-                SELECT *
-                FROM public.restaurant_addons
-                WHERE restaurant_id = $1
-                  AND product_key IN ('qr_code_mesa', 'ia_plus')
-            `,
-            [restaurantId]
+        const result = await query<QrTableSettings>(
+            "SELECT * FROM public.restaurant_qr_settings WHERE restaurant_id=$1", [restaurantId]
         );
-        const addon = resolveQrTableAddon(addonResult.rows);
-
-        const payments = addon
-            ? await query<PaymentRow>(
-                  `
-                    SELECT
-                        id,
-                        amount_cents,
-                        status,
-                        billing_type,
-                        due_date,
-                        paid_at,
-                        invoice_url,
-                        created_at
-                    FROM public.restaurant_addon_payments
-                    WHERE addon_id = $1
-                    ORDER BY COALESCE(paid_at, created_at) DESC
-                  `,
-                  [addon.id]
-              )
-            : { rows: [] as PaymentRow[] };
-
-        return NextResponse.json(
-            {
-                addon,
-                active: hasQrTableAccess(addon),
-                payments: payments.rows,
-            },
-            { headers: { "Cache-Control": "no-store" } }
-        );
+        return NextResponse.json({ settings: result.rows[0] || null, active: true, payments: [] },
+            { headers: { "Cache-Control": "no-store" } });
     } catch (error) {
         console.error("[QR_TABLE_BILLING] Falha ao carregar cobrança:", error);
 

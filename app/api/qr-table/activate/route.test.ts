@@ -10,18 +10,19 @@ jest.mock("@/lib/database/sql", () => ({ query: jest.fn() }));
 
 beforeEach(() => {
   jest.clearAllMocks();
-  (query as jest.Mock).mockResolvedValue({ rows: [{ product_key: "qr_code_mesa", status: "active", price_cents: 0, universal_token: "existing-token" }] });
+  (query as jest.Mock).mockResolvedValue({ rows: [{ restaurant_id: "restaurant", universal_token: "existing-token" }] });
 });
 test("activates free QR while preserving legacy universal QR tokens and design", async () => {
   const response = await POST(new Request("https://example.test/api/qr-table/activate", {
     method: "POST", body: JSON.stringify({ restaurantId: "restaurant", source: "mesas" }),
   }));
   expect(response.status).toBe(200);
-  expect(await response.json()).toMatchObject({ active: true, addon: { universal_token: "existing-token" } });
+  expect(await response.json()).toMatchObject({ active: true, settings: { universal_token: "existing-token" } });
   expect(requireRestaurantOwner).toHaveBeenCalledWith(expect.any(Request), "restaurant");
   const sql = (query as jest.Mock).mock.calls[0][0] as string;
-  expect(sql).toContain("price_cents=0");
-  expect(sql).toContain("ON CONFLICT (restaurant_id,product_key)");
+  expect(sql).toContain("INSERT INTO public.restaurant_qr_settings");
+  expect(sql).not.toContain("restaurant_addons");
+  expect(sql).toContain("ON CONFLICT (restaurant_id)");
   expect(sql).not.toContain("universal_token=");
   expect(sql).not.toContain("qr_design_template=");
   expect(sql).not.toContain("restaurant_addon_payments");

@@ -53,7 +53,9 @@ export function prepareScannedPizza(item: ScannedPizzaFields): {
     }
 
     const crusts = pricedOptions(item.pizza_crusts);
-    if (crusts.length && crusts.length === item.pizza_crusts?.length) {
+    if (crusts.length && item.pizza_crusts?.every(option =>
+        option && typeof option.name === "string" && option.name.trim()
+        && Number.isSafeInteger(option.price_cents) && Number(option.price_cents) >= 0)) {
         complements.push({
             name: "Borda", min_select: 0, max_select: 1,
             options: crusts,

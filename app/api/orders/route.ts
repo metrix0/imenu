@@ -677,16 +677,20 @@ export async function POST(request: Request) {
                         const tableResult = await client.query(
                             `
                                 SELECT table_entry.id, table_entry.name
-                                FROM public.restaurant_addons AS addon
-                                JOIN public.restaurant_tables AS table_entry
-                                  ON table_entry.restaurant_id = addon.restaurant_id
-                                WHERE addon.restaurant_id = $1
-                                  AND addon.product_key IN ('qr_code_mesa', 'ia_plus')
+                                FROM public.restaurant_tables AS table_entry
+                                WHERE table_entry.restaurant_id = $1
                                   AND table_entry.is_active = true
                                   AND (
                                         (
-                                            addon.universal_token = $2::uuid
-                                            AND table_entry.id = $3::uuid
+                                            table_entry.id = $3::uuid
+                                            AND (
+                                                EXISTS (SELECT 1 FROM public.restaurant_qr_settings qr
+                                                    WHERE qr.restaurant_id=$1 AND qr.universal_token=$2::uuid)
+                                                OR EXISTS (SELECT 1 FROM public.restaurant_addons legacy
+                                                    WHERE legacy.restaurant_id=$1
+                                                      AND legacy.product_key IN ('qr_code_mesa','ia_plus')
+                                                      AND legacy.universal_token=$2::uuid)
+                                            )
                                         )
                                      OR (
                                             table_entry.public_token = $2::uuid

@@ -22,7 +22,7 @@ const SUPPORT_URL =
 export function IaPlusDetails() {
   return <>
     <h2 className="text-xl font-bold text-gray-900">iMenu Plus</h2>
-    <p className="mt-2 text-sm text-gray-600">Marketing, inteligência artificial e atendimento nas mesas em um só plano.</p>
+    <p className="mt-2 text-sm text-gray-600">Marketing e inteligência artificial para ajudar seu restaurante a vender mais.</p>
     <ul className="mt-5 space-y-4">{IA_PLUS_BENEFITS.map(benefit => {
       const Icon = PLUS_FEATURE_ICONS[benefit.title] ?? Sparkles;
       return <li key={benefit.title} className="flex gap-3">
