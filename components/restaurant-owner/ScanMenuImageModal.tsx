@@ -21,7 +21,7 @@ import { parsePizzaSettings } from "@/lib/pizza/pricing";
 import Loader from "@/components/ui/Loader";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
-import { faCamera, faImages } from "@fortawesome/free-solid-svg-icons";
+import { faCamera, faImages, faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
 
 type ScannedItem = {
     name: string;
@@ -53,6 +53,19 @@ type CategoryMapping = {
     mappedId: string | null;
     createNew: boolean;
 };
+
+type ExistingMenuItem = {
+    id: string;
+    name: string;
+    description: string | null;
+    price_cents: number;
+    category_id: string;
+};
+
+type ScanAccess = { allowed: boolean; hasItems: boolean; hasPlus: boolean };
+
+const normalizeItemName = (name: string) =>
+    name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().replace(/\s+/g, " ").toLocaleLowerCase("pt-BR");
 
 const MAX_MENU_FILES = 8;
 
@@ -106,6 +119,10 @@ function ScanModal({
     const [isScanning, setIsScanning] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [scanResult, setScanResult] = useState<ScannedResult | null>(null);
+    const [access, setAccess] = useState<ScanAccess | null>(null);
+    const [accessError, setAccessError] = useState("");
+    const [existingItems, setExistingItems] = useState<ExistingMenuItem[]>([]);
+    const [itemActions, setItemActions] = useState<Record<number, "add" | "update" | "skip">>({});
     const [isDraggingImage, setIsDraggingImage] = useState(false);
     const [categoryMap, setCategoryMap] = useState<
         Record<string, CategoryMapping>
@@ -117,6 +134,59 @@ function ScanModal({
             previewUrlsRef.current.clear();
         };
     }, []);
+
+    async function fetchScanAccess(): Promise<ScanAccess> {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) throw new Error("Entre na sua conta para usar o scanner.");
+        const response = await fetch(`/api/scan-menu?restaurantId=${encodeURIComponent(restaurantId)}`, {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+            cache: "no-store",
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload?.error || "Não foi possível verificar o acesso.");
+        return payload as ScanAccess;
+    }
+
+    useEffect(() => {
+        if (!open) return;
+        let active = true;
+        setScanResult(null);
+        setItemActions({});
+        setAccess(null);
+        setAccessError("");
+        void fetchScanAccess().then(value => {
+            if (active) setAccess(value);
+        }).catch(error => {
+            if (active) setAccessError(error instanceof Error ? error.message : String(error));
+        });
+        return () => { active = false; };
+    }, [open, restaurantId]);
+
+    async function loadExistingItems() {
+        const { data, error } = await supabase.from("items")
+            .select("id, name, description, price_cents, category_id")
+            .eq("restaurant_id", restaurantId)
+            .order("position")
+            .limit(1000);
+        if (error) throw error;
+        setExistingItems((data || []) as ExistingMenuItem[]);
+    }
+
+    function findExistingItem(item: ScannedItem, categoryName: string): ExistingMenuItem | undefined {
+        const mappedId = categoryMap[categoryName]?.mappedId;
+        const categoryIds = mappedId ? [mappedId] : existingCategories
+            .filter(category => normalizeItemName(category.name) === normalizeItemName(categoryName))
+            .map(category => category.id);
+        return existingItems.find(existing =>
+            normalizeItemName(existing.name) === normalizeItemName(item.name) &&
+            categoryIds.includes(existing.category_id)
+        );
+    }
+
+    function selectedAction(item: ScannedItem, categoryName: string): "add" | "update" | "skip" {
+        const index = scanResult?.items.indexOf(item) ?? -1;
+        return itemActions[index] ?? (findExistingItem(item, categoryName) ? "skip" : "add");
+    }
 
     function scheduleToastClear(delay = 3000) {
         window.setTimeout(() => setToast(null), delay);
@@ -248,15 +318,12 @@ function ScanModal({
         setIsScanning(true);
 
         try {
-            const headers: Record<string, string> = { "Content-Type": "application/json" };
-            if (pastedMenuUrl !== undefined) {
-                const { data: { session } } = await supabase.auth.getSession();
-                if (!session?.access_token) {
-                    setToast({ message: "Entre na sua conta para importar por link.", type: "error" });
-                    return null;
-                }
-                headers.Authorization = `Bearer ${session.access_token}`;
-            }
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.access_token) throw new Error("Entre na sua conta para usar o scanner.");
+            const headers: Record<string, string> = {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${session.access_token}`,
+            };
             const response = await fetch("/api/scan-menu", {
                 method: "POST",
                 headers,
@@ -265,6 +332,7 @@ function ScanModal({
             const json = await response.json();
 
             if (!response.ok) {
+                if (json?.requiresPlus) setAccess({ allowed: false, hasItems: true, hasPlus: false });
                 setToast({
                     message: json?.error || "O Scan com IA falhou",
                     type: "error",
@@ -290,7 +358,18 @@ function ScanModal({
         }
     }
 
-    function showScanResult(aiResult: ScannedResult) {
+    async function showScanResult(aiResult: ScannedResult) {
+        try {
+            await loadExistingItems();
+        } catch (error) {
+            setToast({
+                message: "Não foi possível comparar com os produtos existentes: " +
+                    (error instanceof Error ? error.message : String(error)),
+                type: "error",
+            });
+            return;
+        }
+        setItemActions({});
         setScanResult(aiResult);
         const newMap: Record<string, CategoryMapping> = {};
         (aiResult.categories || []).forEach((category) => {
@@ -314,7 +393,7 @@ function ScanModal({
                 return;
             }
             const aiResult = await callAiScan([], menuUrl.trim());
-            if (aiResult) showScanResult(aiResult);
+            if (aiResult) await showScanResult(aiResult);
             return;
         }
 
@@ -379,7 +458,7 @@ function ScanModal({
         const aiResult = await callAiScan(publicUrls);
         if (!aiResult) return;
 
-        showScanResult(aiResult);
+        await showScanResult(aiResult);
     }
 
     async function handleSaveAll() {
@@ -387,8 +466,38 @@ function ScanModal({
         setIsSaving(true);
 
         try {
+            const currentAccess = await fetchScanAccess();
+            if (!currentAccess.allowed) {
+                setAccess(currentAccess);
+                throw new Error("Essa importação exige uma assinatura ativa do iMenu Plus.");
+            }
+
+            const itemsToAdd = scanResult.items.filter(item => selectedAction(item, item.category_name ?? "") === "add");
+            const itemsToUpdate = scanResult.items.filter(item => selectedAction(item, item.category_name ?? "") === "update");
+            if (!itemsToAdd.length && !itemsToUpdate.length) {
+                setToast({ message: "Nenhuma alteração selecionada.", type: "success" });
+                return;
+            }
+
+            for (const item of itemsToUpdate) {
+                const original = findExistingItem(item, item.category_name ?? "");
+                if (!original) throw new Error(`Selecione um produto existente para atualizar ${item.name}.`);
+                const price = prepareScannedPizza(item).price_cents;
+                const hasValidPrice = Number.isSafeInteger(item.price_cents) && Number(item.price_cents) >= 0 ||
+                    (item.is_pizza_flavor === true && prepareScannedPizza(item).complements.some(group => group.name === "Tamanho"));
+                const { data, error } = await supabase.from("items")
+                    .update({
+                        name: item.name,
+                        ...(item.description !== null ? { description: item.description } : {}),
+                        ...(hasValidPrice ? { price_cents: price } : {}),
+                    })
+                    .eq("restaurant_id", restaurantId).eq("id", original.id).select("id");
+                if (error || !data?.length) throw new Error(error?.message || `Não foi possível atualizar ${item.name}.`);
+            }
+
             const resolvedCategoryIds = new Map<string, string>();
-            for (const category of scanResult.categories) {
+            for (const category of scanResult.categories.filter(category =>
+                itemsToAdd.some(item => item.category_name === category.name))) {
                 const mapping = categoryMap[category.name];
                 if (mapping?.mappedId) {
                     resolvedCategoryIds.set(category.name, mapping.mappedId);
@@ -410,7 +519,7 @@ function ScanModal({
                 resolvedCategoryIds.set(category.name, json.category.id);
             }
 
-            const imported = await Promise.all(scanResult.items.map(async (item, index) => {
+            const imported = await Promise.all(itemsToAdd.map(async (item, index) => {
                 const categoryId = resolvedCategoryIds.get(item.category_name ?? "");
                 if (!categoryId) throw new Error(`Categoria não encontrada para ${item.name}.`);
                 const prepared = prepareScannedPizza(item);
@@ -587,7 +696,27 @@ function ScanModal({
         <>
             <Modal height={700} open={open} onClose={onClose}>
                 <div className="p-6 w-full max-w-3xl 2xl:max-w-4xl overflow-y-auto">
-                    {!scanResult && (
+                    {!access && !accessError && <div className="flex min-h-40 items-center justify-center"><Loader /></div>}
+                    {accessError && <div className="space-y-4">
+                        <p role="alert" className="text-sm text-red-700">{accessError}</p>
+                        <Button variant="secondary" onClick={() => void fetchScanAccess().then(value => {
+                            setAccessError("");
+                            setAccess(value);
+                        }).catch(error => setAccessError(error instanceof Error ? error.message : String(error)))}>Tentar novamente</Button>
+                    </div>}
+                    {access && !access.allowed && <div className="space-y-4 rounded-xl border border-violet-200 bg-violet-50 p-6">
+                        <div className="flex items-center gap-2 font-semibold text-violet-800">
+                            <FontAwesomeIcon icon={faWandMagicSparkles} />
+                            Scanear itens com iMenu Plus
+                        </div>
+                        <p className="text-sm text-violet-900">
+                            Você já tem produtos cadastrados. Para escanear novos itens, assine o iMenu Plus.
+                        </p>
+                        <a href="/painel/planos" className="inline-flex rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700">
+                            Conhecer iMenu Plus
+                        </a>
+                    </div>}
+                    {access?.allowed && !scanResult && (
                         <div className="space-y-4">
                             {showLinkField ? (
                                 <div className="rounded-lg p-4">
@@ -765,8 +894,12 @@ function ScanModal({
                         </div>
                     )}
 
-                    {scanResult && (
+                    {access?.allowed && scanResult && (
                         <div className="space-y-6">
+                            <p className="text-sm text-gray-600">
+                                Revise os itens encontrados. Itens já cadastrados são ignorados por padrão.
+                                Atualizar altera nome, descrição e preço; complementos existentes são mantidos.
+                            </p>
                             <div className="space-y-6">
                                 {aiCategories.map((categoryName) => {
                                     const mapping = categoryMap[categoryName] ?? {
@@ -851,6 +984,23 @@ function ScanModal({
                                                                 <div className="text-sm text-gray-600 mt-1">
                                                                     {item.description}
                                                                 </div>
+                                                                <div className="mt-2 max-w-56">
+                                                                    <Dropdown
+                                                                        label={`Ação para ${item.name}`}
+                                                                        value={selectedAction(item, categoryName)}
+                                                                        options={[
+                                                                            { value: "add", label: "Adicionar" },
+                                                                            ...(findExistingItem(item, categoryName)
+                                                                                ? [{ value: "update", label: "Atualizar existente" }]
+                                                                                : []),
+                                                                            { value: "skip", label: "Ignorar" },
+                                                                        ]}
+                                                                        onChange={event => setItemActions(current => ({
+                                                                            ...current,
+                                                                            [scanResult.items.indexOf(item)]: event.target.value as "add" | "update" | "skip",
+                                                                        }))}
+                                                                    />
+                                                                </div>
                                                                 {item.is_pizza_flavor && (
                                                                     <div className="mt-1 text-xs text-gray-500">
                                                                         Sabor de pizza
@@ -905,7 +1055,7 @@ function ScanModal({
                                     onClick={handleSaveAll}
                                     loading={isSaving}
                                 >
-                                    Salvar
+                                    Aplicar itens
                                 </Button>
                             </div>
                         </div>
