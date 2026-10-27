@@ -949,10 +949,6 @@ export default function ConfiguracoesPage() {
                                 <div>
                                     <div className="flex flex-wrap items-center gap-2">
                                         <h2 className="text-xl font-medium text-gray-900">Modo Vitrine</h2>
-                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700">
-                                            <FontAwesomeIcon icon={faCheck} />
-                                            Grátis
-                                        </span>
                                     </div>
                                     <p id="vitrine-description" className="mt-2 text-sm text-gray-500">
                                         Crie um cardápio separado dos demais, exclusivo para visualização.
