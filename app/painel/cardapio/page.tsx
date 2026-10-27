@@ -375,7 +375,7 @@ export default function MenuManagerPage() {
                 open={aiPlusOpen}
                 onClose={() => setAiPlusOpen(false)}
                 restaurantId={restaurantId}
-                contextMessage="Seu cardápio já tem pelo menos dois produtos cadastrados. Para escanear novos itens com IA, assine o iMenu Plus."
+                contextMessage="Seu cardápio já não está vazio. Para escanear novos itens com IA, assine o iMenu Plus."
                 onPaid={() => { setAiPlusOpen(false); setScanAccess({ allowed: true, hasItems: true, hasPlus: true }); setAiModalOpen(true); }}
             />
 
