@@ -30,6 +30,7 @@ type ProductCardContent = {
     logo: string;
     description: string;
     priceLabel: string;
+    originalPriceLabel?: string;
     priceSuffix?: string;
     features: readonly string[];
     featureDetails?: readonly { title: string; description: string }[];
@@ -126,6 +127,7 @@ export default function MenuProductCard(props: MenuProductCardProps) {
                     <div className="plans-plus-status">
                         <Badge variant={active ? "success" : "neutral"}>{active ? "Ativo" : "Disponível"}</Badge>
                         <div className="plans-plus-price">
+                            {props.originalPriceLabel && <span className="line-through">{props.originalPriceLabel}</span>}
                             <div>
                                 <strong>{props.priceLabel}</strong>
                                 <span>{props.priceSuffix ?? "/mês"}</span>

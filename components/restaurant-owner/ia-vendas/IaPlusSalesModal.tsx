@@ -13,7 +13,7 @@ import ModalFlowStep from "@/components/ui/ModalFlowStep";
 import Button from "@/components/ui/Button";
 import QrCodeMesaCheckoutModal from "@/components/restaurant-owner/mesas/QrCodeMesaCheckoutModal";
 import { IA_PLUS_BENEFITS, IA_PLUS_BONUSES, IA_PLUS_PRICE_LABEL } from "@/lib/addons/products";
-import { PROMO_QR_CODE, PROMO_QR_PRICE_LABEL } from "@/lib/addons/promoQr";
+import { isPromoQrDate, PROMO_QR_CODE, PROMO_QR_PRICE_LABEL } from "@/lib/addons/promoQr";
 import { PLUS_BONUS_ICONS, PLUS_FEATURE_ICONS } from "@/components/restaurant-owner/mesas/MenuProductCard";
 
 const SUPPORT_URL =
@@ -54,6 +54,7 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
 }) {
   const [step, setStep] = useState(checkout);
   const [navigated, setNavigated] = useState(false);
+  const promoNotStarted = coupon === PROMO_QR_CODE && !isPromoQrDate();
 
   useEffect(() => {
     if (open) {
@@ -105,7 +106,7 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
                 <div className="flex items-baseline gap-1.5">
                   {coupon === PROMO_QR_CODE && <span className="text-base text-gray-400 line-through">{IA_PLUS_PRICE_LABEL}</span>}
                   <span className="text-3xl font-bold tracking-tight text-gray-900">{coupon === PROMO_QR_CODE ? PROMO_QR_PRICE_LABEL : IA_PLUS_PRICE_LABEL}</span>
-                  <span className="text-sm text-gray-500">/mês</span>
+                  <span className="text-sm text-gray-500">{coupon === PROMO_QR_CODE ? "1º mês" : "/mês"}</span>
                 </div>
                 <p className="mt-1.5 text-xs text-gray-500">{coupon === PROMO_QR_CODE ? "Primeiro mês via Pix · sem renovação automática" : "Cancele quando quiser"}</p>
               </div>
@@ -182,13 +183,13 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
           <Button
             type="button"
             className="w-full gap-2 sm:w-auto sm:min-w-64"
-            disabled={active}
+            disabled={active || promoNotStarted}
             onClick={() => {
               setNavigated(true);
               setStep(true);
             }}
           >
-            {active ? "Seu iMenu Plus está ativo" : <>Assinar iMenu Plus <ArrowRight size={16} aria-hidden="true" /></>}
+            {active ? "Seu iMenu Plus está ativo" : promoNotStarted ? "Disponível a partir de 29/10" : <>Assinar iMenu Plus <ArrowRight size={16} aria-hidden="true" /></>}
           </Button>
         </div>
       </ModalFlowStep>}

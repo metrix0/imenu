@@ -58,14 +58,14 @@ const fixtures = {
 };
 afterEach(() => jest.restoreAllMocks());
 
-function renderBilling(payload: typeof fixtures.empty | typeof fixtures.active | typeof fixtures.mixed, wholePage = false) {
+function renderBilling(payload: typeof fixtures.empty | typeof fixtures.active | typeof fixtures.mixed, wholePage = false, coupon?: string) {
     const state = jest.spyOn(React, "useState");
     // SSR does not run the authenticated load effect; seed only its existing state.
     if (wholePage) state.mockImplementationOnce(() => [false, jest.fn()] as never);
     state.mockImplementationOnce(() => [payload, jest.fn()] as never);
     state.mockImplementationOnce(() => [false, jest.fn()] as never);
     return renderToStaticMarkup(<PanelAppearance>{wholePage ? <PlanosPage /> :
-        <QrCodeMesaSettingsSection restaurantId="fixture" showHeader={false} presentation="plans" />}</PanelAppearance>);
+        <QrCodeMesaSettingsSection restaurantId="fixture" showHeader={false} presentation="plans" coupon={coupon} />}</PanelAppearance>);
 }
 
 test("plans separate discovery from billing without selection checkboxes", () => {
@@ -102,6 +102,16 @@ test("active plans keep recurring cancellation and prepaid renewal with collapse
     expect(html).toContain("https://example.com/invoice");
     expect(html).toContain("Confirmado");
     expect(html).toContain("07/11/2026");
+});
+
+test("PROMOQR shows the discounted first-month price on the plan card before launch", () => {
+    const html = renderBilling(fixtures.mixed, false, "PROMOQR");
+    const plusCard = html.slice(html.indexOf('class="plans-product plans-plus"'));
+    expect(plusCard).toContain("25,00");
+    expect(plusCard).toContain("49,99");
+    expect(plusCard).toContain("line-through");
+    expect(plusCard).toContain("1º mês via Pix");
+    expect(renderBilling(fixtures.mixed)).not.toContain("25,00");
 });
 
 test("QR-only legacy billing records are never shown as a paid subscription", () => {
