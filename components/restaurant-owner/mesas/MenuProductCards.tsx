@@ -23,7 +23,7 @@ export default function MenuProductCards({ presentation = "default", extraCard }
                 logo="/logos/CombinationMarkLogo_Brand.png"
                 description="Seu cardápio delivery com produtos, pedidos e gestão pelo painel."
                 priceLabel="Grátis para sempre, sem limites"
-                features={["Robô WhatsApp", "Pedidos delivery", "QR Code Mesa"]}
+                features={["Robô WhatsApp", "Pedidos delivery", "QR Code Mesa", "Modo Vitrine"]}
                 learnMoreLink={{ href: "/#recursos", label: "Conhecer o Cardápio Digital" }}
             />
             {extraCard}
