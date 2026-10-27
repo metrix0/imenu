@@ -56,65 +56,70 @@ const RESOURCE_SECTIONS: readonly { title: string; imenu?: string; competitor?: 
         imenu: "check",
         competitor: "limited",
         rows: [
-            ["Aplicativo para celular","check","limited"],
-            ["Seu domínio customizado","check","limited"],
-            ["SEO (automático, mais vendas)","check","limited"],
-            ["Fotos em Alta qualidade","check","limited"],
-            ["Customização de opcionais","check","limited"],
-            ["Identidade visual personalizada","check","limited"],
-            ["Sem marca d'água","check","limited"],
-            ["Modo Vitrine (cardápio sem pedidos)","check","limited"],
-            ["Dividir Pizza em vários sabores","check","limited"],
+            ["Pedidos ilimitados", "checkOnly", "limited"],
+            ["Zero Taxas", "zeroFees", "taxed"],
+            ["Fotos em Alta qualidade", "check", "limited"],
+            ["Aplicativo para celular", "check", "limited"],
+            ["Seu domínio customizado", "check", "limited"],
+            ["SEO (automático, mais vendas)", "check", "limited"],
+            ["Identidade visual personalizada", "check", "limited"],
+            ["Sem marca d'água", "check", "limited"],
+            ["Painel para Garçom e Motoboy", "check", "limited"],
         ],
     },
     {
         title: "Pedidos e Delivery",
         rows: [
-            ["Pedidos ilimitados","check","limited"],
-            ["Robô WhatsApp","check","limited"],
-            ["Alta conversão","check","limited"],
-            ["Acompanhamento do pedido","Acompanhamento na Página e no WhatsApp","limited"],
-            ["Taxa por Transação","SEM TAXAS. Apenas Pix Online: 0,99% por pedido.","limited"],
-            ["Agendamento de pedido","check","limited"],
-            ['Modo "Só trabalho com Encomendas"',"check","limited"],
-            ["Notificações de pedidos","No celular e via WhatsApp para restaurante e cliente","limited"],
-            ["Atualizar cliente sobre status do pedido via WhatsApp","iMenu Plus","limited"],
+            ["Robô WhatsApp", "check", "limited"],
+            ["Alta conversão", "check", "limited"],
+            ["Cliente acompanha pedido", "tracking", "limited"],
+            ["Agendamento de pedido", "check", "limited"],
+            ['Modo "Só trabalho com Encomendas"', "check", "limited"],
+            ["Recomendação de Produtos no carrinho (Manual)", "check", "limited"],
+            ["Notificações de pedidos", "notification", "limited"],
+            ["Atualizar cliente sobre status do pedido via WhatsApp Automaticamente", "plusLink", "limited"],
+            ["Recomendação de Produtos no carrinho (Automática)", "iMenu Plus", "limited"],
         ],
     },
     {
         title: "Operação e CRM",
         rows: [
-            ["CRM","check","limited"],
-            ["Rastreio de hábitos de consumo com IA","iMenu Plus","limited"],
-            ["Gestor de pedidos (balcão)","check","limited"],
-            ["Impressão dos pedidos","check","limited"],
-            ["Suporte humanizado","Todos os dias","limited"],
-            ["Painel Financeiro","check","limited"],
-            ["Fechamento de Caixa","check","limited"],
-            ["QR Code na mesa","Grátis","limited"],
-            ["Painel do Garçom","Grátis","limited"],
-            ["Bugs Corrigidos em 1 dia útil","check","limited"],
-            ["Solicitação de integrações e funcionalidades","IA Plus","limited"],
+            ["CRM", "check", "limited"],
+            ["Rastreio de hábitos de consumo com IA", "iMenu Plus", "limited"],
+            ["Gestor de pedidos (balcão)", "check", "limited"],
+            ["Impressão dos pedidos", "check", "limited"],
+            ["Suporte humanizado", "support", "limited"],
+            ["Painel Financeiro", "check", "limited"],
+            ["Fechamento de Caixa", "check", "limited"],
+            ["QR Code na mesa", "Grátis", "limited"],
+            ["Painel do Garçom", "Grátis", "limited"],
+            ["Bugs Corrigidos em 1 dia útil", "check", "limited"],
+            ["Modo Vitrine (cardápio sem pedidos)", "check", "limited"],
+            ["Dividir Pizza em vários sabores", "check", "limited"],
+            ["Solicitação de integrações e funcionalidades", "iMenu Plus", "limited"],
+            ["API Aberta", "development", "-"],
         ],
     },
     {
         title: "Marketing e Analytics",
         rows: [
-            ["Link para WhatsApp e redes","check","limited"],
-            ["Cupons de desconto","check","limited"],
-            ["Google Analytics Integrado","check","limited"],
-            ["Pixel Meta (Facebook/Instagram) Integrado","check","limited"],
-            ["Relatórios e Analytics","Cliques, visualizações do cardápio, valor médio do carrinho e origem dos acessos","limited"],
-            ["Mensagens de Marketing Automáticas","iMenu Plus","limited"],
+            ["Promoções Avançadas", "check", "limited"],
+            ["Cupons de desconto", "check", "limited"],
+            ["Fidelidade", "check", "limited"],
+            ["Google Analytics Integrado", "check", "limited"],
+            ["Pixel Meta (Facebook/Instagram) Integrado", "check", "limited"],
+            ["Relatórios e Analytics", "Cliques, visualizações do cardápio, valor médio do carrinho e origem dos acessos", "limited"],
+            ["Link para WhatsApp e redes", "check", "limited"],
+            ["Mensagens de Marketing Automáticas", "iMenu Plus", "limited"],
         ],
     },
     {
         title: "Inteligência Artificial",
         rows: [
-            ["Assistente IA","check","limited"],
-            ["Análise avançada com IA","IA Plus","limited"],
-            ["Scanear Cardápio com IA","Envie Fotos, PDFs ou Links e tenha o cardápio pronto em segundos","limited"],
-            ["Geração de imagens com IA","IA Plus","limited"],
+            ["Scanear Cardápio com IA", "scan", "limited"],
+            ["Assistente IA: para Melhorar o Cardápio", "assistantLimited", "limited"],
+            ["Análise avançada com IA", "iMenu Plus", "limited"],
+            ["Geração de imagens com IA", "iMenu Plus", "limited"],
         ],
     },
 ];
@@ -158,15 +163,88 @@ const PANEL_AUTO_REDIRECT_KEY = "imenu:landing-panel-auto-redirect";
 const PANEL_PROMPT_DISMISSED_KEY = "imenu:landing-panel-prompt-dismissed";
 const PANEL_PROMPT_CLICK_THRESHOLD = 2;
 
-function ResourceAvailabilityLabel({ kind }: { kind: "free" | "limited" }) {
+function ResourceAvailabilityLabel({ kind, label }: { kind: "free" | "limited" | "taxed"; label?: string }) {
     const free = kind === "free";
 
     return (
         <Badge variant={free ? "success" : "danger"} className="gap-1.5 whitespace-nowrap !font-normal">
             <FontAwesomeIcon icon={free ? icons.faCheck : icons.faXmark} aria-hidden="true" />
-            {free ? "Grátis" : "Pago ou limitado"}
+            {label ?? (free ? "Grátis" : kind === "taxed" ? "Pago ou taxado" : "Pago ou limitado")}
         </Badge>
     );
+}
+
+function ResourceImenuValue({ value }: { value?: string }) {
+    if (!value) return null;
+    if (value === "check") return <ResourceAvailabilityLabel kind="free" />;
+    if (value === "checkOnly") return <FontAwesomeIcon icon={icons.faCheck} className="text-green" aria-label="Incluído" />;
+    if (value === "zeroFees") {
+        return (
+            <span className="inline-flex items-center justify-center gap-2">
+                <FontAwesomeIcon icon={icons.faCheck} className="text-green" aria-label="Incluído" />
+                <Tooltip text="Sem taxa por transação. O Pix Online tem taxa de 0,99% por pedido." showOnClick>
+                    <button type="button" aria-label="Detalhes da taxa do Pix Online" className="cursor-help">
+                        <Badge variant="info" className="gap-1 !font-normal">
+                            <FontAwesomeIcon icon={icons.faCircleInfo} aria-hidden="true" />
+                            Pix Online: 0,99%
+                        </Badge>
+                    </button>
+                </Tooltip>
+            </span>
+        );
+    }
+    if (value === "tracking") {
+        return (
+            <span className="inline-flex flex-wrap items-center justify-center gap-1.5">
+                <ResourceAvailabilityLabel kind="free" />
+                <span>(Página e WhatsApp)</span>
+            </span>
+        );
+    }
+    if (value === "notification" || value === "support") {
+        return (
+            <span className="inline-flex items-center justify-center gap-1.5">
+                <FontAwesomeIcon icon={icons.faCheck} className="shrink-0 text-green" aria-hidden="true" />
+                {value === "support" ? "Todos os dias" : "No seu e do cliente (WhatsApp/Painel)"}
+            </span>
+        );
+    }
+    if (value === "scan") {
+        return (
+            <span className="inline-flex flex-wrap items-center justify-center gap-1.5">
+                <ResourceAvailabilityLabel kind="free" />
+                <span>Fotos, PDFs ou links e tenha o cardápio pronto em segundos</span>
+            </span>
+        );
+    }
+    if (value === "assistantLimited") return <ResourceAvailabilityLabel kind="free" label="Grátis, com limites" />;
+    if (value === "plusLink") {
+        return (
+            <a href="#planos" className="inline-flex rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" aria-label="Conhecer o iMenu Plus">
+                <Badge variant="brand" className="gap-1.5 !font-normal">
+                    iMenu Plus
+                    <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" />
+                </Badge>
+            </a>
+        );
+    }
+    if (value === "development") {
+        return (
+            <Tooltip text="Funcionalidade em desenvolvimento." color="bg-orange" showOnClick>
+                <span className="inline-flex cursor-help items-center justify-center gap-1.5">
+                    <FontAwesomeIcon icon={icons.faClock} className="text-orange" aria-hidden="true" />
+                    Em desenvolvimento
+                </span>
+            </Tooltip>
+        );
+    }
+    return value;
+}
+
+function ResourceCompetitorValue({ value }: { value?: string }) {
+    if (value === "limited") return <ResourceAvailabilityLabel kind="limited" />;
+    if (value === "taxed") return <ResourceAvailabilityLabel kind="taxed" />;
+    return value ?? null;
 }
 
 export default function LandingPage() {
@@ -613,57 +691,23 @@ export default function LandingPage() {
                                             {section.title}
                                         </th>
                                         <td className="border-r border-gray-200 text-center">
-                                            {section.imenu === "check" ? (
-                                                <ResourceAvailabilityLabel kind="free" />
-                                            ) : (
-                                                section.imenu
-                                            )}
+                                            <ResourceImenuValue value={section.imenu} />
                                         </td>
                                         <td className="text-center">
-                                            {section.competitor === "limited" ? <ResourceAvailabilityLabel kind="limited" /> : section.competitor}
+                                            <ResourceCompetitorValue value={section.competitor} />
                                         </td>
                                     </tr>
                                     {section.rows.map(([feature, imenu, competitor]) => (
                                         <tr key={feature}>
                                             <td className="border-r border-gray-200"><span className="block pl-4 sm:pl-6">{feature}</span></td>
                                             <td className="border-r border-gray-200 text-center">
-                                                {imenu === "check" ? (
-                                                    <ResourceAvailabilityLabel kind="free" />
-                                                ) : (
-                                                    imenu
-                                                )}
+                                                <ResourceImenuValue value={imenu} />
                                             </td>
                                             <td className="text-center">
-                                                {competitor === "limited" ? <ResourceAvailabilityLabel kind="limited" /> : competitor}
+                                                <ResourceCompetitorValue value={competitor} />
                                             </td>
                                         </tr>
                                     ))}
-                                    {section.title === "Operação e CRM" && (
-                                        <>
-                                            {[
-                                                ["API Aberta", "-"],
-                                            ].map(([feature, competitor]) => (
-                                                <tr key={feature}>
-                                                    <td className="border-r border-gray-200"><span className="block pl-4 sm:pl-6">{feature}</span></td>
-                                                    <td className="border-r border-gray-200 text-center">
-                                                        <Tooltip
-                                                            text="Funcionalidade em desenvolvimento."
-                                                            color="bg-orange"
-                                                        >
-                                                            <FontAwesomeIcon
-                                                                icon={icons.faClock}
-                                                                className="text-orange"
-                                                            />
-                                                        </Tooltip>
-                                                    </td>
-                                                    <td className="text-center">
-                                                {competitor === "limited" ? <ResourceAvailabilityLabel kind="limited" /> : competitor}
-                                            </td>
-                                                </tr>
-                                            ))}
-
-                                        </>
-                                    )}
                                 </Fragment>
                             ))}
                         </tbody>
