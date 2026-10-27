@@ -75,12 +75,14 @@ export default function ScanMenuModal({
     restaurantId,
     existingCategories,
     onRefresh,
+    onUpgrade,
 }: {
     open: boolean;
     onClose: () => void;
     restaurantId: string;
     existingCategories: { id: string; name: string; position: number }[];
     onRefresh: () => void;
+    onUpgrade: () => void;
 }) {
     return (
         <ScanModal
@@ -89,6 +91,7 @@ export default function ScanMenuModal({
             onClose={onClose}
             restaurantId={restaurantId}
             existingCategories={existingCategories}
+            onUpgrade={onUpgrade}
         />
     );
 }
@@ -99,12 +102,14 @@ function ScanModal({
     restaurantId,
     existingCategories,
     onRefresh,
+    onUpgrade,
 }: {
     open: boolean;
     onClose: () => void;
     restaurantId: string;
     existingCategories: { id: string; name: string; position: number }[];
     onRefresh: () => void;
+    onUpgrade: () => void;
 }) {
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const previewUrlsRef = useRef<Set<string>>(new Set());
@@ -712,9 +717,9 @@ function ScanModal({
                         <p className="text-sm text-violet-900">
                             Você já tem produtos cadastrados. Para escanear novos itens, assine o iMenu Plus.
                         </p>
-                        <a href="/painel/planos" className="inline-flex rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700">
+                        <Button type="button" variant="primary" onClick={onUpgrade}>
                             Conhecer iMenu Plus
-                        </a>
+                        </Button>
                     </div>}
                     {access?.allowed && !scanResult && (
                         <div className="space-y-4">

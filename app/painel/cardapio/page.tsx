@@ -18,6 +18,7 @@ import EstoqueTab from "@/components/restaurant-owner/cardapio/tabs/EstoqueTabs"
 import ManageCategoryModal from "@/components/restaurant-owner/cardapio/ManageCategoryModal";
 import ItemDetailsModal from "@/components/restaurant-owner/cardapio/ItemDetailsModal";
 import ScanMenuModal from "@/components/restaurant-owner/ScanMenuImageModal";
+import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
 import type { Category } from "@/lib/types/types";
 
@@ -47,6 +48,7 @@ export default function MenuManagerPage() {
     const [itemToEditDetails, setItemToEditDetails] =
         useState<MenuItemType | null>(null);
     const [aiModalOpen, setAiModalOpen] = useState(false);
+    const [aiPlusOpen, setAiPlusOpen] = useState(false);
 
     const loadMenuData = async (id: string) => {
         setIsLoading(true);
@@ -338,6 +340,14 @@ export default function MenuManagerPage() {
                 restaurantId={restaurantId}
                 existingCategories={categories}
                 onRefresh={() => loadMenuData(restaurantId)}
+                onUpgrade={() => { setAiModalOpen(false); setAiPlusOpen(true); }}
+            />
+            <IaPlusSalesModal
+                open={aiPlusOpen}
+                onClose={() => setAiPlusOpen(false)}
+                restaurantId={restaurantId}
+                contextMessage="Seu cardápio já tem pelo menos dois produtos cadastrados. Para escanear novos itens com IA, assine o iMenu Plus."
+                onPaid={() => { setAiPlusOpen(false); setAiModalOpen(true); }}
             />
 
             {toast && (

@@ -263,6 +263,7 @@ export default function IntegracoesPage() {
                     onClose={() => setIaPlusOpen(false)}
                     restaurantId={restaurantId}
                     active={iaPlusActive}
+                    contextMessage="Com o iMenu Plus, você pode solicitar novas integrações e funcionalidades para o seu restaurante."
                     onPaid={() => {
                         setIaPlusActive(true);
                         setIaPlusOpen(false);

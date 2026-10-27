@@ -12,6 +12,7 @@ import ManageCategoryModal from "@/components/restaurant-owner/cardapio/ManageCa
 import ItemDetailsModal from "@/components/restaurant-owner/cardapio/ItemDetailsModal";
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
 import ScanMenuModal from "@/components/restaurant-owner/ScanMenuImageModal";
+import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faPlus, faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
 import Badge from "@/components/ui/Badge";
@@ -34,6 +35,7 @@ export default function CriarCardapioPage() {
     const [itemOpen, setItemOpen] = useState(false);
     const [itemEdit, setItemEdit] = useState<MenuItemType | null>(null);
     const [aiOpen, setAiOpen] = useState(false);
+    const [aiPlusOpen, setAiPlusOpen] = useState(false);
 
     const load = async () => {
         if (!restaurantId) return router.replace("/restaurante/login");
@@ -261,6 +263,14 @@ export default function CriarCardapioPage() {
                 restaurantId={restaurantId}
                 existingCategories={categories}
                 onRefresh={load}
+                onUpgrade={() => { setAiOpen(false); setAiPlusOpen(true); }}
+            />
+            <IaPlusSalesModal
+                open={aiPlusOpen}
+                onClose={() => setAiPlusOpen(false)}
+                restaurantId={restaurantId}
+                contextMessage="Seu cardápio já tem pelo menos dois produtos cadastrados. Para escanear novos itens com IA, assine o iMenu Plus."
+                onPaid={() => { setAiPlusOpen(false); setAiOpen(true); }}
             />
             {toast && (
                 <Toast

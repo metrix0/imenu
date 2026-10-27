@@ -40,8 +40,8 @@ export function IaPlusLimitMessage({ onCheckout }: { onCheckout: () => void }) {
     <Button className="mt-5" onClick={onCheckout}>Assinar iMenu Plus</Button>
   </article>;
 }
-export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout = false, active = false, onPaid }: {
-  open: boolean; onClose: () => void; restaurantId: string; checkout?: boolean; active?: boolean; onPaid?: () => void | Promise<void>;
+export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout = false, active = false, onPaid, contextMessage }: {
+  open: boolean; onClose: () => void; restaurantId: string; checkout?: boolean; active?: boolean; onPaid?: () => void | Promise<void>; contextMessage?: string;
 }) {
   const [step, setStep] = useState(checkout);
   const [navigated, setNavigated] = useState(false);
@@ -92,6 +92,12 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
                 <Sparkles size={14} aria-hidden="true" />
                 Marketing e IA para aumentar suas vendas.
               </div>
+
+              {contextMessage?.trim() && (
+                <p role="note" className="mt-4 rounded-lg border border-brand/20 bg-brand/5 px-4 py-3 text-sm leading-6 text-gray-800">
+                  {contextMessage}
+                </p>
+              )}
 
               <p className="mt-4 max-w-xl text-sm leading-6 text-gray-600 sm:text-base">
                 Recupere clientes pelo WhatsApp, use o Assistente IA e encontre oportunidades com o Vendas IA.
