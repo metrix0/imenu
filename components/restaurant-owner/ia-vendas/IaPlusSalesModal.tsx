@@ -13,7 +13,7 @@ import ModalFlowStep from "@/components/ui/ModalFlowStep";
 import Button from "@/components/ui/Button";
 import QrCodeMesaCheckoutModal from "@/components/restaurant-owner/mesas/QrCodeMesaCheckoutModal";
 import { IA_PLUS_BENEFITS, IA_PLUS_BONUSES, IA_PLUS_PRICE_LABEL } from "@/lib/addons/products";
-import { isPromoQrDate, PROMO_QR_CODE, PROMO_QR_PRICE_LABEL } from "@/lib/addons/promoQr";
+import { PROMO_QR_CODE, PROMO_QR_PRICE_LABEL } from "@/lib/addons/promoQr";
 import { PLUS_BONUS_ICONS, PLUS_FEATURE_ICONS } from "@/components/restaurant-owner/mesas/MenuProductCard";
 
 const SUPPORT_URL =
@@ -54,7 +54,6 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
 }) {
   const [step, setStep] = useState(checkout);
   const [navigated, setNavigated] = useState(false);
-  const promoNotStarted = coupon === PROMO_QR_CODE && !isPromoQrDate();
 
   useEffect(() => {
     if (open) {
@@ -183,13 +182,13 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
           <Button
             type="button"
             className="w-full gap-2 sm:w-auto sm:min-w-64"
-            disabled={active || promoNotStarted}
+            disabled={active}
             onClick={() => {
               setNavigated(true);
               setStep(true);
             }}
           >
-            {active ? "Seu iMenu Plus está ativo" : promoNotStarted ? "Disponível a partir de 29/10" : <>Assinar iMenu Plus <ArrowRight size={16} aria-hidden="true" /></>}
+            {active ? "Seu iMenu Plus está ativo" : <>Assinar iMenu Plus <ArrowRight size={16} aria-hidden="true" /></>}
           </Button>
         </div>
       </ModalFlowStep>}

@@ -73,8 +73,25 @@ it("applies PROMOQR only to an eligible first-month Pix charge during the promot
     );
 });
 
-it("does not apply PROMOQR before its start date", async () => {
-    jest.spyOn(Date, "now").mockReturnValue(Date.parse("2026-10-28T23:59:59-03:00"));
+it("allows PROMOQR before October 29 without a start-date gate", async () => {
+    jest.spyOn(Date, "now").mockReturnValue(Date.parse("2026-10-27T12:00:00-03:00"));
+    (query as jest.Mock).mockResolvedValueOnce({ rows: [{ eligible: true }] });
+    (createMercadoPagoPixCharge as jest.Mock).mockImplementation(async input => ({
+        id: "promo-early", status: "pending", amount: input.amount,
+        paymentMethodId: "pix", externalReference: input.externalReference, qrCodeText: "pix"
+    }));
+    const response = await iaPlusCheckout(new Request("https://example.com/api/ia-plus/checkout", {
+        method: "POST",
+        body: JSON.stringify({ restaurantId: "restaurant", paymentMethod: "pix", coupon: "PROMOQR" }),
+    }));
+    expect(response.status).toBe(200);
+    expect(createMercadoPagoPixCharge).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: 25 })
+    );
+});
+
+it("rejects PROMOQR after November 27", async () => {
+    jest.spyOn(Date, "now").mockReturnValue(Date.parse("2026-11-28T00:00:00-03:00"));
     const response = await iaPlusCheckout(new Request("https://example.com/api/ia-plus/checkout", {
         method: "POST",
         body: JSON.stringify({ restaurantId: "restaurant", paymentMethod: "pix", coupon: "PROMOQR" }),

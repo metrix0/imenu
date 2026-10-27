@@ -293,11 +293,10 @@ export default function QrCodeMesaSettingsSection({
     const promoQr = coupon?.trim().toUpperCase() === PROMO_QR_CODE;
     const qrLegacy = billing?.addons.find(item => item.addon.product_key === "qr_code_mesa");
     const plusHistory = billing?.addons.find(item => item.addon.product_key === "ia_plus");
-    const eligiblePromo = promoQr && !loading &&
+    const eligiblePromo = promoQr && isPromoQrDate() && !loading &&
         ((qrLegacy && qrLegacy.addon.price_cents > 0 && qrLegacy.active) || billing?.promoQrOwnerOverride === true) &&
         !plusHistory?.active && !plusHistory?.payments.some(p => p.amount_cents === PROMO_QR_PRICE_CENTS && ["APPROVED", "COMPLETED", "CONFIRMED", "RECEIVED", "RECEIVED_IN_CASH"].includes(p.status.toUpperCase()));
     const appliedCoupon = eligiblePromo ? PROMO_QR_CODE : undefined;
-    const promoActive = isPromoQrDate();
     const cancelBilling =
         billing?.addons.find((item) => item.addon.id === cancelAddonId) || null;
     const cancelAddon = cancelBilling?.addon || null;
@@ -330,7 +329,7 @@ export default function QrCodeMesaSettingsSection({
             {promoQr && !loading && (
                 <div role="status" className="mb-5 rounded-xl border border-brand/20 bg-brand/5 px-4 py-3 text-sm text-gray-700">
                     {eligiblePromo ? (
-                        <><strong className="text-brand">{promoActive ? "PROMOQR aplicado!" : "Oferta PROMOQR!"}</strong> Primeiro mês do iMenu Plus por <strong>{PROMO_QR_PRICE_LABEL}</strong> (50% de desconto), via Pix. {promoActive ? "Válido até 27/11/2026." : "Disponível para contratar a partir de 29/10/2026."}</>
+                        <><strong className="text-brand">PROMOQR aplicado!</strong> Primeiro mês do iMenu Plus por <strong>{PROMO_QR_PRICE_LABEL}</strong> (50% de desconto), via Pix. Válido até 27/11/2026.</>
                     ) : (
                         <>O cupom PROMOQR é válido até 27/11/2026 para assinantes elegíveis do antigo QR Code.</>
                     )}
