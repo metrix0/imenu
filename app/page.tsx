@@ -162,7 +162,7 @@ function ResourceAvailabilityLabel({ kind }: { kind: "free" | "limited" }) {
     const free = kind === "free";
 
     return (
-        <Badge variant={free ? "success" : "danger"} className="gap-1.5 whitespace-nowrap">
+        <Badge variant={free ? "success" : "danger"} className="gap-1.5 whitespace-nowrap !font-normal">
             <FontAwesomeIcon icon={free ? icons.faCheck : icons.faXmark} aria-hidden="true" />
             {free ? "Grátis" : "Pago ou limitado"}
         </Badge>
