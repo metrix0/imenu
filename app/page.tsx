@@ -4,7 +4,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
-    Bot, FileDown, Headset, Megaphone, MessageCircle,
+    Bot, Crown, FileDown, Headset, Megaphone, MessageCircle,
     ScanLine, ShoppingCart, TrendingUp,
     type LucideIcon,
 } from "lucide-react";
@@ -167,8 +167,8 @@ function ResourceAvailabilityLabel({ kind, label }: { kind: "free" | "limited" |
     const free = kind === "free";
 
     return (
-        <Badge variant={free ? "success" : "danger"} className="gap-1.5 whitespace-nowrap !font-normal">
-            <FontAwesomeIcon icon={free ? icons.faCheck : icons.faXmark} aria-hidden="true" />
+        <Badge variant={free ? "success" : "danger"} className="gap-1.5 !whitespace-normal text-center !font-normal">
+            <FontAwesomeIcon icon={free ? icons.faCheck : icons.faXmark} className="shrink-0" aria-hidden="true" />
             {label ?? (free ? "Grátis" : kind === "taxed" ? "Pago ou taxado" : "Pago ou limitado")}
         </Badge>
     );
@@ -176,54 +176,36 @@ function ResourceAvailabilityLabel({ kind, label }: { kind: "free" | "limited" |
 
 function ResourceImenuValue({ value }: { value?: string }) {
     if (!value) return null;
-    if (value === "check") return <ResourceAvailabilityLabel kind="free" />;
-    if (value === "checkOnly") return <FontAwesomeIcon icon={icons.faCheck} className="text-green" aria-label="Incluído" />;
+
+    if (value === "check" || value === "checkOnly" || value === "Grátis") {
+        return <ResourceAvailabilityLabel kind="free" />;
+    }
     if (value === "zeroFees") {
         return (
-            <span className="inline-flex items-center justify-center gap-2">
-                <FontAwesomeIcon icon={icons.faCheck} className="text-green" aria-label="Incluído" />
-                <Tooltip text="Sem taxa por transação. O Pix Online tem taxa de 0,99% por pedido." showOnClick>
-                    <button type="button" aria-label="Detalhes da taxa do Pix Online" className="cursor-help">
-                        <Badge variant="info" className="gap-1 !font-normal">
-                            <FontAwesomeIcon icon={icons.faCircleInfo} aria-hidden="true" />
-                            Pix Online: 0,99%
-                        </Badge>
-                    </button>
-                </Tooltip>
-            </span>
+            <Tooltip text="Sem taxa por transação. O Pix Online tem taxa de 0,99% por pedido." showOnClick>
+                <button type="button" aria-label="Detalhes da taxa do Pix Online" className="cursor-help">
+                    <Badge variant="success" className="gap-1.5 !font-normal">
+                        <FontAwesomeIcon icon={icons.faCheck} aria-hidden="true" />
+                        Grátis
+                        <FontAwesomeIcon icon={icons.faCircleInfo} aria-hidden="true" />
+                    </Badge>
+                </button>
+            </Tooltip>
         );
     }
-    if (value === "tracking") {
-        return (
-            <span className="inline-flex flex-wrap items-center justify-center gap-1.5">
-                <ResourceAvailabilityLabel kind="free" />
-                <span>(Página e WhatsApp)</span>
-            </span>
-        );
-    }
-    if (value === "notification" || value === "support") {
-        return (
-            <span className="inline-flex items-center justify-center gap-1.5">
-                <FontAwesomeIcon icon={icons.faCheck} className="shrink-0 text-green" aria-hidden="true" />
-                {value === "support" ? "Todos os dias" : "No seu e do cliente (WhatsApp/Painel)"}
-            </span>
-        );
-    }
-    if (value === "scan") {
-        return (
-            <span className="inline-flex flex-wrap items-center justify-center gap-1.5">
-                <ResourceAvailabilityLabel kind="free" />
-                <span>Fotos, PDFs ou links e tenha o cardápio pronto em segundos</span>
-            </span>
-        );
-    }
+    if (value === "tracking") return <ResourceAvailabilityLabel kind="free" label="Grátis (Página e WhatsApp)" />;
+    if (value === "notification") return <ResourceAvailabilityLabel kind="free" label="No seu e do cliente (WhatsApp/Painel)" />;
+    if (value === "support") return <ResourceAvailabilityLabel kind="free" label="Todos os dias" />;
+    if (value === "scan") return <ResourceAvailabilityLabel kind="free" label="Grátis: Fotos, PDFs ou links e tenha o cardápio pronto em segundos" />;
     if (value === "assistantLimited") return <ResourceAvailabilityLabel kind="free" label="Grátis, com limites" />;
-    if (value === "plusLink") {
+
+    if (value === "plusLink" || value === "iMenu Plus") {
         return (
             <a href="#planos" className="inline-flex rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" aria-label="Conhecer o iMenu Plus">
                 <Badge variant="brand" className="gap-1.5 !font-normal">
+                    <Crown size={12} strokeWidth={1.8} aria-hidden="true" />
                     iMenu Plus
-                    <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" />
+                    {value === "plusLink" && <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" />}
                 </Badge>
             </a>
         );
@@ -231,9 +213,8 @@ function ResourceImenuValue({ value }: { value?: string }) {
     if (value === "development") {
         return (
             <Tooltip text="Funcionalidade em desenvolvimento." color="bg-orange" showOnClick>
-                <span className="inline-flex cursor-help items-center justify-center gap-1.5">
+                <span role="img" aria-label="Em desenvolvimento" className="inline-flex cursor-help items-center justify-center">
                     <FontAwesomeIcon icon={icons.faClock} className="text-orange" aria-hidden="true" />
-                    Em desenvolvimento
                 </span>
             </Tooltip>
         );
