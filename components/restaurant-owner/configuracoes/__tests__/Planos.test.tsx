@@ -80,6 +80,9 @@ test("plans separate discovery from billing without selection checkboxes", () =>
     expect(html.match(/Conhecer o plano/g)).toHaveLength(1);
     expect(html).toContain('aria-label="Bônus do iMenu Plus"');
     expect(html).toContain('class="plans-product plans-plus"');
+    const plusCard = html.slice(html.indexOf('class="plans-product plans-plus"'));
+    expect(plusCard).toMatch(/class="plans-plus-status"[\s\S]*?>Disponível<\/span>/);
+    expect(plusCard).toMatch(/class="plans-plus-footer"[\s\S]*?class="plans-plus-price"[\s\S]*?R\$[\s\S]*?Cancele quando quiser[\s\S]*?Conhecer o plano/);
 });
 
 test("active plans keep recurring cancellation and prepaid renewal with collapsed history", () => {

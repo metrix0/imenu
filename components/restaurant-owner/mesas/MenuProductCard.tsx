@@ -120,21 +120,12 @@ export default function MenuProductCard(props: MenuProductCardProps) {
                         <div className="plans-plus-intro">
                             <div className="plans-plus-title">
                                 <h3>{props.name}</h3>
-                                <Badge variant={active ? "success" : "neutral"}>{active ? "Ativo" : "Disponível"}</Badge>
                             </div>
                             <p className="plans-product-description">{props.description}</p>
                         </div>
                     </div>
-                    <div className="plans-plus-price">
-                        <div>
-                            <strong>{props.priceLabel}</strong>
-                            <span>{props.priceSuffix ?? "/mês"}</span>
-                        </div>
-                        <small>Cancele quando quiser</small>
-                        <Button type="button" variant={active ? "secondary" : "primary"} onClick={stopAndLearnMore} className="plans-plus-cta">
-                            {active ? "Conhecer meu plano" : "Conhecer o plano"}
-                            <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" />
-                        </Button>
+                    <div className="plans-plus-status">
+                        <Badge variant={active ? "success" : "neutral"}>{active ? "Ativo" : "Disponível"}</Badge>
                     </div>
                 </div>
 
@@ -171,6 +162,19 @@ export default function MenuProductCard(props: MenuProductCardProps) {
                             })}
                         </ul>
                     </section>
+                </div>
+                <div className="plans-plus-footer">
+                    <div className="plans-plus-price">
+                        <div>
+                            <strong>{props.priceLabel}</strong>
+                            <span>{props.priceSuffix ?? "/mês"}</span>
+                        </div>
+                        <small>Cancele quando quiser</small>
+                    </div>
+                    <Button type="button" variant={active ? "secondary" : "primary"} onClick={stopAndLearnMore} className="plans-plus-cta">
+                        {active ? "Conhecer meu plano" : "Conhecer o plano"}
+                        <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" />
+                    </Button>
                 </div>
             </article>
         );
