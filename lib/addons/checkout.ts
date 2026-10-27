@@ -1,4 +1,6 @@
 import type { AddonProduct } from "@/lib/addons/products";
+import { isPromoQrDate, PROMO_QR_CODE, PROMO_QR_PRICE_CENTS } from "@/lib/addons/promoQr";
+import { isPromoQrAllowlistedOwnerEmail } from "@/lib/addons/promoQrEligibility";
 import { createMercadoPagoPixCharge, getMercadoPagoPixPayment, isMercadoPagoPixFailureStatus, MercadoPagoPixApiError } from "@/lib/payments/mercadoPagoPix";
 import { activateMercadoPagoQrTablePrepaid, saveMercadoPagoQrTablePayment, setMercadoPagoQrTablePending } from "@/lib/qr-table/mercadoPagoBilling";
 import { createHash } from "node:crypto";
@@ -40,6 +42,7 @@ type CheckoutBody = {
     paymentMethod?: "pix" | "credit_card";
     card?: CreditCardPaymentData;
     renew?: boolean;
+    coupon?: string;
 };
 
 type PayZuPixWithPaidAt = PayZuTransaction & {
@@ -265,6 +268,9 @@ async function setAsaasSubscriptionPending(
 
 export async function checkoutAddon(request: Request, product: AddonProduct) {
     try {
+        if (product.key === "qr_code_mesa") {
+            return NextResponse.json({ error: "O iMenu QR Code Mesa é gratuito. Acesse Mesas para começar." }, { status: 410 });
+        }
         const body = (await request.json()) as CheckoutBody;
         const restaurantId = String(body.restaurantId || "");
         const source = SOURCES.includes(body.source as QrTableSource)
@@ -272,6 +278,11 @@ export async function checkoutAddon(request: Request, product: AddonProduct) {
             : "mesas";
         const paymentMethod = body.paymentMethod;
         const renew = body.renew === true;
+        const coupon = String(body.coupon || "").trim().toUpperCase();
+        const wantsPromo = coupon === PROMO_QR_CODE;
+        if (coupon && !wantsPromo) {
+            return NextResponse.json({ error: "Cupom inválido." }, { status: 400 });
+        }
 
         if (!restaurantId) {
             return NextResponse.json(
@@ -298,6 +309,44 @@ export async function checkoutAddon(request: Request, product: AddonProduct) {
         }
 
         const owner = await requireRestaurantOwner(request, restaurantId);
+        if (wantsPromo) {
+            if (product.key !== "ia_plus" || renew || !isPromoQrDate()) {
+                return NextResponse.json({ error: "Este cupom não está disponível." }, { status: 400 });
+            }
+            if (paymentMethod !== "pix") {
+                return NextResponse.json({ error: "A promoção PROMOQR é válida somente para pagamento via Pix." }, { status: 400 });
+            }
+            const eligible = await query<{ eligible: boolean }>(`
+                SELECT (
+                    ($3::boolean OR EXISTS (
+                        SELECT 1 FROM public.restaurant_addons qr
+                        WHERE qr.restaurant_id = $1 AND qr.product_key = 'qr_code_mesa'
+                          AND EXISTS (
+                            SELECT 1 FROM public.restaurant_addon_payments legacy_payment
+                            WHERE legacy_payment.addon_id=qr.id AND legacy_payment.amount_cents > 0
+                              AND UPPER(legacy_payment.status) IN ('APPROVED','COMPLETED','CONFIRMED','RECEIVED','RECEIVED_IN_CASH')
+                          )
+                    )) AND NOT EXISTS (
+                        SELECT 1 FROM public.restaurant_addons plus
+                        WHERE plus.restaurant_id = $1 AND plus.product_key = 'ia_plus'
+                          AND (
+                            plus.status = 'active' OR
+                            (plus.status IN ('canceled', 'past_due') AND plus.current_period_ends_at > NOW()) OR
+                            EXISTS (
+                              SELECT 1 FROM public.restaurant_addon_payments payment
+                              WHERE payment.addon_id = plus.id
+                              AND payment.amount_cents = $2
+                              AND UPPER(payment.status) IN ('APPROVED','COMPLETED','CONFIRMED','RECEIVED','RECEIVED_IN_CASH')
+                            )
+                          )
+                    )
+                ) AS eligible
+            `, [restaurantId, PROMO_QR_PRICE_CENTS, isPromoQrAllowlistedOwnerEmail(owner.user.email)]);
+            if (eligible.rows[0]?.eligible !== true) {
+                return NextResponse.json({ error: "Este cupom é exclusivo para antigos assinantes do QR Code que ainda não utilizaram a promoção." }, { status: 403 });
+            }
+        }
+        const expectedPriceCents = wantsPromo ? PROMO_QR_PRICE_CENTS : product.priceCents;
         const addon = await prepareAddon(restaurantId, source, product);
         const hasAccess = hasQrTableAccess(addon);
         const prepaidAccess =
@@ -317,7 +366,7 @@ export async function checkoutAddon(request: Request, product: AddonProduct) {
         if (paymentMethod === "pix") {
             await cancelPendingAsaasSubscription(addon);
 
-            const reusedPayment = await existingPayZuPix(addon, {
+            const reusedPayment = !wantsPromo && await existingPayZuPix(addon, {
                 reuseCompleted: !renew,
             });
             // Existing PayZu charges remain payable/reconcilable; new charges use MP.
@@ -331,14 +380,16 @@ export async function checkoutAddon(request: Request, product: AddonProduct) {
             let payment = addon.payment_provider === "mercadopago" && addon.mercadopago_order_id
                 ? await getMercadoPagoPixPayment({ id: addon.mercadopago_order_id }) : null;
             if (payment && (isMercadoPagoPixFailureStatus(payment.status) ||
-                (payment.status === "approved" && addon.mercadopago_order_status === "APPROVED"))) payment = null;
+                (payment.status === "approved" && addon.mercadopago_order_status === "APPROVED") ||
+                Math.round(payment.amount * 100) !== expectedPriceCents ||
+                Boolean(payment.externalReference?.includes(`:${PROMO_QR_CODE}:`)) !== wantsPromo)) payment = null;
             if (!payment) {
                 // Retrying the same billing cycle must recover the same charge,
                 // including when the API succeeded but saving its ID failed.
                 const cycle = createHash("sha256").update(`${addon.id}:${addon.mercadopago_order_id || addon.payzu_payment_id || "initial"}`).digest("hex").slice(0, 16);
-                const reference = `${product.referencePrefix}:${addon.id}:${cycle}`;
+                const reference = `${product.referencePrefix}:${addon.id}:${wantsPromo ? `${PROMO_QR_CODE}:` : ""}${cycle}`;
                 payment = await createMercadoPagoPixCharge({
-                    amount: product.priceCents / 100,
+                    amount: expectedPriceCents / 100,
                     notificationUrl: `${origin}/api/webhooks/mercadopago`,
                     externalReference: reference,
                     idempotencyKey: reference,
@@ -348,13 +399,14 @@ export async function checkoutAddon(request: Request, product: AddonProduct) {
                     payerName: owner.restaurant.name,
                 });
             }
-            if (payment.paymentMethodId !== "pix" || Math.round(payment.amount * 100) !== product.priceCents ||
-                !payment.externalReference?.startsWith(`${product.referencePrefix}:${addon.id}:`)) {
+            if (payment.paymentMethodId !== "pix" || Math.round(payment.amount * 100) !== expectedPriceCents ||
+                !payment.externalReference?.startsWith(`${product.referencePrefix}:${addon.id}:`) ||
+                Boolean(payment.externalReference?.includes(`:${PROMO_QR_CODE}:`)) !== wantsPromo) {
                 throw new Error("Cobrança Mercado Pago divergente do pagamento solicitado.");
             }
             await setMercadoPagoQrTablePending({ addonId: addon.id, paymentId: payment.id,
                 status: payment.status === "approved" ? "PENDING" : payment.status, preserveAccess });
-            await saveMercadoPagoQrTablePayment({ addonId: addon.id, paymentId: payment.id, status: payment.status, paidAt: payment.paidAt, amountCents: product.priceCents });
+            await saveMercadoPagoQrTablePayment({ addonId: addon.id, paymentId: payment.id, status: payment.status, paidAt: payment.paidAt, amountCents: expectedPriceCents });
             const active = payment.status === "approved";
             if (active) await activateMercadoPagoQrTablePrepaid({ addonId: addon.id, paymentId: payment.id, status: payment.status, paidAt: payment.paidAt });
             return NextResponse.json({ active, recurring: false, paymentMethod, paymentStatus: payment.status,

@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { useLoyaltyStore } from "@/lib/stores/restaurant-owner/loyaltyStore";
 import Input from "@/components/ui/Input";
-import Button from "@/components/ui/Button";
 import Switch from "@/components/ui/Switch";
 import SaveStatus from "@/components/ui/SaveStatus";
+import Loader from "@/components/ui/Loader";
 import Card from "@/components/ui/Card";
 import Dropdown from "@/components/ui/Dropdown";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
@@ -13,6 +13,8 @@ import { faStar, faGift, faMoneyBillWave, faCheckSquare, faSquare, faChevronDown
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import { supabase } from "@/lib/database/supabaseClient";
 import { formatPrice } from "@/lib/utils/formatPrice";
+import { useAutoSave } from "@/lib/utils/useAutoSave";
+import type { LoyaltyProgram } from "@/lib/types/types";
 
 // Tipos auxiliares para a UI
 type MenuItemOption = {
@@ -37,19 +39,25 @@ export default function FidelidadePage() {
     
     const { 
         program, 
-        loading, 
         fetchProgram, 
         saveProgram, 
         updateField,
         setProgram 
     } = useLoyaltyStore();
 
-    const [hasChanges, setHasChanges] = useState(false);
-    const [saveError, setSaveError] = useState(false);
+    const { status: saveStatus, error: saveError, schedule: scheduleSave, reset: resetSave } = useAutoSave<LoyaltyProgram>(restaurantId, async (snapshot) => {
+        if (snapshot.active && !snapshot.reward_item_id)
+            throw new Error("Selecione o item da recompensa para salvar a ativação do programa.");
+        if (!Number.isInteger(snapshot.goal_count) || snapshot.goal_count < 1 || snapshot.goal_count > 100)
+            throw new Error("Informe uma meta entre 1 e 100 pedidos.");
+        if (!(await saveProgram(snapshot))) throw new Error("Não foi possível salvar o programa de fidelidade.");
+    });
     
     // Estados UI
     const [minOrderDisplay, setMinOrderDisplay] = useState("");
     const [isInitialized, setIsInitialized] = useState(false);
+    const [loadingProgram, setLoadingProgram] = useState(true);
+    const [loadError, setLoadError] = useState(false);
     const [menuItems, setMenuItems] = useState<MenuItemOption[]>([]);
     const [itemsLoading, setItemsLoading] = useState(false);
 
@@ -58,11 +66,22 @@ export default function FidelidadePage() {
     const [loadingDetails, setLoadingDetails] = useState(false);
 
     useEffect(() => {
+        let active = true;
+        setLoadingProgram(true);
+        setLoadError(false);
+        setIsInitialized(false);
+        setMinOrderDisplay("");
         if (restaurantId) {
-            fetchProgram(restaurantId);
+            void fetchProgram(restaurantId).then((loaded) => {
+                if (!active) return;
+                setLoadingProgram(false);
+                setLoadError(!loaded);
+                resetSave(loaded ? "saved" : "error");
+            });
             fetchMenuItems(restaurantId);
         }
-    }, [restaurantId]);
+        return () => { active = false; };
+    }, [restaurantId, fetchProgram, resetSave]);
 
     // Carregar detalhes quando o item da recompensa mudar (ou ao carregar a página)
     useEffect(() => {
@@ -119,13 +138,13 @@ export default function FidelidadePage() {
 
     // Sincronização inicial de valor monetário
     useEffect(() => {
-        if (program && !isInitialized) {
+        if (program && program.restaurant_id === restaurantId && !loadingProgram && !isInitialized) {
             const cents = program.min_order_value_cents || 0;
             const formatted = cents > 0 ? (cents / 100).toFixed(2).replace('.', ',') : "";
             setMinOrderDisplay(formatted);
             setIsInitialized(true);
         }
-    }, [program, isInitialized]);
+    }, [program, restaurantId, loadingProgram, isInitialized]);
 
     const handleChange = (field: any, value: any) => {
         if (!program) {
@@ -143,7 +162,8 @@ export default function FidelidadePage() {
         } else {
             updateField(field, value);
         }
-        setHasChanges(true);
+        const next = useLoyaltyStore.getState().program;
+        if (next) scheduleSave(next);
     };
 
     const handleMoneyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -179,14 +199,12 @@ export default function FidelidadePage() {
         handleChange("reward_subitem_ids", newIds);
     };
 
-    const handleSave = async () => {
-        setSaveError(false);
-        const saved = await saveProgram();
-        setSaveError(!saved);
-        if (saved) setHasChanges(false);
-    };
-
-    if (loading && !program) return <div className="p-8">Carregando...</div>;
+    if (loadingProgram) return (
+        <div role="status" aria-label="Carregando programa de fidelidade" className="flex justify-center p-10">
+            <Loader className="border-t-brand" />
+        </div>
+    );
+    if (loadError) return <p role="alert" className="p-10 text-center text-red-600">Não foi possível carregar o programa de fidelidade.</p>;
 
     const safeProgram = program || { 
         active: false, 
@@ -201,10 +219,14 @@ export default function FidelidadePage() {
 
     return (
         <div className="max-w-6xl mx-auto pb-20 px-4 sm:px-6 pt-8">
-            <div className="mb-8 flex flex-col gap-1">
-                <h1 className="text-3xl font-bold text-gray-900">Programa de Fidelidade</h1>
-                <p className="text-gray-500 mt-1 2xl:text-lg">Defina o item que será dado como recompensa e quais complementos já vêm inclusos.</p>
+            <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-900">Programa de Fidelidade</h1>
+                    <p className="text-gray-500 mt-1 2xl:text-lg">Defina o item que será dado como recompensa e quais complementos já vêm inclusos.</p>
+                </div>
+                <SaveStatus status={saveStatus} className="self-start sm:self-auto" />
             </div>
+            {saveError ? <p role="alert" className="mb-4 text-sm text-red-600">{saveError}</p> : null}
 
             <Card className="space-y-6 p-6">
                 <div className="flex justify-between items-center border-b border-gray-100 pb-6">
@@ -225,7 +247,8 @@ export default function FidelidadePage() {
                         <Input
                             label="Meta de Pedidos (Selos)"
                             type="number"
-                            min={0}
+                            min={1}
+                            max={100}
                             placeholder="Ex: 10"
                             value={safeProgram.goal_count}
                             onChange={(e) => handleChange("goal_count", Number(e.target.value))}
@@ -253,7 +276,9 @@ export default function FidelidadePage() {
                         <div className="w-full">
                             <label className="block text-sm font-medium text-gray-700 mb-1">Item Principal (Gratuito)</label>
                             {itemsLoading ? (
-                                <div className="h-10 bg-gray-100 rounded animate-pulse" />
+                                <div role="status" aria-label="Carregando itens" className="flex justify-center p-4">
+                                    <Loader className="border-t-brand" />
+                                </div>
                             ) : (
                                 <Dropdown 
                                     aria-label="Item principal gratuito"
@@ -274,9 +299,8 @@ export default function FidelidadePage() {
                                 </h4>
                                 
                                 {loadingDetails ? (
-                                    <div className="space-y-2">
-                                        <div className="h-4 w-1/3 bg-gray-200 rounded animate-pulse" />
-                                        <div className="h-8 w-full bg-gray-200 rounded animate-pulse" />
+                                    <div role="status" aria-label="Carregando complementos" className="flex justify-center p-4">
+                                        <Loader className="border-t-brand" />
                                     </div>
                                 ) : selectedItemDetails?.groups.length === 0 ? (
                                     <p className="text-sm text-gray-400 italic">Este item não possui complementos.</p>
@@ -333,17 +357,6 @@ export default function FidelidadePage() {
                     </div>
                 </fieldset>
 
-                <div className="pt-4 flex items-center justify-end gap-3">
-                    <SaveStatus status={loading ? "saving" : saveError ? "error" : hasChanges || !program ? "idle" : "saved"} />
-                    {hasChanges && <Button
-                        onClick={handleSave} 
-                        loading={loading}
-                        disabled={!hasChanges && !loading}
-                        variant={hasChanges ? "primary" : "secondary"}
-                    >
-                        Salvar Alterações
-                    </Button>}
-                </div>
             </Card>
         </div>
     );

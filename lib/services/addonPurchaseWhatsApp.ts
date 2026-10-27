@@ -21,9 +21,11 @@ const ADDON_PURCHASE_MESSAGES: Record<AddonPurchaseRow["product_key"], string> =
     ia_plus: [
         "Oi! Tudo bem? Sou a Ellen, do iMenu 🍔",
         "",
-        "Vi que você acabou de assinar o *iMenu IA Plus*! Muito obrigado pela confiança! 💙",
+        "Vi que você acabou de assinar o *iMenu Plus*! Muito obrigado pela confiança! 💙",
         "",
-        "*BÔNUS:* Temos um bônus para você. Com o IA Plus você ganha atendimento preferencial e a possibilidade de requisitar modificações e integrações no sistema! Essas requisições podem ser feitas por aqui mesmo! 🚀",
+        "Seu plano inclui Automações de Marketing WhatsApp, Assistente IA e Vendas IA. Bônus: atendimento exclusivo, upsells automáticos, atualizações de pedidos pelo WhatsApp e download do cardápio em PDF.",
+        "",
+        "*BÔNUS:* Temos um bônus para você. Com o iMenu Plus você ganha atendimento preferencial e a possibilidade de requisitar modificações e integrações no sistema! Essas requisições podem ser feitas por aqui mesmo! 🚀",
         "",
         "Ficamos à disposição para ajudar com o que necessário.",
     ].join("\n"),
@@ -105,7 +107,7 @@ export async function sendAddonPurchaseWhatsApp(input: {
                 LEFT JOIN auth.users AS owner
                   ON owner.id = restaurant.user_id
                 WHERE addon.id = $1
-                  AND addon.product_key IN ('ia_plus', 'qr_code_mesa')
+                  AND addon.product_key = 'ia_plus'
                 LIMIT 1
             `,
             [input.addonId, input.paymentId]

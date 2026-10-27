@@ -18,6 +18,7 @@ export function formatCurrencyFromCents(value: number): string {
 }
 
 export function addonProductLabel(productKey: string): string {
+    if (productKey === "ia_plus") return "iMenu Plus";
     if (productKey === "qr_code_mesa") return "QR Code Mesa";
     return productKey;
 }

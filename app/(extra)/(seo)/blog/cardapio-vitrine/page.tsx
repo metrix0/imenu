@@ -29,8 +29,8 @@ const faq = [
         answer: "Não. A Vitrine permite consultar produtos, fotos, descrições, preços e complementos, mas não oferece carrinho nem finalização de pedidos. Para receber pedidos online, compartilhe o link do delivery ou o acesso de uma mesa configurada para pedidos.",
     },
     {
-        question: "Preciso de iMenu QR e IA Plus ao mesmo tempo?",
-        answer: "Não. Basta ter acesso válido ao iMenu QR ou ao iMenu IA Plus. O Modo Vitrine está incluído em qualquer um desses planos, sem uma assinatura separada para a Vitrine.",
+        question: "Preciso de iMenu QR e iMenu Plus ao mesmo tempo?",
+        answer: "Não. O Modo Vitrine é gratuito para todos os restaurantes, sem necessidade de assinatura.",
     },
     {
         question: "Ativar a Vitrine desativa meu delivery ou os pedidos das mesas?",
@@ -161,9 +161,8 @@ export default function CardapioVitrinePage() {
 
             <BlogSection id="como-ativar" title="Como ativar o Modo Vitrine no iMenu">
                 <p>
-                    O recurso está incluído no <strong>iMenu QR ou no iMenu IA Plus</strong>.
-                    Basta ter acesso válido a um deles: não é necessário assinar os dois
-                    e não existe uma assinatura separada para a Vitrine.
+                    O <strong>Modo Vitrine é gratuito</strong> para todos os restaurantes.
+                    Não é necessário contratar uma assinatura.
                 </p>
                 <BlogSteps items={[
                     {
@@ -171,8 +170,8 @@ export default function CardapioVitrinePage() {
                         description: <>No painel do restaurante, acesse <Link href="/painel/configuracoes" className="font-semibold text-brand underline">Configurações</Link>. O cartão Modo Vitrine aparece logo acima de Compartilhar Cardápio Delivery.</>,
                     },
                     {
-                        title: "Se necessário, desbloqueie o acesso",
-                        description: <>Se aparecer Desbloquear Modo Vitrine, o botão leva à página <Link href="/painel/planos" className="font-semibold text-brand underline">Planos</Link>. Escolha iMenu QR ou IA Plus de acordo com os outros recursos que você quer usar.</>,
+                        title: "Encontre o Modo Vitrine",
+                        description: "Localize o cartão Modo Vitrine em Configurações. O acesso é gratuito, sem etapa de contratação.",
                     },
                     {
                         title: "Ative o Modo Vitrine",

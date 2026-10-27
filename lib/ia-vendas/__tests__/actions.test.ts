@@ -187,6 +187,45 @@ test("automatic database retry stops after the single retry", async () => {
   expect(attempts).toBe(2);
 });
 
+test("automatic upsell can be proposed as a reversible singleton update", async () => {
+  current = { restaurant_id: restaurant, enabled: false };
+  const proposal = await propose(restaurant, id, id, {
+    title: "Habilitar Upsell Automático", reason: "Recomendações automáticas",
+    operations: [{ entity: "automatic_upsell", kind: "update", id: restaurant, values: { enabled: true } }],
+  });
+  expect(proposal.operations[0].before).toEqual({ enabled: false });
+  expect(calls.some(({sql}) => sql.includes("UPDATE public.automatic_upsell"))).toBe(false);
+  action.operations = proposal.operations;
+  await execute(restaurant, id, false);
+  expect(calls.some(({sql,params}) => sql.includes("UPDATE public.automatic_upsell") && params[0] === restaurant && params[1] === restaurant)).toBe(true);
+});
+
+test("automatic upsell cannot be enabled by AI without iMenu Plus", async () => {
+  plus = false;
+  current = { restaurant_id: restaurant, enabled: false };
+  action.operations = [{
+    entity: "automatic_upsell", kind: "update", id: restaurant,
+    label: "Upsell Automático", values: { enabled: true },
+    before: { enabled: false },
+  }];
+  await expect(execute(restaurant, id, false)).rejects.toThrow("iMenu Plus");
+  expect(calls.some(({ sql }) => sql.includes("UPDATE public.automatic_upsell"))).toBe(false);
+});
+
+test("marketing cannot be enabled by AI without iMenu Plus", async () => {
+  plus = false;
+  const { DEFAULT_AUTOMATIONS } = await import("@/lib/services/crmRules");
+  const settings = { ...DEFAULT_AUTOMATIONS, cart: { ...DEFAULT_AUTOMATIONS.cart, enabled: true } };
+  current = { restaurant_id: restaurant, automations: DEFAULT_AUTOMATIONS };
+  action.operations = [{
+    entity: "whatsapp_bot_settings", kind: "update", id: restaurant,
+    label: "Marketing", values: { automations: settings },
+    before: { automations: DEFAULT_AUTOMATIONS },
+  }];
+  await expect(execute(restaurant, id, false)).rejects.toThrow("iMenu Plus");
+  expect(calls.some(({ sql }) => sql.includes("UPDATE public.whatsapp_bot_settings"))).toBe(false);
+});
+
 test('numeric discount snapshots normalize PostgreSQL decimal strings', async () => {
   current = { id, restaurant_id: restaurant, type: 'percent', value: '10.00', active: true };
   const proposal = await propose(restaurant, id, id, {title:'Desconto', reason:'Revisão', operations:[{entity:'promotions',kind:'update',id,values:{value:15}}]});
@@ -200,4 +239,32 @@ test('undo restores numeric discounts returned as strings by PostgreSQL', async 
   const result = await execute(restaurant,id,true);
   expect(result.status).toBe('undone');
   expect(calls.find(x=>x.sql.includes('UPDATE public.promotions'))?.params).toEqual([restaurant,id,10]);
+});
+
+test("Marketing apply and undo preserve independent order notification settings", async () => {
+  const { DEFAULT_AUTOMATIONS } = await import("@/lib/services/crmRules");
+  current = { restaurant_id: restaurant, automations: { ...structuredClone(DEFAULT_AUTOMATIONS), order_notifications_enabled: true } };
+  const originalImpl = c.query.getMockImplementation()!;
+  c.query.mockImplementation(async (sql: string, params: any[] = []) => {
+    if (sql.includes("UPDATE public.whatsapp_bot_settings")) {
+      calls.push({ sql, params });
+      const incoming = JSON.parse(params[2]);
+      current.automations = sql.includes("||") ? { ...current.automations, ...incoming } : incoming;
+      return { rows: [structuredClone(current)], rowCount: 1 };
+    }
+    return originalImpl(sql, params);
+  });
+  try {
+    const settings = { ...structuredClone(DEFAULT_AUTOMATIONS), cart: { ...DEFAULT_AUTOMATIONS.cart, message: "Nova mensagem" } };
+    const proposal = await propose(restaurant, id, id, { title: "Editar Marketing", reason: "Revisão", operations: [
+      { entity: "whatsapp_bot_settings", kind: "update", id: restaurant, values: { automations: settings } },
+    ] });
+    action.operations = proposal.operations;
+    action = await execute(restaurant, id, false);
+    expect(current.automations.order_notifications_enabled).toBe(true);
+    current.automations.order_notifications_enabled = false;
+    await execute(restaurant, id, true);
+    expect(current.automations.order_notifications_enabled).toBe(false);
+    expect(current.automations.cart.message).toBe(DEFAULT_AUTOMATIONS.cart.message);
+  } finally { c.query.mockImplementation(originalImpl); }
 });

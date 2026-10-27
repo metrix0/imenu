@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
+import sharp from "sharp";
 import { authorize } from "@/lib/dev/authorize";
 
 import { query } from "@/lib/database/sql";
+import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 import { releaseExpiredSupportHandoffs } from "@/lib/services/supportWhatsApp";
 import {
     createSupportBlast, listSupportBlasts, getSupportBlastRecipients,
@@ -238,7 +241,18 @@ export async function POST(request: Request) {
         const authorization = await authorizeDevRequest(request);
         if (!authorization.ok) return authorization.response;
 
-        const body = (await request.json()) as Record<string, unknown>;
+        const form = request.headers.get("content-type")?.startsWith("multipart/form-data")
+            ? await request.formData() : null;
+        const imagePart = form?.get("image");
+        const imageFile = imagePart instanceof File ? imagePart : null;
+        const body = form ? {
+            action: form.get("action"),
+            connection: form.get("connection"),
+            message: form.get("message"),
+            dailyLimit: form.get("dailyLimit") === "null" ? null : Number(form.get("dailyLimit")),
+            skipRecent: form.get("skipRecent") !== "false",
+            recipients: JSON.parse(String(form.get("recipients") || "[]")),
+        } as Record<string, unknown> : (await request.json()) as Record<string, unknown>;
         action = String(body.action || "");
         const connectionTarget =
             body.connection === "blast" ? "blast" : "support";
@@ -246,7 +260,7 @@ export async function POST(request: Request) {
             connectionTarget === "blast" ? "blast" : "default";
 
         if (action === "create_blast") {
-            if (body.dailyLimit === null) {
+            if (body.dailyLimit === null && !imageFile) {
                 return NextResponse.json(
                     { error: "Envios sem cadência devem ser feitos com a aba aberta." },
                     { status: 400 }
@@ -255,16 +269,47 @@ export async function POST(request: Request) {
             const recipients = Array.isArray(body.recipients)
                 ? body.recipients as BlastRecipientInput[] : [];
             const cadence = body.dailyLimit === null ? null : Number(body.dailyLimit);
+            const campaignId = randomUUID();
+            let imagePath: string | null = null;
+            const storage = imageFile ? createSupabaseServerClient().storage.from("support-blast-media") : null;
             try {
+                if (imageFile) {
+                    if (imageFile.size > 8 * 1024 * 1024 ||
+                        !["image/jpeg", "image/png", "image/webp"].includes(imageFile.type)) {
+                        throw new Error("Envie uma imagem JPG, PNG ou WebP de até 8 MB.");
+                    }
+                    const image = await sharp(Buffer.from(await imageFile.arrayBuffer()), {
+                        limitInputPixels: 40_000_000,
+                    }).rotate().resize(1200, 1200, {
+                        fit: "inside", withoutEnlargement: true,
+                    }).flatten({ background: "#ffffff" }).jpeg({ quality: 82 }).toBuffer();
+                    if (image.length > 2 * 1024 * 1024) {
+                        throw new Error("Imagem muito grande após otimização.");
+                    }
+                    imagePath = `campaigns/${campaignId}.jpg`;
+                    const { error: uploadError } = await storage!.upload(imagePath, image, {
+                        contentType: "image/jpeg", upsert: false,
+                    });
+                    if (uploadError) throw uploadError;
+                }
                 const id = await createSupportBlast({
                     sender: connectionTarget === "blast" ? "blast" : "support",
                     message: String(body.message || ""),
                     dailyLimit: cadence,
                     skipRecent: body.skipRecent !== false,
                     recipients,
+                    campaignId,
+                    imagePath,
                 });
                 return NextResponse.json({ ok: true, id });
             } catch (error) {
+                if (imagePath && storage) {
+                    try {
+                        await storage.remove([imagePath]);
+                    } catch (cleanupError) {
+                        console.warn("[SUPPORT_BLAST] image_cleanup_failed:", cleanupError);
+                    }
+                }
                 return NextResponse.json(
                     { error: error instanceof Error ? error.message : "Falha ao criar envio." },
                     { status: 400 }

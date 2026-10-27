@@ -1,8 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import {
+    Bot, ChevronDown, Crown, ExternalLink, FileDown, Headset, Info, Megaphone, MessageCircle,
+    ScanLine, ShoppingCart, TrendingUp,
+    type LucideIcon,
+} from "lucide-react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faArrowRight,
@@ -11,6 +16,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { icons } from "@/lib/utils/fontawesome";
 import Button from "@/components/ui/Button";
+import Badge from "@/components/ui/Badge";
 import PanelShortcutPrompt from "@/components/ui/PanelShortcutPrompt";
 import Tooltip from "@/components/ui/Tooltip";
 import Footer from "@/components/common/Footer";
@@ -18,6 +24,7 @@ import SupportButton, {
     SupportButtonRef,
 } from "@/components/common/SupportButton";
 import BestSellers from "@/components/landing/BestSellers";
+import { IA_PLUS_BENEFITS, IA_PLUS_BONUSES, IA_PLUS_PRICE_LABEL } from "@/lib/addons/products";
 import SignupConfirmationHandler from "@/components/auth/SignupConfirmationHandler";
 import "@/app/reveal.css";
 
@@ -42,6 +49,110 @@ const LOGOS = [
     },
 ];
 
+type ResourceRow = readonly [string, string, string];
+const RESOURCE_SECTIONS: readonly { title: string; imenu?: string; competitor?: string; rows: readonly ResourceRow[] }[] = [
+    {
+        title: "Cardápio Digital Ilimitado",
+        imenu: "check",
+        competitor: "limited",
+        rows: [
+            ["Pedidos ilimitados", "checkOnly", "limited"],
+            ["Zero Taxas", "zeroFees", "taxed"],
+            ["Fotos em Alta qualidade", "check", "limited"],
+            ["Aplicativo para celular", "check", "limited"],
+            ["Impressão dos pedidos", "check", "limited"],
+            ["Seu domínio customizado", "check", "limited"],
+            ["SEO (automático, mais vendas)", "check", "limited"],
+            ["Identidade visual personalizada", "check", "limited"],
+            ["Sem marca d'água", "check", "limited"],
+            ["Painel para Garçom e Motoboy", "check", "limited"],
+        ],
+    },
+    {
+        title: "Pedidos e Delivery",
+        rows: [
+            ["Robô WhatsApp", "check", "limited"],
+            ["Alta conversão", "check", "limited"],
+            ["Cliente acompanha pedido", "tracking", "limited"],
+            ["Agendamento de pedido", "check", "limited"],
+            ['Modo "Só trabalho com Encomendas"', "check", "limited"],
+            ["Recomendação de Produtos no carrinho (Manual)", "check", "limited"],
+            ["Notificações de pedidos", "notification", "limited"],
+            ["Atualizar cliente sobre status do pedido via WhatsApp Automaticamente", "plusLink", "limited"],
+            ["Recomendação de Produtos no carrinho (Automática)", "iMenu Plus", "limited"],
+        ],
+    },
+    {
+        title: "Operação e CRM",
+        rows: [
+            ["CRM", "check", "limited"],
+            ["Rastreio de hábitos de consumo com IA", "iMenu Plus", "limited"],
+            ["Gestor de pedidos (balcão)", "check", "limited"],
+            ["Suporte humanizado", "support", "limited"],
+            ["Painel Financeiro", "check", "limited"],
+            ["Fechamento de Caixa", "check", "limited"],
+            ["QR Code na mesa", "Grátis", "limited"],
+            ["Painel do Garçom", "Grátis", "limited"],
+            ["Bugs Corrigidos em 1 dia útil", "check", "limited"],
+            ["Modo Vitrine (cardápio sem pedidos)", "check", "limited"],
+            ["Dividir Pizza em vários sabores", "check", "limited"],
+            ["Solicitação de integrações e funcionalidades", "iMenu Plus", "limited"],
+            ["API Aberta", "development", "-"],
+        ],
+    },
+    {
+        title: "Marketing e Analytics",
+        rows: [
+            ["Promoções Avançadas", "check", "limited"],
+            ["Cupons de desconto", "check", "limited"],
+            ["Fidelidade", "check", "limited"],
+            ["Google Analytics Integrado", "check", "limited"],
+            ["Pixel Meta (Facebook/Instagram) Integrado", "check", "limited"],
+            ["Relatórios e Analytics", "analyticsDetails", "limited"],
+            ["Link para WhatsApp e redes", "check", "limited"],
+            ["Mensagens de Marketing Automáticas", "iMenu Plus", "limited"],
+        ],
+    },
+    {
+        title: "Inteligência Artificial",
+        rows: [
+            ["Scanear Cardápio com IA", "scan", "limited"],
+            ["Assistente IA: para Melhorar o Cardápio", "assistantLimited", "limited"],
+            ["Análise avançada com IA", "iMenu Plus", "limited"],
+            ["Geração de imagens com IA", "iMenu Plus", "limited"],
+        ],
+    },
+];
+
+const FREE_PLAN_FEATURES = [
+    "Cardápio digital completo",
+    "Pedidos delivery ilimitados",
+    "Robô WhatsApp",
+    "QR Code Mesa e Painel Garçom",
+    "Modo Vitrine",
+    "Cupons e relatórios",
+    "Assistente IA com uso gratuito limitado",
+    "Pedidos agendados e encomendas",
+    "Gestão de pedidos no balcão",
+    "Impressão de pedidos",
+    "Painel financeiro e fechamento de caixa",
+    "Google Analytics e Pixel Meta",
+] as const;
+
+const PLUS_BENEFIT_ICONS: Record<string, LucideIcon> = {
+    "Automações de Marketing WhatsApp": Megaphone,
+    "Assistente IA": Bot,
+    "Vendas IA": TrendingUp,
+};
+
+const PLUS_BONUS_ICONS: Record<string, LucideIcon> = {
+    "Atendimento exclusivo": Headset,
+    "Upsells automáticos": ShoppingCart,
+    "Atualizações de pedidos pelo WhatsApp": MessageCircle,
+    "Scan de cardápio com IA": ScanLine,
+    "Download Cardápio em PDF": FileDown,
+};
+
 const LANDING_HERO_PRIMARY_BUTTON =
     "!min-h-12 !rounded-lg !border !border-[#d93d00] !bg-[#d93d00] !px-6 !py-[13px] !text-base !leading-5 !font-medium !whitespace-nowrap !text-white !shadow-none hover:!border-[#c43700] hover:!bg-[#c43700] focus:!ring-[#d93d00]";
 const LANDING_HERO_SECONDARY_BUTTON =
@@ -50,6 +161,72 @@ const PANEL_LOGIN_CLICK_COUNT_KEY = "imenu:landing-panel-login-clicks";
 const PANEL_AUTO_REDIRECT_KEY = "imenu:landing-panel-auto-redirect";
 const PANEL_PROMPT_DISMISSED_KEY = "imenu:landing-panel-prompt-dismissed";
 const PANEL_PROMPT_CLICK_THRESHOLD = 2;
+
+function ResourceAvailabilityLabel({ kind, label }: { kind: "free" | "limited" | "taxed"; label?: string }) {
+    const free = kind === "free";
+
+    return (
+        <Badge variant={free ? "success" : "danger"} className="gap-1.5 !whitespace-normal text-center !font-normal">
+            <FontAwesomeIcon icon={free ? icons.faCheck : icons.faXmark} className="shrink-0" aria-hidden="true" />
+            {label ?? (free ? "Grátis" : kind === "taxed" ? "Pago ou taxado" : "Pago ou limitado")}
+        </Badge>
+    );
+}
+
+function ResourceImenuValue({ value }: { value?: string }) {
+    if (!value) return null;
+
+    if (value === "check" || value === "checkOnly" || value === "Grátis") {
+        return <ResourceAvailabilityLabel kind="free" />;
+    }
+    if (value === "zeroFees") {
+        return (
+            <Tooltip text="Sem taxa por transação. O Pix Online tem taxa de 0,99% por pedido." showOnClick>
+                <button type="button" aria-label="Detalhes da taxa do Pix Online" className="cursor-help">
+                    <Badge variant="success" className="gap-1.5 !font-normal">
+                        <FontAwesomeIcon icon={icons.faCheck} aria-hidden="true" />
+                        Grátis
+                        <Info size={13} strokeWidth={1.75} className="shrink-0" aria-hidden="true" />
+                    </Badge>
+                </button>
+            </Tooltip>
+        );
+    }
+    if (value === "tracking") return <ResourceAvailabilityLabel kind="free" label="Grátis (Página e WhatsApp)" />;
+    if (value === "notification") return <ResourceAvailabilityLabel kind="free" label="No seu e do cliente (WhatsApp/Painel)" />;
+    if (value === "support") return <ResourceAvailabilityLabel kind="free" label="Todos os dias" />;
+    if (value === "scan") return <ResourceAvailabilityLabel kind="free" label="Grátis. Fotos, PDFs ou links e tenha o cardápio pronto em segundos" />;
+    if (value === "analyticsDetails") return <ResourceAvailabilityLabel kind="free" label="Cliques, visualizações do cardápio, valor médio do carrinho e origem dos acessos" />;
+    if (value === "assistantLimited") return <ResourceAvailabilityLabel kind="free" label="Grátis, com limites" />;
+
+    if (value === "plusLink" || value === "iMenu Plus") {
+        return (
+            <a href="#planos" className="inline-flex rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" aria-label="Conhecer o iMenu Plus">
+                <Badge variant="brand" className="gap-1.5 !font-normal">
+                    <Crown size={12} strokeWidth={1.8} aria-hidden="true" />
+                    iMenu Plus
+                    <ExternalLink size={12} strokeWidth={1.8} aria-hidden="true" />
+                </Badge>
+            </a>
+        );
+    }
+    if (value === "development") {
+        return (
+            <Tooltip text="Funcionalidade em desenvolvimento." color="bg-orange" showOnClick>
+                <span role="img" aria-label="Em desenvolvimento" className="inline-flex cursor-help items-center justify-center">
+                    <FontAwesomeIcon icon={icons.faClock} className="text-orange" aria-hidden="true" />
+                </span>
+            </Tooltip>
+        );
+    }
+    return value;
+}
+
+function ResourceCompetitorValue({ value }: { value?: string }) {
+    if (value === "limited") return <ResourceAvailabilityLabel kind="limited" />;
+    if (value === "taxed") return <ResourceAvailabilityLabel kind="taxed" />;
+    return value ?? null;
+}
 
 export default function LandingPage() {
     const router = useRouter();
@@ -193,6 +370,12 @@ export default function LandingPage() {
                         className="hidden !text-[13px] !font-medium text-[#51565e] transition-colors hover:text-[#1d1d1d] md:block"
                     >
                         Recursos
+                    </a>
+                    <a
+                        href="#planos"
+                        className="hidden !text-[13px] !font-medium text-[#51565e] transition-colors hover:text-[#1d1d1d] md:block"
+                    >
+                        Planos
                     </a>
 
                     <div className="hidden h-6 w-px bg-gray-300 md:block min-[1400px]:h-7 2xl:h-8" />
@@ -453,7 +636,7 @@ export default function LandingPage() {
 
             <section
                 id="recursos"
-                className="mx-0 px-4 pt-30 md:mx-24 md:px-8 md:py-20 min-[1400px]:mx-28 min-[1400px]:py-24 2xl:mx-38"
+                className="mx-0 px-4 pt-30 md:mx-24 md:px-8 md:pt-20 md:pb-8 min-[1400px]:mx-28 min-[1400px]:pt-24 min-[1400px]:pb-10 2xl:mx-38"
             >
                 <h2 className="reveal fade-left mb-3 text-center text-4xl font-bold text-brand md:text-left min-[1400px]:text-[2.75rem] 2xl:text-[3.2rem]">
                     Venda mais <span className="hidden md:inline-block">com iMenu</span>
@@ -464,7 +647,73 @@ export default function LandingPage() {
                     Compare os benefícios entre o iMenu e outros cardápios digitais:
                 </h2>
 
-                <div className="overflow-x-auto">
+                <div className="mx-auto max-w-md md:hidden">
+                    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                        <h3 className="text-lg font-semibold text-gray-900">Tudo isso grátis no iMenu</h3>
+                        <ul className="mt-4 space-y-3">
+                            {FREE_PLAN_FEATURES.slice(0, 6).map((feature) => (
+                                <li key={feature} className="flex items-start gap-3 text-sm leading-5 text-gray-700">
+                                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-600">
+                                        <FontAwesomeIcon icon={icons.faCheck} aria-hidden="true" className="text-[10px]" />
+                                    </span>
+                                    <span>{feature}</span>
+                                </li>
+                            ))}
+                        </ul>
+                        <Button
+                            className="mt-6 w-full gap-2 !min-h-11 !text-sm"
+                            onClick={() => router.push("/restaurante/registrar")}
+                        >
+                            Criar meu cardápio grátis
+                            <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" />
+                        </Button>
+                    </div>
+
+                    <details className="group mt-3 overflow-hidden rounded-xl border border-gray-200 bg-white">
+                        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-gray-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand [&::-webkit-details-marker]:hidden">
+                            Ver comparação completa
+                            <ChevronDown size={18} aria-hidden="true" className="shrink-0 text-gray-500 transition-transform group-open:rotate-180" />
+                        </summary>
+                        <div className="space-y-5 border-t border-gray-100 px-4 py-5">
+                            {RESOURCE_SECTIONS.map((section) => (
+                                <section key={section.title}>
+                                    <h4 className="text-sm font-semibold text-gray-900">{section.title}</h4>
+                                    {(section.imenu || section.competitor) && (
+                                        <div className="mt-2 grid grid-cols-2 gap-3 rounded-lg bg-gray-50 p-3">
+                                            <div className="min-w-0">
+                                                <p className="mb-1 text-xs text-gray-500">iMenu</p>
+                                                <ResourceImenuValue value={section.imenu} />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="mb-1 text-xs text-gray-500">Concorrentes</p>
+                                                <ResourceCompetitorValue value={section.competitor} />
+                                            </div>
+                                        </div>
+                                    )}
+                                    <ul className="mt-2 divide-y divide-gray-100">
+                                        {section.rows.map(([feature, imenu, competitor]) => (
+                                            <li key={feature} className="py-3">
+                                                <p className="text-sm font-medium leading-5 text-gray-800">{feature}</p>
+                                                <div className="mt-2 grid grid-cols-2 gap-3">
+                                                    <div className="min-w-0">
+                                                        <p className="mb-1 text-xs text-gray-500">iMenu</p>
+                                                        <ResourceImenuValue value={imenu} />
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className="mb-1 text-xs text-gray-500">Concorrentes</p>
+                                                        <ResourceCompetitorValue value={competitor} />
+                                                    </div>
+                                                </div>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </section>
+                            ))}
+                        </div>
+                    </details>
+                </div>
+
+                <div className="hidden overflow-x-auto md:block">
                     <table className="m-auto w-auto min-w-[620px] border-collapse overflow-hidden rounded-sm md:w-[80%] min-[1400px]:text-lg 2xl:rounded-lg 2xl:text-[1.4rem]">
                         <thead className="border-b border-gray-200 text-left">
                             <tr className="bg-gray-100">
@@ -482,104 +731,155 @@ export default function LandingPage() {
                             </tr>
                         </thead>
                         <tbody className="[&>tr>td]:p-4 min-[1400px]:[&>tr>td]:p-5 [&>tr>td]:2xl:p-6 [&>tr:nth-child(even)]:bg-gray-50">
-                            {[
-                                ["Totalmente grátis, para sempre", "check", "Mensalidade e taxas"],
-                                ["Pedidos ilimitados", "check", "Cada vez mais caro"],
-                                ["Robô WhatsApp", "check", "Taxas adicionais"],
-                                ["Aplicativo para celular", "check", "Não"],
-                                ["Converte o cliente", "check", "Baixa Conversão"],
-                                ["Assistente IA", "check", "Não"],
-                                ["Vendas IA (Análise)", "check", "Não"],
-                                ["Gestor de pedidos (balcão)", "check", "Limitado"],
-                                ["Suporte humanizado", "Todos os dias", "Robô, fila ou e-mail"],
-                                ["Impressão dos pedidos", "check", "Não"],
-                                ["Seu domínio customizado", "check", "Não"],
-                                ["SEO", "check", "Não otimizado"],
-                                ["Acompanhamento do pedido", "Acompanhamento em tempo real via Página e Whatsapp", "Clientes ficam perdidos"],
-                                ["Taxa por Transação", "SEM TAXAS. Apenas Pix Online: 0.99% por pedido.", "5%, 15%, 30%"],
-                                ["Scanear Cardápio com IA", "Envie Fotos, PDFs ou Links e tenha o cardápio pronto em segundos", "Manual"],
-                                ["Dados para análise", "Clicks, Visualizações do Cardápio, $ médio do Carrinho, Clicks por Plataforma, etc", "Limitado"],
-                                ["Calcular Taxa de Entrega", "Pelo Raio (KM) ou Bairro", "Configurações confusas"],
-                                ["Fotos em Alta qualidade", "check", "Baixa qualidade"],
-                                ["Customização de opcionais", "check", "Limitado"],
-                                ["Identidade visual personalizada", "check", "Limitado"],
-                                ["Sem marca d'água", "check", "Com marca d'água"],
-                                ["Link para WhatsApp e redes", "check", "Limitado"],
-                                ["Painel Financeiro", "check", "Limitado"],
-                                ["Fechamento de Caixa", "check", "Varia por plataforma"],
-                                ["Sistema em nuvem", "check", "Não"],
-                                ["Google Analytics Integrado", "check", "Limitado"],
-                                ["Pixel Meta (Facebook/Instagram) Integrado", "check", "Limitado"],
-                                ["Cupons de desconto", "check", "Pouca customização"],
-                                ["Sistema disponível para celulares", "check", "Indisponível"],
-                                ["Notificações no celular", "check", "Não"],
-                                ["QR Code na mesa", "Grátis", "R$ 99,90 por mês (muito mais caro)"],
-                                ["Modo Vitrine (cardápio sem pedidos)", "Grátis", "Varia por plataforma"],
-                                ["App para garçom", "check", "Pago"],
-                                ["Agendamento de pedido", "check", "Não"],
-                                ["Modo Encomenda", "check", "Não"],
-                                ["Dividir Pizza em vários sabores", "check", "Não tem ou máximo 2"],
-                                ["Relatórios e Analytics", "check", "Limitado"],
-                                ["Sem bugs", "Correção garantida em 2 dias úteis", "Correção leva meses"],
-                                ["Notificar pedido", "Notificações no WhatsApp do restaurante e do cliente", "Não"],
-                            ].map(([feature, imenu, competitor]) => (
-                                <tr key={feature}>
-                                    <td className="border-r border-gray-200">{feature}</td>
-                                    <td className="border-r border-gray-200 text-center">
-                                        {imenu === "check" ? (
-                                            <FontAwesomeIcon
-                                                icon={icons.faCheck}
-                                                className="text-green"
-                                            />
-                                        ) : (
-                                            imenu
-                                        )}
-                                    </td>
-                                    <td className="text-center">{competitor}</td>
-                                </tr>
-                            ))}
-
-                            {[
-                                ["API Aberta", "-"],
-                            ].map(([feature, competitor]) => (
-                                <tr key={feature}>
-                                    <td className="border-r border-gray-200">{feature}</td>
-                                    <td className="border-r border-gray-200 text-center">
-                                        <Tooltip
-                                            text="Funcionalidade em desenvolvimento."
-                                            color="bg-orange"
-                                        >
-                                            <FontAwesomeIcon
-                                                icon={icons.faClock}
-                                                className="text-orange"
-                                            />
-                                        </Tooltip>
-                                    </td>
-                                    <td className="text-center">{competitor}</td>
-                                </tr>
-                            ))}
-
-                            {[
-                                ["CRM", "Limitado"],
-                            ].map(([feature, competitor]) => (
-                                <tr key={feature}>
-                                    <td className="border-r border-gray-200">{feature}</td>
-                                    <td className="border-r border-gray-200 text-center">
-                                        <Tooltip
-                                            text="Não é uma prioridade no momento."
-                                            color="bg-red"
-                                        >
-                                            <FontAwesomeIcon
-                                                icon={icons.faClock}
-                                                className="text-red"
-                                            />
-                                        </Tooltip>
-                                    </td>
-                                    <td className="text-center">{competitor}</td>
-                                </tr>
+                            {RESOURCE_SECTIONS.map((section) => (
+                                <Fragment key={section.title}>
+                                    <tr className="border-y border-gray-200 !bg-gray-100">
+                                        <th scope="row" className="border-r border-gray-200 px-4 py-3 text-left font-semibold text-gray-900 min-[1400px]:px-5 2xl:px-6">
+                                            {section.title}
+                                        </th>
+                                        <td className="border-r border-gray-200 text-center">
+                                            <ResourceImenuValue value={section.imenu} />
+                                        </td>
+                                        <td className="text-center">
+                                            <ResourceCompetitorValue value={section.competitor} />
+                                        </td>
+                                    </tr>
+                                    {section.rows.map(([feature, imenu, competitor]) => (
+                                        <tr key={feature}>
+                                            <td className="border-r border-gray-200"><span className="block pl-4 sm:pl-6">{feature}</span></td>
+                                            <td className="border-r border-gray-200 text-center">
+                                                <ResourceImenuValue value={imenu} />
+                                            </td>
+                                            <td className="text-center">
+                                                <ResourceCompetitorValue value={competitor} />
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </Fragment>
                             ))}
                         </tbody>
                     </table>
+                </div>
+            </section>
+
+            <section
+                id="planos"
+                aria-labelledby="planos-heading"
+                className="scroll-mt-8 bg-[#f7f8fa] px-4 pt-24 pb-16 md:px-20 md:pt-16 md:pb-16 min-[1400px]:px-24 2xl:px-32"
+            >
+                <div className="mx-auto max-w-6xl min-[1400px]:max-w-7xl">
+                    <div className="mb-10 text-center md:mb-12">
+                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand min-[1400px]:text-sm">
+                            PLANOS
+                        </p>
+                        <h2 id="planos-heading" className="mt-3 text-4xl font-bold text-brand min-[1400px]:text-[2.75rem] 2xl:text-[3.2rem]">
+                            Comece grátis. <span className="text-text">Cresça com o Plus.</span>
+                        </h2>
+                        <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-gray-500 md:text-lg">
+                            Compare o que está incluído em cada plano e escolha o ideal para seu restaurante.
+                        </p>
+                    </div>
+
+                    <div className="grid items-stretch gap-5 lg:grid-cols-2 min-[1400px]:gap-7">
+                        <article className="flex min-w-0 flex-col rounded-2xl border border-gray-200 bg-white p-6 shadow-[0_12px_36px_-26px_rgba(0,0,0,0.22)] sm:p-7">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <h3 className="relative h-9 w-36">
+                                    <Image src="/logos/CombinationMarkLogo_Brand.png" alt="iMenu" fill sizes="144px" className="object-contain object-left" />
+                                </h3>
+                                <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
+                                    Grátis para sempre
+                                </span>
+                            </div>
+                            <p className="mt-3 text-sm leading-5 text-gray-500">
+                                Seu cardápio digital, pedidos e gestão em um só lugar.
+                            </p>
+                            <div className="mt-6 flex flex-wrap items-baseline gap-2">
+                                <strong className="text-3xl font-bold tracking-tight text-gray-900 md:text-4xl">Grátis</strong>
+                                <span className="text-xs text-gray-500">sem limites, sem taxas</span>
+                            </div>
+                            <div className="mt-4">
+                                <p className="mb-4 text-sm font-semibold text-gray-900">Incluído no iMenu</p>
+                                <ul className="space-y-3.5">
+                                    {FREE_PLAN_FEATURES.map((title) => (
+                                        <li key={title} className="flex items-start gap-3 text-sm leading-5 text-gray-700">
+                                            <FontAwesomeIcon icon={icons.faCheck} aria-hidden="true" className="mt-1 shrink-0 text-brand" />
+                                            <span>{title}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                            <div className="mt-auto pt-8">
+                                <Button
+                                    variant="secondary"
+                                    className="w-full shrink-0 !min-h-10 !text-sm"
+                                    onClick={() => router.push("/restaurante/registrar")}
+                                >
+                                    Criar meu cardápio grátis
+                                    <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" className="ml-2" />
+                                </Button>
+                            </div>
+                        </article>
+
+                        <article className="flex min-w-0 flex-col rounded-2xl border border-brand/30 bg-white p-6 shadow-[0_18px_44px_-28px_rgba(217,61,0,0.3)] sm:p-7">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <h3 className="relative h-9 w-40">
+                                    <Image src="/logos/PlusCombinationMarkLogo_Brand.png" alt="iMenu Plus" fill sizes="160px" className="object-contain object-left" />
+                                </h3>
+                                <span className="rounded-full bg-brand/10 px-3 py-1 text-xs font-semibold text-brand">
+                                    Mais recursos
+                                </span>
+                            </div>
+                            <p className="mt-3 text-sm leading-5 text-gray-500">
+                                Venda mais com iMenu Plus.
+                            </p>
+                            <div className="mt-6 flex items-baseline gap-2">
+                                <strong className="text-3xl font-bold tracking-tight text-gray-900 md:text-4xl">{IA_PLUS_PRICE_LABEL}</strong>
+                                <span className="text-xs text-gray-500">/mês</span>
+                            </div>
+                            <div className="mt-4">
+                                <p className="mb-4 text-sm font-semibold text-gray-900">
+                                    Tudo do iMenu, mais:
+                                </p>
+                                <ul className="space-y-4">
+                                    {IA_PLUS_BENEFITS.map((benefit) => {
+                                        const Icon = PLUS_BENEFIT_ICONS[benefit.title];
+                                        return (
+                                            <li key={benefit.title} className="flex items-start gap-3">
+                                                <Icon size={19} strokeWidth={1.8} aria-hidden="true" className="mt-0.5 shrink-0 text-brand" />
+                                                <div>
+                                                    <strong className="text-sm font-semibold text-gray-900">{benefit.title === "Assistente IA" ? "Assistente IA: para Melhorar o Cardápio" : benefit.title}</strong>
+                                                    <p className="mt-0.5 text-xs leading-5 text-gray-500">{benefit.description}</p>
+                                                </div>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                                <div className="mt-6 border-t border-gray-100 pt-5">
+                                    <p className="mb-3 text-sm font-semibold text-gray-900">Bônus do Plus</p>
+                                    <ul className="grid gap-x-5 gap-y-3 sm:grid-cols-2">
+                                        {IA_PLUS_BONUSES.map((bonus) => {
+                                            const Icon = PLUS_BONUS_ICONS[bonus.title];
+                                            return (
+                                                <li key={bonus.title} className="flex items-start gap-2.5 text-xs leading-5 text-gray-700">
+                                                    <Icon size={17} strokeWidth={1.8} aria-hidden="true" className="mt-0.5 shrink-0 text-brand" />
+                                                    <span>{bonus.title}</span>
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                </div>
+                            </div>
+                            <div className="mt-auto pt-8">
+                                <Button
+                                    className="w-full shrink-0 !min-h-10 !text-sm"
+                                    onClick={() => router.push("/painel/planos")}
+                                >
+                                    Conhecer iMenu Plus no painel
+                                    <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" className="ml-2" />
+                                </Button>
+                            </div>
+                        </article>
+                    </div>
                 </div>
             </section>
 

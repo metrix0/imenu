@@ -25,7 +25,7 @@ beforeEach(() => {
         if (sql.includes("SELECT url_slug")) return { rows: [{ url_slug: "test", automatic_promotions: [], pizza_settings: settings }] };
         if (sql.includes("FROM items i JOIN categories")) return { rows: [a, b].map((id, index) => ({ id, name: index ? "Calabresa" : "Portuguesa", price_cents: 5000 + index * 1000, category_id: "pizza", is_available: true, subcategories: [] })) };
         if (/FROM items\s+WHERE id/.test(sql)) return { rows: [{ id: values[0], restaurant_id: restaurant, name: "Pizza", stock_enabled: true, stock_quantity: values[0] === b ? secondaryStock : 5, is_available: true }] };
-        if (sql.includes("FROM public.restaurant_addons")) return { rows: [{ id: table, name: "Mesa 1" }] };
+        if (sql.includes("FROM public.restaurant_tables AS table_entry")) return { rows: [{ id: table, name: "Mesa 1" }] };
         if (sql.includes("INSERT INTO orders")) return { rows: [{ id: "order-test" }] };
         if (sql.includes("INSERT INTO order_items")) return { rows: [{ id: "line-test" }] };
         if (/SELECT\s+id,\s+restaurant_id,\s+customer_phone/.test(sql)) return { rows: [{ id: "order-test", restaurant_id: restaurant, status: "pending_online_payment", payment_ref: null, loyalty_points_used: 0 }] };

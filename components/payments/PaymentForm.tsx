@@ -20,6 +20,7 @@ type PaymentFormProps = {
     error?: string | null;
     pixDescription?: string;
     cardDescription?: string;
+    pixOnly?: boolean;
 };
 
 function formatCardNumber(value: string): string {
@@ -79,6 +80,7 @@ export default function PaymentForm({
     error,
     pixDescription = "Pagamento via Pix",
     cardDescription = "Pagamento com cartão de crédito",
+    pixOnly = false,
 }: PaymentFormProps) {
     const updateCard = (
         field: keyof CreditCardPaymentData,
@@ -94,7 +96,7 @@ export default function PaymentForm({
                 value={method}
                 disabled={disabled}
                 aria-label="Forma de pagamento"
-                className="sm:grid-cols-2"
+                className={pixOnly ? "" : "sm:grid-cols-2"}
                 onChange={onMethodChange}
                 options={[
                     {
@@ -107,8 +109,8 @@ export default function PaymentForm({
                         ),
                         description: pixDescription,
                     },
-                    {
-                        value: "credit_card",
+                    ...(!pixOnly ? [{
+                        value: "credit_card" as const,
                         label: (
                             <span className="inline-flex items-center gap-2">
                                 <FontAwesomeIcon icon={faCreditCard} />
@@ -116,7 +118,7 @@ export default function PaymentForm({
                             </span>
                         ),
                         description: cardDescription,
-                    },
+                    }] : []),
                 ]}
             />
 

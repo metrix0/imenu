@@ -1,4 +1,5 @@
-import { query } from "@/lib/database/sql";
+import { query, withTransaction } from "@/lib/database/sql";
+import { seedPizzaExample } from "@/lib/pizza/onboarding";
 import { NextResponse } from "next/server";
 
 function normalizeSlug(value: string): string {
@@ -226,16 +227,26 @@ export async function PATCH(
             );
         }
 
-        const { rows } = await query(
-            `
+        const updateSql = `
             UPDATE public.restaurants
             SET ${fieldsToUpdate.join(", ")}, updated_at = NOW()
             WHERE id = $1
             RETURNING id, url_slug, store_whatsapp, creation_step, first_time
-            `,
-            values
-        );
-
+        `;
+        const completingOnboarding = body.creation_step === 4 && body.first_time === false;
+        const { rows } = completingOnboarding
+            ? await withTransaction(async (client) => {
+                const { rows: [previous] } = await client.query<{ first_time: boolean | null; name: string | null; pizza_settings: unknown }>(
+                    "SELECT first_time, name, pizza_settings FROM public.restaurants WHERE id = $1 FOR UPDATE",
+                    [id],
+                );
+                const updated = await client.query(updateSql, values);
+                if (previous && previous.first_time !== false) {
+                    await seedPizzaExample(client, id, previous.name, previous.pizza_settings);
+                }
+                return updated;
+            })
+            : await query(updateSql, values);
         return NextResponse.json({
             success: true,
             updatedId: rows[0].id,

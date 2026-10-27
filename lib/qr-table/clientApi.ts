@@ -46,7 +46,7 @@ export async function startQrTableCheckout(
     restaurantId: string,
     source: QrTableSource,
     payment: PaymentCheckoutInput,
-    options: { renew?: boolean; productKey?: "qr_code_mesa" | "ia_plus" } = {}
+    options: { renew?: boolean; productKey?: "qr_code_mesa" | "ia_plus"; coupon?: string } = {}
 ): Promise<QrTableCheckoutResult> {
     const response = await qrTableAuthenticatedFetch(options.productKey === "ia_plus" ? "/api/ia-plus/checkout" : "/api/qr-table/checkout", {
         method: "POST",
@@ -56,6 +56,7 @@ export async function startQrTableCheckout(
             paymentMethod: payment.method,
             card: payment.method === "credit_card" ? payment.card : undefined,
             renew: options.renew === true,
+            coupon: options.coupon,
         }),
     });
     const payload = (await response.json()) as QrTableCheckoutResult & {

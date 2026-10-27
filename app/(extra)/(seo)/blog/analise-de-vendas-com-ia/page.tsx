@@ -20,17 +20,17 @@ const sections = [
     { id: "estimativa", label: "Como entender o potencial em reais" },
     { id: "comparacoes", label: "Comparações e resultados" },
     { id: "aplicacao", label: "Revisar e aplicar" },
-    { id: "acesso", label: "Análise gratuita e IA Plus" },
+    { id: "acesso", label: "Análise gratuita e iMenu Plus" },
     { id: "perguntas-frequentes", label: "Perguntas frequentes" },
 ];
 
 const faq = [
-    { question: "O Vendas IA é gratuito?", answer: "A aba e a liberação de análises gratuitas estão disponíveis sem contratar IA Plus. Atualmente, elas são liberadas para restaurantes selecionados por vez. O IA Plus oferece acesso completo, aplicação das propostas e acesso à análise sem depender da seleção gratuita." },
+    { question: "O Vendas IA é gratuito?", answer: "A aba e a liberação de análises gratuitas estão disponíveis sem contratar iMenu Plus. Atualmente, elas são liberadas para restaurantes selecionados por vez. O iMenu Plus oferece acesso completo, aplicação das propostas e acesso à análise sem depender da seleção gratuita." },
     { question: "O que a análise considera?", answer: "A IA considera os dados disponíveis de pedidos, produtos, cardápio, fotos, preços e configurações. Quando disponíveis, também usa informações de tráfego, comparações com restaurantes parecidos e histórico de ações. Dados ausentes limitam as conclusões." },
-    { question: "A IA aplica as melhorias automaticamente?", answer: "Com IA Plus, você pode revisar as propostas e confirmar a aplicação. Depois da aprovação, o iMenu executa as mudanças compatíveis no restaurante. A análise, por si só, não altera produtos, preços ou configurações." },
+    { question: "A IA aplica as melhorias automaticamente?", answer: "Com iMenu Plus, você pode revisar as propostas e confirmar a aplicação. Depois da aprovação, o iMenu executa as mudanças compatíveis no restaurante. A análise, por si só, não altera produtos, preços ou configurações." },
     { question: "O valor estimado é uma promessa de faturamento?", answer: "Não. É uma projeção baseada em dados observados e hipóteses de adesão ou melhora. Ela não garante vendas nem lucro e pode incluir apenas parte das oportunidades identificadas." },
-    { question: "Posso conversar sobre uma recomendação antes de aprovar?", answer: "Sim, com IA Plus. A conversa sobre a oportunidade usa o contexto da análise para esclarecer a recomendação ou preparar ajustes antes de você decidir o que aplicar." },
-    { question: "Uma análise mais rápida significa resultado imediato?", answer: "Não. O IA Plus permite acessar a análise sem esperar a seleção gratuita, mas a preparação ainda depende do processamento e da disponibilidade do serviço. Não há um prazo fixo prometido neste guia." },
+    { question: "Posso conversar sobre uma recomendação antes de aprovar?", answer: "Sim, com iMenu Plus. A conversa sobre a oportunidade usa o contexto da análise para esclarecer a recomendação ou preparar ajustes antes de você decidir o que aplicar." },
+    { question: "Uma análise mais rápida significa resultado imediato?", answer: "Não. O iMenu Plus permite acessar a análise sem esperar a seleção gratuita, mas a preparação ainda depende do processamento e da disponibilidade do serviço. Não há um prazo fixo prometido neste guia." },
 ];
 
 export default function AnaliseDeVendasComIaPage() {
@@ -65,12 +65,12 @@ export default function AnaliseDeVendasComIaPage() {
                         </p>
                     </div>
                     <figure className="w-full max-w-xs justify-self-center overflow-hidden rounded-3xl border border-orange-100 bg-orange-50/40 p-4 shadow-sm">
-                        <img src="/logos/IAPlusCombinationMarkLogo_Brand.png" alt="iMenu IA Plus" width={950} height={199} className="mx-auto mb-4 h-auto w-40 max-w-full" />
+                        <img src="/logos/PlusCombinationMarkLogo_Brand.png" alt="iMenu Plus" width={950} height={199} className="mx-auto mb-4 h-auto w-40 max-w-full" />
                         <img src="/images/IAPlus.png" alt="Representação dos recursos de IA do iMenu com uma proposta de mudança no cardápio aguardando aprovação" width={1602} height={1823} className="mx-auto block h-auto w-full rounded-2xl" />
                     </figure>
                 </div>
                 <BlogCallout title="O diagnóstico pode chegar com a mudança pronta" variant="tip">
-                    Com iMenu IA Plus, as recomendações executáveis vêm com propostas para revisão.
+                    Com iMenu Plus, as recomendações executáveis vêm com propostas para revisão.
                     Depois que você aprova, o sistema aplica as alterações automaticamente.
                     Uma oportunidade pode sair do relatório e entrar no seu cardápio sem você editar cada campo.
                 </BlogCallout>
@@ -183,9 +183,9 @@ export default function AnaliseDeVendasComIaPage() {
             <BlogSection id="aplicacao" title="Revisar e aplicar: a análise continua dentro da operação">
                 <BlogSteps items={[
                     { title: "Abra a análise", description: "Veja o resumo e comece pelas prioridades do relatório disponível no Vendas IA." },
-                    { title: "Entenda a recomendação", description: "Abra as evidências. Com IA Plus, você também pode conversar com o Assistente sobre aquela oportunidade e pedir ajustes." },
+                    { title: "Entenda a recomendação", description: "Abra as evidências. Com iMenu Plus, você também pode conversar com o Assistente sobre aquela oportunidade e pedir ajustes." },
                     { title: "Confira a proposta", description: "Revise produtos, campos, preços e regras. Descarte o que não faz sentido para sua operação." },
-                    { title: "Aprove a aplicação", description: "Com IA Plus, aplique uma proposta ou revise o conjunto pelo botão Revisar e aplicar tudo. O iMenu executa as mudanças aprovadas e informa o resultado." },
+                    { title: "Aprove a aplicação", description: "Com iMenu Plus, aplique uma proposta ou revise o conjunto pelo botão Revisar e aplicar tudo. O iMenu executa as mudanças aprovadas e informa o resultado." },
                 ]} />
                 <p>
                     Uma proposta preparada não altera sua loja. Se um produto tiver mudado desde a
@@ -198,14 +198,14 @@ export default function AnaliseDeVendasComIaPage() {
                 </p>
             </BlogSection>
 
-            <BlogSection id="acesso" title="Análise gratuita, com mais acesso e execução no IA Plus">
+            <BlogSection id="acesso" title="Análise gratuita, com mais acesso e execução no iMenu Plus">
                 <p>
                     A aba <strong>Vendas IA é gratuita</strong>. Atualmente, as análises gratuitas
                     são liberadas para alguns restaurantes por vez. Quando a sua for selecionada,
                     o relatório aparecerá na aba, com a visualização disponível no acesso gratuito.
                 </p>
                 <p>
-                    O <strong>iMenu IA Plus</strong> libera acesso completo às oportunidades,
+                    O <strong>iMenu Plus</strong> libera acesso completo às oportunidades,
                     conversa sobre a análise e aplicação automática das propostas após aprovação.
                     Também permite acessar a análise sem depender da seleção gratuita — a vantagem
                     de acesso mais rápido não significa que todo relatório ficará pronto instantaneamente.
@@ -213,7 +213,7 @@ export default function AnaliseDeVendasComIaPage() {
                 <p>
                     Acesse <Link href="/painel/vendas-ia" className="font-semibold text-brand hover:underline">Vendas IA no painel</Link> para
                     conferir seu estado atual. Se ainda não houver relatório, a própria página
-                    explica a liberação. Para condições de capacidade, consulte os <Link href="/restaurante/dados/termos/ia-plus" className="font-semibold text-brand hover:underline">termos do IA Plus</Link>.
+                    explica a liberação. Para condições de capacidade, consulte os <Link href="/restaurante/dados/termos/ia-plus" className="font-semibold text-brand hover:underline">termos do iMenu Plus</Link>.
                 </p>
                 <BlogCallout title="Escolha uma melhoria que você consegue colocar em prática" variant="tip">
                     Comece por uma oportunidade com evidência clara e compatível com sua operação.

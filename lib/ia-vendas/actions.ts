@@ -14,6 +14,10 @@ import {
 } from "./catalog";
 import { LIMITS } from "./config";
 import { requireApplicationAccess } from "./access";
+import { hasIMenuPlusAccess } from "@/lib/addons/access";
+import { IA_PLUS_FEATURE_MESSAGE } from "@/lib/addons/products";
+import { AUTOMATION_KINDS, readAutomationSettings } from "@/lib/services/crmRules";
+import { automationOffers } from "@/lib/services/crmAutomations";
 import {
   SalesError,
   object,
@@ -121,7 +125,8 @@ async function deletable(c: PoolClient, entity: string, id: string) {
     throw new SalesError("O registro está em uso por uma configuração.");
 }
 const selectFields = (r: Data, names: string[]) =>
-  Object.fromEntries(names.map((k) => [k, r[k] ?? null]));
+  Object.fromEntries(names.map((k) => [k, k === "automations" && r[k]
+    ? readAutomationSettings(r[k]) : r[k] ?? null]));
 const parameter = (e: string, k: string, v: any) =>
   fields(e)[k]?.type === "jsonb" ? JSON.stringify(v) : v;
 async function write(c: PoolClient, restaurant: string, op: Operation) {
@@ -138,7 +143,9 @@ async function write(c: PoolClient, restaurant: string, op: Operation) {
     if (!entries.length) throw new SalesError("Alteração vazia.");
     return (
       await c.query(
-        `UPDATE public.${op.entity} t SET ${entries.map(([k], i) => `"${k}"=$${i + 3}`).join(",")} WHERE ${scope(op.entity)} AND t.${key(op.entity)}=$2 RETURNING t.*`,
+        `UPDATE public.${op.entity} t SET ${entries.map(([k], i) => op.entity === "whatsapp_bot_settings" && k === "automations"
+          ? `"${k}"=COALESCE(t."${k}",'{}'::jsonb) || $${i + 3}::jsonb`
+          : `"${k}"=$${i + 3}`).join(",")} WHERE ${scope(op.entity)} AND t.${key(op.entity)}=$2 RETURNING t.*`,
         [
           restaurant,
           op.id,
@@ -148,7 +155,7 @@ async function write(c: PoolClient, restaurant: string, op: Operation) {
     ).rows[0];
   }
   const values: Data = { ...op.values, [key(op.entity)]: op.id };
-  if (!["item_subcategories", "subitems", "restaurants"].includes(op.entity))
+  if (!["item_subcategories", "subitems", "restaurants", "whatsapp_bot_settings", "automatic_upsell"].includes(op.entity))
     values.restaurant_id = restaurant;
   const entries = Object.entries(values);
   if (entries.some(([k]) => !/^[a-z_]+$/.test(k)))
@@ -211,7 +218,7 @@ export async function propose(
         throw new SalesError("Use uma atualização nesta configuração.");
       const id =
         d.kind === "create"
-          ? d.entity === "whatsapp_bot_settings"
+          ? ["whatsapp_bot_settings", "automatic_upsell"].includes(d.entity)
             ? restaurant
             : randomUUID()
           : d.id;
@@ -219,6 +226,8 @@ export async function propose(
         throw new SalesError("Agrupe alterações do mesmo registro.");
       const old =
         d.kind === "create" ? null : await row(c, restaurant, d.entity, id);
+      if (d.kind === "create" && SINGLETONS.includes(d.entity) && await row(c, restaurant, d.entity, id))
+        throw new SalesError("Configuração já existe. Use uma atualização.");
       if (d.kind !== "create" && !old)
         throw new SalesError("Registro não encontrado.", 404);
       const values =
@@ -371,6 +380,21 @@ export async function execute(
           }
         : original;
       if (op.kind !== "delete") {
+        if (op.entity === "automatic_upsell" && op.values.enabled === true &&
+          !(await hasIMenuPlusAccess(restaurant, c)))
+          throw new SalesError(IA_PLUS_FEATURE_MESSAGE, 402);
+        if (op.entity === "whatsapp_bot_settings" && op.values.automations) {
+          const settings = readAutomationSettings(op.values.automations);
+          if (AUTOMATION_KINDS.some(kind => settings[kind].enabled)) {
+            if (!(await hasIMenuPlusAccess(restaurant, c)))
+              throw new SalesError(IA_PLUS_FEATURE_MESSAGE, 402);
+            const offers = await automationOffers(restaurant);
+            for (const kind of AUTOMATION_KINDS)
+              if (settings[kind].enabled && settings[kind].offer &&
+                !offers.some(offer => offer.value === settings[kind].offer))
+                throw new SalesError("Selecione uma oferta ativa e disponível.");
+          }
+        }
         if (!(undo && op.kind === "create"))
           validate(op.entity, op.values, op.kind === "create");
         validateMerged(op.entity, { ...current, ...op.values });

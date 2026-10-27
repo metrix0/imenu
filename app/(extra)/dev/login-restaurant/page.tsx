@@ -34,6 +34,11 @@ type RestaurantResult = {
     phone: string | null;
     store_whatsapp: string | null;
     user_id: string | null;
+    owner_email: string | null;
+    owner_name: string | null;
+    created_at: string | null;
+    custom_domain: string | null;
+    last_sign_in_at: string | null;
 };
 
 function displayPhone(value: string | null): string {
@@ -114,7 +119,7 @@ export default function DevRestaurantAccessPage() {
         const normalizedSearch = search.trim();
         if (!normalizedSearch) {
             setRestaurants([]);
-            setError("Digite um nome, telefone ou ID.");
+            setError("Digite um nome, e-mail, telefone ou ID.");
             return;
         }
 
@@ -302,7 +307,7 @@ export default function DevRestaurantAccessPage() {
                         Entrar em um restaurante
                     </h1>
                     <p className="mt-2 text-sm text-gray-600">
-                        Busque pelo nome, ID, celular do responsável ou WhatsApp da loja.
+                        Busque por nome, e-mail, ID, celular do responsável ou WhatsApp da loja.
                     </p>
                 </header>
 
@@ -317,7 +322,7 @@ export default function DevRestaurantAccessPage() {
                             onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
                                 setSearch(event.target.value)
                             }
-                            placeholder="Nome, telefone ou UUID do restaurante"
+                            placeholder="Nome, e-mail, telefone ou UUID"
                             autoComplete="off"
                             autoFocus
                             className="min-w-0 flex-1 rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
@@ -359,38 +364,48 @@ export default function DevRestaurantAccessPage() {
 
                                     <dl className="mt-4 grid gap-x-8 gap-y-3 text-sm sm:grid-cols-2">
                                         <div>
-                                            <dt className="text-xs text-gray-500">
-                                                Celular do responsável
-                                            </dt>
+                                            <dt className="text-xs text-gray-500">E-mail do responsável</dt>
+                                            <dd className="break-all font-medium text-gray-800">{restaurant.owner_email || "—"}</dd>
+                                        </div>
+                                        <div>
+                                            <dt className="text-xs text-gray-500">Nome do responsável</dt>
+                                            <dd className="break-words font-medium text-gray-800">{restaurant.owner_name || "—"}</dd>
+                                        </div>
+                                        <div>
+                                            <dt className="text-xs text-gray-500">Celular do responsável</dt>
+                                            <dd className="font-medium text-gray-800">{displayPhone(restaurant.phone)}</dd>
+                                        </div>
+                                        <div>
+                                            <dt className="text-xs text-gray-500">WhatsApp da loja</dt>
+                                            <dd className="font-medium text-gray-800">{displayPhone(restaurant.store_whatsapp)}</dd>
+                                        </div>
+                                        <div>
+                                            <dt className="text-xs text-gray-500">Domínio personalizado</dt>
+                                            <dd className="break-all font-medium text-gray-800">{restaurant.custom_domain || "—"}</dd>
+                                        </div>
+                                        <div>
+                                            <dt className="text-xs text-gray-500">Cadastro</dt>
                                             <dd className="font-medium text-gray-800">
-                                                {displayPhone(restaurant.phone)}
+                                                {restaurant.created_at
+                                                    ? new Date(restaurant.created_at).toLocaleDateString("pt-BR")
+                                                    : "—"}
                                             </dd>
                                         </div>
                                         <div>
-                                            <dt className="text-xs text-gray-500">
-                                                WhatsApp da loja
-                                            </dt>
+                                            <dt className="text-xs text-gray-500">Último acesso do responsável</dt>
                                             <dd className="font-medium text-gray-800">
-                                                {displayPhone(
-                                                    restaurant.store_whatsapp
-                                                )}
+                                                {restaurant.last_sign_in_at
+                                                    ? new Date(restaurant.last_sign_in_at).toLocaleDateString("pt-BR")
+                                                    : "—"}
                                             </dd>
                                         </div>
                                         <div>
-                                            <dt className="text-xs text-gray-500">
-                                                Slug
-                                            </dt>
-                                            <dd className="font-medium text-gray-800">
-                                                {restaurant.url_slug || "—"}
-                                            </dd>
+                                            <dt className="text-xs text-gray-500">Slug</dt>
+                                            <dd className="break-all font-medium text-gray-800">{restaurant.url_slug || "—"}</dd>
                                         </div>
                                         <div>
-                                            <dt className="text-xs text-gray-500">
-                                                User ID
-                                            </dt>
-                                            <dd className="break-all font-mono text-xs text-gray-700">
-                                                {restaurant.user_id || "—"}
-                                            </dd>
+                                            <dt className="text-xs text-gray-500">User ID</dt>
+                                            <dd className="break-all font-mono text-xs text-gray-700">{restaurant.user_id || "—"}</dd>
                                         </div>
                                     </dl>
                                 </div>

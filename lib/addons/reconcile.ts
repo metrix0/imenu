@@ -1,4 +1,5 @@
 import type { AddonProduct } from "@/lib/addons/products";
+import { PROMO_QR_CODE, PROMO_QR_PRICE_CENTS } from "@/lib/addons/promoQr";
 import { getMercadoPagoPixPayment, isMercadoPagoPixFailureStatus, MercadoPagoPixApiError } from "@/lib/payments/mercadoPagoPix";
 import { activateMercadoPagoQrTablePrepaid, saveMercadoPagoQrTablePayment, markMercadoPagoQrTablePaymentFailure } from "@/lib/qr-table/mercadoPagoBilling";
 import { NextResponse } from "next/server";
@@ -214,11 +215,13 @@ async function reconcileMercadoPagoPix(addon: QrTableAddon, product: AddonProduc
     const payment = addon.mercadopago_order_id
         ? await getMercadoPagoPixPayment({ id: addon.mercadopago_order_id }) : null;
     if (!payment) return { active: hasQrTableAccess(addon), activatedNow: false, status: addon.status, paymentStatus: addon.mercadopago_order_status };
+    const promotional = addon.product_key === "ia_plus" && payment.externalReference?.startsWith(`${product.referencePrefix}:${addon.id}:${PROMO_QR_CODE}:`);
+    const expectedCents = product.key === "ia_plus" ? (promotional ? PROMO_QR_PRICE_CENTS : product.priceCents) : (addon.price_cents || 500);
     if (payment.id !== addon.mercadopago_order_id || payment.paymentMethodId !== "pix" ||
-        Math.round(payment.amount * 100) !== product.priceCents || !payment.externalReference?.startsWith(`${product.referencePrefix}:${addon.id}:`)) {
+        Math.round(payment.amount * 100) !== expectedCents || !payment.externalReference?.startsWith(`${product.referencePrefix}:${addon.id}:`)) {
         throw new Error("Cobrança Mercado Pago divergente do adicional.");
     }
-    const input = { addonId: addon.id, paymentId: payment.id, status: payment.status, paidAt: payment.paidAt, amountCents: product.priceCents };
+    const input = { addonId: addon.id, paymentId: payment.id, status: payment.status, paidAt: payment.paidAt, amountCents: expectedCents };
     await saveMercadoPagoQrTablePayment(input);
     if (payment.status === "approved") await activateMercadoPagoQrTablePrepaid(input);
     else if (isMercadoPagoPixFailureStatus(payment.status)) {

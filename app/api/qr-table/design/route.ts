@@ -57,14 +57,13 @@ export async function POST(request: Request) {
 
         const result = await query<{ id: string }>(
             `
-                UPDATE public.restaurant_addons
+                UPDATE public.restaurant_qr_settings
                 SET
                     qr_design_template = $1,
                     qr_design_color = $2,
                     updated_at = NOW()
                 WHERE restaurant_id = $3
-                  AND product_key = 'qr_code_mesa'
-                RETURNING id
+                RETURNING restaurant_id AS id
             `,
             [template, color.toUpperCase(), restaurantId]
         );

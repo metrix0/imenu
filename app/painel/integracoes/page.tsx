@@ -121,7 +121,7 @@ export default function IntegracoesPage() {
                     ));
                 }
             } catch (error) {
-                console.error("[INTEGRACOES] Erro ao carregar IA Plus:", error);
+                console.error("[INTEGRACOES] Erro ao carregar iMenu Plus:", error);
             }
         };
         void loadIaPlus();
@@ -184,7 +184,7 @@ export default function IntegracoesPage() {
                             Solicitar integrações
                         </h2>
                         <p className="mt-2 text-sm text-gray-600">
-                            Com o iMenu IA Plus, solicite integrações e novas funcionalidades
+                            Com o iMenu Plus, solicite integrações e novas funcionalidades
                             para serem adicionadas em até 3 dias úteis.
                         </p>
                     </div>
@@ -263,6 +263,7 @@ export default function IntegracoesPage() {
                     onClose={() => setIaPlusOpen(false)}
                     restaurantId={restaurantId}
                     active={iaPlusActive}
+                    contextMessage="Com o iMenu Plus, você pode solicitar novas integrações e funcionalidades para o seu restaurante."
                     onPaid={() => {
                         setIaPlusActive(true);
                         setIaPlusOpen(false);

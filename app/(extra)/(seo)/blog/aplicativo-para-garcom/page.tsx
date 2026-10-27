@@ -57,7 +57,7 @@ const faq = [
     {
         question: "O App para Garçom do iMenu é gratuito?",
         answer:
-            "O Painel Garçom está incluído no iMenu QR Code Mesa, que é um recurso pago. O cardápio digital principal do iMenu continua gratuito.",
+            "O Painel Garçom e o QR Code Mesa são gratuitos, sem necessidade de assinatura do iMenu Plus.",
     },
     {
         question: "O App para Garçom fecha a conta ou recebe o pagamento da mesa?",

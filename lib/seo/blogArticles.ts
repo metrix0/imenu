@@ -64,7 +64,7 @@ export const BLOG_ARTICLES: BlogArticleDefinition[] = [
         shortTitle: "Cardápio Vitrine: consulta sem pedidos",
         metaTitle: "Cardápio Vitrine: Menu Digital sem Pedidos | iMenu",
         metaDescription:
-            "Conheça o Modo Vitrine do iMenu: um link separado para consultar produtos, fotos e preços sem fazer pedidos. Veja como ativar com iMenu QR ou IA Plus.",
+            "Conheça o Modo Vitrine do iMenu: um link separado para consultar produtos, fotos e preços sem fazer pedidos. Veja como ativar gratuitamente, sem assinatura.",
         excerpt:
             "Seu cliente quer conhecer o cardápio, e sua equipe continua cuidando do pedido. Use um link só para consulta, com os mesmos produtos e preços, sem alterar o delivery ou as mesas.",
         category: "Cardápio",
@@ -92,7 +92,7 @@ export const BLOG_ARTICLES: BlogArticleDefinition[] = [
         shortTitle: "Análise de vendas com IA",
         metaTitle: "Análise de Vendas com IA para Restaurante | iMenu",
         metaDescription:
-            "Veja como o Vendas IA analisa pedidos, cardápio e fotos, encontra oportunidades e prepara mudanças que o iMenu aplica após sua aprovação com IA Plus.",
+            "Veja como o Vendas IA analisa pedidos, cardápio e fotos, encontra oportunidades e prepara mudanças que o iMenu aplica após sua aprovação com iMenu Plus.",
         excerpt:
             "Descubra o que merece atenção no seu restaurante, entenda as evidências e transforme oportunidades em alterações reais — sem editar cada produto à mão.",
         category: "Vendas",

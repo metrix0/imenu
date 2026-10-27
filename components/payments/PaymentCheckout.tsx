@@ -46,6 +46,9 @@ export type PaymentCheckoutProduct = {
 
 export type PaymentCheckoutProps = {
     product: PaymentCheckoutProduct;
+    originalPriceLabel?: string;
+    promoLabel?: string;
+    pixOnly?: boolean;
     onBack?: () => void;
     onClose: () => void;
     startPayment: (
@@ -81,6 +84,9 @@ const FAILED_PAYMENT_STATUSES = new Set([
 
 export default function PaymentCheckout({
     product,
+    originalPriceLabel,
+    promoLabel,
+    pixOnly = false,
     onBack,
     onClose,
     startPayment,
@@ -360,6 +366,7 @@ export default function PaymentCheckout({
                             onCardChange={setCard}
                             pixDescription={product.pixDescription}
                             cardDescription={product.cardDescription}
+                            pixOnly={pixOnly}
                         />
 
                         <p className="mt-5 text-xs leading-relaxed text-gray-500">
@@ -421,6 +428,7 @@ export default function PaymentCheckout({
                                 <span>Subtotal</span>
                                 <span>{product.priceLabel}</span>
                             </div>
+                            {promoLabel && <div className="mt-3 flex justify-between gap-3 text-sm text-brand"><span>{promoLabel}</span><span className="line-through text-gray-400">{originalPriceLabel}</span></div>}
                             <div className="mt-3 flex justify-between border-t border-gray-200 pt-3 font-semibold text-gray-900">
                                 <span>Total</span>
                                 <span>{product.priceLabel}</span>

@@ -1,13 +1,10 @@
 "use client";
 
 import {
-    forwardRef,
     useEffect,
-    useImperativeHandle,
     useMemo,
     useRef,
     useState,
-    type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
@@ -16,7 +13,6 @@ import {
     faCreditCard,
     faLink,
     faPlus,
-    faBell,
     faPowerOff,
     faQrcode,
     faRotate,
@@ -27,11 +23,18 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 
+import OrderNotificationSettings from "@/components/restaurant-owner/pedidos/OrderNotificationSettings";
 import Button from "@/components/ui/Button";
+import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
+import DataTable from "@/components/ui/DataTable";
 import Loader from "@/components/ui/Loader";
 import Toast from "@/components/ui/Toast";
 import WarningBox from "@/components/ui/WarningBox";
+import SaveStatus from "@/components/ui/SaveStatus";
+import PanelFeatureCallout from "@/components/ui/PanelFeatureCallout";
+import { useAutoSave } from "@/lib/utils/useAutoSave";
+import { TemplateEditor, VariablePicker, type TemplateEditorHandle, type TemplateVariable } from "@/components/ui/WhatsAppTemplateEditor";
 import { supabase } from "@/lib/database/supabaseClient";
 import type {
     WhatsAppMessageTemplates,
@@ -78,22 +81,11 @@ type HandoffConversation = {
     last_owner_message_at: string | null;
 };
 
-type TemplateVariable = {
-    key: string;
-    label: string;
-    token: string;
-    value: string;
-};
-
 type TemplateField = {
     key: WhatsAppTemplateKey;
     title: string;
     description: string;
     variables: string[];
-};
-
-type TemplateEditorHandle = {
-    insertVariable: (variable: TemplateVariable) => void;
 };
 
 const RESTAURANT_VARIABLES = [
@@ -103,13 +95,6 @@ const RESTAURANT_VARIABLES = [
     "PEDIDO_MINIMO",
     "INFORMACOES_DE_ENTREGA",
     "FORMAS_DE_PAGAMENTO",
-];
-
-const WHATSAPP_VARIABLES = [
-    "NOME_DO_CLIENTE",
-    "NUMERO_DO_PEDIDO",
-    "STATUS_DO_PEDIDO",
-    "LINK_DE_ACOMPANHAMENTO",
 ];
 
 const BASE_VARIABLES = [...RESTAURANT_VARIABLES, "NOME_DO_CLIENTE"];
@@ -160,7 +145,7 @@ const TEMPLATE_FIELDS: TemplateField[] = [
     {
         key: "status_notification",
         title: "Atualização automática do pedido",
-        description: "Enviada quando o status do pedido realmente muda.",
+        description: "Enviada quando o pedido sai para entrega, fica pronto no balcão ou o entregador notifica a chegada.",
         variables: [...BASE_VARIABLES, "NUMERO_DO_PEDIDO", "STATUS_DO_PEDIDO"],
     },
 ];
@@ -175,6 +160,22 @@ function formatPhone(value: string | null): string {
         return `(${local.slice(0, 2)}) ${local.slice(2, 6)}-${local.slice(6)}`;
     }
     return value || "Número conectado";
+}
+
+function getHandoffPhone(handoff: HandoffConversation): string {
+    const digits = (handoff.handoff_phone || "").replace(/\D/g, "");
+    const phone = digits.startsWith("55")
+        ? digits
+        : digits.length === 10 || digits.length === 11 ? "55" + digits : "";
+    return /^55\d{10,11}$/.test(phone) ? phone : "";
+}
+
+function isHandoffAttended(handoff: HandoffConversation): boolean {
+    return Boolean(
+        handoff.last_owner_message_at &&
+        new Date(handoff.last_owner_message_at).getTime() >=
+            new Date(handoff.handoff_requested_at).getTime()
+    );
 }
 
 function connectionPresentation(connection: WhatsAppConnection | null) {
@@ -232,322 +233,11 @@ function connectionPresentation(connection: WhatsAppConnection | null) {
     }
 }
 
-function isWhatsAppVariable(variable: TemplateVariable): boolean {
-    return WHATSAPP_VARIABLES.includes(variable.key);
-}
-
-function getVariableTone(variable: TemplateVariable): string {
-    return isWhatsAppVariable(variable)
-        ? "border-green-200 bg-green-50 text-green-700"
-        : "border-brand/20 bg-brand/5 text-brand";
-}
-
-function createVariableBadge(variable: TemplateVariable): HTMLSpanElement {
-    const badge = document.createElement("span");
-    badge.contentEditable = "false";
-    badge.dataset.variableToken = variable.token;
-    badge.className =
-        "group relative mx-0.5 inline-grid max-w-full cursor-default gap-0.5 align-middle text-xs";
-    badge.style.fontWeight = "inherit";
-
-    for (const line of variable.value.split("\n")) {
-        const valueLine = document.createElement("span");
-        valueLine.className = `block max-w-full whitespace-pre-wrap break-words rounded-sm border px-1.5 py-0.5 leading-5 ${getVariableTone(variable)}`;
-        valueLine.textContent = line || "\u00A0";
-        badge.append(valueLine);
-    }
-
-    const tooltip = document.createElement("span");
-    tooltip.className =
-        "pointer-events-none absolute bottom-full left-1/2 z-20 mb-1 -translate-x-1/2 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs font-medium text-white opacity-0 shadow-sm transition-opacity group-hover:opacity-100";
-    tooltip.textContent = variable.token;
-
-    badge.append(tooltip);
-    return badge;
-}
-
-function appendNode(parent: HTMLElement, node: Node, bold: boolean) {
-    if (!bold) {
-        parent.append(node);
-        return;
-    }
-
-    const strong = document.createElement("strong");
-    strong.className = "font-bold";
-    strong.append(node);
-    parent.append(strong);
-}
-
-function appendFormattedText(
-    parent: HTMLElement,
-    text: string,
-    initialBold: boolean
-): boolean {
-    let bold = initialBold;
-    let buffer = "";
-
-    const flush = () => {
-        if (!buffer) return;
-        appendNode(parent, document.createTextNode(buffer), bold);
-        buffer = "";
-    };
-
-    for (const character of text) {
-        if (character === "*") {
-            flush();
-            appendNode(parent, document.createTextNode("*"), true);
-            bold = !bold;
-            continue;
-        }
-
-        if (character === "\n") {
-            flush();
-            parent.append(document.createElement("br"));
-            continue;
-        }
-
-        buffer += character;
-    }
-
-    flush();
-    return bold;
-}
-
-function renderTemplateValue(
-    editor: HTMLElement,
-    value: string,
-    variables: TemplateVariable[]
-) {
-    const variableByToken = new Map(
-        variables.map((variable) => [variable.token, variable])
-    );
-    editor.replaceChildren();
-    let bold = false;
-
-    for (const part of value.split(/(\{\{[A-Z0-9_]+\}\})/g)) {
-        if (!part) continue;
-        const variable = variableByToken.get(part);
-        if (variable) {
-            appendNode(editor, createVariableBadge(variable), bold);
-        } else {
-            bold = appendFormattedText(editor, part, bold);
-        }
-    }
-}
-
-function serializeTemplateNode(node: Node): string {
-    if (node.nodeType === Node.TEXT_NODE) {
-        return (node.textContent || "").replace(/\u200B/g, "");
-    }
-
-    if (!(node instanceof HTMLElement)) return "";
-    if (node.dataset.variableToken) return node.dataset.variableToken;
-    if (node.tagName === "BR") return "\n";
-
-    return Array.from(node.childNodes)
-        .map((child) => serializeTemplateNode(child))
-        .join("");
-}
-
-const TemplateEditor = forwardRef<
-    TemplateEditorHandle,
-    {
-        value: string;
-        variables: TemplateVariable[];
-        ariaLabel: string;
-        onChange: (value: string) => void;
-    }
->(function TemplateEditor({ value, variables, ariaLabel, onChange }, ref) {
-    const editorRef = useRef<HTMLDivElement | null>(null);
-    const savedRangeRef = useRef<Range | null>(null);
-    const lastSerializedRef = useRef<string | null>(null);
-    const lastVariableSignatureRef = useRef("");
-    const variableSignature = useMemo(
-        () => variables.map((variable) => `${variable.token}:${variable.value}`).join("|"),
-        [variables]
-    );
-
-    const saveSelection = () => {
-        const editor = editorRef.current;
-        const selection = window.getSelection();
-        if (!editor || !selection?.rangeCount) return;
-        const range = selection.getRangeAt(0);
-        if (editor.contains(range.commonAncestorContainer)) {
-            savedRangeRef.current = range.cloneRange();
-        }
-    };
-
-    const syncFromDom = () => {
-        const editor = editorRef.current;
-        if (!editor) return;
-        const next = Array.from(editor.childNodes)
-            .map((node) => serializeTemplateNode(node))
-            .join("");
-        lastSerializedRef.current = next;
-        onChange(next);
-        saveSelection();
-    };
-
-    useEffect(() => {
-        const editor = editorRef.current;
-        if (!editor) return;
-
-        if (
-            value !== lastSerializedRef.current ||
-            variableSignature !== lastVariableSignatureRef.current
-        ) {
-            renderTemplateValue(editor, value, variables);
-            lastSerializedRef.current = value;
-            lastVariableSignatureRef.current = variableSignature;
-        }
-    }, [value, variableSignature, variables]);
-
-    useImperativeHandle(
-        ref,
-        () => ({
-            insertVariable(variable: TemplateVariable) {
-                const editor = editorRef.current;
-                if (!editor) return;
-
-                editor.focus();
-                const selection = window.getSelection();
-                let range = savedRangeRef.current?.cloneRange() || null;
-                if (!range || !editor.contains(range.commonAncestorContainer)) {
-                    range = document.createRange();
-                    range.selectNodeContents(editor);
-                    range.collapse(false);
-                }
-
-                range.deleteContents();
-                const badge = createVariableBadge(variable);
-                range.insertNode(badge);
-                range.setStartAfter(badge);
-                range.collapse(true);
-                selection?.removeAllRanges();
-                selection?.addRange(range);
-                savedRangeRef.current = range.cloneRange();
-                syncFromDom();
-            },
-        }),
-        [onChange]
-    );
-
-    const handleKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-        if (event.key !== "Enter") return;
-        event.preventDefault();
-
-        const editor = editorRef.current;
-        const selection = window.getSelection();
-        if (!editor || !selection) return;
-
-        let range = selection.rangeCount ? selection.getRangeAt(0) : null;
-        if (!range || !editor.contains(range.commonAncestorContainer)) {
-            range = document.createRange();
-            range.selectNodeContents(editor);
-            range.collapse(false);
-        }
-
-        range.deleteContents();
-        const lineBreak = document.createElement("br");
-        const marker = document.createTextNode("\u200B");
-        range.insertNode(lineBreak);
-        lineBreak.parentNode?.insertBefore(marker, lineBreak.nextSibling);
-        range.setStart(marker, 1);
-        range.collapse(true);
-        selection.removeAllRanges();
-        selection.addRange(range);
-        savedRangeRef.current = range.cloneRange();
-        syncFromDom();
-    };
-
-    return (
-        <div
-            ref={editorRef}
-            contentEditable
-            suppressContentEditableWarning
-            role="textbox"
-            aria-label={ariaLabel}
-            aria-multiline="true"
-            spellCheck
-            onInput={syncFromDom}
-            onBlur={saveSelection}
-            onKeyUp={saveSelection}
-            onMouseUp={saveSelection}
-            onKeyDown={handleKeyDown}
-            onPaste={(event) => {
-                event.preventDefault();
-                document.execCommand(
-                    "insertText",
-                    false,
-                    event.clipboardData.getData("text/plain")
-                );
-                window.requestAnimationFrame(syncFromDom);
-            }}
-            className="min-h-[148px] w-full whitespace-pre-wrap break-words rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 outline-none transition-colors focus:border-brand focus:ring-2 focus:ring-brand/10"
-        />
-    );
-});
-
-function VariablePicker({
-    field,
-    variables,
-    open,
-    onSelect,
-}: {
-    field: TemplateField;
-    variables: TemplateVariable[];
-    open: boolean;
-    onSelect: (variable: TemplateVariable) => void;
-}) {
-    return (
-        <div
-            className={`grid transition-[grid-template-rows,opacity,transform] duration-300 ease-out ${
-                open
-                    ? "grid-rows-[1fr] translate-y-0 opacity-100"
-                    : "pointer-events-none grid-rows-[0fr] -translate-y-1 opacity-0"
-            }`}
-            aria-hidden={!open}
-        >
-            <div className="min-h-0 overflow-hidden">
-                <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
-                    <p className="mb-2 text-xs font-medium text-gray-600">
-                        Clique em uma variável para inserir na mensagem:
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                        {variables
-                            .filter((variable) => field.variables.includes(variable.key))
-                            .map((variable) => (
-                                <button
-                                    key={variable.key}
-                                    type="button"
-                                    onClick={() => onSelect(variable)}
-                                    className={`cursor-pointer border px-3 py-1.5 text-left text-xs transition-colors ${
-                                        variable.value.includes("\n") ? "rounded-md" : "rounded-full"
-                                    } ${
-                                        isWhatsAppVariable(variable)
-                                            ? "border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
-                                            : "border-brand/20 bg-brand/5 text-brand hover:bg-brand/10"
-                                    }`}
-                                    title={variable.token}
-                                >
-                                    <span className="font-semibold">{variable.label}</span>
-                                    <span className="ml-1 whitespace-pre-line opacity-75">
-                                        ({variable.value})
-                                    </span>
-                                </button>
-                            ))}
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-}
-
 export default function RoboWhatsAppPage() {
     const { restaurantId, setRestaurantId } = useCreationStore();
     const editorRefs = useRef<Record<string, TemplateEditorHandle | null>>({});
+    const [notificationSettings,setNotificationSettings]=useState<{plus:boolean;enabled:boolean}|null>(null);
     const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
     const [whatsAppAction, setWhatsAppAction] = useState<
         "connect" | "reconnect" | "refresh_qr" | "disconnect" | null
     >(null);
@@ -580,9 +270,35 @@ export default function RoboWhatsAppPage() {
         return session;
     };
 
+    const { status: saveStatus, error: saveError, schedule: scheduleSave, reset: resetSave } = useAutoSave<WhatsAppMessageTemplates>(restaurantId, async (snapshot) => {
+        if (!restaurantId) throw new Error("Restaurante não encontrado.");
+        if (Object.values(snapshot).some((message) => !message.trim() || message.length > 4000)) {
+            throw new Error("Preencha as mensagens com até 4.000 caracteres para salvar automaticamente.");
+        }
+        const session = await getAuthenticatedSession();
+        if (!session) throw new Error("Sua sessão expirou. Entre novamente.");
+        const response = await fetch(
+            `/api/whatsapp/settings?restaurantId=${encodeURIComponent(restaurantId)}`,
+            {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({ templates: snapshot }),
+            }
+        );
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Erro ao salvar mensagens.");
+    });
+
     useEffect(() => {
+        let active = true;
+        setLoading(true);
+        setTemplates(null);
         const loadPage = async () => {
             const session = await getAuthenticatedSession();
+            if (!active) return;
             if (!session?.user) {
                 setLoading(false);
                 return;
@@ -595,6 +311,7 @@ export default function RoboWhatsAppPage() {
                     .select("id")
                     .eq("user_id", session.user.id)
                     .single();
+                if (!active) return;
                 if (!data) {
                     setLoading(false);
                     return;
@@ -618,6 +335,7 @@ export default function RoboWhatsAppPage() {
 
             const connectionData = await connectionResponse.json().catch(() => ({}));
             const settingsData = await settingsResponse.json().catch(() => ({}));
+            if (!active) return;
 
             if (connectionResponse.ok) {
                 setRestaurant(connectionData.restaurant);
@@ -630,9 +348,11 @@ export default function RoboWhatsAppPage() {
             }
 
             if (settingsResponse.ok) {
+                setNotificationSettings({plus:settingsData.plus===true,enabled:settingsData.orderNotificationsEnabled===true});
                 setTemplates(settingsData.templates);
                 setVariables(settingsData.variables || []);
                 setHandoffs(settingsData.conversations || []);
+                resetSave("saved");
             } else {
                 showMessage(
                     settingsData.error || "Não foi possível carregar as mensagens do robô.",
@@ -643,8 +363,13 @@ export default function RoboWhatsAppPage() {
             setLoading(false);
         };
 
-        void loadPage();
-    }, [restaurantId, setRestaurantId]);
+        void loadPage().catch((error) => {
+            if (!active) return;
+            showMessage(error instanceof Error ? error.message : "Não foi possível carregar o robô WhatsApp.", "error");
+            setLoading(false);
+        });
+        return () => { active = false; };
+    }, [restaurantId, setRestaurantId, resetSave]);
 
     useEffect(() => {
         if (!restaurantId) return;
@@ -745,35 +470,11 @@ export default function RoboWhatsAppPage() {
         }
     };
 
-    const saveTemplates = async () => {
-        if (!restaurantId || !templates || saving) return;
-        const session = await getAuthenticatedSession();
-        if (!session) return;
-        setSaving(true);
-        try {
-            const response = await fetch(
-                `/api/whatsapp/settings?restaurantId=${encodeURIComponent(restaurantId)}`,
-                {
-                    method: "PUT",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${session.access_token}`,
-                    },
-                    body: JSON.stringify({ templates }),
-                }
-            );
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error || "Erro ao salvar mensagens.");
-            setTemplates(data.templates);
-            showMessage("Mensagens salvas com sucesso!", "success");
-        } catch (error) {
-            showMessage(
-                error instanceof Error ? error.message : "Erro ao salvar mensagens.",
-                "error"
-            );
-        } finally {
-            setSaving(false);
-        }
+    const updateTemplate = (key: WhatsAppTemplateKey, value: string) => {
+        if (!templates) return;
+        const next = { ...templates, [key]: value };
+        setTemplates(next);
+        scheduleSave(next);
     };
 
     const status = useMemo(() => connectionPresentation(connection), [connection]);
@@ -790,8 +491,8 @@ export default function RoboWhatsAppPage() {
 
     if (loading) {
         return (
-            <div className="flex h-64 items-center justify-center">
-                <Loader />
+            <div role="status" aria-label="Carregando robô WhatsApp" className="flex justify-center p-10">
+                <Loader className="border-t-brand" />
             </div>
         );
     }
@@ -804,17 +505,17 @@ export default function RoboWhatsAppPage() {
             </p>
 
             <div className="space-y-6">
-                <Card className="border border-gray-200 p-7">
-                    <div className="flex items-start gap-4">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-green-50 text-2xl text-green-600">
+                <section aria-label="WhatsApp do restaurante" className="@container min-w-0">
+                    <div className="grid grid-cols-[40px_minmax(0,1fr)] items-start gap-x-3 gap-y-4 @min-[640px]:grid-cols-[40px_minmax(0,1fr)_auto]">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-green-50 text-xl text-green-600">
                             <FontAwesomeIcon icon={faWhatsapp} />
                         </div>
                         <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
-                                <h2 className="text-xl font-semibold text-gray-900">
+                                <h2 className="!text-base !leading-6 font-semibold text-gray-900">
                                     WhatsApp do restaurante
                                 </h2>
-                                <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${status.badge}`}>
+                                <span className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-medium leading-none ${status.badge}`}>
                                     {status.label}
                                 </span>
                             </div>
@@ -826,53 +527,145 @@ export default function RoboWhatsAppPage() {
                                 </p>
                             )}
                         </div>
+                        <div className={`col-span-2 ${!connection || connection.desired_state === "disconnected" || isConnected ? "@min-[640px]:col-span-1 @min-[640px]:justify-self-end" : "@min-[640px]:col-span-3"}`}>
+                            {!connection || connection.desired_state === "disconnected" ? (
+                                <div className="flex flex-wrap gap-2">
+                                    <Button
+                                        onClick={() => runWhatsAppAction("connect")}
+                                        loading={whatsAppAction === "connect"}
+                                        className="w-full @min-[480px]:w-auto"
+                                    >
+                                        <FontAwesomeIcon icon={faQrcode} className="mr-2" />
+                                        Conectar WhatsApp
+                                    </Button>
+                                </div>
+                            ) : (
+                                <div className="flex flex-wrap gap-2">
+                                    {(connection.status === "FAILED" ||
+                                        connection.status === "STOPPED") && (
+                                        <Button
+                                            onClick={() => runWhatsAppAction("reconnect")}
+                                            loading={whatsAppAction === "reconnect"}
+                                        >
+                                            <FontAwesomeIcon icon={faRotate} className="mr-2" />
+                                            Tentar reconectar
+                                        </Button>
+                                    )}
+                                    {(connection.status === "FAILED" ||
+                                        connection.status === "SCAN_QR_CODE" ||
+                                        connection.status === "PASSKEY_REQUIRED") && (
+                                        <Button
+                                            variant={connection.status === "FAILED" ? "secondary" : undefined}
+                                            onClick={() => runWhatsAppAction("refresh_qr")}
+                                            loading={whatsAppAction === "refresh_qr"}
+                                        >
+                                            <FontAwesomeIcon icon={faRotate} className="mr-2" />
+                                            Gerar novo QR Code
+                                        </Button>
+                                    )}
+                                    <Button
+                                        variant="secondary"
+                                        onClick={() => runWhatsAppAction("disconnect")}
+                                        loading={whatsAppAction === "disconnect"}
+                                    >
+                                        <FontAwesomeIcon icon={faPowerOff} className="mr-2" />
+                                        Desconectar
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
                     </div>
-
-                    {!connection || connection.desired_state === "disconnected" ? (
-                        <div className="mt-7">
-                            <Button
-                                onClick={() => runWhatsAppAction("connect")}
-                                loading={whatsAppAction === "connect"}
-                            >
-                                <FontAwesomeIcon icon={faQrcode} className="mr-2" />
-                                Conectar WhatsApp
-                            </Button>
-                        </div>
-                    ) : (
-                        <div className="mt-7 flex flex-wrap gap-3">
-                            {(connection.status === "FAILED" ||
-                                connection.status === "STOPPED") && (
-                                <Button
-                                    onClick={() => runWhatsAppAction("reconnect")}
-                                    loading={whatsAppAction === "reconnect"}
-                                >
-                                    <FontAwesomeIcon icon={faRotate} className="mr-2" />
-                                    Tentar reconectar
-                                </Button>
-                            )}
-                            {(connection.status === "FAILED" ||
-                                connection.status === "SCAN_QR_CODE" ||
-                                connection.status === "PASSKEY_REQUIRED") && (
-                                <Button
-                                    variant={connection.status === "FAILED" ? "secondary" : undefined}
-                                    onClick={() => runWhatsAppAction("refresh_qr")}
-                                    loading={whatsAppAction === "refresh_qr"}
-                                >
-                                    <FontAwesomeIcon icon={faRotate} className="mr-2" />
-                                    Gerar novo QR Code
-                                </Button>
-                            )}
-                            <Button
-                                variant="secondary"
-                                onClick={() => runWhatsAppAction("disconnect")}
-                                loading={whatsAppAction === "disconnect"}
-                            >
-                                <FontAwesomeIcon icon={faPowerOff} className="mr-2" />
-                                Desconectar
-                            </Button>
-                        </div>
-                    )}
-                </Card>
+                    <div id="atendimentos-humanos" aria-label="Conversas encaminhadas para atendimento humano" className={`mt-4 [&_th]:py-3 ${handoffs.length === 0 ? "[&_table]:table-auto @min-[720px]:[&_table]:table-fixed [&_td]:py-4" : "[&_table]:table-fixed"}`}>
+                        {pendingHandoffs > 0 && (
+                            <div className="mb-2 flex justify-end">
+                                <Badge variant="warning">
+                                    {pendingHandoffs} aguardando
+                                </Badge>
+                            </div>
+                        )}
+                        <DataTable
+                            rows={handoffs}
+                            emptyMessage={
+                                <div className="mx-auto flex max-w-lg flex-col items-center gap-2">
+                                    <FontAwesomeIcon icon={faWhatsapp} className="text-xl text-gray-400" aria-hidden="true" />
+                                    <p>As conversas encaminhadas para atendimento humano ficam aqui. Você também receberá uma notificação!</p>
+                                </div>
+                            }
+                            rowKey={(handoff) => handoff.chat_id}
+                            columns={[
+                                {
+                                    key: "customer",
+                                    label: "Cliente",
+                                    render: (handoff) => {
+                                        const phone = getHandoffPhone(handoff);
+                                        return (
+                                            <div className="min-w-0">
+                                                <p className="break-words font-semibold text-gray-900">{handoff.customer_name || "Cliente"}</p>
+                                                <p className="mt-0.5 text-xs text-gray-500">
+                                                    {phone ? formatPhone(phone) : "Telefone indisponível"}
+                                                </p>
+                                                <div className="mt-2 space-y-2 @min-[720px]:hidden">
+                                                    <p className="text-xs text-gray-500">
+                                                        {new Date(handoff.handoff_requested_at).toLocaleString("pt-BR", {
+                                                            timeZone: "America/Sao_Paulo",
+                                                            dateStyle: "short",
+                                                            timeStyle: "short",
+                                                        })}
+                                                    </p>
+                                                    <Badge variant={isHandoffAttended(handoff) ? "success" : "warning"}>
+                                                        {isHandoffAttended(handoff) ? "Atendido" : "Aguardando atendimento"}
+                                                    </Badge>
+                                                </div>
+                                            </div>
+                                        );
+                                    },
+                                },
+                                {
+                                    key: "requested",
+                                    label: "Encaminhado",
+                                    className: "hidden whitespace-nowrap @min-[720px]:w-40 @min-[720px]:table-cell",
+                                    render: (handoff) => new Date(handoff.handoff_requested_at).toLocaleString("pt-BR", {
+                                        timeZone: "America/Sao_Paulo",
+                                        dateStyle: "short",
+                                        timeStyle: "short",
+                                    }),
+                                },
+                                {
+                                    key: "status",
+                                    label: "Situação",
+                                    className: "hidden whitespace-nowrap @min-[720px]:w-48 @min-[720px]:table-cell",
+                                    render: (handoff) => (
+                                        <Badge variant={isHandoffAttended(handoff) ? "success" : "warning"}>
+                                            {isHandoffAttended(handoff) ? "Atendido" : "Aguardando atendimento"}
+                                        </Badge>
+                                    ),
+                                },
+                                {
+                                    key: "action",
+                                    label: "Ação",
+                                    className: "w-20 whitespace-nowrap text-right @min-[720px]:w-48",
+                                    render: (handoff) => {
+                                        const phone = getHandoffPhone(handoff);
+                                        return (
+                                            <Button
+                                                variant="secondary"
+                                                disabled={!phone}
+                                                aria-label="Abrir WhatsApp"
+                                                title="Abrir WhatsApp"
+                                                onClick={() => {
+                                                    if (phone) window.open(`https://wa.me/${phone}`, "_blank", "noopener,noreferrer");
+                                                }}
+                                            >
+                                                <FontAwesomeIcon icon={faWhatsapp} className="@min-[720px]:mr-2" />
+                                                <span className="hidden @min-[720px]:inline">Abrir WhatsApp</span>
+                                            </Button>
+                                        );
+                                    },
+                                },
+                            ]}
+                        />
+                    </div>
+                </section>
 
                 <div
                     className={`grid transition-[grid-template-rows,opacity,transform] duration-300 ease-out ${
@@ -932,80 +725,6 @@ export default function RoboWhatsAppPage() {
                     </Card>
                 )}
 
-                <Card id="atendimentos-humanos" className="border border-gray-200 p-7">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="flex items-start gap-4">
-                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand/10 text-xl text-brand">
-                                <FontAwesomeIcon icon={faBell} />
-                            </div>
-                            <div>
-                                <h2 className="text-lg font-semibold text-gray-900">Atendimento humano</h2>
-                                <p className="mt-1 text-sm text-gray-600">
-                                    Clientes encaminhados pelo robô nos últimos 7 dias.
-                                </p>
-                            </div>
-                        </div>
-                        {pendingHandoffs > 0 && (
-                            <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">
-                                {pendingHandoffs} aguardando
-                            </span>
-                        )}
-                    </div>
-                    {handoffs.length === 0 ? (
-                        <p className="mt-6 py-8 text-center text-sm text-gray-500">
-                            Nenhum atendimento humano solicitado recentemente.
-                        </p>
-                    ) : (
-                        <div className="mt-5 divide-y divide-gray-200 rounded-lg border border-gray-200">
-                            {handoffs.map((handoff) => {
-                                const attended = Boolean(
-                                    handoff.last_owner_message_at &&
-                                    new Date(handoff.last_owner_message_at).getTime() >=
-                                        new Date(handoff.handoff_requested_at).getTime()
-                                );
-                                const rawPhone = (handoff.handoff_phone || "").replace(/\D/g, "");
-                                const phone = rawPhone.startsWith("55")
-                                    ? rawPhone
-                                    : rawPhone.length === 10 || rawPhone.length === 11
-                                      ? "55" + rawPhone : "";
-                                const canOpen = /^55\d{10,11}$/.test(phone);
-                                return (
-                                    <div key={handoff.chat_id} className="flex flex-wrap items-center justify-between gap-3 p-4">
-                                        <div className="min-w-0">
-                                            <p className="text-sm font-semibold text-gray-900">
-                                                {handoff.customer_name || "Cliente"}
-                                            </p>
-                                            <p className="mt-1 text-xs text-gray-500">
-                                                {canOpen ? formatPhone(phone) : "Telefone indisponível"} ·{" "}
-                                                {new Date(handoff.handoff_requested_at).toLocaleString("pt-BR", {
-                                                    timeZone: "America/Sao_Paulo",
-                                                    dateStyle: "short",
-                                                    timeStyle: "short",
-                                                })}
-                                            </p>
-                                            <p className={`mt-2 text-xs font-medium ${attended ? "text-green-700" : "text-amber-700"}`}>
-                                                {attended ? "Atendido" : "Aguardando atendimento"}
-                                            </p>
-                                        </div>
-                                        <Button
-                                            variant="secondary"
-                                            disabled={!canOpen}
-                                            onClick={() => {
-                                                if (canOpen) {
-                                                    window.open(`https://wa.me/${phone}`, "_blank", "noopener,noreferrer");
-                                                }
-                                            }}
-                                        >
-                                            <FontAwesomeIcon icon={faWhatsapp} className="mr-2" />
-                                            Abrir WhatsApp
-                                        </Button>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </Card>
-
                 {templates && (
                     <Card className="border border-gray-200 p-7">
                         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -1017,10 +736,9 @@ export default function RoboWhatsAppPage() {
                                     Personalize as mensagens principais.
                                 </p>
                             </div>
-                            <Button onClick={saveTemplates} loading={saving}>
-                                Salvar mensagens
-                            </Button>
+                            <SaveStatus status={saveStatus} className="self-start" />
                         </div>
+                        {saveError ? <p role="alert" className="mt-3 text-sm text-red-600">{saveError}</p> : null}
 
                         <div className="mt-6 divide-y divide-gray-200 rounded-lg border border-gray-200">
                             {TEMPLATE_FIELDS.map((field) => {
@@ -1067,16 +785,7 @@ export default function RoboWhatsAppPage() {
                                                         value={templates[field.key]}
                                                         variables={variables}
                                                         ariaLabel={`Mensagem: ${field.title}`}
-                                                        onChange={(value) =>
-                                                            setTemplates((current) =>
-                                                                current
-                                                                    ? {
-                                                                          ...current,
-                                                                          [field.key]: value,
-                                                                      }
-                                                                    : current
-                                                            )
-                                                        }
+                                                        onChange={(value) => updateTemplate(field.key, value)}
                                                     />
                                                     <button
                                                         type="button"
@@ -1091,7 +800,7 @@ export default function RoboWhatsAppPage() {
                                                         Adicionar variável
                                                     </button>
                                                     <VariablePicker
-                                                        field={field}
+                                                        allowedVariables={field.variables}
                                                         variables={variables}
                                                         open={openVariables === field.key}
                                                         onSelect={(variable) => {
@@ -1108,6 +817,8 @@ export default function RoboWhatsAppPage() {
                         </div>
                     </Card>
                 )}
+
+                {restaurantId && notificationSettings && <OrderNotificationSettings key={restaurantId} restaurantId={restaurantId} plus={notificationSettings.plus} initialEnabled={notificationSettings.enabled}/>}
 
                 <Card className="border border-gray-200 p-7">
                     <h3 className="text-lg font-semibold text-gray-900">
@@ -1158,6 +869,7 @@ export default function RoboWhatsAppPage() {
                         ))}
                     </div>
                 </Card>
+                <PanelFeatureCallout feature="marketing" />
             </div>
 
             {showToast && (
@@ -1170,3 +882,4 @@ export default function RoboWhatsAppPage() {
         </div>
     );
 }
+

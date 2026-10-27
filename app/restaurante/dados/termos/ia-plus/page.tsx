@@ -2,13 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-    title: "Termos do iMenu IA Plus",
+    title: "Termos do iMenu Plus",
     description:
-        "Condições de contratação e uso do sistema iMenu IA Plus.",
+        "Condições de contratação e uso do sistema iMenu Plus.",
 };
 
 const SUPPORT_URL =
-    "https://wa.me/5519997235394?text=Ol%C3%A1%2C%20tenho%20uma%20d%C3%BAvida%20sobre%20os%20Termos%20do%20iMenu%20IA%20Plus.";
+    "https://wa.me/5519997235394?text=Ol%C3%A1%2C%20tenho%20uma%20d%C3%BAvida%20sobre%20os%20Termos%20do%20iMenu%20Plus.";
 
 export default function IaPlusTermsPage() {
     return (
@@ -18,10 +18,10 @@ export default function IaPlusTermsPage() {
                     Sistemas iMenu
                 </p>
                 <h1 className="mt-3 text-3xl font-bold text-gray-900">
-                    Termos do iMenu IA Plus
+                    Termos do iMenu Plus
                 </h1>
                 <p className="mt-3 text-sm text-gray-500">
-                    Última atualização: 21 de outubro de 2026
+                    Última atualização: 23 de outubro de 2026
                 </p>
 
                 <div className="mt-8 space-y-8 text-sm leading-7 text-gray-700 sm:text-base">
@@ -30,8 +30,8 @@ export default function IaPlusTermsPage() {
                             1. Objeto
                         </h2>
                         <p className="mt-2">
-                            Estes termos regulam a contratação e o uso do iMenu
-                            IA Plus, sistema adicional ao iMenu Cardápio Digital
+                            Estes termos regulam a contratação e o uso do
+                            iMenu Plus, sistema adicional ao iMenu Cardápio Digital
                             que oferece recursos de inteligência artificial para
                             análise de vendas, assistência na gestão e criação de
                             conteúdo para o restaurante.
@@ -43,7 +43,7 @@ export default function IaPlusTermsPage() {
                             2. Funcionalidades
                         </h2>
                         <p className="mt-2">
-                            O iMenu IA Plus pode analisar dados do restaurante,
+                            O iMenu Plus pode analisar dados do restaurante,
                             sugerir melhorias, auxiliar em descrições, preços e
                             configurações, gerar imagens e apresentar
                             oportunidades identificadas a partir da Análise de
@@ -51,12 +51,22 @@ export default function IaPlusTermsPage() {
                             evoluir ao longo do tempo.
                         </p>
                         <p className="mt-2">
+                            O plano inclui Automações de Marketing WhatsApp,
+                            Assistente IA e Vendas IA. Os bônus são atendimento exclusivo,
+                            upsells automáticos, atualizações de pedidos pelo WhatsApp
+                            e download do cardápio em PDF. A exportação em PDF exige
+                            iMenu Plus ativo. QR Code Mesa, Painel Garçom e Modo Vitrine
+                            são gratuitos e permanecem disponíveis sem o plano.
+                            As automações dependem de conexão WhatsApp ativa, consentimento
+                            dos clientes e limites de envio configurados.
+                        </p>
+                        <p className="mt-2">
                             O Assistente IA possui acesso gratuito com limites
                             de processamento e imagens. A aba Vendas IA e a
                             liberação de análises gratuitas também estão
                             disponíveis sem contratar este adicional, conforme
                             a seleção de restaurantes e a visualização liberada.
-                            O IA Plus amplia a capacidade do Assistente e libera
+                            O iMenu Plus amplia a capacidade do Assistente e libera
                             o acesso completo, a conversa sobre a análise e a
                             aplicação de suas propostas após aprovação. O acesso
                             à análise sem depender da seleção gratuita não
@@ -70,7 +80,7 @@ export default function IaPlusTermsPage() {
                             2.1. Capacidade, contagem e limites de uso
                         </h2>
                         <p className="mt-2">
-                            A contratação do IA Plus oferece maior capacidade,
+                            A contratação do iMenu Plus oferece maior capacidade,
                             mas não constitui uso ilimitado. Tokens são unidades
                             de processamento de conteúdo pela IA. O consumo
                             inclui as entradas e respostas, o contexto da
@@ -98,10 +108,10 @@ export default function IaPlusTermsPage() {
                                 Essa tolerância não cria uma franquia adicional
                                 recorrente; após esgotar a capacidade, novas
                                 solicitações ficam bloqueadas até a recomposição
-                                do saldo ou a ativação do IA Plus.
+                                do saldo ou a ativação do iMenu Plus.
                             </li>
                             <li>
-                                No IA Plus, o Assistente está sujeito a tetos
+                                No iMenu Plus, o Assistente está sujeito a tetos
                                 mensais de 2.000.000 tokens de entrada e 120.000
                                 tokens de saída e à capacidade de até 50 gerações
                                 de imagem por restaurante no mês calendário.
@@ -142,7 +152,7 @@ export default function IaPlusTermsPage() {
                         </p>
                         <p className="mt-2">
                             Alterações materiais das franquias e condições do
-                            IA Plus serão informadas com antecedência e, para
+                            iMenu Plus serão informadas com antecedência e, para
                             assinaturas em curso, antes de produzirem efeitos
                             em uma renovação futura. Permanecem assegurados os
                             direitos legais do contratante e o cancelamento
@@ -211,7 +221,7 @@ export default function IaPlusTermsPage() {
                             6. Preço e cobrança
                         </h2>
                         <p className="mt-2">
-                            O iMenu IA Plus custa R$ 49,99 por mês. No cartão, a
+                            O iMenu Plus custa R$ 49,99 por mês. No cartão, a
                             assinatura é renovada automaticamente até o
                             cancelamento. No Pix, o pagamento é único e libera
                             um mês de acesso, sem ativar cobrança recorrente. O
@@ -230,7 +240,7 @@ export default function IaPlusTermsPage() {
                             A ativação ocorre após a confirmação do pagamento.
                             Pagamentos pendentes, recusados, vencidos ou
                             estornados podem impedir ou suspender o acesso ao
-                            iMenu IA Plus.
+                            iMenu Plus.
                         </p>
                     </section>
 
@@ -294,7 +304,7 @@ export default function IaPlusTermsPage() {
                         </h2>
                         <p className="mt-2">
                             Dúvidas, cancelamentos e solicitações relacionadas ao
-                            iMenu IA Plus podem ser enviados pelo{" "}
+                            iMenu Plus podem ser enviados pelo{" "}
                             <a
                                 href={SUPPORT_URL}
                                 target="_blank"

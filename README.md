@@ -15,7 +15,7 @@ O iMenu permite que restaurantes vendam diretamente pelo próprio cardápio onli
 | Operação | Disponibilidade, horários, taxas de entrega, mesas, garçom e motoboy. |
 | Impressão | Integração com o iMenu Impressora para receber e imprimir pedidos. |
 | Gestão e crescimento | Indicadores, financeiro, promoções, fidelidade e recursos de WhatsApp. |
-| Inteligência artificial | Assistente IA, Vendas IA e funcionalidades de IA Plus. |
+| Inteligência artificial | Assistente IA, Vendas IA e funcionalidades do iMenu Plus. |
 | Integrações | Serviços de pagamento, autenticação, notificações e análise de uso. |
 
 As funcionalidades disponíveis a cada restaurante dependem da configuração e das integrações habilitadas.

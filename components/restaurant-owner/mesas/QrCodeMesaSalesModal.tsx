@@ -1,262 +1,78 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import {
-    faArrowRotateLeft,
-    faBellConcierge,
-    faCreditCard,
-    faQrcode,
-    faUsers,
-} from "@fortawesome/free-solid-svg-icons";
-import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
+import { useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
-
-import QrCodeMesaCheckoutModal from "@/components/restaurant-owner/mesas/QrCodeMesaCheckoutModal";
-import Button from "@/components/ui/Button";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
+import { faBellConcierge, faQrcode, faUsers } from "@fortawesome/free-solid-svg-icons";
+import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import Modal from "@/components/ui/Modal";
-import ModalFlowStep from "@/components/ui/ModalFlowStep";
+import Button from "@/components/ui/Button";
+import { qrTableAuthenticatedFetch } from "@/lib/qr-table/clientApi";
 import type { QrTableSource } from "@/lib/qr-table/types";
 
-type QrCodeMesaSalesModalProps = {
+const BENEFITS = [
+    { icon: faQrcode, title: "Mesas ilimitadas", description: "Crie mesas e QR Codes ilimitados gratuitamente." },
+    { icon: faBellConcierge, title: "Painel do Garçom", description: "Acompanhe e registre pedidos de cada mesa." },
+    { icon: faUsers, title: "Acompanhamento de pedidos", description: "O cliente acompanha os pedidos pelo próprio cardápio." },
+] as const;
+
+export default function QrCodeMesaSalesModal({
+    open, onClose, restaurantId, source, active = false, onPaid,
+}: {
     open: boolean;
     onClose: () => void;
     restaurantId: string;
     source: QrTableSource;
     active?: boolean;
     onPaid?: () => void | Promise<void>;
-};
-
-const BENEFITS = [
-    {
-        icon: faQrcode,
-        title: "Sem limites de mesas",
-        description:
-            "Por apenas R$ 5,00 por mês, você cria mesas ilimitadas e QR Codes ilimitados.",
-    },
-    {
-        icon: faBellConcierge,
-        title: "Painel do Garçom",
-        description:
-            "Acompanhe os pedidos de cada mesa e adicione novos pedidos direto pelo painel do garçom.",
-    },
-    {
-        icon: faUsers,
-        title: "A mesa acompanha o pedido",
-        description:
-            "O pedido vai direto para o painel e para impressão, o cliente acompanha pela página.",
-    },
-] as const;
-
-const SUPPORT_URL =
-    "https://wa.me/5519997235394?text=Ol%C3%A1%2C%20tenho%20uma%20d%C3%BAvida%20sobre%20o%20iMenu%20QR%20Code%20Mesa.";
-
-export default function QrCodeMesaSalesModal({
-    open,
-    onClose,
-    restaurantId,
-    source,
-    active = false,
-    onPaid,
-}: QrCodeMesaSalesModalProps) {
-    const [checkoutOpen, setCheckoutOpen] = useState(false);
-    const [hasNavigatedToCheckout, setHasNavigatedToCheckout] = useState(false);
-
-    useEffect(() => {
-        if (!open || active) {
-            setCheckoutOpen(false);
-            setHasNavigatedToCheckout(false);
+}) {
+    const [activating, setActivating] = useState(false);
+    const [error, setError] = useState("");
+    const activate = async () => {
+        if (activating) return;
+        setActivating(true);
+        setError("");
+        try {
+            const response = await qrTableAuthenticatedFetch("/api/qr-table/activate", {
+                method: "POST", body: JSON.stringify({ restaurantId, source }),
+            });
+            if (!response.ok) {
+                const payload = (await response.json()) as { error?: string };
+                throw new Error(payload.error || "Não foi possível ativar o QR Code.");
+            }
+            await onPaid?.();
+            onClose();
+        } catch (error) {
+            setError(error instanceof Error ? error.message : "Não foi possível ativar o QR Code.");
+        } finally {
+            setActivating(false);
         }
-    }, [open, active]);
-
-    const openCheckout = () => {
-        setHasNavigatedToCheckout(true);
-        setCheckoutOpen(true);
     };
 
-    const close = () => {
-        setCheckoutOpen(false);
-        setHasNavigatedToCheckout(false);
-        onClose();
-    };
-
-    return (
-        <Modal
-            fixedHeight
-            bodyClassName="flex flex-1 flex-col !overflow-hidden"
-            height={checkoutOpen ? 760 : 700}
-            open={open}
-            onClose={close}
-            className="max-w-4xl"
-            showCloseButton
-        >
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                {checkoutOpen ? (
-                    <ModalFlowStep key="checkout" animate>
-                        <QrCodeMesaCheckoutModal
-                            open
-                            embedded
-                            onClose={close}
-                            restaurantId={restaurantId}
-                            source={source}
-                            onBack={() => setCheckoutOpen(false)}
-                            onPaid={onPaid}
-                        />
-                    </ModalFlowStep>
-                ) : (
-                    <>
-                    <div className="min-h-0 flex-1 overflow-hidden">
-                    <ModalFlowStep
-                        key="sales"
-                        reverse
-                        animate={hasNavigatedToCheckout}
-                    >
-            <div className="min-h-0 flex-1 overflow-y-auto">
-            <div className="grid shrink-0 overflow-hidden md:grid-cols-[minmax(0,1fr)_300px]">
-                <div className="px-6 pb-1 pt-5 sm:px-8 sm:py-8">
-                    <div className="relative h-12 w-56 max-w-full">
-                        <Image
-                            src="/logos/QRCODECombinationMarkLogo_Brand.png"
-                            alt="iMenu QR Code Mesa"
-                            fill
-                            sizes="224px"
-                            className="object-contain object-left"
-                        />
-                    </div>
-
-                    <p className="mt-7 text-xs font-bold uppercase tracking-[0.16em] text-brand">
-                        Pedidos direto pela mesa
-                    </p>
-                    <p className="mt-3 max-w-xl text-sm leading-relaxed text-gray-600 sm:text-base">
-                        O cliente abre o cardápio, escolhe os produtos e envia o
-                        pedido já identificado com a mesa — direto para o seu
-                        painel e para a impressão.
-                    </p>
-
-                    <div className="mt-6 flex flex-wrap items-end gap-x-3 gap-y-2 rounded-xl border border-brand/20 bg-brand/5 px-4 py-4">
-                        <span className="text-3xl font-bold text-gray-900">
-                            R$ 5,00
-                        </span>
-                        <span className="pb-1 text-sm text-gray-600">/mês</span>
-                        <div className="ml-auto flex flex-col items-end gap-1 pb-1">
-                            <span className="inline-flex items-center gap-2 text-xs font-medium text-gray-600">
-                                <FontAwesomeIcon icon={faCreditCard} />
-                                Cartão ou Pix
-                            </span>
-                            <span className="inline-flex items-center gap-2 text-xs font-medium text-gray-500">
-                                <FontAwesomeIcon icon={faArrowRotateLeft} />
-                                cancele quando quiser
-                            </span>
-                        </div>
-                    </div>
-
-                    <div className="mt-3 flex justify-center md:hidden">
-                        <div className="relative aspect-[2/3] w-full max-w-[280px]">
-                            <Image
-                                src="/images/QRCodeMesa.png"
-                                alt="Demonstração do iMenu QR Code Mesa"
-                                fill
-                                sizes="280px"
-                                className="object-contain object-center"
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                <div className="relative hidden min-h-0 md:block">
-                    <div className="absolute -bottom-4 -left-8 right-10 top-16">
-                        <Image
-                            src="/images/QRCodeMesa.png"
-                            alt="Demonstração do iMenu QR Code Mesa"
-                            fill
-                            sizes="300px"
-                            className="object-contain object-center"
-                        />
-                    </div>
-                </div>
+    return <Modal fixedHeight height={640} open={open} onClose={onClose} className="max-w-4xl" showCloseButton bodyClassName="flex flex-col !overflow-hidden">
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-7 sm:px-8">
+            <div className="relative h-12 w-56 max-w-full">
+                <Image src="/logos/QRCODECombinationMarkLogo_Brand.png" alt="iMenu QR Code Mesa" fill sizes="224px" className="object-contain object-left" />
             </div>
-
-            <div className="shrink-0 space-y-6 px-6 pb-5 pt-3 sm:px-8 sm:pt-1">
-                <div>
-                    <h3 className="text-lg font-bold text-gray-900">
-                        Tudo pronto para atender pelas mesas
-                    </h3>
-                    <p className="mt-1 text-sm text-gray-500">
-                        Use o QR Code nas mesas e facilite sua operação.
-                    </p>
-                </div>
-
-                <div className="grid gap-3 md:grid-cols-3">
-                    {BENEFITS.map((benefit) => (
-                        <div
-                            key={benefit.title}
-                            className="rounded-xl border border-orange-100 bg-gradient-to-br from-white to-orange-50/70 p-4"
-                        >
-                            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand/10 text-brand">
-                                <FontAwesomeIcon icon={benefit.icon} />
-                            </span>
-                            <p className="mt-3 font-semibold text-gray-900">
-                                {benefit.title}
-                            </p>
-                            <p className="mt-1 text-sm leading-relaxed text-gray-500">
-                                {benefit.description}
-                            </p>
-                        </div>
-                    ))}
-                </div>
-
-                {!active && (
-                    <p className="text-center text-xs leading-relaxed text-gray-500">
-                        Ao continuar, você concorda com os{" "}
-                        <Link
-                            href="/restaurante/dados/termos/qr-code-mesa"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="underline underline-offset-2"
-                        >
-                            Termos do iMenu QR Code Mesa
-                        </Link>{" "}
-                        e a cobrança recorrente só é ativada se você escolher
-                        cartão.
-                    </p>
-                )}
-            </div>
-            </div>
-                    </ModalFlowStep>
+            <p className="mt-6 text-xs font-bold uppercase tracking-[0.16em] text-brand">Pedidos direto pela mesa</p>
+            <h2 className="mt-3 text-2xl font-bold text-gray-900">iMenu QR Code Mesa</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-600">Receba pedidos identificados por mesa, direto no painel e na impressão. Gratuito para todos os restaurantes.</p>
+            <p className="mt-5 inline-flex rounded-xl border border-brand/20 bg-brand/5 px-4 py-3 text-lg font-bold text-brand">Grátis para sempre, sem limites</p>
+            <div className="mt-6 grid gap-3 md:grid-cols-3">
+                {BENEFITS.map((benefit) => (
+                    <div key={benefit.title} className="rounded-xl border border-orange-100 bg-gradient-to-br from-white to-orange-50/70 p-4">
+                        <FontAwesomeIcon icon={benefit.icon} className="text-lg text-brand" />
+                        <h3 className="mt-3 font-semibold text-gray-900">{benefit.title}</h3>
+                        <p className="mt-1 text-sm leading-relaxed text-gray-500">{benefit.description}</p>
                     </div>
-
-            {/* Keep actions outside both the scrolling content and the slide transform. */}
-            <div className="z-20 flex shrink-0 flex-col gap-3 border-t border-gray-100 bg-white px-6 py-4 sm:flex-row sm:items-center sm:px-8 sm:py-5">
-                <a
-                    href={SUPPORT_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hidden items-center justify-center gap-3 rounded-full border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-green-200 hover:bg-green-50 hover:text-green-700 sm:mr-auto sm:inline-flex"
-                >
-                    <FontAwesomeIcon
-                        icon={faWhatsapp}
-                        className="text-lg text-green-600"
-                    />
-                    <span>Está em dúvida? Fale conosco</span>
-                </a>
-                <Button type="button" variant="secondary" onClick={close}>
-                    Agora não
-                </Button>
-                {!active && (
-                    <Button
-                        type="button"
-                        variant="primary"
-                        onClick={openCheckout}
-                        className="w-full sm:w-auto sm:min-w-64"
-                    >
-                        Continuar
-                    </Button>
-                )}
+                ))}
             </div>
-                    </>
-                )}
-            </div>
-        </Modal>
-    );
+            {error ? <p role="alert" className="mt-4 text-sm text-red-600">{error}</p> : null}
+        </div>
+        <div className="flex shrink-0 items-center justify-end gap-3 border-t border-gray-100 bg-white px-6 py-4 sm:px-8">
+            <a href="https://wa.me/5519997235394?text=Ol%C3%A1%2C%20tenho%20uma%20d%C3%BAvida%20sobre%20o%20iMenu%20QR%20Code%20Mesa." target="_blank" rel="noopener noreferrer" className="mr-auto hidden items-center gap-2 text-sm text-gray-600 hover:text-brand sm:inline-flex"><FontAwesomeIcon icon={faWhatsapp} /> Fale conosco</a>
+            <Button type="button" variant="secondary" onClick={onClose}>Fechar</Button>
+            {!active && <Button type="button" onClick={() => void activate()} loading={activating}>Ativar gratuitamente</Button>}
+        </div>
+    </Modal>;
 }

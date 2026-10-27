@@ -4,6 +4,7 @@ export type BlastCampaign = {
     id: string;
     sender: "blast" | "support";
     message: string;
+    image_path: string | null;
     daily_limit: number | null;
     status: "running" | "paused" | "cancelled" | "completed";
     total: number;

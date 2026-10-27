@@ -8,6 +8,21 @@ import type { MouseEvent } from "react";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
+import { Bot, FileDown, Headset, Megaphone, MessageCircle, ScanLine, ShoppingCart, Sparkles, TrendingUp, type LucideIcon } from "lucide-react";
+
+export const PLUS_FEATURE_ICONS: Record<string, LucideIcon> = {
+    "Automações de Marketing WhatsApp": Megaphone,
+    "Assistente IA": Bot,
+    "Vendas IA": TrendingUp,
+};
+
+export const PLUS_BONUS_ICONS: Record<string, LucideIcon> = {
+    "Atendimento exclusivo": Headset,
+    "Upsells automáticos": ShoppingCart,
+    "Atualizações de pedidos pelo WhatsApp": MessageCircle,
+    "Scan de cardápio com IA": ScanLine,
+    "Download Cardápio em PDF": FileDown,
+};
 
 type ProductCardContent = {
     presentation?: "default" | "plans";
@@ -15,7 +30,12 @@ type ProductCardContent = {
     logo: string;
     description: string;
     priceLabel: string;
+    originalPriceLabel?: string;
+    priceSuffix?: string;
     features: readonly string[];
+    featureDetails?: readonly { title: string; description: string }[];
+    bonuses?: readonly string[];
+    bonusDetails?: readonly { title: string; description: string }[];
 };
 type MenuProductCardProps = ProductCardContent & (
     | { variant: "included"; learnMoreLink: { href: string; label: string } }
@@ -43,7 +63,7 @@ export default function MenuProductCard(props: MenuProductCardProps) {
 
     const supportBadge = props.variant === "addon" && props.exclusiveSupport && (
         <div className="ml-2 inline-block align-middle" onClick={(event) => event.stopPropagation()}>
-            <Tooltip text="Durante sua assinatura do iMenu IA Plus, solicite integrações e novas funcionalidades para serem adicionadas em até 3 dias úteis." size="medium" showOnClick>
+            <Tooltip text="Durante sua assinatura do iMenu Plus, solicite integrações e novas funcionalidades para serem adicionadas em até 3 dias úteis." size="medium" showOnClick>
                 <Badge className="cursor-help gap-1.5 whitespace-nowrap">
                     BÔNUS: Atendimento Exclusivo
                     <FontAwesomeIcon icon={faCircleInfo} className="text-[10px]" />
@@ -87,35 +107,73 @@ export default function MenuProductCard(props: MenuProductCardProps) {
             );
         }
 
+        const planFeatures = props.featureDetails ?? props.features.map((title) => ({ title, description: "" }));
+        const planBonuses = props.bonusDetails ?? props.bonuses?.map((title) => ({ title, description: "" })) ?? [];
+
         return (
-            <article className="plans-product" data-active={active} aria-label={props.name}>
-                <div className="plans-product-top">
-                    <div className="relative h-10 w-40 max-w-[65%]">
-                        <Image src={props.logo} alt={props.name} fill sizes="160px" className="object-contain object-left" />
+            <article className="plans-product plans-plus" data-active={active} aria-label={props.name}>
+                <div className="plans-plus-header">
+                    <div className="plans-plus-identity">
+                        <div className="plans-plus-logo">
+                            <Image src={props.logo} alt={props.name} fill sizes="176px" className="object-contain object-left" />
+                        </div>
+                        <div className="plans-plus-intro">
+                            <div className="plans-plus-title">
+                                <h3>{props.name}</h3>
+                            </div>
+                            <p className="plans-product-description">{props.description}</p>
+                        </div>
                     </div>
-                    <Badge variant={active ? "success" : "neutral"}>{active ? "Ativo" : "Desativado"}</Badge>
+                    <div className="plans-plus-status">
+                        <Badge variant={active ? "success" : "neutral"}>{active ? "Ativo" : "Disponível"}</Badge>
+                        <div className="plans-plus-price">
+                            {props.originalPriceLabel && <span className="line-through">{props.originalPriceLabel}</span>}
+                            <div>
+                                <strong>{props.priceLabel}</strong>
+                                <span>{props.priceSuffix ?? "/mês"}</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <h3>{props.name}</h3>
-                <div className="plans-product-description">
-                    {props.description}
-                    {supportBadge}
+
+                <div className="plans-plus-body">
+                    <section className="plans-plus-main" aria-label="Recursos do iMenu Plus">
+                        <ul className="plans-plus-feature-list">
+                            {planFeatures.map((feature) => {
+                                const FeatureIcon = PLUS_FEATURE_ICONS[feature.title] ?? Sparkles;
+                                return (
+                                    <li key={feature.title}>
+                                        <FeatureIcon className="plans-plus-feature-icon" size={22} strokeWidth={1.9} aria-hidden="true" />
+                                        <div>
+                                            <strong>{feature.title}</strong>
+                                            {feature.description && <p>{feature.description}</p>}
+                                        </div>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </section>
+                    <section className="plans-plus-extras" aria-label="Bônus do iMenu Plus">
+                        <div className="plans-plus-section-heading">
+                            <h4>Bônus do Plus</h4>
+                        </div>
+                        <ul className="plans-plus-bonus-grid">
+                            {planBonuses.map((bonus) => {
+                                const BonusIcon = PLUS_BONUS_ICONS[bonus.title] ?? Sparkles;
+                                return (
+                                    <li key={bonus.title} title={bonus.description || undefined}>
+                                        <BonusIcon className="plans-plus-bonus-icon" size={21} strokeWidth={1.85} aria-hidden="true" />
+                                        <span>{bonus.title}</span>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </section>
                 </div>
-                <div className="plans-product-price">
-                    <span>{props.priceLabel}</span>
-                    <span className="text-sm text-gray-500">/mês</span>
-                </div>
-                <ul className="plans-product-features">
-                    {props.features.map((feature) => (
-                        <li key={feature} className="flex items-center gap-2">
-                            <FontAwesomeIcon icon={faCheck} className="text-brand" />
-                            <span>{feature}</span>
-                        </li>
-                    ))}
-                </ul>
-                <div className="plans-product-actions">
-                    <Button type="button" variant={active ? "secondary" : "primary"} onClick={stopAndLearnMore} className="w-full justify-center">
+                <div className="plans-plus-footer">
+                    <Button type="button" variant={active ? "secondary" : "primary"} onClick={stopAndLearnMore} className="plans-plus-cta">
                         {active ? "Conhecer meu plano" : "Conhecer o plano"}
-                        <FontAwesomeIcon icon={faArrowRight} />
+                        <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" />
                     </Button>
                 </div>
             </article>
@@ -175,7 +233,7 @@ export default function MenuProductCard(props: MenuProductCardProps) {
             ) : (
                 <div className="mt-5 flex items-end gap-1 text-gray-900">
                     <span className="text-2xl font-bold">{props.priceLabel}</span>
-                    <span className="pb-0.5 text-xs text-gray-500">/mês</span>
+                    <span className="pb-0.5 text-xs text-gray-500">{props.priceSuffix ?? "/mês"}</span>
                 </div>
             )}
             <ul className={included ? "mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm text-gray-700" : "mt-4 flex min-w-0 flex-wrap gap-x-4 gap-y-2 text-sm text-gray-700"}>
@@ -187,6 +245,7 @@ export default function MenuProductCard(props: MenuProductCardProps) {
                 ))}
             </ul>
 
+            {props.bonuses?.length ? <div className="mt-4"><h4 className="text-sm font-semibold text-gray-900"><Badge>Bônus</Badge></h4><ul className="mt-2 space-y-2 text-sm text-gray-600">{props.bonuses.map((bonus) => <li key={bonus} className="flex items-center gap-2"><FontAwesomeIcon icon={faCheck} className="text-xs text-brand" /><span>{bonus}</span></li>)}</ul></div> : null}
             <div className="mt-auto flex flex-col gap-4 pt-7">
                 {props.variant === "included" ? <>
                     <div className="flex items-center gap-2 text-sm font-semibold text-brand">

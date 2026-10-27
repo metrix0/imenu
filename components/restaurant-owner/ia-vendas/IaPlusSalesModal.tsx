@@ -4,33 +4,40 @@ import Image from "next/image";
 import Link from "next/link";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
-import { faBellConcierge, faRocket, faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
 import {
   ArrowRight,
-  Check,
-  CreditCard,
-  RefreshCw,
   Sparkles,
-  Star,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import ModalFlowStep from "@/components/ui/ModalFlowStep";
 import Button from "@/components/ui/Button";
-import Badge from "@/components/ui/Badge";
 import QrCodeMesaCheckoutModal from "@/components/restaurant-owner/mesas/QrCodeMesaCheckoutModal";
-import { IA_PLUS_BENEFITS, IA_PLUS_PRICE_LABEL } from "@/lib/addons/products";
+import { IA_PLUS_BENEFITS, IA_PLUS_BONUSES, IA_PLUS_PRICE_LABEL } from "@/lib/addons/products";
+import { PROMO_QR_CODE, PROMO_QR_PRICE_LABEL } from "@/lib/addons/promoQr";
+import { PLUS_BONUS_ICONS, PLUS_FEATURE_ICONS } from "@/components/restaurant-owner/mesas/MenuProductCard";
 
 const SUPPORT_URL =
-  "https://wa.me/5519997235394?text=Ol%C3%A1%2C%20tenho%20uma%20d%C3%BAvida%20sobre%20o%20iMenu%20IA%20Plus.";
+  "https://wa.me/5519997235394?text=Ol%C3%A1%2C%20tenho%20uma%20d%C3%BAvida%20sobre%20o%20iMenu%20Plus.";
 
 export function IaPlusDetails() {
   return <>
-    <h2 className="text-xl font-bold text-gray-900">iMenu IA Plus</h2>
-    <p className="mt-2 text-sm text-gray-600">Transforme as oportunidades da IA em melhorias no seu restaurante.</p>
-    <ul className="mt-5 space-y-4">{IA_PLUS_BENEFITS.map(benefit => <li key={benefit.title} className="flex gap-3">
-      <Check size={18} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" />
-      <div><h3 className="text-sm font-semibold text-gray-900">{benefit.title}</h3><p className="mt-1 text-sm leading-6 text-gray-600">{benefit.description}</p></div>
-    </li>)}</ul>
+    <h2 className="text-xl font-bold text-gray-900">iMenu Plus</h2>
+    <p className="mt-2 text-sm text-gray-600">Marketing e inteligência artificial para ajudar seu restaurante a vender mais.</p>
+    <ul className="mt-5 space-y-4">{IA_PLUS_BENEFITS.map(benefit => {
+      const Icon = PLUS_FEATURE_ICONS[benefit.title] ?? Sparkles;
+      return <li key={benefit.title} className="flex gap-3">
+        <Icon size={20} strokeWidth={1.9} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" />
+        <div><h3 className="text-sm font-semibold text-gray-900">{benefit.title}</h3><p className="mt-1 text-sm leading-6 text-gray-600">{benefit.description}</p></div>
+      </li>;
+    })}</ul>
+    <h3 className="mt-5 text-sm font-semibold text-gray-900">Bônus</h3>
+    <ul className="mt-3 space-y-3 text-sm text-gray-600">{IA_PLUS_BONUSES.map(bonus => {
+      const Icon = PLUS_BONUS_ICONS[bonus.title] ?? Sparkles;
+      return <li key={bonus.title} className="flex items-center gap-2">
+        <Icon size={18} strokeWidth={1.85} className="shrink-0 text-brand" aria-hidden="true" />
+        {bonus.title}
+      </li>;
+    })}</ul>
     <p className="mt-5 text-sm text-gray-600"><strong className="text-2xl text-gray-900">{IA_PLUS_PRICE_LABEL}</strong> /mês · Cartão ou Pix</p>
     <p className="mt-2 text-xs text-gray-500">Cartão com renovação mensal; Pix libera um mês de acesso. Cancele quando quiser. Você revisa cada mudança antes de aplicar.</p>
   </>;
@@ -39,11 +46,11 @@ export function IaPlusLimitMessage({ onCheckout }: { onCheckout: () => void }) {
   return <article aria-label="Limite gratuito do Assistente IA" className="mx-auto my-5 max-w-2xl rounded-xl border border-brand/20 bg-white p-5">
     <div className="mb-4 flex items-center gap-2 text-sm font-medium text-brand"><Sparkles size={18} />Seu limite gratuito foi atingido. Seus limites são reiniciados em 7 dias.</div>
     <IaPlusDetails />
-    <Button className="mt-5" onClick={onCheckout}>Assinar iMenu IA Plus</Button>
+    <Button className="mt-5" onClick={onCheckout}>Assinar iMenu Plus</Button>
   </article>;
 }
-export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout = false, active = false, onPaid }: {
-  open: boolean; onClose: () => void; restaurantId: string; checkout?: boolean; active?: boolean; onPaid?: () => void | Promise<void>;
+export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout = false, active = false, onPaid, contextMessage, coupon }: {
+  open: boolean; onClose: () => void; restaurantId: string; checkout?: boolean; active?: boolean; onPaid?: () => void | Promise<void>; contextMessage?: string; coupon?: string;
 }) {
   const [step, setStep] = useState(checkout);
   const [navigated, setNavigated] = useState(false);
@@ -72,100 +79,78 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
           restaurantId={restaurantId}
           source="settings"
           productKey="ia_plus"
+          coupon={coupon}
           onClose={onClose}
           onBack={() => setStep(false)}
           onPaid={onPaid}
         />
       </ModalFlowStep> : <ModalFlowStep key="sales" reverse animate={navigated}>
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="grid overflow-hidden md:grid-cols-[minmax(0,1fr)_300px]">
-            <div className="px-6 pb-5 pt-6 sm:px-8 sm:pb-7 sm:pt-8">
-              <div className="relative h-12 w-56 max-w-full">
-                <Image
-                  src="/logos/IAPlusCombinationMarkLogo_Brand.png"
-                  alt="iMenu IA Plus"
-                  fill
-                  sizes="224px"
-                  className="object-contain object-left"
-                />
+          <header className="bg-gradient-to-br from-white to-orange-50/60 px-5 pb-6 pt-7 sm:px-8 sm:pb-7 sm:pt-8">
+            <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_360px] md:items-center">
+            <div className="min-w-0">
+            <div className="relative h-10 w-44 max-w-[70%]">
+              <Image src="/logos/PlusCombinationMarkLogo_Brand.png" alt="iMenu Plus" fill sizes="176px" className="object-contain object-left" />
+            </div>
+            <div className="mt-5 grid gap-4">
+              <div className="min-w-0">
+                <h2 className="text-2xl font-bold leading-tight tracking-tight text-gray-900 sm:text-3xl">
+                  Venda mais com iMenu Plus
+                </h2>
+                <p className="mt-3 max-w-xl text-sm leading-6 text-gray-600">
+                  Marketing, Assistente IA e Vendas IA para o seu restaurante.
+                </p>
               </div>
-
-              <div className="mt-7 inline-flex items-center gap-2 rounded-full border border-brand/15 bg-brand/5 px-3 py-1.5 text-xs font-semibold text-brand">
-                <Sparkles size={14} aria-hidden="true" />
-                IA que analisa e aplica melhorias automaticamente.
+              <div className="shrink-0">
+                <div className="flex items-baseline gap-1.5">
+                  {coupon === PROMO_QR_CODE && <span className="text-base text-gray-400 line-through">{IA_PLUS_PRICE_LABEL}</span>}
+                  <span className="text-3xl font-bold tracking-tight text-gray-900">{coupon === PROMO_QR_CODE ? PROMO_QR_PRICE_LABEL : IA_PLUS_PRICE_LABEL}</span>
+                  <span className="text-sm text-gray-500">{coupon === PROMO_QR_CODE ? "1º mês" : "/mês"}</span>
+                </div>
+                <p className="mt-1.5 text-xs text-gray-500">{coupon === PROMO_QR_CODE ? "Primeiro mês via Pix · sem renovação automática" : "Cancele quando quiser"}</p>
               </div>
+            </div>
+            {contextMessage?.trim() && (
+              <div role="note" className="mt-5 flex items-start gap-3">
+                <Sparkles size={17} strokeWidth={1.9} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" />
+                <p className="text-sm leading-6 text-gray-700">{contextMessage.trim()}</p>
+              </div>
+            )}
+            </div>
+            <div className="relative hidden aspect-[600/424] w-full md:block">
+              <Image src="/images/macbook.webp" alt="Painel de análise de vendas do iMenu em um MacBook" fill sizes="360px" className="object-contain" />
+            </div>
+            </div>
+          </header>
 
-              <p className="mt-4 max-w-xl text-sm leading-6 text-gray-600 sm:text-base">
-                Use o Assistente IA com mais capacidade, gere imagens e coloque em prática as oportunidades da sua Análise de Vendas com IA.
-              </p>
-
-              <div className="mt-6 rounded-xl border border-brand/20 bg-brand/5 p-4">
-                <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
-                  <span className="text-3xl font-bold tracking-tight text-gray-900">{IA_PLUS_PRICE_LABEL}</span>
-                  <span className="pb-1 text-sm text-gray-600">/mês</span>
-                  <div className="ml-auto flex flex-col items-end gap-1 pb-1">
-                    <span className="inline-flex items-center gap-2 text-xs font-medium text-gray-600">
-                      <CreditCard size={14} aria-hidden="true" />
-                      Cartão ou Pix
+          <div className="px-5 py-6 sm:px-8">
+            <div className="grid gap-5 sm:grid-cols-3">
+              {IA_PLUS_BENEFITS.map(benefit => {
+                const Icon = PLUS_FEATURE_ICONS[benefit.title] ?? Sparkles;
+                return <section key={benefit.title} className="min-w-0">
+                  <div className="flex flex-col items-start gap-3 text-brand">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand/5">
+                      <Icon size={21} strokeWidth={1.9} aria-hidden="true" />
                     </span>
-                    <span className="inline-flex items-center gap-2 text-xs font-medium text-gray-500">
-                      <RefreshCw size={14} aria-hidden="true" />
-                      Cancele quando quiser
-                    </span>
+                    <h3 className="text-sm font-semibold leading-5 text-gray-900">{benefit.title}</h3>
                   </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="relative hidden min-h-0 overflow-hidden rounded-bl-2xl md:block">
-              <Image
-                src="/images/IAPlus.png"
-                alt="Demonstração do iMenu IA Plus"
-                fill
-                sizes="300px"
-                className="object-cover object-center"
-              />
-            </div>
-          </div>
-
-          <div className="px-6 py-6 sm:px-8">
-            <div className="grid gap-3 md:grid-cols-2">
-              <section className="overflow-hidden rounded-xl border border-orange-100 bg-white">
-                <div className="flex items-center gap-2 bg-brand/5 px-4 py-3 text-brand">
-                  <FontAwesomeIcon icon={faWandMagicSparkles} className="text-[17px]" />
-                  <h3 className="text-sm font-semibold">Assistente IA</h3>
-                </div>
-                <div className="space-y-3 p-4 text-sm leading-5 text-gray-600">
-                  <p className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" /><span>Mais capacidade para conversar com a IA e realizar tarefas no seu cardápio.</span></p>
-                  <p className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" /><span>Gere imagens para produtos, logo e banner e revise tudo antes de publicar.</span></p>
-                </div>
-              </section>
-
-              <section className="overflow-hidden rounded-xl border border-orange-100 bg-white">
-                <div className="flex items-center gap-2 bg-brand/5 px-4 py-3 text-brand">
-                  <FontAwesomeIcon icon={faRocket} className="text-[17px]" />
-                  <h3 className="text-sm font-semibold">Vendas IA</h3>
-                </div>
-                <div className="space-y-3 p-4 text-sm leading-5 text-gray-600">
-                  <p className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" /><span>Veja a análise completa e todas as oportunidades encontradas para o seu restaurante.</span></p>
-                  <p className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" /><span>Converse sobre as oportunidades e revise e aplique as melhorias sugeridas.</span></p>
-                </div>
-              </section>
-              <section className="overflow-hidden rounded-xl border border-orange-100 bg-white md:col-span-2">
-                <div className="flex items-center gap-2 bg-brand/5 px-4 py-3 text-brand">
-                  <FontAwesomeIcon icon={faBellConcierge} className="text-[17px]" />
-                  <h3 className="text-sm font-semibold">Atendimento exclusivo</h3>
-                  <Badge className="gap-1"><Star size={10} aria-hidden="true" />BÔNUS</Badge>
-                </div>
-                <div className="space-y-3 p-4 text-sm leading-5 text-gray-600">
-                  <p className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" /><span>Solicite integrações e novas funcionalidades para o seu restaurante.</span></p>
-                  <p className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" /><span>As integrações e funcionalidades solicitadas serão adicionadas em até 3 dias úteis durante sua assinatura do iMenu IA Plus.</span></p>
-                </div>
+                  <p className="mt-2 text-sm leading-6 text-gray-600">{benefit.description}</p>
+                </section>;
+              })}
+              <section className="mt-1 pt-5 sm:col-span-3">
+                <h3 className="text-sm font-semibold text-gray-900">Também incluído no seu plano</h3>
+                <ul className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2">{IA_PLUS_BONUSES.map(bonus => {
+                  const Icon = PLUS_BONUS_ICONS[bonus.title] ?? Sparkles;
+                  return <li key={bonus.title} className="flex gap-3 text-sm text-gray-600">
+                    <Icon size={21} strokeWidth={1.85} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" />
+                    <div><h4 className="font-semibold text-gray-900">{bonus.title}</h4><p className="mt-1 text-xs leading-5 text-gray-500">{bonus.description}</p></div>
+                  </li>;
+                })}</ul>
               </section>
             </div>
 
             {!active && (
-              <p className="mt-6 text-center text-xs leading-relaxed text-gray-500">
+              <p className="mt-5 pt-4 text-xs leading-5 text-gray-500">
                 Ao continuar, você concorda com os{" "}
                 <Link
                   href="/restaurante/dados/termos/ia-plus"
@@ -173,7 +158,7 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
                   rel="noopener noreferrer"
                   className="underline underline-offset-2"
                 >
-                  Termos do iMenu IA Plus
+                  Termos do iMenu Plus
                 </Link>{" "}
                 e a cobrança recorrente só é ativada se você escolher cartão.
               </p>
@@ -181,15 +166,15 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
           </div>
         </div>
 
-        <div className="z-20 flex shrink-0 flex-col gap-3 border-t border-gray-100 bg-white px-6 py-4 sm:flex-row sm:items-center sm:px-8 sm:py-5">
+        <div className="z-20 flex shrink-0 flex-col gap-3 bg-white px-5 py-4 sm:flex-row sm:items-center sm:px-8">
           <a
             href={SUPPORT_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden items-center justify-center gap-3 rounded-full border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-green-200 hover:bg-green-50 hover:text-green-700 sm:mr-auto sm:inline-flex"
+            className="hidden items-center gap-2 text-sm text-gray-500 transition hover:text-brand sm:mr-auto sm:inline-flex"
           >
             <FontAwesomeIcon icon={faWhatsapp} className="text-lg text-green-600" />
-            <span>Está em dúvida? Fale conosco</span>
+            <span>Fale conosco</span>
           </a>
           <Button type="button" variant="secondary" onClick={onClose}>
             Agora não
@@ -203,7 +188,7 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
               setStep(true);
             }}
           >
-            {active ? "Seu iMenu IA Plus está ativo" : <>Assinar iMenu IA Plus <ArrowRight size={16} aria-hidden="true" /></>}
+            {active ? "Seu iMenu Plus está ativo" : <>Assinar iMenu Plus <ArrowRight size={16} aria-hidden="true" /></>}
           </Button>
         </div>
       </ModalFlowStep>}

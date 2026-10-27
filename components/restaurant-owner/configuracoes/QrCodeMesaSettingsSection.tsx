@@ -1,4 +1,5 @@
 "use client";
+import { hasLegacyQrPurchase } from "@/lib/addons/promoQrEligibility";
 
 import { useCallback, useEffect, useState } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
@@ -24,6 +25,7 @@ import Loader from "@/components/ui/Loader";
 import Toast from "@/components/ui/Toast";
 import { captureQrTableEvent } from "@/lib/qr-table/analytics";
 import { qrTableAuthenticatedFetch } from "@/lib/qr-table/clientApi";
+import { isPromoQrDate, PROMO_QR_CODE, PROMO_QR_PRICE_CENTS, PROMO_QR_PRICE_LABEL } from "@/lib/addons/promoQr";
 type Addon = {
     id: string;
     restaurant_id: string;
@@ -57,6 +59,7 @@ type BillingItem = {
 
 type BillingPayload = {
     addons: BillingItem[];
+    promoQrOwnerOverride?: boolean;
     error?: string;
 };
 
@@ -99,7 +102,7 @@ function isPrepaid(addon: Addon | null): boolean {
 }
 
 function addonProductName(productKey: string): string {
-    if (productKey === "ia_plus") return "iMenu IA Plus";
+    if (productKey === "ia_plus") return "iMenu Plus";
     if (productKey === "qr_code_mesa") return "iMenu QR Code Mesa";
 
     return productKey
@@ -132,6 +135,7 @@ function addonStatus(addon: Addon | null, active: boolean): string {
 
 function planLabel(addon: Addon | null): string {
     if (!addon) return "—";
+    if (addon.product_key === "qr_code_mesa") return "Grátis";
 
     if (isPrepaid(addon)) {
         return `Pix • ${formatMoney(addon.price_cents)} por período`;
@@ -150,16 +154,18 @@ export default function QrCodeMesaSettingsSection({
     restaurantId,
     showHeader = true,
     presentation = "default",
+    coupon,
 }: {
     restaurantId: string;
     showHeader?: boolean;
     presentation?: "default" | "plans";
+    coupon?: string;
 }) {
     const [billing, setBilling] = useState<BillingPayload | null>(null);
     const [loading, setLoading] = useState(true);
     const [salesOpen, setSalesOpen] = useState(false);
     const [iaPlusOpen, setIaPlusOpen] = useState(false);
-    const [renewalProduct, setRenewalProduct] = useState<"qr_code_mesa" | "ia_plus">("qr_code_mesa");
+    const [renewalProduct, setRenewalProduct] = useState<"ia_plus">("ia_plus");
     const [renewalOpen, setRenewalOpen] = useState(false);
     const [cancelAddonId, setCancelAddonId] = useState<string | null>(null);
     const [canceling, setCanceling] = useState(false);
@@ -276,13 +282,22 @@ export default function QrCodeMesaSettingsSection({
         }
     };
 
+    // QR Code Mesa is universally free; retain legacy records in the API, not in the subscriptions UI.
+    const paidSubscriptions = billing?.addons.filter(item => item.addon.product_key !== "qr_code_mesa") ?? [];
     const qrBilling =
         billing?.addons.find(
             (item) => item.addon.product_key === "qr_code_mesa"
         ) || null;
     const addon = qrBilling?.addon || null;
-    const active = qrBilling?.active === true;
+    const active = true;
     const iaPlusActive = billing?.addons.some(item => item.addon.product_key === "ia_plus" && item.active) === true;
+    const promoQr = coupon?.trim().toUpperCase() === PROMO_QR_CODE;
+    const qrLegacy = billing?.addons.find(item => item.addon.product_key === "qr_code_mesa");
+    const plusHistory = billing?.addons.find(item => item.addon.product_key === "ia_plus");
+    const eligiblePromo = promoQr && isPromoQrDate() && !loading &&
+        ((qrLegacy && hasLegacyQrPurchase(qrLegacy.payments)) || billing?.promoQrOwnerOverride === true) &&
+        !plusHistory?.active && !plusHistory?.payments.some(p => p.amount_cents === PROMO_QR_PRICE_CENTS && ["APPROVED", "COMPLETED", "CONFIRMED", "RECEIVED", "RECEIVED_IN_CASH"].includes(p.status.toUpperCase()));
+    const appliedCoupon = eligiblePromo ? PROMO_QR_CODE : undefined;
     const cancelBilling =
         billing?.addons.find((item) => item.addon.id === cancelAddonId) || null;
     const cancelAddon = cancelBilling?.addon || null;
@@ -296,8 +311,9 @@ export default function QrCodeMesaSettingsSection({
             presentation={presentation}
             qrSelected={active}
             qrActive={active}
+            qrIncluded={iaPlusActive}
             onLearnMore={openSales}
-            extraCard={<IaPlusProductCard presentation={presentation} active={iaPlusActive} onLearnMore={() => setIaPlusOpen(true)} />}
+            extraCard={<IaPlusProductCard presentation={presentation} active={iaPlusActive} promo={Boolean(appliedCoupon)} onLearnMore={() => setIaPlusOpen(true)} />}
         />
     );
 
@@ -311,6 +327,15 @@ export default function QrCodeMesaSettingsSection({
                 />
             )}
 
+            {promoQr && !loading && (
+                <div role="status" className="mb-5 rounded-xl border border-brand/20 bg-brand/5 px-4 py-3 text-sm text-gray-700">
+                    {eligiblePromo ? (
+                        <><strong className="text-brand">PROMOQR aplicado!</strong> Primeiro mês do iMenu Plus por <strong>{PROMO_QR_PRICE_LABEL}</strong> (50% de desconto), via Pix. Válido até 27/11/2026.</>
+                    ) : (
+                        <>O cupom PROMOQR é válido até 27/11/2026 para assinantes elegíveis do antigo QR Code.</>
+                    )}
+                </div>
+            )}
             <QrCodeMesaSalesModal
                 open={salesOpen}
                 onClose={closeSales}
@@ -319,7 +344,7 @@ export default function QrCodeMesaSettingsSection({
                 onPaid={async () => {
                     closeSales();
                     setToast({
-                        message: "Pagamento confirmado. QR Code Mesa ativado!",
+                        message: "QR Code Mesa ativado gratuitamente!",
                         type: "success",
                     });
                     await loadBilling();
@@ -344,7 +369,7 @@ export default function QrCodeMesaSettingsSection({
                 }}
             />
 
-            <IaPlusSalesModal active={iaPlusActive} open={iaPlusOpen} onClose={() => setIaPlusOpen(false)} restaurantId={restaurantId} onPaid={async () => { setIaPlusOpen(false); await loadBilling(); }} />
+            <IaPlusSalesModal active={iaPlusActive} open={iaPlusOpen} onClose={() => setIaPlusOpen(false)} restaurantId={restaurantId} coupon={appliedCoupon} onPaid={async () => { setIaPlusOpen(false); await loadBilling(); }} />
 
             <ConfirmModal
                 open={Boolean(cancelAddonId)}
@@ -379,18 +404,13 @@ export default function QrCodeMesaSettingsSection({
                 </Card>
             ) : (
                 presentation === "plans" ? (
-                    <section aria-labelledby="available-plans-heading" className="plans-catalog">
-                        <div className="plans-section-heading">
-                            <div>
-                                <h2 id="available-plans-heading">Planos disponíveis</h2>
-                            </div>
-                        </div>
+                    <section className="plans-catalog">
                         {productCards}
                     </section>
                 ) : productCards
             )}
 
-            {(billing?.addons.length || 0) > 0 && (
+            {paidSubscriptions.length > 0 && (
                 <BillingContainer id={presentation === "plans" ? "suas-assinaturas" : undefined} className={presentation === "plans" ? "plans-subscriptions" : "border border-gray-200 shadow-sm"}>
                     <div className={presentation === "plans" ? "plans-section-heading" : "border-b border-gray-100 pb-5"}>
                         <div>
@@ -404,15 +424,15 @@ export default function QrCodeMesaSettingsSection({
                     </div>
 
                     <div className={presentation === "plans" ? "plans-subscription-list" : "divide-y divide-gray-100"}>
-                        {billing?.addons.map((item) => {
+                        {paidSubscriptions.map((item) => {
                             const itemAddon = item.addon;
                             const itemActive = item.active;
                             const isQrCodeMesa =
                                 itemAddon.product_key === "qr_code_mesa";
                             const itemCanRenew =
-                                (isQrCodeMesa || itemAddon.product_key === "ia_plus") && isPrepaid(itemAddon);
+                                !isQrCodeMesa && itemAddon.product_key === "ia_plus" && isPrepaid(itemAddon);
                             const itemCanCancel =
-                                itemActive &&
+                                !isQrCodeMesa && itemActive &&
                                 itemAddon.status !== "canceled" &&
                                 itemAddon.payment_provider === "asaas";
 
@@ -434,8 +454,8 @@ export default function QrCodeMesaSettingsSection({
                                                         {addonProductName(itemAddon.product_key)}
                                                     </h3>
                                                     {presentation === "plans" && (
-                                                        <Badge variant={itemActive && itemAddon.status !== "canceled" ? "success" : "neutral"}>
-                                                            {itemAddon.status === "canceled" ? "Cancelado" : itemActive ? "Ativo" : addonStatus(itemAddon, false)}
+                                                        <Badge variant={isQrCodeMesa || (itemActive && itemAddon.status !== "canceled") ? "success" : "neutral"}>
+                                                            {isQrCodeMesa ? "Gratuito" : itemAddon.status === "canceled" ? "Cancelado" : itemActive ? "Ativo" : addonStatus(itemAddon, false)}
                                                         </Badge>
                                                     )}
                                                 </div>
@@ -447,14 +467,14 @@ export default function QrCodeMesaSettingsSection({
                                         <div className="flex flex-wrap items-center gap-2">
                                             {presentation !== "plans" && (
                                                 <span className={`w-fit rounded-full px-3 py-1 text-xs font-semibold ${itemActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-700"}`}>
-                                                    {addonStatus(itemAddon, itemActive)}
+                                                    {isQrCodeMesa ? "Gratuito" : addonStatus(itemAddon, itemActive)}
                                                 </span>
                                             )}
                                             {itemCanRenew && (
                                                 <Button
                                                     type="button"
                                                     variant="primary"
-                                                    onClick={() => { setRenewalProduct(itemAddon.product_key === "ia_plus" ? "ia_plus" : "qr_code_mesa"); openRenewal(); }}
+                                                    onClick={() => { setRenewalProduct("ia_plus"); openRenewal(); }}
                                                 >
                                                     Renovar
                                                 </Button>
@@ -500,9 +520,7 @@ export default function QrCodeMesaSettingsSection({
                                                     Acesso atual até
                                                 </p>
                                                 <p className="font-semibold text-gray-900">
-                                                    {formatDate(
-                                                        itemAddon.current_period_ends_at
-                                                    )}
+                                                    {isQrCodeMesa ? "Sem vencimento" : formatDate(itemAddon.current_period_ends_at)}
                                                 </p>
                                             </div>
                                         </div>
@@ -597,7 +615,7 @@ export default function QrCodeMesaSettingsSection({
                     </div>
                 </BillingContainer>
             )}
-            {presentation === "plans" && !loading && billing && !billing.addons.length && (
+            {presentation === "plans" && !loading && billing && !paidSubscriptions.length && (
                 <section id="suas-assinaturas" className="plans-subscriptions">
                     <div className="plans-section-heading">
                         <div>

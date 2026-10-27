@@ -80,6 +80,8 @@ export default function CriarCardapioPage() {
         void load();
     }, [restaurantId]);
 
+    const openScanner = () => setAiOpen(true);
+
     const continueOnboarding = async () => {
         if (!restaurantId) return;
         setSaving(true);
@@ -134,15 +136,15 @@ export default function CriarCardapioPage() {
                     <div className="grid gap-4 sm:grid-cols-2">
                         <button
                             type="button"
-                            onClick={() => setAiOpen(true)}
-                            className="group relative flex min-h-48 cursor-pointer flex-col items-start overflow-hidden rounded-2xl border border-[#7653ff]/35 bg-gradient-to-br from-[#815dff] via-[#6A3AFF] to-[#4d25cc] p-6 text-left text-white shadow-[0_12px_30px_rgba(106,58,255,0.20)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_18px_38px_rgba(106,58,255,0.30)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6A3AFF]/35"
+                            onClick={openScanner}
+                            className="group relative flex w-full min-h-48 cursor-pointer flex-col items-start overflow-hidden rounded-2xl border border-[#7653ff]/35 bg-gradient-to-br from-[#815dff] via-[#6A3AFF] to-[#4d25cc] p-6 text-left text-white shadow-[0_12px_30px_rgba(106,58,255,0.20)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_18px_38px_rgba(106,58,255,0.30)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6A3AFF]/35"
                         >
                             <span className="pointer-events-none absolute -right-12 -top-12 h-36 w-36 rounded-full bg-white/10 transition-transform duration-300 group-hover:scale-110" />
                             <span className="pointer-events-none absolute -bottom-16 right-10 h-32 w-32 rounded-full bg-black/10" />
                             <span className="relative mb-5 flex h-12 w-12 items-center justify-center rounded-xl border border-white/15 bg-white/15 text-xl shadow-sm backdrop-blur-sm transition-transform duration-200 group-hover:scale-110">
                                 <FontAwesomeIcon icon={faWandMagicSparkles} />
                             </span>
-                            <span className="relative text-lg font-semibold">
+                            <span className="relative inline-flex items-center gap-2 text-lg font-semibold">
                                 Scanear Cardápio com IA
                             </span>
                             <span className="relative mt-1 max-w-sm text-sm leading-5 text-white/80">
@@ -209,7 +211,7 @@ export default function CriarCardapioPage() {
                             setCatEdit(null);
                             setCatOpen(true);
                         }}
-                        onAIScanMenu={setAiOpen}
+                        onAIScanMenu={openScanner}
                     />
                 </div>
             </div>

@@ -1,3 +1,5 @@
+import { handleOrderNotificationReply } from "@/lib/services/whatsappNotification";
+import { getCrmReply } from "@/lib/services/crmAutomations";
 import { query, withAdvisoryLock, withTransaction } from "@/lib/database/sql";
 import { sendOwnerPush } from "@/lib/push/server";
 import {
@@ -56,6 +58,8 @@ const FALLBACK_COOLDOWN_SECONDS = 30;
 const FALLBACK_SUSPEND_COUNT_5_MINUTES = 3;
 const LIST_FAILURE_LIMIT_5_MINUTES = 3;
 const STORM_QUIET_SECONDS = 60;
+// WAHA can accept a send after our HTTP request times out. Check its history
+// a bounded number of times instead of retrying or claiming delivery failed.
 const OUTBOUND_CONFIRMATION_DELAYS_MS = [0, 1_500, 2_500, 3_500, 4_500];
 
 const MENU_ROWS: WahaListRow[] = [
@@ -428,7 +432,7 @@ async function claimOutboundMessage({
     if (Math.random() < 0.02) {
         void query(
             `DELETE FROM whatsapp_outbound_messages
-             WHERE created_at < NOW() - INTERVAL '48 hours'`
+             WHERE dedupe_key NOT LIKE 'order:%' AND created_at < NOW() - INTERVAL '48 hours' AND (automation_type IS NULL OR automation_type NOT IN ('cart','habit','reactivation'))`
         ).catch((error) =>
             console.warn("[WHATSAPP_AUTOMATION] Outbound cleanup failed:", error)
         );
@@ -540,7 +544,8 @@ async function sendTrackedText({
                     });
                 }
             }
-            // Delivery can succeed after our HTTP deadline; never retry blindly.
+            // Unknown delivery is not a failed delivery. Never auto-retry:
+            // the original WAHA request may still complete after this point.
             await finishOutboundSafely(dedupeKey, "unconfirmed", error);
             console.warn("[WHATSAPP_AUTOMATION] outbound_delivery_unconfirmed", {
                 restaurantId,
@@ -548,6 +553,7 @@ async function sendTrackedText({
             });
             return false;
         }
+
         await finishOutboundSafely(dedupeKey, "failed", error);
         console.warn("[WHATSAPP_AUTOMATION] outbound_send_failed", {
             restaurantId,
@@ -563,11 +569,13 @@ async function sendTrackedMenu({
     restaurantId,
     sessionName,
     chatId,
+    rows = MENU_ROWS,
 }: {
     dedupeKey: string;
     restaurantId: string;
     sessionName: string;
     chatId: string;
+    rows?: WahaListRow[];
 }): Promise<boolean> {
     const claimed = await claimOutboundMessage({
         dedupeKey,
@@ -578,7 +586,7 @@ async function sendTrackedMenu({
     if (!claimed) return false;
 
     try {
-        const response = await sendWahaList(sessionName, chatId, MENU_ROWS);
+        const response = await sendWahaList(sessionName, chatId, rows, rows.length === 1 ? {button:rows[0].title} : undefined);
         await finishOutboundSafely(dedupeKey, "sent", response);
         console.info("[WHATSAPP_AUTOMATION] outbound_sent", {
             restaurantId,
@@ -591,7 +599,7 @@ async function sendTrackedMenu({
                 const response = await sendWahaText(
                     sessionName,
                     chatId,
-                    MENU_TEXT
+                    rows.map((row, index) => `${index + 1}. ${row.title}`).join("\n")
                 );
                 await finishOutboundSafely(dedupeKey, "sent", response);
                 console.warn("[WHATSAPP_AUTOMATION] outbound_list_fallback_text", {
@@ -832,9 +840,12 @@ export async function processIncomingWhatsAppMessage({
     const phone = await resolveWahaChatPhone(sessionName, chatId);
     if (phone === "5519997235394" || phone === "19997235394") return;
 
+    const crmReply = await getCrmReply(restaurantId, phone, body);
     const prepared = await withAdvisoryLock(`${restaurantId}:${chatId}`, () =>
         prepareConversation(restaurantId, chatId, customerName)
     );
+
+    if (await handleOrderNotificationReply(restaurantId, sessionName, chatId, body, phone)) return;
 
     if (prepared.state === "human") {
         console.info("[WHATSAPP_AUTOMATION] inbound_suppressed_human", {
@@ -847,6 +858,12 @@ export async function processIncomingWhatsAppMessage({
         console.info("[WHATSAPP_AUTOMATION] inbound_suppressed_storm", {
             restaurantId,
         });
+        return;
+    }
+
+    if (crmReply) {
+        const ok = !crmReply.text || await sendTrackedText({dedupeKey:`${messageId}:crm_reply`,restaurantId,sessionName,chatId,text:crmReply.text});
+        if (ok) await sendTrackedMenu({dedupeKey:`${messageId}:crm_menu`,restaurantId,sessionName,chatId,rows:crmReply.rows});
         return;
     }
 

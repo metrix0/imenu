@@ -5,6 +5,14 @@ const assert = require("node:assert/strict");
 const http = require("node:http");
 const { spawn } = require("node:child_process");
 const puppeteer = require("puppeteer");
+const fs = require("node:fs");
+const path = require("node:path");
+const screenshotDir = process.env.E2E_SCREENSHOT_DIR;
+if(screenshotDir)fs.mkdirSync(screenshotDir,{recursive:true});
+async function screenshot(page,name) {
+    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+    await page.waitForFunction(()=>document.getAnimations().every(a=>a.playState!=="running" || a.effect?.getComputedTiming().iterations===Infinity),{timeout:5000});
+    if(screenshotDir) {fs.mkdirSync(screenshotDir,{recursive:true});await page.screenshot({path:path.join(screenshotDir,name+".png"),fullPage:false});}}
 
 const BASE = "http://127.0.0.1:39202";
 const SUPABASE_PORT = 39201;
@@ -118,6 +126,7 @@ async function click(page, text) {
         try {
             const element = target.asElement();
             if (!element) throw new Error("Expected button element: " + text);
+            await element.evaluate(button=>button.scrollIntoView({block:"center",behavior:"instant"}));
             await element.click();
             return;
         } catch (error) {
@@ -192,6 +201,12 @@ async function flow(browser, method) {
                 body: JSON.stringify({ mode: "radius", rules: [] })
             });
         }
+        if (url.origin === BASE && url.pathname === "/api/checkout/customer") {
+            return request.respond({status:200,contentType:"application/json",body:JSON.stringify({needsVerification:true})});
+        }
+        if (url.origin === BASE && url.pathname === "/api/checkout/session") {
+            return request.respond({status:200,contentType:"application/json",body:'{"ok":true}'});
+        }
         if (url.origin === BASE && url.pathname === "/api/meta") {
             return request.respond({ status: 200, contentType: "application/json", body: "{}" });
         }
@@ -211,10 +226,15 @@ async function flow(browser, method) {
         await click(page, "Ver Sacola");
         await click(page, "Continuar");
         await page.waitForSelector('input[autocomplete="name"]');
+        const phoneFirst = await page.evaluate(() => Boolean(document.querySelector('input[autocomplete="tel"]').compareDocumentPosition(document.querySelector('input[autocomplete="name"]')) & Node.DOCUMENT_POSITION_FOLLOWING));
+        assert.ok(phoneFirst,"Phone must come before name in checkout");
         await page.type('input[autocomplete="name"]', "Cliente E2E");
         await page.type('input[autocomplete="tel"]', "11999990000");
+        await screenshot(page,"checkout-"+method);
+        assert.ok(await page.evaluate(()=>{const input=document.querySelector('input[autocomplete="tel"]').getBoundingClientRect();return input.left>=0 && input.right<=innerWidth;}),"Phone input must stay fully visible after checkout reordering");
         await click(page, "Continuar");
         await page.waitForFunction(() => document.body.textContent.includes("Pagamento"));
+        await screenshot(page,"checkout-payment-"+method);
         await click(page, method === "pix" ? "Pix (Online)" : "Dinheiro");
         await click(page, "Confirmar");
         await page.waitForFunction(() => location.pathname === "/restaurante/login", { timeout: 15000 });
@@ -234,6 +254,107 @@ async function flow(browser, method) {
     }
 }
 
+async function crmPanels(browser) {
+    const context=await browser.createBrowserContext(),page=await context.newPage();
+    await page.setViewport({width:1280,height:900});
+    page.on("pageerror",error=>console.error("BROWSER_ERROR",error.message));
+    const user={id:"60000000-0000-4000-8000-000000000001",aud:"authenticated",role:"authenticated",email:"e2e@example.invalid"};
+    const token=Buffer.from(JSON.stringify({alg:"HS256",typ:"JWT"})).toString("base64url")+"."+Buffer.from(JSON.stringify({sub:user.id,aud:"authenticated",exp:Math.floor(Date.now()/1000)+3600})).toString("base64url")+".testsignature";
+    await page.evaluateOnNewDocument(({user,token,restaurantId,authStorageKey})=>{
+        localStorage.setItem(authStorageKey,JSON.stringify({access_token:token,refresh_token:"fixture",token_type:"bearer",expires_at:Math.floor(Date.now()/1000)+3600,user}));
+        localStorage.setItem("restaurant-creation-storage",JSON.stringify({state:{restaurantId,email:user.email,productSelectionCompleted:true,restaurantSlug:"e2e-restaurant"},version:0}));
+        sessionStorage.setItem("imenu-creation-complete:"+user.id,"true");
+        localStorage.setItem("imenu:application-promo-dismissed-at:v1",String(Date.now()));
+    },{user,token,restaurantId,authStorageKey:process.env.NEXT_PUBLIC_SUPABASE_AUTH_STORAGE_KEY||"sb-127-auth-token"});
+    const customer={habits:[],favorite_product:null,phone:"5511999990000",name:"Cliente CRM",address:{rua:"Rua de teste",numero:"123",bairro:"Centro"},marketing_consent:true,opted_out_at:null,order_count:3,spending_cents:15000,average_ticket_cents:5000,last_purchase:new Date().toISOString(),segment:"Frequente"};
+    let saved=null,saveCount=0,pdfPlus=false;
+    const settings={dailyTotalLimit:10,...Object.fromEntries(["cart","reactivation","habit"].map(kind=>[kind,{enabled:false,message:"Oi, {{nome}}! Vamos pedir na {{restaurante}}?",days:30,dailyLimit:kind==="cart"?7:2,cooldownDays:kind==="reactivation"?120:7,offer:""}]))};
+    await page.setRequestInterception(true);
+    page.on("request",request=>{
+        const url=new URL(request.url());
+        if(url.origin===BASE && url.pathname==="/api/customers") return request.respond({status:200,contentType:"application/json",body:JSON.stringify(url.searchParams.has("phone") ? {customer,habits:[],orderTotal:1,orders:[{id:orderId,display_id:42,status:"done",total_cents:5000,created_at:customer.last_purchase}],favorites:[{item_id:itemId,name:"Hambúrguer favorito",quantity:3}]} : {customers:[customer],total:1})});
+        if(url.origin===BASE && url.pathname==="/api/automations") {
+            if(url.searchParams.get("history")==="1") return request.respond({status:200,contentType:"application/json",body:JSON.stringify({history:[],total:0})});
+            if(request.method()==="PUT") {saved=JSON.parse(request.postData());saveCount++;}
+            return request.respond({status:200,contentType:"application/json",body:JSON.stringify(request.method()==="PUT" ? {settings:saved} : {settings,plus:true,offers:[{value:"coupon:10000000-0000-4000-8000-000000000001",label:"Cupom: VOLTE10"}],connected:true})});
+        }
+        if(url.origin===BASE && url.pathname==="/api/addons/billing") return request.respond({status:200,contentType:"application/json",body:JSON.stringify({addons:pdfPlus?[{addon:{product_key:"ia_plus"},active:true}]:[]})});
+        if(url.origin===BASE && url.pathname.startsWith("/api/")) return request.respond({status:200,contentType:"application/json",body:JSON.stringify({connection:null,notices:[],items:[]})});
+        return request.continue();
+    });
+    try {
+        await page.goto(BASE+"/painel/clientes",{waitUntil:"networkidle2"});
+        await page.waitForFunction(()=>document.body.textContent.includes("Cliente CRM"));
+        assert.ok((await page.content()).includes("Frequente"));
+        await screenshot(page,"clientes-desktop");
+        await page.locator('input[placeholder="Nome ou celular"]').fill("Cliente");
+        await page.waitForFunction(()=>document.body.textContent.includes("Cliente CRM"));
+        await page.waitForFunction(()=>Array.from(document.querySelectorAll('tbody tr')).some(row=>row.textContent.includes('Cliente CRM')));
+        await page.locator('tbody tr').click();
+        await page.waitForFunction(()=>document.body.textContent.includes("Hambúrguer favorito"));
+        await screenshot(page,"cliente-historico");
+        await page.goto(BASE+"/painel/automacoes",{waitUntil:"networkidle2"});
+        await page.waitForSelector("[role=\"textbox\"][aria-label=\"Mensagem: Recuperação de carrinho\"]");
+        assert.equal(saveCount,0,"Loading settings must not save");
+        const savedResponse=page.waitForResponse(response=>response.url().includes("/api/automations") && response.request().method()==="PUT");
+        await page.locator("[role=\"textbox\"][aria-label=\"Mensagem: Recuperação de carrinho\"]").fill("Oi, {{nome}}! Seu pedido favorito está esperando.");
+        await savedResponse;
+        await page.waitForFunction(()=>document.querySelector('[data-ui="save-status"]')?.textContent.includes("Tudo salvo"));
+        assert.equal(saved.cart.message,"Oi, {{nome}}! Seu pedido favorito está esperando.");
+        assert.equal(saved.cart.enabled,false,"Editing a message must not enable sending");
+        await screenshot(page,"automacoes-desktop");
+        await page.setViewport({width:390,height:844});
+        await screenshot(page,"automacoes-mobile");
+        assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),"Mobile automation page must not overflow horizontally");
+        await page.goto(BASE+"/painel/clientes",{waitUntil:"networkidle2"});
+        await page.waitForFunction(()=>document.body.textContent.includes("Cliente CRM"));
+        await screenshot(page,"clientes-mobile");
+        assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),"Mobile customer page must not overflow horizontally");
+        await page.goto(BASE+"/painel/configuracoes",{waitUntil:"networkidle2"});
+        await page.waitForFunction(()=>document.body.textContent.includes("Desbloquear exportação"));
+        await page.evaluate(()=>Array.from(document.querySelectorAll("button")).find(b=>b.textContent.includes("Desbloquear exportação"))?.scrollIntoView({block:"center",behavior:"instant"}));
+        await screenshot(page,"pdf-locked-mobile");
+        await click(page,"Desbloquear exportação");
+        await page.waitForFunction(()=>document.body.textContent.includes("Com o iMenu Plus, exporte seu cardápio em PDF"));
+        await screenshot(page,"pdf-sales-mobile");
+        pdfPlus=true;
+        await page.goto(BASE+"/painel/configuracoes",{waitUntil:"networkidle2"});
+        await page.waitForFunction(()=>Array.from(document.querySelectorAll("button")).some(b=>b.textContent.trim()==="Exportar PDF"));
+        await page.setViewport({width:1280,height:900});
+    page.on("pageerror",error=>console.error("BROWSER_ERROR",error.message));
+        await page.evaluate(()=>Array.from(document.querySelectorAll("button")).find(b=>b.textContent.trim()==="Exportar PDF")?.scrollIntoView({block:"center",behavior:"instant"}));
+        await screenshot(page,"pdf-active-desktop");
+        console.log("PASS CRM list/detail, Marketing autosave, Plus PDF lock/context/active access, desktop/mobile (isolated API fixtures)");
+    } catch(error) {
+        console.error("PANEL_FIXTURE",page.url(),await page.evaluate(()=>({text:document.body.innerText.slice(-2000),keys:Object.keys(localStorage)})));
+        if(screenshotDir)await page.screenshot({path:path.join(screenshotDir,"panel-failure.png")});
+        throw error;
+    } finally {await context.close();}
+}
+
+
+async function landingPlanSpacing(browser) {
+    const context=await browser.createBrowserContext(),page=await context.newPage();
+    try {
+        for(const width of [1280,390]) {
+            await page.setViewport({width,height:900});
+            await page.goto(BASE+"/#planos",{waitUntil:"networkidle2"});
+            await page.waitForSelector("#planos article button");
+            const rects=await page.$$eval("#planos article",cards=>cards.map(card=>{
+                const button=card.querySelector("button"),rect=button.getBoundingClientRect();
+                const footer=button.parentElement,content=footer.previousElementSibling.getBoundingClientRect();
+                return {height:rect.height,bottom:rect.bottom,gap:rect.top-content.bottom};
+            }));
+            assert.equal(rects.length,2);
+            assert.ok(Math.abs(rects[0].height-rects[1].height)<1,"Both plan buttons must have the same height");
+            assert.ok(rects.every(r=>r.gap>=31),"Both plan buttons must keep at least 32px spacing");
+            if(width===1280)assert.ok(Math.abs(rects[0].bottom-rects[1].bottom)<1,"Desktop plan buttons must align at the bottom");
+            if(screenshotDir)await page.$("#planos").then(e=>e.screenshot({path:path.join(screenshotDir,"landing-plans-"+width+".png")}));
+            console.log("PASS landing plan button spacing "+width+"px "+JSON.stringify(rects));
+        }
+    } finally {await context.close();}
+}
+
 async function run() {
     const mock = server();
     await new Promise((resolve, reject) => mock.once("error", reject)
@@ -250,9 +371,11 @@ async function run() {
             headless: true, executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
             args: ["--no-sandbox", "--disable-dev-shm-usage"]
         });
+        await landingPlanSpacing(browser);
         await signup(browser);
         await flow(browser, "dinheiro");
         await flow(browser, "pix");
+        await crmPanels(browser);
     } catch (error) {
         console.error(lastLogs);
         throw error;

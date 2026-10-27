@@ -1,0 +1,7 @@
+[Unit]
+Description=iMenu customer-automations schedule
+[Timer]
+OnCalendar=*-*-* *:00/15:00
+Persistent=false
+[Install]
+WantedBy=timers.target

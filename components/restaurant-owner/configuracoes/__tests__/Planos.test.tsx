@@ -58,46 +58,72 @@ const fixtures = {
 };
 afterEach(() => jest.restoreAllMocks());
 
-function renderBilling(payload: typeof fixtures.empty | typeof fixtures.active | typeof fixtures.mixed, wholePage = false) {
+function renderBilling(payload: typeof fixtures.empty | typeof fixtures.active | typeof fixtures.mixed, wholePage = false, coupon?: string) {
     const state = jest.spyOn(React, "useState");
     // SSR does not run the authenticated load effect; seed only its existing state.
-    if (wholePage) state.mockImplementationOnce(() => [false, jest.fn()] as never);
+    if (wholePage) {
+        state.mockImplementationOnce(() => [false, jest.fn()] as never);
+        state.mockImplementationOnce(() => [undefined, jest.fn()] as never);
+    }
     state.mockImplementationOnce(() => [payload, jest.fn()] as never);
     state.mockImplementationOnce(() => [false, jest.fn()] as never);
     return renderToStaticMarkup(<PanelAppearance>{wholePage ? <PlanosPage /> :
-        <QrCodeMesaSettingsSection restaurantId="fixture" showHeader={false} presentation="plans" />}</PanelAppearance>);
+        <QrCodeMesaSettingsSection restaurantId="fixture" showHeader={false} presentation="plans" coupon={coupon} />}</PanelAppearance>);
 }
 
 test("plans separate discovery from billing without selection checkboxes", () => {
     const html = renderBilling(fixtures.empty);
     expect(html).toContain("plans-included");
     expect(html).toContain("plans-products");
+    expect(html).not.toContain("Planos disponíveis");
     expect(html).toContain('id="suas-assinaturas"');
     expect(html).toContain("Nenhum plano adicional contratado.");
     expect(html).not.toContain("aria-pressed");
     expect(html).not.toContain("Selecionar iMenu");
-    expect(html.match(/Conhecer o plano/g)).toHaveLength(2);
+    expect(html.match(/Conhecer o plano/g)).toHaveLength(1);
+    expect(html).toContain('aria-label="Bônus do iMenu Plus"');
+    expect(html).toContain('class="plans-product plans-plus"');
+    const plusCard = html.slice(html.indexOf('class="plans-product plans-plus"'));
+    expect(plusCard).toMatch(/class="plans-plus-status"[\s\S]*?>Disponível<\/span>/);
+    expect(plusCard).toMatch(/class="plans-plus-status"[\s\S]*?>Disponível<\/span>[\s\S]*?class="plans-plus-price"[\s\S]*?R\$/);
+    expect(plusCard).not.toContain("Cancele quando quiser");
+    expect(plusCard.indexOf('class="plans-plus-price"')).toBeGreaterThan(plusCard.indexOf('class="plans-plus-status"'));
+    expect(plusCard).toMatch(/class="plans-plus-footer"[\s\S]*?Conhecer o plano/);
+    expect(plusCard.slice(plusCard.indexOf('class="plans-plus-footer"'))).not.toContain('class="plans-plus-price"');
 });
 
 test("active plans keep recurring cancellation and prepaid renewal with collapsed history", () => {
     const html = renderBilling(fixtures.active);
-    expect(html.match(/data-active="true"/g)).toHaveLength(2);
-    expect(html.match(/Conhecer meu plano/g)).toHaveLength(2);
+    expect(html.match(/data-active="true"/g)).toHaveLength(1);
+    expect(html.match(/Conhecer meu plano/g)).toHaveLength(1);
     expect(html.match(/Descadastrar do plano/g)).toHaveLength(1);
-    expect(html.match(/>Renovar</g)).toHaveLength(1);
-    expect(html.match(/<details class="plans-payment-history">/g)).toHaveLength(2);
-    expect(html.match(/class="plans-subscription-card"/g)).toHaveLength(2);
+    expect(html).not.toContain(">Renovar<");
+    expect(html.match(/<details class="plans-payment-history">/g)).toHaveLength(1);
+    expect(html.match(/class="plans-subscription-card"/g)).toHaveLength(1);
+    expect(html).not.toContain("iMenu QR Code Mesa");
     expect(html).toContain("plans-subscription-identity");
     expect(html).toContain("https://example.com/invoice");
     expect(html).toContain("Confirmado");
     expect(html).toContain("07/11/2026");
 });
 
-test("historical canceled PayZu access keeps renewal without recurring cancellation", () => {
+test("PROMOQR shows the discounted first-month price on the plan card before launch", () => {
+    const html = renderBilling(fixtures.mixed, false, "PROMOQR");
+    const plusCard = html.slice(html.indexOf('class="plans-product plans-plus"'));
+    expect(plusCard).toContain("25,00");
+    expect(plusCard).toContain("49,99");
+    expect(plusCard).toContain("line-through");
+    expect(plusCard).toContain("1º mês via Pix");
+    expect(renderBilling(fixtures.mixed)).not.toContain("25,00");
+});
+
+test("QR-only legacy billing records are never shown as a paid subscription", () => {
     const html = renderBilling(fixtures.mixed);
-    expect(html).toContain('data-active="true"');
-    expect(html).toContain(">Renovar<");
-    expect(html).toContain("Cancelado");
+    expect(html).not.toContain('data-active="true"');
+    expect(html).not.toContain("iMenu QR Code Mesa");
+    expect(html).not.toContain("Histórico de pagamentos");
+    expect(html).toContain("Nenhum plano adicional contratado.");
+    expect(html).not.toContain(">Renovar<");
     expect(html).not.toContain("Descadastrar do plano");
 });
 
@@ -107,9 +133,24 @@ test.each(Object.entries(fixtures))("render the actual plans page for visual QA:
     expect(html).not.toContain("FEITO PARA O SEU RESTAURANTE");
     expect(html).not.toContain("Suas assinaturas ↓");
     expect(html).not.toContain("Disponível no seu painel");
-    expect(html).toMatch(/<h3>iMenu Cardápio Digital<\/h3><span data-ui="badge"[^>]*>Grátis para sempre, sem limites<\/span>/);
-    expect(html).toContain("Atendimento Exclusivo");
-    expect(html).toContain("Cardápio digital na mesa através de QR Code");
+    expect(html).toMatch(/<h3>iMenu<\/h3><span data-ui="badge"[^>]*>Grátis para sempre, sem limites<\/span>/);
+    expect(html).toContain("Atendimento exclusivo");
+    expect(html).toContain("Atualizações de pedidos pelo WhatsApp");
+    expect(html).toContain("QR Code Mesa");
+    expect(html).toContain("Upsells automáticos");
+    expect(html).toContain("Download Cardápio em PDF");
+    expect(html).not.toContain("Modo vitrine");
+    expect(html).not.toContain("Já gratuitos em qualquer plano");
+    expect(html).not.toContain("QR Code nas mesas");
+    expect(html).not.toContain("Painel Garçom");
+    expect(html).toContain("plans-plus-header");
+    expect(html).toContain("plans-plus-bonus-grid");
+    expect(html).toContain("plans-plus-footer");
+    expect(html).toContain("plans-plus-feature-icon");
+    expect(html).toContain("plans-plus-bonus-icon");
+    expect(html).not.toContain("Cardápio digital nas mesas com QR Code, sem cobrança.");
+    expect(html.match(/class="plans-included"/g)).toHaveLength(1);
+    expect(html).toContain("PlusCombinationMarkLogo_Brand.png");
     if (process.env.PLANS_VISUAL_DIR) {
         mkdirSync(process.env.PLANS_VISUAL_DIR, { recursive: true });
         writeFileSync(join(process.env.PLANS_VISUAL_DIR, name + ".html"), html);

@@ -130,7 +130,8 @@ export async function activateMercadoPagoQrTablePrepaid(input: {
         ]
     );
 
-    // Avoid duplicate WhatsApp welcomes when payment reconciliation runs again.
+    // Reconciliation may observe the same approved payment many times.
+    // Only the request that actually activated it should send a welcome.
     if (activation.rowCount === 1) {
         await sendAddonPurchaseWhatsApp({
             addonId: input.addonId,

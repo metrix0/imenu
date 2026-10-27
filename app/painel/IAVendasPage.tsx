@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
@@ -93,6 +93,7 @@ export default function SalesPage() {
     [analysisChatOpen, setAnalysisChatOpen] = useState(false),
     [wideAnalysis, setWideAnalysis] = useState(false),
     [plusModal, setPlusModal] = useState<"sales" | "checkout" | null>(null),
+    [plusContext, setPlusContext] = useState<string | undefined>(),
     [text, setText] = useState(""),
     [attachments, setAttachments] = useState<Data[]>([]),
     [uploading, setUploading] = useState(false),
@@ -141,6 +142,10 @@ export default function SalesPage() {
   useEffect(() => {
     void useSalesStore.getState().load(restaurant);
   }, [restaurant]);
+  const openPlus = useCallback((context?: string) => {
+    setPlusContext(context);
+    setPlusModal("sales");
+  }, []);
   useEffect(() => {
     if (!sales.conversations.length || sales.loading) return;
     if (!isAnalysisRoute && newConversation) return;
@@ -278,17 +283,19 @@ export default function SalesPage() {
         },
       );
     }
-    setPlusModal("sales");
+    openPlus(isAnalysis
+      ? "Para aplicar as recomendações do Vendas IA, assine o iMenu Plus."
+      : "Para aplicar mais recomendações do Assistente IA, assine o iMenu Plus.");
   };
   useEffect(() => {
     if (sales.upgradeRequired) {
-      if (isAnalysis) setPlusModal("sales");
+      if (isAnalysis) openPlus("O Vendas IA requer uma assinatura ativa do iMenu Plus.");
       else end.current?.scrollIntoView({ behavior: "smooth", block: "end" });
     }
-  }, [sales.upgradeRequired, isAnalysis]);
+  }, [sales.upgradeRequired, isAnalysis, openPlus]);
   async function send() {
     if (isAnalysis && locked) { setPlusModal("checkout"); return; }
-    if (freeLimitReached) { setPlusModal("sales"); return; }
+    if (freeLimitReached) { openPlus("Você atingiu o limite gratuito do Assistente IA. Assine o iMenu Plus para continuar conversando."); return; }
     if (!text.trim() || disabled || uploading) return;
     const draft = text.trim(),
       pendingAttachments = attachments;
@@ -335,7 +342,7 @@ export default function SalesPage() {
   const onAction = (command: string, ids: string[]) => {
       if (isAnalysis && locked) {
         if (command === "apply") openLockedApply(ids);
-        else setPlusModal("sales");
+        else openPlus("Esse recurso do Vendas IA exige uma assinatura do iMenu Plus.");
         return;
       }
       if (!isAnalysis && applyLocked && command === "apply") { openLockedApply(ids); return; }
@@ -362,7 +369,7 @@ export default function SalesPage() {
         )
       : selectedBatchIds.length;
   const openAnalysisChat = () => {
-    if (locked) { setPlusModal("sales"); return; }
+    if (locked) { openPlus("Para conversar sobre sua análise de vendas, assine o iMenu Plus."); return; }
     focusChat.current = true;
     setAnalysisChatOpen(true);
   };
@@ -512,7 +519,7 @@ export default function SalesPage() {
                             onAction={onAction}
                             locked={applyLocked}
                             freeApply={freeApply}
-                            lockedLabel={!isAnalysis ? "Aplicar com IA Plus" : undefined}
+                            lockedLabel={!isAnalysis ? "Aplicar com iMenu Plus" : undefined}
                             onUpgrade={openLockedApply}
                           />
                         );
@@ -571,7 +578,7 @@ export default function SalesPage() {
                             onAction={onAction}
                             locked={applyLocked}
                             freeApply={freeApply}
-                            lockedLabel={!isAnalysis ? "Aplicar com IA Plus" : undefined}
+                            lockedLabel={!isAnalysis ? "Aplicar com iMenu Plus" : undefined}
                             onUpgrade={openLockedApply}
                           />
                         );
@@ -848,7 +855,7 @@ export default function SalesPage() {
                     </div>
                   ))}
               </nav>
-              <Button className="mt-3 shrink-0" variant={isAnalysis ? "secondary" : "primary"} onClick={() => setPlusModal("sales")}><Sparkles size={16} className="mr-2" />iMenu IA Plus</Button>
+              <Button className="mt-3 shrink-0" variant={isAnalysis ? "secondary" : "primary"} onClick={() => openPlus()}><Sparkles size={16} className="mr-2" />iMenu Plus</Button>
             </div>
           </aside>
         )}
@@ -860,7 +867,7 @@ export default function SalesPage() {
                   {!analysisChatOpen && notice}
                   <AnalysisReport
                     locked={locked}
-                    onUpgrade={(ids) => ids?.length ? openLockedApply(ids) : setPlusModal("sales")}
+                    onUpgrade={(ids) => ids?.length ? openLockedApply(ids) : openPlus("Para acessar a análise e as recomendações do Vendas IA, assine o iMenu Plus.")}
                     analyses={sales.analyses}
                     selected={selectedReport}
                     actions={sales.actions}
@@ -881,13 +888,13 @@ export default function SalesPage() {
                     }}
                     onAction={onAction}
                     onBatch={(ids) => {
-                      if (locked) { setPlusModal("sales"); return; }
+                      if (locked) { openPlus("Para aplicar as recomendações em lote do Vendas IA, assine o iMenu Plus."); return; }
                       setBatchIds(ids);
                       setSelectedBatchIds(ids);
                       setModal("batch");
                     }}
                     onDiscuss={(item) => {
-                      if (locked) { setPlusModal("sales"); return; }
+                      if (locked) { openPlus("Para conversar sobre esta oportunidade de vendas, assine o iMenu Plus."); return; }
                       setOpportunity(item);
                       openAnalysisChat();
                     }}
@@ -913,7 +920,7 @@ export default function SalesPage() {
             </div>
             <div className="ml-auto flex shrink-0 gap-2">
               <span className="hidden md:inline-flex lg:hidden">
-                <Button variant={isAnalysis ? "secondary" : "primary"} onClick={() => setPlusModal("sales")}>iMenu IA Plus</Button>
+                <Button variant={isAnalysis ? "secondary" : "primary"} onClick={() => openPlus()}>iMenu Plus</Button>
               </span>
               <Button
                 variant="secondary"
@@ -1053,7 +1060,7 @@ export default function SalesPage() {
 
         </section>
       </div>
-      {restaurant && <IaPlusSalesModal active={sales.access?.plus === true} open={plusModal !== null} checkout={plusModal === "checkout"} restaurantId={restaurant} onClose={() => setPlusModal(null)} onPaid={async () => { setPlusModal(null); sales.clearUpgrade(); await sales.load(restaurant, sales.conversation_id || undefined); }} />}
+      {restaurant && <IaPlusSalesModal active={sales.access?.plus === true} open={plusModal !== null} checkout={plusModal === "checkout"} contextMessage={plusContext} restaurantId={restaurant} onClose={() => setPlusModal(null)} onPaid={async () => { setPlusModal(null); sales.clearUpgrade(); await sales.load(restaurant, sales.conversation_id || undefined); }} />}
       <Modal
         open={modal !== null}
         onClose={() => {
@@ -1158,7 +1165,7 @@ export default function SalesPage() {
                   disabled={!locked && !selectedBatchIds.length}
                   onClick={async () => {
                     if (locked) {
-                      setPlusModal("sales");
+                      openPlus("Para aplicar as recomendações em lote, assine o iMenu Plus.");
                       return;
                     }
                     await sales.command("apply", { ids: selectedBatchIds });

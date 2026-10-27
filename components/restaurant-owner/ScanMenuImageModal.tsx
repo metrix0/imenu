@@ -16,6 +16,8 @@ import Dropdown from "@/components/ui/Dropdown";
 import Toast from "@/components/ui/Toast";
 import LoadingBar from "@/components/ui/LoadingBar";
 import { uploadFullMenuImageAI } from "@/lib/database/uploadFullMenuImageAI";
+import { arePizzaFlavorsCompatible, prepareScannedPizza, type ScannedPizzaOption } from "@/lib/menu/scannedPizza";
+import { parsePizzaSettings } from "@/lib/pizza/pricing";
 import Loader from "@/components/ui/Loader";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
@@ -28,6 +30,9 @@ type ScannedItem = {
     image_path: string | null;
     category_name?: string;
     category_id?: string | null;
+    is_pizza_flavor?: boolean;
+    pizza_sizes?: ScannedPizzaOption[];
+    pizza_crusts?: ScannedPizzaOption[];
     [key: string]: any;
 };
 
@@ -48,6 +53,19 @@ type CategoryMapping = {
     mappedId: string | null;
     createNew: boolean;
 };
+
+type ExistingMenuItem = {
+    id: string;
+    name: string;
+    description: string | null;
+    price_cents: number;
+    category_id: string;
+};
+
+type ScanAccess = { allowed: boolean; hasItems: boolean };
+
+const normalizeItemName = (name: string) =>
+    name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().replace(/\s+/g, " ").toLocaleLowerCase("pt-BR");
 
 const MAX_MENU_FILES = 8;
 
@@ -101,6 +119,10 @@ function ScanModal({
     const [isScanning, setIsScanning] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [scanResult, setScanResult] = useState<ScannedResult | null>(null);
+    const [access, setAccess] = useState<ScanAccess | null>(null);
+    const [accessError, setAccessError] = useState("");
+    const [existingItems, setExistingItems] = useState<ExistingMenuItem[]>([]);
+    const [itemActions, setItemActions] = useState<Record<number, "add" | "update" | "skip">>({});
     const [isDraggingImage, setIsDraggingImage] = useState(false);
     const [categoryMap, setCategoryMap] = useState<
         Record<string, CategoryMapping>
@@ -112,6 +134,60 @@ function ScanModal({
             previewUrlsRef.current.clear();
         };
     }, []);
+
+    async function fetchScanAccess(): Promise<ScanAccess> {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) throw new Error("Entre na sua conta para usar o scanner.");
+        const response = await fetch(`/api/scan-menu?restaurantId=${encodeURIComponent(restaurantId)}`, {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+            cache: "no-store",
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload?.error || "Não foi possível verificar o acesso.");
+        return payload as ScanAccess;
+    }
+
+    useEffect(() => {
+        if (!open) return;
+        let active = true;
+        setScanResult(null);
+        setItemActions({});
+        setAccess(null);
+        setAccessError("");
+        void fetchScanAccess().then(value => {
+            if (!active) return;
+            setAccess(value);
+        }).catch(error => {
+            if (active) setAccessError(error instanceof Error ? error.message : String(error));
+        });
+        return () => { active = false; };
+    }, [open, restaurantId]);
+
+    async function loadExistingItems() {
+        const { data, error } = await supabase.from("items")
+            .select("id, name, description, price_cents, category_id")
+            .eq("restaurant_id", restaurantId)
+            .order("position")
+            .limit(1000);
+        if (error) throw error;
+        setExistingItems((data || []) as ExistingMenuItem[]);
+    }
+
+    function findExistingItem(item: ScannedItem, categoryName: string): ExistingMenuItem | undefined {
+        const mappedId = categoryMap[categoryName]?.mappedId;
+        const categoryIds = mappedId ? [mappedId] : existingCategories
+            .filter(category => normalizeItemName(category.name) === normalizeItemName(categoryName))
+            .map(category => category.id);
+        return existingItems.find(existing =>
+            normalizeItemName(existing.name) === normalizeItemName(item.name) &&
+            categoryIds.includes(existing.category_id)
+        );
+    }
+
+    function selectedAction(item: ScannedItem, categoryName: string): "add" | "update" | "skip" {
+        const index = scanResult?.items.indexOf(item) ?? -1;
+        return itemActions[index] ?? (findExistingItem(item, categoryName) ? "skip" : "add");
+    }
 
     function scheduleToastClear(delay = 3000) {
         window.setTimeout(() => setToast(null), delay);
@@ -243,15 +319,12 @@ function ScanModal({
         setIsScanning(true);
 
         try {
-            const headers: Record<string, string> = { "Content-Type": "application/json" };
-            if (pastedMenuUrl !== undefined) {
-                const { data: { session } } = await supabase.auth.getSession();
-                if (!session?.access_token) {
-                    setToast({ message: "Entre na sua conta para importar por link.", type: "error" });
-                    return null;
-                }
-                headers.Authorization = `Bearer ${session.access_token}`;
-            }
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.access_token) throw new Error("Entre na sua conta para usar o scanner.");
+            const headers: Record<string, string> = {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${session.access_token}`,
+            };
             const response = await fetch("/api/scan-menu", {
                 method: "POST",
                 headers,
@@ -285,11 +358,27 @@ function ScanModal({
         }
     }
 
-    function showScanResult(aiResult: ScannedResult) {
+    async function showScanResult(aiResult: ScannedResult) {
+        try {
+            await loadExistingItems();
+        } catch (error) {
+            setToast({
+                message: "Não foi possível comparar com os produtos existentes: " +
+                    (error instanceof Error ? error.message : String(error)),
+                type: "error",
+            });
+            return;
+        }
+        setItemActions({});
         setScanResult(aiResult);
         const newMap: Record<string, CategoryMapping> = {};
         (aiResult.categories || []).forEach((category) => {
-            newMap[category.name] = { mappedId: null, createNew: true };
+            const match = existingCategories.find(existing =>
+                existing.name.trim().localeCompare(category.name.trim(), "pt-BR", { sensitivity: "base" }) === 0
+            );
+            newMap[category.name] = match
+                ? { mappedId: match.id, createNew: false }
+                : { mappedId: null, createNew: true };
         });
         setCategoryMap(newMap);
     }
@@ -304,7 +393,7 @@ function ScanModal({
                 return;
             }
             const aiResult = await callAiScan([], menuUrl.trim());
-            if (aiResult) showScanResult(aiResult);
+            if (aiResult) await showScanResult(aiResult);
             return;
         }
 
@@ -369,136 +458,182 @@ function ScanModal({
         const aiResult = await callAiScan(publicUrls);
         if (!aiResult) return;
 
-        showScanResult(aiResult);
+        await showScanResult(aiResult);
     }
 
     async function handleSaveAll() {
-        if (!scanResult) return;
+        if (!scanResult || isSaving) return;
         setIsSaving(true);
 
         try {
-            const createPromises: Promise<{ name: string; id: string }>[] = [];
+            await fetchScanAccess();
 
-            for (const [categoryName, mapping] of Object.entries(categoryMap)) {
-                if (mapping.mappedId || !mapping.createNew) continue;
-
-                createPromises.push(
-                    (async () => {
-                        const response = await fetch("/api/categories/create", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                restaurant_id: restaurantId,
-                                name: categoryName,
-                                position: 99,
-                            }),
-                        });
-                        const json = await response.json();
-
-                        if (!response.ok) {
-                            throw new Error(
-                                json?.error || "create category failed"
-                            );
-                        }
-
-                        return {
-                            name: categoryName,
-                            id: json.category.id,
-                        };
-                    })()
-                );
+            const itemsToAdd = scanResult.items.filter(item => selectedAction(item, item.category_name ?? "") === "add");
+            const itemsToUpdate = scanResult.items.filter(item => selectedAction(item, item.category_name ?? "") === "update");
+            if (!itemsToAdd.length && !itemsToUpdate.length) {
+                setToast({ message: "Nenhuma alteração selecionada.", type: "success" });
+                return;
             }
 
-            const createdCategories = await Promise.all(createPromises);
-            const resolvedCategoryMap = { ...categoryMap };
+            for (const item of itemsToUpdate) {
+                const original = findExistingItem(item, item.category_name ?? "");
+                if (!original) throw new Error(`Selecione um produto existente para atualizar ${item.name}.`);
+                const price = prepareScannedPizza(item).price_cents;
+                const hasValidPrice = Number.isSafeInteger(item.price_cents) && Number(item.price_cents) >= 0 ||
+                    (item.is_pizza_flavor === true && prepareScannedPizza(item).complements.some(group => group.name === "Tamanho"));
+                const { data, error } = await supabase.from("items")
+                    .update({
+                        name: item.name,
+                        ...(item.description !== null ? { description: item.description } : {}),
+                        ...(hasValidPrice ? { price_cents: price } : {}),
+                    })
+                    .eq("restaurant_id", restaurantId).eq("id", original.id).select("id");
+                if (error || !data?.length) throw new Error(error?.message || `Não foi possível atualizar ${item.name}.`);
+            }
 
-            createdCategories.forEach((category) => {
-                resolvedCategoryMap[category.name] = {
-                    mappedId: category.id,
-                    createNew: false,
-                };
-            });
+            const resolvedCategoryIds = new Map<string, string>();
+            for (const category of scanResult.categories.filter(category =>
+                itemsToAdd.some(item => item.category_name === category.name))) {
+                const mapping = categoryMap[category.name];
+                if (mapping?.mappedId) {
+                    resolvedCategoryIds.set(category.name, mapping.mappedId);
+                    continue;
+                }
+                const response = await fetch("/api/categories/create", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        restaurant_id: restaurantId,
+                        name: category.name,
+                        position: 99,
+                    }),
+                });
+                const json = await response.json();
+                if (!response.ok || !json?.category?.id) {
+                    throw new Error(json?.error || `Não foi possível criar a categoria ${category.name}.`);
+                }
+                resolvedCategoryIds.set(category.name, json.category.id);
+            }
 
-            const createItemPromises: Promise<any>[] = [];
+            const imported = await Promise.all(itemsToAdd.map(async (item, index) => {
+                const categoryId = resolvedCategoryIds.get(item.category_name ?? "");
+                if (!categoryId) throw new Error(`Categoria não encontrada para ${item.name}.`);
+                const prepared = prepareScannedPizza(item);
+                const hasPrice = (Number.isSafeInteger(item.price_cents) && Number(item.price_cents) >= 0) ||
+                    (item.is_pizza_flavor === true &&
+                        prepared.complements.some(group => group.name === "Tamanho"));
+                const response = await fetch("/api/items/create", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        restaurant_id: restaurantId,
+                        category_id: categoryId,
+                        name: item.name,
+                        description: item.description,
+                        price_cents: prepared.price_cents,
+                        image_path: item.image_path ?? null,
+                        is_available: Boolean(hasPrice),
+                        position: index,
+                    }),
+                });
+                const json = await response.json();
+                if (!response.ok || !json?.item?.id) {
+                    throw new Error(json?.error || `Não foi possível criar ${item.name}.`);
+                }
+                return { item, categoryId, itemId: json.item.id as string, prepared };
+            }));
 
-            scanResult.items.forEach((item, index) => {
-                const categoryName = item.category_name ?? "Uncategorized";
-                const categoryId =
-                    resolvedCategoryMap[categoryName]?.mappedId ?? null;
-
-                if (!categoryId) {
-                    createItemPromises.push(
-                        (async () => {
-                            const categoryResponse = await fetch(
-                                "/api/categories/create",
-                                {
-                                    method: "POST",
-                                    headers: {
-                                        "Content-Type": "application/json",
-                                    },
-                                    body: JSON.stringify({
-                                        restaurant_id: restaurantId,
-                                        name: categoryName,
-                                        position: 0,
-                                    }),
-                                }
-                            );
-                            const categoryJson = await categoryResponse.json();
-
-                            const itemResponse = await fetch("/api/items/create", {
-                                method: "POST",
-                                headers: {
-                                    "Content-Type": "application/json",
-                                },
-                                body: JSON.stringify({
-                                    restaurant_id: restaurantId,
-                                    category_id: categoryJson.category.id,
-                                    name: item.name,
-                                    description: item.description,
-                                    price_cents: item.price_cents ?? 0,
-                                    image_path: item.image_path ?? null,
-                                    position: index,
-                                }),
-                            });
-
-                            return itemResponse.json();
-                        })()
-                    );
-                    return;
+            const groupPlans = imported.flatMap(({ itemId, prepared }) =>
+                prepared.complements.map(group => ({ itemId, ...group }))
+            );
+            if (groupPlans.length) {
+                const { data: createdGroups, error: groupError } = await supabase
+                    .from("item_subcategories")
+                    .insert(groupPlans.map(group => ({
+                        item_id: group.itemId,
+                        name: group.name,
+                        min_select: group.min_select,
+                        max_select: group.max_select,
+                        allow_multiple_units: false,
+                        position: group.name === "Tamanho" ? 0 : 1,
+                    })))
+                    .select("id, item_id, name");
+                if (groupError || !createdGroups || createdGroups.length !== groupPlans.length) {
+                    throw new Error(groupError?.message || "Não foi possível criar tamanhos e bordas.");
                 }
 
-                createItemPromises.push(
-                    fetch("/api/items/create", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            restaurant_id: restaurantId,
-                            category_id: categoryId,
-                            name: item.name,
-                            description: item.description,
-                            price_cents: item.price_cents ?? 0,
-                            image_path: item.image_path ?? null,
-                            position: index,
-                        }),
-                    }).then((response) => response.json())
-                );
-            });
+                const options = createdGroups.flatMap(created => {
+                    const group = groupPlans.find(plan =>
+                        plan.itemId === created.item_id && plan.name === created.name
+                    );
+                    if (!group) throw new Error("Grupo de pizza não encontrado.");
+                    return group.options.map((option, position) => ({
+                        item_subcategory_id: created.id,
+                        name: option.name,
+                        description: null,
+                        price_cents: option.price_cents,
+                        is_available: true,
+                        position,
+                    }));
+                });
+                if (options.length) {
+                    const { error: optionError } = await supabase.from("subitems").insert(options);
+                    if (optionError) throw new Error(optionError.message);
+                }
+            }
 
-            await Promise.all(createItemPromises);
+            const pizzaFlavors = imported.filter(row => row.item.is_pizza_flavor === true);
+            const pizzaCategoryIds = [...new Set(pizzaFlavors.map(row => row.categoryId))]
+                .filter(categoryId => !imported.some(row =>
+                    row.categoryId === categoryId && row.item.is_pizza_flavor !== true
+                ));
+            let needsPizzaReview = pizzaFlavors.length >= 2 && pizzaCategoryIds.length === 0;
+            if (pizzaFlavors.length >= 2 && pizzaCategoryIds.length) {
+                const { data: allCategoryItems, error: itemsError } = await supabase.from("items")
+                    .select("id, category_id").in("category_id", pizzaCategoryIds);
+                if (itemsError) throw new Error(itemsError.message);
+                const createdItemIds = new Set(imported.map(row => row.itemId));
+                const safeIds = pizzaCategoryIds.filter(categoryId =>
+                    !(allCategoryItems || []).some(row =>
+                        row.category_id === categoryId && !createdItemIds.has(row.id)
+                    )
+                );
+                const eligibleFlavors = pizzaFlavors.filter(row => safeIds.includes(row.categoryId));
+                if (eligibleFlavors.length >= 2 &&
+                    arePizzaFlavorsCompatible(eligibleFlavors.map(row => row.item))) {
+                    const { data: restaurant, error: restaurantError } = await supabase
+                        .from("restaurants").select("pizza_settings").eq("id", restaurantId).single();
+                    if (restaurantError) throw new Error(restaurantError.message);
+                    const current = parsePizzaSettings(restaurant.pizza_settings);
+                    const { error: settingsError } = await supabase.from("restaurants")
+                        .update({ pizza_settings: {
+                            ...current,
+                            enabled: true,
+                            category_ids: [...new Set([...current.category_ids, ...safeIds])],
+                        } })
+                        .eq("id", restaurantId);
+                    if (settingsError) throw new Error(settingsError.message);
+                } else {
+                    needsPizzaReview = true;
+                }
+            }
 
             setToast({
-                message: "Salvo com sucesso",
+                message: needsPizzaReview
+                    ? "Cardápio importado. Revise os tamanhos e bordas dos sabores para ativar o Modo Pizza."
+                    : "Cardápio importado com sucesso",
                 type: "success",
             });
             scheduleToastClear(2500);
             onClose();
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error(error);
             setToast({
-                message: "Erro ao salvar: " + (error?.message ?? error),
+                message: "Erro ao importar. Confira os itens já criados antes de tentar novamente: " +
+                    (error instanceof Error ? error.message : String(error)),
                 type: "error",
             });
-            scheduleToastClear(4000);
+            scheduleToastClear(6000);
         } finally {
             onRefresh();
             setIsSaving(false);
@@ -555,9 +690,17 @@ function ScanModal({
 
     return (
         <>
-            <Modal height={700} open={open} onClose={onClose}>
+            <Modal height={700} open={open && (access?.allowed === true || Boolean(accessError))} onClose={onClose}>
                 <div className="p-6 w-full max-w-3xl 2xl:max-w-4xl overflow-y-auto">
-                    {!scanResult && (
+                    {!access && !accessError && <div className="flex min-h-40 items-center justify-center"><Loader /></div>}
+                    {accessError && <div className="space-y-4">
+                        <p role="alert" className="text-sm text-red-700">{accessError}</p>
+                        <Button variant="secondary" onClick={() => void fetchScanAccess().then(value => {
+                            setAccessError("");
+                            setAccess(value);
+                        }).catch(error => setAccessError(error instanceof Error ? error.message : String(error)))}>Tentar novamente</Button>
+                    </div>}
+                    {access?.allowed && !scanResult && (
                         <div className="space-y-4">
                             {showLinkField ? (
                                 <div className="rounded-lg p-4">
@@ -735,8 +878,12 @@ function ScanModal({
                         </div>
                     )}
 
-                    {scanResult && (
+                    {access?.allowed && scanResult && (
                         <div className="space-y-6">
+                            <p className="text-sm text-gray-600">
+                                Revise os itens encontrados. Itens já cadastrados são ignorados por padrão.
+                                Atualizar altera nome, descrição e preço; complementos existentes são mantidos.
+                            </p>
                             <div className="space-y-6">
                                 {aiCategories.map((categoryName) => {
                                     const mapping = categoryMap[categoryName] ?? {
@@ -821,11 +968,35 @@ function ScanModal({
                                                                 <div className="text-sm text-gray-600 mt-1">
                                                                     {item.description}
                                                                 </div>
+                                                                <div className="mt-2 max-w-56">
+                                                                    <Dropdown
+                                                                        label={`Ação para ${item.name}`}
+                                                                        value={selectedAction(item, categoryName)}
+                                                                        options={[
+                                                                            { value: "add", label: "Adicionar" },
+                                                                            ...(findExistingItem(item, categoryName)
+                                                                                ? [{ value: "update", label: "Atualizar existente" }]
+                                                                                : []),
+                                                                            { value: "skip", label: "Ignorar" },
+                                                                        ]}
+                                                                        onChange={event => setItemActions(current => ({
+                                                                            ...current,
+                                                                            [scanResult.items.indexOf(item)]: event.target.value as "add" | "update" | "skip",
+                                                                        }))}
+                                                                    />
+                                                                </div>
+                                                                {item.is_pizza_flavor && (
+                                                                    <div className="mt-1 text-xs text-gray-500">
+                                                                        Sabor de pizza
+                                                                        {item.pizza_sizes?.length ? ` · Tamanhos: ${item.pizza_sizes.map(size => size.name).join(", ")}` : ""}
+                                                                        {item.pizza_crusts?.length ? ` · Bordas: ${item.pizza_crusts.map(crust => crust.name).join(", ")}` : ""}
+                                                                    </div>
+                                                                )}
                                                                 <div className="text-sm font-semibold mt-2">
-                                                                    {typeof item.price_cents ===
-                                                                        "number" &&
-                                                                    item.price_cents >= 0
-                                                                        ? `R$ ${(item.price_cents / 100).toFixed(2).replace(".", ",")}`
+                                                                    {(typeof item.price_cents === "number" ||
+                                                                        (item.is_pizza_flavor && prepareScannedPizza(item).complements.some(group => group.name === "Tamanho"))) &&
+                                                                    prepareScannedPizza(item).price_cents >= 0
+                                                                        ? `R$ ${(prepareScannedPizza(item).price_cents / 100).toFixed(2).replace(".", ",")}`
                                                                         : "—"}
                                                                 </div>
                                                             </div>
@@ -868,7 +1039,7 @@ function ScanModal({
                                     onClick={handleSaveAll}
                                     loading={isSaving}
                                 >
-                                    Salvar
+                                    Aplicar itens
                                 </Button>
                             </div>
                         </div>

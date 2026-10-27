@@ -4,7 +4,7 @@ import { LegacyModalClose } from "@/components/ui/ModalCloseButton";
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import { faTimes, faUser, faMapMarkerAlt, faClock, faReceipt, faCheck, faMotorcycle, faCalendarDays, faChair } from "@fortawesome/free-solid-svg-icons";
+import { faTimes, faUser, faMapMarkerAlt, faClock, faReceipt, faCheck, faMotorcycle, faCalendarDays, faChair, faPenToSquare, faBan, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { icons } from "@/lib/utils/fontawesome";
 import Modal from "@/components/ui/Modal";
 import ConfirmModal from "@/components/ui/ConfirmModal";
@@ -18,7 +18,10 @@ interface OrderDetailsModalProps {
     isOpen: boolean;
     onClose: () => void;
     order: Order | null; 
-    onOrderUpdate?: () => void; 
+    onOrderUpdate?: () => void;
+    onEditOrder?: (order: Order) => void;
+    onDeleteOrder?: (order: Order) => void;
+    showStatusActions?: boolean;
 }
 
 type OrderDetail = Omit<Order, "status"> & {
@@ -52,7 +55,7 @@ type OrderDetail = Omit<Order, "status"> & {
     }>;
 };
 
-export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdate }: OrderDetailsModalProps) {
+export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdate, onEditOrder, onDeleteOrder, showStatusActions = false }: OrderDetailsModalProps) {
     const [isLoading, setIsLoading] = useState(true);
     const [isUpdating, setIsUpdating] = useState(false);
     const [details, setDetails] = useState<OrderDetail | null>(null);
@@ -66,6 +69,9 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
         isPaidOnlinePix &&
         !!details?.created_at &&
         Date.now() - new Date(details.created_at).getTime() > 60 * 60 * 1000;
+
+    const isPixPostAcceptance = details?.payment_method === "pix" && (details?.status === "preparing" || details?.status === "delivering");
+    const isPixRejectionBlocked = isPixRefundExpired || isPixPostAcceptance;
 
     const fmtMoney = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
     const fmtDate = (dateStr: string) => new Date(dateStr).toLocaleString("pt-BR");
@@ -257,8 +263,16 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
         );
     };
 
+    const canReject = showStatusActions && !isUpdating && details && (
+        details.status === "pending_online_payment" ||
+        details.status === "pending_physical_payment" ||
+        isPaidOnlinePix ||
+        details.status === "preparing" ||
+        details.status === "delivering"
+    );
+
     const renderActions = () => {
-        if (!details || isUpdating) return null;
+        if (!showStatusActions || !details || isUpdating) return null;
 
         if (
             details.status === "pending_online_payment" ||
@@ -266,18 +280,9 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
             isPaidOnlinePix
         ) {
             return (
-                <>
-                    <Button
-                        variant="secondary"
-                        onClick={() => setShowRefundConfirmation(true)}
-                        className="text-red-600 hover:bg-red-50 border-red-200"
-                    >
-                        Rejeitar
-                    </Button>
-                    <Button variant="primary" onClick={() => handleStatusUpdate("preparing")}>
-                        <FontAwesomeIcon icon={faCheck} className="mr-2" /> Aceitar Pedido
-                    </Button>
-                </>
+                <Button variant="primary" onClick={() => handleStatusUpdate("preparing")}>
+                    <FontAwesomeIcon icon={faCheck} className="mr-2" /> Aceitar Pedido
+                </Button>
             );
         }
 
@@ -302,7 +307,6 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                 return null;
         }
     };
-    console.log(order)
 
     return (
         <>
@@ -465,29 +469,50 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                     </div>
 
                     {/* Footer */}
-                    <div className="p-4 sm:p-5 border-t border-gray-100 flex flex-col sm:flex-row justify-end gap-3 bg-gray-50/50 [&>button]:w-full sm:[&>button]:w-auto">
-                        {renderActions()}
-                        {(!renderActions() || isUpdating) && (
-                            <Button variant="secondary" onClick={onClose} disabled={isUpdating}>Fechar</Button>
-                        )}
+                    <div className="p-4 sm:p-5 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-gray-50/50">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                            {onEditOrder && order && details && (
+                                <Button variant="secondary" onClick={() => onEditOrder(order)} disabled={isUpdating}>
+                                    <FontAwesomeIcon icon={faPenToSquare} className="mr-2" /> Editar
+                                </Button>
+                            )}
+                            {canReject && (
+                                <Button variant="secondary" onClick={() => setShowRefundConfirmation(true)} className="text-red-600 hover:bg-red-50 border-red-200">
+                                    <FontAwesomeIcon icon={faBan} className="mr-2" /> Rejeitar
+                                </Button>
+                            )}
+                            {onDeleteOrder && order && details && (
+                                <Button variant="secondary" onClick={() => onDeleteOrder(order)} disabled={isUpdating} className="text-red-600 hover:bg-red-50 border-red-200">
+                                    <FontAwesomeIcon icon={faTrash} className="mr-2" /> Excluir
+                                </Button>
+                            )}
+                        </div>
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-end gap-2">
+                            {renderActions()}
+                            {(!renderActions() || isUpdating) && (
+                                <Button variant="secondary" onClick={onClose} disabled={isUpdating}>Fechar</Button>
+                            )}
+                        </div>
                     </div>
                 </div>
             </Modal>
 
             <ConfirmModal
-                open={showRefundConfirmation}
+                open={showStatusActions && showRefundConfirmation}
                 onClose={() => setShowRefundConfirmation(false)}
                 onConfirm={() => {
                     setShowRefundConfirmation(false);
-                    if (!isPixRefundExpired) void handleStatusUpdate("canceled");
+                    if (!isPixRejectionBlocked) void handleStatusUpdate("canceled");
                 }}
-                title={isPixRefundExpired ? "Pedido não pode mais ser rejeitado" : "Rejeitar pedido?"}
-                description={isPixRefundExpired
-                    ? "Este pedido Pix Online tem mais de 60 minutos e não pode mais ser rejeitado. Se quiser, aceite o pedido normalmente e depois exclua-o na aba Histórico. Qualquer reembolso deve ser feito manualmente."
+                title={isPixRejectionBlocked ? "Pedido não pode mais ser rejeitado" : "Rejeitar pedido?"}
+                description={isPixRejectionBlocked
+                    ? (isPixPostAcceptance
+                        ? "Pedidos Pix Online só podem ser rejeitados enquanto estão no status Pago. Qualquer reembolso deve ser feito manualmente."
+                        : "Este pedido Pix Online tem mais de 60 minutos e não pode mais ser rejeitado. Se quiser, aceite o pedido normalmente e depois exclua-o na aba Histórico. Qualquer reembolso deve ser feito manualmente.")
                     : isPaidOnlinePix
                       ? "O valor total pago via Pix será reembolsado automaticamente ao cliente. O cliente será notificado na página de acompanhamento do pedido."
                       : "O cliente será notificado do cancelamento na página de acompanhamento do pedido."}
-                confirmLabel={isPixRefundExpired ? "Entendi" : isPaidOnlinePix ? "Rejeitar e reembolsar" : "Rejeitar pedido"}
+                confirmLabel={isPixRejectionBlocked ? "Entendi" : isPaidOnlinePix ? "Rejeitar e reembolsar" : "Rejeitar pedido"}
                 cancelLabel="Voltar"
                 isLoading={isUpdating}
                 variant="danger"

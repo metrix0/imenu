@@ -1,0 +1,9 @@
+[Unit]
+Description=iMenu customer-automations
+After=docker.service
+ConditionPathExists=/opt/imenu-migration/ops/PRODUCTION_JOBS_ENABLED
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/imenu-migration/ops/run_job.py customer-automations
+TimeoutStartSec=25min
+UMask=0077

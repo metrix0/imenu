@@ -427,7 +427,11 @@ export const FIELDS = {
       required: false,
     },
   },
+  automatic_upsell: {
+    enabled: { type: "boolean", nullable: false, required: false },
+  },
   whatsapp_bot_settings: {
+    automations: { type: "jsonb", nullable: false, required: false },
     message_templates: {
       type: "jsonb",
       nullable: false,

@@ -1,4 +1,5 @@
 import { ADDON_PRODUCTS } from "@/lib/addons/products";
+import { PROMO_QR_CODE, PROMO_QR_PRICE_CENTS } from "@/lib/addons/promoQr";
 import { NextResponse } from "next/server";
 
 import { query, withTransaction } from "@/lib/database/sql";
@@ -28,12 +29,13 @@ async function processQrTablePix(
 ): Promise<void> {
     const addonResult = await query<{
         id: string;
+        price_cents: number;
         product_key: keyof typeof ADDON_PRODUCTS;
         payment_provider: string | null;
         mercadopago_order_id: string | null;
     }>(
         `
-            SELECT id, product_key, payment_provider, mercadopago_order_id
+            SELECT id, price_cents, product_key, payment_provider, mercadopago_order_id
             FROM public.restaurant_addons
             WHERE id = $1
               AND product_key IN ('qr_code_mesa', 'ia_plus')
@@ -57,14 +59,16 @@ async function processQrTablePix(
 
     const product = ADDON_PRODUCTS[addon.product_key || "qr_code_mesa"];
     if (!product || !payment.externalReference?.startsWith(`${product.referencePrefix}:${addon.id}:`)) return;
+    const promotional = addon.product_key === "ia_plus" && payment.externalReference.startsWith(`${product.referencePrefix}:${addon.id}:${PROMO_QR_CODE}:`);
+    const expectedPriceCents = addon.product_key === "ia_plus" ? (promotional ? PROMO_QR_PRICE_CENTS : product.priceCents) : (addon.price_cents || 500);
     const paidAmountCents = Math.round(payment.amount * 100);
     if (
         !Number.isFinite(paidAmountCents) ||
-        paidAmountCents !== product.priceCents
+        paidAmountCents !== expectedPriceCents
     ) {
         console.error("[MERCADO_PAGO_QR_TABLE] Valor divergente:", {
             addonId,
-            expected: product.priceCents,
+            expected: expectedPriceCents,
             received: payment.amount,
         });
         return;

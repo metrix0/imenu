@@ -440,8 +440,8 @@ export async function PATCH(
             };
         });
 
-        if (!updateResult.isTableOrder && !updateResult.isCounterOrder && updateResult.statusChanged) {
-            void notifyOrderStatusUpdate(id, status).catch((error) => {
+        if (!updateResult.isTableOrder && updateResult.statusChanged) {
+            await notifyOrderStatusUpdate(id, status).catch((error) => {
                 console.error(
                     "[ORDERS] Falha ao enviar atualização de status:",
                     error

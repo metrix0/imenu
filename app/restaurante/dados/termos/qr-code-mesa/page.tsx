@@ -51,15 +51,12 @@ export default function QrCodeMesaTermsPage() {
 
                     <section>
                         <h2 className="text-xl font-bold text-gray-900">
-                            3. Preço e cobrança recorrente
+                            3. Gratuidade
                         </h2>
                         <p className="mt-2">
-                            A assinatura custa R$ 5,00 por mês e é renovada
-                            automaticamente no cartão cadastrado até o
-                            cancelamento. O pagamento é processado pelo Asaas;
-                            o iMenu não armazena os dados completos do cartão.
-                            Qualquer alteração de preço será informada antes de
-                            produzir efeitos em uma renovação futura.
+                            O iMenu QR Code Mesa e o Painel Garçom são gratuitos.
+                            Não é necessário contratar uma assinatura ou pagar
+                            para utilizar as funcionalidades.
                         </p>
                     </section>
 
@@ -68,23 +65,20 @@ export default function QrCodeMesaTermsPage() {
                             4. Ativação
                         </h2>
                         <p className="mt-2">
-                            A ativação ocorre após a confirmação do pagamento.
-                            Pagamentos pendentes, recusados, vencidos ou
-                            estornados podem impedir ou suspender o acesso ao
-                            sistema.
+                            A ativação é gratuita no painel de Mesas. QR Codes
+                            existentes continuam válidos após a mudança para
+                            o acesso gratuito.
                         </p>
                     </section>
 
                     <section>
                         <h2 className="text-xl font-bold text-gray-900">
-                            5. Cancelamento
+                            5. Assinaturas anteriores
                         </h2>
                         <p className="mt-2">
-                            A assinatura pode ser cancelada nas Configurações do
-                            painel. O cancelamento interrompe as próximas
-                            renovações e, quando houver período já pago, o acesso
-                            poderá permanecer disponível até o fim desse
-                            período.
+                            Contratações anteriores mantêm o histórico de
+                            pagamentos. Cancelar uma cobrança antiga não
+                            interrompe o acesso gratuito ao QR Code.
                         </p>
                     </section>
 

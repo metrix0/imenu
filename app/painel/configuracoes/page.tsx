@@ -30,8 +30,9 @@ import ConfirmModal from "@/components/ui/ConfirmModal";
 import Tooltip from "@/components/ui/Tooltip";
 import ChoiceCardGroup from "@/components/ui/ChoiceCardGroup";
 import ResetOrderCountSection from "@/components/restaurant-owner/configuracoes/ResetOrderCountSection";
+import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
+import { qrTableAuthenticatedFetch } from "@/lib/qr-table/clientApi";
 import PizzaSettingsSection from "@/components/restaurant-owner/configuracoes/PizzaSettingsSection";
-import { hasQrTableAccess } from "@/lib/qr-table/types";
 
 type Restaurant = {
     id: string;
@@ -218,7 +219,8 @@ export default function ConfiguracoesPage() {
         useState(false);
     const [isSavingVitrine, setIsSavingVitrine] = useState(false);
     const [isExportingMenu, setIsExportingMenu] = useState(false);
-    const [vitrineAccess, setVitrineAccess] = useState(false);
+    const [pdfAccess, setPdfAccess] = useState(false);
+    const [pdfSalesOpen, setPdfSalesOpen] = useState(false);
     const [showVitrineQr, setShowVitrineQr] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -233,15 +235,12 @@ export default function ConfiguracoesPage() {
         ? new URL(`/vitrine/${restaurant.url_slug}`, shareableUrl).href
         : "";
 
-    const loadVitrineAccess = useCallback(async (id: string) => {
-        const { data, error } = await supabase
-            .from("restaurant_addons")
-            .select("status,current_period_ends_at")
-            .eq("restaurant_id", id)
-            .in("product_key", ["qr_code_mesa", "ia_plus"]);
-        const access = !error && Boolean(data?.some((addon) => hasQrTableAccess(addon)));
-        setVitrineAccess(access);
-        if (error) throw error;
+    const loadPdfAccess = useCallback(async (id: string) => {
+        setPdfAccess(false);
+        const response = await qrTableAuthenticatedFetch("/api/addons/billing?restaurantId=" + encodeURIComponent(id), { cache: "no-store" });
+        if (!response.ok) throw new Error("Não foi possível verificar o iMenu Plus.");
+        const data = await response.json() as { addons: { addon: { product_key: string }; active: boolean }[] };
+        setPdfAccess(data.addons.some(item => item.addon.product_key === "ia_plus" && item.active));
     }, []);
 
     useEffect(() => {
@@ -315,7 +314,7 @@ export default function ConfiguracoesPage() {
                                 `${window.location.origin}/${restData.url_slug}`,
                             );
                         }
-                        await loadVitrineAccess(restData.id);
+                        await loadPdfAccess(restData.id);
                     }
                 }
             } catch (error) {
@@ -327,7 +326,7 @@ export default function ConfiguracoesPage() {
         };
 
         void loadData();
-    }, [restaurantId, router, setRestaurantId, loadVitrineAccess]);
+    }, [restaurantId, router, setRestaurantId, loadPdfAccess]);
 
     const savePhone = async () => {
         if (!restaurant) return;
@@ -435,11 +434,6 @@ export default function ConfiguracoesPage() {
 
     const saveVitrineMode = async (enabled: boolean) => {
         if (!restaurant || isSavingVitrine) return;
-        if (!vitrineAccess) {
-            router.push("/painel/planos");
-            return;
-        }
-
         setIsSavingVitrine(true);
         try {
             const { data, error } = await supabase
@@ -467,8 +461,8 @@ export default function ConfiguracoesPage() {
 
     const exportPrintableMenu = async () => {
         if (!restaurant || isExportingMenu) return;
-        if (!vitrineAccess) {
-            router.push("/painel/planos");
+        if (!pdfAccess) {
+            setPdfSalesOpen(true);
             return;
         }
 
@@ -701,6 +695,9 @@ export default function ConfiguracoesPage() {
                 variant="danger"
             />
 
+            {restaurant && <IaPlusSalesModal open={pdfSalesOpen} onClose={() => setPdfSalesOpen(false)}
+                restaurantId={restaurant.id} contextMessage="Com o iMenu Plus, exporte seu cardápio em PDF para imprimir ou compartilhar."
+                onPaid={() => { setPdfSalesOpen(false); return loadPdfAccess(restaurant.id); }} />}
             {toast && (
                 <Toast
                     message={toast.message}
@@ -962,10 +959,6 @@ export default function ConfiguracoesPage() {
                                 <div>
                                     <div className="flex flex-wrap items-center gap-2">
                                         <h2 className="text-xl font-medium text-gray-900">Modo Vitrine</h2>
-                                        <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${vitrineAccess ? "bg-green-50 text-green-700" : "bg-orange-50 text-orange-800"}`}>
-                                            <FontAwesomeIcon icon={vitrineAccess ? faCheck : faLock} />
-                                            {vitrineAccess ? "Plano ativo" : "Incluso no iMenu QR ou IA Plus"}
-                                        </span>
                                     </div>
                                     <p id="vitrine-description" className="mt-2 text-sm text-gray-500">
                                         Crie um cardápio separado dos demais, exclusivo para visualização.
@@ -974,23 +967,16 @@ export default function ConfiguracoesPage() {
                                 </div>
                                 <div className="flex shrink-0 items-start gap-3">
                                     {isSavingVitrine && <SaveStatus status="saving" />}
-                                    {vitrineAccess ? <Switch
+                                    <Switch
                                         checked={restaurant.vitrine_enabled === true}
                                         aria-label="Modo Vitrine"
                                         aria-describedby="vitrine-description"
                                         disabled={isSavingVitrine}
                                         onClick={() => void saveVitrineMode(restaurant.vitrine_enabled !== true)}
-                                    /> : (
-                                        <Tooltip text="Disponível com iMenu QR ou IA Plus. Assine um dos planos para desbloquear o Modo Vitrine." parentClassName="!block">
-                                            <Button onClick={() => router.push("/painel/planos")} className="gap-2">
-                                                Desbloquear Modo Vitrine
-                                                <FontAwesomeIcon icon={faLock} />
-                                            </Button>
-                                        </Tooltip>
-                                    )}
+                                    />
                                 </div>
                             </div>
-                            {vitrineAccess && restaurant.vitrine_enabled && vitrineUrl && (
+                            {restaurant.vitrine_enabled && vitrineUrl && (
                                 <div className="mt-6 flex min-w-0 flex-col gap-3 sm:flex-row">
                                     <div className="min-w-0 flex-1">
                                         <Input value={vitrineUrl} readOnly aria-label="Link do cardápio vitrine" className="min-w-0" />
@@ -1008,7 +994,7 @@ export default function ConfiguracoesPage() {
                                     </Button>
                                 </div>
                             )}
-                            {vitrineAccess && restaurant.vitrine_enabled && vitrineUrl && showVitrineQr && (
+                            {restaurant.vitrine_enabled && vitrineUrl && showVitrineQr && (
                                 <div className="mt-4 flex flex-col items-center rounded-lg border border-gray-200 bg-gray-50 p-6">
                                     <img
                                         src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(vitrineUrl)}`}
@@ -1032,9 +1018,9 @@ export default function ConfiguracoesPage() {
                                         <h2 className="text-xl font-medium text-gray-900">
                                             Exportar Cardápio para Impressão
                                         </h2>
-                                        <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${vitrineAccess ? "bg-green-50 text-green-700" : "bg-orange-50 text-orange-800"}`}>
-                                            <FontAwesomeIcon icon={vitrineAccess ? faCheck : faLock} />
-                                            {vitrineAccess ? "Plano ativo" : "Incluso no iMenu QR ou IA Plus"}
+                                        <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${pdfAccess ? "bg-green-50 text-green-700" : "bg-orange-50 text-orange-800"}`}>
+                                            <FontAwesomeIcon icon={pdfAccess ? faCheck : faLock} />
+                                            {pdfAccess ? "Plano ativo" : "Incluso no iMenu Plus"}
                                         </span>
                                     </div>
                                     <p className="mt-2 text-sm text-gray-500">
@@ -1042,7 +1028,7 @@ export default function ConfiguracoesPage() {
                                     </p>
                                 </div>
                                 <div className="flex shrink-0 items-start">
-                                    {vitrineAccess ? (
+                                    {pdfAccess ? (
                                         <Button
                                             variant="secondary"
                                             onClick={() => void exportPrintableMenu()}
@@ -1053,8 +1039,8 @@ export default function ConfiguracoesPage() {
                                             Exportar PDF
                                         </Button>
                                     ) : (
-                                        <Tooltip text="Disponível com iMenu QR ou IA Plus. Assine um dos planos para exportar o cardápio." parentClassName="!block">
-                                            <Button onClick={() => router.push("/painel/planos")} className="gap-2">
+                                        <Tooltip text="Disponível com iMenu Plus. Assine o plano para exportar o cardápio." parentClassName="!block">
+                                            <Button onClick={() => setPdfSalesOpen(true)} className="gap-2">
                                                 Desbloquear exportação
                                                 <FontAwesomeIcon icon={faLock} />
                                             </Button>

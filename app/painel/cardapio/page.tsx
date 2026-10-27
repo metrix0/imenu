@@ -117,6 +117,8 @@ export default function MenuManagerPage() {
         void init();
     }, [restaurantId, setRestaurantId]);
 
+    const openScanner = () => setAiModalOpen(true);
+
     const handleNewCategory = () => {
         setCategoryToEdit(null);
         setIsCatModalOpen(true);
@@ -272,7 +274,7 @@ export default function MenuManagerPage() {
                         onEditCategory={handleEditCategory}
                         onOpenItemDetails={handleOpenItemDetails}
                         onNewCategory={handleNewCategory}
-                        onAIScanMenu={setAiModalOpen}
+                        onAIScanMenu={openScanner}
                     />
                 )}
 

@@ -4,7 +4,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/database/supabaseClient"; // Ajustado para o seu import padrão
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; // Ajustado para o seu import padrão
-import { hasQrTableAccess } from "@/lib/qr-table/types";
 import Loader from "@/components/ui/Loader";
 import Button from "@/components/ui/Button";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
@@ -49,6 +48,7 @@ export default function PainelPedidosAtivosPage() {
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
     const { soundEnabled, enableSound } = useOrderSound();
     const [isCreateOrderOpen, setIsCreateOrderOpen] = useState(false);
+    const [editingOrder, setEditingOrder] = useState<{ id: string } | null>(null);
 
     // --- FETCH ORDERS ---
     const fetchOrders = useCallback(async (restId: string) => {
@@ -91,21 +91,8 @@ export default function PainelPedidosAtivosPage() {
         setOrders((data as any[]) || []);
     }, []);
 
-    const fetchMesasAccess = async (restId: string) => {
-        const { data, error } = await supabase
-            .from("restaurant_addons")
-            .select("status, current_period_ends_at")
-            .eq("restaurant_id", restId)
-            .eq("product_key", "qr_code_mesa")
-            .maybeSingle();
-
-        if (error) {
-            console.error("Erro ao verificar acesso Mesas:", error);
-            setHasMesasAccess(false);
-            return;
-        }
-
-        setHasMesasAccess(hasQrTableAccess(data));
+    const fetchMesasAccess = async (_restId: string) => {
+        setHasMesasAccess(true);
     };
 
     const handleViewOrder = (order: OrderData) => {
@@ -347,16 +334,25 @@ export default function PainelPedidosAtivosPage() {
                     isOpen={isDetailsOpen}
                     onClose={() => setIsDetailsOpen(false)}
                     order={selectedOrder}
+                    showStatusActions
+                    onOrderUpdate={() => void fetchOrders(restaurantId)}
+                    onEditOrder={(order) => {
+                        setIsDetailsOpen(false);
+                        setEditingOrder({ id: order.id });
+                        setIsCreateOrderOpen(true);
+                    }}
                 />
             )}
 
             <CreatePanelOrderModal
                 isOpen={isCreateOrderOpen}
-                onClose={() => setIsCreateOrderOpen(false)}
+                onClose={() => { setIsCreateOrderOpen(false); setEditingOrder(null); }}
+                editingOrder={editingOrder}
                 restaurantId={restaurantId}
                 onCreated={async () => {
                     await fetchOrders(restaurantId);
                     setIsCreateOrderOpen(false);
+                    setEditingOrder(null);
                 }}
             />
 
