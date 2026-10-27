@@ -21,7 +21,7 @@ import { parsePizzaSettings } from "@/lib/pizza/pricing";
 import Loader from "@/components/ui/Loader";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
-import { faCamera, faImages, faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
+import { faCamera, faImages } from "@fortawesome/free-solid-svg-icons";
 
 type ScannedItem = {
     name: string;
@@ -160,7 +160,12 @@ function ScanModal({
         setAccess(null);
         setAccessError("");
         void fetchScanAccess().then(value => {
-            if (active) setAccess(value);
+            if (!active) return;
+            if (!value.allowed) {
+                onUpgrade();
+                return;
+            }
+            setAccess(value);
         }).catch(error => {
             if (active) setAccessError(error instanceof Error ? error.message : String(error));
         });
@@ -337,7 +342,10 @@ function ScanModal({
             const json = await response.json();
 
             if (!response.ok) {
-                if (json?.requiresPlus) setAccess({ allowed: false, hasItems: true, hasPlus: false });
+                if (json?.requiresPlus) {
+                    onUpgrade();
+                    return null;
+                }
                 setToast({
                     message: json?.error || "O Scan com IA falhou",
                     type: "error",
@@ -473,8 +481,8 @@ function ScanModal({
         try {
             const currentAccess = await fetchScanAccess();
             if (!currentAccess.allowed) {
-                setAccess(currentAccess);
-                throw new Error("Essa importação exige uma assinatura ativa do iMenu Plus.");
+                onUpgrade();
+                return;
             }
 
             const itemsToAdd = scanResult.items.filter(item => selectedAction(item, item.category_name ?? "") === "add");
@@ -699,7 +707,7 @@ function ScanModal({
 
     return (
         <>
-            <Modal height={700} open={open} onClose={onClose}>
+            <Modal height={700} open={open && (access?.allowed === true || Boolean(accessError))} onClose={onClose}>
                 <div className="p-6 w-full max-w-3xl 2xl:max-w-4xl overflow-y-auto">
                     {!access && !accessError && <div className="flex min-h-40 items-center justify-center"><Loader /></div>}
                     {accessError && <div className="space-y-4">
@@ -708,18 +716,6 @@ function ScanModal({
                             setAccessError("");
                             setAccess(value);
                         }).catch(error => setAccessError(error instanceof Error ? error.message : String(error)))}>Tentar novamente</Button>
-                    </div>}
-                    {access && !access.allowed && <div className="space-y-4 rounded-xl border border-violet-200 bg-violet-50 p-6">
-                        <div className="flex items-center gap-2 font-semibold text-violet-800">
-                            <FontAwesomeIcon icon={faWandMagicSparkles} />
-                            Scanear itens com iMenu Plus
-                        </div>
-                        <p className="text-sm text-violet-900">
-                            Você já tem produtos cadastrados. Para escanear novos itens, assine o iMenu Plus.
-                        </p>
-                        <Button type="button" variant="primary" onClick={onUpgrade}>
-                            Conhecer iMenu Plus
-                        </Button>
                     </div>}
                     {access?.allowed && !scanResult && (
                         <div className="space-y-4">

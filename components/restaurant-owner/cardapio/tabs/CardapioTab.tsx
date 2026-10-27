@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Lock } from "lucide-react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faGripVertical,
@@ -13,6 +14,8 @@ import { supabase } from "@/lib/database/supabaseClient";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import Dropdown from "@/components/ui/Dropdown";
+import Tooltip from "@/components/ui/Tooltip";
+import { IA_PLUS_FEATURE_MESSAGE } from "@/lib/addons/products";
 import CategorySection from "@/components/restaurant-owner/cardapio/CategorySection";
 import OrganizeCategoriesModal from "@/components/restaurant-owner/cardapio/OrganizeCategoriesModal";
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
@@ -28,6 +31,7 @@ interface CardapioTabProps {
     onOpenItemDetails: (item: MenuItemType) => void;
     onNewCategory: () => void;
     onAIScanMenu?: React.Dispatch<React.SetStateAction<boolean>> | (() => void);
+    scanLocked?: boolean;
 }
 
 export default function CardapioTab({
@@ -40,6 +44,7 @@ export default function CardapioTab({
     onOpenItemDetails,
     onNewCategory,
     onAIScanMenu,
+    scanLocked = false,
 }: CardapioTabProps) {
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedCategoryId, setSelectedCategoryId] = useState("");
@@ -367,6 +372,21 @@ export default function CardapioTab({
         return matchesSearch && matchesSelect;
     });
 
+    const scanAction = (label: string, className = "", wrapperClassName = "") => (
+        <Tooltip text={scanLocked ? IA_PLUS_FEATURE_MESSAGE : ""} parentClassName={wrapperClassName}>
+            <Button
+                type="button"
+                onClick={() => onAIScanMenu?.(true)}
+                variant="primary"
+                className={`gap-2 !border-violet-600 !bg-violet-600 hover:!border-violet-700 hover:!bg-violet-700 focus-visible:!outline-violet-600 ${className}`}
+            >
+                <FontAwesomeIcon icon={faWandMagicSparkles} />
+                {label}
+                {scanLocked && <Lock size={14} aria-hidden="true" />}
+            </Button>
+        </Tooltip>
+    );
+
     if (categories.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center p-6 bg-white rounded-lg border border-dashed border-gray-200 shadow-sm">
@@ -392,17 +412,7 @@ export default function CardapioTab({
                         <FontAwesomeIcon icon={faPlus} className="mr-2" />
                         Adicionar categoria
                     </Button>
-                    <Button
-                        onClick={() => onAIScanMenu?.(true)}
-                        variant="primary"
-                        className="!border-violet-600 !bg-violet-600 hover:!border-violet-700 hover:!bg-violet-700 focus-visible:!outline-violet-600"
-                    >
-                        <FontAwesomeIcon
-                            icon={faWandMagicSparkles}
-                            className="text-sm mr-2"
-                        />{" "}
-                        Scanear Cardápio com IA
-                    </Button>
+                    {scanAction("Scanear Cardápio com IA")}
                 </div>
             </div>
         );
@@ -465,14 +475,7 @@ export default function CardapioTab({
                     >
                         Organizar categorias
                     </Button>
-                    <Button
-                        variant="primary"
-                        onClick={() => onAIScanMenu?.(true)}
-                        className="col-span-2 w-full gap-2 !border-violet-600 !bg-violet-600 hover:!border-violet-700 hover:!bg-violet-700 focus-visible:!outline-violet-600"
-                    >
-                        <FontAwesomeIcon icon={faWandMagicSparkles} />
-                        Scanear itens com IA
-                    </Button>
+                    {scanAction("Scanear itens com IA", "w-full", "col-span-2 w-full")}
                 </div>
 
                 <div className="hidden min-w-0 max-w-full gap-4 md:flex md:flex-row">
@@ -505,14 +508,7 @@ export default function CardapioTab({
                     >
                         Organizar categorias
                     </Button>
-                    <Button
-                        variant="primary"
-                        onClick={() => onAIScanMenu?.(true)}
-                        className="gap-2 whitespace-nowrap !border-violet-600 !bg-violet-600 hover:!border-violet-700 hover:!bg-violet-700 focus-visible:!outline-violet-600"
-                    >
-                        <FontAwesomeIcon icon={faWandMagicSparkles} />
-                        Scanear itens com IA
-                    </Button>
+                    {scanAction("Scanear itens com IA", "whitespace-nowrap")}
                 </div>
             </div>
 
