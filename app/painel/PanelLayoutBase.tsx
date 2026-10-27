@@ -397,7 +397,7 @@ export default function PainelLayout({
         { label: "Pedidos", icon: faHome, href: `${base}/` },
         { label: "Histórico", icon: faBox, href: `${base}/historico` },
         { label: "Cardápio", icon: faUtensils, href: cardapioHref },
-        { label: "Assistente IA", icon: faWandMagicSparkles, href: `${base}/assistente-ia`, isNew: true },
+        { label: "Assistente IA", icon: faWandMagicSparkles, href: `${base}/assistente-ia` },
         { label: "Clientes", icon: faUsers, href: `${base}/clientes`, isNew: true },
         { label: "Mesas", icon: faChair, href: `${base}/mesas` },
         {
@@ -412,7 +412,7 @@ export default function PainelLayout({
         },
         { type: "divider" },
         { label: "Loja", icon: faStore, href: `${base}/loja` },
-        { label: "Vendas IA", icon: faRocket, href: `${base}/vendas-ia`, isNew: true },
+        { label: "Vendas IA", icon: faRocket, href: `${base}/vendas-ia` },
         { label: "Promoções", icon: faPercent, href: `${base}/promocoes` },
         { label: "Marketing", icon: faBullhorn, href: `${base}/marketing`, isNew: true },
         { label: "Horários", icon: faClock, href: `${base}/disponibilidade` },
@@ -424,7 +424,7 @@ export default function PainelLayout({
         { label: "Robô WhatsApp", icon: faRobot, href: `${base}/robo-whatsapp` },
         { label: "Impressora", icon: faPrint, href: `${base}/impressora` },
         { label: "Integrações", icon: faPuzzlePiece, href: `${base}/integracoes` },
-        { label: "iMenu Plus", icon: faCrown, href: `${base}/planos` },
+        { label: "iMenu Plus", icon: faCrown, href: `${base}/planos`, isNew: true },
         {
             label: "Configurações",
             icon: faGear,
