@@ -87,7 +87,7 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
       </ModalFlowStep> : <ModalFlowStep key="sales" reverse animate={navigated}>
         <div className="min-h-0 flex-1 overflow-y-auto">
           <header className="bg-gradient-to-br from-white to-orange-50/60 px-5 pb-6 pt-7 sm:px-8 sm:pb-7 sm:pt-8">
-            <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_260px] md:items-center">
+            <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_360px] md:items-center">
             <div className="min-w-0">
             <div className="relative h-10 w-44 max-w-[70%]">
               <Image src="/logos/PlusCombinationMarkLogo_Brand.png" alt="iMenu Plus" fill sizes="176px" className="object-contain object-left" />
@@ -117,8 +117,8 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
               </div>
             )}
             </div>
-            <div className="relative hidden aspect-[3/2] w-full md:block">
-              <Image src="/images/macbook.webp" alt="Painel de análise de vendas do iMenu em um MacBook" fill sizes="260px" className="object-contain" />
+            <div className="relative hidden aspect-[600/424] w-full md:block">
+              <Image src="/images/macbook.webp" alt="Painel de análise de vendas do iMenu em um MacBook" fill sizes="360px" className="object-contain" />
             </div>
             </div>
           </header>
