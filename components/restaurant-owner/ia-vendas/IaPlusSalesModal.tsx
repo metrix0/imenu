@@ -88,10 +88,12 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
                 />
               </div>
 
-              <div className="mt-7 inline-flex items-center gap-2 rounded-full border border-brand/15 bg-brand/5 px-3 py-1.5 text-xs font-semibold text-brand">
-                <Sparkles size={14} aria-hidden="true" />
-                Marketing e IA para aumentar suas vendas.
-              </div>
+              {!contextMessage?.trim() && (
+                <div className="mt-7 inline-flex items-center gap-2 rounded-full border border-brand/15 bg-brand/5 px-3 py-1.5 text-xs font-semibold text-brand">
+                  <Sparkles size={14} aria-hidden="true" />
+                  Marketing e IA para aumentar suas vendas.
+                </div>
+              )}
 
               {contextMessage?.trim() && (
                 <p role="note" className="mt-4 rounded-lg border border-brand/20 bg-brand/5 px-4 py-3 text-sm leading-6 text-gray-800">
