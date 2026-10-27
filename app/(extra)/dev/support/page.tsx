@@ -46,6 +46,8 @@ export default function DevSupportPage() {
     const [knowledgeContent, setKnowledgeContent] = useState("");
     const [bulkPhones, setBulkPhones] = useState("");
     const [bulkMessage, setBulkMessage] = useState("");
+    const [bulkImage, setBulkImage] = useState<File | null>(null);
+    const [bulkImageUrl, setBulkImageUrl] = useState("");
     const [bulkSending, setBulkSending] = useState(false);
     const [bulkPreview, setBulkPreview] = useState<Array<{ phone: string; message: string }> | null>(null);
     const [bulkStatus, setBulkStatus] = useState("");
@@ -58,6 +60,16 @@ export default function DevSupportPage() {
     const [selectedBlastId, setSelectedBlastId] = useState<string | null>(null);
     const [blastRecipients, setBlastRecipients] = useState<BlastRecipient[]>([]);
     const [blastAction, setBlastAction] = useState("");
+
+    useEffect(() => {
+        if (!bulkImage) {
+            setBulkImageUrl("");
+            return;
+        }
+        const url = URL.createObjectURL(bulkImage);
+        setBulkImageUrl(url);
+        return () => URL.revokeObjectURL(url);
+    }, [bulkImage]);
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -289,8 +301,8 @@ export default function DevSupportPage() {
         const recipients = parseBulkRecipients(bulkPhones);
         const messageTemplate = bulkMessage.trim();
         const dailyLimit = bulkCadenceEnabled ? Number(bulkCadence) : null;
-        if (!recipients.length || !messageTemplate) {
-            setBulkStatus("Informe pelo menos um número e uma mensagem.");
+        if (!recipients.length || (!messageTemplate && !bulkImage)) {
+            setBulkStatus("Informe pelo menos um número e uma mensagem ou imagem.");
             return;
         }
         if (bulkCadenceEnabled && (!Number.isInteger(dailyLimit) || dailyLimit! < 1 || dailyLimit! > 10000)) {
@@ -302,7 +314,7 @@ export default function DevSupportPage() {
         try {
             resolvedRecipients = recipients.map(({ phone, values }, index) => {
                 try {
-                    return { phone, message: renderBulkMessage(messageTemplate, values).trim() };
+                    return { phone, message: messageTemplate ? renderBulkMessage(messageTemplate, values).trim() : "" };
                 } catch (error) {
                     throw new Error(`Destinatário ${index + 1}: ${error instanceof Error ? error.message : "Dados inválidos."}`);
                 }
@@ -327,7 +339,7 @@ export default function DevSupportPage() {
                 return;
             }
 
-            if (!bulkCadenceEnabled) {
+            if (!bulkCadenceEnabled && !bulkImage) {
                 window.alert("Deixe esta aba aberta durante o envio.");
 
                 const batchId = window.crypto.randomUUID();
@@ -396,13 +408,23 @@ export default function DevSupportPage() {
                 return;
             }
 
+            const imageForm = new FormData();
+            if (bulkImage) {
+                imageForm.set("action", "create_blast");
+                imageForm.set("connection", bulkSender);
+                imageForm.set("message", messageTemplate);
+                imageForm.set("dailyLimit", String(dailyLimit));
+                imageForm.set("skipRecent", String(bulkSkipRecent));
+                imageForm.set("recipients", JSON.stringify(resolvedRecipients));
+                imageForm.set("image", bulkImage);
+            }
             const response = await fetch("/api/dev/support", {
                 method: "POST",
                 headers: {
                     Authorization: "Bearer " + token,
-                    "Content-Type": "application/json",
+                    ...(!bulkImage ? { "Content-Type": "application/json" } : {}),
                 },
-                body: JSON.stringify({
+                body: bulkImage ? imageForm : JSON.stringify({
                     action: "create_blast",
                     connection: bulkSender,
                     message: messageTemplate,
@@ -417,8 +439,9 @@ export default function DevSupportPage() {
             }
 
             setBulkPhones("");
+            setBulkImage(null);
             setBulkPreview(null);
-            setBulkStatus("Envio cadenciado criado. Ele continuará automaticamente mesmo com a página fechada.");
+            setBulkStatus("Envio criado. Ele continuará automaticamente mesmo com a página fechada.");
             setSelectedBlastId(payload.id);
             await Promise.all([loadBlastHistory(), loadBlastRecipients(payload.id)]);
         } catch (caught) {
@@ -1063,6 +1086,42 @@ export default function DevSupportPage() {
                         </div>
                     </div>
 
+                    <div className="mt-4">
+                        <label htmlFor="blast-image" className="mb-1.5 block text-xs font-medium text-gray-800">
+                            Imagem (opcional)
+                        </label>
+                        <input
+                            id="blast-image"
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            disabled={bulkSending}
+                            onChange={(event) => {
+                                const file = event.target.files?.[0] || null;
+                                event.target.value = "";
+                                if (file && (file.size > 8 * 1024 * 1024 ||
+                                    !["image/jpeg", "image/png", "image/webp"].includes(file.type))) {
+                                    setBulkStatus("Escolha uma imagem JPG, PNG ou WebP de até 8 MB.");
+                                    return;
+                                }
+                                setBulkImage(file);
+                                setBulkPreview(null);
+                                setBulkStatus("");
+                            }}
+                            className="block w-full max-w-md rounded-lg border border-gray-200 bg-white p-2 text-sm text-gray-700 file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-gray-700"
+                        />
+                        {bulkImage && bulkImageUrl && (
+                            <div className="mt-3 flex flex-wrap items-center gap-3">
+                                <img src={bulkImageUrl} alt="Prévia da imagem do envio" className="h-24 w-24 rounded-lg border border-gray-200 object-cover" />
+                                <div className="min-w-0">
+                                    <p className="max-w-64 truncate text-sm text-gray-700">{bulkImage.name}</p>
+                                    <Button variant="secondary" disabled={bulkSending} onClick={() => setBulkImage(null)}>
+                                        Remover imagem
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
                     <label className="mt-4 flex cursor-pointer items-center gap-2 text-sm text-gray-700">
                         <input
                             type="checkbox"
@@ -1098,7 +1157,7 @@ export default function DevSupportPage() {
                             loading={bulkSending}
                             disabled={
                                 bulkSending ||
-                                !bulkMessage.trim() ||
+                                (!bulkMessage.trim() && !bulkImage) ||
                                 !parseBulkPhones(bulkPhones).length ||
                                 selectedBulkConnection?.status !== "WORKING"
                             }
@@ -1123,13 +1182,16 @@ export default function DevSupportPage() {
                             Confira se nomes, cidades e estabelecimentos estão corretos.
                             {bulkPreview ? ` ${bulkPreview.length} destinatário(s); prévia dos primeiros ${Math.min(20, bulkPreview.length)}.` : ""}
                         </p>
+                        {bulkImageUrl && (
+                            <img src={bulkImageUrl} alt="Imagem que será enviada" className="mt-4 max-h-52 max-w-full rounded-lg border border-gray-200 object-contain" />
+                        )}
                         <div className="mt-4 max-h-[48dvh] space-y-3 overflow-y-auto">
                             {bulkPreview?.slice(0, 20).map((recipient, index) => (
                                 <div key={index} className="rounded-lg border border-gray-200 p-3">
                                     <p className="mb-2 text-xs font-medium text-gray-600">
                                         {index + 1}. {formatPhone(recipient.phone)}
                                     </p>
-                                    <p className="whitespace-pre-wrap text-sm text-gray-800">{recipient.message}</p>
+                                    <p className="whitespace-pre-wrap text-sm text-gray-800">{recipient.message || "Imagem sem legenda"}</p>
                                 </div>
                             ))}
                         </div>
@@ -1174,10 +1236,11 @@ export default function DevSupportPage() {
                                                 setError(caught instanceof Error ? caught.message : "Falha ao abrir envio.")
                                             );
                                         }}>
-                                        <p className="truncate font-medium text-gray-900">{campaign.message}</p>
+                                        <p className="truncate font-medium text-gray-900">{campaign.message || (campaign.image_path ? "Imagem sem legenda" : "Mensagem sem texto")}</p>
                                         <p className="mt-1 text-xs text-gray-500">
                                             {new Date(campaign.created_at).toLocaleString("pt-BR")} ·{" "}
                                             {campaign.message === ABANDONED_BLAST_MESSAGE ? "Automático · Abandonados · " : ""}
+                                            {campaign.image_path ? "Imagem · " : ""}
                                             {campaign.sender === "blast" ? "WhatsApp Blast" : "WhatsApp suporte"} ·{" "}
                                             {campaign.daily_limit ? campaign.daily_limit + "/dia" : "Sem cadência"}
                                         </p>

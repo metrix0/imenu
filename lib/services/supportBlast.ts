@@ -1,10 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { ABANDONED_BLAST_MESSAGE, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE } from "@/lib/dev/abandonedBlast";
 import { query, withTransaction } from "@/lib/database/sql";
+import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 import {
     checkWahaPhoneExists,
     isWahaHttpErrorStatus,
     sendWahaText,
+    sendWahaImage,
 } from "@/lib/services/wahaClient";
 
 export type BlastRecipientInput = { phone: string; message: string };
@@ -26,8 +28,9 @@ export async function createSupportBlast(input: {
     skipRecent: boolean;
     recipients: BlastRecipientInput[];
     campaignId?: string;
+    imagePath?: string | null;
 }): Promise<string> {
-    if (!input.message.trim() || !input.recipients.length || input.recipients.length > 10000) {
+    if ((!input.message.trim() && !input.imagePath) || !input.recipients.length || input.recipients.length > 10000) {
         throw new Error("Informe uma mensagem e de 1 a 10.000 destinatários.");
     }
     if (input.dailyLimit !== null &&
@@ -44,7 +47,7 @@ export async function createSupportBlast(input: {
         return {
             phone,
             message: String(recipient.message || "").trim(),
-            valid: Boolean(normalized && recipient.message?.trim()),
+            valid: Boolean(normalized && (recipient.message?.trim() || input.imagePath)),
         };
     }).filter((recipient): recipient is NonNullable<typeof recipient> => recipient !== null);
 
@@ -62,8 +65,8 @@ export async function createSupportBlast(input: {
     const id = input.campaignId || randomUUID();
     await withTransaction(async (client) => {
         const inserted = await client.query(
-            "INSERT INTO support_blast_campaigns (id, sender, message, daily_limit, skip_recent, total, status) VALUES ($1, $2, $3, $4, $5, $6, 'running') ON CONFLICT (id) DO NOTHING RETURNING id",
-            [id, input.sender, input.message.trim(), input.dailyLimit, input.skipRecent, rows.length]
+            "INSERT INTO support_blast_campaigns (id, sender, message, daily_limit, skip_recent, total, image_path, status) VALUES ($1, $2, $3, $4, $5, $6, $7, 'running') ON CONFLICT (id) DO NOTHING RETURNING id",
+            [id, input.sender, input.message.trim(), input.dailyLimit, input.skipRecent, rows.length, input.imagePath || null]
         );
         if (!inserted.rowCount) return; // Cron retry: leave the existing campaign untouched.
         // Assign one slot to every recipient. Cadenced sends are distributed over
@@ -131,12 +134,12 @@ export async function createSupportBlast(input: {
 
 export async function listSupportBlasts() {
     return (await query<{
-        id: string; sender: string; message: string; daily_limit: number | null;
+        id: string; sender: string; message: string; image_path: string | null; daily_limit: number | null;
         status: string; total: number; created_at: string; completed_at: string | null;
         sent: number; failed: number; skipped: number; pending: number;
     }>(
         `
-        SELECT c.id, c.sender, c.message, c.daily_limit, c.status, c.total,
+        SELECT c.id, c.sender, c.message, c.image_path, c.daily_limit, c.status, c.total,
                c.created_at, c.completed_at,
                COUNT(r.id) FILTER (WHERE r.status = 'sent')::int AS sent,
                COUNT(r.id) FILTER (WHERE r.status = 'failed')::int AS failed,
@@ -144,7 +147,7 @@ export async function listSupportBlasts() {
                COUNT(r.id) FILTER (WHERE r.status IN ('pending', 'processing'))::int AS pending
         FROM (SELECT * FROM support_blast_campaigns ORDER BY created_at DESC LIMIT 40) c
         LEFT JOIN support_blast_recipients r ON r.campaign_id = c.id
-        GROUP BY c.id, c.sender, c.message, c.daily_limit, c.status, c.total,
+        GROUP BY c.id, c.sender, c.message, c.image_path, c.daily_limit, c.status, c.total,
                  c.created_at, c.completed_at
         ORDER BY c.created_at DESC
         `
@@ -188,6 +191,7 @@ type ClaimedRecipient = {
     sender: "support" | "blast";
     skip_recent: boolean;
     campaign_message: string;
+    campaign_image_path: string | null;
 };
 
 async function finishRecipient(id: number, status: string, error: string | null = null) {
@@ -242,7 +246,7 @@ async function claimNextRecipient(): Promise<ClaimedRecipient | null> {
         SET status = 'processing', attempted_at = NOW(), attempts = attempts + 1
         FROM claimed, support_blast_campaigns c
         WHERE r.id = claimed.id AND c.id = r.campaign_id
-        RETURNING r.id, r.campaign_id, r.phone, r.message, c.sender, c.skip_recent, c.message AS campaign_message
+        RETURNING r.id, r.campaign_id, r.phone, r.message, c.sender, c.skip_recent, c.message AS campaign_message, c.image_path AS campaign_image_path
         `
     );
     return result.rows[0] || null;
@@ -387,8 +391,8 @@ LIMIT 1`, [accountIds]);
         : "support:bulk:" + item.sender + ":" + item.campaign_id +
             ":" + (restaurantId || "phone:" + phone);
     const outbound = await query(
-        "INSERT INTO whatsapp_outbound_messages (dedupe_key, restaurant_id, chat_id, message_type, status, updated_at) VALUES ($1,$2,$3,'text','sending',NOW()) ON CONFLICT (dedupe_key) DO NOTHING RETURNING dedupe_key",
-        [dedupeKey, restaurantId, chatId]
+        "INSERT INTO whatsapp_outbound_messages (dedupe_key, restaurant_id, chat_id, message_type, status, updated_at) VALUES ($1,$2,$3,$4,'sending',NOW()) ON CONFLICT (dedupe_key) DO NOTHING RETURNING dedupe_key",
+        [dedupeKey, restaurantId, chatId, item.campaign_image_path ? "image" : "text"]
     );
     if (!outbound.rowCount) {
         await finishRecipient(item.id, isAbandonedBlast ? "skipped_60d" : "skipped_recent");
@@ -413,16 +417,28 @@ LIMIT 1`, [accountIds]);
             );
             return "skipped";
         }
-        try {
-            await sendWahaText(session.session_name, resolvedChatId, item.message);
-        } catch (firstError) {
-            // A 500 response may still mean WhatsApp delivered the message.
-            // Never retry abandonment outreach: at-most-once is more important.
-            if (isAbandonedBlast || !isWahaHttpErrorStatus(firstError, 500)) {
-                throw firstError;
+        if (item.campaign_image_path) {
+            // Sign just before dispatch: multi-day campaigns must not use expired URLs.
+            const { data, error } = await createSupabaseServerClient().storage
+                .from("support-blast-media")
+                .createSignedUrl(item.campaign_image_path, 120);
+            if (error || !data?.signedUrl) {
+                throw new Error("Não foi possível acessar a imagem do envio.");
             }
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-            await sendWahaText(session.session_name, resolvedChatId, item.message);
+            // One attempt only: ambiguous WAHA errors must not duplicate image sends.
+            await sendWahaImage(session.session_name, resolvedChatId, data.signedUrl, item.message);
+        } else {
+            try {
+                await sendWahaText(session.session_name, resolvedChatId, item.message);
+            } catch (firstError) {
+                // A 500 response may still mean WhatsApp delivered the message.
+                // Never retry abandonment outreach: at-most-once is more important.
+                if (isAbandonedBlast || !isWahaHttpErrorStatus(firstError, 500)) {
+                    throw firstError;
+                }
+                await new Promise((resolve) => setTimeout(resolve, 1000));
+                await sendWahaText(session.session_name, resolvedChatId, item.message);
+            }
         }
         await query(
             "UPDATE whatsapp_outbound_messages SET chat_id=$2, status='sent', last_error=NULL, updated_at=NOW() WHERE dedupe_key=$1",
