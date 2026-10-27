@@ -58,6 +58,7 @@ type BillingItem = {
 
 type BillingPayload = {
     addons: BillingItem[];
+    promoQrOwnerOverride?: boolean;
     error?: string;
 };
 
@@ -293,7 +294,7 @@ export default function QrCodeMesaSettingsSection({
     const qrLegacy = billing?.addons.find(item => item.addon.product_key === "qr_code_mesa");
     const plusHistory = billing?.addons.find(item => item.addon.product_key === "ia_plus");
     const eligiblePromo = promoQr && isPromoQrDate() && !loading &&
-        qrLegacy && qrLegacy.addon.price_cents > 0 && qrLegacy.active &&
+        ((qrLegacy && qrLegacy.addon.price_cents > 0 && qrLegacy.active) || billing?.promoQrOwnerOverride === true) &&
         !plusHistory?.active && !plusHistory?.payments.some(p => p.amount_cents === PROMO_QR_PRICE_CENTS && ["APPROVED", "COMPLETED", "CONFIRMED", "RECEIVED", "RECEIVED_IN_CASH"].includes(p.status.toUpperCase()));
     const appliedCoupon = eligiblePromo ? PROMO_QR_CODE : undefined;
     const cancelBilling =
@@ -330,7 +331,7 @@ export default function QrCodeMesaSettingsSection({
                     {eligiblePromo ? (
                         <><strong className="text-brand">PROMOQR aplicado!</strong> Primeiro mês do iMenu Plus por <strong>{PROMO_QR_PRICE_LABEL}</strong> (50% de desconto), via Pix. Válido até 27/11/2026.</>
                     ) : (
-                        <>O cupom PROMOQR é válido de 29/10 a 27/11/2026 para assinantes elegíveis do antigo QR Code.</>
+                        <>O cupom PROMOQR é válido até 27/11/2026 para assinantes elegíveis do antigo QR Code.</>
                     )}
                 </div>
             )}

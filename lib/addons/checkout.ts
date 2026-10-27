@@ -1,6 +1,7 @@
 import { hasIMenuPlusAccess } from "@/lib/addons/access";
 import type { AddonProduct } from "@/lib/addons/products";
 import { isPromoQrDate, PROMO_QR_CODE, PROMO_QR_PRICE_CENTS } from "@/lib/addons/promoQr";
+import { isPromoQrAllowlistedOwnerEmail } from "@/lib/addons/promoQrEligibility";
 import { createMercadoPagoPixCharge, getMercadoPagoPixPayment, isMercadoPagoPixFailureStatus, MercadoPagoPixApiError } from "@/lib/payments/mercadoPagoPix";
 import { activateMercadoPagoQrTablePrepaid, saveMercadoPagoQrTablePayment, setMercadoPagoQrTablePending } from "@/lib/qr-table/mercadoPagoBilling";
 import { createHash } from "node:crypto";
@@ -318,12 +319,12 @@ export async function checkoutAddon(request: Request, product: AddonProduct) {
             }
             const eligible = await query<{ eligible: boolean }>(`
                 SELECT (
-                    EXISTS (
+                    ($3::boolean OR EXISTS (
                         SELECT 1 FROM public.restaurant_addons qr
                         WHERE qr.restaurant_id = $1 AND qr.product_key = 'qr_code_mesa'
                           AND qr.price_cents > 0
                           AND (qr.status = 'active' OR (qr.status IN ('canceled', 'past_due') AND qr.current_period_ends_at > NOW()))
-                    ) AND NOT EXISTS (
+                    )) AND NOT EXISTS (
                         SELECT 1 FROM public.restaurant_addons plus
                         WHERE plus.restaurant_id = $1 AND plus.product_key = 'ia_plus'
                           AND (
@@ -338,7 +339,7 @@ export async function checkoutAddon(request: Request, product: AddonProduct) {
                           )
                     )
                 ) AS eligible
-            `, [restaurantId, PROMO_QR_PRICE_CENTS]);
+            `, [restaurantId, PROMO_QR_PRICE_CENTS, isPromoQrAllowlistedOwnerEmail(owner.user.email)]);
             if (eligible.rows[0]?.eligible !== true) {
                 return NextResponse.json({ error: "Este cupom é exclusivo para antigos assinantes do QR Code que ainda não utilizaram a promoção." }, { status: 403 });
             }
