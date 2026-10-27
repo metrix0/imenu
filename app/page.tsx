@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
     Bot, FileDown, Headset, Megaphone, MessageCircle,
-    ScanLine, ShoppingCart, Store, TrendingUp,
+    ScanLine, ShoppingCart, TrendingUp,
     type LucideIcon,
 } from "lucide-react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -123,6 +123,7 @@ const FREE_PLAN_FEATURES = [
     "Pedidos delivery ilimitados",
     "Robô WhatsApp",
     "QR Code Mesa e Painel Garçom",
+    "Modo Vitrine",
     "Cupons e relatórios",
     "Assistente IA com uso gratuito limitado",
     "Pedidos agendados e encomendas",
@@ -142,7 +143,6 @@ const PLUS_BENEFIT_ICONS: Record<string, LucideIcon> = {
 const PLUS_BONUS_ICONS: Record<string, LucideIcon> = {
     "Atendimento exclusivo": Headset,
     "Upsells automáticos": ShoppingCart,
-    "Modo vitrine": Store,
     "Atualizações de pedidos pelo WhatsApp": MessageCircle,
     "Scan de cardápio com IA": ScanLine,
     "Download Cardápio em PDF": FileDown,

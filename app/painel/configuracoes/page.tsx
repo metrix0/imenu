@@ -427,11 +427,6 @@ export default function ConfiguracoesPage() {
 
     const saveVitrineMode = async (enabled: boolean) => {
         if (!restaurant || isSavingVitrine) return;
-        if (!vitrineAccess) {
-            router.push("/painel/planos");
-            return;
-        }
-
         setIsSavingVitrine(true);
         try {
             const { data, error } = await supabase
@@ -954,9 +949,9 @@ export default function ConfiguracoesPage() {
                                 <div>
                                     <div className="flex flex-wrap items-center gap-2">
                                         <h2 className="text-xl font-medium text-gray-900">Modo Vitrine</h2>
-                                        <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${vitrineAccess ? "bg-green-50 text-green-700" : "bg-orange-50 text-orange-800"}`}>
-                                            <FontAwesomeIcon icon={vitrineAccess ? faCheck : faLock} />
-                                            {vitrineAccess ? "Plano ativo" : "Incluso no iMenu QR ou iMenu Plus"}
+                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700">
+                                            <FontAwesomeIcon icon={faCheck} />
+                                            Grátis
                                         </span>
                                     </div>
                                     <p id="vitrine-description" className="mt-2 text-sm text-gray-500">
@@ -966,23 +961,16 @@ export default function ConfiguracoesPage() {
                                 </div>
                                 <div className="flex shrink-0 items-start gap-3">
                                     {isSavingVitrine && <SaveStatus status="saving" />}
-                                    {vitrineAccess ? <Switch
+                                    <Switch
                                         checked={restaurant.vitrine_enabled === true}
                                         aria-label="Modo Vitrine"
                                         aria-describedby="vitrine-description"
                                         disabled={isSavingVitrine}
                                         onClick={() => void saveVitrineMode(restaurant.vitrine_enabled !== true)}
-                                    /> : (
-                                        <Tooltip text="Disponível com iMenu QR ou iMenu Plus. Assine um dos planos para desbloquear o Modo Vitrine." parentClassName="!block">
-                                            <Button onClick={() => router.push("/painel/planos")} className="gap-2">
-                                                Desbloquear Modo Vitrine
-                                                <FontAwesomeIcon icon={faLock} />
-                                            </Button>
-                                        </Tooltip>
-                                    )}
+                                    />
                                 </div>
                             </div>
-                            {vitrineAccess && restaurant.vitrine_enabled && vitrineUrl && (
+                            {restaurant.vitrine_enabled && vitrineUrl && (
                                 <div className="mt-6 flex min-w-0 flex-col gap-3 sm:flex-row">
                                     <div className="min-w-0 flex-1">
                                         <Input value={vitrineUrl} readOnly aria-label="Link do cardápio vitrine" className="min-w-0" />
@@ -1000,7 +988,7 @@ export default function ConfiguracoesPage() {
                                     </Button>
                                 </div>
                             )}
-                            {vitrineAccess && restaurant.vitrine_enabled && vitrineUrl && showVitrineQr && (
+                            {restaurant.vitrine_enabled && vitrineUrl && showVitrineQr && (
                                 <div className="mt-4 flex flex-col items-center rounded-lg border border-gray-200 bg-gray-50 p-6">
                                     <img
                                         src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(vitrineUrl)}`}
