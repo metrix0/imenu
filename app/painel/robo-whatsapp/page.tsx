@@ -10,7 +10,6 @@ import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faChevronDown,
     faCircleCheck,
-    faComment,
     faCreditCard,
     faLink,
     faPlus,
@@ -23,6 +22,7 @@ import {
     faUtensils,
 } from "@fortawesome/free-solid-svg-icons";
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
+import { Inbox } from "lucide-react";
 
 import OrderNotificationSettings from "@/components/restaurant-owner/pedidos/OrderNotificationSettings";
 import Button from "@/components/ui/Button";
@@ -587,8 +587,8 @@ export default function RoboWhatsAppPage() {
                         <DataTable
                             rows={handoffs}
                             emptyMessage={
-                                <div className="mx-auto flex max-w-lg flex-col items-center gap-2">
-                                    <FontAwesomeIcon icon={faComment} className="!h-8 !w-8 text-gray-400" aria-hidden="true" />
+                                <div className="mx-auto flex max-w-lg flex-col items-center gap-2 py-4">
+                                    <Inbox className="h-8 w-8 text-gray-400" strokeWidth={1.75} aria-hidden="true" />
                                     <p>As conversas encaminhadas para atendimento humano ficam aqui. Você também receberá uma notificação!</p>
                                 </div>
                             }
