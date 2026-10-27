@@ -54,7 +54,7 @@ test("Planos shows one free base plan and a full-width Plus plan without a separ
     expect(html).toContain("Scan de cardápio com IA");
     expect(html).not.toContain("Já gratuitos em qualquer plano");
     expect(html).toContain("plans-plus-bonus-grid");
-    expect(html).not.toContain("plans-plus-footer");
+    expect(html).toContain("plans-plus-footer");
     expect(html).toContain("plans-plus-feature-icon");
     expect(html).not.toContain("Recursos principais");
     expect(html).toContain("plans-plus-bonus-icon");
