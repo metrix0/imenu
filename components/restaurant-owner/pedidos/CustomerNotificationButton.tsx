@@ -1,5 +1,9 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Bell, LockKeyhole } from "lucide-react";
+import Tooltip from "@/components/ui/Tooltip";
+import { hasQrTableAccess } from "@/lib/qr-table/types";
+import { IA_PLUS_FEATURE_MESSAGE } from "@/lib/addons/products";
 import Button from "@/components/ui/Button";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
@@ -8,6 +12,19 @@ import { supabase } from "@/lib/database/supabaseClient";
 export default function CustomerNotificationButton({orderId,restaurantId}:{orderId:string;restaurantId:string}) {
     const [busy,setBusy]=useState(false),[confirm,setConfirm]=useState(false),[plusModal,setPlusModal]=useState(false);
     const [sent,setSent]=useState(false),[message,setMessage]=useState("");
+    const [plus,setPlus]=useState<boolean|null>(null);
+    useEffect(()=>{
+        let active=true;
+        setPlus(null);
+        void supabase.from("restaurant_addons").select("status,current_period_ends_at")
+            .eq("restaurant_id",restaurantId).eq("product_key","ia_plus").maybeSingle()
+            .then(({data,error})=>{
+                if(!active)return;
+                if(error){setMessage("Não foi possível verificar o iMenu Plus.");return;}
+                setPlus(hasQrTableAccess(data));
+            });
+        return ()=>{active=false;};
+    },[restaurantId]);
     const inFlight=useRef(false);
     async function api(method:string,confirmed=false) {
         const {data:{session}}=await supabase.auth.getSession();
@@ -20,7 +37,8 @@ export default function CustomerNotificationButton({orderId,restaurantId}:{order
         return data;
     }
     async function notify(confirmed=false) {
-        if(inFlight.current)return;
+        if(plus===false){setPlusModal(true);return;}
+        if(plus===null||inFlight.current)return;
         inFlight.current=true;setBusy(true);setMessage("");
         try {
             if(!confirmed){
@@ -37,9 +55,12 @@ export default function CustomerNotificationButton({orderId,restaurantId}:{order
         finally{inFlight.current=false;setBusy(false);}
     }
     return <>
-        <Button variant="secondary" className="w-full" disabled={busy||sent} loading={busy} onClick={()=>void notify()}>
+        <Tooltip text={plus===false?IA_PLUS_FEATURE_MESSAGE:""} parentClassName="w-full" showOnClick>
+        <Button variant="secondary" className="w-full gap-2" disabled={busy||sent||plus===null} loading={busy} onClick={()=>void notify()}>
+            {plus===false?<LockKeyhole size={16} aria-hidden="true"/>:<Bell size={16} aria-hidden="true"/>}
             {sent?"Notificação solicitada":"Notificar Cliente"}
         </Button>
+        </Tooltip>
         {message&&<p role="status" className="text-sm text-gray-600">{message}</p>}
         <ConfirmModal open={confirm} onClose={()=>{if(!busy)setConfirm(false);}} onConfirm={()=>void notify(true)} isLoading={busy}
             variant="primary" title="Notificar cliente?" confirmLabel="Enviar notificação"
