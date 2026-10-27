@@ -24,11 +24,12 @@ import Loader from "@/components/ui/Loader";
 import Button from "@/components/ui/Button";
 import Image from "next/image";
 import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
-import { IA_PLUS_FEATURE_MESSAGE } from "@/lib/addons/products";
+import { IA_PLUS_FEATURE_MESSAGE, IA_PLUS_PRICE_LABEL } from "@/lib/addons/products";
 import { useAutoSave } from "@/lib/utils/useAutoSave";
 import WarningBox from "@/components/ui/WarningBox";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faPlus, faRobot, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
+import { ArrowRight, CalendarClock, ShoppingCart, UserRoundCheck } from "lucide-react";
 import { TemplateEditor, VariablePicker, type TemplateEditorHandle, type TemplateVariable } from "@/components/ui/WhatsAppTemplateEditor";
 const descriptions: Record<AutomationKind, (days: number) => string> = {
   cart: () => "Clientes com produtos no carrinho sem movimentação há pelo menos 30 minutos recebem uma mensagem no WhatsApp, com a imagem do item de maior preço quando disponível.",
@@ -379,28 +380,81 @@ export default function MarketingPage() {
       ) : null}
       </div>
       {!plus && settings ? (
-        <div className="absolute inset-x-0 top-24 z-10 flex justify-center px-3 sm:top-36">
-          <Card className="w-full max-w-md border border-gray-200 text-center shadow-xl">
-            <div className="relative mx-auto h-14 w-56 max-w-full">
-              <Image
-                src="/logos/IAPlusCombinationMarkLogo_Brand.png"
-                alt="iMenu Plus"
-                fill
-                sizes="224px"
-                className="object-contain"
-              />
+        <div className="absolute inset-x-0 top-10 z-10 flex justify-center px-3 sm:top-20">
+          <Card className="w-full max-w-xl overflow-hidden border border-gray-200 !p-0 text-left shadow-xl">
+            <div className="p-5 sm:p-7">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="relative h-9 w-40 max-w-full">
+                  <Image
+                    src="/logos/PlusCombinationMarkLogo_Brand.png"
+                    alt="iMenu Plus"
+                    fill
+                    sizes="160px"
+                    className="object-contain object-left"
+                  />
+                </div>
+                <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-semibold text-brand">
+                  Marketing pelo WhatsApp
+                </span>
+              </div>
+              <h2 className="mt-5 text-2xl font-bold leading-tight text-gray-900">
+                Traga seus clientes de volta, no momento certo
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-gray-600">
+                Automatize o contato com quem demonstrou interesse e incentive novos pedidos sem enviar cada mensagem manualmente.
+              </p>
+              <div className="mt-6 space-y-4">
+                <div className="flex items-start gap-3">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-brand">
+                    <ShoppingCart size={20} strokeWidth={1.8} aria-hidden="true" />
+                  </span>
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900">Recupere carrinhos abandonados</h3>
+                    <p className="mt-1 text-sm leading-5 text-gray-600">
+                      Lembre quem deixou itens no carrinho, com imagem do produto quando disponível.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-brand">
+                    <UserRoundCheck size={20} strokeWidth={1.8} aria-hidden="true" />
+                  </span>
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900">Reative clientes inativos</h3>
+                    <p className="mt-1 text-sm leading-5 text-gray-600">
+                      Convide de volta quem está há dias sem pedir, com cupom ou promoção opcional.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-brand">
+                    <CalendarClock size={20} strokeWidth={1.8} aria-hidden="true" />
+                  </span>
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900">Aproveite hábitos de compra</h3>
+                    <p className="mt-1 text-sm leading-5 text-gray-600">
+                      Envie um lembrete antes dos dias e horários em que seus clientes costumam comprar.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-5 rounded-lg bg-orange-50/60 px-4 py-3">
+                <p className="text-sm leading-5 text-gray-700">
+                  <strong>Você no controle:</strong> personalize as mensagens, escolha ofertas e acompanhe os envios no histórico.
+                </p>
+              </div>
+              <Button
+                type="button"
+                className="mt-6 w-full gap-2"
+                onClick={() => setPlusOpen(true)}
+              >
+                Conhecer iMenu Plus
+                <ArrowRight size={16} aria-hidden="true" />
+              </Button>
+              <p className="mt-3 text-center text-xs text-gray-500">
+                Incluído no iMenu Plus · {IA_PLUS_PRICE_LABEL}/mês
+              </p>
             </div>
-            <h2 className="mt-4 text-xl font-bold text-gray-900">Ative o iMenu Plus</h2>
-            <p className="mt-2 text-sm leading-relaxed text-gray-600">
-              Recupere carrinhos, reative clientes e incentive novos pedidos pelo WhatsApp.
-            </p>
-            <Button
-              type="button"
-              className="mt-5 w-full"
-              onClick={() => setPlusOpen(true)}
-            >
-              Conhecer iMenu Plus
-            </Button>
           </Card>
         </div>
       ) : null}
