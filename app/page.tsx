@@ -4,8 +4,8 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
-    BarChart3, BookOpen, Bot, FileDown, Headset, Megaphone, MessageCircle,
-    QrCode, ScanLine, ShoppingBag, ShoppingCart, Store, TrendingUp,
+    Bot, FileDown, Headset, Megaphone, MessageCircle,
+    ScanLine, ShoppingCart, Store, TrendingUp,
     type LucideIcon,
 } from "lucide-react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -115,12 +115,19 @@ const RESOURCE_SECTIONS: readonly { title: string; rows: readonly ResourceRow[] 
 ];
 
 const FREE_PLAN_FEATURES = [
-    { title: "Cardápio digital completo", icon: BookOpen },
-    { title: "Pedidos delivery ilimitados", icon: ShoppingBag },
-    { title: "Robô WhatsApp", icon: MessageCircle },
-    { title: "QR Code Mesa e Painel Garçom", icon: QrCode },
-    { title: "Cupons e relatórios", icon: BarChart3 },
-    { title: "Assistente IA com uso gratuito limitado", icon: Bot },
+    "Cardápio digital completo",
+    "Pedidos delivery ilimitados",
+    "Robô WhatsApp",
+    "QR Code Mesa e Painel Garçom",
+    "Cupons e relatórios",
+    "Assistente IA com uso gratuito limitado",
+    "Pedidos agendados e encomendas",
+    "Gestão de pedidos no balcão",
+    "Impressão de pedidos",
+    "Taxa de entrega por bairro ou raio",
+    "Painel financeiro e fechamento de caixa",
+    "Google Analytics e Pixel Meta",
+    "Cardápio personalizado com opcionais",
 ] as const;
 
 const PLUS_BENEFIT_ICONS: Record<string, LucideIcon> = {
@@ -555,7 +562,7 @@ export default function LandingPage() {
 
             <section
                 id="recursos"
-                className="mx-0 px-4 pt-30 md:mx-24 md:px-8 md:py-20 min-[1400px]:mx-28 min-[1400px]:py-24 2xl:mx-38"
+                className="mx-0 px-4 pt-30 md:mx-24 md:px-8 md:pt-20 md:pb-8 min-[1400px]:mx-28 min-[1400px]:pt-24 min-[1400px]:pb-10 2xl:mx-38"
             >
                 <h2 className="reveal fade-left mb-3 text-center text-4xl font-bold text-brand md:text-left min-[1400px]:text-[2.75rem] 2xl:text-[3.2rem]">
                     Venda mais <span className="hidden md:inline-block">com iMenu</span>
@@ -657,15 +664,15 @@ export default function LandingPage() {
             <section
                 id="planos"
                 aria-labelledby="planos-heading"
-                className="scroll-mt-8 bg-[#f7f8fa] px-4 py-16 md:px-20 md:py-24 min-[1400px]:px-24 2xl:px-32"
+                className="scroll-mt-8 bg-[#f7f8fa] px-4 py-10 md:px-20 md:pt-8 md:pb-16 min-[1400px]:px-24 2xl:px-32"
             >
                 <div className="mx-auto max-w-6xl min-[1400px]:max-w-7xl">
-                    <h2 id="planos-heading" className="reveal fade-left mb-3 text-center text-4xl font-bold text-brand md:text-left min-[1400px]:text-[2.75rem] 2xl:text-[3.2rem]">
+                    <h2 id="planos-heading" className="mb-3 text-center text-4xl font-bold text-brand md:text-left min-[1400px]:text-[2.75rem] 2xl:text-[3.2rem]">
                         Comece grátis com iMenu
                         <br />
                         <span className="text-text">e cresça com o Plus</span>
                     </h2>
-                    <p className="reveal fade-left delay-200 mb-12 text-center text-gray-500 md:mb-18 md:text-left min-[1400px]:mb-20 min-[1400px]:text-lg 2xl:mb-24 2xl:text-xl">
+                    <p className="mb-8 text-center text-gray-500 md:mb-10 md:text-left min-[1400px]:text-lg 2xl:text-xl">
                         Compare os benefícios dos planos iMenu e iMenu Plus:
                     </p>
 
@@ -682,16 +689,15 @@ export default function LandingPage() {
                             <p className="mt-3 text-sm leading-5 text-gray-500">
                                 Seu cardápio digital, pedidos e gestão em um só lugar.
                             </p>
-                            <div className="mt-6 flex items-baseline gap-2">
-                                <strong className="text-3xl font-bold tracking-tight text-gray-900 md:text-4xl">R$ 0</strong>
-                                <span className="text-xs text-gray-500">/mês</span>
+                            <div className="mt-6">
+                                <strong className="text-3xl font-bold tracking-tight text-gray-900 md:text-4xl">Grátis</strong>
                             </div>
-                            <div className="mt-6 border-t border-gray-100 pt-6">
+                            <div className="mt-4">
                                 <p className="mb-4 text-sm font-semibold text-gray-900">Incluído no iMenu</p>
                                 <ul className="space-y-3.5">
-                                    {FREE_PLAN_FEATURES.map(({ title, icon: Icon }) => (
+                                    {FREE_PLAN_FEATURES.map((title) => (
                                         <li key={title} className="flex items-start gap-3 text-sm leading-5 text-gray-700">
-                                            <Icon size={19} strokeWidth={1.8} aria-hidden="true" className="mt-0.5 shrink-0 text-brand" />
+                                            <FontAwesomeIcon icon={icons.faCheck} aria-hidden="true" className="mt-1 shrink-0 text-brand" />
                                             <span>{title}</span>
                                         </li>
                                     ))}
@@ -723,7 +729,7 @@ export default function LandingPage() {
                                 <strong className="text-3xl font-bold tracking-tight text-gray-900 md:text-4xl">{IA_PLUS_PRICE_LABEL}</strong>
                                 <span className="text-xs text-gray-500">/mês</span>
                             </div>
-                            <div className="mt-6 border-t border-gray-100 pt-6">
+                            <div className="mt-4">
                                 <p className="mb-4 text-sm font-semibold text-gray-900">
                                     Tudo do iMenu, mais:
                                 </p>
