@@ -4,7 +4,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
-    Bot, Crown, ExternalLink, FileDown, Headset, Megaphone, MessageCircle,
+    Bot, ChevronDown, Crown, ExternalLink, FileDown, Headset, Megaphone, MessageCircle,
     ScanLine, ShoppingCart, TrendingUp,
     type LucideIcon,
 } from "lucide-react";
@@ -647,7 +647,73 @@ export default function LandingPage() {
                     Compare os benefícios entre o iMenu e outros cardápios digitais:
                 </h2>
 
-                <div className="overflow-x-auto">
+                <div className="mx-auto max-w-md md:hidden">
+                    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                        <h3 className="text-lg font-semibold text-gray-900">Tudo isso grátis no iMenu</h3>
+                        <ul className="mt-4 space-y-3">
+                            {FREE_PLAN_FEATURES.slice(0, 6).map((feature) => (
+                                <li key={feature} className="flex items-start gap-3 text-sm leading-5 text-gray-700">
+                                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-600">
+                                        <FontAwesomeIcon icon={icons.faCheck} aria-hidden="true" className="text-[10px]" />
+                                    </span>
+                                    <span>{feature}</span>
+                                </li>
+                            ))}
+                        </ul>
+                        <Button
+                            className="mt-6 w-full gap-2 !min-h-11 !text-sm"
+                            onClick={() => router.push("/restaurante/registrar")}
+                        >
+                            Criar meu cardápio grátis
+                            <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" />
+                        </Button>
+                    </div>
+
+                    <details className="group mt-3 overflow-hidden rounded-xl border border-gray-200 bg-white">
+                        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-gray-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand [&::-webkit-details-marker]:hidden">
+                            Ver comparação completa
+                            <ChevronDown size={18} aria-hidden="true" className="shrink-0 text-gray-500 transition-transform group-open:rotate-180" />
+                        </summary>
+                        <div className="space-y-5 border-t border-gray-100 px-4 py-5">
+                            {RESOURCE_SECTIONS.map((section) => (
+                                <section key={section.title}>
+                                    <h4 className="text-sm font-semibold text-gray-900">{section.title}</h4>
+                                    {(section.imenu || section.competitor) && (
+                                        <div className="mt-2 grid grid-cols-2 gap-3 rounded-lg bg-gray-50 p-3">
+                                            <div className="min-w-0">
+                                                <p className="mb-1 text-xs text-gray-500">iMenu</p>
+                                                <ResourceImenuValue value={section.imenu} />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="mb-1 text-xs text-gray-500">Concorrentes</p>
+                                                <ResourceCompetitorValue value={section.competitor} />
+                                            </div>
+                                        </div>
+                                    )}
+                                    <ul className="mt-2 divide-y divide-gray-100">
+                                        {section.rows.map(([feature, imenu, competitor]) => (
+                                            <li key={feature} className="py-3">
+                                                <p className="text-sm font-medium leading-5 text-gray-800">{feature}</p>
+                                                <div className="mt-2 grid grid-cols-2 gap-3">
+                                                    <div className="min-w-0">
+                                                        <p className="mb-1 text-xs text-gray-500">iMenu</p>
+                                                        <ResourceImenuValue value={imenu} />
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className="mb-1 text-xs text-gray-500">Concorrentes</p>
+                                                        <ResourceCompetitorValue value={competitor} />
+                                                    </div>
+                                                </div>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </section>
+                            ))}
+                        </div>
+                    </details>
+                </div>
+
+                <div className="hidden overflow-x-auto md:block">
                     <table className="m-auto w-auto min-w-[620px] border-collapse overflow-hidden rounded-sm md:w-[80%] min-[1400px]:text-lg 2xl:rounded-lg 2xl:text-[1.4rem]">
                         <thead className="border-b border-gray-200 text-left">
                             <tr className="bg-gray-100">
