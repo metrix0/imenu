@@ -28,7 +28,7 @@ export default function UpdateEmailPage() {
 
     // URL de redirecionamento após clique no e-mail
     const REDIRECT_URL = typeof window !== "undefined"
-        ? `${window.location.origin}/painel/configuracoes?email_updated=true`
+        ? `${window.location.origin}/restaurante/confirmar-alteracao-email`
         : "";
 
     // Carrega e-mail atual
