@@ -131,7 +131,6 @@ const FREE_PLAN_FEATURES = [
     "Taxa de entrega por bairro ou raio",
     "Painel financeiro e fechamento de caixa",
     "Google Analytics e Pixel Meta",
-    "Cardápio personalizado com opcionais",
 ] as const;
 
 const PLUS_BENEFIT_ICONS: Record<string, LucideIcon> = {
@@ -682,8 +681,9 @@ export default function LandingPage() {
                             <p className="mt-3 text-sm leading-5 text-gray-500">
                                 Seu cardápio digital, pedidos e gestão em um só lugar.
                             </p>
-                            <div className="mt-6">
+                            <div className="mt-6 flex flex-wrap items-baseline gap-2">
                                 <strong className="text-3xl font-bold tracking-tight text-gray-900 md:text-4xl">Grátis</strong>
+                                <span className="text-xs text-gray-500">sem limites, sem taxas</span>
                             </div>
                             <div className="mt-4">
                                 <p className="mb-4 text-sm font-semibold text-gray-900">Incluído no iMenu</p>
@@ -733,7 +733,7 @@ export default function LandingPage() {
                                             <li key={benefit.title} className="flex items-start gap-3">
                                                 <Icon size={19} strokeWidth={1.8} aria-hidden="true" className="mt-0.5 shrink-0 text-brand" />
                                                 <div>
-                                                    <strong className="text-sm font-semibold text-gray-900">{benefit.title}</strong>
+                                                    <strong className="text-sm font-semibold text-gray-900">{benefit.title === "Assistente IA" ? "Assistente IA: para Melhorar o Cardápio" : benefit.title}</strong>
                                                     <p className="mt-0.5 text-xs leading-5 text-gray-500">{benefit.description}</p>
                                                 </div>
                                             </li>
