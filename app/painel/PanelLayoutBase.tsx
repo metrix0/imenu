@@ -396,9 +396,9 @@ export default function PainelLayout({
     const menuItems: MenuItem[] = [
         { label: "Pedidos", icon: faHome, href: `${base}/` },
         { label: "Histórico", icon: faBox, href: `${base}/historico` },
-        { label: "Clientes", icon: faUsers, href: `${base}/clientes`, isNew: true },
         { label: "Cardápio", icon: faUtensils, href: cardapioHref },
         { label: "Assistente IA", icon: faWandMagicSparkles, href: `${base}/assistente-ia`, isNew: true },
+        { label: "Clientes", icon: faUsers, href: `${base}/clientes`, isNew: true },
         { label: "Mesas", icon: faChair, href: `${base}/mesas` },
         {
             label: "Repasses",
