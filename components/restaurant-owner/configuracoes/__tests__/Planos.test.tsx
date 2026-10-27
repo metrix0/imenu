@@ -85,19 +85,22 @@ test("active plans keep recurring cancellation and prepaid renewal with collapse
     expect(html.match(/Conhecer meu plano/g)).toHaveLength(1);
     expect(html.match(/Descadastrar do plano/g)).toHaveLength(1);
     expect(html).not.toContain(">Renovar<");
-    expect(html.match(/<details class="plans-payment-history">/g)).toHaveLength(2);
-    expect(html.match(/class="plans-subscription-card"/g)).toHaveLength(2);
+    expect(html.match(/<details class="plans-payment-history">/g)).toHaveLength(1);
+    expect(html.match(/class="plans-subscription-card"/g)).toHaveLength(1);
+    expect(html).not.toContain("iMenu QR Code Mesa");
     expect(html).toContain("plans-subscription-identity");
     expect(html).toContain("https://example.com/invoice");
     expect(html).toContain("Confirmado");
     expect(html).toContain("07/11/2026");
 });
 
-test("historical canceled PayZu access keeps renewal without recurring cancellation", () => {
+test("QR-only legacy billing records are never shown as a paid subscription", () => {
     const html = renderBilling(fixtures.mixed);
     expect(html).not.toContain('data-active="true"');
+    expect(html).not.toContain("iMenu QR Code Mesa");
+    expect(html).not.toContain("Histórico de pagamentos");
+    expect(html).toContain("Nenhum plano adicional contratado.");
     expect(html).not.toContain(">Renovar<");
-    expect(html).toContain("Gratuito");
     expect(html).not.toContain("Descadastrar do plano");
 });
 

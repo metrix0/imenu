@@ -277,6 +277,8 @@ export default function QrCodeMesaSettingsSection({
         }
     };
 
+    // QR Code Mesa is universally free; retain legacy records in the API, not in the subscriptions UI.
+    const paidSubscriptions = billing?.addons.filter(item => item.addon.product_key !== "qr_code_mesa") ?? [];
     const qrBilling =
         billing?.addons.find(
             (item) => item.addon.product_key === "qr_code_mesa"
@@ -392,7 +394,7 @@ export default function QrCodeMesaSettingsSection({
                 ) : productCards
             )}
 
-            {(billing?.addons.length || 0) > 0 && (
+            {paidSubscriptions.length > 0 && (
                 <BillingContainer id={presentation === "plans" ? "suas-assinaturas" : undefined} className={presentation === "plans" ? "plans-subscriptions" : "border border-gray-200 shadow-sm"}>
                     <div className={presentation === "plans" ? "plans-section-heading" : "border-b border-gray-100 pb-5"}>
                         <div>
@@ -406,7 +408,7 @@ export default function QrCodeMesaSettingsSection({
                     </div>
 
                     <div className={presentation === "plans" ? "plans-subscription-list" : "divide-y divide-gray-100"}>
-                        {billing?.addons.map((item) => {
+                        {paidSubscriptions.map((item) => {
                             const itemAddon = item.addon;
                             const itemActive = item.active;
                             const isQrCodeMesa =
@@ -597,7 +599,7 @@ export default function QrCodeMesaSettingsSection({
                     </div>
                 </BillingContainer>
             )}
-            {presentation === "plans" && !loading && billing && !billing.addons.length && (
+            {presentation === "plans" && !loading && billing && !paidSubscriptions.length && (
                 <section id="suas-assinaturas" className="plans-subscriptions">
                     <div className="plans-section-heading">
                         <div>
