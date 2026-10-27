@@ -15,7 +15,6 @@ import EstoqueTab from "@/components/restaurant-owner/cardapio/tabs/EstoqueTabs"
 import ManageCategoryModal from "@/components/restaurant-owner/cardapio/ManageCategoryModal";
 import ItemDetailsModal from "@/components/restaurant-owner/cardapio/ItemDetailsModal";
 import ScanMenuModal from "@/components/restaurant-owner/ScanMenuImageModal";
-import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
 import type { Category } from "@/lib/types/types";
 
@@ -44,8 +43,6 @@ export default function MenuManagerPage() {
     const [itemToEditDetails, setItemToEditDetails] =
         useState<MenuItemType | null>(null);
     const [aiModalOpen, setAiModalOpen] = useState(false);
-    const [aiPlusOpen, setAiPlusOpen] = useState(false);
-    const [scanAccess, setScanAccess] = useState<{ allowed: boolean; hasItems: boolean; hasPlus: boolean } | null>(null);
 
     const loadMenuData = async (id: string) => {
         setIsLoading(true);
@@ -120,32 +117,7 @@ export default function MenuManagerPage() {
         void init();
     }, [restaurantId, setRestaurantId]);
 
-    useEffect(() => {
-        if (!restaurantId || items.length < 2) {
-            setScanAccess(null);
-            return;
-        }
-        let canceled = false;
-        setScanAccess(null);
-        void (async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session?.access_token) return;
-            const response = await fetch(`/api/scan-menu?restaurantId=${encodeURIComponent(restaurantId)}`, {
-                headers: { Authorization: `Bearer ${session.access_token}` },
-                cache: "no-store",
-            });
-            if (!response.ok) throw new Error("Não foi possível verificar o acesso ao scanner.");
-            const access = await response.json();
-            if (!canceled) setScanAccess(access);
-        })().catch(error => console.error("[SCAN_MENU] Access check failed:", error));
-        return () => { canceled = true; };
-    }, [restaurantId, items.length]);
-
-    const scanLocked = items.length >= 2 && scanAccess?.allowed === false;
-    const openScanner = () => {
-        if (scanLocked) setAiPlusOpen(true);
-        else setAiModalOpen(true);
-    };
+    const openScanner = () => setAiModalOpen(true);
 
     const handleNewCategory = () => {
         setCategoryToEdit(null);
@@ -303,7 +275,6 @@ export default function MenuManagerPage() {
                         onOpenItemDetails={handleOpenItemDetails}
                         onNewCategory={handleNewCategory}
                         onAIScanMenu={openScanner}
-                        scanLocked={scanLocked}
                     />
                 )}
 
@@ -354,14 +325,6 @@ export default function MenuManagerPage() {
                 restaurantId={restaurantId}
                 existingCategories={categories}
                 onRefresh={() => loadMenuData(restaurantId)}
-                onUpgrade={() => { setAiModalOpen(false); setAiPlusOpen(true); }}
-            />
-            <IaPlusSalesModal
-                open={aiPlusOpen}
-                onClose={() => setAiPlusOpen(false)}
-                restaurantId={restaurantId}
-                contextMessage="Seu cardápio não está vazio. Para escanear novos itens com IA, remova os itens atuais ou assine o iMenu Plus"
-                onPaid={() => { setAiPlusOpen(false); setScanAccess({ allowed: true, hasItems: true, hasPlus: true }); setAiModalOpen(true); }}
             />
 
             {toast && (

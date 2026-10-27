@@ -2,20 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Lock } from "lucide-react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import Button from "@/components/ui/Button";
 import Toast from "@/components/ui/Toast";
 import Loader from "@/components/ui/Loader";
-import Tooltip from "@/components/ui/Tooltip";
-import { IA_PLUS_FEATURE_MESSAGE } from "@/lib/addons/products";
 import CardapioTab from "@/components/restaurant-owner/cardapio/tabs/CardapioTab";
 import ManageCategoryModal from "@/components/restaurant-owner/cardapio/ManageCategoryModal";
 import ItemDetailsModal from "@/components/restaurant-owner/cardapio/ItemDetailsModal";
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
 import ScanMenuModal from "@/components/restaurant-owner/ScanMenuImageModal";
-import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faPlus, faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
 import Badge from "@/components/ui/Badge";
@@ -38,8 +34,6 @@ export default function CriarCardapioPage() {
     const [itemOpen, setItemOpen] = useState(false);
     const [itemEdit, setItemEdit] = useState<MenuItemType | null>(null);
     const [aiOpen, setAiOpen] = useState(false);
-    const [aiPlusOpen, setAiPlusOpen] = useState(false);
-    const [scanAccess, setScanAccess] = useState<{ allowed: boolean; hasItems: boolean; hasPlus: boolean } | null>(null);
 
     const load = async () => {
         if (!restaurantId) return router.replace("/restaurante/login");
@@ -86,32 +80,7 @@ export default function CriarCardapioPage() {
         void load();
     }, [restaurantId]);
 
-    useEffect(() => {
-        if (!restaurantId || items.length < 2) {
-            setScanAccess(null);
-            return;
-        }
-        let canceled = false;
-        setScanAccess(null);
-        void (async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session?.access_token) return;
-            const response = await fetch(`/api/scan-menu?restaurantId=${encodeURIComponent(restaurantId)}`, {
-                headers: { Authorization: `Bearer ${session.access_token}` },
-                cache: "no-store",
-            });
-            if (!response.ok) throw new Error("Não foi possível verificar o acesso ao scanner.");
-            const access = await response.json();
-            if (!canceled) setScanAccess(access);
-        })().catch(error => console.error("[SCAN_MENU] Access check failed:", error));
-        return () => { canceled = true; };
-    }, [restaurantId, items.length]);
-
-    const scanLocked = items.length >= 2 && scanAccess?.allowed === false;
-    const openScanner = () => {
-        if (scanLocked) setAiPlusOpen(true);
-        else setAiOpen(true);
-    };
+    const openScanner = () => setAiOpen(true);
 
     const continueOnboarding = async () => {
         if (!restaurantId) return;
@@ -165,10 +134,6 @@ export default function CriarCardapioPage() {
 
                 <div className="mb-6">
                     <div className="grid gap-4 sm:grid-cols-2">
-                        <Tooltip
-                            text={scanLocked ? IA_PLUS_FEATURE_MESSAGE : ""}
-                            parentClassName="w-full"
-                        >
                         <button
                             type="button"
                             onClick={openScanner}
@@ -181,7 +146,6 @@ export default function CriarCardapioPage() {
                             </span>
                             <span className="relative inline-flex items-center gap-2 text-lg font-semibold">
                                 Scanear Cardápio com IA
-                                {scanLocked && <Lock size={16} aria-hidden="true" />}
                             </span>
                             <span className="relative mt-1 max-w-sm text-sm leading-5 text-white/80">
                                 <span className="flex flex-nowrap items-center gap-1.5 whitespace-nowrap">
@@ -198,7 +162,6 @@ export default function CriarCardapioPage() {
                                 Criar com IA →
                             </span>
                         </button>
-                        </Tooltip>
 
                         <button
                             type="button"
@@ -249,7 +212,6 @@ export default function CriarCardapioPage() {
                             setCatOpen(true);
                         }}
                         onAIScanMenu={openScanner}
-                        scanLocked={scanLocked}
                     />
                 </div>
             </div>
@@ -301,14 +263,6 @@ export default function CriarCardapioPage() {
                 restaurantId={restaurantId}
                 existingCategories={categories}
                 onRefresh={load}
-                onUpgrade={() => { setAiOpen(false); setAiPlusOpen(true); }}
-            />
-            <IaPlusSalesModal
-                open={aiPlusOpen}
-                onClose={() => setAiPlusOpen(false)}
-                restaurantId={restaurantId}
-                contextMessage="Seu cardápio não está vazio. Para escanear novos itens com IA, remova os itens atuais ou assine o iMenu Plus"
-                onPaid={() => { setAiPlusOpen(false); setScanAccess({ allowed: true, hasItems: true, hasPlus: true }); setAiOpen(true); }}
             />
             {toast && (
                 <Toast

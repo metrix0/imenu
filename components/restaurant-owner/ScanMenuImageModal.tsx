@@ -62,7 +62,7 @@ type ExistingMenuItem = {
     category_id: string;
 };
 
-type ScanAccess = { allowed: boolean; hasItems: boolean; hasPlus: boolean };
+type ScanAccess = { allowed: boolean; hasItems: boolean };
 
 const normalizeItemName = (name: string) =>
     name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().replace(/\s+/g, " ").toLocaleLowerCase("pt-BR");
@@ -75,14 +75,12 @@ export default function ScanMenuModal({
     restaurantId,
     existingCategories,
     onRefresh,
-    onUpgrade,
 }: {
     open: boolean;
     onClose: () => void;
     restaurantId: string;
     existingCategories: { id: string; name: string; position: number }[];
     onRefresh: () => void;
-    onUpgrade: () => void;
 }) {
     return (
         <ScanModal
@@ -91,7 +89,6 @@ export default function ScanMenuModal({
             onClose={onClose}
             restaurantId={restaurantId}
             existingCategories={existingCategories}
-            onUpgrade={onUpgrade}
         />
     );
 }
@@ -102,14 +99,12 @@ function ScanModal({
     restaurantId,
     existingCategories,
     onRefresh,
-    onUpgrade,
 }: {
     open: boolean;
     onClose: () => void;
     restaurantId: string;
     existingCategories: { id: string; name: string; position: number }[];
     onRefresh: () => void;
-    onUpgrade: () => void;
 }) {
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const previewUrlsRef = useRef<Set<string>>(new Set());
@@ -161,10 +156,6 @@ function ScanModal({
         setAccessError("");
         void fetchScanAccess().then(value => {
             if (!active) return;
-            if (!value.allowed) {
-                onUpgrade();
-                return;
-            }
             setAccess(value);
         }).catch(error => {
             if (active) setAccessError(error instanceof Error ? error.message : String(error));
@@ -342,10 +333,6 @@ function ScanModal({
             const json = await response.json();
 
             if (!response.ok) {
-                if (json?.requiresPlus) {
-                    onUpgrade();
-                    return null;
-                }
                 setToast({
                     message: json?.error || "O Scan com IA falhou",
                     type: "error",
@@ -479,11 +466,7 @@ function ScanModal({
         setIsSaving(true);
 
         try {
-            const currentAccess = await fetchScanAccess();
-            if (!currentAccess.allowed) {
-                onUpgrade();
-                return;
-            }
+            await fetchScanAccess();
 
             const itemsToAdd = scanResult.items.filter(item => selectedAction(item, item.category_name ?? "") === "add");
             const itemsToUpdate = scanResult.items.filter(item => selectedAction(item, item.category_name ?? "") === "update");

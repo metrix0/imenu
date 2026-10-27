@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Lock } from "lucide-react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faGripVertical,
@@ -15,7 +14,6 @@ import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import Dropdown from "@/components/ui/Dropdown";
 import Tooltip from "@/components/ui/Tooltip";
-import { IA_PLUS_FEATURE_MESSAGE } from "@/lib/addons/products";
 import CategorySection from "@/components/restaurant-owner/cardapio/CategorySection";
 import OrganizeCategoriesModal from "@/components/restaurant-owner/cardapio/OrganizeCategoriesModal";
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
@@ -31,7 +29,6 @@ interface CardapioTabProps {
     onOpenItemDetails: (item: MenuItemType) => void;
     onNewCategory: () => void;
     onAIScanMenu?: React.Dispatch<React.SetStateAction<boolean>> | (() => void);
-    scanLocked?: boolean;
 }
 
 export default function CardapioTab({
@@ -44,7 +41,6 @@ export default function CardapioTab({
     onOpenItemDetails,
     onNewCategory,
     onAIScanMenu,
-    scanLocked = false,
 }: CardapioTabProps) {
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedCategoryId, setSelectedCategoryId] = useState("");
@@ -373,7 +369,7 @@ export default function CardapioTab({
     });
 
     const scanAction = (label: string, className = "", wrapperClassName = "") => (
-        <Tooltip text={scanLocked ? IA_PLUS_FEATURE_MESSAGE : ""} parentClassName={wrapperClassName}>
+        <Tooltip text="" parentClassName={wrapperClassName}>
             <Button
                 type="button"
                 onClick={() => onAIScanMenu?.(true)}
@@ -382,7 +378,6 @@ export default function CardapioTab({
             >
                 <FontAwesomeIcon icon={faWandMagicSparkles} />
                 {label}
-                {scanLocked && <Lock size={14} aria-hidden="true" />}
             </Button>
         </Tooltip>
     );

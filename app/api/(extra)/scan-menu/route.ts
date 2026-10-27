@@ -3,33 +3,19 @@ import OpenAI from "openai";
 import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
 import { readPublicMenuLink, MenuLinkError } from "@/lib/menu/readPublicMenuLink";
 import { query } from "@/lib/database/sql";
-import { hasQrTableAccess } from "@/lib/qr-table/types";
 
 export const runtime = "nodejs";
 
-type ScanAccess = { hasItems: boolean; hasPlus: boolean; allowed: boolean };
+type ScanAccess = { hasItems: boolean; allowed: boolean };
 
 async function getScanAccess(restaurantId: string): Promise<ScanAccess> {
-    const rows = await query<{ status: string; current_period_ends_at: string | null }>(
-        "SELECT status, current_period_ends_at FROM public.restaurant_addons WHERE restaurant_id = $1 AND product_key = 'ia_plus'",
-        [restaurantId]
-    );
-    const hasPlus = rows.rows.some(addon => hasQrTableAccess(addon));
     const items = await query<{ present: boolean }>(
         "SELECT COUNT(*) >= 2 AS present FROM (SELECT 1 FROM public.items WHERE restaurant_id = $1 LIMIT 2) AS existing_items",
         [restaurantId]
     );
     // A single existing product is treated as an empty menu for scanning and AI context.
     const hasItems = items.rows[0]?.present === true;
-    return { hasItems, hasPlus, allowed: !hasItems || hasPlus };
-}
-
-function scanAccessResponse(access: ScanAccess) {
-    return NextResponse.json({
-        error: "Para escanear um cardápio que já possui produtos, assine o iMenu Plus.",
-        requiresPlus: true,
-        ...access,
-    }, { status: 403 });
+    return { hasItems, allowed: true };
 }
 
 async function getExistingMenuContext(restaurantId: string): Promise<string> {
@@ -894,7 +880,6 @@ export async function POST(req: Request) {
 
         await requireRestaurantOwner(req, restaurantId);
         const access = await getScanAccess(restaurantId);
-        if (!access.allowed) return scanAccessResponse(access);
         const existingMenuContext = access.hasItems ? await getExistingMenuContext(restaurantId) : undefined;
 
         let pageText: string | undefined;
