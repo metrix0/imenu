@@ -18,6 +18,7 @@ import SupportButton, {
     SupportButtonRef,
 } from "@/components/common/SupportButton";
 import BestSellers from "@/components/landing/BestSellers";
+import { IA_PLUS_BENEFITS, IA_PLUS_BONUSES, IA_PLUS_PRICE_LABEL } from "@/lib/addons/products";
 import SignupConfirmationHandler from "@/components/auth/SignupConfirmationHandler";
 import "@/app/reveal.css";
 
@@ -107,6 +108,15 @@ const RESOURCE_SECTIONS: readonly { title: string; rows: readonly ResourceRow[] 
         ],
     },
 ];
+
+const FREE_PLAN_FEATURES = [
+    "Cardápio digital completo",
+    "Pedidos delivery ilimitados",
+    "Robô WhatsApp",
+    "QR Code Mesa e Painel Garçom",
+    "Cupons e relatórios",
+    "Assistente IA com uso gratuito limitado",
+] as const;
 
 const LANDING_HERO_PRIMARY_BUTTON =
     "!min-h-12 !rounded-lg !border !border-[#d93d00] !bg-[#d93d00] !px-6 !py-[13px] !text-base !leading-5 !font-medium !whitespace-nowrap !text-white !shadow-none hover:!border-[#c43700] hover:!bg-[#c43700] focus:!ring-[#d93d00]";
@@ -259,6 +269,12 @@ export default function LandingPage() {
                         className="hidden !text-[13px] !font-medium text-[#51565e] transition-colors hover:text-[#1d1d1d] md:block"
                     >
                         Recursos
+                    </a>
+                    <a
+                        href="#planos"
+                        className="hidden !text-[13px] !font-medium text-[#51565e] transition-colors hover:text-[#1d1d1d] md:block"
+                    >
+                        Planos
                     </a>
 
                     <div className="hidden h-6 w-px bg-gray-300 md:block min-[1400px]:h-7 2xl:h-8" />
@@ -615,6 +631,120 @@ export default function LandingPage() {
                             ))}
                         </tbody>
                     </table>
+                </div>
+            </section>
+
+            <section
+                id="planos"
+                aria-labelledby="planos-heading"
+                className="scroll-mt-8 bg-[#f7f8fa] px-6 py-16 md:px-20 md:py-24 min-[1400px]:px-24 min-[1400px]:py-28 2xl:px-32"
+            >
+                <div className="mx-auto max-w-6xl min-[1400px]:max-w-7xl">
+                    <div className="mb-10 text-center md:mb-12">
+                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand min-[1400px]:text-sm">
+                            PLANOS
+                        </p>
+                        <h2 id="planos-heading" className="mt-3 text-3xl font-bold tracking-tight text-gray-900 md:text-4xl 2xl:text-5xl">
+                            Comece grátis. Cresça com o Plus.
+                        </h2>
+                        <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-gray-500 md:text-lg">
+                            Compare o que está incluído em cada plano e escolha o ideal para seu restaurante.
+                        </p>
+                    </div>
+
+                    <div className="grid items-stretch gap-5 lg:grid-cols-2 min-[1400px]:gap-7">
+                        <article className="flex min-w-0 flex-col rounded-3xl border border-gray-200 bg-white p-6 shadow-[0_12px_36px_-26px_rgba(0,0,0,0.22)] sm:p-8 2xl:p-10">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <h3 className="text-2xl font-bold text-gray-900 md:text-3xl">iMenu</h3>
+                                <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
+                                    Grátis para sempre
+                                </span>
+                            </div>
+                            <p className="mt-3 text-sm leading-6 text-gray-500 md:text-base">
+                                Seu cardápio digital, pedidos e gestão em um só lugar.
+                            </p>
+                            <div className="mt-7 flex items-baseline gap-2">
+                                <strong className="text-4xl font-bold tracking-tight text-gray-900 md:text-5xl">R$ 0</strong>
+                                <span className="text-sm text-gray-500">/mês</span>
+                            </div>
+                            <div className="mt-8 border-t border-gray-100 pt-7">
+                                <p className="mb-5 text-sm font-semibold text-gray-900">Incluído no iMenu</p>
+                                <ul className="space-y-4">
+                                    {FREE_PLAN_FEATURES.map((feature) => (
+                                        <li key={feature} className="flex items-start gap-3 text-sm leading-6 text-gray-700 md:text-base">
+                                            <FontAwesomeIcon icon={icons.faCheck} aria-hidden="true" className="mt-1.5 shrink-0 text-brand" />
+                                            <span>{feature}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                            <Button
+                                variant="secondary"
+                                className="mt-10 w-full !min-h-12 !text-sm"
+                                onClick={() => router.push("/restaurante/registrar")}
+                            >
+                                Criar meu cardápio grátis
+                                <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" className="ml-2" />
+                            </Button>
+                        </article>
+
+                        <article className="flex min-w-0 flex-col rounded-3xl border border-brand/30 bg-white p-6 shadow-[0_18px_44px_-28px_rgba(217,61,0,0.3)] sm:p-8 2xl:p-10">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <h3 className="flex items-center gap-2.5 text-2xl font-bold text-gray-900 md:text-3xl">
+                                    <FontAwesomeIcon icon={faWandMagicSparkles} aria-hidden="true" className="text-xl text-brand" />
+                                    iMenu Plus
+                                </h3>
+                                <span className="rounded-full bg-brand/10 px-3 py-1 text-xs font-semibold text-brand">
+                                    Mais recursos
+                                </span>
+                            </div>
+                            <p className="mt-3 text-sm leading-6 text-gray-500 md:text-base">
+                                Venda mais com iMenu Plus.
+                            </p>
+                            <div className="mt-7 flex items-baseline gap-2">
+                                <strong className="text-4xl font-bold tracking-tight text-gray-900 md:text-5xl">{IA_PLUS_PRICE_LABEL}</strong>
+                                <span className="text-sm text-gray-500">/mês</span>
+                            </div>
+                            <div className="mt-8 border-t border-gray-100 pt-7">
+                                <p className="mb-5 text-sm font-semibold text-gray-900">
+                                    Tudo do iMenu, mais:
+                                </p>
+                                <ul className="space-y-5">
+                                    {IA_PLUS_BENEFITS.map((benefit) => (
+                                        <li key={benefit.title} className="flex items-start gap-3">
+                                            <FontAwesomeIcon icon={icons.faCheck} aria-hidden="true" className="mt-1.5 shrink-0 text-brand" />
+                                            <div>
+                                                <strong className="text-sm font-semibold text-gray-900 md:text-base">{benefit.title}</strong>
+                                                <p className="mt-1 text-sm leading-6 text-gray-500">{benefit.description}</p>
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                                <div className="mt-7 border-t border-gray-100 pt-6">
+                                    <p className="mb-4 text-sm font-semibold text-gray-900">Bônus do Plus</p>
+                                    <ul className="grid gap-x-5 gap-y-3 sm:grid-cols-2">
+                                        {IA_PLUS_BONUSES.map((bonus) => (
+                                            <li key={bonus.title} className="flex items-start gap-2.5 text-sm leading-5 text-gray-700">
+                                                <FontAwesomeIcon icon={icons.faCheck} aria-hidden="true" className="mt-1 shrink-0 text-brand" />
+                                                <span>{bonus.title}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            </div>
+                            <Button
+                                className="mt-10 w-full !min-h-12 !text-sm"
+                                onClick={() => router.push("/painel/planos")}
+                            >
+                                Conhecer iMenu Plus no painel
+                                <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" className="ml-2" />
+                            </Button>
+                            <p className="mt-3 text-center text-xs text-gray-500">Ative pelo painel. Cancele quando quiser.</p>
+                        </article>
+                    </div>
+                    <p className="mx-auto mt-7 max-w-3xl text-center text-xs leading-5 text-gray-500">
+                        O Assistente IA tem uso gratuito limitado. O scan de cardápio com IA é grátis com até um produto cadastrado.
+                    </p>
                 </div>
             </section>
 
