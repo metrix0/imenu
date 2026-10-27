@@ -13,7 +13,6 @@ import {
     faCreditCard,
     faLink,
     faPlus,
-    faBell,
     faPowerOff,
     faQrcode,
     faRotate,
@@ -27,6 +26,7 @@ import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import OrderNotificationSettings from "@/components/restaurant-owner/pedidos/OrderNotificationSettings";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import DataTable from "@/components/ui/DataTable";
 import Loader from "@/components/ui/Loader";
 import Toast from "@/components/ui/Toast";
 import WarningBox from "@/components/ui/WarningBox";
@@ -159,6 +159,22 @@ function formatPhone(value: string | null): string {
         return `(${local.slice(0, 2)}) ${local.slice(2, 6)}-${local.slice(6)}`;
     }
     return value || "Número conectado";
+}
+
+function getHandoffPhone(handoff: HandoffConversation): string {
+    const digits = (handoff.handoff_phone || "").replace(/\D/g, "");
+    const phone = digits.startsWith("55")
+        ? digits
+        : digits.length === 10 || digits.length === 11 ? "55" + digits : "";
+    return /^55\d{10,11}$/.test(phone) ? phone : "";
+}
+
+function isHandoffAttended(handoff: HandoffConversation): boolean {
+    return Boolean(
+        handoff.last_owner_message_at &&
+        new Date(handoff.last_owner_message_at).getTime() >=
+            new Date(handoff.handoff_requested_at).getTime()
+    );
 }
 
 function connectionPresentation(connection: WhatsAppConnection | null) {
@@ -616,80 +632,82 @@ export default function RoboWhatsAppPage() {
                     </Card>
                 )}
 
+                {handoffs.length > 0 && (
+                    <section id="atendimentos-humanos" aria-label="Conversas encaminhadas">
+                        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                            <h2 className="text-sm font-semibold text-gray-700">Conversas encaminhadas</h2>
+                            {pendingHandoffs > 0 && (
+                                <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">
+                                    {pendingHandoffs} aguardando
+                                </span>
+                            )}
+                        </div>
+                        <DataTable
+                            rows={handoffs}
+                            rowKey={(handoff) => handoff.chat_id}
+                            columns={[
+                                {
+                                    key: "customer",
+                                    label: "Cliente",
+                                    render: (handoff) => {
+                                        const phone = getHandoffPhone(handoff);
+                                        return (
+                                            <div className="min-w-36">
+                                                <p className="font-semibold text-gray-900">{handoff.customer_name || "Cliente"}</p>
+                                                <p className="mt-0.5 text-xs text-gray-500">
+                                                    {phone ? formatPhone(phone) : "Telefone indisponível"}
+                                                </p>
+                                            </div>
+                                        );
+                                    },
+                                },
+                                {
+                                    key: "requested",
+                                    label: "Encaminhado",
+                                    className: "whitespace-nowrap",
+                                    render: (handoff) => new Date(handoff.handoff_requested_at).toLocaleString("pt-BR", {
+                                        timeZone: "America/Sao_Paulo",
+                                        dateStyle: "short",
+                                        timeStyle: "short",
+                                    }),
+                                },
+                                {
+                                    key: "status",
+                                    label: "Situação",
+                                    className: "whitespace-nowrap",
+                                    render: (handoff) => (
+                                        <span className={`text-xs font-medium ${isHandoffAttended(handoff) ? "text-green-700" : "text-amber-700"}`}>
+                                            {isHandoffAttended(handoff) ? "Atendido" : "Aguardando atendimento"}
+                                        </span>
+                                    ),
+                                },
+                                {
+                                    key: "action",
+                                    label: "Ação",
+                                    className: "whitespace-nowrap text-right",
+                                    render: (handoff) => {
+                                        const phone = getHandoffPhone(handoff);
+                                        return (
+                                            <Button
+                                                variant="secondary"
+                                                disabled={!phone}
+                                                onClick={() => {
+                                                    if (phone) window.open(`https://wa.me/${phone}`, "_blank", "noopener,noreferrer");
+                                                }}
+                                            >
+                                                <FontAwesomeIcon icon={faWhatsapp} className="mr-2" />
+                                                Abrir WhatsApp
+                                            </Button>
+                                        );
+                                    },
+                                },
+                            ]}
+                        />
+                    </section>
+                )}
+
                 {restaurantId && notificationSettings && <OrderNotificationSettings key={restaurantId} restaurantId={restaurantId} plus={notificationSettings.plus} initialEnabled={notificationSettings.enabled}/>}
-                <Card id="atendimentos-humanos" className="border border-gray-200 p-7">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="flex items-start gap-4">
-                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand/10 text-xl text-brand">
-                                <FontAwesomeIcon icon={faBell} />
-                            </div>
-                            <div>
-                                <h2 className="text-lg font-semibold text-gray-900">Atendimento humano</h2>
-                                <p className="mt-1 text-sm text-gray-600">
-                                    Clientes encaminhados pelo robô nos últimos 7 dias.
-                                </p>
-                            </div>
-                        </div>
-                        {pendingHandoffs > 0 && (
-                            <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">
-                                {pendingHandoffs} aguardando
-                            </span>
-                        )}
-                    </div>
-                    {handoffs.length === 0 ? (
-                        <p className="mt-6 py-8 text-center text-sm text-gray-500">
-                            Nenhum atendimento humano solicitado recentemente.
-                        </p>
-                    ) : (
-                        <div className="mt-5 divide-y divide-gray-200 rounded-lg border border-gray-200">
-                            {handoffs.map((handoff) => {
-                                const attended = Boolean(
-                                    handoff.last_owner_message_at &&
-                                    new Date(handoff.last_owner_message_at).getTime() >=
-                                        new Date(handoff.handoff_requested_at).getTime()
-                                );
-                                const rawPhone = (handoff.handoff_phone || "").replace(/\D/g, "");
-                                const phone = rawPhone.startsWith("55")
-                                    ? rawPhone
-                                    : rawPhone.length === 10 || rawPhone.length === 11
-                                      ? "55" + rawPhone : "";
-                                const canOpen = /^55\d{10,11}$/.test(phone);
-                                return (
-                                    <div key={handoff.chat_id} className="flex flex-wrap items-center justify-between gap-3 p-4">
-                                        <div className="min-w-0">
-                                            <p className="text-sm font-semibold text-gray-900">
-                                                {handoff.customer_name || "Cliente"}
-                                            </p>
-                                            <p className="mt-1 text-xs text-gray-500">
-                                                {canOpen ? formatPhone(phone) : "Telefone indisponível"} ·{" "}
-                                                {new Date(handoff.handoff_requested_at).toLocaleString("pt-BR", {
-                                                    timeZone: "America/Sao_Paulo",
-                                                    dateStyle: "short",
-                                                    timeStyle: "short",
-                                                })}
-                                            </p>
-                                            <p className={`mt-2 text-xs font-medium ${attended ? "text-green-700" : "text-amber-700"}`}>
-                                                {attended ? "Atendido" : "Aguardando atendimento"}
-                                            </p>
-                                        </div>
-                                        <Button
-                                            variant="secondary"
-                                            disabled={!canOpen}
-                                            onClick={() => {
-                                                if (canOpen) {
-                                                    window.open(`https://wa.me/${phone}`, "_blank", "noopener,noreferrer");
-                                                }
-                                            }}
-                                        >
-                                            <FontAwesomeIcon icon={faWhatsapp} className="mr-2" />
-                                            Abrir WhatsApp
-                                        </Button>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </Card>
+
 
                 {templates && (
                     <Card className="border border-gray-200 p-7">
