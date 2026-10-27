@@ -191,7 +191,6 @@
     letter-spacing: -.035em;
 }
 .panel-essencial .plans-plus-price span { color: var(--panel-muted); font-size: 13px; }
-.panel-essencial .plans-plus-price small { color: var(--panel-muted); font-size: 11px; }
 .panel-essencial .plans-plus-cta { min-width: 184px; gap: 11px; flex-shrink: 0; }
 .panel-essencial .plans-plus-body {
     display: grid;

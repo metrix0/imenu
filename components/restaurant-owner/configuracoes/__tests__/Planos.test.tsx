@@ -82,7 +82,8 @@ test("plans separate discovery from billing without selection checkboxes", () =>
     expect(html).toContain('class="plans-product plans-plus"');
     const plusCard = html.slice(html.indexOf('class="plans-product plans-plus"'));
     expect(plusCard).toMatch(/class="plans-plus-status"[\s\S]*?>Disponível<\/span>/);
-    expect(plusCard).toMatch(/class="plans-plus-status"[\s\S]*?>Disponível<\/span>[\s\S]*?class="plans-plus-price"[\s\S]*?Cancele quando quiser[\s\S]*?R\$/);
+    expect(plusCard).toMatch(/class="plans-plus-status"[\s\S]*?>Disponível<\/span>[\s\S]*?class="plans-plus-price"[\s\S]*?R\$/);
+    expect(plusCard).not.toContain("Cancele quando quiser");
     expect(plusCard.indexOf('class="plans-plus-price"')).toBeGreaterThan(plusCard.indexOf('class="plans-plus-status"'));
     expect(plusCard).toMatch(/class="plans-plus-footer"[\s\S]*?Conhecer o plano/);
     expect(plusCard.slice(plusCard.indexOf('class="plans-plus-footer"'))).not.toContain('class="plans-plus-price"');

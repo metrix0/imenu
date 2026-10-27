@@ -126,7 +126,6 @@ export default function MenuProductCard(props: MenuProductCardProps) {
                     <div className="plans-plus-status">
                         <Badge variant={active ? "success" : "neutral"}>{active ? "Ativo" : "Disponível"}</Badge>
                         <div className="plans-plus-price">
-                            <small>Cancele quando quiser</small>
                             <div>
                                 <strong>{props.priceLabel}</strong>
                                 <span>{props.priceSuffix ?? "/mês"}</span>
