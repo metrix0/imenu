@@ -87,10 +87,12 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
       </ModalFlowStep> : <ModalFlowStep key="sales" reverse animate={navigated}>
         <div className="min-h-0 flex-1 overflow-y-auto">
           <header className="bg-gradient-to-br from-white to-orange-50/60 px-5 pb-6 pt-7 sm:px-8 sm:pb-7 sm:pt-8">
+            <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_260px] md:items-center">
+            <div className="min-w-0">
             <div className="relative h-10 w-44 max-w-[70%]">
               <Image src="/logos/IAPlusCombinationMarkLogo_Brand.png" alt="iMenu Plus" fill sizes="176px" className="object-contain object-left" />
             </div>
-            <div className="mt-6 grid gap-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end sm:gap-8">
+            <div className="mt-5 grid gap-4">
               <div className="min-w-0">
                 <h2 className="text-2xl font-bold leading-tight tracking-tight text-gray-900 sm:text-3xl">
                   Venda mais com iMenu Plus
@@ -99,7 +101,7 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
                   Marketing, Assistente IA e Vendas IA para o seu restaurante.
                 </p>
               </div>
-              <div className="shrink-0 pt-4 sm:pl-7 sm:pt-0">
+              <div className="shrink-0">
                 <div className="flex items-baseline gap-1.5">
                   {coupon === PROMO_QR_CODE && <span className="text-base text-gray-400 line-through">{IA_PLUS_PRICE_LABEL}</span>}
                   <span className="text-3xl font-bold tracking-tight text-gray-900">{coupon === PROMO_QR_CODE ? PROMO_QR_PRICE_LABEL : IA_PLUS_PRICE_LABEL}</span>
@@ -114,6 +116,11 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
                 <p className="text-sm leading-6 text-gray-700">{contextMessage.trim()}</p>
               </div>
             )}
+            </div>
+            <div className="relative hidden aspect-[3/2] w-full md:block">
+              <Image src="/images/macbook.webp" alt="Painel de análise de vendas do iMenu em um MacBook" fill sizes="260px" className="object-contain" />
+            </div>
+            </div>
           </header>
 
           <div className="px-5 py-6 sm:px-8">
