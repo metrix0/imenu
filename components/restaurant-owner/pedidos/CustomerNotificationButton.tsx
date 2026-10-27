@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Bell, LockKeyhole } from "lucide-react";
+import { PanelIcon } from "@/components/ui/PanelIcon";
+import { faBell, faLock } from "@fortawesome/free-solid-svg-icons";
 import Tooltip from "@/components/ui/Tooltip";
 import { hasQrTableAccess } from "@/lib/qr-table/types";
 import { IA_PLUS_FEATURE_MESSAGE } from "@/lib/addons/products";
@@ -57,7 +58,7 @@ export default function CustomerNotificationButton({orderId,restaurantId}:{order
     return <>
         <Tooltip text={plus===false?IA_PLUS_FEATURE_MESSAGE:""} parentClassName="w-full" showOnClick>
         <Button variant="secondary" className="w-full gap-2" disabled={busy||sent||plus===null} loading={busy} onClick={()=>void notify()}>
-            {plus===false?<LockKeyhole size={16} aria-hidden="true"/>:<Bell size={16} aria-hidden="true"/>}
+            <PanelIcon icon={plus===false?faLock:faBell} className="shrink-0" aria-hidden="true"/>
             {sent?"Notificação solicitada":"Notificar Cliente (Pedido Chegou)"}
         </Button>
         </Tooltip>
