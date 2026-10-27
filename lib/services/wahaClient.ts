@@ -635,7 +635,7 @@ function sendWahaListRequest(
     sessionName: string,
     chatId: string,
     rows: WahaListRow[],
-    options?: { button?: string }
+    options?: { button?: string; title?: string; description?: string; footer?: string; sectionTitle?: string }
 ): Promise<unknown> {
     return wahaRequest<unknown>(
         "/api/sendList",
@@ -646,13 +646,13 @@ function sendWahaListRequest(
                 chatId,
                 reply_to: null,
                 message: {
-                    title: "Atendimento iMenu",
-                    description: "Escolha uma opção para continuar:",
-                    footer: "Toque em uma opção abaixo",
+                    title: options?.title || "Atendimento iMenu",
+                    description: options?.description || "Escolha uma opção para continuar:",
+                    footer: options?.footer || "Toque em uma opção abaixo",
                     button: options?.button || "Ver opções",
                     sections: [
                         {
-                            title: "Como posso ajudar?",
+                            title: options?.sectionTitle || "Como posso ajudar?",
                             rows: rows.map((row) => ({
                                 title: row.title,
                                 rowId: row.rowId,
@@ -705,7 +705,7 @@ export async function sendWahaList(
     sessionName: string,
     chatId: string,
     rows: WahaListRow[],
-    options?: { button?: string }
+    options?: { button?: string; title?: string; description?: string; footer?: string; sectionTitle?: string }
 ): Promise<unknown> {
     try {
         return await sendWahaListRequest(sessionName, chatId, rows, options);
@@ -747,4 +747,17 @@ export async function sendWahaImage(sessionName: string, chatId: string, url: st
     const {default:sharp} = await import("sharp");
     const image = await sharp(Buffer.concat(chunks),{limitInputPixels:40_000_000}).rotate().resize({width:1200,height:1200,fit:"inside",withoutEnlargement:true}).flatten({background:"#ffffff"}).jpeg({quality:85}).toBuffer();
     return wahaRequest<unknown>("/api/sendImage", { method: "POST", body: JSON.stringify({session:sessionName,chatId,file:{mimetype:"image/jpeg",filename:"produto.jpg",data:image.toString("base64")},caption}) }, WAHA_SEND_TIMEOUT_MS);
+}
+
+export async function getWahaPhoneLid(sessionName: string, phone: string): Promise<string | null> {
+    const result = await wahaRequest<{ lid?: string | null }>(
+        "/api/" + encodeURIComponent(sessionName) + "/lids/pn/" + encodeURIComponent(phone)
+    );
+    return result.lid || null;
+}
+export async function sendWahaOrderOptions(sessionName: string, chatId: string, text: string, rows: WahaListRow[]): Promise<unknown> {
+    return sendWahaListRequest(sessionName, chatId, rows, {
+        title: "Atualização do pedido", description: text, footer: "Responda abaixo",
+        button: rows[0]?.title || "Responder", sectionTitle: "Seu pedido",
+    });
 }

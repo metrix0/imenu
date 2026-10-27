@@ -91,7 +91,7 @@ async function handle(request: NextRequest, save: boolean) {
             { status: 400 },
           );
       await query(
-        `INSERT INTO whatsapp_bot_settings(restaurant_id,automations) VALUES($1,$2::jsonb) ON CONFLICT(restaurant_id) DO UPDATE SET automations=EXCLUDED.automations,updated_at=now()`,
+        `INSERT INTO whatsapp_bot_settings(restaurant_id,automations) VALUES($1,$2::jsonb) ON CONFLICT(restaurant_id) DO UPDATE SET automations=COALESCE(whatsapp_bot_settings.automations,'{}'::jsonb) || EXCLUDED.automations,updated_at=now()`,
         [id, JSON.stringify(settings)],
       );
       return NextResponse.json({ settings });

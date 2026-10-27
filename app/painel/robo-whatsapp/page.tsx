@@ -24,6 +24,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 
+import OrderNotificationSettings from "@/components/restaurant-owner/pedidos/OrderNotificationSettings";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Loader from "@/components/ui/Loader";
@@ -143,7 +144,7 @@ const TEMPLATE_FIELDS: TemplateField[] = [
     {
         key: "status_notification",
         title: "Atualização automática do pedido",
-        description: "Enviada quando o status do pedido realmente muda.",
+        description: "Enviada quando o pedido sai para entrega, fica pronto no balcão ou o entregador notifica a chegada.",
         variables: [...BASE_VARIABLES, "NUMERO_DO_PEDIDO", "STATUS_DO_PEDIDO"],
     },
 ];
@@ -218,6 +219,7 @@ function connectionPresentation(connection: WhatsAppConnection | null) {
 export default function RoboWhatsAppPage() {
     const { restaurantId, setRestaurantId } = useCreationStore();
     const editorRefs = useRef<Record<string, TemplateEditorHandle | null>>({});
+    const [notificationSettings,setNotificationSettings]=useState<{plus:boolean;enabled:boolean}|null>(null);
     const [loading, setLoading] = useState(true);
     const [whatsAppAction, setWhatsAppAction] = useState<
         "connect" | "reconnect" | "refresh_qr" | "disconnect" | null
@@ -329,6 +331,7 @@ export default function RoboWhatsAppPage() {
             }
 
             if (settingsResponse.ok) {
+                setNotificationSettings({plus:settingsData.plus===true,enabled:settingsData.orderNotificationsEnabled===true});
                 setTemplates(settingsData.templates);
                 setVariables(settingsData.variables || []);
                 setHandoffs(settingsData.conversations || []);
@@ -613,6 +616,7 @@ export default function RoboWhatsAppPage() {
                     </Card>
                 )}
 
+                {restaurantId && notificationSettings && <OrderNotificationSettings key={restaurantId} restaurantId={restaurantId} plus={notificationSettings.plus} initialEnabled={notificationSettings.enabled}/>}
                 <Card id="atendimentos-humanos" className="border border-gray-200 p-7">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="flex items-start gap-4">

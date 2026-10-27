@@ -1,3 +1,4 @@
+import { handleOrderNotificationReply } from "@/lib/services/whatsappNotification";
 import { getCrmReply } from "@/lib/services/crmAutomations";
 import { query, withAdvisoryLock, withTransaction } from "@/lib/database/sql";
 import { sendOwnerPush } from "@/lib/push/server";
@@ -431,7 +432,7 @@ async function claimOutboundMessage({
     if (Math.random() < 0.02) {
         void query(
             `DELETE FROM whatsapp_outbound_messages
-             WHERE created_at < NOW() - INTERVAL '48 hours' AND (automation_type IS NULL OR automation_type NOT IN ('cart','habit','reactivation'))`
+             WHERE dedupe_key NOT LIKE 'order:%' AND created_at < NOW() - INTERVAL '48 hours' AND (automation_type IS NULL OR automation_type NOT IN ('cart','habit','reactivation'))`
         ).catch((error) =>
             console.warn("[WHATSAPP_AUTOMATION] Outbound cleanup failed:", error)
         );
@@ -843,6 +844,8 @@ export async function processIncomingWhatsAppMessage({
     const prepared = await withAdvisoryLock(`${restaurantId}:${chatId}`, () =>
         prepareConversation(restaurantId, chatId, customerName)
     );
+
+    if (await handleOrderNotificationReply(restaurantId, sessionName, chatId, body, phone)) return;
 
     if (prepared.state === "human") {
         console.info("[WHATSAPP_AUTOMATION] inbound_suppressed_human", {

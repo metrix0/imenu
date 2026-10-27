@@ -15,6 +15,7 @@ import {
     faBagShopping,
     faStore
 } from "@fortawesome/free-solid-svg-icons";
+import CustomerNotificationButton from "@/components/restaurant-owner/pedidos/CustomerNotificationButton";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Tooltip from "@/components/ui/Tooltip";
@@ -575,6 +576,9 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
                                 <FontAwesomeIcon icon={faEye} />
                             </Button>
                         </div>
+                    )}
+                    {deliveryOnly && order.status === "delivering" && order.restaurant_id && (
+                        <CustomerNotificationButton orderId={order.id} restaurantId={order.restaurant_id} />
                     )}
                 </div>
             </div>

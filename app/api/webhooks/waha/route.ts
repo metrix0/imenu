@@ -126,7 +126,6 @@ function firstNonEmptyString(values: unknown[]): string {
 
 function extractIncomingBody(payload: Record<string, any>): string {
     return firstNonEmptyString([
-        payload.body,
         payload.selectedRowId,
         payload.selectedRowID,
         payload.listResponse?.singleSelectReply?.selectedRowId,
@@ -147,6 +146,7 @@ function extractIncomingBody(payload: Record<string, any>): string {
             ?.SelectedRowID,
         payload._data?.Message?.ListResponseMessage?.SingleSelectReply
             ?.SelectedRowId,
+        payload.body,
     ]);
 }
 
@@ -579,6 +579,9 @@ export async function POST(request: NextRequest) {
                     ? "menu_link"
                     : selectedRowId || extractIncomingBody(payload);
             if (isGeneratedOrderMessage(incomingBody)) {
+                await query(`INSERT INTO whatsapp_conversations (restaurant_id,chat_id,mode,last_inbound_at,updated_at)
+                    VALUES ($1,$2,'bot',NOW(),NOW()) ON CONFLICT (restaurant_id,chat_id)
+                    DO UPDATE SET last_inbound_at=NOW(),updated_at=NOW()`, [connection.restaurant_id,chatId]);
                 return NextResponse.json({ ok: true, ignored: "order_message" });
             }
 
