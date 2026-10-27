@@ -10,13 +10,13 @@ import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
 import { Bot, FileDown, Headset, Megaphone, MessageCircle, ScanLine, ShoppingCart, Sparkles, Store, TrendingUp, type LucideIcon } from "lucide-react";
 
-const PLUS_FEATURE_ICONS: Record<string, LucideIcon> = {
+export const PLUS_FEATURE_ICONS: Record<string, LucideIcon> = {
     "Automações de Marketing WhatsApp": Megaphone,
     "Assistente IA": Bot,
     "Vendas IA": TrendingUp,
 };
 
-const PLUS_BONUS_ICONS: Record<string, LucideIcon> = {
+export const PLUS_BONUS_ICONS: Record<string, LucideIcon> = {
     "Atendimento exclusivo": Headset,
     "Upsells automáticos": ShoppingCart,
     "Modo vitrine": Store,
