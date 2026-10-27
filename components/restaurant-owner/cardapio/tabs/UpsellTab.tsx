@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useMemo } from "react";
+import { Lock } from "lucide-react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
 import Modal from "@/components/ui/Modal";
@@ -9,6 +10,10 @@ import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
 import ListLoader from "@/components/ui/ListLoader";
 import Switch from "@/components/ui/Switch";
+import Tooltip from "@/components/ui/Tooltip";
+import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
+import { IA_PLUS_FEATURE_MESSAGE } from "@/lib/addons/products";
+import { qrTableAuthenticatedFetch } from "@/lib/qr-table/clientApi";
 
 type Props = {
     restaurantId: string;
@@ -26,6 +31,8 @@ export default function UpsellTab({ restaurantId, items }: Props) {
     const [automaticLoading, setAutomaticLoading] = useState(true);
     const [automaticSaving, setAutomaticSaving] = useState(false);
     const [automaticError, setAutomaticError] = useState<string | null>(null);
+    const [plusActive, setPlusActive] = useState<boolean | null>(null);
+    const [plusModalOpen, setPlusModalOpen] = useState(false);
 
 
     useEffect(() => {
@@ -89,7 +96,33 @@ export default function UpsellTab({ restaurantId, items }: Props) {
         return () => { active = false; };
     }, [restaurantId]);
 
+    const loadPlusAccess = async () => {
+        setPlusActive(null);
+        try {
+            const response = await qrTableAuthenticatedFetch(
+                `/api/addons/billing?restaurantId=${encodeURIComponent(restaurantId)}`,
+                { cache: "no-store" }
+            );
+            if (!response.ok) throw new Error("Não foi possível verificar sua assinatura.");
+            const data = (await response.json()) as {
+                addons?: Array<{ addon: { product_key: string }; active: boolean }>;
+            };
+            setPlusActive(data.addons?.some(row => row.addon.product_key === "ia_plus" && row.active) === true);
+        } catch (error) {
+            setAutomaticError(error instanceof Error ? error.message : "Não foi possível verificar sua assinatura.");
+        }
+    };
+
+    useEffect(() => {
+        void loadPlusAccess();
+    }, [restaurantId]);
+
     const toggleAutomatic = async () => {
+        if (plusActive === false) {
+            setPlusModalOpen(true);
+            return;
+        }
+        if (plusActive === null) return;
         if (automaticSaving || automaticLoading) return;
         const next = !automaticEnabled;
         setAutomaticSaving(true);
@@ -98,7 +131,13 @@ export default function UpsellTab({ restaurantId, items }: Props) {
             { restaurant_id: restaurantId, enabled: next },
             { onConflict: "restaurant_id" }
         );
-        if (error) setAutomaticError("Não foi possível salvar. Tente novamente.");
+        if (error) {
+            if (error.code === "42501") {
+                setPlusActive(false);
+                setPlusModalOpen(true);
+            }
+            setAutomaticError("Não foi possível salvar. Tente novamente.");
+        }
         else setAutomaticEnabled(next);
         setAutomaticSaving(false);
     };
@@ -173,8 +212,14 @@ export default function UpsellTab({ restaurantId, items }: Props) {
                     </p>
                     {automaticError && <p className="mt-2 text-xs text-red-600" role="alert">{automaticError}</p>}
                 </div>
-                <Switch checked={automaticEnabled} disabled={automaticLoading || automaticSaving}
-                    aria-label="Upsell Automático" onClick={toggleAutomatic} />
+                <Tooltip text={plusActive === false ? IA_PLUS_FEATURE_MESSAGE : ""} parentClassName="shrink-0">
+                    <div className="flex items-center gap-2">
+                        {plusActive === false && <Lock size={14} className="text-gray-500" aria-hidden="true" />}
+                        <Switch checked={plusActive === true && automaticEnabled}
+                            disabled={automaticLoading || automaticSaving || plusActive === null}
+                            aria-label="Upsell Automático" onClick={toggleAutomatic} />
+                    </div>
+                </Tooltip>
             </div>
             <div>
                 <h2 className="text-xl font-semibold">
@@ -257,6 +302,14 @@ export default function UpsellTab({ restaurantId, items }: Props) {
                     </>
                 )
             }
+
+            <IaPlusSalesModal
+                open={plusModalOpen}
+                onClose={() => setPlusModalOpen(false)}
+                restaurantId={restaurantId}
+                contextMessage="Para ativar o Upsell Automático e recomendar produtos com base nas compras, assine o iMenu Plus."
+                onPaid={() => { setPlusModalOpen(false); void loadPlusAccess(); }}
+            />
 
             {/* Modal */}
             <Modal height={660} open={open} onClose={() => setOpen(false)}>
