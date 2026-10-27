@@ -66,6 +66,6 @@ export default function CustomerNotificationButton({orderId,restaurantId}:{order
         <ConfirmModal open={confirm} onClose={()=>{if(!busy)setConfirm(false);}} onConfirm={()=>void notify(true)} isLoading={busy}
             variant="primary" title="Notificar cliente?" confirmLabel="Enviar notificação"
             description="Este cliente não enviou mensagens ao WhatsApp do restaurante nos últimos 7 dias. Enviaremos um aviso de que o entregador chegou e está aguardando no local." />
-        <IaPlusSalesModal contextMessage="Com o iMenu Plus, avise o cliente pelo WhatsApp quando o entregador chegar e receba a confirmação de retirada do pedido." open={plusModal} onClose={()=>setPlusModal(false)} restaurantId={restaurantId}/>
+        <IaPlusSalesModal contextMessage="Com o iMenu Plus, avise o cliente pelo WhatsApp quando o entregador chegar." open={plusModal} onClose={()=>setPlusModal(false)} restaurantId={restaurantId}/>
     </>;
 }
