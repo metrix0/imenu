@@ -1,6 +1,5 @@
 import {
   asksAboutWholeMenu,
-  isMenuCorrectnessAudit,
   ensureSalesAnalysisBridge,
   runChat,
   chatApproval,
@@ -123,15 +122,6 @@ test.each([
   expect(asksAboutWholeMenu(message)).toBe(false);
 });
 
-test.each([
-  ["Faça uma auditoria de correção e consistência do meu cardápio", true],
-  ["Confira a consistência do menu", true],
-  ["Analise meu cardápio para aumentar vendas", false],
-  ["Corrija meu perfil", false],
-])("correctness audit intent: %s", (message, expected) => {
-  expect(isMenuCorrectnessAudit(message)).toBe(expected);
-});
-
 test("Vendas IA CTA always has a textual bridge", () => {
   const cards = [{ type: "sales_analysis_cta" }];
 
@@ -225,28 +215,6 @@ test("assistant offers targeted reads and a compact field guide", async () => {
   expect(request.input[0].content).toContain("Campos disponíveis");
   expect(request.input[0].content).toContain("items: ");
   expect(request.input[0].content).not.toContain('"nullable":false');
-});
-
-test("menu correctness audit has read-only tools without sales redirection", async () => {
-  (query as jest.Mock).mockImplementation(async (sql: string) => ({
-    rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
-      ? [{ kind: "chat", summary: "" }]
-      : sql.includes("RETURNING id") ? [{ id: "user" }] : [],
-  }));
-  create.mockResolvedValueOnce({
-    status: "completed", output: [],
-    output_text: JSON.stringify({ reply: "Cardápio revisado.", summary: "" }),
-    usage: { input_tokens: 100, output_tokens: 10 },
-  });
-  await runChat({
-    ...args, deep: false,
-    text: "Faça uma auditoria de correção e consistência do meu cardápio",
-  });
-  const request = create.mock.calls[0][0];
-  expect(request.tools.map((item: any) => item.name)).toContain("read_data");
-  expect(request.tools.map((item: any) => item.name)).not.toContain("propose_action");
-  expect(request.input[0].content).toContain("Auditoria de correção e consistência");
-  expect(request.input[0].content).toContain("Não sugira ajustes de venda ou Vendas IA");
 });
 
 test("assistant snapshot keeps useful data but omits heavy fields", () => {

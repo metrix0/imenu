@@ -41,9 +41,6 @@ import { isPanelTabKey, type PanelTabKey } from "@/lib/ia-vendas/panelTabs";
 import { SupportWhatsappBadge } from "@/components/common/SupportButton";
 import { capturePosthogLightweight } from "@/lib/api/instrumentation-client";
 
-const MENU_CORRECTNESS_PROMPT =
-  "Faça uma auditoria de correção e consistência do meu cardápio, sem foco em vendas. Verifique as categorias, todos os itens e os complementos, paginando os dados quando necessário. Identifique erros de cadastro, duplicidades, problemas de ortografia, descrições contraditórias, preços e quantidades incoerentes, limites de complementos impossíveis e conflitos entre disponibilidade e estoque. Cite os produtos afetados, separe problemas comprovados de suspeitas e não altere nada.";
-
 const IA_CAPACITY_SUPPORT_SUFFIX =
   "Caso precise de mais limite ou ajuda, entre em contato com o suporte.";
 
@@ -149,38 +146,6 @@ export default function SalesPage() {
     setPlusContext(context);
     setPlusModal("sales");
   }, []);
-  const menuReviewStarted = useRef(false);
-  useEffect(() => {
-    if (
-      isAnalysisRoute || menuReviewStarted.current || !restaurant ||
-      sales.restaurant_id !== restaurant || sales.loading ||
-      sales.acting || sales.busy || !sales.access ||
-      new URLSearchParams(window.location.search).get("revisao-cardapio") !== "1"
-    ) return;
-
-    menuReviewStarted.current = true;
-    const url = new URL(window.location.href);
-    url.searchParams.delete("revisao-cardapio");
-    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
-
-    if (!sales.access.plus && Number(sales.access.tokens_remaining) <= 0) {
-      setNewConversation(true);
-      setText(MENU_CORRECTNESS_PROMPT);
-      openPlus("Você atingiu o limite gratuito do Assistente IA. Assine o iMenu Plus para continuar a revisão do cardápio.");
-      return;
-    }
-
-    void (async () => {
-      setNewConversation(true);
-      const created = await useSalesStore.getState().command("create_conversation");
-      if (!created?.id) {
-        setText(MENU_CORRECTNESS_PROMPT);
-        return;
-      }
-      setNewConversation(false);
-      await useSalesStore.getState().send(MENU_CORRECTNESS_PROMPT, [], false);
-    })();
-  }, [isAnalysisRoute, restaurant, sales.restaurant_id, sales.loading, sales.acting, sales.busy, sales.access, openPlus]);
   useEffect(() => {
     if (!sales.conversations.length || sales.loading) return;
     if (!isAnalysisRoute && newConversation) return;

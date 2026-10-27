@@ -1,9 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Sparkles } from "lucide-react";
-import Button from "@/components/ui/Button";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import Loader from "@/components/ui/Loader";
@@ -30,7 +27,6 @@ const TABS = [
 ];
 
 export default function MenuManagerPage() {
-    const router = useRouter();
     const { restaurantId, setRestaurantId } = useCreationStore();
 
     const [activeTab, setActiveTab] = useState("Cardápio");
@@ -280,22 +276,11 @@ export default function MenuManagerPage() {
                 }
             `}</style>
 
-            <div className="flex min-w-0 max-w-full flex-wrap items-start justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Cardápio</h1>
-                    <p className="text-gray-500 mt-1 2xl:text-lg">
-                        Defina quais os itens seus clientes podem pedir.
-                    </p>
-                </div>
-                <Button
-                    type="button"
-                    variant="secondary"
-                    className="gap-2"
-                    onClick={() => router.push("/painel/assistente-ia?revisao-cardapio=1")}
-                >
-                    <Sparkles size={16} aria-hidden="true" />
-                    Analisar meu cardápio com IA
-                </Button>
+            <div className="min-w-0 max-w-full">
+                <h1 className="text-3xl font-bold text-gray-900">Cardápio</h1>
+                <p className="text-gray-500 mt-1 2xl:text-lg">
+                    Defina quais os itens seus clientes podem pedir.
+                </p>
             </div>
 
             <div className="max-w-full overflow-hidden border-b border-gray-200">
