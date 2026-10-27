@@ -4,7 +4,7 @@ import { LegacyModalClose } from "@/components/ui/ModalCloseButton";
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import { faTimes, faUser, faMapMarkerAlt, faClock, faReceipt, faCheck, faMotorcycle, faCalendarDays, faChair, faPenToSquare, faBan } from "@fortawesome/free-solid-svg-icons";
+import { faTimes, faUser, faMapMarkerAlt, faClock, faReceipt, faCheck, faMotorcycle, faCalendarDays, faChair, faPenToSquare, faBan, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { icons } from "@/lib/utils/fontawesome";
 import Modal from "@/components/ui/Modal";
 import ConfirmModal from "@/components/ui/ConfirmModal";
@@ -481,9 +481,13 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                     <FontAwesomeIcon icon={faBan} className="mr-2" /> Rejeitar
                                 </Button>
                             )}
+                            {onDeleteOrder && order && details && (
+                                <Button variant="secondary" onClick={() => onDeleteOrder(order)} disabled={isUpdating} className="text-red-600 hover:bg-red-50 border-red-200">
+                                    <FontAwesomeIcon icon={faTrash} className="mr-2" /> Excluir
+                                </Button>
+                            )}
                         </div>
                         <div className="flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-end gap-2">
-                            {onDeleteOrder && order && details && <Button variant="secondary" onClick={() => onDeleteOrder(order)} disabled={isUpdating} className="text-red-600 hover:bg-red-50 border-red-200">Excluir</Button>}
                             {renderActions()}
                             {(!renderActions() || isUpdating) && (
                                 <Button variant="secondary" onClick={onClose} disabled={isUpdating}>Fechar</Button>
