@@ -16,6 +16,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { icons } from "@/lib/utils/fontawesome";
 import Button from "@/components/ui/Button";
+import Badge from "@/components/ui/Badge";
 import PanelShortcutPrompt from "@/components/ui/PanelShortcutPrompt";
 import Tooltip from "@/components/ui/Tooltip";
 import Footer from "@/components/common/Footer";
@@ -53,67 +54,67 @@ const RESOURCE_SECTIONS: readonly { title: string; imenu?: string; competitor?: 
     {
         title: "Cardápio Digital Ilimitado",
         imenu: "check",
-        competitor: "Condições variam por plano",
+        competitor: "limited",
         rows: [
-            ["Aplicativo para celular","check","Varia por plataforma"],
-            ["Seu domínio customizado","check","Varia por plataforma"],
-            ["SEO (automático, mais vendas)","check","Varia por plataforma"],
-            ["Fotos em Alta qualidade","check","Varia por plataforma"],
-            ["Customização de opcionais","check","Varia por plataforma"],
-            ["Identidade visual personalizada","check","Varia por plataforma"],
-            ["Sem marca d'água","check","Varia por plataforma"],
-            ["Modo Vitrine (cardápio sem pedidos)","check","Varia por plataforma"],
-            ["Dividir Pizza em vários sabores","check","Varia por plataforma"],
+            ["Aplicativo para celular","check","limited"],
+            ["Seu domínio customizado","check","limited"],
+            ["SEO (automático, mais vendas)","check","limited"],
+            ["Fotos em Alta qualidade","check","limited"],
+            ["Customização de opcionais","check","limited"],
+            ["Identidade visual personalizada","check","limited"],
+            ["Sem marca d'água","check","limited"],
+            ["Modo Vitrine (cardápio sem pedidos)","check","limited"],
+            ["Dividir Pizza em vários sabores","check","limited"],
         ],
     },
     {
         title: "Pedidos e Delivery",
         rows: [
-            ["Pedidos ilimitados","check","Limites variam por plano"],
-            ["Robô WhatsApp","check","Disponibilidade varia por plano"],
-            ["Alta conversão","check","Resultados variam por operação"],
-            ["Acompanhamento do pedido","Acompanhamento na Página e no WhatsApp","Recursos variam por plataforma"],
-            ["Taxa por Transação","SEM TAXAS. Apenas Pix Online: 0,99% por pedido.","Taxas variam por serviço"],
-            ["Agendamento de pedido","check","Varia por plataforma"],
-            ['Modo "Só trabalho com Encomendas"',"check","Varia por plataforma"],
-            ["Notificações de pedidos","No celular e via WhatsApp para restaurante e cliente","Varia por plataforma"],
-            ["Atualizar cliente sobre status do pedido via WhatsApp","iMenu Plus","Varia por plataforma"],
+            ["Pedidos ilimitados","check","limited"],
+            ["Robô WhatsApp","check","limited"],
+            ["Alta conversão","check","limited"],
+            ["Acompanhamento do pedido","Acompanhamento na Página e no WhatsApp","limited"],
+            ["Taxa por Transação","SEM TAXAS. Apenas Pix Online: 0,99% por pedido.","limited"],
+            ["Agendamento de pedido","check","limited"],
+            ['Modo "Só trabalho com Encomendas"',"check","limited"],
+            ["Notificações de pedidos","No celular e via WhatsApp para restaurante e cliente","limited"],
+            ["Atualizar cliente sobre status do pedido via WhatsApp","iMenu Plus","limited"],
         ],
     },
     {
         title: "Operação e CRM",
         rows: [
-            ["CRM","check","Limitado"],
-            ["Rastreio de hábitos de consumo com IA","iMenu Plus","Varia por plataforma"],
-            ["Gestor de pedidos (balcão)","check","Varia por plataforma"],
-            ["Impressão dos pedidos","check","Varia por plataforma"],
-            ["Suporte humanizado","Todos os dias","Canais e horários variam"],
-            ["Painel Financeiro","check","Varia por plataforma"],
-            ["Fechamento de Caixa","check","Varia por plataforma"],
-            ["QR Code na mesa","Grátis","Condições variam por plano"],
-            ["Painel do Garçom","Grátis","Varia por plataforma"],
-            ["Bugs Corrigidos em 1 dia útil","check","Prazos variam por plataforma"],
-            ["Solicitação de integrações e funcionalidades","IA Plus","Varia por plataforma"],
+            ["CRM","check","limited"],
+            ["Rastreio de hábitos de consumo com IA","iMenu Plus","limited"],
+            ["Gestor de pedidos (balcão)","check","limited"],
+            ["Impressão dos pedidos","check","limited"],
+            ["Suporte humanizado","Todos os dias","limited"],
+            ["Painel Financeiro","check","limited"],
+            ["Fechamento de Caixa","check","limited"],
+            ["QR Code na mesa","Grátis","limited"],
+            ["Painel do Garçom","Grátis","limited"],
+            ["Bugs Corrigidos em 1 dia útil","check","limited"],
+            ["Solicitação de integrações e funcionalidades","IA Plus","limited"],
         ],
     },
     {
         title: "Marketing e Analytics",
         rows: [
-            ["Link para WhatsApp e redes","check","Varia por plataforma"],
-            ["Cupons de desconto","check","Varia por plataforma"],
-            ["Google Analytics Integrado","check","Varia por plataforma"],
-            ["Pixel Meta (Facebook/Instagram) Integrado","check","Varia por plataforma"],
-            ["Relatórios e Analytics","Cliques, visualizações do cardápio, valor médio do carrinho e origem dos acessos","Varia por plataforma"],
-            ["Mensagens de Marketing Automáticas","iMenu Plus","Varia por plataforma"],
+            ["Link para WhatsApp e redes","check","limited"],
+            ["Cupons de desconto","check","limited"],
+            ["Google Analytics Integrado","check","limited"],
+            ["Pixel Meta (Facebook/Instagram) Integrado","check","limited"],
+            ["Relatórios e Analytics","Cliques, visualizações do cardápio, valor médio do carrinho e origem dos acessos","limited"],
+            ["Mensagens de Marketing Automáticas","iMenu Plus","limited"],
         ],
     },
     {
         title: "Inteligência Artificial",
         rows: [
-            ["Assistente IA","check","Varia por plataforma"],
-            ["Análise avançada com IA","IA Plus","Varia por plataforma"],
-            ["Scanear Cardápio com IA","Envie Fotos, PDFs ou Links e tenha o cardápio pronto em segundos","Varia por plataforma"],
-            ["Geração de imagens com IA","IA Plus","Varia por plataforma"],
+            ["Assistente IA","check","limited"],
+            ["Análise avançada com IA","IA Plus","limited"],
+            ["Scanear Cardápio com IA","Envie Fotos, PDFs ou Links e tenha o cardápio pronto em segundos","limited"],
+            ["Geração de imagens com IA","IA Plus","limited"],
         ],
     },
 ];
@@ -156,6 +157,17 @@ const PANEL_LOGIN_CLICK_COUNT_KEY = "imenu:landing-panel-login-clicks";
 const PANEL_AUTO_REDIRECT_KEY = "imenu:landing-panel-auto-redirect";
 const PANEL_PROMPT_DISMISSED_KEY = "imenu:landing-panel-prompt-dismissed";
 const PANEL_PROMPT_CLICK_THRESHOLD = 2;
+
+function ResourceAvailabilityLabel({ kind }: { kind: "free" | "limited" }) {
+    const free = kind === "free";
+
+    return (
+        <Badge variant={free ? "success" : "danger"} className="gap-1.5 whitespace-nowrap">
+            <FontAwesomeIcon icon={free ? icons.faCheck : icons.faXmark} aria-hidden="true" />
+            {free ? "Grátis" : "Pago ou limitado"}
+        </Badge>
+    );
+}
 
 export default function LandingPage() {
     const router = useRouter();
@@ -602,24 +614,28 @@ export default function LandingPage() {
                                         </th>
                                         <td className="border-r border-gray-200 text-center">
                                             {section.imenu === "check" ? (
-                                                <FontAwesomeIcon icon={icons.faCheck} className="text-green" />
+                                                <ResourceAvailabilityLabel kind="free" />
                                             ) : (
                                                 section.imenu
                                             )}
                                         </td>
-                                        <td className="text-center">{section.competitor}</td>
+                                        <td className="text-center">
+                                            {section.competitor === "limited" ? <ResourceAvailabilityLabel kind="limited" /> : section.competitor}
+                                        </td>
                                     </tr>
                                     {section.rows.map(([feature, imenu, competitor]) => (
                                         <tr key={feature}>
                                             <td className="border-r border-gray-200"><span className="block pl-4 sm:pl-6">{feature}</span></td>
                                             <td className="border-r border-gray-200 text-center">
                                                 {imenu === "check" ? (
-                                                    <FontAwesomeIcon icon={icons.faCheck} className="text-green" />
+                                                    <ResourceAvailabilityLabel kind="free" />
                                                 ) : (
                                                     imenu
                                                 )}
                                             </td>
-                                            <td className="text-center">{competitor}</td>
+                                            <td className="text-center">
+                                                {competitor === "limited" ? <ResourceAvailabilityLabel kind="limited" /> : competitor}
+                                            </td>
                                         </tr>
                                     ))}
                                     {section.title === "Operação e CRM" && (
@@ -640,7 +656,9 @@ export default function LandingPage() {
                                                             />
                                                         </Tooltip>
                                                     </td>
-                                                    <td className="text-center">{competitor}</td>
+                                                    <td className="text-center">
+                                                {competitor === "limited" ? <ResourceAvailabilityLabel kind="limited" /> : competitor}
+                                            </td>
                                                 </tr>
                                             ))}
 
