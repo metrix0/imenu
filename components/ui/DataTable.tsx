@@ -8,7 +8,7 @@ export type TableColumn<T> = { key: string; label: string; render: (row: T) => R
 
 export default function DataTable<T>({ columns, rows, rowKey, onRowClick, loading, emptyMessage = "Nenhum resultado encontrado.", sortKey, sortDirection = "desc", onSort }: {
     columns: TableColumn<T>[]; rows: T[]; rowKey: (row: T) => string;
-    onRowClick?: (row: T) => void; loading?: boolean; emptyMessage?: string;
+    onRowClick?: (row: T) => void; loading?: boolean; emptyMessage?: ReactNode;
     sortKey?: string; sortDirection?: "asc" | "desc"; onSort?: (key: string) => void;
 }) {
     return <div data-ui="table" className="overflow-x-auto rounded-[10px] border border-[#e2e5e9] bg-white">

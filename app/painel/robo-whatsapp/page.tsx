@@ -575,20 +575,22 @@ export default function RoboWhatsAppPage() {
                             )}
                         </div>
                     </div>
-                    <div id="atendimentos-humanos" aria-labelledby="clientes-whatsapp-title" className={`mt-6 [&_th]:py-3 ${handoffs.length === 0 ? "[&_table]:table-auto @min-[720px]:[&_table]:table-fixed [&_td]:py-4" : "[&_table]:table-fixed"}`}>
-                        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                            <h3 id="clientes-whatsapp-title" className="!text-sm !leading-5 font-semibold text-gray-900">
-                                Clientes encaminhados pelo WhatsApp
-                            </h3>
-                            {pendingHandoffs > 0 && (
+                    <div id="atendimentos-humanos" aria-label="Conversas encaminhadas para atendimento humano" className={`mt-4 [&_th]:py-3 ${handoffs.length === 0 ? "[&_table]:table-auto @min-[720px]:[&_table]:table-fixed [&_td]:py-4" : "[&_table]:table-fixed"}`}>
+                        {pendingHandoffs > 0 && (
+                            <div className="mb-2 flex justify-end">
                                 <Badge variant="warning">
                                     {pendingHandoffs} aguardando
                                 </Badge>
-                            )}
-                        </div>
+                            </div>
+                        )}
                         <DataTable
                             rows={handoffs}
-                            emptyMessage="Nenhum cliente encaminhado pelo WhatsApp recentemente."
+                            emptyMessage={
+                                <div className="mx-auto flex max-w-lg flex-col items-center gap-2">
+                                    <FontAwesomeIcon icon={faWhatsapp} className="text-xl text-gray-400" aria-hidden="true" />
+                                    <p>As conversas encaminhadas para atendimento humano ficam aqui. Você também receberá uma notificação!</p>
+                                </div>
+                            }
                             rowKey={(handoff) => handoff.chat_id}
                             columns={[
                                 {
@@ -723,9 +725,6 @@ export default function RoboWhatsAppPage() {
                     </Card>
                 )}
 
-                {restaurantId && notificationSettings && <OrderNotificationSettings key={restaurantId} restaurantId={restaurantId} plus={notificationSettings.plus} initialEnabled={notificationSettings.enabled}/>}
-
-
                 {templates && (
                     <Card className="border border-gray-200 p-7">
                         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -818,6 +817,8 @@ export default function RoboWhatsAppPage() {
                         </div>
                     </Card>
                 )}
+
+                {restaurantId && notificationSettings && <OrderNotificationSettings key={restaurantId} restaurantId={restaurantId} plus={notificationSettings.plus} initialEnabled={notificationSettings.enabled}/>}
 
                 <Card className="border border-gray-200 p-7">
                     <h3 className="text-lg font-semibold text-gray-900">
