@@ -504,146 +504,88 @@ export default function RoboWhatsAppPage() {
             </p>
 
             <div className="space-y-6">
-                <Card className="border border-gray-200 p-7">
-                    <div className="flex items-start gap-4">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-green-50 text-2xl text-green-600">
-                            <FontAwesomeIcon icon={faWhatsapp} />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                                <h2 className="text-xl font-semibold text-gray-900">
-                                    WhatsApp do restaurante
-                                </h2>
-                                <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${status.badge}`}>
-                                    {status.label}
-                                </span>
+                <section aria-label="WhatsApp do restaurante">
+                    <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex items-start gap-4">
+                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-green-50 text-2xl text-green-600">
+                                <FontAwesomeIcon icon={faWhatsapp} />
                             </div>
-                            <p className="mt-1 text-sm text-gray-600">{status.description}</p>
-                            {isConnected && (
-                                <p className="mt-2 text-sm font-medium text-gray-800">
-                                    {connection?.push_name || restaurant?.name}
-                                    {connection?.phone ? ` · ${formatPhone(connection.phone)}` : ""}
-                                </p>
-                            )}
-                        </div>
-                    </div>
-
-                    {!connection || connection.desired_state === "disconnected" ? (
-                        <div className="mt-7">
-                            <Button
-                                onClick={() => runWhatsAppAction("connect")}
-                                loading={whatsAppAction === "connect"}
-                            >
-                                <FontAwesomeIcon icon={faQrcode} className="mr-2" />
-                                Conectar WhatsApp
-                            </Button>
-                        </div>
-                    ) : (
-                        <div className="mt-7 flex flex-wrap gap-3">
-                            {(connection.status === "FAILED" ||
-                                connection.status === "STOPPED") && (
-                                <Button
-                                    onClick={() => runWhatsAppAction("reconnect")}
-                                    loading={whatsAppAction === "reconnect"}
-                                >
-                                    <FontAwesomeIcon icon={faRotate} className="mr-2" />
-                                    Tentar reconectar
-                                </Button>
-                            )}
-                            {(connection.status === "FAILED" ||
-                                connection.status === "SCAN_QR_CODE" ||
-                                connection.status === "PASSKEY_REQUIRED") && (
-                                <Button
-                                    variant={connection.status === "FAILED" ? "secondary" : undefined}
-                                    onClick={() => runWhatsAppAction("refresh_qr")}
-                                    loading={whatsAppAction === "refresh_qr"}
-                                >
-                                    <FontAwesomeIcon icon={faRotate} className="mr-2" />
-                                    Gerar novo QR Code
-                                </Button>
-                            )}
-                            <Button
-                                variant="secondary"
-                                onClick={() => runWhatsAppAction("disconnect")}
-                                loading={whatsAppAction === "disconnect"}
-                            >
-                                <FontAwesomeIcon icon={faPowerOff} className="mr-2" />
-                                Desconectar
-                            </Button>
-                        </div>
-                    )}
-                </Card>
-
-                <div
-                    className={`grid transition-[grid-template-rows,opacity,transform] duration-300 ease-out ${
-                        showQr
-                            ? "grid-rows-[1fr] translate-y-0 opacity-100"
-                            : "pointer-events-none grid-rows-[0fr] -translate-y-2 opacity-0"
-                    }`}
-                    aria-hidden={!showQr}
-                    hidden={!showQr}
-                >
-                    <div className="min-h-0 overflow-hidden">
-                        <Card className="border border-blue-200 bg-blue-50/40 p-7">
-                            <div className="grid items-center gap-7 sm:grid-cols-[220px_1fr]">
-                                <div className="flex min-h-[220px] items-center justify-center rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
-                                    {connection?.qr_code_data ? (
-                                        <img
-                                            src={connection.qr_code_data}
-                                            alt="QR Code para conectar o WhatsApp"
-                                            className="h-48 w-48"
-                                        />
-                                    ) : (
-                                        <div className="text-center text-sm text-gray-500">
-                                            Preparando o novo QR Code…
-                                        </div>
-                                    )}
+                            <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <h2 className="text-xl font-semibold text-gray-900">
+                                        WhatsApp do restaurante
+                                    </h2>
+                                    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${status.badge}`}>
+                                        {status.label}
+                                    </span>
                                 </div>
-                                <div>
-                                    <h3 className="text-lg font-semibold text-gray-900">
-                                        Escaneie pelo celular do restaurante
-                                    </h3>
-                                    <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm text-gray-700">
-                                        <li>Abra o WhatsApp no celular.</li>
-                                        <li>Toque no menu <b>⋮</b> no Android ou em <b>Configurações</b> no iPhone.</li>
-                                        <li>Toque em <b>Aparelhos conectados</b>.</li>
-                                        <li>Toque em <b>Conectar um aparelho</b>.</li>
-                                        <li>Aponte a câmera para este QR Code.</li>
-                                    </ol>
-                                    <WarningBox icon={faTriangleExclamation} className="mt-4">
-                                        Depois de conectar, mensagens enviadas manualmente ao cliente irão pausar o robô naquela conversa por 30 minutos, para não interromper a conversa com atendentes humanos.
-                                    </WarningBox>
-                                    <p className="mt-4 text-xs text-gray-500">
-                                        O código muda automaticamente quando expira. Esta tela é atualizada em tempo real, sem precisar recarregar a página.
+                                <p className="mt-1 text-sm text-gray-600">{status.description}</p>
+                                {isConnected && (
+                                    <p className="mt-2 text-sm font-medium text-gray-800">
+                                        {connection?.push_name || restaurant?.name}
+                                        {connection?.phone ? ` · ${formatPhone(connection.phone)}` : ""}
                                     </p>
-                                </div>
+                                )}
                             </div>
-                        </Card>
+                        </div>
+                        <div className="shrink-0">
+                            {!connection || connection.desired_state === "disconnected" ? (
+                                <div className="flex flex-wrap gap-3">
+                                    <Button
+                                        onClick={() => runWhatsAppAction("connect")}
+                                        loading={whatsAppAction === "connect"}
+                                    >
+                                        <FontAwesomeIcon icon={faQrcode} className="mr-2" />
+                                        Conectar WhatsApp
+                                    </Button>
+                                </div>
+                            ) : (
+                                <div className="flex flex-wrap gap-3">
+                                    {(connection.status === "FAILED" ||
+                                        connection.status === "STOPPED") && (
+                                        <Button
+                                            onClick={() => runWhatsAppAction("reconnect")}
+                                            loading={whatsAppAction === "reconnect"}
+                                        >
+                                            <FontAwesomeIcon icon={faRotate} className="mr-2" />
+                                            Tentar reconectar
+                                        </Button>
+                                    )}
+                                    {(connection.status === "FAILED" ||
+                                        connection.status === "SCAN_QR_CODE" ||
+                                        connection.status === "PASSKEY_REQUIRED") && (
+                                        <Button
+                                            variant={connection.status === "FAILED" ? "secondary" : undefined}
+                                            onClick={() => runWhatsAppAction("refresh_qr")}
+                                            loading={whatsAppAction === "refresh_qr"}
+                                        >
+                                            <FontAwesomeIcon icon={faRotate} className="mr-2" />
+                                            Gerar novo QR Code
+                                        </Button>
+                                    )}
+                                    <Button
+                                        variant="secondary"
+                                        onClick={() => runWhatsAppAction("disconnect")}
+                                        loading={whatsAppAction === "disconnect"}
+                                    >
+                                        <FontAwesomeIcon icon={faPowerOff} className="mr-2" />
+                                        Desconectar
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
                     </div>
-                </div>
-
-                {connection?.status === "PASSKEY_CONFIRMATION_REQUIRED" && (
-                    <Card className="border border-blue-200 bg-blue-50 p-6">
-                        <p className="font-semibold text-gray-900">Confirme o código no celular</p>
-                        <p className="mt-2 text-sm text-gray-700">
-                            Confira se o código exibido pelo WhatsApp é
-                            <b> {connection.status_data?.code || "o mesmo mostrado no aparelho"}</b> e confirme no celular.
-                        </p>
-                    </Card>
-                )}
-
-                {handoffs.length > 0 && (
-                    <section id="atendimentos-humanos" aria-label="Conversas encaminhadas">
-                        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                            <h2 className="text-sm font-semibold text-gray-700">Conversas encaminhadas</h2>
-                            {pendingHandoffs > 0 && (
+                    <div id="atendimentos-humanos" aria-label="Conversas encaminhadas" className="mt-6">
+                        {pendingHandoffs > 0 && (
+                            <div className="mb-3 flex justify-end">
                                 <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">
                                     {pendingHandoffs} aguardando
                                 </span>
-                            )}
-                        </div>
+                            </div>
+                        )}
                         <DataTable
                             rows={handoffs}
+                            emptyMessage="Nenhuma conversa encaminhada recentemente."
                             rowKey={(handoff) => handoff.chat_id}
                             columns={[
                                 {
@@ -703,7 +645,65 @@ export default function RoboWhatsAppPage() {
                                 },
                             ]}
                         />
-                    </section>
+                    </div>
+                </section>
+
+                <div
+                    className={`grid transition-[grid-template-rows,opacity,transform] duration-300 ease-out ${
+                        showQr
+                            ? "grid-rows-[1fr] translate-y-0 opacity-100"
+                            : "pointer-events-none grid-rows-[0fr] -translate-y-2 opacity-0"
+                    }`}
+                    aria-hidden={!showQr}
+                    hidden={!showQr}
+                >
+                    <div className="min-h-0 overflow-hidden">
+                        <Card className="border border-blue-200 bg-blue-50/40 p-7">
+                            <div className="grid items-center gap-7 sm:grid-cols-[220px_1fr]">
+                                <div className="flex min-h-[220px] items-center justify-center rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                                    {connection?.qr_code_data ? (
+                                        <img
+                                            src={connection.qr_code_data}
+                                            alt="QR Code para conectar o WhatsApp"
+                                            className="h-48 w-48"
+                                        />
+                                    ) : (
+                                        <div className="text-center text-sm text-gray-500">
+                                            Preparando o novo QR Code…
+                                        </div>
+                                    )}
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-semibold text-gray-900">
+                                        Escaneie pelo celular do restaurante
+                                    </h3>
+                                    <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm text-gray-700">
+                                        <li>Abra o WhatsApp no celular.</li>
+                                        <li>Toque no menu <b>⋮</b> no Android ou em <b>Configurações</b> no iPhone.</li>
+                                        <li>Toque em <b>Aparelhos conectados</b>.</li>
+                                        <li>Toque em <b>Conectar um aparelho</b>.</li>
+                                        <li>Aponte a câmera para este QR Code.</li>
+                                    </ol>
+                                    <WarningBox icon={faTriangleExclamation} className="mt-4">
+                                        Depois de conectar, mensagens enviadas manualmente ao cliente irão pausar o robô naquela conversa por 30 minutos, para não interromper a conversa com atendentes humanos.
+                                    </WarningBox>
+                                    <p className="mt-4 text-xs text-gray-500">
+                                        O código muda automaticamente quando expira. Esta tela é atualizada em tempo real, sem precisar recarregar a página.
+                                    </p>
+                                </div>
+                            </div>
+                        </Card>
+                    </div>
+                </div>
+
+                {connection?.status === "PASSKEY_CONFIRMATION_REQUIRED" && (
+                    <Card className="border border-blue-200 bg-blue-50 p-6">
+                        <p className="font-semibold text-gray-900">Confirme o código no celular</p>
+                        <p className="mt-2 text-sm text-gray-700">
+                            Confira se o código exibido pelo WhatsApp é
+                            <b> {connection.status_data?.code || "o mesmo mostrado no aparelho"}</b> e confirme no celular.
+                        </p>
+                    </Card>
                 )}
 
                 {restaurantId && notificationSettings && <OrderNotificationSettings key={restaurantId} restaurantId={restaurantId} plus={notificationSettings.plus} initialEnabled={notificationSettings.enabled}/>}
