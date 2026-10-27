@@ -383,7 +383,7 @@ export default function MarketingPage() {
           <Card className="w-full max-w-md border border-gray-200 text-center shadow-xl">
             <div className="relative mx-auto h-14 w-56 max-w-full">
               <Image
-                src="/logos/PlusCombinationMarkLogo_Brand.svg"
+                src="/logos/IAPlusCombinationMarkLogo_Brand.png"
                 alt="iMenu Plus"
                 fill
                 sizes="224px"

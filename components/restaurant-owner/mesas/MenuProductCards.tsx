@@ -27,7 +27,8 @@ export default function MenuProductCards({ presentation = "default", extraCard }
                 learnMoreLink={{ href: "/#recursos", label: "Conhecer o Cardápio Digital" }}
             />
             {extraCard}
-            <MenuProductCard
+            {presentation !== "plans" && (
+                <MenuProductCard
                 presentation={presentation}
                 variant="included"
                 name="iMenu QR Code Mesa"
@@ -36,7 +37,8 @@ export default function MenuProductCards({ presentation = "default", extraCard }
                 priceLabel="Grátis para sempre, sem limites"
                 features={["Mesas ilimitadas", "Painel Garçom", "Acompanhamento do pedido"]}
                 learnMoreLink={{ href: "/painel/mesas", label: "Gerenciar mesas" }}
-            />
+                />
+            )}
         </div>
     );
 }

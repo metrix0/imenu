@@ -65,7 +65,7 @@ export default function AnaliseDeVendasComIaPage() {
                         </p>
                     </div>
                     <figure className="w-full max-w-xs justify-self-center overflow-hidden rounded-3xl border border-orange-100 bg-orange-50/40 p-4 shadow-sm">
-                        <img src="/logos/PlusCombinationMarkLogo_Brand.svg" alt="iMenu Plus" width={950} height={199} className="mx-auto mb-4 h-auto w-40 max-w-full" />
+                        <img src="/logos/IAPlusCombinationMarkLogo_Brand.png" alt="iMenu Plus" width={950} height={199} className="mx-auto mb-4 h-auto w-40 max-w-full" />
                         <img src="/images/IAPlus.png" alt="Representação dos recursos de IA do iMenu com uma proposta de mudança no cardápio aguardando aprovação" width={1602} height={1823} className="mx-auto block h-auto w-full rounded-2xl" />
                     </figure>
                 </div>

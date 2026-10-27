@@ -109,7 +109,9 @@ test.each(Object.entries(fixtures))("render the actual plans page for visual QA:
     expect(html).not.toContain("Disponível no seu painel");
     expect(html).toMatch(/<h3>iMenu Cardápio Digital<\/h3><span data-ui="badge"[^>]*>Grátis para sempre, sem limites<\/span>/);
     expect(html).toContain("Atendimento exclusivo");
-    expect(html).toContain("Cardápio digital nas mesas com QR Code, sem cobrança.");
+    expect(html).not.toContain("Cardápio digital nas mesas com QR Code, sem cobrança.");
+    expect(html.match(/class="plans-included"/g)).toHaveLength(1);
+    expect(html).toContain("IAPlusCombinationMarkLogo_Brand.png");
     if (process.env.PLANS_VISUAL_DIR) {
         mkdirSync(process.env.PLANS_VISUAL_DIR, { recursive: true });
         writeFileSync(join(process.env.PLANS_VISUAL_DIR, name + ".html"), html);

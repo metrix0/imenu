@@ -10,7 +10,7 @@ export default function IaPlusProductCard({ active, onLearnMore, presentation = 
             variant="addon"
             cardClickable={false}
             name="iMenu Plus"
-            logo="/logos/PlusCombinationMarkLogo_Brand.svg"
+            logo="/logos/IAPlusCombinationMarkLogo_Brand.png"
             description="Marketing pelo WhatsApp e inteligência artificial para vender mais."
             priceLabel={IA_PLUS_PRICE_LABEL}
             features={IA_PLUS_BENEFITS.map((benefit) => benefit.title)}

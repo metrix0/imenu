@@ -80,7 +80,7 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
             <div className="px-6 pb-5 pt-6 sm:px-8 sm:pb-7 sm:pt-8">
               <div className="relative h-12 w-56 max-w-full">
                 <Image
-                  src="/logos/PlusCombinationMarkLogo_Brand.svg"
+                  src="/logos/IAPlusCombinationMarkLogo_Brand.png"
                   alt="iMenu Plus"
                   fill
                   sizes="224px"
