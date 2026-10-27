@@ -84,7 +84,7 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
         />
       </ModalFlowStep> : <ModalFlowStep key="sales" reverse animate={navigated}>
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <header className="border-b border-gray-200 bg-gradient-to-br from-white to-orange-50/60 px-5 pb-6 pt-7 sm:px-8 sm:pb-7 sm:pt-8">
+          <header className="bg-gradient-to-br from-white to-orange-50/60 px-5 pb-6 pt-7 sm:px-8 sm:pb-7 sm:pt-8">
             <div className="relative h-10 w-44 max-w-[70%]">
               <Image src="/logos/IAPlusCombinationMarkLogo_Brand.png" alt="iMenu Plus" fill sizes="176px" className="object-contain object-left" />
             </div>
@@ -97,7 +97,7 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
                   Marketing, Assistente IA e Vendas IA para o seu restaurante.
                 </p>
               </div>
-              <div className="shrink-0 border-t border-gray-200 pt-4 sm:border-l sm:border-t-0 sm:pl-7 sm:pt-0">
+              <div className="shrink-0 pt-4 sm:pl-7 sm:pt-0">
                 <div className="flex items-baseline gap-1.5">
                   <span className="text-3xl font-bold tracking-tight text-gray-900">{IA_PLUS_PRICE_LABEL}</span>
                   <span className="text-sm text-gray-500">/mês</span>
@@ -106,7 +106,7 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
               </div>
             </div>
             {contextMessage?.trim() && (
-              <div role="note" className="mt-5 flex items-start gap-3 border-l-2 border-brand pl-3">
+              <div role="note" className="mt-5 flex items-start gap-3">
                 <Sparkles size={17} strokeWidth={1.9} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" />
                 <p className="text-sm leading-6 text-gray-700">{contextMessage.trim()}</p>
               </div>
@@ -127,7 +127,7 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
                   <p className="mt-2 text-sm leading-6 text-gray-600">{benefit.description}</p>
                 </section>;
               })}
-              <section className="mt-1 border-t border-gray-200 pt-5 sm:col-span-3">
+              <section className="mt-1 pt-5 sm:col-span-3">
                 <h3 className="text-sm font-semibold text-gray-900">Também incluído no seu plano</h3>
                 <ul className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2">{IA_PLUS_BONUSES.map(bonus => {
                   const Icon = PLUS_BONUS_ICONS[bonus.title] ?? Sparkles;
@@ -140,7 +140,7 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
             </div>
 
             {!active && (
-              <p className="mt-5 border-t border-gray-100 pt-4 text-xs leading-5 text-gray-500">
+              <p className="mt-5 pt-4 text-xs leading-5 text-gray-500">
                 Ao continuar, você concorda com os{" "}
                 <Link
                   href="/restaurante/dados/termos/ia-plus"
@@ -156,7 +156,7 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
           </div>
         </div>
 
-        <div className="z-20 flex shrink-0 flex-col gap-3 border-t border-gray-200 bg-white px-5 py-4 sm:flex-row sm:items-center sm:px-8">
+        <div className="z-20 flex shrink-0 flex-col gap-3 bg-white px-5 py-4 sm:flex-row sm:items-center sm:px-8">
           <a
             href={SUPPORT_URL}
             target="_blank"
