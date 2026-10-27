@@ -62,7 +62,7 @@ const RESOURCE_SECTIONS: readonly { title: string; imenu?: string; competitor?: 
             ["Customização de opcionais","check","Varia por plataforma"],
             ["Identidade visual personalizada","check","Varia por plataforma"],
             ["Sem marca d'água","check","Varia por plataforma"],
-            ["Modo Vitrine (cardápio sem pedidos)","Grátis","Varia por plataforma"],
+            ["Modo Vitrine (cardápio sem pedidos)","check","Varia por plataforma"],
             ["Dividir Pizza em vários sabores","check","Varia por plataforma"],
         ],
     },
@@ -600,14 +600,14 @@ export default function LandingPage() {
                                         <th scope="row" className="border-r border-gray-200 px-4 py-3 text-left font-semibold text-gray-900 min-[1400px]:px-5 2xl:px-6">
                                             {section.title}
                                         </th>
-                                        <td className="border-r border-gray-200 text-center font-semibold">
+                                        <td className="border-r border-gray-200 text-center">
                                             {section.imenu === "check" ? (
                                                 <FontAwesomeIcon icon={icons.faCheck} className="text-green" />
                                             ) : (
                                                 section.imenu
                                             )}
                                         </td>
-                                        <td className="text-center font-semibold">{section.competitor}</td>
+                                        <td className="text-center">{section.competitor}</td>
                                     </tr>
                                     {section.rows.map(([feature, imenu, competitor]) => (
                                         <tr key={feature}>
