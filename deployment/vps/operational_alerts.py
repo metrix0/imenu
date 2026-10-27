@@ -17,7 +17,6 @@ DEEP_SECONDS = 15 * 60
 STATE_NAME = "operational-alert-state.json"
 METRICS = {
     "owner_push_missing_event": (3, "eligible orders missing a push dispatch event"),
-    "owner_push_unretrieved": (3, "order push alerts not fetched by subscribed devices"),
     "printer_recent_failures": (3, "recent failed print jobs"),
     "wa_webhooks_stuck": (3, "WhatsApp webhooks stalled"),
     "wa_webhooks_failed": (3, "recent failed WhatsApp webhooks"),
@@ -165,6 +164,8 @@ def inspect(root, host_alerts, dry_run=False):
         entries = {}
     # Retire obsolete order-notified and queue-delay alarms without fake recoveries.
     entries.pop("operation:orders_unnotified", None)
+    # Devices can be offline; stop alerting (or sending recovery notices) for missed fetches.
+    entries.pop("operation:owner_push_unretrieved", None)
     for key in list(entries):
         if key == "operation:printer_queue_delayed" or key.startswith("operation:printer_queue_delayed:"):
             entries.pop(key, None)
