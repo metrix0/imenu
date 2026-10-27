@@ -1,4 +1,5 @@
 import { ADDON_PRODUCTS } from "@/lib/addons/products";
+import { PROMO_QR_CODE, PROMO_QR_PRICE_CENTS } from "@/lib/addons/promoQr";
 import { NextResponse } from "next/server";
 
 import { query, withTransaction } from "@/lib/database/sql";
@@ -57,14 +58,16 @@ async function processQrTablePix(
 
     const product = ADDON_PRODUCTS[addon.product_key || "qr_code_mesa"];
     if (!product || !payment.externalReference?.startsWith(`${product.referencePrefix}:${addon.id}:`)) return;
+    const promotional = addon.product_key === "ia_plus" && payment.externalReference.startsWith(`${product.referencePrefix}:${addon.id}:${PROMO_QR_CODE}:`);
+    const expectedPriceCents = promotional ? PROMO_QR_PRICE_CENTS : product.priceCents;
     const paidAmountCents = Math.round(payment.amount * 100);
     if (
         !Number.isFinite(paidAmountCents) ||
-        paidAmountCents !== product.priceCents
+        paidAmountCents !== expectedPriceCents
     ) {
         console.error("[MERCADO_PAGO_QR_TABLE] Valor divergente:", {
             addonId,
-            expected: product.priceCents,
+            expected: expectedPriceCents,
             received: payment.amount,
         });
         return;

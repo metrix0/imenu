@@ -1,5 +1,6 @@
 "use client";
 import { IA_PLUS_PRICE_LABEL } from "@/lib/addons/products";
+import { PROMO_QR_CODE, PROMO_QR_PRICE_LABEL } from "@/lib/addons/promoQr";
 
 import { useCallback } from "react";
 import { faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
@@ -19,6 +20,7 @@ type QrCodeMesaCheckoutModalProps = {
     restaurantId: string;
     source: QrTableSource;
     productKey?: "ia_plus";
+    coupon?: string;
     renewal?: boolean;
     embedded?: boolean;
     onBack?: () => void;
@@ -75,6 +77,7 @@ export default function QrCodeMesaCheckoutModal({
     restaurantId,
     source,
     productKey = "ia_plus",
+    coupon,
     renewal = false,
     embedded = false,
     onBack,
@@ -118,8 +121,9 @@ export default function QrCodeMesaCheckoutModal({
             startQrTableCheckout(restaurantId, source, payment, {
                 renew: renewal,
                 productKey,
+                coupon,
             }),
-        [renewal, restaurantId, source, productKey]
+        [renewal, restaurantId, source, productKey, coupon]
     );
 
     const reconcilePayment = useCallback(
@@ -131,9 +135,17 @@ export default function QrCodeMesaCheckoutModal({
         [renewal, restaurantId, productKey]
     );
 
+    const discounted = coupon === PROMO_QR_CODE && !renewal;
     const checkoutProps = {
         onClose,
-        product: PLUS_PAYMENT_PRODUCT,
+        product: discounted ? {
+            ...PLUS_PAYMENT_PRODUCT,
+            priceLabel: PROMO_QR_PRICE_LABEL,
+            pixNotice: "Cupom PROMOQR: 50% de desconto no primeiro mês. O Pix não renova automaticamente; próximas compras custam R$ 49,99.",
+        } : PLUS_PAYMENT_PRODUCT,
+        originalPriceLabel: discounted ? IA_PLUS_PRICE_LABEL : undefined,
+        promoLabel: discounted ? "Cupom PROMOQR (-50%) · somente Pix" : undefined,
+        pixOnly: discounted,
         onBack,
         startPayment,
         reconcilePayment,

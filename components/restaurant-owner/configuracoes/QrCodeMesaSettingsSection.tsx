@@ -24,6 +24,7 @@ import Loader from "@/components/ui/Loader";
 import Toast from "@/components/ui/Toast";
 import { captureQrTableEvent } from "@/lib/qr-table/analytics";
 import { qrTableAuthenticatedFetch } from "@/lib/qr-table/clientApi";
+import { isPromoQrDate, PROMO_QR_CODE, PROMO_QR_PRICE_CENTS, PROMO_QR_PRICE_LABEL } from "@/lib/addons/promoQr";
 type Addon = {
     id: string;
     restaurant_id: string;
@@ -151,10 +152,12 @@ export default function QrCodeMesaSettingsSection({
     restaurantId,
     showHeader = true,
     presentation = "default",
+    coupon,
 }: {
     restaurantId: string;
     showHeader?: boolean;
     presentation?: "default" | "plans";
+    coupon?: string;
 }) {
     const [billing, setBilling] = useState<BillingPayload | null>(null);
     const [loading, setLoading] = useState(true);
@@ -286,6 +289,13 @@ export default function QrCodeMesaSettingsSection({
     const addon = qrBilling?.addon || null;
     const active = true;
     const iaPlusActive = billing?.addons.some(item => item.addon.product_key === "ia_plus" && item.active) === true;
+    const promoQr = coupon?.trim().toUpperCase() === PROMO_QR_CODE;
+    const qrLegacy = billing?.addons.find(item => item.addon.product_key === "qr_code_mesa");
+    const plusHistory = billing?.addons.find(item => item.addon.product_key === "ia_plus");
+    const eligiblePromo = promoQr && isPromoQrDate() && !loading &&
+        qrLegacy && qrLegacy.addon.price_cents > 0 && qrLegacy.active &&
+        !plusHistory?.active && !plusHistory?.payments.some(p => p.amount_cents === PROMO_QR_PRICE_CENTS && ["APPROVED", "COMPLETED", "CONFIRMED", "RECEIVED", "RECEIVED_IN_CASH"].includes(p.status.toUpperCase()));
+    const appliedCoupon = eligiblePromo ? PROMO_QR_CODE : undefined;
     const cancelBilling =
         billing?.addons.find((item) => item.addon.id === cancelAddonId) || null;
     const cancelAddon = cancelBilling?.addon || null;
@@ -315,6 +325,15 @@ export default function QrCodeMesaSettingsSection({
                 />
             )}
 
+            {promoQr && !loading && (
+                <div role="status" className="mb-5 rounded-xl border border-brand/20 bg-brand/5 px-4 py-3 text-sm text-gray-700">
+                    {eligiblePromo ? (
+                        <><strong className="text-brand">PROMOQR aplicado!</strong> Primeiro mês do iMenu Plus por <strong>{PROMO_QR_PRICE_LABEL}</strong> (50% de desconto), via Pix. Válido até 27/11/2026.</>
+                    ) : (
+                        <>O cupom PROMOQR é válido de 29/10 a 27/11/2026 para assinantes elegíveis do antigo QR Code.</>
+                    )}
+                </div>
+            )}
             <QrCodeMesaSalesModal
                 open={salesOpen}
                 onClose={closeSales}
@@ -348,7 +367,7 @@ export default function QrCodeMesaSettingsSection({
                 }}
             />
 
-            <IaPlusSalesModal active={iaPlusActive} open={iaPlusOpen} onClose={() => setIaPlusOpen(false)} restaurantId={restaurantId} onPaid={async () => { setIaPlusOpen(false); await loadBilling(); }} />
+            <IaPlusSalesModal active={iaPlusActive} open={iaPlusOpen} onClose={() => setIaPlusOpen(false)} restaurantId={restaurantId} coupon={appliedCoupon} onPaid={async () => { setIaPlusOpen(false); await loadBilling(); }} />
 
             <ConfirmModal
                 open={Boolean(cancelAddonId)}

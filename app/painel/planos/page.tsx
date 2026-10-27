@@ -11,6 +11,11 @@ import "./planos.css";
 export default function PlanosPage() {
     const { restaurantId, setRestaurantId } = useCreationStore();
     const [loading, setLoading] = useState(!restaurantId);
+    const [coupon, setCoupon] = useState<string | undefined>();
+
+    useEffect(() => {
+        setCoupon(new URLSearchParams(window.location.search).get("cupom") || undefined);
+    }, []);
 
     useEffect(() => {
         if (restaurantId) {
@@ -66,7 +71,7 @@ export default function PlanosPage() {
                         <Loader />
                     </div>
                 ) : restaurantId ? (
-                    <QrCodeMesaSettingsSection restaurantId={restaurantId} showHeader={false} presentation="plans" />
+                    <QrCodeMesaSettingsSection restaurantId={restaurantId} showHeader={false} presentation="plans" coupon={coupon} />
                 ) : null}
             </div>
         </div>

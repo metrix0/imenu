@@ -47,3 +47,58 @@ it("iMenu Plus checkout uses its server price and an isolated addon/payment refe
     expect((query as jest.Mock).mock.calls[0][1]).toEqual(["restaurant", 4999, "mesas", "ia_plus"]);
     expect(createMercadoPagoPixCharge).toHaveBeenCalledWith(expect.objectContaining({ amount: 49.99, externalReference: expect.stringMatching(/^ia-plus:/) }));
 });
+
+afterEach(() => {
+    jest.restoreAllMocks();
+});
+
+it("applies PROMOQR only to an eligible first-month Pix charge during the promotion", async () => {
+    jest.spyOn(Date, "now").mockReturnValue(Date.parse("2026-10-30T12:00:00-03:00"));
+    (query as jest.Mock).mockResolvedValueOnce({ rows: [{ eligible: true }] });
+    (createMercadoPagoPixCharge as jest.Mock).mockImplementation(async input => ({
+        id: "promo-payment", status: "pending", amount: input.amount,
+        paymentMethodId: "pix", externalReference: input.externalReference,
+        qrCodeText: "promo-pix"
+    }));
+
+    const response = await iaPlusCheckout(new Request("https://example.com/api/ia-plus/checkout", {
+        method: "POST",
+        body: JSON.stringify({ restaurantId: "restaurant", paymentMethod: "pix", coupon: "PROMOQR" }),
+    }));
+
+    expect(response.status).toBe(200);
+    expect(createMercadoPagoPixCharge).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: 25, externalReference: expect.stringContaining(":PROMOQR:") })
+    );
+});
+
+it("does not apply PROMOQR before its start date", async () => {
+    jest.spyOn(Date, "now").mockReturnValue(Date.parse("2026-10-28T23:59:59-03:00"));
+    const response = await iaPlusCheckout(new Request("https://example.com/api/ia-plus/checkout", {
+        method: "POST",
+        body: JSON.stringify({ restaurantId: "restaurant", paymentMethod: "pix", coupon: "PROMOQR" }),
+    }));
+    expect(response.status).toBe(400);
+    expect(createMercadoPagoPixCharge).not.toHaveBeenCalled();
+});
+
+it("rejects PROMOQR for ineligible restaurants without creating a charge", async () => {
+    jest.spyOn(Date, "now").mockReturnValue(Date.parse("2026-11-01T12:00:00-03:00"));
+    (query as jest.Mock).mockResolvedValueOnce({ rows: [{ eligible: false }] });
+    const response = await iaPlusCheckout(new Request("https://example.com/api/ia-plus/checkout", {
+        method: "POST",
+        body: JSON.stringify({ restaurantId: "restaurant", paymentMethod: "pix", coupon: "PROMOQR" }),
+    }));
+    expect(response.status).toBe(403);
+    expect(createMercadoPagoPixCharge).not.toHaveBeenCalled();
+});
+
+it("never uses PROMOQR for a recurring credit-card subscription", async () => {
+    jest.spyOn(Date, "now").mockReturnValue(Date.parse("2026-11-01T12:00:00-03:00"));
+    const response = await iaPlusCheckout(new Request("https://example.com/api/ia-plus/checkout", {
+        method: "POST",
+        body: JSON.stringify({ restaurantId: "restaurant", paymentMethod: "credit_card", card: {}, coupon: "PROMOQR" }),
+    }));
+    expect(response.status).toBe(400);
+    expect(asaasRequest).not.toHaveBeenCalled();
+});

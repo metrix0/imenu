@@ -13,6 +13,7 @@ import ModalFlowStep from "@/components/ui/ModalFlowStep";
 import Button from "@/components/ui/Button";
 import QrCodeMesaCheckoutModal from "@/components/restaurant-owner/mesas/QrCodeMesaCheckoutModal";
 import { IA_PLUS_BENEFITS, IA_PLUS_BONUSES, IA_PLUS_PRICE_LABEL } from "@/lib/addons/products";
+import { PROMO_QR_CODE, PROMO_QR_PRICE_LABEL } from "@/lib/addons/promoQr";
 import { PLUS_BONUS_ICONS, PLUS_FEATURE_ICONS } from "@/components/restaurant-owner/mesas/MenuProductCard";
 
 const SUPPORT_URL =
@@ -48,8 +49,8 @@ export function IaPlusLimitMessage({ onCheckout }: { onCheckout: () => void }) {
     <Button className="mt-5" onClick={onCheckout}>Assinar iMenu Plus</Button>
   </article>;
 }
-export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout = false, active = false, onPaid, contextMessage }: {
-  open: boolean; onClose: () => void; restaurantId: string; checkout?: boolean; active?: boolean; onPaid?: () => void | Promise<void>; contextMessage?: string;
+export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout = false, active = false, onPaid, contextMessage, coupon }: {
+  open: boolean; onClose: () => void; restaurantId: string; checkout?: boolean; active?: boolean; onPaid?: () => void | Promise<void>; contextMessage?: string; coupon?: string;
 }) {
   const [step, setStep] = useState(checkout);
   const [navigated, setNavigated] = useState(false);
@@ -78,6 +79,7 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
           restaurantId={restaurantId}
           source="settings"
           productKey="ia_plus"
+          coupon={coupon}
           onClose={onClose}
           onBack={() => setStep(false)}
           onPaid={onPaid}
@@ -99,10 +101,11 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
               </div>
               <div className="shrink-0 pt-4 sm:pl-7 sm:pt-0">
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-3xl font-bold tracking-tight text-gray-900">{IA_PLUS_PRICE_LABEL}</span>
+                  {coupon === PROMO_QR_CODE && <span className="text-base text-gray-400 line-through">{IA_PLUS_PRICE_LABEL}</span>}
+                  <span className="text-3xl font-bold tracking-tight text-gray-900">{coupon === PROMO_QR_CODE ? PROMO_QR_PRICE_LABEL : IA_PLUS_PRICE_LABEL}</span>
                   <span className="text-sm text-gray-500">/mês</span>
                 </div>
-                <p className="mt-1.5 text-xs text-gray-500">Cancele quando quiser</p>
+                <p className="mt-1.5 text-xs text-gray-500">{coupon === PROMO_QR_CODE ? "Primeiro mês via Pix · sem renovação automática" : "Cancele quando quiser"}</p>
               </div>
             </div>
             {contextMessage?.trim() && (
