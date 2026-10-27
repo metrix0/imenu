@@ -118,6 +118,152 @@
     .panel-essencial .plans-product { padding: 20px; }
     .panel-essencial .plans-product h3 { font-size: 19px; line-height: 26px; }
 }
+/* Plus uses the full catalog width with a compact, scannable hierarchy. */
+.panel-essencial .plans-product.plans-plus {
+    gap: 0;
+    padding: 0;
+    overflow: hidden;
+    border-color: var(--panel-border);
+    box-shadow: 0 3px 18px rgb(29 29 29 / 4%);
+}
+.panel-essencial .plans-product.plans-plus[data-active="true"] {
+    border-color: var(--panel-action);
+    background: var(--panel-surface);
+}
+.panel-essencial .plans-plus-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--panel-border);
+    background: linear-gradient(110deg, var(--panel-tint), var(--panel-surface) 74%);
+}
+.panel-essencial .plans-plus-identity {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    min-width: 0;
+}
+.panel-essencial .plans-plus-logo {
+    position: relative;
+    flex: 0 0 150px;
+    width: 150px;
+    height: 46px;
+}
+.panel-essencial .plans-plus-intro { min-width: 0; }
+.panel-essencial .plans-plus-title { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.panel-essencial .plans-plus-title h3 { margin: 0; font-size: 21px; line-height: 27px; font-weight: 700; }
+.panel-essencial .plans-plus-intro .plans-product-description { margin: 3px 0 0; min-height: 0; max-width: 580px; }
+.panel-essencial .plans-plus-price {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    flex-shrink: 0;
+    padding-left: 24px;
+    border-left: 1px solid var(--panel-border);
+}
+.panel-essencial .plans-plus-price > div { display: flex; align-items: baseline; gap: 6px; }
+.panel-essencial .plans-plus-price strong { color: var(--panel-text); font-size: 29px; font-weight: 700; line-height: 1.15; letter-spacing: -.04em; }
+.panel-essencial .plans-plus-price span { color: var(--panel-muted); font-size: 13px; }
+.panel-essencial .plans-plus-price small { color: var(--panel-muted); font-size: 11px; }
+.panel-essencial .plans-plus-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    gap: 28px;
+    padding: 20px 24px;
+}
+.panel-essencial .plans-plus-main, .panel-essencial .plans-plus-extras { min-width: 0; }
+.panel-essencial .plans-plus-extras {
+    border-left: 1px solid var(--panel-border);
+    padding-left: 28px;
+}
+.panel-essencial .plans-plus-section-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    margin-bottom: 12px;
+}
+.panel-essencial .plans-plus-section-heading h4 { color: var(--panel-text); font-size: 14px; line-height: 20px; font-weight: 700; }
+.panel-essencial .plans-plus-section-heading > span:not([data-ui="badge"]) { color: var(--panel-muted); font-size: 11px; }
+.panel-essencial .plans-plus-feature-list { display: grid; gap: 13px; }
+.panel-essencial .plans-plus-feature-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    min-width: 0;
+}
+.panel-essencial .plans-plus-feature-check {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 22px;
+    width: 22px;
+    height: 22px;
+    border-radius: 7px;
+    background: var(--panel-tint);
+    color: var(--panel-accent-text);
+    font-size: 11px;
+}
+.panel-essencial .plans-plus-feature-list li > div { min-width: 0; }
+.panel-essencial .plans-plus-feature-list strong { display: block; color: var(--panel-text); font-size: 13px; line-height: 19px; font-weight: 650; }
+.panel-essencial .plans-plus-feature-list p { margin-top: 2px; color: var(--panel-muted); font-size: 12px; line-height: 17px; }
+.panel-essencial .plans-plus-bonus-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+.panel-essencial .plans-plus-bonus-grid li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    padding: 9px 10px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--panel-control-radius);
+    background: var(--panel-background);
+    color: var(--panel-text);
+    font-size: 12px;
+    line-height: 17px;
+}
+.panel-essencial .plans-plus-bonus-grid .panel-icon { flex-shrink: 0; color: var(--panel-action); font-size: 11px; }
+.panel-essencial .plans-plus-conditions { margin-top: 9px; color: var(--panel-muted); font-size: 11px; line-height: 16px; }
+.panel-essencial .plans-plus-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 14px 24px;
+    border-top: 1px solid var(--panel-border);
+    background: var(--panel-background);
+}
+.panel-essencial .plans-plus-free { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; min-width: 0; }
+.panel-essencial .plans-plus-free > span { color: var(--panel-muted); font-size: 11px; font-weight: 600; }
+.panel-essencial .plans-plus-free ul { display: flex; flex-wrap: wrap; gap: 7px 14px; }
+.panel-essencial .plans-plus-free li { display: flex; align-items: center; gap: 5px; color: var(--panel-text); font-size: 11px; }
+.panel-essencial .plans-plus-free .panel-icon { color: var(--panel-muted); font-size: 10px; }
+.panel-essencial .plans-plus-cta { flex-shrink: 0; min-width: 175px; gap: 10px; }
+
+@container (max-width: 759px) {
+    .panel-essencial .plans-plus-header { align-items: flex-start; gap: 14px; }
+    .panel-essencial .plans-plus-identity { flex-wrap: wrap; gap: 10px 18px; }
+    .panel-essencial .plans-plus-body { grid-template-columns: 1fr; gap: 18px; }
+    .panel-essencial .plans-plus-extras { padding: 18px 0 0; border-left: 0; border-top: 1px solid var(--panel-border); }
+    .panel-essencial .plans-plus-footer { align-items: stretch; flex-direction: column; gap: 14px; }
+    .panel-essencial .plans-plus-cta { width: 100%; }
+}
+@container (max-width: 520px) {
+    .panel-essencial .plans-plus-header { flex-direction: column; padding: 18px; }
+    .panel-essencial .plans-plus-identity { flex-direction: column; align-items: flex-start; }
+    .panel-essencial .plans-plus-price { align-items: flex-start; padding: 0; border: 0; }
+    .panel-essencial .plans-plus-body { padding: 18px; }
+    .panel-essencial .plans-plus-footer { padding: 15px 18px; }
+    .panel-essencial .plans-plus-bonus-grid { grid-template-columns: 1fr; }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .panel-essencial .plans-product, .panel-essencial .plans-history-chevron { transition: none; }
 }

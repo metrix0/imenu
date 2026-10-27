@@ -17,7 +17,10 @@ type ProductCardContent = {
     priceLabel: string;
     priceSuffix?: string;
     features: readonly string[];
+    featureDetails?: readonly { title: string; description: string }[];
     bonuses?: readonly string[];
+    bonusDetails?: readonly { title: string; description: string }[];
+    freeInclusions?: readonly string[];
 };
 type MenuProductCardProps = ProductCardContent & (
     | { variant: "included"; learnMoreLink: { href: string; label: string } }
@@ -89,36 +92,84 @@ export default function MenuProductCard(props: MenuProductCardProps) {
             );
         }
 
+        const planFeatures = props.featureDetails ?? props.features.map((title) => ({ title, description: "" }));
+        const planBonuses = props.bonusDetails ?? props.bonuses?.map((title) => ({ title, description: "" })) ?? [];
+
         return (
-            <article className="plans-product" data-active={active} aria-label={props.name}>
-                <div className="plans-product-top">
-                    <div className="relative h-10 w-40 max-w-[65%]">
-                        <Image src={props.logo} alt={props.name} fill sizes="160px" className="object-contain object-left" />
+            <article className="plans-product plans-plus" data-active={active} aria-label={props.name}>
+                <div className="plans-plus-header">
+                    <div className="plans-plus-identity">
+                        <div className="plans-plus-logo">
+                            <Image src={props.logo} alt={props.name} fill sizes="176px" className="object-contain object-left" />
+                        </div>
+                        <div className="plans-plus-intro">
+                            <div className="plans-plus-title">
+                                <h3>{props.name}</h3>
+                                <Badge variant={active ? "success" : "neutral"}>{active ? "Ativo" : "Disponível"}</Badge>
+                            </div>
+                            <p className="plans-product-description">{props.description}</p>
+                        </div>
                     </div>
-                    <Badge variant={active ? "success" : "neutral"}>{active ? "Ativo" : "Desativado"}</Badge>
+                    <div className="plans-plus-price">
+                        <div>
+                            <strong>{props.priceLabel}</strong>
+                            <span>{props.priceSuffix ?? "/mês"}</span>
+                        </div>
+                        <small>Cancele quando quiser</small>
+                    </div>
                 </div>
-                <h3>{props.name}</h3>
-                <div className="plans-product-description">
-                    {props.description}
-                    {supportBadge}
+
+                <div className="plans-plus-body">
+                    <section className="plans-plus-main" aria-label="Recursos do iMenu Plus">
+                        <div className="plans-plus-section-heading">
+                            <h4>Para vender mais</h4>
+                            <span>Recursos principais</span>
+                        </div>
+                        <ul className="plans-plus-feature-list">
+                            {planFeatures.map((feature) => (
+                                <li key={feature.title}>
+                                    <span className="plans-plus-feature-check"><FontAwesomeIcon icon={faCheck} aria-hidden="true" /></span>
+                                    <div>
+                                        <strong>{feature.title}</strong>
+                                        {feature.description && <p>{feature.description}</p>}
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    </section>
+                    <section className="plans-plus-extras" aria-label="Bônus do iMenu Plus">
+                        <div className="plans-plus-section-heading">
+                            <h4>Bônus do Plus</h4>
+                            <Badge variant="brand">{planBonuses.length} extras</Badge>
+                        </div>
+                        <ul className="plans-plus-bonus-grid">
+                            {planBonuses.map((bonus) => (
+                                <li key={bonus.title} title={bonus.description || undefined}>
+                                    <FontAwesomeIcon icon={faCheck} aria-hidden="true" />
+                                    <span>{bonus.title}</span>
+                                </li>
+                            ))}
+                        </ul>
+                        <p className="plans-plus-conditions">
+                            Avisos pelo WhatsApp seguem as regras de interação com o cliente. Scan com IA é gratuito até 1 produto cadastrado.
+                        </p>
+                    </section>
                 </div>
-                <div className="plans-product-price">
-                    <span>{props.priceLabel}</span>
-                    <span className="text-sm text-gray-500">{props.priceSuffix ?? "/mês"}</span>
-                </div>
-                <ul className="plans-product-features">
-                    {props.features.map((feature) => (
-                        <li key={feature} className="flex items-center gap-2">
-                            <FontAwesomeIcon icon={faCheck} className="text-brand" />
-                            <span>{feature}</span>
-                        </li>
-                    ))}
-                </ul>
-                {props.bonuses?.length ? <div className="mt-4"><h4 className="text-sm font-semibold text-gray-900"><Badge>Bônus</Badge></h4><ul className="mt-2 space-y-2 text-sm text-gray-600">{props.bonuses.map((bonus) => <li key={bonus} className="flex items-center gap-2"><FontAwesomeIcon icon={faCheck} className="text-xs text-brand" /><span>{bonus}</span></li>)}</ul></div> : null}
-                <div className="plans-product-actions">
-                    <Button type="button" variant={active ? "secondary" : "primary"} onClick={stopAndLearnMore} className="w-full justify-center">
+
+                <div className="plans-plus-footer">
+                    {props.freeInclusions?.length ? (
+                        <div className="plans-plus-free">
+                            <span>Já gratuitos em qualquer plano</span>
+                            <ul>
+                                {props.freeInclusions.map((feature) => (
+                                    <li key={feature}><FontAwesomeIcon icon={faCheck} aria-hidden="true" />{feature}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    ) : null}
+                    <Button type="button" variant={active ? "secondary" : "primary"} onClick={stopAndLearnMore} className="plans-plus-cta">
                         {active ? "Conhecer meu plano" : "Conhecer o plano"}
-                        <FontAwesomeIcon icon={faArrowRight} />
+                        <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" />
                     </Button>
                 </div>
             </article>

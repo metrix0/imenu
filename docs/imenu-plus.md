@@ -4,11 +4,11 @@ Read this document before changing plan features, names, pricing, access or bill
 
 ## Product definition
 
-`lib/addons/products.ts` is the source of truth for the name, price, four main benefits and five bonuses. The customer-facing name is **iMenu Plus** (formerly IA Plus). The price remains R$ 49,99/month. Marketing's full feature name is **Automações de Marketing WhatsApp**, under `/painel/marketing`.
+`lib/addons/products.ts` is the source of truth for the name, price, three main benefits and six Plus bonuses. The customer-facing name is **iMenu Plus** (formerly IA Plus). The price remains R$ 49,99/month. Marketing's full feature name is **Automações de Marketing WhatsApp**, under `/painel/marketing`.
 
-Main benefits, in order: Automações de Marketing WhatsApp; Assistente IA; Vendas IA; iMenu QR Code (Incluso).
+Main benefits, in order: Automações de Marketing WhatsApp; Assistente IA; Vendas IA.
 
-Bonuses, in order: Atendimento exclusivo; Upsells automáticos; Modo vitrine; Painel Garçom; Download Cardápio em PDF. This presentation does not remove existing free access to other features; the existing Assistente IA free allowance and automatic upsell behavior are preserved.
+Plus bonuses, in order: Atendimento exclusivo; Upsells automáticos; Modo vitrine; Atualizações de pedidos pelo WhatsApp; Scan de cardápio com IA; Download Cardápio em PDF. Order updates require the established WhatsApp interaction and deduplication rules; menu scanning remains free with zero or one item, then requires Plus. Free features listed separately on the Plus card: QR Code nas mesas; Painel Garçom; Acompanhamento do pedido. This presentation does not remove existing free access to other features; the existing Assistente IA free allowance and automatic upsell behavior are preserved.
 
 ## Compatibility and entitlement
 
@@ -25,7 +25,7 @@ Bonuses, in order: Atendimento exclusivo; Upsells automáticos; Modo vitrine; Pa
 | --- | --- |
 | Product name, price, benefits, bonuses | `lib/addons/products.ts` |
 | Plan discovery and sales modal | `components/restaurant-owner/ia-vendas/IaPlusProductCard.tsx`, `IaPlusSalesModal.tsx`; shared `components/restaurant-owner/mesas/MenuProductCard.tsx`, `MenuProductCards.tsx`. `IaPlusSalesModal` accepts optional `contextMessage` displayed before pricing and benefits. Scanner, Assistente/Vendas IA, Marketing and integrations provide contextual explanations; general plan discovery (Planos) retains default copy. |
-| Plan management, inclusion/renewal display | `app/painel/planos/page.tsx`, `app/painel/planos/planos.css`, `components/restaurant-owner/mesas/MenuProductCards.tsx`, `components/restaurant-owner/configuracoes/QrCodeMesaSettingsSection.tsx`, `app/api/addons/billing/route.ts`, `app/api/addons/subscription/route.ts`. Planos shows the free Cardápio Digital and a full-width Plus card; the standalone free QR card is hidden there, but stays visible in default product cards. The \"Suas assinaturas\" billing section excludes historical `qr_code_mesa` entries and displays only paid add-ons such as Plus. |
+| Plan management, inclusion/renewal display | `app/painel/planos/page.tsx`, `app/painel/planos/planos.css`, `components/restaurant-owner/mesas/MenuProductCards.tsx`, `components/restaurant-owner/configuracoes/QrCodeMesaSettingsSection.tsx`, `app/api/addons/billing/route.ts`, `app/api/addons/subscription/route.ts`. Planos shows the free Cardápio Digital and a full-width compact Plus card with grouped paid benefits, six Plus bonuses and separately marked free inclusions; the standalone free QR card is hidden there, but stays visible in default product cards. The \"Suas assinaturas\" billing section excludes historical `qr_code_mesa` entries and displays only paid add-ons such as Plus. |
 | Branding | `public/logos/IAPlusCombinationMarkLogo_Brand.png` (original IA Plus logo artwork displayed with current iMenu Plus naming) |
 | Marketing paywall and saving | `app/painel/marketing/page.tsx` follows the locked-page presentation in `app/painel/mesas/page.tsx`: faded inert content, centered activation card and the existing `IaPlusSalesModal`; `app/api/automations/route.ts` enforces saving access. |
 | Marketing delivery authorization | `lib/services/crmAutomations.ts`: filter restaurants and recheck access during each atomic send claim. `app/api/cron/customer-automations/route.ts` invokes it. Losing Plus must stop new marketing sends without deleting saved settings or history. Robô WhatsApp remains free. |

@@ -77,6 +77,9 @@ test("plans separate discovery from billing without selection checkboxes", () =>
     expect(html).not.toContain("aria-pressed");
     expect(html).not.toContain("Selecionar iMenu");
     expect(html.match(/Conhecer o plano/g)).toHaveLength(1);
+    expect(html).toContain('aria-label="Bônus do iMenu Plus"');
+    expect(html).toContain("6 extras");
+    expect(html).toContain('class="plans-product plans-plus"');
 });
 
 test("active plans keep recurring cancellation and prepaid renewal with collapsed history", () => {
@@ -112,6 +115,17 @@ test.each(Object.entries(fixtures))("render the actual plans page for visual QA:
     expect(html).not.toContain("Disponível no seu painel");
     expect(html).toMatch(/<h3>iMenu Cardápio Digital<\/h3><span data-ui="badge"[^>]*>Grátis para sempre, sem limites<\/span>/);
     expect(html).toContain("Atendimento exclusivo");
+    expect(html).toContain("Atualizações de pedidos pelo WhatsApp");
+    expect(html).toContain("Scan de cardápio com IA");
+    expect(html).toContain("Upsells automáticos");
+    expect(html).toContain("Download Cardápio em PDF");
+    expect(html).toContain("Modo vitrine");
+    expect(html).toContain("Já gratuitos em qualquer plano");
+    expect(html).toContain("QR Code nas mesas");
+    expect(html).toContain("Painel Garçom");
+    expect(html).toContain("plans-plus-header");
+    expect(html).toContain("plans-plus-bonus-grid");
+    expect(html).toContain("plans-plus-footer");
     expect(html).not.toContain("Cardápio digital nas mesas com QR Code, sem cobrança.");
     expect(html.match(/class="plans-included"/g)).toHaveLength(1);
     expect(html).toContain("IAPlusCombinationMarkLogo_Brand.png");

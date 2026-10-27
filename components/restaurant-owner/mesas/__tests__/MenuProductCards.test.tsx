@@ -21,7 +21,7 @@ test("iMenu Plus has exclusive support and precedes the QR card in the two-colum
     expect(iaCard).toMatch(/class="text-2xl font-bold">R\$\s49,99/);
     expect(iaCard).toContain('title="Assistente IA"');
     expect(iaCard).toContain('title="Automações de Marketing WhatsApp"');
-    expect(iaCard).toContain('title="iMenu QR Code (Incluso)"');
+    expect(iaCard).toContain('title="Vendas IA"');
     expect(iaCard).toContain("Ver tudo que o sistema faz");
     expect(iaCard).toContain("Saiba mais");
     expect(iaCard).toContain("Bônus");
@@ -40,4 +40,9 @@ test("Planos shows one free base plan and a full-width Plus plan without a separ
     expect(html).toContain("Marketing pelo WhatsApp e inteligência artificial para vender mais.");
     expect(html).toContain("IAPlusCombinationMarkLogo_Brand.png");
     expect(html).not.toContain("iMenu QR Code Mesa");
+    expect(html).toContain("Atualizações de pedidos pelo WhatsApp");
+    expect(html).toContain("Scan de cardápio com IA");
+    expect(html).toContain("Já gratuitos em qualquer plano");
+    expect(html).toContain("plans-plus-bonus-grid");
+    expect(html).toContain("plans-plus-footer");
 });
