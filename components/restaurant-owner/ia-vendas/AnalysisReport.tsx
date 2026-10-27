@@ -116,15 +116,15 @@ export default function AnalysisReport({
 
             <div className={styles.freeReleaseNote}>
               <strong>Como funciona o acesso gratuito</strong>
-              <p>Estamos liberando análises gratuitas para alguns restaurantes por vez. Quando o seu for selecionado, a análise aparecerá aqui automaticamente. Para liberar a análise imediatamente e aplicar as melhorias com IA, conheça o Plano IA Plus.</p>
+              <p>Estamos liberando análises gratuitas para alguns restaurantes por vez. Quando o seu for selecionado, a análise aparecerá aqui automaticamente. Para liberar a análise imediatamente e aplicar as melhorias com IA, conheça o Plano iMenu Plus.</p>
             </div>
 
             <div className={styles.upgradeState}>
               <div className={styles.upgradeMain}>
                 <div className={styles.upgradeLogo}>
                   <Image
-                    src="/logos/IAPlusCombinationMarkLogo_Brand.png"
-                    alt="iMenu IA Plus"
+                    src="/logos/PlusCombinationMarkLogo_Brand.svg"
+                    alt="iMenu Plus"
                     fill
                     sizes="180px"
                     className="object-contain object-left"
@@ -133,7 +133,7 @@ export default function AnalysisReport({
                 <div>
                   <span className={styles.upgradeEyebrow}>Sem esperar pela seleção gratuita</span>
                   <h3>Comece sua análise agora</h3>
-                  <p>Com o iMenu IA Plus, sua análise começa automaticamente, sem esperar pela seleção gratuita. A análise profunda pode levar até 1 hora para ser concluída após ativar o plano.</p>
+                  <p>Com o iMenu Plus, sua análise começa automaticamente, sem esperar pela seleção gratuita. A análise profunda pode levar até 1 hora para ser concluída após ativar o plano.</p>
                 </div>
                 <ul className={styles.upgradeBenefits}>
                   <li>Análise iniciada automaticamente</li>
@@ -299,13 +299,13 @@ export default function AnalysisReport({
             </section>}
           </div>
           </div>
-          {locked && report && <div className={`${styles.paywall} ${styles.structuredPaywall}`}><div className={styles.paywallCard}><div className={`${styles.paywallImage} ${styles.paywallLogo}`}><Image src="/logos/IAPlusCombinationMarkLogo_Brand.png" alt="" fill sizes="200px" className="object-contain" /></div><h3>Coloque essas oportunidades em prática</h3><p>Veja a análise completa, converse com a IA e revise e aplique as melhorias com o iMenu IA Plus.</p><Button onClick={() => onUpgrade?.()}>Conhecer iMenu IA Plus</Button></div></div>}
+          {locked && report && <div className={`${styles.paywall} ${styles.structuredPaywall}`}><div className={styles.paywallCard}><div className={`${styles.paywallImage} ${styles.paywallLogo}`}><Image src="/logos/PlusCombinationMarkLogo_Brand.svg" alt="" fill sizes="200px" className="object-contain" /></div><h3>Coloque essas oportunidades em prática</h3><p>Veja a análise completa, converse com a IA e revise e aplique as melhorias com o iMenu Plus.</p><Button onClick={() => onUpgrade?.()}>Conhecer iMenu Plus</Button></div></div>}
         </>}
         {legacy && <div className={locked ? styles.preview : undefined}><div className={locked ? styles.previewContent : undefined}><section className={styles.legacy}>
           <p className={styles.eyebrow}>Relatório anterior ao formato estruturado.</p>
           <SalesMarkdown content={String(selected.result.reply || "").replace(/\[\[(?:action:[^\]]+|card:[^\]]+)\]\]/g, "")} />
           {actions.filter((action) => action.run_id === selected.id).map((action) => <ActionCard key={action.id} action={action} generatedActions={(action.generated_actions || []).map((id) => actionById.get(id)).filter((generated): generated is Action => !!generated)} refs={refs} disabled={disabled} onAction={onAction} />)}
-        </section></div>{locked && <div className={styles.paywall}><div className={styles.paywallImage}><Image src="/images/IAPlus.png" alt="" fill sizes="80px" className="object-contain" /></div><h3>Veja a análise completa</h3><p>Converse com a IA e revise e aplique as melhorias com o iMenu IA Plus.</p><Button onClick={() => onUpgrade?.()}>Conhecer iMenu IA Plus</Button></div>}</div>}
+        </section></div>{locked && <div className={styles.paywall}><div className={styles.paywallImage}><Image src="/images/IAPlus.png" alt="" fill sizes="80px" className="object-contain" /></div><h3>Veja a análise completa</h3><p>Converse com a IA e revise e aplique as melhorias com o iMenu Plus.</p><Button onClick={() => onUpgrade?.()}>Conhecer iMenu Plus</Button></div>}</div>}
       </div>
     </div>
   );

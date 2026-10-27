@@ -93,7 +93,7 @@ export function buildProductOverview(
     panelTabs?: { available: boolean; tabs: { tab: string; opens: number }[] }
 ): ProductOverview {
     const metric = (key: ProductKey, buyers: number, count: number, base: number): ProductOverviewMetrics => {
-        const labels = key === "ia_plus" ? ["Assistente IA", "Vendas IA"] : key === "qr_code_mesa" ? ["Mesas"] : [];
+        const labels = key === "ia_plus" ? ["Assistente IA", "Vendas IA", "Marketing"] : key === "qr_code_mesa" ? ["Mesas"] : [];
         const opens = panelTabs?.available
             ? panelTabs.tabs.reduce((sum, tab) => sum + (labels.includes(tab.tab) ? tab.opens : 0), 0)
             : 0;

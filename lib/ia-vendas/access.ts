@@ -1,6 +1,6 @@
 import type { PoolClient } from "pg";
 import { query } from "@/lib/database/sql";
-import { hasQrTableAccess } from "@/lib/qr-table/types";
+import { hasIMenuPlusAccess } from "@/lib/addons/access";
 import { SalesError } from "./types";
 import { LIMITS } from "./config";
 
@@ -9,19 +9,18 @@ export const FREE_AI_IMAGES = 3;
 export const FREE_AI_MESSAGE_TOKENS = 60_000;
 export class IaPlusRequired extends SalesError {
   code = "IA_PLUS_REQUIRED";
-  constructor(message = "Continue com o iMenu IA Plus para usar esta função.") { super(message, 402); }
+  constructor(message = "Continue com o iMenu Plus para usar esta função.") { super(message, 402); }
 }
 export class IaImageLimitReached extends SalesError {
   constructor(plus = false) {
     super(plus
-      ? "Seu limite mensal de 50 imagens do iMenu IA Plus foi atingido. Novas gerações estarão disponíveis no próximo mês."
-      : "Seu limite semanal de geração de imagens foi atingido. Para gerar mais imagens, assine o iMenu IA Plus. Você ainda pode conversar e realizar outras tarefas pelo Assistente IA.");
+      ? "Seu limite mensal de 50 imagens do iMenu Plus foi atingido. Novas gerações estarão disponíveis no próximo mês."
+      : "Seu limite semanal de geração de imagens foi atingido. Para gerar mais imagens, assine o iMenu Plus. Você ainda pode conversar e realizar outras tarefas pelo Assistente IA.");
   }
 }
 export async function aiAccess(restaurant: string, client?: Pick<PoolClient, "query">) {
   const execute = (sql: string, params: any[]) => client ? client.query(sql, params) : query(sql, params);
-  const addon = (await execute("SELECT status,current_period_ends_at FROM public.restaurant_addons WHERE restaurant_id=$1 AND product_key='ia_plus'", [restaurant])).rows[0] || null;
-  const plus = hasQrTableAccess(addon);
+  const plus = await hasIMenuPlusAccess(restaurant, client);
   const usedApplication = (await execute(`SELECT EXISTS(
     SELECT 1 FROM public.ia_vendas_actions a
     JOIN public.ia_vendas_conversations c ON c.id=a.conversation_id AND c.restaurant_id=a.restaurant_id
@@ -42,7 +41,7 @@ export async function requireApplicationAccess(restaurant: string, conversation:
   const kind = (await execute("SELECT kind FROM public.ia_vendas_conversations WHERE restaurant_id=$1 AND id=$2", [restaurant, conversation])).rows[0]?.kind;
   if (kind !== "chat") throw new IaPlusRequired();
   if (access.free_applications_remaining !== 1)
-    throw new IaPlusRequired("Sua primeira aplicação grátis já foi usada. Assine o iMenu IA Plus para aplicar mais melhorias.");
+    throw new IaPlusRequired("Sua primeira aplicação grátis já foi usada. Assine o iMenu Plus para aplicar mais melhorias.");
 }
 export async function requireIaPlus(restaurant: string) {
   if (!(await aiAccess(restaurant)).plus) throw new IaPlusRequired();

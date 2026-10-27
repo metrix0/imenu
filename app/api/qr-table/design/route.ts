@@ -62,8 +62,7 @@ export async function POST(request: Request) {
                     qr_design_template = $1,
                     qr_design_color = $2,
                     updated_at = NOW()
-                WHERE restaurant_id = $3
-                  AND product_key = 'qr_code_mesa'
+                WHERE id = (SELECT id FROM public.restaurant_addons WHERE restaurant_id=$3 AND product_key IN ('qr_code_mesa','ia_plus') ORDER BY (product_key='qr_code_mesa') DESC LIMIT 1)
                 RETURNING id
             `,
             [template, color.toUpperCase(), restaurantId]

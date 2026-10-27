@@ -30,6 +30,8 @@ import {
     faTimes,
     faTruck,
     faUtensils,
+    faUsers,
+    faBullhorn,
     faWandMagicSparkles,
     type IconDefinition,
 } from "@fortawesome/free-solid-svg-icons";
@@ -394,6 +396,7 @@ export default function PainelLayout({
     const menuItems: MenuItem[] = [
         { label: "Pedidos", icon: faHome, href: `${base}/` },
         { label: "Histórico", icon: faBox, href: `${base}/historico` },
+        { label: "Clientes", icon: faUsers, href: `${base}/clientes`, isNew: true },
         { label: "Cardápio", icon: faUtensils, href: cardapioHref },
         { label: "Assistente IA", icon: faWandMagicSparkles, href: `${base}/assistente-ia`, isNew: true },
         { label: "Mesas", icon: faChair, href: `${base}/mesas` },
@@ -411,6 +414,7 @@ export default function PainelLayout({
         { label: "Loja", icon: faStore, href: `${base}/loja` },
         { label: "Vendas IA", icon: faRocket, href: `${base}/vendas-ia`, isNew: true },
         { label: "Promoções", icon: faPercent, href: `${base}/promocoes` },
+        { label: "Marketing", icon: faBullhorn, href: `${base}/marketing`, isNew: true },
         { label: "Horários", icon: faClock, href: `${base}/disponibilidade` },
         { label: "Taxa e Tempo", icon: faTruck, href: `${base}/tempo-e-taxa` },
         { label: "Motoboy e Garçom", icon: faMotorRacingHelmet, href: `${base}/motoboy-garcom` },

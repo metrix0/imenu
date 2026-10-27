@@ -33,17 +33,28 @@ const activationInput = {
     paidAt: "2026-10-17T16:43:34.000Z",
 };
 
-it("does not re-send a welcome after a previously approved Pix payment", async () => {
+it("does not send a welcome when the already-approved Pix payment is rechecked", async () => {
     (query as jest.Mock).mockResolvedValue({ rows: [], rowCount: 0 });
+
     await activateMercadoPagoQrTablePrepaid(activationInput);
+
+    const [sql] = (query as jest.Mock).mock.calls[0];
+    expect(sql).toContain("AND mercadopago_order_id = $2");
+    expect(sql).toContain("UPPER(COALESCE(mercadopago_order_status, '')) <> 'APPROVED'");
     expect(sendAddonPurchaseWhatsApp).not.toHaveBeenCalled();
 });
 
-it("sends a welcome exactly once when a payment transitions to approved", async () => {
+it("welcomes only the request that newly approves a Pix payment, not later reconciliations", async () => {
     (query as jest.Mock)
         .mockResolvedValueOnce({ rows: [], rowCount: 1 })
         .mockResolvedValueOnce({ rows: [], rowCount: 0 });
+
     await activateMercadoPagoQrTablePrepaid(activationInput);
     await activateMercadoPagoQrTablePrepaid(activationInput);
+
     expect(sendAddonPurchaseWhatsApp).toHaveBeenCalledTimes(1);
+    expect(sendAddonPurchaseWhatsApp).toHaveBeenCalledWith({
+        addonId: activationInput.addonId,
+        paymentId: activationInput.paymentId,
+    });
 });

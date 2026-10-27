@@ -1,4 +1,5 @@
 "use client";
+import { useCheckoutSession } from "@/components/costumer/CheckoutCustomerFields";
 
 import {
     getCartStorageKey,
@@ -52,6 +53,7 @@ export default function CartBar({
 
     const checkoutState = useCheckoutStore((s) => s);
     const isTableOrder = Boolean(tableOrder);
+    useCheckoutSession(String(restaurant?.id || ""), !isTableOrder);
     const isPickup = !isTableOrder && (restaurant?.delivery_disabled === true || Boolean((checkoutState as any).is_pickup));
     const isContinueBlocked = useCheckoutStore(state => state.isContinueBlocked);
 
@@ -385,6 +387,8 @@ export default function CartBar({
             restaurantId: restaurant.id,
             expected_promotion: { id: currentPromotion?.promotion?.id || null, total_cents },
             customer_name: checkout.nome,
+            customer_address_details: pickup || isTableOrder ? null : {cep:checkout.cep,rua:checkout.rua,bairro:checkout.bairro,numero:checkout.numero,cidade:checkout.cidade,estado:checkout.estado,complemento:checkout.complemento},
+            marketing_consent: !isTableOrder && checkout.marketingConsent,
             customer_phone: isTableOrder ? null : checkout.celular,
             customer_address: pickup || isTableOrder
                 ? null

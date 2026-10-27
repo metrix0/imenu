@@ -19,6 +19,7 @@ interface CheckoutState {
 
     nome: string;
     celular: string;
+    marketingConsent: boolean;
 
     pagamento: "pix" | "pix-entrega" | "cartao" | "dinheiro" | "trazer-maquininha";
 
@@ -67,6 +68,7 @@ export const useCheckoutStore = create<CheckoutState>()(
             complemento: "",
             nome: "",
             celular: "",
+            marketingConsent: false,
             pagamento: "pix",
 
             delivery_fee_cents: false, // false = nao calculado, null = muito longe, number = valor

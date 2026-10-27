@@ -6,7 +6,7 @@ import {
 } from "@/lib/auth/restaurantOwner";
 import { query } from "@/lib/database/sql";
 import type { QrTableAddon } from "@/lib/qr-table/types";
-import { hasQrTableAccess } from "@/lib/qr-table/types";
+import { hasQrTableAccess, resolveQrTableAddon } from "@/lib/qr-table/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,12 +41,11 @@ export async function GET(request: Request) {
                 SELECT *
                 FROM public.restaurant_addons
                 WHERE restaurant_id = $1
-                  AND product_key = 'qr_code_mesa'
-                LIMIT 1
+                  AND product_key IN ('qr_code_mesa', 'ia_plus')
             `,
             [restaurantId]
         );
-        const addon = addonResult.rows[0] || null;
+        const addon = resolveQrTableAddon(addonResult.rows);
 
         const payments = addon
             ? await query<PaymentRow>(

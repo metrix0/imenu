@@ -1,10 +1,11 @@
 // app/[slug]/CartModal.tsx
 "use client";
+import CheckoutCustomerFields from "@/components/costumer/CheckoutCustomerFields";
 
 import PromotionSummary from "@/components/costumer/PromotionSummary";
 import type { PromotionResult } from "@/lib/promotions/automatic";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import Image from "next/image";
 import { useCartStore } from "@/lib/stores/costumer/cartStore";
 import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
@@ -23,7 +24,8 @@ import {fetchAddressByCEP, fetchCoordinates, fetchAddressByCoordinates, calculat
 import {formatPriceNoRS, formatPrice, promotionPrice} from "@/lib/utils/formatPrice";
 import { supabase } from "@/lib/database/supabaseClient";
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
-import { Item } from "@/lib/types/types";
+import { Item, type ItemsByCategory } from "@/lib/types/types";
+import { rankAutomaticUpsells, type AutomaticUpsellRecommendations } from "@/lib/upsell/recommendations";
 import { StartingPriceLabel } from "./StartingPriceLabels";
 import type { QrTableMenuContext } from "@/lib/qr-table/types";
 import {
@@ -75,12 +77,14 @@ function dateFromInput(value: string) {
 export default function CartModal({
                                        onClose,
                                        restaurant,
+    catalogItemsByCategory,
     selectedCouponCode, onSelectItem, tableOrder, selectedTableId,
     selectedTableName, onTableChange, promotionResult, neighborhoodDeliveryRules
                                    }: {
     promotionResult?: PromotionResult;
     onClose: () => void;
     restaurant: any;
+    catalogItemsByCategory: ItemsByCategory;
     step: "cart" | "info" | "checkout";
     setStep: React.Dispatch<React.SetStateAction<"cart" | "info" | "checkout">>;
     selectedCouponCode?: string | null;
@@ -137,7 +141,8 @@ export default function CartModal({
     const setContinueBlocked = useCheckoutStore(state => state.setContinueBlocked);
     const couponDebounceRef = useRef<number | null>(null);
     const [showDiscountInput, setShowDiscountInput] = useState(false);
-    const [upsells, setUpsells] = useState<Item[]>([]);
+    const [manualUpsells, setManualUpsells] = useState<Item[]>([]);
+    const [automaticRecommendations, setAutomaticRecommendations] = useState<AutomaticUpsellRecommendations | null>(null);
     const [loadingUpsells, setLoadingUpsells] = useState(false);
     const [showOptionalSchedule, setShowOptionalSchedule] = useState(false);
     const [scheduleDropdownOpen, setScheduleDropdownOpen] = useState(false);
@@ -684,7 +689,7 @@ export default function CartModal({
                 .order("position", { ascending: true });
 
             if (!upsellRows || upsellRows.length === 0) {
-                setUpsells([]);
+                setManualUpsells([]);
                 setLoadingUpsells(false);
                 return;
             }
@@ -698,7 +703,7 @@ export default function CartModal({
                 .eq("is_available", true);
 
             if (!items) {
-                setUpsells([]);
+                setManualUpsells([]);
                 setLoadingUpsells(false);
                 return;
             }
@@ -719,12 +724,52 @@ export default function CartModal({
                 })
                 .filter((i): i is Item => i !== null);
 
-            setUpsells(ordered);
+            setManualUpsells(ordered);
             setLoadingUpsells(false);
         };
 
         loadUpsells();
     }, [restaurant?.id]);
+
+    useEffect(() => {
+        if (!restaurant?.id) return;
+        let active = true;
+        setAutomaticRecommendations(null);
+        supabase.from("automatic_upsell").select("recommendations")
+            .eq("restaurant_id", restaurant.id).maybeSingle()
+            .then(({ data, error }) => {
+                if (active && !error && data?.recommendations) {
+                    setAutomaticRecommendations(data.recommendations as AutomaticUpsellRecommendations);
+                }
+            });
+        return () => { active = false; };
+    }, [restaurant?.id]);
+
+    const catalogById = useMemo(() => new Map(
+        Object.values(catalogItemsByCategory).flat().map(item => [item.id, item] as const)
+    ), [catalogItemsByCategory]);
+
+    const upsells = useMemo(() => {
+        const productIds = items.flatMap(item => [
+            item.base_item_id,
+            ...(item.pizza?.flavors?.map(flavor => flavor.item_id) || []),
+        ]).filter(Boolean);
+        const cartIds = new Set(productIds);
+        const categoryIds = productIds
+            .map(id => catalogById.get(id)?.category_id)
+            .filter((id): id is string => Boolean(id));
+        const availableIds = new Set([...catalogById.values()]
+            .filter(item => item.is_available).map(item => item.id));
+        const autoIds = rankAutomaticUpsells(automaticRecommendations, productIds, categoryIds, availableIds);
+        const automaticItems = autoIds.map(id => catalogById.get(id))
+            .filter((item): item is Item => Boolean(item));
+        const seen = new Set<string>();
+        return [...automaticItems, ...manualUpsells].filter(item => {
+            if (!item.is_available || cartIds.has(item.id) || seen.has(item.id)) return false;
+            seen.add(item.id);
+            return true;
+        }).slice(0, 5);
+    }, [automaticRecommendations, catalogById, items, manualUpsells]);
 
     useEffect(() => {
         requestAnimationFrame(() => setOpenModal(true));
@@ -909,7 +954,7 @@ export default function CartModal({
                     )}
                 </div>
 
-                <div className="w-full flex-1 min-h-0 overflow-hidden">
+                <div className="w-full flex-1 min-h-0 overflow-clip">
 
                     <div
                         className="flex h-full transition-transform duration-300 overflow-hidden"
@@ -924,7 +969,7 @@ export default function CartModal({
                         }}
                     >
 
-                <div className="w-full h-full min-h-0 px-4 2xl:px-8 overflow-y-auto pt-2 ">
+                <div className="w-1/3 shrink-0 min-w-0 h-full min-h-0 px-4 2xl:px-8 overflow-y-auto pt-2 ">
                     <div className="flex items-center gap-3 mt-2 mb-4">
                         {restaurant?.logo_url && (
                             <Image
@@ -1083,7 +1128,7 @@ export default function CartModal({
 
                 </div>
 
-                <form className="w-full h-full min-h-0 px-4 overflow-y-auto pt-4 pb-32 2xl:pb-10 2xl:px-8" autoComplete="on">
+                <form className="w-1/3 shrink-0 min-w-0 h-full min-h-0 px-4 overflow-y-auto pt-4 pb-32 2xl:pb-10 2xl:px-8" autoComplete="on">
                     {isTableOrder ? (
                         <div className="space-y-6">
                             {tableOrder?.requiresTableSelection ? (
@@ -1167,6 +1212,7 @@ export default function CartModal({
                         </div>
                     ) : (
                         <>
+                    <CheckoutCustomerFields restaurantId={String(restaurant.id)} />
                     {deliveryDisabled && (
                         <div className="mb-5 rounded-xl border border-gray-200 bg-gray-50 p-4">
                             <p className="font-semibold text-md 2xl:text-lg">{restaurant.name} aceita apenas retiradas.</p>
@@ -1292,38 +1338,11 @@ export default function CartModal({
                     </fieldset>
                     )}
 
-                    <h2 className="font-semibold text-md mt-3 mb-5 md:text-sm 2xl:text-lg">
-                        Informações pessoais
-                    </h2>
-
-                    <Input
-                        autoComplete="name"
-                        label="Nome"
-                        placeholder="Rafael"
-                        value={nome}
-                        onChange={(e) => setField("nome", e.target.value)}
-                        className={"mb-3 2xl:text-lg 2xl:mb-6 md:text-sm "}
-                    />
-
-                    <Input
-                        autoComplete="tel"
-                        label="Celular"
-                        placeholder="(12) 3456-7891"
-                        value={celular}
-                        onChange={(e) =>
-                            setField("celular", e.target.value)
-                        }
-                        className="mb-2 2xl:text-lg 2xl:mb-3 md:text-sm "
-                    />
-
-                    <p className={"text-gray-500 text-sm 2xl:text-md"}>
-                        *Seu número será usado apenas em caso de emergência
-                    </p>
                         </>
                     )}
                 </form>
 
-                <div className="w-full h-full min-h-0 px-4 overflow-y-auto pt-4 md:pb-32 2xl:px-8">
+                <div className="w-1/3 shrink-0 min-w-0 h-full min-h-0 px-4 overflow-y-auto pt-4 md:pb-32 2xl:px-8">
 
                     <>
                         {hasSchedulingChoice && (

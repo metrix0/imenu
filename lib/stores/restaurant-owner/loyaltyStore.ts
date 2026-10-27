@@ -11,9 +11,11 @@ type LoyaltyStore = {
   updateField: (field: keyof LoyaltyProgram, value: any) => void;
   
   // Async Actions (Calls API)
-  fetchProgram: (restaurantId: string) => Promise<void>;
-  saveProgram: () => Promise<boolean>;
+  fetchProgram: (restaurantId: string) => Promise<boolean>;
+  saveProgram: (snapshot?: LoyaltyProgram) => Promise<boolean>;
 };
+
+let loadVersion = 0;
 
 export const useLoyaltyStore = create<LoyaltyStore>((set, get) => ({
   program: null,
@@ -28,26 +30,31 @@ export const useLoyaltyStore = create<LoyaltyStore>((set, get) => ({
   },
 
   fetchProgram: async (restaurantId: string) => {
-    set({ loading: true });
+    const version = ++loadVersion;
+    set({ program: null, loading: true });
     try {
       // Chamada para a API que criaremos
       const res = await fetch(`/api/loyalty/config?restaurant_id=${restaurantId}`);
       if (res.ok) {
         const data = await res.json();
+        if (version !== loadVersion) return false;
         set({ program: data });
+        return true;
       } else {
         // Se não existir, pode ser null ou criar um default no backend
-        set({ program: null });
+        if (version === loadVersion) set({ program: null });
+        return false;
       }
     } catch (error) {
       console.error("Failed to fetch loyalty program", error);
+      return false;
     } finally {
-      set({ loading: false });
+      if (version === loadVersion) set({ loading: false });
     }
   },
 
-  saveProgram: async () => {
-    const { program } = get();
+  saveProgram: async (snapshot) => {
+    const program = snapshot || get().program;
     if (!program) return false;
 
     set({ loading: true });
@@ -60,7 +67,8 @@ export const useLoyaltyStore = create<LoyaltyStore>((set, get) => ({
       
       if (res.ok) {
         const updated = await res.json();
-        set({ program: updated });
+        // A response for an older edit must not overwrite the current draft.
+        if (get().program === program) set({ program: updated });
         return true;
       }
       return false;

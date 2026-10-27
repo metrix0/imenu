@@ -31,7 +31,7 @@ export async function GET(request: Request) {
         );
         if (!addons.rows.some((addon) => hasQrTableAccess(addon))) {
             return NextResponse.json(
-                { error: "Disponível com iMenu QR ou IA Plus." },
+                { error: "Disponível com iMenu QR ou iMenu Plus." },
                 { status: 403, headers: { "Cache-Control": "no-store" } },
             );
         }

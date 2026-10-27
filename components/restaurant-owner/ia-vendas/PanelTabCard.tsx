@@ -1,8 +1,8 @@
 "use client";
 
-import { ArrowUpRight } from "lucide-react";
 import {
   faBox,
+  faBullhorn,
   faChair,
   faChartLine,
   faClock,
@@ -23,8 +23,7 @@ import {
   type IconDefinition,
 } from "@fortawesome/free-solid-svg-icons";
 
-import Button from "@/components/ui/Button";
-import { PanelIcon } from "@/components/ui/PanelIcon";
+import PageBadge from "@/components/ui/PageBadge";
 import { PANEL_TABS, type PanelTabKey } from "@/lib/ia-vendas/panelTabs";
 
 const PANEL_TAB_ICONS: Record<PanelTabKey, IconDefinition> = {
@@ -43,6 +42,7 @@ const PANEL_TAB_ICONS: Record<PanelTabKey, IconDefinition> = {
   fidelidade: faGift,
   aplicativo: faMobileScreenButton,
   "robo-whatsapp": faRobot,
+  marketing: faBullhorn,
   impressora: faPrint,
   integracoes: faPuzzlePiece,
   configuracoes: faGear,
@@ -58,20 +58,14 @@ export default function PanelTabCard({
   const item = PANEL_TABS[tab];
 
   return (
-    <Button
-      type="button"
-      variant="secondary"
-      className={
-        inline
-          ? "!min-h-0 gap-1 !rounded-[6px] !border-brand/20 !bg-brand/5 !px-2 !py-0.5 align-baseline !text-xs !leading-5 !text-brand hover:!bg-brand/10"
-          : "mt-3 gap-2"
-      }
+    <PageBadge
+      href={item.href}
+      icon={PANEL_TAB_ICONS[tab]}
+      size={inline ? "inline" : "button"}
+      newTab
       aria-label={`Abrir aba ${item.label}`}
-      onClick={() => window.open(item.href, "_blank", "noopener,noreferrer")}
     >
-      <PanelIcon icon={PANEL_TAB_ICONS[tab]} aria-hidden="true" />
       {item.label}
-      <ArrowUpRight size={inline ? 12 : 14} aria-hidden="true" />
-    </Button>
+    </PageBadge>
   );
 }

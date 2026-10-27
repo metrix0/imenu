@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -39,6 +39,72 @@ const LOGOS = [
         name: "Restaurante 3",
         src: "/images/Menu_Mockup_Logo_1.png",
         secondSrc: "/images/Menu_Mockup_1.png",
+    },
+];
+
+type ResourceRow = readonly [string, string, string];
+const RESOURCE_SECTIONS: readonly { title: string; rows: readonly ResourceRow[] }[] = [
+    {
+        title: "Cardápio",
+        rows: [
+            ["Totalmente grátis, para sempre","check","Condições variam por plano"],
+            ["Aplicativo para celular","check","Varia por plataforma"],
+            ["Seu domínio customizado","check","Varia por plataforma"],
+            ["SEO","check","Varia por plataforma"],
+            ["Fotos em Alta qualidade","check","Varia por plataforma"],
+            ["Customização de opcionais","check","Varia por plataforma"],
+            ["Identidade visual personalizada","check","Varia por plataforma"],
+            ["Sem marca d'água","check","Varia por plataforma"],
+            ["Modo Vitrine (cardápio sem pedidos)","Grátis","Varia por plataforma"],
+            ["Dividir Pizza em vários sabores","check","Varia por plataforma"],
+        ],
+    },
+    {
+        title: "Pedidos e Delivery",
+        rows: [
+            ["Pedidos ilimitados","check","Limites variam por plano"],
+            ["Robô WhatsApp","check","Disponibilidade varia por plano"],
+            ["Alta conversão","check","Resultados variam por operação"],
+            ["Acompanhamento do pedido","Acompanhamento em tempo real via Página e WhatsApp","Recursos variam por plataforma"],
+            ["Taxa por Transação","SEM TAXAS. Apenas Pix Online: 0,99% por pedido.","Taxas variam por serviço"],
+            ["Calcular Taxa de Entrega","Pelo Raio (KM) ou Bairro","Varia por plataforma"],
+            ["Agendamento de pedido","check","Varia por plataforma"],
+            ["Modo Encomenda","check","Varia por plataforma"],
+            ["Notificações de pedidos","No celular e via WhatsApp para restaurante e cliente","Varia por plataforma"],
+        ],
+    },
+    {
+        title: "Operação",
+        rows: [
+            ["Gestor de pedidos (balcão)","check","Varia por plataforma"],
+            ["Impressão dos pedidos","check","Varia por plataforma"],
+            ["Suporte humanizado","Todos os dias","Canais e horários variam"],
+            ["Painel Financeiro","check","Varia por plataforma"],
+            ["Fechamento de Caixa","check","Varia por plataforma"],
+            ["QR Code na mesa","Grátis","Condições variam por plano"],
+            ["Painel do Garçom","Grátis","Varia por plataforma"],
+            ["Bugs Corrigidos em 1 dia útil","check","Prazos variam por plataforma"],
+            ["Solicitação de integrações e funcionalidades","IA Plus","Varia por plataforma"],
+        ],
+    },
+    {
+        title: "Marketing e Analytics",
+        rows: [
+            ["Link para WhatsApp e redes","check","Varia por plataforma"],
+            ["Cupons de desconto","check","Varia por plataforma"],
+            ["Google Analytics Integrado","check","Varia por plataforma"],
+            ["Pixel Meta (Facebook/Instagram) Integrado","check","Varia por plataforma"],
+            ["Relatórios e Analytics","Cliques, visualizações do cardápio, valor médio do carrinho e origem dos acessos","Varia por plataforma"],
+        ],
+    },
+    {
+        title: "Inteligência Artificial",
+        rows: [
+            ["Assistente IA","check","Varia por plataforma"],
+            ["Análise avançada com IA","IA Plus","Varia por plataforma"],
+            ["Scanear Cardápio com IA","Envie Fotos, PDFs ou Links e tenha o cardápio pronto em segundos","Varia por plataforma"],
+            ["Geração de imagens com IA","IA Plus","Varia por plataforma"],
+        ],
     },
 ];
 
@@ -482,101 +548,70 @@ export default function LandingPage() {
                             </tr>
                         </thead>
                         <tbody className="[&>tr>td]:p-4 min-[1400px]:[&>tr>td]:p-5 [&>tr>td]:2xl:p-6 [&>tr:nth-child(even)]:bg-gray-50">
-                            {[
-                                ["Totalmente grátis, para sempre", "check", "Mensalidade e taxas"],
-                                ["Pedidos ilimitados", "check", "Cada vez mais caro"],
-                                ["Robô WhatsApp", "check", "Taxas adicionais"],
-                                ["Aplicativo para celular", "check", "Não"],
-                                ["Converte o cliente", "check", "Baixa Conversão"],
-                                ["Assistente IA", "check", "Não"],
-                                ["Vendas IA (Análise)", "check", "Não"],
-                                ["Gestor de pedidos (balcão)", "check", "Limitado"],
-                                ["Suporte humanizado", "Todos os dias", "Robô, fila ou e-mail"],
-                                ["Impressão dos pedidos", "check", "Não"],
-                                ["Seu domínio customizado", "check", "Não"],
-                                ["SEO", "check", "Não otimizado"],
-                                ["Acompanhamento do pedido", "Acompanhamento em tempo real via Página e Whatsapp", "Clientes ficam perdidos"],
-                                ["Taxa por Transação", "SEM TAXAS. Apenas Pix Online: 0.99% por pedido.", "5%, 15%, 30%"],
-                                ["Scanear Cardápio com IA", "Envie Fotos, PDFs ou Links e tenha o cardápio pronto em segundos", "Manual"],
-                                ["Dados para análise", "Clicks, Visualizações do Cardápio, $ médio do Carrinho, Clicks por Plataforma, etc", "Limitado"],
-                                ["Calcular Taxa de Entrega", "Pelo Raio (KM) ou Bairro", "Configurações confusas"],
-                                ["Fotos em Alta qualidade", "check", "Baixa qualidade"],
-                                ["Customização de opcionais", "check", "Limitado"],
-                                ["Identidade visual personalizada", "check", "Limitado"],
-                                ["Sem marca d'água", "check", "Com marca d'água"],
-                                ["Link para WhatsApp e redes", "check", "Limitado"],
-                                ["Painel Financeiro", "check", "Limitado"],
-                                ["Fechamento de Caixa", "check", "Varia por plataforma"],
-                                ["Sistema em nuvem", "check", "Não"],
-                                ["Google Analytics Integrado", "check", "Limitado"],
-                                ["Pixel Meta (Facebook/Instagram) Integrado", "check", "Limitado"],
-                                ["Cupons de desconto", "check", "Pouca customização"],
-                                ["Sistema disponível para celulares", "check", "Indisponível"],
-                                ["Notificações no celular", "check", "Não"],
-                                ["QR Code na mesa", "Grátis", "R$ 99,90 por mês (muito mais caro)"],
-                                ["Modo Vitrine (cardápio sem pedidos)", "Grátis", "Varia por plataforma"],
-                                ["App para garçom", "check", "Pago"],
-                                ["Agendamento de pedido", "check", "Não"],
-                                ["Modo Encomenda", "check", "Não"],
-                                ["Dividir Pizza em vários sabores", "check", "Não tem ou máximo 2"],
-                                ["Relatórios e Analytics", "check", "Limitado"],
-                                ["Sem bugs", "Correção garantida em 2 dias úteis", "Correção leva meses"],
-                                ["Notificar pedido", "Notificações no WhatsApp do restaurante e do cliente", "Não"],
-                            ].map(([feature, imenu, competitor]) => (
-                                <tr key={feature}>
-                                    <td className="border-r border-gray-200">{feature}</td>
-                                    <td className="border-r border-gray-200 text-center">
-                                        {imenu === "check" ? (
-                                            <FontAwesomeIcon
-                                                icon={icons.faCheck}
-                                                className="text-green"
-                                            />
-                                        ) : (
-                                            imenu
-                                        )}
-                                    </td>
-                                    <td className="text-center">{competitor}</td>
-                                </tr>
-                            ))}
-
-                            {[
-                                ["API Aberta", "-"],
-                            ].map(([feature, competitor]) => (
-                                <tr key={feature}>
-                                    <td className="border-r border-gray-200">{feature}</td>
-                                    <td className="border-r border-gray-200 text-center">
-                                        <Tooltip
-                                            text="Funcionalidade em desenvolvimento."
-                                            color="bg-orange"
-                                        >
-                                            <FontAwesomeIcon
-                                                icon={icons.faClock}
-                                                className="text-orange"
-                                            />
-                                        </Tooltip>
-                                    </td>
-                                    <td className="text-center">{competitor}</td>
-                                </tr>
-                            ))}
-
-                            {[
-                                ["CRM", "Limitado"],
-                            ].map(([feature, competitor]) => (
-                                <tr key={feature}>
-                                    <td className="border-r border-gray-200">{feature}</td>
-                                    <td className="border-r border-gray-200 text-center">
-                                        <Tooltip
-                                            text="Não é uma prioridade no momento."
-                                            color="bg-red"
-                                        >
-                                            <FontAwesomeIcon
-                                                icon={icons.faClock}
-                                                className="text-red"
-                                            />
-                                        </Tooltip>
-                                    </td>
-                                    <td className="text-center">{competitor}</td>
-                                </tr>
+                            {RESOURCE_SECTIONS.map((section) => (
+                                <Fragment key={section.title}>
+                                    <tr className="!bg-gray-100">
+                                        <th scope="row" colSpan={3} className="border-y border-gray-200 px-4 py-3 text-left text-sm font-semibold text-gray-900 min-[1400px]:px-5 min-[1400px]:py-4 min-[1400px]:text-base 2xl:px-6 2xl:text-lg">
+                                            {section.title}
+                                        </th>
+                                    </tr>
+                                    {section.rows.map(([feature, imenu, competitor]) => (
+                                        <tr key={feature}>
+                                            <td className="border-r border-gray-200">{feature}</td>
+                                            <td className="border-r border-gray-200 text-center">
+                                                {imenu === "check" ? (
+                                                    <FontAwesomeIcon icon={icons.faCheck} className="text-green" />
+                                                ) : (
+                                                    imenu
+                                                )}
+                                            </td>
+                                            <td className="text-center">{competitor}</td>
+                                        </tr>
+                                    ))}
+                                    {section.title === "Operação" && (
+                                        <>
+                                            {[
+                                                ["API Aberta", "-"],
+                                            ].map(([feature, competitor]) => (
+                                                <tr key={feature}>
+                                                    <td className="border-r border-gray-200">{feature}</td>
+                                                    <td className="border-r border-gray-200 text-center">
+                                                        <Tooltip
+                                                            text="Funcionalidade em desenvolvimento."
+                                                            color="bg-orange"
+                                                        >
+                                                            <FontAwesomeIcon
+                                                                icon={icons.faClock}
+                                                                className="text-orange"
+                                                            />
+                                                        </Tooltip>
+                                                    </td>
+                                                    <td className="text-center">{competitor}</td>
+                                                </tr>
+                                            ))}
+                
+                                            {[
+                                                ["CRM", "Limitado"],
+                                            ].map(([feature, competitor]) => (
+                                                <tr key={feature}>
+                                                    <td className="border-r border-gray-200">{feature}</td>
+                                                    <td className="border-r border-gray-200 text-center">
+                                                        <Tooltip
+                                                            text="Não é uma prioridade no momento."
+                                                            color="bg-red"
+                                                        >
+                                                            <FontAwesomeIcon
+                                                                icon={icons.faClock}
+                                                                className="text-red"
+                                                            />
+                                                        </Tooltip>
+                                                    </td>
+                                                    <td className="text-center">{competitor}</td>
+                                                </tr>
+                                            ))}
+                                        </>
+                                    )}
+                                </Fragment>
                             ))}
                         </tbody>
                     </table>

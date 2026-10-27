@@ -1298,6 +1298,7 @@ export default function MenuClientPage({
 
             {!readOnly && cartOpen && (
                 <CartModal
+                    catalogItemsByCategory={itemsByCategory}
                     promotionResult={promotionResult}
                     restaurant={restaurant}
                     onClose={() => {

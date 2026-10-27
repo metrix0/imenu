@@ -21,9 +21,11 @@ const ADDON_PURCHASE_MESSAGES: Record<AddonPurchaseRow["product_key"], string> =
     ia_plus: [
         "Oi! Tudo bem? Sou a Ellen, do iMenu 🍔",
         "",
-        "Vi que você acabou de assinar o *iMenu IA Plus*! Muito obrigado pela confiança! 💙",
+        "Vi que você acabou de assinar o *iMenu Plus*! Muito obrigado pela confiança! 💙",
         "",
-        "*BÔNUS:* Temos um bônus para você. Com o IA Plus você ganha atendimento preferencial e a possibilidade de requisitar modificações e integrações no sistema! Essas requisições podem ser feitas por aqui mesmo! 🚀",
+        "Seu plano inclui Automações de Marketing WhatsApp, Assistente IA, Vendas IA e iMenu QR Code. Bônus: upsells automáticos, Modo Vitrine, Painel Garçom e download do cardápio em PDF.",
+        "",
+        "*BÔNUS:* Temos um bônus para você. Com o iMenu Plus você ganha atendimento preferencial e a possibilidade de requisitar modificações e integrações no sistema! Essas requisições podem ser feitas por aqui mesmo! 🚀",
         "",
         "Ficamos à disposição para ajudar com o que necessário.",
     ].join("\n"),

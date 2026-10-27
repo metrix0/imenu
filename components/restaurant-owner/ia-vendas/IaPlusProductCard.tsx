@@ -1,7 +1,7 @@
 "use client";
 
 import MenuProductCard from "@/components/restaurant-owner/mesas/MenuProductCard";
-import { IA_PLUS_PRICE_LABEL } from "@/lib/addons/products";
+import { IA_PLUS_PRICE_LABEL, IA_PLUS_BENEFITS, IA_PLUS_BONUSES } from "@/lib/addons/products";
 
 export default function IaPlusProductCard({ active, onLearnMore, presentation = "default" }: { active: boolean; onLearnMore: () => void; presentation?: "default" | "plans" }) {
     return (
@@ -9,12 +9,12 @@ export default function IaPlusProductCard({ active, onLearnMore, presentation = 
             presentation={presentation}
             variant="addon"
             cardClickable={false}
-            name="iMenu IA Plus"
-            logo="/logos/IAPlusCombinationMarkLogo_Brand.png"
-            description="Assistente IA com capacidade total! Acesso completo às Análise de vendas com IA!"
+            name="iMenu Plus"
+            logo="/logos/PlusCombinationMarkLogo_Brand.svg"
+            description="Marketing pelo WhatsApp e inteligência artificial para vender mais."
             priceLabel={IA_PLUS_PRICE_LABEL}
-            features={["Assistente IA", "Geração de imagens", "Análise completa"]}
-            exclusiveSupport
+            features={IA_PLUS_BENEFITS.map((benefit) => benefit.title)}
+            bonuses={IA_PLUS_BONUSES.map((bonus) => bonus.title)}
             active={active}
             onLearnMore={onLearnMore}
         />

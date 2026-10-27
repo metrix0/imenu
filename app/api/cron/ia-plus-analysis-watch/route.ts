@@ -76,7 +76,7 @@ function buildMessage(row: Candidate, delayHours: number): string {
         : ["Última análise: nenhuma"];
 
     return [
-        `IA Plus comprado há ${delayHours}h e ainda sem análise concluída nos últimos 28 dias.`,
+        `iMenu Plus comprado há ${delayHours}h e ainda sem análise concluída nos últimos 28 dias.`,
         `Restaurante: ${row.restaurant_name}`,
         row.owner_email ? `E-mail: ${row.owner_email}` : null,
         `Restaurante ID: ${row.restaurant_id}`,
@@ -180,7 +180,7 @@ export async function GET(request: Request) {
 
         try {
             await sendNtfyNotification({
-                title: `ALARM TRIGGER - IA Plus sem análise recente (${delayHours}h)`,
+                title: `ALARM TRIGGER - iMenu Plus sem análise recente (${delayHours}h)`,
                 message: buildMessage(candidate, delayHours),
             });
             sent += 1;

@@ -1,3 +1,5 @@
+import { readCookie, checkoutCookie, structuredAddress, trustCustomer, trustedPhone } from "@/lib/services/checkoutCustomer";
+import { normalizeCustomerPhone } from "@/lib/services/crmRules";
 // app/api/orders/route.ts
 import { after, NextResponse } from "next/server";
 
@@ -679,14 +681,7 @@ export async function POST(request: Request) {
                                 JOIN public.restaurant_tables AS table_entry
                                   ON table_entry.restaurant_id = addon.restaurant_id
                                 WHERE addon.restaurant_id = $1
-                                  AND addon.product_key = 'qr_code_mesa'
-                                  AND (
-                                        addon.status = 'active'
-                                     OR (
-                                            addon.status IN ('canceled', 'past_due')
-                                        AND addon.current_period_ends_at > NOW()
-                                     )
-                                  )
+                                  AND addon.product_key IN ('qr_code_mesa', 'ia_plus')
                                   AND table_entry.is_active = true
                                   AND (
                                         (
@@ -1020,6 +1015,16 @@ export async function POST(request: Request) {
                     const orderId =
                         orderResult.rows[0].id;
 
+                    const crmPhone = normalizeCustomerPhone(customer_phone);
+                    const crmAddress = isPickup || isCounterOrder || isTableOrder ? null : structuredAddress(body.customer_address_details);
+                    if (crmPhone && !isTableOrder) {
+                        await client.query(`UPDATE customers SET address=coalesce($3::jsonb,address), marketing_consent=marketing_consent OR $4::boolean,updated_at=now() WHERE restaurant_id=$1 AND phone=$2`,[restaurantId,crmPhone,crmAddress ? JSON.stringify(crmAddress) : null,body.marketing_consent===true]);
+                    }
+                    const crmSession = readCookie(request,checkoutCookie(restaurantId));
+                    if (/^[0-9a-f-]{36}$/i.test(crmSession)) {
+                        await client.query(`UPDATE checkout_sessions SET order_id=$1,completed_at=now(),items='[]',updated_at=now() WHERE id=$2 AND restaurant_id=$3 AND completed_at IS NULL`,[orderId,crmSession,restaurantId]);
+                    }
+
                     for (const cartItem of items) {
                         const itemId =
                             getCartItemId(cartItem);
@@ -1217,11 +1222,11 @@ export async function POST(request: Request) {
                     console.error("[ORDERS] Failed to send owner push:", error);
                 }
             });
-            return NextResponse.json({
+            return trustCustomer(NextResponse.json({
                 order_id: orderId,
                 payment_type: "offline",
                 redirect: `/${slug}/${orderId}`,
-            });
+            }),restaurantId,customer_phone,trustedPhone(request,restaurantId)===normalizeCustomerPhone(customer_phone) ? undefined : {name:String(customer_name || "").slice(0,100),address:structuredAddress(body.customer_address_details)});
         }
 
         let payment;
@@ -1275,10 +1280,10 @@ export async function POST(request: Request) {
             ]
         );
 
-        return NextResponse.json({
+        return trustCustomer(NextResponse.json({
             id: orderId,
             payment_type: "pix",
-        });
+        }),restaurantId,customer_phone,trustedPhone(request,restaurantId)===normalizeCustomerPhone(customer_phone) ? undefined : {name:String(customer_name || "").slice(0,100),address:structuredAddress(body.customer_address_details)});
     } catch (error) {
         console.error(
             "[ORDERS] Falha ao criar pedido:",
