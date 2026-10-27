@@ -17,6 +17,34 @@ export type BlogArticleDefinition = {
 
 export const BLOG_ARTICLES: BlogArticleDefinition[] = [
     {
+        slug: "imenu-plus",
+        title: "iMenu Plus: como vender mais com IA e automações de WhatsApp para restaurantes",
+        shortTitle: "iMenu Plus: IA e automações",
+        metaTitle: "iMenu Plus: IA e Automações de WhatsApp | iMenu",
+        metaDescription:
+            "Conheça o iMenu Plus: marketing automático no WhatsApp, recuperação de carrinho, Assistente IA, Vendas IA, bônus, diferenças do grátis e preço.",
+        excerpt:
+            "Veja como combinar automações de WhatsApp, Assistente IA e análise de vendas para trabalhar oportunidades, sem perder os recursos gratuitos do iMenu.",
+        category: "Vendas",
+        readingTime: "16 min de leitura",
+        publishedAt: "2026-10-27",
+        updatedAt: "2026-10-27",
+    },
+    {
+        slug: "crm-para-restaurantes",
+        title: "CRM para restaurantes: como organizar clientes e aumentar a recompra",
+        shortTitle: "CRM para restaurantes",
+        metaTitle: "CRM para Restaurantes: Clientes e Recompra | iMenu",
+        metaDescription:
+            "Entenda o CRM para restaurantes: histórico de pedidos, segmentação, favoritos e recompra. Conheça o CRM grátis do iMenu e as automações opcionais.",
+        excerpt:
+            "Conheça seus clientes pelo histórico de compras, identifique oportunidades de recompra e veja o que é grátis no CRM do iMenu.",
+        category: "Gestão",
+        readingTime: "11 min de leitura",
+        publishedAt: "2026-10-27",
+        updatedAt: "2026-10-27",
+    },
+    {
         slug: "como-fazer-fechamento-de-caixa-restaurante",
         title: "Como fazer fechamento de caixa no restaurante: passo a passo e conferência",
         shortTitle: "Fechamento de caixa no restaurante",
