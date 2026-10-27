@@ -575,17 +575,20 @@ export default function RoboWhatsAppPage() {
                             )}
                         </div>
                     </div>
-                    <div id="atendimentos-humanos" aria-label="Conversas encaminhadas" className={`mt-5 [&_th]:whitespace-nowrap [&_th]:py-3 ${handoffs.length === 0 ? "[&_td]:py-6" : ""}`}>
-                        {pendingHandoffs > 0 && (
-                            <div className="mb-3 flex justify-end">
+                    <div id="atendimentos-humanos" aria-labelledby="clientes-whatsapp-title" className={`mt-6 [&_th]:py-3 ${handoffs.length === 0 ? "[&_table]:table-auto @min-[720px]:[&_table]:table-fixed [&_td]:py-4" : "[&_table]:table-fixed"}`}>
+                        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                            <h3 id="clientes-whatsapp-title" className="!text-sm !leading-5 font-semibold text-gray-900">
+                                Clientes encaminhados pelo WhatsApp
+                            </h3>
+                            {pendingHandoffs > 0 && (
                                 <Badge variant="warning">
                                     {pendingHandoffs} aguardando
                                 </Badge>
-                            </div>
-                        )}
+                            )}
+                        </div>
                         <DataTable
                             rows={handoffs}
-                            emptyMessage="Nenhuma conversa encaminhada recentemente."
+                            emptyMessage="Nenhum cliente encaminhado pelo WhatsApp recentemente."
                             rowKey={(handoff) => handoff.chat_id}
                             columns={[
                                 {
@@ -594,8 +597,8 @@ export default function RoboWhatsAppPage() {
                                     render: (handoff) => {
                                         const phone = getHandoffPhone(handoff);
                                         return (
-                                            <div className="min-w-0 @min-[720px]:min-w-36">
-                                                <p className="font-semibold text-gray-900">{handoff.customer_name || "Cliente"}</p>
+                                            <div className="min-w-0">
+                                                <p className="break-words font-semibold text-gray-900">{handoff.customer_name || "Cliente"}</p>
                                                 <p className="mt-0.5 text-xs text-gray-500">
                                                     {phone ? formatPhone(phone) : "Telefone indisponível"}
                                                 </p>
@@ -618,7 +621,7 @@ export default function RoboWhatsAppPage() {
                                 {
                                     key: "requested",
                                     label: "Encaminhado",
-                                    className: "hidden whitespace-nowrap @min-[720px]:table-cell",
+                                    className: "hidden whitespace-nowrap @min-[720px]:w-40 @min-[720px]:table-cell",
                                     render: (handoff) => new Date(handoff.handoff_requested_at).toLocaleString("pt-BR", {
                                         timeZone: "America/Sao_Paulo",
                                         dateStyle: "short",
@@ -628,7 +631,7 @@ export default function RoboWhatsAppPage() {
                                 {
                                     key: "status",
                                     label: "Situação",
-                                    className: "hidden whitespace-nowrap @min-[720px]:table-cell",
+                                    className: "hidden whitespace-nowrap @min-[720px]:w-48 @min-[720px]:table-cell",
                                     render: (handoff) => (
                                         <Badge variant={isHandoffAttended(handoff) ? "success" : "warning"}>
                                             {isHandoffAttended(handoff) ? "Atendido" : "Aguardando atendimento"}
@@ -638,7 +641,7 @@ export default function RoboWhatsAppPage() {
                                 {
                                     key: "action",
                                     label: "Ação",
-                                    className: "whitespace-nowrap text-right",
+                                    className: "w-20 whitespace-nowrap text-right @min-[720px]:w-48",
                                     render: (handoff) => {
                                         const phone = getHandoffPhone(handoff);
                                         return (
