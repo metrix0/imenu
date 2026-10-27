@@ -112,8 +112,7 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
               )}
 
               <p className="mt-4 max-w-xl text-sm leading-6 text-gray-600 sm:text-base">
-                <strong className="font-semibold text-gray-900">Venda mais com iMenu Plus.</strong>{" "}
-                Automatize seu marketing no WhatsApp e use a inteligência artificial para descobrir novas oportunidades.
+                Venda mais com iMenu Plus. Mais conversão, mais vendas, mais clientes.
               </p>
 
               <div className="mt-6 rounded-xl border border-brand/20 bg-brand/5 p-4">
