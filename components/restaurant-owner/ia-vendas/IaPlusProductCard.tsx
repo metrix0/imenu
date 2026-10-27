@@ -10,7 +10,7 @@ export default function IaPlusProductCard({ active, onLearnMore, presentation = 
             variant="addon"
             cardClickable={false}
             name="iMenu Plus"
-            logo="/logos/IAPlusCombinationMarkLogo_Brand.png"
+            logo="/logos/PlusCombinationMarkLogo_Brand.png"
             description="Venda mais com iMenu Plus."
             priceLabel={IA_PLUS_PRICE_LABEL}
             features={IA_PLUS_BENEFITS.map((benefit) => benefit.title)}

@@ -90,7 +90,7 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
             <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_260px] md:items-center">
             <div className="min-w-0">
             <div className="relative h-10 w-44 max-w-[70%]">
-              <Image src="/logos/IAPlusCombinationMarkLogo_Brand.png" alt="iMenu Plus" fill sizes="176px" className="object-contain object-left" />
+              <Image src="/logos/PlusCombinationMarkLogo_Brand.png" alt="iMenu Plus" fill sizes="176px" className="object-contain object-left" />
             </div>
             <div className="mt-5 grid gap-4">
               <div className="min-w-0">

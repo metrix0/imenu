@@ -123,7 +123,7 @@ export default function AnalysisReport({
               <div className={styles.upgradeMain}>
                 <div className={styles.upgradeLogo}>
                   <Image
-                    src="/logos/IAPlusCombinationMarkLogo_Brand.png"
+                    src="/logos/PlusCombinationMarkLogo_Brand.png"
                     alt="iMenu Plus"
                     fill
                     sizes="180px"
@@ -299,7 +299,7 @@ export default function AnalysisReport({
             </section>}
           </div>
           </div>
-          {locked && report && <div className={`${styles.paywall} ${styles.structuredPaywall}`}><div className={styles.paywallCard}><div className={`${styles.paywallImage} ${styles.paywallLogo}`}><Image src="/logos/IAPlusCombinationMarkLogo_Brand.png" alt="" fill sizes="200px" className="object-contain" /></div><h3>Coloque essas oportunidades em prática</h3><p>Veja a análise completa, converse com a IA e revise e aplique as melhorias com o iMenu Plus.</p><Button onClick={() => onUpgrade?.()}>Conhecer iMenu Plus</Button></div></div>}
+          {locked && report && <div className={`${styles.paywall} ${styles.structuredPaywall}`}><div className={styles.paywallCard}><div className={`${styles.paywallImage} ${styles.paywallLogo}`}><Image src="/logos/PlusCombinationMarkLogo_Brand.png" alt="" fill sizes="200px" className="object-contain" /></div><h3>Coloque essas oportunidades em prática</h3><p>Veja a análise completa, converse com a IA e revise e aplique as melhorias com o iMenu Plus.</p><Button onClick={() => onUpgrade?.()}>Conhecer iMenu Plus</Button></div></div>}
         </>}
         {legacy && <div className={locked ? styles.preview : undefined}><div className={locked ? styles.previewContent : undefined}><section className={styles.legacy}>
           <p className={styles.eyebrow}>Relatório anterior ao formato estruturado.</p>

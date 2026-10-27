@@ -755,7 +755,7 @@ export default function LandingPage() {
                         <article className="flex min-w-0 flex-col rounded-2xl border border-brand/30 bg-white p-6 shadow-[0_18px_44px_-28px_rgba(217,61,0,0.3)] sm:p-7">
                             <div className="flex flex-wrap items-center justify-between gap-3">
                                 <h3 className="relative h-9 w-40">
-                                    <Image src="/logos/IAPlusCombinationMarkLogo_Brand.png" alt="iMenu Plus" fill sizes="160px" className="object-contain object-left" />
+                                    <Image src="/logos/PlusCombinationMarkLogo_Brand.png" alt="iMenu Plus" fill sizes="160px" className="object-contain object-left" />
                                 </h3>
                                 <span className="rounded-full bg-brand/10 px-3 py-1 text-xs font-semibold text-brand">
                                     Mais recursos

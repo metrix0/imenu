@@ -102,7 +102,7 @@ test("free restaurant without analysis explains the analysis and iMenu Plus imme
   expect(html).toContain("Sem esperar pela seleção gratuita");
   expect(html).toContain("Análise iniciada automaticamente");
   expect(html).toContain("Acesso completo às oportunidades encontradas");
-  expect(html).toContain("IAPlusCombinationMarkLogo_Brand.png");
+  expect(html).toContain("PlusCombinationMarkLogo_Brand.png");
   expect(html).toContain("Começar análise agora");
   expect(html).toContain("A análise profunda pode levar até 1 hora para ser concluída após ativar o plano.");
   expect(html).toContain("49,99");
@@ -128,8 +128,8 @@ test("locked analysis keeps the full report scrollable and overlays only its fin
   expect(html).toContain('class="report reportLocked"');
   expect(html).toContain("paper paperLocked");
   expect(html).not.toContain('class="previewContent"><section aria-label="Prioridades"');
-  expect(html).toContain("IAPlusCombinationMarkLogo_Brand.png");
-  expect(html).toContain("/logos/IAPlusCombinationMarkLogo_Brand.png");
+  expect(html).toContain("PlusCombinationMarkLogo_Brand.png");
+  expect(html).toContain("/logos/PlusCombinationMarkLogo_Brand.png");
   expect(html).toContain('class="structuredContent"');
   expect(html).toContain('class="paywallCard"');
   expect(html).toContain('aria-label="Comparações"');
