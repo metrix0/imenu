@@ -135,7 +135,6 @@ const FREE_PLAN_FEATURES = [
     "Pedidos agendados e encomendas",
     "Gestão de pedidos no balcão",
     "Impressão de pedidos",
-    "Taxa de entrega por bairro ou raio",
     "Painel financeiro e fechamento de caixa",
     "Google Analytics e Pixel Meta",
 ] as const;
