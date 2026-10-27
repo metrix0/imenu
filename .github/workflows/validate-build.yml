@@ -53,4 +53,4 @@ jobs:
           if command -v google-chrome >/dev/null; then
             export PUPPETEER_EXECUTABLE_PATH="$(command -v google-chrome)"
           fi
-          node e2e/checkout.cjs
+          node tests/e2e/checkout.cjs
