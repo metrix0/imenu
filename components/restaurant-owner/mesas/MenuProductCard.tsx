@@ -8,6 +8,22 @@ import type { MouseEvent } from "react";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
+import { Bot, FileDown, Headset, Megaphone, MessageCircle, ScanLine, ShoppingCart, Sparkles, Store, TrendingUp, type LucideIcon } from "lucide-react";
+
+const PLUS_FEATURE_ICONS: Record<string, LucideIcon> = {
+    "Automações de Marketing WhatsApp": Megaphone,
+    "Assistente IA": Bot,
+    "Vendas IA": TrendingUp,
+};
+
+const PLUS_BONUS_ICONS: Record<string, LucideIcon> = {
+    "Atendimento exclusivo": Headset,
+    "Upsells automáticos": ShoppingCart,
+    "Modo vitrine": Store,
+    "Atualizações de pedidos pelo WhatsApp": MessageCircle,
+    "Scan de cardápio com IA": ScanLine,
+    "Download Cardápio em PDF": FileDown,
+};
 
 type ProductCardContent = {
     presentation?: "default" | "plans";
@@ -20,7 +36,6 @@ type ProductCardContent = {
     featureDetails?: readonly { title: string; description: string }[];
     bonuses?: readonly string[];
     bonusDetails?: readonly { title: string; description: string }[];
-    freeInclusions?: readonly string[];
 };
 type MenuProductCardProps = ProductCardContent & (
     | { variant: "included"; learnMoreLink: { href: string; label: string } }
@@ -116,61 +131,49 @@ export default function MenuProductCard(props: MenuProductCardProps) {
                             <span>{props.priceSuffix ?? "/mês"}</span>
                         </div>
                         <small>Cancele quando quiser</small>
+                        <Button type="button" variant={active ? "secondary" : "primary"} onClick={stopAndLearnMore} className="plans-plus-cta">
+                            {active ? "Conhecer meu plano" : "Conhecer o plano"}
+                            <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" />
+                        </Button>
                     </div>
                 </div>
 
                 <div className="plans-plus-body">
                     <section className="plans-plus-main" aria-label="Recursos do iMenu Plus">
-                        <div className="plans-plus-section-heading">
-                            <h4>Para vender mais</h4>
-                            <span>Recursos principais</span>
-                        </div>
                         <ul className="plans-plus-feature-list">
-                            {planFeatures.map((feature) => (
-                                <li key={feature.title}>
-                                    <span className="plans-plus-feature-check"><FontAwesomeIcon icon={faCheck} aria-hidden="true" /></span>
-                                    <div>
-                                        <strong>{feature.title}</strong>
-                                        {feature.description && <p>{feature.description}</p>}
-                                    </div>
-                                </li>
-                            ))}
+                            {planFeatures.map((feature) => {
+                                const FeatureIcon = PLUS_FEATURE_ICONS[feature.title] ?? Sparkles;
+                                return (
+                                    <li key={feature.title}>
+                                        <FeatureIcon className="plans-plus-feature-icon" size={22} strokeWidth={1.9} aria-hidden="true" />
+                                        <div>
+                                            <strong>{feature.title}</strong>
+                                            {feature.description && <p>{feature.description}</p>}
+                                        </div>
+                                    </li>
+                                );
+                            })}
                         </ul>
                     </section>
                     <section className="plans-plus-extras" aria-label="Bônus do iMenu Plus">
                         <div className="plans-plus-section-heading">
                             <h4>Bônus do Plus</h4>
-                            <Badge variant="brand">{planBonuses.length} extras</Badge>
                         </div>
                         <ul className="plans-plus-bonus-grid">
-                            {planBonuses.map((bonus) => (
-                                <li key={bonus.title} title={bonus.description || undefined}>
-                                    <FontAwesomeIcon icon={faCheck} aria-hidden="true" />
-                                    <span>{bonus.title}</span>
-                                </li>
-                            ))}
+                            {planBonuses.map((bonus) => {
+                                const BonusIcon = PLUS_BONUS_ICONS[bonus.title] ?? Sparkles;
+                                return (
+                                    <li key={bonus.title} title={bonus.description || undefined}>
+                                        <BonusIcon className="plans-plus-bonus-icon" size={21} strokeWidth={1.85} aria-hidden="true" />
+                                        <span>{bonus.title}</span>
+                                    </li>
+                                );
+                            })}
                         </ul>
                         <p className="plans-plus-conditions">
                             Avisos pelo WhatsApp seguem as regras de interação com o cliente. Scan com IA é gratuito até 1 produto cadastrado.
                         </p>
                     </section>
-                </div>
-
-                <div className="plans-plus-footer">
-                    {props.freeInclusions?.length ? (
-                        <div className="plans-plus-free">
-                            <span>Já gratuitos em qualquer plano</span>
-                            <ul>
-                                {props.freeInclusions.map((feature) => (
-                                    <li key={feature}><FontAwesomeIcon icon={faCheck} aria-hidden="true" />{feature}</li>
-                                ))}
-                            </ul>
-                        </div>
-                    ) : null}
-                    <Button type="button" variant={active ? "secondary" : "primary"} onClick={stopAndLearnMore} className="plans-plus-cta">
-                        {active ? "Conhecer meu plano" : "Conhecer o plano"}
-                        <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" />
-                    </Button>
                 </div>
             </article>
         );

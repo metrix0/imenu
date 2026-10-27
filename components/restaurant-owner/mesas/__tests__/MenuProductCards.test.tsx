@@ -16,7 +16,7 @@ test("iMenu Plus has exclusive support and precedes the QR card in the two-colum
     expect(html).toContain('class="panel-product-cards grid gap-5 md:grid-cols-2"');
     expect(html).not.toContain("xl:grid-cols-3");
     expect(html.indexOf('alt="iMenu Plus"')).toBeLessThan(html.indexOf('alt="iMenu QR Code Mesa"'));
-    expect(html).toContain("Marketing pelo WhatsApp e inteligência artificial para vender mais.");
+    expect(html).toContain("Venda mais com iMenu Plus.");
     const iaCard = html.slice(html.indexOf('aria-label="Conhecer iMenu Plus"'));
     expect(iaCard).toMatch(/class="text-2xl font-bold">R\$\s49,99/);
     expect(iaCard).toContain('title="Assistente IA"');
@@ -47,12 +47,15 @@ test("Planos shows one free base plan and a full-width Plus plan without a separ
     expect(html).toContain("<h3>iMenu</h3>");
     expect(html).toContain("Seu cardápio delivery com produtos, pedidos e gestão pelo painel.");
     expect(html).not.toContain("iMenu Cardápio Digital");
-    expect(html).toContain("Marketing pelo WhatsApp e inteligência artificial para vender mais.");
+    expect(html).toContain("Venda mais com iMenu Plus.");
     expect(html).toContain("IAPlusCombinationMarkLogo_Brand.png");
     expect(html).not.toContain("iMenu QR Code Mesa");
     expect(html).toContain("Atualizações de pedidos pelo WhatsApp");
     expect(html).toContain("Scan de cardápio com IA");
-    expect(html).toContain("Já gratuitos em qualquer plano");
+    expect(html).not.toContain("Já gratuitos em qualquer plano");
     expect(html).toContain("plans-plus-bonus-grid");
-    expect(html).toContain("plans-plus-footer");
+    expect(html).not.toContain("plans-plus-footer");
+    expect(html).toContain("plans-plus-feature-icon");
+    expect(html).not.toContain("Recursos principais");
+    expect(html).toContain("plans-plus-bonus-icon");
 });
