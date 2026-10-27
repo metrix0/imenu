@@ -49,6 +49,7 @@ export default function PainelPedidosAtivosPage() {
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
     const { soundEnabled, enableSound } = useOrderSound();
     const [isCreateOrderOpen, setIsCreateOrderOpen] = useState(false);
+    const [editingOrder, setEditingOrder] = useState<{ id: string } | null>(null);
 
     // --- FETCH ORDERS ---
     const fetchOrders = useCallback(async (restId: string) => {
@@ -347,16 +348,24 @@ export default function PainelPedidosAtivosPage() {
                     isOpen={isDetailsOpen}
                     onClose={() => setIsDetailsOpen(false)}
                     order={selectedOrder}
+                    onOrderUpdate={() => void fetchOrders(restaurantId)}
+                    onEditOrder={(order) => {
+                        setIsDetailsOpen(false);
+                        setEditingOrder({ id: order.id });
+                        setIsCreateOrderOpen(true);
+                    }}
                 />
             )}
 
             <CreatePanelOrderModal
                 isOpen={isCreateOrderOpen}
-                onClose={() => setIsCreateOrderOpen(false)}
+                onClose={() => { setIsCreateOrderOpen(false); setEditingOrder(null); }}
+                editingOrder={editingOrder}
                 restaurantId={restaurantId}
                 onCreated={async () => {
                     await fetchOrders(restaurantId);
                     setIsCreateOrderOpen(false);
+                    setEditingOrder(null);
                 }}
             />
 

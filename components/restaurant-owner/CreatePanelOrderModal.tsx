@@ -46,11 +46,13 @@ export default function CreatePanelOrderModal({
                                                   onClose,
                                                   restaurantId,
                                                   onCreated,
+                                                  editingOrder,
                                               }: {
     isOpen: boolean;
     onClose: () => void;
     restaurantId: string;
     onCreated: () => Promise<void> | void;
+    editingOrder?: { id: string } | null;
 }) {
     const [categories, setCategories] = useState<Category[]>([]);
     const [itemsByCategory, setItemsByCategory] = useState<Record<string, Item[]>>({});
@@ -92,6 +94,10 @@ export default function CreatePanelOrderModal({
     const [selectedTableId, setSelectedTableId] = useState("balcao");
     const [paymentMethod, setPaymentMethod] = useState<"dinheiro" | "trazer-maquininha" | "pix-entrega">("dinheiro");
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isLoadingExisting, setIsLoadingExisting] = useState(false);
+    const [editBlockReason, setEditBlockReason] = useState<string | null>(null);
+    const [originalDeliveryType, setOriginalDeliveryType] = useState<string | null>(null);
+    const [isOnlinePayment, setIsOnlinePayment] = useState(false);
     const [deliveryFeeInput, setDeliveryFeeInput] = useState("");
     const [isOrderInfoCollapsed, setIsOrderInfoCollapsed] = useState(false);
     const [mobileView, setMobileView] = useState<"menu" | "order">("menu");
@@ -168,6 +174,76 @@ export default function CreatePanelOrderModal({
 
         loadMenu();
     }, [isOpen, restaurantId, menuVersion]);
+
+    useEffect(() => {
+        if (!isOpen || !restaurantId) return;
+        let active = true;
+        setEditBlockReason(null);
+        if (!editingOrder) {
+            setSelectedItems([]);
+            setCustomerName("");
+            setCustomerPhone("");
+            setCustomerAddress("");
+            setDeliveryFeeInput("");
+            setSelectedTableId("balcao");
+            setPaymentMethod("dinheiro");
+            setOriginalDeliveryType(null);
+            setIsOnlinePayment(false);
+            return;
+        }
+        const loadExisting = async () => {
+            setIsLoadingExisting(true);
+            try {
+                const { data, error } = await supabase.from("orders")
+                    .select("id, customer_name, customer_phone, customer_address, delivery_cents, payment_method, is_delivery, table_id, coupon_code, loyalty_points_used, loyalty_credited, order_items(id, item_id, name, quantity, price_cents, total_cents, observation, pizza, order_item_subitems(subitem_id, name, price_cents, quantity))")
+                    .eq("id", editingOrder.id).eq("restaurant_id", restaurantId).single();
+                if (error || !data) throw new Error("Não foi possível carregar o pedido.");
+                const lines = (data.order_items || []) as Array<{
+                    id: string; item_id: string | null; name: string; quantity: number;
+                    price_cents: number; total_cents: number; observation: string | null;
+                    pizza: SelectedItem["pizza"];
+                    order_item_subitems: Array<{ subitem_id: string | null; name: string; price_cents: number; quantity: number }>;
+                }>;
+                const ids = [...new Set(lines.flatMap(line => line.order_item_subitems.map(sub => sub.subitem_id).filter((id): id is string => Boolean(id))))];
+                const metadata = ids.length ? await supabase.from("subitems").select("id, item_subcategory_id").in("id", ids) : { data: [], error: null };
+                if (metadata.error) throw metadata.error;
+                if (!active) return;
+                const groupIds = new Map<string, string>((metadata.data || []).map(sub => [sub.id, sub.item_subcategory_id] as [string, string]));
+                setSelectedItems(lines.map(line => ({
+                    id: line.id, base_item_id: line.item_id || "", category_id: "", name: line.name,
+                    qty: Number(line.quantity), unit_price_cents: Number(line.price_cents),
+                    total_cents: Number(line.total_cents), observation: line.observation,
+                    pizza: line.pizza || undefined,
+                    selectedSubitems: line.order_item_subitems.map(sub => ({
+                        subcategoryId: groupIds.get(sub.subitem_id || "") || "",
+                        subcategoryName: "", subitemId: sub.subitem_id || "",
+                        subitemName: sub.name, price_cents: Number(sub.price_cents),
+                        quantity: Number(sub.quantity) || 1,
+                    })),
+                })));
+                setCustomerName(data.customer_name || "");
+                setCustomerPhone(data.customer_phone || "");
+                setCustomerAddress(data.customer_address || "");
+                setSelectedTableId(data.is_delivery === "mesa" ? data.table_id || "" : data.is_delivery === "balcao" ? "balcao" : "");
+                setOriginalDeliveryType(data.is_delivery);
+                setPaymentMethod((["dinheiro", "trazer-maquininha", "pix-entrega"].includes(data.payment_method || "")
+                    ? data.payment_method : "dinheiro") as "dinheiro" | "trazer-maquininha" | "pix-entrega");
+                setIsOnlinePayment(data.payment_method === "pix" || data.payment_method === "cartao");
+                setDeliveryFeeInput((Number(data.delivery_cents || 0) / 100).toFixed(2).replace(".", ","));
+                if (data.coupon_code || Number(data.loyalty_points_used) > 0 || data.loyalty_credited) {
+                    setEditBlockReason("Pedidos com cupom ou fidelidade não podem ser alterados por este editor.");
+                } else if (lines.some(line => !line.item_id || line.order_item_subitems.some(sub => !sub.subitem_id))) {
+                    setEditBlockReason("Este pedido contém itens removidos do cardápio e não pode ser editado.");
+                }
+            } catch (error) {
+                if (active) setEditBlockReason(error instanceof Error ? error.message : "Erro ao carregar pedido.");
+            } finally {
+                if (active) setIsLoadingExisting(false);
+            }
+        };
+        void loadExisting();
+        return () => { active = false; };
+    }, [isOpen, editingOrder?.id, restaurantId]);
 
     useEffect(() => {
         if (!isOpen) {
@@ -444,7 +520,7 @@ export default function CreatePanelOrderModal({
     const promotionResult = automaticPromotions.length ? evaluateAutomaticPromotions(automaticPromotions, {
         items: selectedItems, products: Object.values(itemsByCategory).flat(),
         subtotal_cents: itemsTotalCents, delivery_cents: selectedTable || isCounterOrder ? 0 : deliveryFeeCents,
-        coupon_discount_cents: 0, channel: selectedTable || isCounterOrder ? "mesa" : "delivery", at: promotionNow,
+        coupon_discount_cents: 0, channel: selectedTable || isCounterOrder ? "mesa" : "delivery", pickup: Boolean(editingOrder && originalDeliveryType === "retirada"), at: promotionNow,
     }) : undefined;
     const totalCents = promotionResult?.total_cents ?? itemsTotalCents + (selectedTable || isCounterOrder ? 0 : deliveryFeeCents);
 
@@ -477,7 +553,7 @@ export default function CreatePanelOrderModal({
     }, [categories, itemsByCategory, menuSearch]);
 
     const handleSubmit = async () => {
-        if (!restaurantId || promotionLoadError || isLoadingMenu) return;
+        if (!restaurantId || promotionLoadError || isLoadingMenu || isLoadingExisting || editBlockReason) return;
 
         if (!customerName.trim()) {
             setToast({
@@ -521,7 +597,7 @@ export default function CreatePanelOrderModal({
                 paymentMethod: selectedTable
                     ? undefined
                     : paymentMethod || "dinheiro",
-                is_delivery: selectedTable ? "mesa" : isCounterOrder ? "balcao" : undefined,
+                is_delivery: selectedTable ? "mesa" : isCounterOrder ? "balcao" : editingOrder && originalDeliveryType !== "mesa" && originalDeliveryType !== "balcao" ? originalDeliveryType : undefined,
                 table_id: selectedTable?.id,
                 table_token: selectedTable?.public_token,
                 coupon_discount_cents: 0,
@@ -538,8 +614,8 @@ export default function CreatePanelOrderModal({
                 })),
             };
 
-            const res = await fetch("/api/orders", {
-                method: "POST",
+            const res = await fetch(editingOrder ? `/api/orders/${editingOrder.id}/edit` : "/api/orders", {
+                method: editingOrder ? "PUT" : "POST",
                 headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
                 body: JSON.stringify(body),
             });
@@ -549,7 +625,7 @@ export default function CreatePanelOrderModal({
             if (!res.ok) {
                 if (res.status === 409) setMenuVersion(v => v + 1);
                 console.error(data);
-                alert(data?.error || "Erro ao criar pedido.");
+                alert(data?.error || (editingOrder ? "Erro ao editar pedido." : "Erro ao criar pedido."));
                 return;
             }
 
@@ -567,7 +643,7 @@ export default function CreatePanelOrderModal({
             await onCreated();
         } catch (err) {
             console.error(err);
-            alert("Erro ao criar pedido.");
+            alert(editingOrder ? "Erro ao editar pedido." : "Erro ao criar pedido.");
         } finally {
             setIsSubmitting(false);
         }
@@ -606,10 +682,10 @@ export default function CreatePanelOrderModal({
                     <div className="flex items-center justify-between gap-4">
                         <div>
                             <h2 className="text-xl font-bold text-gray-900 md:text-2xl">
-                                Adicionar Pedido
+                                {editingOrder ? "Editar Pedido" : "Adicionar Pedido"}
                             </h2>
                             <p className="mt-1 text-sm text-gray-500">
-                                Escolha os produtos, confira os dados e crie o pedido.
+                                {editingOrder ? "Atualize os produtos e dados do pedido." : "Escolha os produtos, confira os dados e crie o pedido."}
                             </p>
                         </div>
                         <LegacyModalClose><button
@@ -622,6 +698,8 @@ export default function CreatePanelOrderModal({
                         </button></LegacyModalClose>
                     </div>
 
+                    {editBlockReason && <p role="alert" className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{editBlockReason}</p>}
+                    {isOnlinePayment && !editBlockReason && <p className="mt-3 text-xs text-gray-500">Pedidos pagos online não podem ter o valor ou destino alterados. O pagamento original será mantido.</p>}
                     <div className="mt-4 grid grid-cols-2 rounded-xl bg-gray-100 p-1 lg:hidden">
                         <button
                             type="button"
@@ -678,7 +756,7 @@ export default function CreatePanelOrderModal({
                         </div>
 
                         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-5 md:px-6">
-                            {isLoadingMenu ? (
+                            {isLoadingMenu || isLoadingExisting ? (
                                 <div className="flex min-h-40 items-center justify-center text-sm text-gray-500">
                                     Carregando itens...
                                 </div>
@@ -828,6 +906,7 @@ export default function CreatePanelOrderModal({
                                                     <Dropdown
                                                         label="Destino do pedido" value={selectedTableId}
                                                         onChange={(e) => setSelectedTableId(e.target.value)}
+                                                        disabled={isOnlinePayment}
                                                         className="w-full appearance-none rounded-xl border border-gray-200 bg-white px-4 py-3 pr-10 text-gray-700 outline-none transition hover:border-gray-300 focus:border-brand focus:ring-2 focus:ring-brand/10"
                                                     >
                                                         <option value="balcao">Balcão</option>
@@ -862,11 +941,13 @@ export default function CreatePanelOrderModal({
                                                         <div className="relative w-full">
                                                             <Dropdown
                                                                 label="Tipo de Pagamento" value={paymentMethod}
+                                                                disabled={isOnlinePayment}
                                                                 onChange={(e) =>
                                                                     setPaymentMethod(e.target.value as "dinheiro" | "trazer-maquininha" | "pix-entrega")
                                                                 }
                                                                 className="w-full appearance-none rounded-xl border border-gray-200 bg-white px-4 py-3 pr-10 text-gray-700 outline-none transition hover:border-gray-300 focus:border-brand focus:ring-2 focus:ring-brand/10"
                                                             >
+                                                                {isOnlinePayment && <option value={paymentMethod}>Pagamento online (mantido)</option>}
                                                                 <option value="dinheiro">Dinheiro</option>
                                                                 <option value="trazer-maquininha">Cartão</option>
                                                                 <option value="pix-entrega">Pix</option>
@@ -1126,10 +1207,10 @@ export default function CreatePanelOrderModal({
                                 <Button
                                     onClick={() => void handleSubmit()}
                                     loading={isSubmitting}
-                                    disabled={selectedItems.length === 0 || promotionLoadError || isLoadingMenu}
+                                    disabled={selectedItems.length === 0 || promotionLoadError || isLoadingMenu || isLoadingExisting || Boolean(editBlockReason)}
                                     className="min-w-36 bg-brand text-white border-transparent hover:opacity-90 shadow-sm"
                                 >
-                                    Criar pedido
+                                    {editingOrder ? "Salvar alterações" : "Criar pedido"}
                                 </Button>
                             </div>
                         </div>

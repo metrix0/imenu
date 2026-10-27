@@ -9,6 +9,7 @@ import type { DateRange } from "@/lib/utils/dateRange";
 import OrdersFilter from "@/components/restaurant-owner/pedidos/OrdersFilter";
 import OrdersTable, { Order } from "@/components/restaurant-owner/pedidos/OrdersTable";
 import OrderDetailsModal from "@/components/restaurant-owner/pedidos/OrderDetailsModal";
+import CreatePanelOrderModal from "@/components/restaurant-owner/CreatePanelOrderModal";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Toast from "@/components/ui/Toast";
 import Link from "next/link";
@@ -239,6 +240,7 @@ export default function HistoricoPage() {
     // Modal
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+    const [editingOrder, setEditingOrder] = useState<{ id: string } | null>(null);
     const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
@@ -425,7 +427,19 @@ export default function HistoricoPage() {
                 onClose={() => setIsDetailsOpen(false)}
                 order={selectedOrder}
                 onOrderUpdate={handleOrderUpdate}
+                onDeleteOrder={(order) => { setIsDetailsOpen(false); setOrderToDelete(order); }}
+                onEditOrder={(order) => { setIsDetailsOpen(false); setEditingOrder({ id: order.id }); }}
             />
+            {restaurantId && (
+                <CreatePanelOrderModal
+                    key={editingOrder?.id || "create"}
+                    isOpen={editingOrder !== null}
+                    onClose={() => setEditingOrder(null)}
+                    restaurantId={restaurantId}
+                    editingOrder={editingOrder}
+                    onCreated={async () => { setEditingOrder(null); handleOrderUpdate(); }}
+                />
+            )}
         </div>
     );
 }
