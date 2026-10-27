@@ -58,7 +58,7 @@ export default function CustomerNotificationButton({orderId,restaurantId}:{order
         <Tooltip text={plus===false?IA_PLUS_FEATURE_MESSAGE:""} parentClassName="w-full" showOnClick>
         <Button variant="secondary" className="w-full gap-2" disabled={busy||sent||plus===null} loading={busy} onClick={()=>void notify()}>
             {plus===false?<LockKeyhole size={16} aria-hidden="true"/>:<Bell size={16} aria-hidden="true"/>}
-            {sent?"Notificação solicitada":"Notificar Cliente"}
+            {sent?"Notificação solicitada":"Notificar Cliente (Pedido Chegou)"}
         </Button>
         </Tooltip>
         {message&&<p role="status" className="text-sm text-gray-600">{message}</p>}
