@@ -4,7 +4,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
-    Bot, ChevronDown, Crown, ExternalLink, FileDown, Headset, Megaphone, MessageCircle,
+    Bot, ChevronDown, Crown, ExternalLink, FileDown, Headset, Info, Megaphone, MessageCircle,
     ScanLine, ShoppingCart, TrendingUp,
     type LucideIcon,
 } from "lucide-react";
@@ -186,7 +186,7 @@ function ResourceImenuValue({ value }: { value?: string }) {
                     <Badge variant="success" className="gap-1.5 !font-normal">
                         <FontAwesomeIcon icon={icons.faCheck} aria-hidden="true" />
                         Grátis
-                        <FontAwesomeIcon icon={icons.faCircleInfo} aria-hidden="true" />
+                        <Info size={13} strokeWidth={1.75} className="shrink-0" aria-hidden="true" />
                     </Badge>
                 </button>
             </Tooltip>
