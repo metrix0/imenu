@@ -4,7 +4,7 @@ import { LegacyModalClose } from "@/components/ui/ModalCloseButton";
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import { faTimes, faUser, faMapMarkerAlt, faClock, faReceipt, faCheck, faMotorcycle, faCalendarDays, faChair } from "@fortawesome/free-solid-svg-icons";
+import { faTimes, faUser, faMapMarkerAlt, faClock, faReceipt, faCheck, faMotorcycle, faCalendarDays, faChair, faPenToSquare, faBan } from "@fortawesome/free-solid-svg-icons";
 import { icons } from "@/lib/utils/fontawesome";
 import Modal from "@/components/ui/Modal";
 import ConfirmModal from "@/components/ui/ConfirmModal";
@@ -21,6 +21,7 @@ interface OrderDetailsModalProps {
     onOrderUpdate?: () => void;
     onEditOrder?: (order: Order) => void;
     onDeleteOrder?: (order: Order) => void;
+    showStatusActions?: boolean;
 }
 
 type OrderDetail = Omit<Order, "status"> & {
@@ -54,7 +55,7 @@ type OrderDetail = Omit<Order, "status"> & {
     }>;
 };
 
-export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdate, onEditOrder, onDeleteOrder }: OrderDetailsModalProps) {
+export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdate, onEditOrder, onDeleteOrder, showStatusActions = false }: OrderDetailsModalProps) {
     const [isLoading, setIsLoading] = useState(true);
     const [isUpdating, setIsUpdating] = useState(false);
     const [details, setDetails] = useState<OrderDetail | null>(null);
@@ -262,14 +263,16 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
         );
     };
 
-    const rejectButton = (
-        <Button variant="secondary" onClick={() => setShowRefundConfirmation(true)} className="text-red-600 hover:bg-red-50 border-red-200">
-            Rejeitar
-        </Button>
+    const canReject = showStatusActions && !isUpdating && details && (
+        details.status === "pending_online_payment" ||
+        details.status === "pending_physical_payment" ||
+        isPaidOnlinePix ||
+        details.status === "preparing" ||
+        details.status === "delivering"
     );
 
     const renderActions = () => {
-        if (!details || isUpdating) return null;
+        if (!showStatusActions || !details || isUpdating) return null;
 
         if (
             details.status === "pending_online_payment" ||
@@ -277,36 +280,29 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
             isPaidOnlinePix
         ) {
             return (
-                <>
-                    {rejectButton}
-                    <Button variant="primary" onClick={() => handleStatusUpdate("preparing")}>
-                        <FontAwesomeIcon icon={faCheck} className="mr-2" /> Aceitar Pedido
-                    </Button>
-                </>
+                <Button variant="primary" onClick={() => handleStatusUpdate("preparing")}>
+                    <FontAwesomeIcon icon={faCheck} className="mr-2" /> Aceitar Pedido
+                </Button>
             );
         }
 
         switch (details.status) {
             case "preparing":
-                return <>
-                    {rejectButton}
-                    {isReadyOnSite ? (
-                        <Button variant="primary" className="bg-green-600 hover:bg-green-700 border-green-600" onClick={() => handleStatusUpdate("delivering")}>
-                            <FontAwesomeIcon icon={faCheck} className="mr-2" /> Pronto
-                        </Button>
-                    ) : (
-                        <Button variant="primary" onClick={() => handleStatusUpdate("delivering")}>
-                            <FontAwesomeIcon icon={faMotorcycle} className="mr-2" /> Saiu para Entrega
-                        </Button>
-                    )}
-                </>;
+                return isReadyOnSite ? (
+                    <Button variant="primary" className="bg-green-600 hover:bg-green-700 border-green-600" onClick={() => handleStatusUpdate("delivering")}>
+                        <FontAwesomeIcon icon={faCheck} className="mr-2" /> Pronto
+                    </Button>
+                ) : (
+                    <Button variant="primary" onClick={() => handleStatusUpdate("delivering")}>
+                        <FontAwesomeIcon icon={faMotorcycle} className="mr-2" /> Saiu para Entrega
+                    </Button>
+                );
             case "delivering":
-                return <>
-                    {rejectButton}
+                return (
                     <Button variant="primary" className="bg-green-600 hover:bg-green-700 border-green-600" onClick={() => handleStatusUpdate("done")}>
                         <FontAwesomeIcon icon={faCheck} className="mr-2" /> {isCounterOrder ? "Concluir Pedido" : isPickup ? "Entregue" : "Concluir Pedido"}
                     </Button>
-                </>;
+                );
             default:
                 return null;
         }
@@ -473,19 +469,32 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                     </div>
 
                     {/* Footer */}
-                    <div className="p-4 sm:p-5 border-t border-gray-100 flex flex-col sm:flex-row justify-end gap-3 bg-gray-50/50 [&>button]:w-full sm:[&>button]:w-auto">
-                        {onEditOrder && order && details && <Button variant="secondary" onClick={() => onEditOrder(order)} disabled={isUpdating}>Editar</Button>}
-                        {onDeleteOrder && order && details && <Button variant="secondary" onClick={() => onDeleteOrder(order)} disabled={isUpdating} className="text-red-600 hover:bg-red-50 border-red-200">Excluir</Button>}
-                        {renderActions()}
-                        {(!renderActions() || isUpdating) && (
-                            <Button variant="secondary" onClick={onClose} disabled={isUpdating}>Fechar</Button>
-                        )}
+                    <div className="p-4 sm:p-5 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-gray-50/50">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                            {onEditOrder && order && details && (
+                                <Button variant="secondary" onClick={() => onEditOrder(order)} disabled={isUpdating}>
+                                    <FontAwesomeIcon icon={faPenToSquare} className="mr-2" /> Editar
+                                </Button>
+                            )}
+                            {canReject && (
+                                <Button variant="secondary" onClick={() => setShowRefundConfirmation(true)} className="text-red-600 hover:bg-red-50 border-red-200">
+                                    <FontAwesomeIcon icon={faBan} className="mr-2" /> Rejeitar
+                                </Button>
+                            )}
+                        </div>
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-end gap-2">
+                            {onDeleteOrder && order && details && <Button variant="secondary" onClick={() => onDeleteOrder(order)} disabled={isUpdating} className="text-red-600 hover:bg-red-50 border-red-200">Excluir</Button>}
+                            {renderActions()}
+                            {(!renderActions() || isUpdating) && (
+                                <Button variant="secondary" onClick={onClose} disabled={isUpdating}>Fechar</Button>
+                            )}
+                        </div>
                     </div>
                 </div>
             </Modal>
 
             <ConfirmModal
-                open={showRefundConfirmation}
+                open={showStatusActions && showRefundConfirmation}
                 onClose={() => setShowRefundConfirmation(false)}
                 onConfirm={() => {
                     setShowRefundConfirmation(false);

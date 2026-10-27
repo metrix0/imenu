@@ -348,6 +348,7 @@ export default function PainelPedidosAtivosPage() {
                     isOpen={isDetailsOpen}
                     onClose={() => setIsDetailsOpen(false)}
                     order={selectedOrder}
+                    showStatusActions
                     onOrderUpdate={() => void fetchOrders(restaurantId)}
                     onEditOrder={(order) => {
                         setIsDetailsOpen(false);
