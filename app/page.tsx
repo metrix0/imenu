@@ -656,17 +656,20 @@ export default function LandingPage() {
             <section
                 id="planos"
                 aria-labelledby="planos-heading"
-                className="scroll-mt-8 bg-[#f7f8fa] px-4 py-10 md:px-20 md:pt-8 md:pb-16 min-[1400px]:px-24 2xl:px-32"
+                className="scroll-mt-8 bg-[#f7f8fa] px-4 pt-14 pb-16 md:px-20 md:pt-16 md:pb-16 min-[1400px]:px-24 2xl:px-32"
             >
                 <div className="mx-auto max-w-6xl min-[1400px]:max-w-7xl">
-                    <h2 id="planos-heading" className="mb-3 text-center text-4xl font-bold text-brand md:text-left min-[1400px]:text-[2.75rem] 2xl:text-[3.2rem]">
-                        Comece grátis com iMenu
-                        <br />
-                        <span className="text-text">e cresça com o Plus</span>
-                    </h2>
-                    <p className="mb-8 text-center text-gray-500 md:mb-10 md:text-left min-[1400px]:text-lg 2xl:text-xl">
-                        Compare os benefícios dos planos iMenu e iMenu Plus:
-                    </p>
+                    <div className="mb-10 text-center md:mb-12">
+                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand min-[1400px]:text-sm">
+                            PLANOS
+                        </p>
+                        <h2 id="planos-heading" className="mt-3 text-4xl font-bold text-brand min-[1400px]:text-[2.75rem] 2xl:text-[3.2rem]">
+                            Comece grátis. <span className="text-text">Cresça com o Plus.</span>
+                        </h2>
+                        <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-gray-500 md:text-lg">
+                            Compare o que está incluído em cada plano e escolha o ideal para seu restaurante.
+                        </p>
+                    </div>
 
                     <div className="grid items-stretch gap-5 lg:grid-cols-2 min-[1400px]:gap-7">
                         <article className="flex min-w-0 flex-col rounded-2xl border border-gray-200 bg-white p-6 shadow-[0_12px_36px_-26px_rgba(0,0,0,0.22)] sm:p-7">
