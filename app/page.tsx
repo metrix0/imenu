@@ -4,7 +4,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
-    Bot, Crown, FileDown, Headset, Megaphone, MessageCircle,
+    Bot, Crown, ExternalLink, FileDown, Headset, Megaphone, MessageCircle,
     ScanLine, ShoppingCart, TrendingUp,
     type LucideIcon,
 } from "lucide-react";
@@ -108,7 +108,7 @@ const RESOURCE_SECTIONS: readonly { title: string; imenu?: string; competitor?: 
             ["Fidelidade", "check", "limited"],
             ["Google Analytics Integrado", "check", "limited"],
             ["Pixel Meta (Facebook/Instagram) Integrado", "check", "limited"],
-            ["Relatórios e Analytics", "Cliques, visualizações do cardápio, valor médio do carrinho e origem dos acessos", "limited"],
+            ["Relatórios e Analytics", "analyticsDetails", "limited"],
             ["Link para WhatsApp e redes", "check", "limited"],
             ["Mensagens de Marketing Automáticas", "iMenu Plus", "limited"],
         ],
@@ -196,7 +196,8 @@ function ResourceImenuValue({ value }: { value?: string }) {
     if (value === "tracking") return <ResourceAvailabilityLabel kind="free" label="Grátis (Página e WhatsApp)" />;
     if (value === "notification") return <ResourceAvailabilityLabel kind="free" label="No seu e do cliente (WhatsApp/Painel)" />;
     if (value === "support") return <ResourceAvailabilityLabel kind="free" label="Todos os dias" />;
-    if (value === "scan") return <ResourceAvailabilityLabel kind="free" label="Grátis: Fotos, PDFs ou links e tenha o cardápio pronto em segundos" />;
+    if (value === "scan") return <ResourceAvailabilityLabel kind="free" label="Grátis. Fotos, PDFs ou links e tenha o cardápio pronto em segundos" />;
+    if (value === "analyticsDetails") return <ResourceAvailabilityLabel kind="free" label="Cliques, visualizações do cardápio, valor médio do carrinho e origem dos acessos" />;
     if (value === "assistantLimited") return <ResourceAvailabilityLabel kind="free" label="Grátis, com limites" />;
 
     if (value === "plusLink" || value === "iMenu Plus") {
@@ -205,7 +206,7 @@ function ResourceImenuValue({ value }: { value?: string }) {
                 <Badge variant="brand" className="gap-1.5 !font-normal">
                     <Crown size={12} strokeWidth={1.8} aria-hidden="true" />
                     iMenu Plus
-                    {value === "plusLink" && <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" />}
+                    <ExternalLink size={12} strokeWidth={1.8} aria-hidden="true" />
                 </Badge>
             </a>
         );
