@@ -6,8 +6,6 @@ import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import {
   ArrowRight,
-  CreditCard,
-  RefreshCw,
   Sparkles,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
@@ -86,92 +84,63 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
         />
       </ModalFlowStep> : <ModalFlowStep key="sales" reverse animate={navigated}>
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="grid overflow-hidden md:grid-cols-[minmax(0,1fr)_300px]">
-            <div className="px-6 pb-5 pt-6 sm:px-8 sm:pb-7 sm:pt-8">
-              <div className="relative h-12 w-56 max-w-full">
-                <Image
-                  src="/logos/IAPlusCombinationMarkLogo_Brand.png"
-                  alt="iMenu Plus"
-                  fill
-                  sizes="224px"
-                  className="object-contain object-left"
-                />
-              </div>
-
-              {!contextMessage?.trim() && (
-                <div className="mt-7 inline-flex items-center gap-2 rounded-full border border-brand/15 bg-brand/5 px-3 py-1.5 text-xs font-semibold text-brand">
-                  <Sparkles size={14} aria-hidden="true" />
-                  Marketing e IA para aumentar suas vendas.
-                </div>
-              )}
-
-              {contextMessage?.trim() && (
-                <p role="note" className="mt-4 rounded-lg border border-brand/20 bg-brand/5 px-4 py-3 text-sm leading-6 text-gray-800">
-                  {contextMessage}
+          <header className="border-b border-gray-200 bg-gradient-to-br from-white to-orange-50/60 px-5 pb-6 pt-7 sm:px-8 sm:pb-7 sm:pt-8">
+            <div className="relative h-10 w-44 max-w-[70%]">
+              <Image src="/logos/IAPlusCombinationMarkLogo_Brand.png" alt="iMenu Plus" fill sizes="176px" className="object-contain object-left" />
+            </div>
+            <div className="mt-6 grid gap-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end sm:gap-8">
+              <div className="min-w-0">
+                <h2 className="text-2xl font-bold leading-tight tracking-tight text-gray-900 sm:text-3xl">
+                  Venda mais com iMenu Plus
+                </h2>
+                <p className="mt-3 max-w-xl text-sm leading-6 text-gray-600">
+                  Marketing, Assistente IA e Vendas IA para o seu restaurante.
                 </p>
-              )}
-
-              <p className="mt-4 max-w-xl text-sm leading-6 text-gray-600 sm:text-base">
-                Venda mais com iMenu Plus. Mais conversão, mais vendas, mais clientes.
-              </p>
-
-              <div className="mt-6 rounded-xl border border-brand/20 bg-brand/5 p-4">
-                <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
+              </div>
+              <div className="shrink-0 border-t border-gray-200 pt-4 sm:border-l sm:border-t-0 sm:pl-7 sm:pt-0">
+                <div className="flex items-baseline gap-1.5">
                   <span className="text-3xl font-bold tracking-tight text-gray-900">{IA_PLUS_PRICE_LABEL}</span>
-                  <span className="pb-1 text-sm text-gray-600">/mês</span>
-                  <div className="ml-auto flex flex-col items-end gap-1 pb-1">
-                    <span className="inline-flex items-center gap-2 text-xs font-medium text-gray-600">
-                      <CreditCard size={14} aria-hidden="true" />
-                      Cartão ou Pix
-                    </span>
-                    <span className="inline-flex items-center gap-2 text-xs font-medium text-gray-500">
-                      <RefreshCw size={14} aria-hidden="true" />
-                      Cancele quando quiser
-                    </span>
-                  </div>
+                  <span className="text-sm text-gray-500">/mês</span>
                 </div>
+                <p className="mt-1.5 text-xs text-gray-500">Cancele quando quiser</p>
               </div>
             </div>
+            {contextMessage?.trim() && (
+              <div role="note" className="mt-5 flex items-start gap-3 border-l-2 border-brand pl-3">
+                <Sparkles size={17} strokeWidth={1.9} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" />
+                <p className="text-sm leading-6 text-gray-700">{contextMessage.trim()}</p>
+              </div>
+            )}
+          </header>
 
-            <div className="relative hidden min-h-0 overflow-hidden rounded-bl-2xl md:block">
-              <Image
-                src="/images/IAPlus.png"
-                alt="Demonstração do iMenu Plus"
-                fill
-                sizes="300px"
-                className="object-cover object-center"
-              />
-            </div>
-          </div>
-
-          <div className="px-6 py-6 sm:px-8">
-            <div className="grid gap-3 md:grid-cols-2">
+          <div className="px-5 py-6 sm:px-8">
+            <div className="grid gap-5 sm:grid-cols-3">
               {IA_PLUS_BENEFITS.map(benefit => {
                 const Icon = PLUS_FEATURE_ICONS[benefit.title] ?? Sparkles;
-                return <section key={benefit.title} className="overflow-hidden rounded-xl border border-orange-100 bg-white">
-                  <div className="flex items-center gap-3 bg-brand/5 px-4 py-3 text-brand">
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white ring-1 ring-brand/10">
+                return <section key={benefit.title} className="min-w-0">
+                  <div className="flex flex-col items-start gap-3 text-brand">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand/5">
                       <Icon size={21} strokeWidth={1.9} aria-hidden="true" />
                     </span>
-                    <h3 className="text-sm font-semibold">{benefit.title}</h3>
+                    <h3 className="text-sm font-semibold leading-5 text-gray-900">{benefit.title}</h3>
                   </div>
-                  <p className="p-4 text-sm leading-5 text-gray-600">{benefit.description}</p>
+                  <p className="mt-2 text-sm leading-6 text-gray-600">{benefit.description}</p>
                 </section>;
               })}
-              <section className="overflow-hidden rounded-xl border border-orange-100 bg-white md:col-span-2">
-                <div className="bg-brand/5 px-4 py-3"><h3 className="text-sm font-semibold text-brand">Bônus</h3></div>
-                <ul className="grid gap-4 p-4 sm:grid-cols-2">{IA_PLUS_BONUSES.map(bonus => {
+              <section className="mt-1 border-t border-gray-200 pt-5 sm:col-span-3">
+                <h3 className="text-sm font-semibold text-gray-900">Também incluído no seu plano</h3>
+                <ul className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2">{IA_PLUS_BONUSES.map(bonus => {
                   const Icon = PLUS_BONUS_ICONS[bonus.title] ?? Sparkles;
                   return <li key={bonus.title} className="flex gap-3 text-sm text-gray-600">
                     <Icon size={21} strokeWidth={1.85} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" />
-                    <div><h4 className="font-semibold text-gray-900">{bonus.title}</h4><p className="mt-1 leading-5">{bonus.description}</p></div>
+                    <div><h4 className="font-semibold text-gray-900">{bonus.title}</h4><p className="mt-1 text-xs leading-5 text-gray-500">{bonus.description}</p></div>
                   </li>;
                 })}</ul>
               </section>
             </div>
 
             {!active && (
-              <p className="mt-6 text-center text-xs leading-relaxed text-gray-500">
+              <p className="mt-5 border-t border-gray-100 pt-4 text-xs leading-5 text-gray-500">
                 Ao continuar, você concorda com os{" "}
                 <Link
                   href="/restaurante/dados/termos/ia-plus"
@@ -187,15 +156,15 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
           </div>
         </div>
 
-        <div className="z-20 flex shrink-0 flex-col gap-3 border-t border-gray-100 bg-white px-6 py-4 sm:flex-row sm:items-center sm:px-8 sm:py-5">
+        <div className="z-20 flex shrink-0 flex-col gap-3 border-t border-gray-200 bg-white px-5 py-4 sm:flex-row sm:items-center sm:px-8">
           <a
             href={SUPPORT_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden items-center justify-center gap-3 rounded-full border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-green-200 hover:bg-green-50 hover:text-green-700 sm:mr-auto sm:inline-flex"
+            className="hidden items-center gap-2 text-sm text-gray-500 transition hover:text-brand sm:mr-auto sm:inline-flex"
           >
             <FontAwesomeIcon icon={faWhatsapp} className="text-lg text-green-600" />
-            <span>Está em dúvida? Fale conosco</span>
+            <span>Fale conosco</span>
           </a>
           <Button type="button" variant="secondary" onClick={onClose}>
             Agora não
