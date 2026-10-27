@@ -307,7 +307,7 @@ export default function CriarCardapioPage() {
                 open={aiPlusOpen}
                 onClose={() => setAiPlusOpen(false)}
                 restaurantId={restaurantId}
-                contextMessage="Seu cardápio já não está vazio. Para escanear novos itens com IA, assine o iMenu Plus."
+                contextMessage="Seu cardápio não está vazio. Para escanear novos itens com IA, remova os itens atuais ou assine o iMenu Plus"
                 onPaid={() => { setAiPlusOpen(false); setScanAccess({ allowed: true, hasItems: true, hasPlus: true }); setAiOpen(true); }}
             />
             {toast && (
