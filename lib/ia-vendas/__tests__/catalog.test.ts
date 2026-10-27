@@ -93,6 +93,13 @@ const samples: Record<string, unknown> = {
   meta_pixel_id: "123",
   is_enabled: true,
   message_templates: { welcome: "Olá" },
+  enabled: true,
+  automations: {
+    dailyTotalLimit: 10,
+    cart: { enabled: true, message: "Oi, {{nome}}", days: 1, cooldownDays: 7, offer: "" },
+    reactivation: { enabled: false, message: "Volte!", days: 30, cooldownDays: 120, offer: "" },
+    habit: { enabled: false, message: "Oi!", days: 1, cooldownDays: 7, offer: "" },
+  },
   is_active: true,
 };
 
@@ -106,6 +113,20 @@ test("propose_action schema exposes every editable field with its real shape", (
         validate(entity, { [field]: samples[field] }),
       ).not.toThrow();
     }
+});
+
+test("growth automation proposals use complete settings with validated limits", () => {
+  const props = (actionValuesSchema() as any).properties.automations;
+  expect(props.required).toEqual(["dailyTotalLimit", "cart", "reactivation", "habit"]);
+  expect(() => validate("whatsapp_bot_settings", { automations: samples.automations })).not.toThrow();
+  expect(() => validate("whatsapp_bot_settings", {
+    automations: { ...(samples.automations as any), cart: { enabled: true } },
+  })).toThrow();
+  expect(() => validate("whatsapp_bot_settings", {
+    automations: { ...(samples.automations as any), dailyTotalLimit: 2000 },
+  })).toThrow("Limite diário");
+  expect(() => validate("automatic_upsell", { enabled: true })).not.toThrow();
+  expect(() => validate("automatic_upsell", { recommendations: { items: [] } })).toThrow();
 });
 
 test("operating-hours proposals require the full seven-day schedule and HH:MM slots", () => {

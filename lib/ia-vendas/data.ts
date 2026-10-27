@@ -5,6 +5,8 @@ import { FIELDS } from "./fields";
 import { fields, isUuid, key, scope } from "./catalog";
 import { SalesError, type Data } from "./types";
 import { productReviewTargets } from "./products";
+import { hasIMenuPlusAccess } from "@/lib/addons/access";
+import { readAutomationSettings } from "@/lib/services/crmRules";
 export function imageUrl(path: string | null, bucket = "menu-images") {
   if (!path) return null;
   if (/^https:\/\//.test(path)) return path;
@@ -124,7 +126,7 @@ export async function metrics(
 export async function context(restaurant: string, deep = false, includeAnalysis = true) {
   if (deep) return analysisContext(restaurant);
   const w = window28();
-  const [r, items, categories, sales, memory, actions, last] =
+  const [r, items, categories, sales, memory, actions, last, upsellSettings, marketingSettings, marketingAccess, whatsapp] =
     await Promise.all([
       readData(restaurant, "restaurants"),
       readData(restaurant, "items"),
@@ -142,6 +144,10 @@ export async function context(restaurant: string, deep = false, includeAnalysis 
         "SELECT result,finished_at FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND $2::boolean AND kind='analysis' AND result->>'detached_at' IS NULL AND status='completed' AND result->'report'->>'status'='complete' ORDER BY finished_at DESC LIMIT 1",
         [restaurant, includeAnalysis],
       ),
+      readData(restaurant, "automatic_upsell"),
+      readData(restaurant, "whatsapp_bot_settings"),
+      hasIMenuPlusAccess(restaurant),
+      query("SELECT EXISTS(SELECT 1 FROM public.whatsapp_connections WHERE restaurant_id=$1 AND status='WORKING' AND desired_state='connected') AS connected", [restaurant]),
     ]);
   return {
     restaurant: r.rows[0],
@@ -151,6 +157,10 @@ export async function context(restaurant: string, deep = false, includeAnalysis 
     instructions: memory.rows[0]?.instructions || "",
     actions: actions.rows,
     last_analysis: last.rows[0] || null,
+    growth_settings: {
+      upsell_automatico: { configured: !!upsellSettings.rows.length, enabled: upsellSettings.rows[0]?.enabled === true, plus: marketingAccess },
+      marketing: { configured: !!marketingSettings.rows.length, settings: readAutomationSettings(marketingSettings.rows[0]?.automations), plus: marketingAccess, whatsapp_connected: whatsapp.rows[0]?.connected === true },
+    },
   };
 }
 export async function measure(restaurant: string) {
@@ -245,6 +255,7 @@ export function analysisModelContext(ctx: Data): Data {
   const imageReview = ctx.image_review || {};
   return {
     restaurant: ctx.restaurant,
+    growth_settings: ctx.growth_settings,
     coverage: ctx.coverage,
     sales: { ...ctx.sales, products: products.slice(0, 30) },
     catalog: {
@@ -356,8 +367,16 @@ async function analysisContext(restaurant: string): Promise<Data> {
       "SELECT id,result->'report' report,finished_at FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND kind='analysis' AND status='completed' AND result->>'detached_at' IS NULL AND result->'report'->>'status'='complete' ORDER BY created_at DESC LIMIT 3",
       [restaurant],
     );
+    const marketingAccess = await hasIMenuPlusAccess(restaurant, c);
+    const whatsapp = await c.query("SELECT EXISTS(SELECT 1 FROM public.whatsapp_connections WHERE restaurant_id=$1 AND status='WORKING' AND desired_state='connected') AS connected", [restaurant]);
+    const upsell = entities.automatic_upsell.rows[0];
+    const bot = entities.whatsapp_bot_settings.rows[0];
     return {
       restaurant: entities.restaurants.rows[0],
+      growth_settings: {
+        upsell_automatico: { configured: !!upsell, enabled: upsell?.enabled === true, plus: marketingAccess },
+        marketing: { configured: !!bot, settings: readAutomationSettings(bot?.automations), plus: marketingAccess, whatsapp_connected: whatsapp.rows[0]?.connected === true },
+      },
       items: entities.items,
       categories: entities.categories,
       entities,

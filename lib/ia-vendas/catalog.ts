@@ -1,12 +1,14 @@
 import { FIELDS } from "./fields";
 import { object, SalesError, type Data } from "./types";
 import { isUuid, validateAutomaticPromotion } from "@/lib/promotions/automatic";
+import { AUTOMATION_KINDS, DEFAULT_AUTOMATIONS, MAX_AUTOMATION_DAILY_LIMIT } from "@/lib/services/crmRules";
 export { isUuid };
 export const SINGLETONS = [
   "restaurants",
   "loyalty_programs",
   "tracking_integrations",
   "whatsapp_bot_settings",
+  "automatic_upsell",
 ];
 export const PARENTS: Record<string, Record<string, string>> = {
   items: { category_id: "categories" },
@@ -271,6 +273,27 @@ const ACTION_SPECIAL_SCHEMAS: Record<string, Data> = {
     items: UUID_SCHEMA,
     maxItems: 100,
   },
+  automations: {
+    type: "object",
+    description: "Configuração COMPLETA das três automações de Marketing. Preserve mensagens, ofertas, limites e regras não alterados. Reativação usa 30 dias. Requer iMenu Plus e WhatsApp conectado.",
+    properties: {
+      dailyTotalLimit: { type: "integer", minimum: 1, maximum: MAX_AUTOMATION_DAILY_LIMIT },
+      ...Object.fromEntries(AUTOMATION_KINDS.map(kind => [kind, {
+        type: "object",
+        properties: {
+          enabled: { type: "boolean" },
+          message: { type: "string", minLength: 1, maxLength: 1500 },
+          days: { type: "integer", minimum: 1, maximum: 365, ...(kind === "reactivation" ? { enum: [DEFAULT_AUTOMATIONS.reactivation.days] } : {}) },
+          cooldownDays: { type: "integer", minimum: DEFAULT_AUTOMATIONS[kind].cooldownDays, maximum: 365 },
+          offer: { type: "string", maxLength: 100 },
+        },
+        required: ["enabled", "message", "days", "cooldownDays", "offer"],
+        additionalProperties: false,
+      }])),
+    },
+    required: ["dailyTotalLimit", ...AUTOMATION_KINDS],
+    additionalProperties: false,
+  },
   message_templates: {
     type: "object",
     description:
@@ -341,7 +364,7 @@ export function actionValuesSchema(): Data {
 }
 
 export const key = (e: string) =>
-  e === "whatsapp_bot_settings" ? "restaurant_id" : "id";
+  ["whatsapp_bot_settings", "automatic_upsell"].includes(e) ? "restaurant_id" : "id";
 export function scope(entity: string, alias = "t"): string {
   fields(entity);
   if (entity === "restaurants") return `${alias}.id=$1`;
@@ -502,6 +525,23 @@ export function validate(entity: string, input: unknown, create = false): Data {
       !p.category_ids.every(isUuid)
     )
       throw new SalesError("Configuração de pizza inválida.");
+  }
+  if (value.automations != null) {
+    const settings = object(value.automations);
+    if (Object.keys(settings).some(k => k !== "dailyTotalLimit" && !AUTOMATION_KINDS.includes(k as typeof AUTOMATION_KINDS[number])) ||
+      !Number.isInteger(settings.dailyTotalLimit) || settings.dailyTotalLimit < 1 || settings.dailyTotalLimit > MAX_AUTOMATION_DAILY_LIMIT)
+      throw new SalesError("Limite diário de Marketing inválido.");
+    for (const kind of AUTOMATION_KINDS) {
+      const rule = object(settings[kind]);
+      if (Object.keys(rule).some(k => !["enabled", "message", "days", "cooldownDays", "offer"].includes(k)) ||
+        typeof rule.enabled !== "boolean" || typeof rule.message !== "string" ||
+        !rule.message.trim() || rule.message.length > 1500 ||
+        !Number.isInteger(rule.days) || rule.days < 1 || rule.days > 365 ||
+        (kind === "reactivation" && rule.days !== DEFAULT_AUTOMATIONS.reactivation.days) ||
+        !Number.isInteger(rule.cooldownDays) || rule.cooldownDays < DEFAULT_AUTOMATIONS[kind].cooldownDays ||
+        rule.cooldownDays > 365 || typeof rule.offer !== "string" || rule.offer.length > 100)
+        throw new SalesError("Configuração de automação de Marketing inválida.");
+    }
   }
   if (value.message_templates != null) {
     const allowed = [

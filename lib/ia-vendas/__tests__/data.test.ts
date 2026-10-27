@@ -64,6 +64,15 @@ test("deep context deterministically reads all commercial entities in a consiste
   expect(actionQuery).toContain("r.kind='analysis'");
   expect(actionQuery).toContain("r.status<>'completed'");
 });
+test("growth settings are included in complete tenant-scoped analysis snapshots", async () => {
+  const ctx = await context("restaurant", true);
+  const sql = c.query.mock.calls.map(([statement]) => statement);
+  expect(sql.some(statement => statement.includes("FROM public.automatic_upsell t WHERE t.restaurant_id=$1"))).toBe(true);
+  expect(sql.some(statement => statement.includes("FROM public.whatsapp_bot_settings t WHERE t.restaurant_id=$1"))).toBe(true);
+  expect(ctx.growth_settings.upsell_automatico.enabled).toBe(false);
+  expect(ctx.growth_settings.marketing.settings.cart.enabled).toBe(false);
+});
+
 test("normal reads retain 50-row pagination", async () => {
   (query as jest.Mock).mockResolvedValue({
     rows: Array.from({ length: 51 }, (_, i) => ({ id: i, image_path: null })),
