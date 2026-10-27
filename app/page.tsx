@@ -732,7 +732,7 @@ export default function LandingPage() {
                                 <strong className="text-3xl font-bold tracking-tight text-gray-900 md:text-4xl">Grátis</strong>
                                 <span className="text-xs text-gray-500">sem limites, sem taxas</span>
                             </div>
-                            <div className="mt-4">
+                            <div className="mt-4 pb-8">
                                 <p className="mb-4 text-sm font-semibold text-gray-900">Incluído no iMenu</p>
                                 <ul className="space-y-3.5">
                                     {FREE_PLAN_FEATURES.map((title) => (
