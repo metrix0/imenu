@@ -170,9 +170,6 @@ export default function MenuProductCard(props: MenuProductCardProps) {
                                 );
                             })}
                         </ul>
-                        <p className="plans-plus-conditions">
-                            Avisos pelo WhatsApp seguem as regras de interação com o cliente. Scan com IA é gratuito até 1 produto cadastrado.
-                        </p>
                     </section>
                 </div>
             </article>

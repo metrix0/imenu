@@ -238,12 +238,6 @@
     margin-top: 0;
     color: var(--panel-action);
 }
-.panel-essencial .plans-plus-conditions {
-    margin-top: 24px;
-    color: var(--panel-muted);
-    font-size: 12px;
-    line-height: 19px;
-}
 @container (max-width: 759px) {
     .panel-essencial .plans-plus-header {
         flex-direction: column;
