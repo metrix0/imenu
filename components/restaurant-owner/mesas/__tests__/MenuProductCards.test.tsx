@@ -34,6 +34,13 @@ test("iMenu Plus has exclusive support and precedes the QR card in the two-colum
 });
 
 
+test("The included iMenu card lists the three free features in order", () => {
+    const html = renderToStaticMarkup(<MenuProductCards presentation="plans" qrSelected={false} onLearnMore={noop} />);
+    const freeFeatures = html.slice(html.indexOf('<h3>iMenu</h3>'));
+    expect(freeFeatures).toMatch(/Robô WhatsApp[\s\S]*Pedidos delivery[\s\S]*QR Code Mesa/);
+    expect(freeFeatures).not.toContain("Gestão de pedidos");
+});
+
 test("Planos shows one free base plan and a full-width Plus plan without a separate QR card", () => {
     const html = renderToStaticMarkup(<MenuProductCards presentation="plans" qrSelected={false} onLearnMore={noop} extraCard={<IaPlusProductCard presentation="plans" active={false} onLearnMore={noop} />} />);
     expect(html.match(/class="plans-included"/g)).toHaveLength(1);
