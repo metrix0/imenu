@@ -765,7 +765,7 @@ export default function LandingPage() {
             <section
                 id="planos"
                 aria-labelledby="planos-heading"
-                className="scroll-mt-8 bg-[#f7f8fa] px-4 pt-14 pb-16 md:px-20 md:pt-16 md:pb-16 min-[1400px]:px-24 2xl:px-32"
+                className="scroll-mt-8 bg-[#f7f8fa] px-4 pt-24 pb-16 md:px-20 md:pt-16 md:pb-16 min-[1400px]:px-24 2xl:px-32"
             >
                 <div className="mx-auto max-w-6xl min-[1400px]:max-w-7xl">
                     <div className="mb-10 text-center md:mb-12">
