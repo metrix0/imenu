@@ -13,7 +13,6 @@ export const IA_PLUS_BENEFITS = [
 export const IA_PLUS_BONUSES = [
   { title: "Atendimento exclusivo", description: "Solicite integrações e novas funcionalidades com atendimento exclusivo e entrega em até 3 dias úteis." },
   { title: "Upsells automáticos", description: "Sugira automaticamente produtos que combinam com o pedido para aumentar o ticket médio." },
-  { title: "Modo vitrine", description: "Compartilhe seu cardápio em um link para consulta, sem receber pedidos." },
   { title: "Atualizações de pedidos pelo WhatsApp", description: "Notifique clientes pelo WhatsApp quando o pedido estiver pronto ou sair para entrega." },
   { title: "Download Cardápio em PDF", description: "Baixe seu cardápio em PDF para imprimir ou compartilhar." },
 ] as const;

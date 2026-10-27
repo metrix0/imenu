@@ -51,6 +51,7 @@ test("Planos shows one free base plan and a full-width Plus plan without a separ
     expect(html).toContain("IAPlusCombinationMarkLogo_Brand.png");
     expect(html).not.toContain("iMenu QR Code Mesa");
     expect(html).toContain("Atualizações de pedidos pelo WhatsApp");
+    expect(html).not.toContain("Modo vitrine");
     expect(html).toContain("Scan de cardápio com IA");
     expect(html).not.toContain("Já gratuitos em qualquer plano");
     expect(html).toContain("plans-plus-bonus-grid");

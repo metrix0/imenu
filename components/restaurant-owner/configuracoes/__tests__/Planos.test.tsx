@@ -82,8 +82,8 @@ test("plans separate discovery from billing without selection checkboxes", () =>
     expect(html).toContain('class="plans-product plans-plus"');
     const plusCard = html.slice(html.indexOf('class="plans-product plans-plus"'));
     expect(plusCard).toMatch(/class="plans-plus-status"[\s\S]*?>Disponível<\/span>/);
-    expect(plusCard).toMatch(/class="plans-plus-intro"[\s\S]*?class="plans-plus-price"[\s\S]*?R\$[\s\S]*?Cancele quando quiser/);
-    expect(plusCard.indexOf('class="plans-plus-price"')).toBeLessThan(plusCard.indexOf('class="plans-plus-status"'));
+    expect(plusCard).toMatch(/class="plans-plus-status"[\s\S]*?>Disponível<\/span>[\s\S]*?class="plans-plus-price"[\s\S]*?Cancele quando quiser[\s\S]*?R\$/);
+    expect(plusCard.indexOf('class="plans-plus-price"')).toBeGreaterThan(plusCard.indexOf('class="plans-plus-status"'));
     expect(plusCard).toMatch(/class="plans-plus-footer"[\s\S]*?Conhecer o plano/);
     expect(plusCard.slice(plusCard.indexOf('class="plans-plus-footer"'))).not.toContain('class="plans-plus-price"');
 });
@@ -125,7 +125,7 @@ test.each(Object.entries(fixtures))("render the actual plans page for visual QA:
     expect(html).toContain("Scan de cardápio com IA");
     expect(html).toContain("Upsells automáticos");
     expect(html).toContain("Download Cardápio em PDF");
-    expect(html).toContain("Modo vitrine");
+    expect(html).not.toContain("Modo vitrine");
     expect(html).not.toContain("Já gratuitos em qualquer plano");
     expect(html).not.toContain("QR Code nas mesas");
     expect(html).not.toContain("Painel Garçom");

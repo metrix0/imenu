@@ -8,7 +8,7 @@ import type { MouseEvent } from "react";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
-import { Bot, FileDown, Headset, Megaphone, MessageCircle, ScanLine, ShoppingCart, Sparkles, Store, TrendingUp, type LucideIcon } from "lucide-react";
+import { Bot, FileDown, Headset, Megaphone, MessageCircle, ScanLine, ShoppingCart, Sparkles, TrendingUp, type LucideIcon } from "lucide-react";
 
 export const PLUS_FEATURE_ICONS: Record<string, LucideIcon> = {
     "Automações de Marketing WhatsApp": Megaphone,
@@ -19,7 +19,6 @@ export const PLUS_FEATURE_ICONS: Record<string, LucideIcon> = {
 export const PLUS_BONUS_ICONS: Record<string, LucideIcon> = {
     "Atendimento exclusivo": Headset,
     "Upsells automáticos": ShoppingCart,
-    "Modo vitrine": Store,
     "Atualizações de pedidos pelo WhatsApp": MessageCircle,
     "Scan de cardápio com IA": ScanLine,
     "Download Cardápio em PDF": FileDown,
@@ -122,17 +121,17 @@ export default function MenuProductCard(props: MenuProductCardProps) {
                                 <h3>{props.name}</h3>
                             </div>
                             <p className="plans-product-description">{props.description}</p>
-                    <div className="plans-plus-price">
-                        <div>
-                            <strong>{props.priceLabel}</strong>
-                            <span>{props.priceSuffix ?? "/mês"}</span>
-                        </div>
-                        <small>Cancele quando quiser</small>
-                    </div>
                         </div>
                     </div>
                     <div className="plans-plus-status">
                         <Badge variant={active ? "success" : "neutral"}>{active ? "Ativo" : "Disponível"}</Badge>
+                        <div className="plans-plus-price">
+                            <small>Cancele quando quiser</small>
+                            <div>
+                                <strong>{props.priceLabel}</strong>
+                                <span>{props.priceSuffix ?? "/mês"}</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
