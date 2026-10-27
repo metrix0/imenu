@@ -11,7 +11,6 @@ import { icons } from "@/lib/utils/fontawesome";
 import ListLoader from "@/components/ui/ListLoader";
 import Switch from "@/components/ui/Switch";
 import Card from "@/components/ui/Card";
-import Button from "@/components/ui/Button";
 import SaveStatus from "@/components/ui/SaveStatus";
 import Tooltip from "@/components/ui/Tooltip";
 import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
@@ -225,14 +224,7 @@ export default function UpsellTab({ restaurantId, items }: Props) {
                     </div>
                     <div className="flex shrink-0 items-start gap-3">
                         {automaticSaving && <SaveStatus status="saving" />}
-                        {plusActive === false ? (
-                            <Tooltip text="Disponível com iMenu Plus. Assine o plano para desbloquear o Upsell Automático." parentClassName="!block">
-                                <Button onClick={() => setPlusModalOpen(true)} className="gap-2">
-                                    Desbloquear Upsell Automático
-                                    <FontAwesomeIcon icon={faLock} />
-                                </Button>
-                            </Tooltip>
-                        ) : (
+                        <Tooltip text={plusActive === false ? "Disponível com iMenu Plus. Assine o plano para desbloquear o Upsell Automático." : ""} parentClassName="!block">
                             <Switch
                                 checked={plusActive === true && automaticEnabled}
                                 aria-label="Upsell Automático"
@@ -240,7 +232,7 @@ export default function UpsellTab({ restaurantId, items }: Props) {
                                 disabled={automaticLoading || automaticSaving || plusActive === null}
                                 onClick={toggleAutomatic}
                             />
-                        )}
+                        </Tooltip>
                     </div>
                 </div>
             </Card>
