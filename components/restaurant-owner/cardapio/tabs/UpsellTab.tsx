@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useMemo } from "react";
-import { Lock } from "lucide-react";
+import { faCheck, faLock } from "@fortawesome/free-solid-svg-icons";
 import { supabase } from "@/lib/database/supabaseClient";
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
 import Modal from "@/components/ui/Modal";
@@ -10,9 +10,11 @@ import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
 import ListLoader from "@/components/ui/ListLoader";
 import Switch from "@/components/ui/Switch";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
+import SaveStatus from "@/components/ui/SaveStatus";
 import Tooltip from "@/components/ui/Tooltip";
 import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
-import { IA_PLUS_FEATURE_MESSAGE } from "@/lib/addons/products";
 import { qrTableAuthenticatedFetch } from "@/lib/qr-table/clientApi";
 
 type Props = {
@@ -203,24 +205,45 @@ export default function UpsellTab({ restaurantId, items }: Props) {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between gap-4 rounded-xl border border-gray-200 bg-white p-4">
-                <div className="min-w-0">
-                    <p className="text-sm font-semibold text-gray-900">Upsell Automático</p>
-                    <p className="mt-1 text-sm text-gray-600">
-                        Analisa periodicamente os itens e categorias mais comprados juntos para sugerir produtos relacionados ao carrinho.
-                        Sem histórico suficiente, mantém as sugestões manuais abaixo.
-                    </p>
-                    {automaticError && <p className="mt-2 text-xs text-red-600" role="alert">{automaticError}</p>}
-                </div>
-                <Tooltip text={plusActive === false ? IA_PLUS_FEATURE_MESSAGE : ""} parentClassName="shrink-0">
-                    <div className="flex items-center gap-2">
-                        {plusActive === false && <Lock size={14} className="text-gray-500" aria-hidden="true" />}
-                        <Switch checked={plusActive === true && automaticEnabled}
-                            disabled={automaticLoading || automaticSaving || plusActive === null}
-                            aria-label="Upsell Automático" onClick={toggleAutomatic} />
+            <Card className="border border-gray-200 shadow-sm">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h2 className="text-xl font-medium text-gray-900">Upsell Automático</h2>
+                            {plusActive !== null && (
+                                <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${plusActive ? "bg-green-50 text-green-700" : "bg-orange-50 text-orange-800"}`}>
+                                    <FontAwesomeIcon icon={plusActive ? faCheck : faLock} />
+                                    {plusActive ? "Plano ativo" : "Incluso no iMenu Plus"}
+                                </span>
+                            )}
+                        </div>
+                        <p id="automatic-upsell-description" className="mt-2 text-sm text-gray-500">
+                            Analisa periodicamente os itens e categorias mais comprados juntos para sugerir produtos relacionados ao carrinho.
+                            Sem histórico suficiente, mantém as sugestões manuais abaixo.
+                        </p>
+                        {automaticError && <p className="mt-2 text-xs text-red-600" role="alert">{automaticError}</p>}
                     </div>
-                </Tooltip>
-            </div>
+                    <div className="flex shrink-0 items-start gap-3">
+                        {automaticSaving && <SaveStatus status="saving" />}
+                        {plusActive === false ? (
+                            <Tooltip text="Disponível com iMenu Plus. Assine o plano para desbloquear o Upsell Automático." parentClassName="!block">
+                                <Button onClick={() => setPlusModalOpen(true)} className="gap-2">
+                                    Desbloquear Upsell Automático
+                                    <FontAwesomeIcon icon={faLock} />
+                                </Button>
+                            </Tooltip>
+                        ) : (
+                            <Switch
+                                checked={plusActive === true && automaticEnabled}
+                                aria-label="Upsell Automático"
+                                aria-describedby="automatic-upsell-description"
+                                disabled={automaticLoading || automaticSaving || plusActive === null}
+                                onClick={toggleAutomatic}
+                            />
+                        )}
+                    </div>
+                </div>
+            </Card>
             <div>
                 <h2 className="text-xl font-semibold">
                     Upsells {selected.length}/5
