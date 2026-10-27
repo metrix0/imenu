@@ -10,6 +10,7 @@ import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faChevronDown,
     faCircleCheck,
+    faComment,
     faCreditCard,
     faLink,
     faPlus,
@@ -575,7 +576,7 @@ export default function RoboWhatsAppPage() {
                             )}
                         </div>
                     </div>
-                    <div id="atendimentos-humanos" aria-label="Conversas encaminhadas para atendimento humano" className={`mt-4 [&_th]:py-3 ${handoffs.length === 0 ? "[&_table]:table-auto @min-[720px]:[&_table]:table-fixed [&_td]:py-4" : "[&_table]:table-fixed"}`}>
+                    <div id="atendimentos-humanos" aria-label="Conversas encaminhadas para atendimento humano" className={`mt-6 [&_th]:py-3 ${handoffs.length === 0 ? "[&_table]:table-auto @min-[720px]:[&_table]:table-fixed [&_td]:py-4" : "[&_table]:table-fixed"}`}>
                         {pendingHandoffs > 0 && (
                             <div className="mb-2 flex justify-end">
                                 <Badge variant="warning">
@@ -587,7 +588,7 @@ export default function RoboWhatsAppPage() {
                             rows={handoffs}
                             emptyMessage={
                                 <div className="mx-auto flex max-w-lg flex-col items-center gap-2">
-                                    <FontAwesomeIcon icon={faWhatsapp} className="text-xl text-gray-400" aria-hidden="true" />
+                                    <FontAwesomeIcon icon={faComment} className="!h-8 !w-8 text-gray-400" aria-hidden="true" />
                                     <p>As conversas encaminhadas para atendimento humano ficam aqui. Você também receberá uma notificação!</p>
                                 </div>
                             }
