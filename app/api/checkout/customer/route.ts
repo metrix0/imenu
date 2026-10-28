@@ -20,13 +20,23 @@ export async function POST(request: NextRequest) {
       );
 
     const result = await query(
-      "SELECT name,address FROM customers WHERE restaurant_id=$1 AND phone=$2",
-      [restaurantId, phone],
+      `SELECT
+        (SELECT name
+         FROM customers
+         WHERE phone=$1 AND NULLIF(BTRIM(name), '') IS NOT NULL
+         ORDER BY updated_at DESC NULLS LAST
+         LIMIT 1) AS name,
+        (SELECT address
+         FROM customers
+         WHERE phone=$1 AND address IS NOT NULL AND address <> '{}'::jsonb
+         ORDER BY updated_at DESC NULLS LAST
+         LIMIT 1) AS address`,
+      [phone],
     );
     const saved = savedCheckoutProfile(request, restaurantId);
     const snapshot = saved?.phone === phone ? saved.snapshot : null;
     const record = result.rows[0];
-    const customer = record
+    const customer = record?.name || record?.address
       ? {
           name: record.name || snapshot?.name || null,
           address: record.address || snapshot?.address || null,
