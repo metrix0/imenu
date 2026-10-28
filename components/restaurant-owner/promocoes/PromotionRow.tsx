@@ -45,7 +45,7 @@ export default function PromotionRow({ item, checked, onToggle, onChange }: {
     };
 
     return (
-        <div className={`panel-promotion-row grid gap-4 border-b border-gray-200 px-5 py-4 last:border-b-0 lg:grid-cols-[minmax(220px,1fr)_minmax(0,1.3fr)] lg:items-center ${checked ? "bg-brand/5" : "hover:bg-gray-50"}`}>
+        <div className={`panel-promotion-row grid gap-4 border-b border-gray-200 px-5 py-4 last:border-b-0 lg:grid-cols-[minmax(220px,0.75fr)_minmax(0,1.75fr)] lg:items-center ${checked ? "bg-brand/5" : "hover:bg-gray-50"}`}>
             <div className="flex min-w-0 items-center gap-3">
                 <input type="checkbox" checked={checked} onChange={onToggle} aria-label={`Selecionar ${item.name}`} className="h-5 w-5 shrink-0 cursor-pointer rounded border border-gray-200/70 accent-brand opacity-[0.35] checked:opacity-100" />
                 <img src={imageUrl} alt="" width={48} height={48} className="h-12 w-12 shrink-0 rounded-lg border border-gray-200 object-cover" />
@@ -58,7 +58,7 @@ export default function PromotionRow({ item, checked, onToggle, onChange }: {
                     </div>
                 </div>
             </div>
-            <div className="grid min-w-0 grid-cols-2 items-end gap-3 sm:grid-cols-[minmax(100px,1fr)_90px_minmax(0,1.6fr)] xl:grid-cols-[minmax(100px,1fr)_90px_minmax(0,1.6fr)_auto]">
+            <div className="grid min-w-0 grid-cols-2 items-end gap-3 sm:grid-cols-[minmax(120px,1fr)_100px_minmax(0,2fr)] xl:grid-cols-[minmax(120px,1fr)_100px_minmax(0,2fr)_auto]">
                 <Dropdown label="Desconto" aria-label={`Tipo de desconto de ${item.name}`} value={type}
                     options={[{ label: "Percentual", value: "percent" }, { label: "Valor fixo", value: "fixed" }]}
                     onChange={event => { const next = event.target.value as "fixed" | "percent"; setType(next); commit(next); }} />
