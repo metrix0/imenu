@@ -1,5 +1,6 @@
 "use client";
 
+import { PageSaveHeader } from "@/components/ui/SaveStatus";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
@@ -767,7 +768,8 @@ export default function ConfiguracoesPage() {
 
             <div className="min-h-screen bg-gray-50 px-4 pb-20 pt-8 sm:px-6">
                 <div className="mx-auto max-w-6xl space-y-8">
-                    <div>
+                    <PageSaveHeader>
+<div>
                         <h1 className="text-3xl font-bold text-gray-900 2xl:text-4xl">
                             Configurações
                         </h1>
@@ -775,6 +777,7 @@ export default function ConfiguracoesPage() {
                             Gerencie sua conta e seu acesso.
                         </p>
                     </div>
+</PageSaveHeader>
 
                     <section className="space-y-4">
                         <div className="flex items-center justify-between gap-4">

@@ -48,4 +48,4 @@ The design study contains an optional `warm` direction, but the standard `#f7f8f
 - `/components/ui/README.md` — component showcase at `/dev/ui` and modal sizing requirements.
 - `/components/ui/*.tsx` — source of truth for actual UI component props and styles.
 
-- Autosave feedback: one indicator at the top right of the page, hidden on initial load. Never place save indicators in cards, forms, or beside toggles. Panel SaveStatus instances report to PageSaveStatusProvider; aggregate pending/error states across the page. Show Tudo salvo only after an actual change finishes saving; keep unresolved failures visible.
+- Autosave feedback: one indicator at the top right of the page, inline with the page heading/text using PageSaveHeader, hidden on initial load. Never create a separate row above the page heading. Never place save indicators in cards, forms, or beside toggles. Panel SaveStatus instances report to PageSaveStatusProvider; aggregate pending/error states across the page. Show Tudo salvo only after an actual change finishes saving; keep unresolved failures visible.

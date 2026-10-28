@@ -24,6 +24,7 @@ export function aggregatePageSaveStatus(entries: Record<string, Entry>): SaveSta
         : active.some(entry => entry.status === "error" || entry.status === "idle") ? "error"
         : active.some(entry => entry.status === "saving") ? "saving" : "saved";
 }
+const PageSaveStateContext = createContext<SaveState>("idle");
 const PageSaveContext = createContext<((id: string, status: SaveState) => void) | null>(null);
 
 // A page owns one indicator. Sources report independently and keep failures visible.
@@ -39,10 +40,7 @@ export function PageSaveStatusProvider({ children }: { children: ReactNode }) {
     }, []);
     const status = aggregatePageSaveStatus(entries);
     return <PageSaveContext.Provider value={report}>
-        {status !== "idle" && <div className="mb-4 flex justify-end px-4 pt-4 sm:px-6" data-ui="page-save-status">
-            <SaveStatusBadge status={status} />
-        </div>}
-        {children}
+        <PageSaveStateContext.Provider value={status}>{children}</PageSaveStateContext.Provider>
     </PageSaveContext.Provider>;
 }
 
@@ -52,4 +50,15 @@ export default function SaveStatus({ status, className = "" }: { status: SaveSta
     useEffect(() => { report?.(id, status); }, [report, id, status]);
     // Retain a source's last result if its editor is collapsed/unmounted.
     return report ? null : <SaveStatusBadge status={status} className={className} />;
+}
+
+// Keep the page status inline with its heading on every screen size.
+export function PageSaveHeader({ children }: { children: ReactNode }) {
+    const status = useContext(PageSaveStateContext);
+    return <div className="flex min-w-0 items-start justify-between gap-4" data-ui="page-save-header">
+        <div className="min-w-0 flex-1">{children}</div>
+        {status !== "idle" && <div className="shrink-0 pt-1" data-ui="page-save-status">
+            <SaveStatusBadge status={status} />
+        </div>}
+    </div>;
 }

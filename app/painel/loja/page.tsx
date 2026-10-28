@@ -1,5 +1,6 @@
 "use client";
 
+import { PageSaveHeader } from "@/components/ui/SaveStatus";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
@@ -82,7 +83,8 @@ export default function LojaPage() {
 
     return (
         <div className="mx-auto w-full max-w-6xl space-y-8 px-4 pb-20 pt-8 sm:px-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <PageSaveHeader>
+<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1>Perfil da Loja</h1>
                     <p className="mt-1 text-sm text-gray-500">
@@ -94,6 +96,7 @@ export default function LojaPage() {
                     className="self-start sm:self-auto"
                 />
             </div>
+</PageSaveHeader>
 
             <StoreSettings
                 restaurant={restaurant}

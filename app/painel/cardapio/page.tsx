@@ -1,5 +1,6 @@
 "use client";
 
+import { PageSaveHeader } from "@/components/ui/SaveStatus";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
@@ -248,12 +249,14 @@ export default function MenuManagerPage() {
                 }
             `}</style>
 
-            <div className="min-w-0 max-w-full">
+            <PageSaveHeader>
+<div className="min-w-0 max-w-full">
                 <h1 className="text-3xl font-bold text-gray-900">Cardápio</h1>
                 <p className="text-gray-500 mt-1 2xl:text-lg">
                     Defina quais os itens seus clientes podem pedir.
                 </p>
             </div>
+</PageSaveHeader>
 
             <div className="max-w-full overflow-hidden border-b border-gray-200">
                 <Tabs

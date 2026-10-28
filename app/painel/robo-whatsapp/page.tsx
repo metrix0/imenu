@@ -1,5 +1,6 @@
 "use client";
 
+import { PageSaveHeader } from "@/components/ui/SaveStatus";
 import {
     useEffect,
     useMemo,
@@ -579,12 +580,14 @@ export default function RoboWhatsAppPage() {
 
     return (
         <div className="mx-auto max-w-4xl px-4 pb-24 pt-8 sm:px-6">
-            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <PageSaveHeader>
+<div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                     <h1 className="mb-2 text-3xl font-bold text-gray-900">Robô WhatsApp</h1>
                     <p className="text-gray-600">Conecte o número e personalize as respostas automáticas.</p>
                 </div>
             </div>
+</PageSaveHeader>
 
             <div className="space-y-6">
                 <section aria-label="WhatsApp do restaurante" className="@container min-w-0">

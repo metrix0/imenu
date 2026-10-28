@@ -1,4 +1,5 @@
 "use client";
+import { PageSaveHeader } from "@/components/ui/SaveStatus";
 import { useEffect, useMemo, useRef, useState } from "react";
 import PageBadge from "@/components/ui/PageBadge";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
@@ -165,7 +166,8 @@ export default function MarketingPage() {
   }
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-4 pb-20 pt-8 sm:px-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <PageSaveHeader>
+<div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Automações de Marketing WhatsApp</h1>
           <p className="mt-2 text-sm text-gray-500">
@@ -174,6 +176,7 @@ export default function MarketingPage() {
         </div>
         <SaveStatus status={saveStatus} className="self-start" />
       </div>
+</PageSaveHeader>
       {error || saveError ? (
         <p role="alert" className="text-sm text-red-600">
           {error || saveError}

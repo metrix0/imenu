@@ -1,5 +1,6 @@
 "use client";
 
+import { PageSaveHeader } from "@/components/ui/SaveStatus";
 import { useEffect, useState } from "react";
 import { useLoyaltyStore } from "@/lib/stores/restaurant-owner/loyaltyStore";
 import Input from "@/components/ui/Input";
@@ -219,13 +220,15 @@ export default function FidelidadePage() {
 
     return (
         <div className="max-w-6xl mx-auto pb-20 px-4 sm:px-6 pt-8">
-            <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <PageSaveHeader>
+<div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900">Programa de Fidelidade</h1>
                     <p className="text-gray-500 mt-1 2xl:text-lg">Defina o item que será dado como recompensa e quais complementos já vêm inclusos.</p>
                 </div>
                 <SaveStatus status={saveStatus} className="self-start sm:self-auto" />
             </div>
+</PageSaveHeader>
             {saveError ? <p role="alert" className="mb-4 text-sm text-red-600">{saveError}</p> : null}
 
             <Card className="space-y-6 p-6">
