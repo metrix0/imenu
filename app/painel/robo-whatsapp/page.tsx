@@ -22,6 +22,7 @@ import {
     faUtensils,
 } from "@fortawesome/free-solid-svg-icons";
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
+import { Inbox } from "lucide-react";
 
 import OrderNotificationSettings from "@/components/restaurant-owner/pedidos/OrderNotificationSettings";
 import Button from "@/components/ui/Button";
@@ -575,7 +576,7 @@ export default function RoboWhatsAppPage() {
                             )}
                         </div>
                     </div>
-                    <div id="atendimentos-humanos" aria-label="Conversas encaminhadas para atendimento humano" className={`mt-4 [&_th]:py-3 ${handoffs.length === 0 ? "[&_table]:table-auto @min-[720px]:[&_table]:table-fixed [&_td]:py-4" : "[&_table]:table-fixed"}`}>
+                    <div id="atendimentos-humanos" aria-label="Conversas encaminhadas para atendimento humano" className={`mt-6 [&_th]:py-3 ${handoffs.length === 0 ? "[&_table]:table-auto @min-[720px]:[&_table]:table-fixed [&_td]:py-4" : "[&_table]:table-fixed"}`}>
                         {pendingHandoffs > 0 && (
                             <div className="mb-2 flex justify-end">
                                 <Badge variant="warning">
@@ -586,8 +587,8 @@ export default function RoboWhatsAppPage() {
                         <DataTable
                             rows={handoffs}
                             emptyMessage={
-                                <div className="mx-auto flex max-w-lg flex-col items-center gap-2">
-                                    <FontAwesomeIcon icon={faWhatsapp} className="text-xl text-gray-400" aria-hidden="true" />
+                                <div className="mx-auto flex max-w-lg flex-col items-center gap-2 py-4">
+                                    <Inbox className="h-8 w-8 text-gray-400" strokeWidth={1.75} aria-hidden="true" />
                                     <p>As conversas encaminhadas para atendimento humano ficam aqui. Você também receberá uma notificação!</p>
                                 </div>
                             }

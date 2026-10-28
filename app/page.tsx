@@ -119,7 +119,7 @@ const RESOURCE_SECTIONS: readonly { title: string; imenu?: string; competitor?: 
             ["Scanear Cardápio com IA", "scan", "limited"],
             ["Assistente IA: para Melhorar o Cardápio", "assistantLimited", "limited"],
             ["Análise avançada com IA", "iMenu Plus", "limited"],
-            ["Geração de imagens com IA", "iMenu Plus", "limited"],
+            ["Geração de imagens com IA", "assistantLimited", "limited"],
         ],
     },
 ];
