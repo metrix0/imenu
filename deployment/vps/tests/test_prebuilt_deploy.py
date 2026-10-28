@@ -19,8 +19,16 @@ class DeploymentTests(unittest.TestCase):
   (self.state/'active-prebuilt.yml').write_text('OLD_OVERLAY\n')
   (self.state/'deployed-sha').write_text(OLD+'\n')
   (self.root/'active').write_text('old')
+  proxy=self.base/'ops/cutover/Caddyfile.live'
+  proxy.parent.mkdir(parents=True)
+  proxy.write_text(
+      '{\n    admin off\n    on_demand_tls {\n        ask http://imenu-production-app:3000/api/internal/domain-allowed\n    }\n}\n'
+      'www.imenuapp.com.br {\n    reverse_proxy imenu-production-app:3000\n}\n'
+      'https:// {\n    tls {\n        on_demand\n    }\n    reverse_proxy imenu-production-app:3000\n}\n'
+  )
   self.script=self.root/'deploy.sh'; self.script.write_text(SCRIPT.replace('BASE=/opt/imenu-migration',f'BASE={self.base}'))
   self.mock('sleep','exit 0\n')
+  self.mock('curl','exit 0\n')
   self.mock('git',f"printf '%s\\trefs/heads/main\\n' {SHA}\n")
   self.mock('install','exit 0\n')
   self.mock('docker', r'''python3 - "$@" <<'CODE'
@@ -31,11 +39,15 @@ if a[:2]==['network','inspect']: print('true')
 elif a[0]=='inspect':
  if 'Health.Status' in a[-1]:
   bad=os.environ.get('FAIL_ACTIVATION')=='1' and (r/'active').read_text()=='new' and a[1]=='imenu-production-app'
+  bad=bad or os.environ.get('FAIL_HANDOFF')=='1' and a[1]=='imenu-production-handoff'
   print('unhealthy' if bad else 'healthy')
  elif 'State.Running' in a[-1]: print('true')
+ elif '.Mounts' in a[-1]: print(str(r/'base/ops/cutover/Caddyfile.live'))
  elif 'WorkingDir' in a[-1]: print('/app')
  else: print('sha256:runtime')
 elif a[0]=='exec' and 'cat' in a: print('a'*40)
+elif a[0]=='logs':
+ print('{"msg":"successfully reloaded config from file"}')
 elif a[0]=='compose':
  if '--no-env-resolution' in a:
   print('OLD_FULL_CONFIG' if 'active-prebuilt.yml' in ' '.join(a) else 'NEW_FULL_CONFIG')
@@ -56,18 +68,31 @@ CODE
   r=self.run_script('activate');self.assertEqual(r.returncode,0,r.stdout+r.stderr)
   self.assertEqual((self.state/'deployed-sha').read_text().strip(),SHA)
   self.assertEqual((self.state/'rollback-sha').read_text().strip(),OLD)
+  calls=(self.root/'calls').read_text()
+  self.assertIn('imenu-production-handoff',calls)
+  self.assertLess(calls.index('--name imenu-production-handoff'),calls.index('up -d --no-deps'))
+  self.assertIn('kill --signal=USR1 imenu-stage-proxy',calls)
+  self.assertEqual((self.base/'ops/cutover/Caddyfile.live').read_text().count('imenu-production-app:3000'),3)
   self.assertEqual((self.state/'rollback-release.yml').read_text().strip(),'OLD_FULL_CONFIG')
   r=self.run_script('rollback');self.assertEqual(r.returncode,0,r.stdout+r.stderr)
   self.assertEqual((self.state/'deployed-sha').read_text().strip(),OLD)
+ def test_failed_handoff_leaves_live_untouched(self):
+  r=self.run_script('activate',FAIL_HANDOFF='1');self.assertNotEqual(r.returncode,0)
+  calls=(self.root/'calls').read_text()
+  self.assertNotIn('up -d --no-deps',calls)
+  self.assertEqual((self.root/'active').read_text(),'old')
+  self.assertEqual((self.base/'ops/cutover/Caddyfile.live').read_text().count('imenu-production-app:3000'),3)
  def test_failed_activation_restores_previous(self):
   r=self.run_script('activate',FAIL_ACTIVATION='1');self.assertNotEqual(r.returncode,0)
   self.assertEqual((self.root/'active').read_text(),'old')
   self.assertEqual((self.state/'deployed-sha').read_text().strip(),OLD)
   self.assertEqual((self.state/'failed-sha').read_text().strip(),SHA)
   self.assertIn('Previous application restored and healthy',r.stderr)
+  self.assertEqual((self.base/'ops/cutover/Caddyfile.live').read_text().count('imenu-production-app:3000'),3)
  def test_verify_does_not_switch(self):
   r=self.run_script('verify');self.assertEqual(r.returncode,0,r.stdout+r.stderr)
   self.assertEqual((self.root/'active').read_text(),'old')
+  self.assertNotIn('imenu-production-handoff',(self.root/'calls').read_text())
  def test_smoke_is_bounded_and_does_not_launch_browser(self):
   r=self.run_script('verify');self.assertEqual(r.returncode,0,r.stdout+r.stderr)
   calls=(self.root/'calls').read_text()

@@ -315,7 +315,7 @@ remote_sha="$(git -c http.version=HTTP/1.1 ls-remote "$REMOTE" refs/heads/"$BRAN
 if [[ "$(cat "$STATE/deployed-sha" 2>/dev/null || true)" == "$sha" && "$(docker inspect "$CONTAINER" --format '{{.State.Health.Status}}')" == healthy ]]; then echo 'Already deployed and healthy'; exit 0; fi
 if [[ "$action" != retry && "$(cat "$STATE/failed-sha" 2>/dev/null || true)" == "$sha" ]]; then echo 'Previously failed; explicit retry required' >&2; exit 1; fi
 
-# Save a complete previous configuration, including legacy overlay during migration.
+# Preserve the previous fixed-name container configuration for automatic rollback.
 if [[ -f "$STATE/active-release.yml" ]]; then
   cp "$STATE/active-release.yml" "$STATE/restore-release.yml"
 elif [[ -f "$STATE/active-prebuilt.yml" ]]; then
@@ -323,32 +323,114 @@ elif [[ -f "$STATE/active-prebuilt.yml" ]]; then
 else
   docker compose -f "$COMPOSE" config --no-env-resolution > "$STATE/restore-release.yml"
 fi
+
+# Keep public traffic on a separate healthy container while the fixed-name
+# container is replaced. Preserve the original name/ports for monitors and jobs.
+handoff="imenu-$PREFIX-handoff"
+proxy_file="$BASE/ops/cutover/Caddyfile.live"
+[[ -f "$proxy_file" ]] || { echo "Live Caddyfile missing" >&2; exit 1; }
+proxy_mount="$(docker inspect imenu-stage-proxy --format '{{range .Mounts}}{{if eq .Destination "/etc/caddy/Caddyfile"}}{{.Source}}{{end}}{{end}}')"
+[[ "$proxy_mount" == "$proxy_file" ]] || { echo "Unexpected Caddyfile mount" >&2; exit 1; }
+proxy_backup="$(mktemp "$STATE/.proxy-before-XXXXXXXX")"
+cp -p "$proxy_file" "$proxy_backup"
+route_state=stable
+recreated=false
+handoff_started=false
 started=$SECONDS
-switched=false
+
+proxy_route() {
+  local mode="$1" since ok=false public_host=www.imenuapp.com.br
+  if [[ "$mode" == handoff ]]; then
+    cmp -s "$proxy_backup" "$proxy_file" || { echo "Caddyfile changed concurrently" >&2; return 1; }
+    # The live Caddyfile is bind-mounted as a file: write in place, never rename.
+    python3 - "$proxy_backup" "$proxy_file" "$target" "$handoff" <<'PYROXY'
+import os,pathlib,sys
+source,dest=map(pathlib.Path,sys.argv[1:3])
+target,handoff=sys.argv[3:]
+text=source.read_text()
+if target=="production":
+    rules=[("reverse_proxy imenu-production-app:3000",f"reverse_proxy {handoff}:3000",2),
+           ("ask http://imenu-production-app:3000",f"ask http://{handoff}:3000",1)]
+else:
+    rules=[("reverse_proxy app:3000",f"reverse_proxy {handoff}:3000",2)]
+for old,new,minimum in rules:
+    if text.count(old)<minimum: raise SystemExit(f"Unexpected {target} routes")
+    text=text.replace(old,new)
+with dest.open("w") as f:
+    f.write(text);f.flush();os.fsync(f.fileno())
+PYROXY
+  else
+    cat "$proxy_backup" > "$proxy_file"
+  fi
+  docker exec imenu-stage-proxy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null
+  since="$(date -u +%Y-%m-%dT%H:%M:%S.%NZ)"
+  docker kill --signal=USR1 imenu-stage-proxy >/dev/null
+  for _ in $(seq 1 10); do
+    if docker logs --since "$since" imenu-stage-proxy 2>&1 | grep -Fq '"msg":"successfully reloaded config from file"'; then
+      ok=true; break
+    fi
+    sleep 1
+  done
+  [[ "$ok" == true ]] || { echo "Caddy reload not confirmed" >&2; return 1; }
+  [[ "$target" == preview ]] && public_host=preview.imenuapp.com.br
+  curl -kfsS --resolve "$public_host:443:127.0.0.1" --max-time 8 "https://$public_host/api/health" >/dev/null
+}
+
 finish() {
-  rc=$?
+  local rc=$?
   trap - EXIT INT TERM
-  if [[ "$switched" == true && "$rc" -ne 0 ]]; then
-    echo 'Restoring previous application after failed activation' >&2
-    printf '%s\n' "$sha" > "$STATE/failed-sha"
-    if compose_up "$STATE/restore-release.yml" && health "$CONTAINER"; then echo 'Previous application restored and healthy' >&2; else echo 'CRITICAL: previous application recovery failed' >&2; fi
+  if [[ "$rc" -ne 0 ]]; then
+    if [[ "$recreated" == true ]]; then
+      echo "Restoring previous application while handoff serves requests" >&2
+      printf '%s\n' "$sha" > "$STATE/failed-sha"
+      if compose_up "$STATE/restore-release.yml" && health "$CONTAINER"; then
+        echo "Previous application restored and healthy" >&2
+      else
+        echo "CRITICAL: previous application recovery failed" >&2
+      fi
+    fi
+    if [[ "$route_state" != stable ]] && health "$CONTAINER"; then
+      if proxy_route stable; then route_state=stable
+      else echo "CRITICAL: proxy restoration failed; handoff retained" >&2
+      fi
+    fi
+  fi
+  if [[ "$route_state" == stable ]]; then
+    if [[ "$handoff_started" == true ]]; then docker rm -f "$handoff" >/dev/null 2>&1 || true; fi
+    rm -f -- "$proxy_backup"
+  else
+    echo "CRITICAL: handoff retained at $handoff; restore proxy from $proxy_backup" >&2
   fi
   exit "$rc"
 }
 trap finish EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
-switched=true
+
+# Run the full application (with its regular Compose resource limits) without
+# publishing the stable service's host ports.
+docker rm -f "$handoff" >/dev/null 2>&1 || true
+docker compose -f "$candidate" run -d --no-deps --pull never --name "$handoff" app >/dev/null
+handoff_started=true
+health "$handoff" || { echo "Handoff unhealthy; original app untouched" >&2; exit 1; }
+[[ "$(docker exec "$handoff" cat /app/release/.imenu-commit-sha)" == "$sha" ]] || exit 1
+
+route_state=uncertain
+proxy_route handoff
+route_state=handoff
+recreated=true
 compose_up "$candidate"
-health "$CONTAINER" || { echo 'New application unhealthy' >&2; exit 1; }
+health "$CONTAINER" || { echo "New application unhealthy" >&2; exit 1; }
 [[ "$(docker exec "$CONTAINER" cat /app/release/.imenu-commit-sha)" == "$sha" ]] || exit 1
+proxy_route stable
+route_state=stable
+
 cp "$STATE/restore-release.yml" "$STATE/rollback-release.yml"
 if [[ -f "$STATE/deployed-sha" ]]; then cp "$STATE/deployed-sha" "$STATE/rollback-sha"; fi
 cp "$candidate" "$STATE/active-release.yml"
 printf '%s\n' "$sha" > "$STATE/deployed-sha"
 rm -f "$STATE/failed-sha"
-switched=false
-trap - EXIT INT TERM
+recreated=false
 echo "TIMING activation=$((SECONDS-started))s sha=$sha target=$target"
 echo "Deployed healthy $target: $sha"
 # Keep the active and rollback releases; discard only obsolete verified releases/partials.
