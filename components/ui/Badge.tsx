@@ -22,7 +22,7 @@ const variants: Record<BadgeVariant, string> = {
     neutral: "bg-gray-50 !text-gray-600 ring-gray-200",
     success: "bg-green-50 !text-green-700 ring-green-200",
     warning: "bg-yellow-50 !text-yellow-700 ring-yellow-200",
-    notRecommended: "bg-white !text-amber-700 ring-amber-600/25",
+    notRecommended: "bg-yellow-50 !text-yellow-700 ring-yellow-200",
     info: "bg-blue-50 !text-blue-700 ring-blue-200",
     danger: "bg-red-50 !text-red-700 ring-red-200",
 };

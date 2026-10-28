@@ -962,8 +962,7 @@ export default function ConfiguracoesPage() {
                                     <h2 className="text-xl font-medium text-gray-900">
                                         Forçar envio de Notificação no WhatsApp
                                     </h2>
-                                    <Badge variant="notRecommended" uppercase className="gap-1">
-                                        Não recomendado
+                                    <Badge variant="notRecommended">Não recomendado</Badge>
                                     <Tooltip
                                         text="Isso adiciona uma etapa extra à finalização e pode criar atrito no pedido. O pedido é criado antes do WhatsApp: o cliente pode simplesmente não enviar a mensagem e o pedido continuará válido."
                                         position="top"
@@ -976,7 +975,6 @@ export default function ConfiguracoesPage() {
                                             className="cursor-help text-[11px] leading-none text-amber-700"
                                         />
                                     </Tooltip>
-                                    </Badge>
                                 </div>
                                 <p className="mt-2 text-sm text-gray-500">
                                     Após confirmar o pedido, o cliente será direcionado ao
