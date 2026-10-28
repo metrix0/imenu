@@ -11,6 +11,13 @@ else
     exec 9>"$BASE/ops/application-build.lock"
     flock -n 9 || { echo "Build active; cleanup deferred"; exit 0; }
 fi
+# Avoid expensive Docker graph/cache scans when plenty of disk space is available.
+# In particular, never prune merely because the 15-minute timer fired.
+available="$(df --output=avail -B1 "$BASE" | tail -1)"
+if (( available >= 42949672960 )); then
+    echo "Docker cleanup skipped: at least 40 GiB available"
+    exit 0
+fi
 python3 - <<'PY'
 import json, subprocess
 def run(*args):

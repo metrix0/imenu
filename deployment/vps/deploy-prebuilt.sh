@@ -205,6 +205,9 @@ fi
 
 exec 9>"$STATE/deploy.lock"
 flock -n 9 || { echo 'Deployment active' >&2; exit 75; }
+# Serialize VPS deploy smoke checks with image/cache pruning and other deployments.
+exec 8>"$BASE/ops/application-build.lock"
+flock -n 8 || { echo 'Another deployment or Docker cleanup is active' >&2; exit 75; }
 [[ "$(docker network inspect imenu-stage_default --format '{{.Internal}}')" == true ]] || exit 1
 install -d -o 1000 -g 1000 -m 755 "$CACHE"
 health() {
@@ -270,20 +273,34 @@ YAML
 docker compose -f "$COMPOSE" -f "$STATE/release-overlay.yml" config --no-env-resolution > "$candidate"
 docker compose -f "$candidate" config -q
 
-# Run the real server and health endpoint on the private network, with no public port.
+# Check the real release without exposing a port or running a browser on the production VPS.
+# Browser/E2E suites run on GitHub-hosted CI runners, not alongside live services.
 smoke="imenu-$PREFIX-release-check"
+smoke_limits="$STATE/smoke-limits.yml"
 started=$SECONDS
-cleanup_smoke() { docker rm -f "$smoke" >/dev/null 2>&1 || true; }
+cat > "$smoke_limits" <<'YAML'
+services:
+  app:
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: 0.5
+    pids_limit: 128
+    environment:
+      NODE_OPTIONS: "--max-old-space-size=256"
+YAML
+cleanup_smoke() {
+  docker rm -f "$smoke" >/dev/null 2>&1 || true
+  rm -f -- "$smoke_limits"
+}
 trap cleanup_smoke EXIT
-cleanup_smoke
-docker compose -f "$candidate" run -d --no-deps --pull never --name "$smoke" app >/dev/null
+docker rm -f "$smoke" >/dev/null 2>&1 || true
+docker compose -f "$candidate" -f "$smoke_limits" run -d --no-deps --pull never --name "$smoke" app >/dev/null
 if ! health "$smoke"; then
   echo 'Candidate failed private health check; live application unchanged' >&2
   exit 1
 fi
 [[ "$(docker exec "$smoke" cat /app/release/.imenu-commit-sha)" == "$sha" ]] || exit 1
-# Exercise native Sharp and the browser runtime retained by the existing image.
-docker exec "$smoke" node -e "require('sharp'); (async()=>{const {default:p}=await import('puppeteer'); const b=await p.launch({headless:true,args:['--no-sandbox','--disable-dev-shm-usage']}); await b.close()})().catch(e=>{console.error(e.message);process.exit(1)})"
+docker exec "$smoke" node -e "require('sharp')"
 cleanup_smoke
 trap - EXIT
 echo "TIMING preflight=$((SECONDS-started))s sha=$sha target=$target"

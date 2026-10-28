@@ -206,3 +206,10 @@ Live Storage directory-list changes during tar are accepted only when tar exits 
 ## Customer Marketing schedule
 
 Install `deployment/vps/systemd/imenu-job-customer-automations.{service,timer}` in /etc/systemd/system and register customer-automations in ops/job-config/managed-jobs.json for the existing run_job.py runner. Install `imenu-job-customer-automations-cutover.conf` as imenu-job-customer-automations.service.d/route-cutover.conf. The enabled 15-minute timer uses production runtime credentials and skips while its production Next.js route artifact is absent. The preview cutover drop-in (`imenu-preview-customer-automations-cutover.conf`, installed as imenu-preview-customer-automations.service.d/production-cutover.conf) skips the preview sender after that artifact appears. This switches scheduled processing when the normal main release deploys; it does not trigger a deployment or send a test message.
+
+## Lightweight QA and deployment resource safeguards
+
+- **Do not run** `npm ci`, Next.js builds/dev servers, TypeScript full builds, Jest suites, or Chromium/Playwright/Puppeteer E2E inside ad-hoc Docker containers on the production VPS. Use GitHub-hosted CI runners for those jobs; run targeted tests with one worker there. VPS tests are limited to brief release health checks.
+- The live preview application is restricted to 512 MiB RAM, no swap, 0.75 CPU and 128 processes. Its low normal usage is expected; this is a ceiling, not a pre-allocation.
+- Release smoke-check containers are independently restricted to 512 MiB RAM, no swap, 0.5 CPU, 128 processes and a 256 MiB Node heap. Validate the real Next.js health route and native Sharp import; browser E2E stays in CI.
+- Deploy activation uses the existing `application-build.lock` to avoid running alongside Docker retention or another release activation. Retention runs daily off-peak and skips expensive cleanup while at least 40 GiB of disk remains free. Do not bypass the lock or use arbitrary unrestricted `docker run` QA on this host.

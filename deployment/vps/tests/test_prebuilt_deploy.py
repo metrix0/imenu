@@ -68,6 +68,12 @@ CODE
  def test_verify_does_not_switch(self):
   r=self.run_script('verify');self.assertEqual(r.returncode,0,r.stdout+r.stderr)
   self.assertEqual((self.root/'active').read_text(),'old')
+ def test_smoke_is_bounded_and_does_not_launch_browser(self):
+  r=self.run_script('verify');self.assertEqual(r.returncode,0,r.stdout+r.stderr)
+  calls=(self.root/'calls').read_text()
+  self.assertIn('smoke-limits.yml run -d --no-deps',calls)
+  self.assertNotIn("puppeteer",SCRIPT[SCRIPT.index('# Check the real release'):SCRIPT.index('echo "TIMING preflight=')])
+  self.assertFalse((self.state/'smoke-limits.yml').exists())
   self.assertEqual((self.state/'deployed-sha').read_text().strip(),OLD)
  def test_config_mismatch_leaves_live_untouched(self):
   (self.releases/SHA/'.imenu-public-config-sha256').write_text('wrong')
