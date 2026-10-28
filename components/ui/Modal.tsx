@@ -174,7 +174,7 @@ export default function Modal({
                 onClick={(event: { stopPropagation(): void }) =>
                     event.stopPropagation()
                 }
-                className={`relative flex w-full max-w-2xl flex-col overflow-y-auto bg-white transition-all duration-200 ${
+                className={`relative flex w-full max-w-2xl flex-col overflow-y-auto transition-all duration-200 ${panel ? "bg-white" : "bg-[var(--im-menu-surface,#fff)]"} ${
                     panel
                         ? "rounded-[10px] border border-[#e2e5e9] shadow-[0_20px_60px_#1d1d1d26] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1 max-h-[min(var(--modal-requested-height),calc(100dvh-24px))] sm:max-h-[min(var(--modal-requested-height),calc(100dvh-48px))]"
                         : "max-h-[92dvh] rounded-xl shadow-2xl sm:max-h-[90dvh] sm:rounded-2xl 2xl:max-h-[88dvh]"
@@ -190,7 +190,7 @@ export default function Modal({
                         type="button"
                         onClick={onClose}
                         aria-label="Fechar"
-                        className="sticky top-3 z-30 -mb-12 ml-auto mr-3 mt-3 flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center text-gray-400 hover:text-gray-600"
+                        className="sticky top-3 z-30 -mb-12 ml-auto mr-3 mt-3 flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center text-[var(--im-menu-subtle,#9ca3af)] hover:text-[var(--im-menu-muted,#4b5563)]"
                     >
                         <FontAwesomeIcon
                             icon={icons.faTimes}

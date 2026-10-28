@@ -81,9 +81,9 @@ export default function NeighborhoodInput({
                 aria-hidden={!visible}
                 inert={!visible}
                 data-ui="dropdown-menu"
-                className={`absolute left-0 right-0 top-full z-[110] mt-2 origin-top overflow-hidden rounded-xl border bg-white shadow-lg transition-all duration-200 ease-out ${
+                className={`absolute left-0 right-0 top-full z-[110] mt-2 origin-top overflow-hidden rounded-xl border bg-[var(--im-menu-surface,#fff)] shadow-lg transition-all duration-200 ease-out ${
                     visible
-                        ? "max-h-64 translate-y-0 scale-y-100 border-gray-200 opacity-100"
+                        ? "max-h-64 translate-y-0 scale-y-100 border-[var(--im-menu-border,#e5e7eb)] opacity-100"
                         : "pointer-events-none max-h-0 -translate-y-1 scale-y-95 border-transparent opacity-0"
                 }`}
             >
@@ -107,8 +107,8 @@ export default function NeighborhoodInput({
                                 }}
                                 className={`flex w-full cursor-pointer items-center rounded-lg px-3.5 py-2.5 text-left text-sm font-medium transition 2xl:text-base ${
                                     selected
-                                        ? "bg-brand/5 text-brand"
-                                        : "text-gray-700 hover:bg-gray-50"
+                                        ? "bg-[var(--im-menu-accent-soft,#f144000d)] text-[var(--im-menu-link,#f14400)]"
+                                        : "text-[var(--im-menu-text-soft,#374151)] hover:bg-[var(--im-menu-raised,#f9fafb)]"
                                 }`}
                             >
                                 <span className="truncate">{rule.neighborhood}</span>

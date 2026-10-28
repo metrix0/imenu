@@ -287,7 +287,8 @@ html, body {
 
 
 
-/* Public menu dark theme, scoped by the menu root and the body for portal modals. */
+/* Customer menu palette. Only the menu and its portal dialogs opt in.
+   Components consume these tokens with their original light-mode fallbacks. */
 :is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) {
     --im-menu-bg: #121212;
     --im-menu-surface: #202020;
@@ -295,237 +296,34 @@ html, body {
     --im-menu-raised: #363636;
     --im-menu-border: #424242;
     --im-menu-text: #f4f4f4;
+    --im-menu-text-soft: #d6d6d6;
     --im-menu-muted: #bdbdbd;
+    --im-menu-subtle: #a8a8a8;
     --im-menu-action: #c83c06;
     --im-menu-action-hover: #b73909;
     --im-menu-link: #ff9c72;
+    --im-menu-link-hover: #ffb08b;
+    --im-menu-accent-soft: rgb(206 69 20 / 12%);
+    --im-menu-accent-border: rgb(255 156 114 / 35%);
     --im-menu-success-bg: #223128;
+    --im-menu-success-raised: #304537;
     --im-menu-success-border: #405746;
     --im-menu-success-text: #b6d9c0;
     --im-menu-success-fill: #276b43;
+    --im-menu-info-bg: #27323b;
+    --im-menu-info-text: #afd0e6;
+    --im-menu-error-bg: #3a2228;
+    --im-menu-error-text: #ffaaa8;
+    --im-menu-warning-bg: #3a2c1d;
+    --im-menu-warning-text: #f5c88a;
+    --im-menu-fade: rgb(32 32 32 / 67%);
     color-scheme: dark;
     background-color: var(--im-menu-bg);
     color: var(--im-menu-text);
 }
 
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) .imenu-menu-canvas {
-    background-color: var(--im-menu-bg);
-}
-
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) .bg-white {
-    background-color: var(--im-menu-surface);
-}
-
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) :is(.bg-gray-50, .bg-gray-100) {
-    background-color: var(--im-menu-soft);
-}
-
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) :is(.bg-gray-200, .bg-gray-300) {
-    background-color: var(--im-menu-raised);
-}
-
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [class~="bg-white/90"] {
-    background-color: rgb(32 32 32 / 90%);
-}
-
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) :is(.text-black, .text-text, .text-gray-900, .text-gray-950) {
-    color: var(--im-menu-text);
-}
-
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) :is(.text-gray-700, .text-gray-800) {
-    color: #d6d6d6;
-}
-
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) :is(.text-gray-500, .text-gray-600) {
-    color: var(--im-menu-muted);
-}
-
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) :is(.text-gray-200, .text-gray-400) {
-    color: #a8a8a8;
-}
-
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) :is(.border-gray-100, .border-gray-200, .border-gray-300) {
-    border-color: var(--im-menu-border);
-}
-
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) :is(.divide-gray-100, .divide-gray-200) > :not(:last-child) {
-    border-color: var(--im-menu-border);
-}
-
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) :is(input:not([type="checkbox"]):not([type="radio"]), textarea, select) {
-    background-color: var(--im-menu-soft);
-    border-color: var(--im-menu-border);
-    color: var(--im-menu-text);
-}
-
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) :is(input, textarea)::placeholder {
-    color: #a8a8a8;
-}
-
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) .bg-green-50 {
-    background-color: var(--im-menu-success-bg);
-}
-
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) :is(.text-green, .text-green-600, .text-green-700, .text-green-800) {
-    color: var(--im-menu-success-text);
-}
-
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) :is(.border-green-100, .border-green-200, .border-green-300, .border-green-400) {
-    border-color: var(--im-menu-success-border);
-}
-
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) .bg-blue-100 {
-    background-color: #27323b;
-}
-
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) .text-blue-600 {
-    color: #afd0e6;
-}
-
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) .bg-red-50 {
-    background-color: #3a2228;
-}
-
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) :is(.text-red-700, .text-red-600) {
-    color: #ffaaa8;
-}
-
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) .hover\:bg-gray-50:hover {
-    background-color: var(--im-menu-raised);
-}
-
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) .hover\:text-gray-950:hover {
-    color: var(--im-menu-text);
-}
-
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) footer img[alt="iMenu"] {
-    opacity: 0.65;
-}
-
-
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [data-ui="warning"] {
-    background-color: #3a2c1d;
-    color: #f5c88a;
-}
-
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [class~="!bg-white"] {
-    background-color: var(--im-menu-surface) !important;
-}
-
-
-/* Dark customer-menu controls: use the shared dropdown without native light OS popups. */
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [data-ui="dropdown-trigger"] {
-    background-color: var(--im-menu-soft) !important;
-    border-color: var(--im-menu-border) !important;
-    color: var(--im-menu-text) !important;
-}
-
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [data-ui="dropdown-trigger"] span {
-    color: var(--im-menu-text);
-}
-
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [data-ui="dropdown-menu"] {
-    background-color: var(--im-menu-surface);
-    border-color: var(--im-menu-border);
-}
-
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [data-ui="dropdown-menu"] [role="option"] {
-    color: var(--im-menu-text);
-}
-
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [data-ui="dropdown-menu"] [role="option"]:is(:hover, :focus-visible) {
-    background-color: var(--im-menu-raised);
-    color: var(--im-menu-text);
-}
-
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [data-ui="dropdown-menu"] [role="option"][aria-selected="true"] {
-    background-color: #493024;
-    color: #ffcfaf;
-}
-
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [data-ui="dropdown-menu"] [role="option"][aria-selected="true"] svg {
-    color: #ffb88c;
-}
-
-/* A scheduled order is a subtle status panel, not a saturated green block. */
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [data-ui="checkout-scheduling"] {
-    background-color: #252b26;
-    border-color: var(--im-menu-success-border);
-}
-
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [data-ui="checkout-scheduling"] :is(.text-green-700, .text-green-800) {
-    color: var(--im-menu-success-text);
-}
-
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [data-ui="checkout-scheduling"] :is(.border-green-100, .border-green-200, .border-green-300) {
-    border-color: var(--im-menu-success-border);
-}
-
-
-/* Dark menu semantic accents: keep action fills distinct from links and status colors. */
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) .bg-brand {
-    background-color: var(--im-menu-action);
-}
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) .hover\:bg-brand\/90:hover {
-    background-color: var(--im-menu-action-hover);
-}
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) .text-brand {
-    color: var(--im-menu-link);
-}
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) .hover\:text-brand\/80:hover {
-    color: #ffb08b;
-}
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) .border-brand {
-    border-color: #dc592b;
-}
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) :is([class~="bg-brand/5"], [class~="bg-brand/10"]) {
-    background-color: rgb(206 69 20 / 12%);
-}
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [class~="border-brand/20"] {
-    border-color: rgb(255 156 114 / 35%);
-}
-
-/* Green is a muted success indicator, never a bright contrasting card. */
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) :is(.bg-green-100, .hover\:bg-green-100:hover) {
-    background-color: #304537;
-}
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) :is(.bg-green-600, .bg-green-500) {
-    background-color: var(--im-menu-success-fill);
-}
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) :is(.hover\:border-green-300:hover, .focus\:border-green-400:focus) {
-    border-color: #77ae8b;
-}
-
-/* Keep existing form primitives readable on dark surfaces without changing the panel. */
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [data-ui="field-label"] {
-    color: var(--im-menu-text);
-}
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [data-ui="dropdown-trigger"]:focus-visible,
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [data-ui="input"]:focus-visible {
-    border-color: var(--im-menu-link) !important;
-}
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [class~="!bg-gray-300"] {
-    background-color: var(--im-menu-raised) !important;
-}
-
-
-/* Cart side fade must follow the dark surface rather than revealing a white veil. */
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [class~="from-white/67"].bg-gradient-to-l {
-    background-image: linear-gradient(to left, rgb(32 32 32 / 67%), transparent);
-}
-
-
-/* Dark menu button focus: no persistent bright ring or white offset on click. */
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [data-ui="button"]:focus {
-    box-shadow: none;
-    outline: none;
-}
-
+/* Preserve keyboard focus without the light-mode ring offset. */
 :is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [data-ui="button"]:focus-visible {
     outline: 2px solid var(--im-menu-link);
     outline-offset: 2px;
-}
-
-:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [data-ui="button"][data-variant="primary"].bg-brand:focus-visible {
-    outline-color: var(--im-menu-action);
 }

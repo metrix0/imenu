@@ -87,7 +87,7 @@ const LegacyDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functi
                 } : undefined}
             >
                 {label && (
-                    <label data-ui="field-label" className="text-xs font-medium leading-[18px] text-[#1d1d1d]">
+                    <label data-ui="field-label" className="text-xs font-medium leading-[18px] text-[var(--im-menu-text,#1d1d1d)]">
                         {label}
                     </label>
                 )}
@@ -124,7 +124,7 @@ const LegacyDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functi
                             } else if (event.key === "Escape") setOpen(false);
                         } : undefined}
                         onClick={() => setOpen((prev) => !prev)}
-                        className={`flex min-h-11 w-full cursor-pointer items-center justify-between rounded-lg border border-[#e2e5e9] bg-white px-3 py-2.5 text-left text-sm font-normal text-[#1d1d1d] outline-none transition-colors hover:bg-[#f7f8fa] focus:border-[#d93d00] disabled:cursor-not-allowed disabled:bg-[#f1f3f5] disabled:text-[#626973] ${custom ? className : ""}`}
+                        className={`flex min-h-11 w-full cursor-pointer items-center justify-between rounded-lg border border-[var(--im-menu-border,#e2e5e9)] bg-[var(--im-menu-surface,#fff)] px-3 py-2.5 text-left text-sm font-normal text-[var(--im-menu-text,#1d1d1d)] outline-none transition-colors hover:bg-[var(--im-menu-raised,#f7f8fa)] focus:border-[var(--im-menu-link,#d93d00)] disabled:cursor-not-allowed disabled:bg-[var(--im-menu-soft,#f1f3f5)] disabled:text-[var(--im-menu-muted,#626973)] ${custom ? className : ""}`}
                         style={{
                             backgroundColor: "var(--im-menu-soft, #ffffff)",
                             borderColor: "var(--im-menu-border, #e2e5e9)",
@@ -135,8 +135,8 @@ const LegacyDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functi
                             style={{ color: selectedValue === "" ? "var(--im-menu-muted, #818994)" : "var(--im-menu-text, #1d1d1d)" }}
                             className={`truncate ${
                                 selectedValue === ""
-                                    ? "text-[#818994]"
-                                    : "text-[#1d1d1d]"
+                                    ? "text-[var(--im-menu-muted,#818994)]"
+                                    : "text-[var(--im-menu-text,#1d1d1d)]"
                             }`}
                         >
                             {selectedOption?.label || (custom ? "Selecione" : "Selecione sua mesa")}
@@ -144,7 +144,7 @@ const LegacyDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functi
                         <FontAwesomeIcon
                             icon={faChevronDown}
                             style={{ color: "var(--im-menu-muted, #626973)" }}
-                            className={`ml-3 shrink-0 text-xs text-[#626973] transition-transform duration-150 ${
+                            className={`ml-3 shrink-0 text-xs text-[var(--im-menu-muted,#626973)] transition-transform duration-150 ${
                                 open ? "rotate-180" : ""
                             }`}
                         />
@@ -159,9 +159,9 @@ const LegacyDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functi
                         inert={custom ? !open : undefined}
                         data-ui="dropdown-menu"
                         style={{ backgroundColor: "var(--im-menu-surface, #ffffff)", ...(open ? { borderColor: "var(--im-menu-border, #e2e5e9)" } : {}) }}
-                        className={`absolute left-0 right-0 top-full z-[110] mt-1.5 origin-top overflow-hidden rounded-lg border bg-white shadow-[0_6px_20px_#1d1d1d12] transition-all duration-150 ease-out ${
+                        className={`absolute left-0 right-0 top-full z-[110] mt-1.5 origin-top overflow-hidden rounded-lg border bg-[var(--im-menu-surface,#fff)] shadow-[0_6px_20px_#1d1d1d12] transition-all duration-150 ease-out ${
                             open
-                                ? "max-h-64 translate-y-0 scale-y-100 border-[#e2e5e9] opacity-100"
+                                ? "max-h-64 translate-y-0 scale-y-100 border-[var(--im-menu-border,#e2e5e9)] opacity-100"
                                 : "pointer-events-none max-h-0 -translate-y-1 scale-y-95 border-transparent opacity-0"
                         }`}
                     >
@@ -200,10 +200,10 @@ const LegacyDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functi
                                         onClick={() => handleSelect(option.value)}
                                         className={`flex min-h-10 w-full cursor-pointer items-center justify-between gap-3 rounded-[5px] px-2.5 py-[9px] text-left text-sm font-normal transition-colors ${
                                             selected && !placeholder
-                                                ? "bg-[#fff1ea] text-[#c43700]"
+                                                ? "bg-[var(--im-menu-accent-soft,#fff1ea)] text-[var(--im-menu-link,#c43700)]"
                                                 : placeholder
-                                                  ? "text-[#818994] hover:bg-[var(--im-menu-raised,#f1f3f5)]"
-                                                  : "text-[#1d1d1d] hover:bg-[var(--im-menu-raised,#f1f3f5)]"
+                                                  ? "text-[var(--im-menu-muted,#818994)] hover:bg-[var(--im-menu-raised,#f1f3f5)]"
+                                                  : "text-[var(--im-menu-text,#1d1d1d)] hover:bg-[var(--im-menu-raised,#f1f3f5)]"
                                         }`}
                                     >
                                         <span className="truncate">{option.label}</span>
@@ -211,7 +211,7 @@ const LegacyDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functi
                                             <FontAwesomeIcon
                                                 icon={faCheck}
                                                 style={{ color: "var(--im-menu-text, #c43700)" }}
-                                                className="shrink-0 text-xs text-[#c43700]"
+                                                className="shrink-0 text-xs text-[var(--im-menu-link,#c43700)]"
                                             />
                                         )}
                                     </button>
@@ -226,7 +226,7 @@ const LegacyDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functi
 
     return (
         <div data-ui="field" className="flex flex-col gap-1.5">
-            {label && <label data-ui="field-label" className="text-xs font-medium leading-[18px] text-[#1d1d1d]">{label}</label>}
+            {label && <label data-ui="field-label" className="text-xs font-medium leading-[18px] text-[var(--im-menu-text,#1d1d1d)]">{label}</label>}
 
             <div
                 className="relative inline-block w-full cursor-pointer"
@@ -234,7 +234,7 @@ const LegacyDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functi
             >
                 <select
                     ref={selectRef}
-                    className={`min-h-11 w-full cursor-pointer appearance-none rounded-lg border border-[#e2e5e9] bg-white px-3 py-2.5 pr-9 text-sm text-[#1d1d1d] outline-none transition-colors duration-150 hover:bg-[#f7f8fa] focus:border-[#d93d00] disabled:cursor-not-allowed disabled:bg-[#f1f3f5] disabled:text-[#626973] ${className}`}
+                    className={`min-h-11 w-full cursor-pointer appearance-none rounded-lg border border-[var(--im-menu-border,#e2e5e9)] bg-[var(--im-menu-surface,#fff)] px-3 py-2.5 pr-9 text-sm text-[var(--im-menu-text,#1d1d1d)] outline-none transition-colors duration-150 hover:bg-[var(--im-menu-raised,#f7f8fa)] focus:border-[var(--im-menu-link,#d93d00)] disabled:cursor-not-allowed disabled:bg-[var(--im-menu-soft,#f1f3f5)] disabled:text-[var(--im-menu-muted,#626973)] ${className}`}
                     onBlur={() => setOpen(false)}
                     {...props}
                 >
@@ -247,7 +247,7 @@ const LegacyDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functi
 
                 <FontAwesomeIcon
                     icon={faChevronDown}
-                    className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[#626973] transition-transform duration-150 ${
+                    className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[var(--im-menu-muted,#626973)] transition-transform duration-150 ${
                         open ? "rotate-180" : ""
                     } ${chevronClassName || ""}`}
                 />
@@ -260,7 +260,7 @@ const Dropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(function Dro
     const panel = usePanelAppearance();
     if (!panel && !props.options) {
         const { label, custom, chevronClassName, options, className = "", ...nativeProps } = props;
-        return <select {...nativeProps} ref={ref} className={`min-h-11 w-full cursor-pointer rounded-lg border border-[#e2e5e9] bg-white px-3 py-2.5 text-sm text-[#1d1d1d] outline-none transition-colors hover:bg-[#f7f8fa] focus:border-[#d93d00] disabled:cursor-not-allowed disabled:bg-[#f1f3f5] disabled:text-[#626973] ${className}`} />;
+        return <select {...nativeProps} ref={ref} className={`min-h-11 w-full cursor-pointer rounded-lg border border-[var(--im-menu-border,#e2e5e9)] bg-[var(--im-menu-surface,#fff)] px-3 py-2.5 text-sm text-[var(--im-menu-text,#1d1d1d)] outline-none transition-colors hover:bg-[var(--im-menu-raised,#f7f8fa)] focus:border-[var(--im-menu-link,#d93d00)] disabled:cursor-not-allowed disabled:bg-[var(--im-menu-soft,#f1f3f5)] disabled:text-[var(--im-menu-muted,#626973)] ${className}`} />;
     }
     const options = props.options ?? React.Children.toArray(props.children).flatMap(child => {
         if (!React.isValidElement<React.ComponentProps<"option">>(child) || child.type !== "option") return [];

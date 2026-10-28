@@ -434,7 +434,7 @@ export default async function Page({
         </StartingPriceLabels>
       </div>
 
-      <footer className="w-full bg-white px-6 pb-32 pt-8 text-center md:pb-40">
+      <footer className="w-full bg-[var(--im-menu-surface,#fff)] px-6 pb-32 pt-8 text-center md:pb-40">
         <div className="mx-auto flex max-w-md flex-col items-center">
           {storeWhatsapp && (
             <a
@@ -442,11 +442,11 @@ export default async function Page({
               target="_blank"
               rel="noopener noreferrer"
               aria-label={`Abrir WhatsApp da loja no número ${storeWhatsapp.formatted}`}
-              className="inline-flex items-center gap-3 rounded-full border border-gray-200 bg-gray-50 py-1.5 pl-4 pr-1.5 text-sm font-medium text-gray-700 transition hover:border-green-200 hover:bg-green-50 hover:text-green-700"
+              className="inline-flex items-center gap-3 rounded-full border border-[var(--im-menu-border,#e5e7eb)] bg-[var(--im-menu-soft,#f9fafb)] py-1.5 pl-4 pr-1.5 text-sm font-medium text-[var(--im-menu-text-soft,#374151)] transition hover:border-[var(--im-menu-success-border,#bbf7d0)] hover:bg-[var(--im-menu-success-bg,#f0fdf4)] hover:text-[var(--im-menu-success-text,#15803d)]"
             >
               <FontAwesomeIcon
                 icon={faWhatsapp}
-                className="text-lg text-green-600"
+                className="text-lg text-[var(--im-menu-success-text,#16a34a)]"
               />
               <span>{storeWhatsapp.formatted}</span>
               {restaurant.logo_url && (
@@ -455,7 +455,7 @@ export default async function Page({
                   alt=""
                   width={40}
                   height={40}
-                  className="h-10 w-10 rounded-full border border-gray-200 bg-white object-cover"
+                  className="h-10 w-10 rounded-full border border-[var(--im-menu-border,#e5e7eb)] bg-[var(--im-menu-surface,#fff)] object-cover"
                 />
               )}
             </a>
@@ -464,7 +464,7 @@ export default async function Page({
           <a
             href="/"
             aria-label="Conhecer o iMenu"
-            className="mt-8 inline-flex flex-col items-center gap-1 text-xs text-gray-400 transition hover:opacity-70"
+            className="mt-8 inline-flex flex-col items-center gap-1 text-xs text-[var(--im-menu-subtle,#9ca3af)] transition hover:opacity-70"
           >
             <span className="inline-flex items-center gap-2">
               <span>Criado com</span>

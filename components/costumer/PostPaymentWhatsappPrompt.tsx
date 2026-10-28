@@ -98,14 +98,14 @@ export default function PostPaymentWhatsappPrompt({
     return (
         <Modal height={440} open={open} onClose={() => {}} className="max-w-md">
             <div className="px-6 pb-6 pt-7 text-center sm:px-8 sm:pb-8 sm:pt-8">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-50 text-green-600">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[var(--im-menu-success-bg,#f0fdf4)] text-[var(--im-menu-success-text,#16a34a)]">
                     <FontAwesomeIcon icon={faWhatsapp} className="text-2xl" />
                 </div>
 
-                <h2 className="mt-5 text-2xl font-bold text-gray-900">
+                <h2 className="mt-5 text-2xl font-bold text-[var(--im-menu-text,#111827)]">
                     Pagamento confirmado!
                 </h2>
-                <p className="mt-3 text-sm leading-relaxed text-gray-600 sm:text-base">
+                <p className="mt-3 text-sm leading-relaxed text-[var(--im-menu-muted,#4b5563)] sm:text-base">
                     Seu Pix foi aprovado. Ainda falta um passo para finalizar:
                     envie a comanda ao restaurante pelo WhatsApp.
                 </p>

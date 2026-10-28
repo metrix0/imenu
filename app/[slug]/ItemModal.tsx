@@ -402,7 +402,7 @@ export default function ItemModal({
     const deliveryTaxText = taxText();
 
     const renderContent = () => {
-        if (error) return <div className="px-4 py-8"><p role="alert" className="text-sm text-red-700">{error}</p><button type="button" className="mt-3 text-brand" onClick={onRetry}>Tentar novamente</button></div>;
+        if (error) return <div className="px-4 py-8"><p role="alert" className="text-sm text-[var(--im-menu-error-text,#b91c1c)]">{error}</p><button type="button" className="mt-3 text-[var(--im-menu-link,#f14400)]" onClick={onRetry}>Tentar novamente</button></div>;
         if (loading)
             return (
                 <div className="flex items-center justify-center h-[55vh]">
@@ -417,13 +417,13 @@ export default function ItemModal({
                     <h1 className="text-[22px] 2xl:text-3xl font-semibold mb-2">{shownItem.name}</h1>
 
                     {shownItem.description && (
-                        <p className="text-[15px] 2xl:text-lg text-gray-700 mb-3">
+                        <p className="text-[15px] 2xl:text-lg text-[var(--im-menu-text-soft,#374151)] mb-3">
                             {shownItem.description}
                         </p>
                     )}
 
                     <p className="text-[18px] font-semibold 2xl:text-lg">
-                        {pizzaQuote ? <><span className="block text-xs font-normal text-gray-500">Preço Final</span>{formatPrice(unitTotal)}</> : (item.promotion && item.promotion.value > 0) ? <><span className={"text-green"}><StartingPriceLabel itemId={shownItem.id} />{formatPrice(promotionPrice(item) || item.price_cents)}</span> <span className={"font-normal text-gray-400 line-through text-xs"}>{formatPrice(item.price_cents)}</span></>
+                        {pizzaQuote ? <><span className="block text-xs font-normal text-[var(--im-menu-muted,#6b7280)]">Preço Final</span>{formatPrice(unitTotal)}</> : (item.promotion && item.promotion.value > 0) ? <><span className={"text-[var(--im-menu-success-text,#15b058)]"}><StartingPriceLabel itemId={shownItem.id} />{formatPrice(promotionPrice(item) || item.price_cents)}</span> <span className={"font-normal text-[var(--im-menu-subtle,#9ca3af)] line-through text-xs"}>{formatPrice(item.price_cents)}</span></>
                             : <><StartingPriceLabel itemId={shownItem.id} />{formatPrice(item.price_cents)}</>
                         }
                     </p>
@@ -431,29 +431,29 @@ export default function ItemModal({
 
                 <div className="mt-6">
                     {eligibleForPizza && !isSubsequentFlavor && <section aria-labelledby="pizza-flavors-title">
-                        <div className="bg-gray-100 px-4 py-3">
-                            <p id="pizza-flavors-title" className="font-semibold text-gray-600">Sabores</p>
-                            <p className="text-[13px] text-gray-600">Em quantos sabores você quer dividir?</p>
+                        <div className="bg-[var(--im-menu-soft,#f3f4f6)] px-4 py-3">
+                            <p id="pizza-flavors-title" className="font-semibold text-[var(--im-menu-muted,#4b5563)]">Sabores</p>
+                            <p className="text-[13px] text-[var(--im-menu-muted,#4b5563)]">Em quantos sabores você quer dividir?</p>
                         </div>
                         <div className="flex flex-wrap gap-2 px-4 py-3" role="group" aria-label="Quantidade de sabores">
-                            {Array.from({ length: pizzaSettings.max_flavors }, (_, index) => index + 1).map(n => <button type="button" key={n} aria-pressed={flavorCount === n} onClick={() => { setFlavorCount(n); setPizzaError(""); }} className={`rounded-xl border px-4 py-3 text-sm ${flavorCount === n ? "border-brand bg-brand text-white" : "border-gray-200"}`}>{n} {n === 1 ? "sabor" : "sabores"}</button>)}
+                            {Array.from({ length: pizzaSettings.max_flavors }, (_, index) => index + 1).map(n => <button type="button" key={n} aria-pressed={flavorCount === n} onClick={() => { setFlavorCount(n); setPizzaError(""); }} className={`rounded-xl border px-4 py-3 text-sm ${flavorCount === n ? "border-[var(--im-menu-action,#f14400)] bg-[var(--im-menu-action,#f14400)] text-white" : "border-[var(--im-menu-border,#e5e7eb)]"}`}>{n} {n === 1 ? "sabor" : "sabores"}</button>)}
                         </div>
                         <div
                             aria-hidden={flavorCount <= 1}
                             className={`grid transition-all duration-200 ease-out ${flavorCount > 1 ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
                         >
                             <div className="overflow-hidden">
-                                <p className="px-4 text-sm text-gray-500">{pizzaSettings.pricing_rule === "highest" ? "Vale o preço do sabor mais caro." : "Vale a média dos preços dos sabores."} Os complementos abaixo valem para a pizza inteira.</p>
+                                <p className="px-4 text-sm text-[var(--im-menu-muted,#6b7280)]">{pizzaSettings.pricing_rule === "highest" ? "Vale o preço do sabor mais caro." : "Vale a média dos preços dos sabores."} Os complementos abaixo valem para a pizza inteira.</p>
                             </div>
                         </div>
                     </section>}
                     {isSubsequentFlavor && <div className="space-y-3 px-4">
                         <p className="font-semibold">Sabor {flavors.length} de {flavorCount}</p>
-                        <ul className="text-sm text-gray-600">{flavors.map((flavor, index) => <li key={index}>1/{flavorCount} {flavor.name}</li>)}</ul>
-                        <p className="text-sm text-gray-500">Complementos e observação do primeiro sabor mantidos para a pizza inteira.</p>
-                        <button type="button" className="text-sm text-brand" onClick={() => { setExtraFlavors(previous => previous.slice(0, -1)); setPizzaError(""); }}>Voltar ao sabor anterior</button>
+                        <ul className="text-sm text-[var(--im-menu-muted,#4b5563)]">{flavors.map((flavor, index) => <li key={index}>1/{flavorCount} {flavor.name}</li>)}</ul>
+                        <p className="text-sm text-[var(--im-menu-muted,#6b7280)]">Complementos e observação do primeiro sabor mantidos para a pizza inteira.</p>
+                        <button type="button" className="text-sm text-[var(--im-menu-link,#f14400)]" onClick={() => { setExtraFlavors(previous => previous.slice(0, -1)); setPizzaError(""); }}>Voltar ao sabor anterior</button>
                     </div>}
-                    {(pizzaError || quoteError) && <p role="alert" className="px-4 py-3 text-sm text-red-700">{pizzaError || quoteError}</p>}
+                    {(pizzaError || quoteError) && <p role="alert" className="px-4 py-3 text-sm text-[var(--im-menu-error-text,#b91c1c)]">{pizzaError || quoteError}</p>}
                     {(!isSubsequentFlavor ? subcategories : []).map((sc) => {
                         const set = selected[sc.id];
                         const quantities = selectedQuantities[sc.id] || {};
@@ -470,12 +470,12 @@ export default function ItemModal({
                                 }}
                                 className="mt-4"
                             >
-                                <div className="bg-gray-100 px-4 py-3 flex justify-between">
+                                <div className="bg-[var(--im-menu-soft,#f3f4f6)] px-4 py-3 flex justify-between">
                                     <div>
-                                        <p className="font-semibold text-gray-600 2xl:text-lg">
+                                        <p className="font-semibold text-[var(--im-menu-muted,#4b5563)] 2xl:text-lg">
                                             {sc.name}
                                         </p>
-                                        {!readOnly && <p className="text-[13px] 2xl:text-lg text-gray-600">
+                                        {!readOnly && <p className="text-[13px] 2xl:text-lg text-[var(--im-menu-muted,#4b5563)]">
                                             {sc.max_select > 0
                                                 ? `Escolha até ${sc.max_select}`
                                                 : "Escolha o quanto quiser"}
@@ -483,7 +483,7 @@ export default function ItemModal({
                                     </div>
 
                                     {!readOnly && sc.min_select > 0 && (
-                                        <span className="text-[11px] 2xl:text-lg  text-gray-600 px-2 py-1 rounded-full">
+                                        <span className="text-[11px] 2xl:text-lg  text-[var(--im-menu-muted,#4b5563)] px-2 py-1 rounded-full">
                                             OBRIGATÓRIO
                                         </span>
                                     )}
@@ -497,7 +497,7 @@ export default function ItemModal({
                                                 <div key={si.id} className="2xl:text-lg w-full px-4 py-3 flex items-center justify-between gap-4">
                                                     <p className="font-medium">{si.name.replace(/\n/g, " ")}</p>
                                                     {si.price_cents > 0 && (
-                                                        <p className="shrink-0 text-[13px] 2xl:text-lg text-gray-500">+ {formatPrice(si.price_cents)}</p>
+                                                        <p className="shrink-0 text-[13px] 2xl:text-lg text-[var(--im-menu-muted,#6b7280)]">+ {formatPrice(si.price_cents)}</p>
                                                     )}
                                                 </div>
                                             );
@@ -516,7 +516,7 @@ export default function ItemModal({
                                                         </p>
 
                                                         {si.price_cents > 0 && (
-                                                            <p className="text-[13px] 2xl:text-lg text-gray-500">
+                                                            <p className="text-[13px] 2xl:text-lg text-[var(--im-menu-muted,#6b7280)]">
                                                                 + {formatPrice(si.price_cents)}
                                                             </p>
                                                         )}
@@ -533,17 +533,17 @@ export default function ItemModal({
                                                                     scrollToNextSubcategory(sc);
                                                                 }
                                                             }}
-                                                            className="cursor-pointer w-7 h-7 2xl:w-10 2xl:h-10 rounded-full border border-gray-300 bg-gray-100 text-gray-500 flex items-center justify-center disabled:cursor-default disabled:opacity-40"
+                                                            className="cursor-pointer w-7 h-7 2xl:w-10 2xl:h-10 rounded-full border border-[var(--im-menu-border,#d1d5db)] bg-[var(--im-menu-soft,#f3f4f6)] text-[var(--im-menu-muted,#6b7280)] flex items-center justify-center disabled:cursor-default disabled:opacity-40"
                                                         >
                                                             <FontAwesomeIcon icon={icons.faPlus} className="text-xs 2xl:text-lg" />
                                                         </button>
                                                     ) : (
-                                                        <div className="flex shrink-0 items-center gap-3 rounded-xl border border-gray-200 px-2 py-1.5">
+                                                        <div className="flex shrink-0 items-center gap-3 rounded-xl border border-[var(--im-menu-border,#e5e7eb)] px-2 py-1.5">
                                                             <button
                                                                 type="button"
                                                                 aria-label={`Remover ${si.name}`}
                                                                 onClick={() => changeSubitemQuantity(sc, si, -1)}
-                                                                className="w-6 h-6 2xl:w-9 2xl:h-9 flex items-center justify-center text-gray-400 cursor-pointer"
+                                                                className="w-6 h-6 2xl:w-9 2xl:h-9 flex items-center justify-center text-[var(--im-menu-subtle,#9ca3af)] cursor-pointer"
                                                             >
                                                                 <FontAwesomeIcon icon={icons.faMinus} />
                                                             </button>
@@ -558,7 +558,7 @@ export default function ItemModal({
                                                                         scrollToNextSubcategory(sc);
                                                                     }
                                                                 }}
-                                                                className="w-6 h-6 2xl:w-9 2xl:h-9 flex items-center justify-center text-brand cursor-pointer disabled:cursor-default disabled:opacity-40"
+                                                                className="w-6 h-6 2xl:w-9 2xl:h-9 flex items-center justify-center text-[var(--im-menu-link,#f14400)] cursor-pointer disabled:cursor-default disabled:opacity-40"
                                                             >
                                                                 <FontAwesomeIcon icon={icons.faPlus} />
                                                             </button>
@@ -587,7 +587,7 @@ export default function ItemModal({
                                                 </p>
 
                                                 {si.price_cents > 0 && (
-                                                    <p className="text-[13px] 2xl:text-lg text-gray-500">
+                                                    <p className="text-[13px] 2xl:text-lg text-[var(--im-menu-muted,#6b7280)]">
                                                         + {formatPrice(si.price_cents)}
                                                     </p>
                                                 )}
@@ -598,8 +598,8 @@ export default function ItemModal({
                                                     <span
                                                         className={`cursor-pointer w-7 h-7 2xl:w-10 2xl:h-10 rounded-full border flex items-center justify-center ${
                                                             isSelected
-                                                                ? "border-brand bg-brand text-white"
-                                                                : "border-gray-300 bg-gray-100 text-gray-400"
+                                                                ? "border-[var(--im-menu-action,#f14400)] bg-[var(--im-menu-action,#f14400)] text-white"
+                                                                : "border-[var(--im-menu-border,#d1d5db)] bg-[var(--im-menu-soft,#f3f4f6)] text-[var(--im-menu-subtle,#9ca3af)]"
                                                         }`}
                                                     >
                                                         <FontAwesomeIcon icon={icons.faCheck} className={"text-xs 2xl:text-lg"}/>
@@ -608,8 +608,8 @@ export default function ItemModal({
                                                     <span
                                                         className={`w-7 h-7 2xl:w-10 2xl:h-10 rounded-full border flex items-center justify-center 2xl:text-lg ${
                                                             isSelected
-                                                                ? "border-brand bg-brand text-white"
-                                                                : "border-gray-300 bg-gray-100 text-gray-400"
+                                                                ? "border-[var(--im-menu-action,#f14400)] bg-[var(--im-menu-action,#f14400)] text-white"
+                                                                : "border-[var(--im-menu-border,#d1d5db)] bg-[var(--im-menu-soft,#f3f4f6)] text-[var(--im-menu-subtle,#9ca3af)]"
                                                         }`}
                                                     >
                                                         {isSelected ? "–" : "+"}
@@ -625,7 +625,7 @@ export default function ItemModal({
                 </div>
 
                 {!readOnly && !isSubsequentFlavor && <div className="px-4 mt-8">
-                    <p className="text-[15px] 2xl:text-lg font-semibold text-gray-500">
+                    <p className="text-[15px] 2xl:text-lg font-semibold text-[var(--im-menu-muted,#6b7280)]">
                         <FontAwesomeIcon icon={icons.faComment} /> Alguma observação?
                     </p>
 
@@ -634,7 +634,7 @@ export default function ItemModal({
                         onChange={(e) =>
                             setObservation(e.target.value.slice(0, 140))
                         }
-                        className="w-full mt-2 2xl:mt-4 2xl:text-lg p-3 border border-gray-200 rounded-xl text-sm resize-none"
+                        className="w-full mt-2 2xl:mt-4 2xl:text-lg p-3 border border-[var(--im-menu-border,#e5e7eb)] rounded-xl text-sm resize-none"
                         rows={3}
                         placeholder="Ex: tirar cebola..."
                     />
@@ -680,7 +680,7 @@ export default function ItemModal({
                     <FontAwesomeIcon icon={icons.faTimes} className={"!hidden md:!block"} />
                 </button>
 
-                <div className="absolute left-4 bottom-4 bg-white shadow-md rounded-full px-3 2xl:px-5 pr-4 2xl:pr-8 py-2 2xl:py-2 flex items-center gap-2 leading-none">
+                <div className="absolute left-4 bottom-4 bg-[var(--im-menu-surface,#fff)] shadow-md rounded-full px-3 2xl:px-5 pr-4 2xl:pr-8 py-2 2xl:py-2 flex items-center gap-2 leading-none">
                     {restaurant.logo_url && (
                         <Image
                             src={restaurant.logo_url}
@@ -698,11 +698,11 @@ export default function ItemModal({
                         {!readOnly && (deliveryTimeText || deliveryTaxText) && (
                             <>
                                 <br />
-                                <span className="text-[12px] text-gray-600 2xl:text-md">
+                                <span className="text-[12px] text-[var(--im-menu-muted,#4b5563)] 2xl:text-md">
                                     {deliveryTimeText}
                                     {deliveryTimeText && deliveryTaxText && <> • </>}
                                     {deliveryTaxText && (
-                                        <span className="text-green">{deliveryTaxText}</span>
+                                        <span className="text-[var(--im-menu-success-text,#15b058)]">{deliveryTaxText}</span>
                                     )}
                                 </span>
                             </>
@@ -719,11 +719,11 @@ export default function ItemModal({
 
             </div>
 
-            {!readOnly && <div className="absolute left-0 right-0 bottom-0 bg-white border-t border-gray-200 pt-5 pb-14 md:pb-8 px-4 flex items-center gap-3">
-                <div className="flex items-center border border-gray-200 rounded-xl px-3 2xl:px-6 py-2 w-[110px] 2xl:w-[180px] justify-between">
+            {!readOnly && <div className="absolute left-0 right-0 bottom-0 bg-[var(--im-menu-surface,#fff)] border-t border-[var(--im-menu-border,#e5e7eb)] pt-5 pb-14 md:pb-8 px-4 flex items-center gap-3">
+                <div className="flex items-center border border-[var(--im-menu-border,#e5e7eb)] rounded-xl px-3 2xl:px-6 py-2 w-[110px] 2xl:w-[180px] justify-between">
                     <button
                         onClick={() => changeQty(-1)}
-                        className="w-6 h-6 2xl:w-10 2xl:h-10 flex items-center justify-center text-gray-400 cursor-pointer  2xl:text-lg"
+                        className="w-6 h-6 2xl:w-10 2xl:h-10 flex items-center justify-center text-[var(--im-menu-subtle,#9ca3af)] cursor-pointer  2xl:text-lg"
                     >
                         <FontAwesomeIcon icon={icons.faMinus} />
                     </button>
@@ -732,7 +732,7 @@ export default function ItemModal({
 
                     <button
                         onClick={() => changeQty(1)}
-                        className="w-6 h-6 2xl:w-10 2xl:h-10 flex items-center justify-center text-brand cursor-pointer  2xl:text-lg"
+                        className="w-6 h-6 2xl:w-10 2xl:h-10 flex items-center justify-center text-[var(--im-menu-link,#f14400)] cursor-pointer  2xl:text-lg"
                     >
                         <FontAwesomeIcon icon={icons.faPlus} />
                     </button>
@@ -751,10 +751,10 @@ export default function ItemModal({
                         onClick={handleAdd}
                         className={`cursor-pointer w-full 2xl:text-lg rounded-xl px-5 py-3 flex items-center justify-between text-[15px] font-semibold ${
                             !canOrderNow
-                                ? "bg-gray-200 text-gray-400"
+                                ? "bg-[var(--im-menu-raised,#e5e7eb)] text-[var(--im-menu-subtle,#9ca3af)]"
                                 : canAdd
-                                    ? "bg-brand text-white"
-                                    : "bg-gray-200 text-gray-400"
+                                    ? "bg-[var(--im-menu-action,#f14400)] text-white"
+                                    : "bg-[var(--im-menu-raised,#e5e7eb)] text-[var(--im-menu-subtle,#9ca3af)]"
                         }`}
                     >
                         <span>{loadingFlavors ? "Carregando..." : needsNextFlavor ? "Próximo Sabor" : "Adicionar"}</span>

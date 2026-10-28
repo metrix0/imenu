@@ -858,7 +858,7 @@ export default function MenuClientPage({
 
     return (
 
-        <div className="imenu-menu-canvas min-h-screen bg-white text-gray-900 pb-10">
+        <div className="imenu-menu-canvas min-h-screen bg-[var(--im-menu-surface,#fff)] text-[var(--im-menu-text,#111827)] pb-10">
             <div className="relative w-full h-[21vh] overflow-hidden">
                 {restaurant.banner_url && (
                     <>
@@ -882,7 +882,7 @@ export default function MenuClientPage({
                             src={restaurant.logo_url}
                             width={120}
                             height={120}
-                            className="h-[78px] w-[78px] md:w-23 md:h-23 2xl:h-30 2xl:w-30 rounded-full border-1 border-gray-200 object-cover"
+                            className="h-[78px] w-[78px] md:w-23 md:h-23 2xl:h-30 2xl:w-30 rounded-full border-1 border-[var(--im-menu-border,#e5e7eb)] object-cover"
                             alt="Logo"
                         />
                     </div>
@@ -900,16 +900,16 @@ export default function MenuClientPage({
                             setRestaurantInfoOpen(true);
                         }
                     }}
-                    className="bg-white mx-5 md:mx-48 2xl:mx-80 px-5 py-4 2xl:py-7 rounded-3xl shadow-[0_2px_10px_rgba(0,0,0,0.08)] cursor-pointer"
+                    className="bg-[var(--im-menu-surface,#fff)] mx-5 md:mx-48 2xl:mx-80 px-5 py-4 2xl:py-7 rounded-3xl shadow-[0_2px_10px_rgba(0,0,0,0.08)] cursor-pointer"
                 >
                     <div className="mt-6 flex items-center justify-between gap-4">
                         <h1 className="text-[1.2rem] 2xl:text-2xl font-semibold md:max-w-[45%]">
                             {restaurant.name}
                         </h1>
-                        <FontAwesomeIcon icon={faChevronRight} className="shrink-0 text-sm text-gray-400 2xl:text-base" />
+                        <FontAwesomeIcon icon={faChevronRight} className="shrink-0 text-sm text-[var(--im-menu-subtle,#9ca3af)] 2xl:text-base" />
                     </div>
 
-                    <p className="text-gray-600 text-xs 2xl:text-[1rem] mt-1 border-b border-gray-200 pb-2">
+                    <p className="text-[var(--im-menu-muted,#4b5563)] text-xs 2xl:text-[1rem] mt-1 border-b border-[var(--im-menu-border,#e5e7eb)] pb-2">
                         {(isRestaurantOpen && !closedForToday) ? "Aberto" : "Fechado" }
                         {readOnly ? " • Somente visualização" : isTableOrder ? (
                             <> • {selectedTable?.name || tableOrder?.tableName || "Atendimento na mesa"}</>
@@ -950,14 +950,14 @@ export default function MenuClientPage({
                                 {taxText() && (
                                     <>
                                         <span>•</span>
-                                        <span className={"text-green"}>{taxText()}</span>
+                                        <span className={"text-[var(--im-menu-success-text,#15b058)]"}>{taxText()}</span>
                                     </>
                                 )}
                             </div>
                         ) : null}
                         <div className={"hidden md:inline-block"}>
                             {!readOnly && !isTableOrder && (!promotionResult?.promotion || promotionResult.coupon_discount_cents > 0) && (coupon_code && coupon_type) && (
-                                <div className="px-2.5 py-1.5 rounded-lg bg-brand/10 text-brand text-xs 2xl:text-sm font-normal">
+                                <div className="px-2.5 py-1.5 rounded-lg bg-[var(--im-menu-accent-soft,#f144001a)] text-[var(--im-menu-link,#f14400)] text-xs 2xl:text-sm font-normal">
                                     <FontAwesomeIcon icon={icons.faTicket} /> CUPOM {coupon_code} APLICADO - <b>{couponLabel()}</b>
                                 </div>
                             )}
@@ -967,7 +967,7 @@ export default function MenuClientPage({
             </div>
             {!readOnly && !isTableOrder && (!promotionResult?.promotion || promotionResult.coupon_discount_cents > 0) && coupon_code && (
             <div className={"mt-6 -mb-4 mx-5 flex md:hidden justify-center"}>
-                    <div className="px-2.5 py-1.5 rounded-lg bg-brand/10 text-brand text-xs 2xl:text-sm font-normal">
+                    <div className="px-2.5 py-1.5 rounded-lg bg-[var(--im-menu-accent-soft,#f144001a)] text-[var(--im-menu-link,#f14400)] text-xs 2xl:text-sm font-normal">
                         <FontAwesomeIcon icon={icons.faTicket} /> CUPOM {coupon_code} APLICADO - <b>{couponLabel()}</b>
                     </div>
             </div>
@@ -1080,7 +1080,7 @@ export default function MenuClientPage({
 
             <div
                 className={`
-        md:hidden fixed w-full top-0 bg-white z-[40] border-b border-gray-100
+        md:hidden fixed w-full top-0 bg-[var(--im-menu-surface,#fff)] z-[40] border-b border-[var(--im-menu-border,#f3f4f6)]
         transition-all duration-300 ease-out
         ${showMobileSearch
                     ? "opacity-100 translate-y-0"
@@ -1097,7 +1097,7 @@ export default function MenuClientPage({
                             icon={<FontAwesomeIcon icon={icons.faMagnifyingGlass} />}
                             placeholder="Buscar no cardápio..."
                             readOnly
-                            className="focus:outline-none focus:border-gray-300"
+                            className="focus:outline-none focus:border-[var(--im-menu-border,#d1d5db)]"
                             onFocus={(e) => e.preventDefault()}
                         />
                     </button>
@@ -1124,7 +1124,7 @@ export default function MenuClientPage({
             <div className="mt-8 px-4 md:mx-44 space-y-12 pb-20 2xl:mx-80 2xl:mt-12 relative">
                 <div className="absolute top-0 right-4 hidden md:flex justify-end gap-4">
                     <button
-                        className={`text-sm 2xl:text-base text-brand mt-1 transition-opacity duration-200 ${
+                        className={`text-sm 2xl:text-base text-[var(--im-menu-link,#f14400)] mt-1 transition-opacity duration-200 ${
                             searchText.length > 0 ? "opacity-100 pointer-events-auto cursor-pointer" : "opacity-0 pointer-events-none"
                         }`}
                         onClick={() => {
@@ -1147,7 +1147,7 @@ export default function MenuClientPage({
                 {debouncedSearch && Object.values(filteredItemsByCat).every(arr => arr.length === 0) && (
                     <div className="flex flex-col items-center justify-center text-center mx-10 pt-16">
                         <img src="/images/meh_emoji.png" alt="Nada encontrado" className="w-38 h-38 mb-4 2xl:w-46 2xl:h-46" />
-                        <p className="text-gray-500 text-md 2xl:text-xl">Nenhum item encontrado para <b>{searchText}</b>.</p>
+                        <p className="text-[var(--im-menu-muted,#6b7280)] text-md 2xl:text-xl">Nenhum item encontrado para <b>{searchText}</b>.</p>
                     </div>
                 )}
 
@@ -1172,7 +1172,7 @@ export default function MenuClientPage({
                                                 : ""
                                         }`}
                                     >
-                                        <div className=" w-full aspect-square rounded-2xl overflow-hidden bg-gray-200 shadow-sm">
+                                        <div className=" w-full aspect-square rounded-2xl overflow-hidden bg-[var(--im-menu-raised,#e5e7eb)] shadow-sm">
                                             <Image
                                                 src={item.image_public_url || "/placeholders/item.png"}
                                                 width={320}
@@ -1184,12 +1184,12 @@ export default function MenuClientPage({
 
                                         <div className="mt-3 flex flex-col h-[55px] justify-start ">
                                             <p className="font-semibold text-sm 2xl:text-lg">
-                                                {(item.promotion && item.promotion.value > 0) ? <><span className={"text-green"}><StartingPriceLabel itemId={item.id} />{formatPrice(promotionPrice(item) || item.price_cents)}</span> <span className={"font-normal text-gray-400 line-through text-xs"}>{formatPrice(item.price_cents)}</span></>
+                                                {(item.promotion && item.promotion.value > 0) ? <><span className={"text-[var(--im-menu-success-text,#15b058)]"}><StartingPriceLabel itemId={item.id} />{formatPrice(promotionPrice(item) || item.price_cents)}</span> <span className={"font-normal text-[var(--im-menu-subtle,#9ca3af)] line-through text-xs"}>{formatPrice(item.price_cents)}</span></>
                                                     : <><StartingPriceLabel itemId={item.id} />{formatPrice(item.price_cents)}</>
                                                 }
                                             </p>
 
-                                            <p className="text-sm 2xl:text-lg text-gray-700 line-clamp-2 leading-snug">
+                                            <p className="text-sm 2xl:text-lg text-[var(--im-menu-text-soft,#374151)] line-clamp-2 leading-snug">
                                                 {item.name}
                                             </p>
                                         </div>
@@ -1211,7 +1211,7 @@ export default function MenuClientPage({
                                     <button
                                         key={item.id}
                                         onClick={() => handleItemClick(item)}
-                                        className={`cursor-pointer w-full flex justify-between items-start text-left border-b-1 pb-4 border-gray-200 ${
+                                        className={`cursor-pointer w-full flex justify-between items-start text-left border-b-1 pb-4 border-[var(--im-menu-border,#e5e7eb)] ${
                                             loadingItemId === item.id ? "opacity-60" : ""
                                         }`}
                                     >
@@ -1220,19 +1220,19 @@ export default function MenuClientPage({
                                                 {item.name}
                                             </p>
 
-                                            <p className="text-sm 2xl:text-lg text-gray-600 line-clamp-2 mt-1 leading-tight">
+                                            <p className="text-sm 2xl:text-lg text-[var(--im-menu-muted,#4b5563)] line-clamp-2 mt-1 leading-tight">
                                                 {(item.description ?? "").slice(0, 60)}{item.description && item.description.length > 60 ? "…" : ""}
                                             </p>
 
                                             <p className="text-sm 2xl:text-lg font-bold mt-2">
-                                                {(item.promotion && item.promotion.value > 0) ? <><span className={"text-green"}><StartingPriceLabel itemId={item.id} />{formatPrice(promotionPrice(item) || item.price_cents)}</span> <span className={"font-normal text-gray-400 line-through text-xs"}>{formatPrice(item.price_cents)}</span></>
+                                                {(item.promotion && item.promotion.value > 0) ? <><span className={"text-[var(--im-menu-success-text,#15b058)]"}><StartingPriceLabel itemId={item.id} />{formatPrice(promotionPrice(item) || item.price_cents)}</span> <span className={"font-normal text-[var(--im-menu-subtle,#9ca3af)] line-through text-xs"}>{formatPrice(item.price_cents)}</span></>
                                                     : <><StartingPriceLabel itemId={item.id} />{formatPrice(item.price_cents)}</>
                                                     }
                                             </p>
                                         </div>
 
                                         <div className="w-[22vw] h-[22vw] md:w-[10vw] md:h-[10vw] rounded-2xl overflow-hidden
-                    bg-gray-200 shadow-sm flex-shrink-0">
+                    bg-[var(--im-menu-raised,#e5e7eb)] shadow-sm flex-shrink-0">
                                             <Image
                                                 src={item.image_public_url || "/placeholders/item.png"}
                                                 width={320}
@@ -1349,19 +1349,19 @@ export default function MenuClientPage({
                 className="md:!h-[76dvh] md:!max-w-xl 2xl:!max-w-2xl"
             >
                 <div className="px-5 pb-8 pt-2 md:px-6 md:pt-6 2xl:px-8">
-                    <div className="flex items-center gap-3 border-b border-gray-200 pb-4">
+                    <div className="flex items-center gap-3 border-b border-[var(--im-menu-border,#e5e7eb)] pb-4">
                         {restaurant.logo_url && (
                             <Image
                                 src={restaurant.logo_url}
                                 alt=""
                                 width={56}
                                 height={56}
-                                className="h-12 w-12 rounded-full border border-gray-200 object-cover 2xl:h-14 2xl:w-14"
+                                className="h-12 w-12 rounded-full border border-[var(--im-menu-border,#e5e7eb)] object-cover 2xl:h-14 2xl:w-14"
                             />
                         )}
                         <div className="min-w-0">
                             <h2 className="truncate text-lg font-semibold 2xl:text-2xl">{restaurant.name}</h2>
-                            <p className="mt-0.5 text-sm text-gray-500 2xl:text-base">
+                            <p className="mt-0.5 text-sm text-[var(--im-menu-muted,#6b7280)] 2xl:text-base">
                                 {(isRestaurantOpen && !closedForToday) ? "Aberto agora" : "Fechado agora"}
                             </p>
                         </div>
@@ -1374,9 +1374,9 @@ export default function MenuClientPage({
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 aria-label={`Abrir WhatsApp da loja no número ${restaurantWhatsapp.formatted}`}
-                                className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-700 transition hover:border-green-200 hover:bg-green-50 hover:text-green-700 2xl:text-lg"
+                                className="inline-flex items-center gap-2 rounded-full border border-[var(--im-menu-border,#e5e7eb)] bg-[var(--im-menu-soft,#f9fafb)] px-3 py-2 text-sm font-medium text-[var(--im-menu-text-soft,#374151)] transition hover:border-[var(--im-menu-success-border,#bbf7d0)] hover:bg-[var(--im-menu-success-bg,#f0fdf4)] hover:text-[var(--im-menu-success-text,#15803d)] 2xl:text-lg"
                             >
-                                <FontAwesomeIcon icon={faWhatsapp} className="text-lg text-green-600 2xl:text-xl" />
+                                <FontAwesomeIcon icon={faWhatsapp} className="text-lg text-[var(--im-menu-success-text,#16a34a)] 2xl:text-xl" />
                                 <span>{restaurantWhatsapp.formatted}</span>
                             </a>
                         </div>
@@ -1384,15 +1384,15 @@ export default function MenuClientPage({
 
                     <section className="mt-6">
                         <h3 className="text-base font-semibold 2xl:text-xl">Horários de atendimento</h3>
-                        <div className="mt-3 divide-y divide-gray-100 rounded-xl border border-gray-200 px-4">
+                        <div className="mt-3 divide-y divide-[var(--im-menu-border,#f3f4f6)] rounded-xl border border-[var(--im-menu-border,#e5e7eb)] px-4">
                             {RESTAURANT_INFO_DAYS.map(({ day, label }) => {
                                 const slots: { open: string; close: string }[] = Array.isArray(restaurant.availability_json?.[day])
                                     ? restaurant.availability_json[day]
                                     : [];
                                 return (
                                     <div key={day} className="flex items-start justify-between gap-4 py-3 text-sm 2xl:text-base">
-                                        <span className="font-medium text-gray-800">{label}</span>
-                                        <span className={`text-right ${slots.length ? "text-gray-600" : "text-gray-400"}`}>
+                                        <span className="font-medium text-[var(--im-menu-text-soft,#1f2937)]">{label}</span>
+                                        <span className={`text-right ${slots.length ? "text-[var(--im-menu-muted,#4b5563)]" : "text-[var(--im-menu-subtle,#9ca3af)]"}`}>
                                             {slots.length
                                                 ? slots.map((slot) => `${slot.open} - ${slot.close}`).join(" · ")
                                                 : "Fechado"}
@@ -1409,7 +1409,7 @@ export default function MenuClientPage({
                             {infoPaymentMethods.map((method) => (
                                 <span
                                     key={method}
-                                    className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-700 2xl:text-base"
+                                    className="rounded-full border border-[var(--im-menu-border,#e5e7eb)] bg-[var(--im-menu-soft,#f9fafb)] px-3 py-1.5 text-sm text-[var(--im-menu-text-soft,#374151)] 2xl:text-base"
                                 >
                                     {restaurant.delivery_disabled === true && method === "pix-entrega" ? "Pix (Na retirada)" : PAYMENT_METHOD_LABELS[method] || method}
                                 </span>
@@ -1430,12 +1430,12 @@ export default function MenuClientPage({
                 <div className="text-center px-6 pt-2 2xl:px-12">
                     <div className="text-text text-md 2xl:text-xl font-medium mb-2 2xl:mb-4 mt-2">Pedido identificado.</div>
 
-                    <p className="text-gray-500 mb-4 2xl:mb-8 text-sm 2xl:text-lg">
+                    <p className="text-[var(--im-menu-muted,#6b7280)] mb-4 2xl:mb-8 text-sm 2xl:text-lg">
                         Você realizou um pedido aqui recentemente, gostaria de ir até a página deste pedido?
                     </p>
 
                     <button
-                        className="bg-brand cursor-pointer text-white w-full py-3 rounded-lg text-sm 2xl:text-lg mb-3"
+                        className="bg-[var(--im-menu-action,#f14400)] cursor-pointer text-white w-full py-3 rounded-lg text-sm 2xl:text-lg mb-3"
                         onClick={() => {
                             setRestaurantCartWarningVisible(false);
 
@@ -1458,7 +1458,7 @@ export default function MenuClientPage({
                     </button>
 
                     <p
-                        className="text-brand text-sm mt-4 2xl:text-lg md:mt-0 cursor-pointer"
+                        className="text-[var(--im-menu-link,#f14400)] text-sm mt-4 2xl:text-lg md:mt-0 cursor-pointer"
                         onClick={() => setRestaurantCartWarningVisible(false)}
                     >
                         Não, obrigado

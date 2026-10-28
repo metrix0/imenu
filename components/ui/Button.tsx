@@ -33,9 +33,9 @@ export default function Button({
         const variants: Record<NonNullable<ButtonProps["variant"]>, string> = {
             primary: hasContextualPrimaryBackground
                 ? "text-white focus:ring-0 focus:ring-offset-0"
-                : "bg-brand hover:bg-brand/90 text-white focus:ring-brand",
+                : "bg-[var(--im-menu-action,#f14400)] hover:bg-[var(--im-menu-action-hover,#f14400e6)] text-white focus:ring-[var(--im-menu-link,#f14400)]",
             secondary:
-                "bg-gray-100 hover:bg-gray-200 text-gray-800 focus:ring-gray-300",
+                "bg-[var(--im-menu-soft,#f3f4f6)] hover:bg-[var(--im-menu-raised,#e5e7eb)] text-[var(--im-menu-text-soft,#1f2937)] focus:ring-[var(--im-menu-border,#d1d5db)]",
         };
 
         return (
@@ -88,11 +88,11 @@ export default function Button({
     const variants: Record<NonNullable<ButtonProps["variant"]>, string> = {
         primary: hasContextualPrimaryBackground
             ? "text-white focus-visible:outline-none"
-            : "!border-[#d93d00] bg-[#d93d00] text-white hover:!border-[#c43700] hover:bg-[#c43700] focus-visible:outline-2 focus-visible:outline-[#d93d00] focus-visible:outline-offset-[3px]",
+            : "!border-[var(--im-menu-action,#d93d00)] bg-[var(--im-menu-action,#d93d00)] text-white hover:!border-[var(--im-menu-action-hover,#c43700)] hover:bg-[var(--im-menu-action-hover,#c43700)] focus-visible:outline-2 focus-visible:outline-[var(--im-menu-link,#d93d00)] focus-visible:outline-offset-[3px]",
         secondary: [
             hasContextualSecondaryBackground
                 ? ""
-                : "border-[#e2e5e9] bg-white text-[#1d1d1d] hover:border-[#e2e5e9] hover:bg-[#f1f3f5]",
+                : "border-[var(--im-menu-border,#e2e5e9)] bg-[var(--im-menu-surface,#fff)] text-[var(--im-menu-text,#1d1d1d)] hover:border-[var(--im-menu-border,#e2e5e9)] hover:bg-[var(--im-menu-soft,#f1f3f5)]",
             "focus-visible:outline-2 focus-visible:outline-[#626973] focus-visible:outline-offset-[3px]",
         ].join(" "),
     };

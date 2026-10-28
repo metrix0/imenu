@@ -165,7 +165,7 @@ export default function DraggableModal({
                 data-ui="sheet"
                 onClick={(e) => e.stopPropagation()}
                 onTouchStart={onPanelTouchStart}
-                className={`fixed left-0 right-0 mx-auto overflow-hidden bg-white ${
+                className={`fixed left-0 right-0 mx-auto overflow-hidden bg-[var(--im-menu-surface,#fff)] ${
                     panel
                         ? "rounded-t-[10px] border border-[#e2e5e9]"
                         : "rounded-t-xl"
@@ -197,7 +197,7 @@ export default function DraggableModal({
 
                 {handle && (
                     <div className="w-full flex justify-center py-3">
-                        <div className="w-12 h-1.5 bg-gray-300 rounded-full" />
+                        <div className="w-12 h-1.5 bg-[var(--im-menu-raised,#d1d5db)] rounded-full" />
                     </div>
                 )}
 

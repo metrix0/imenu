@@ -901,7 +901,7 @@ export default function CartModal({
                     />
                 )}
                 
-                <div className="sticky top-[0.1%] z-60 flex items-center bg-white rounded-2xl justify-center pb-3 pt-4 2xl:pt-6 2xl:pb-6 pointer-events-none">
+                <div className="sticky top-[0.1%] z-60 flex items-center bg-[var(--im-menu-surface,#fff)] rounded-2xl justify-center pb-3 pt-4 2xl:pt-6 2xl:pb-6 pointer-events-none">
                     <button
                         className="md:hidden absolute left-5 md:left-auto md:right-5 2xl:right-8 text-sm pointer-events-auto cursor-pointer"
                         onClick={goBack}
@@ -917,7 +917,7 @@ export default function CartModal({
                     >
                         <FontAwesomeIcon
                             icon={icons.faTimes}
-                            className={`hidden md:block text-gray-700 hover:text-gray-950 text-lg 2xl:text-xl duration-200`}
+                            className={`hidden md:block text-[var(--im-menu-text-soft,#374151)] hover:text-[var(--im-menu-text,#030712)] text-lg 2xl:text-xl duration-200`}
                         />
                     </button>
 
@@ -947,7 +947,7 @@ export default function CartModal({
                     {step === "cart" && (
                         <button
                             onClick={clearItems}
-                            className="absolute right-5 2xl:left-8 md:right-auto 2xl:text-[1rem] md:left-5 cursor-pointer text-brand  font-semibold text-[12px] pointer-events-auto"
+                            className="absolute right-5 2xl:left-8 md:right-auto 2xl:text-[1rem] md:left-5 cursor-pointer text-[var(--im-menu-link,#f14400)]  font-semibold text-[12px] pointer-events-auto"
                         >
                             Limpar
                         </button>
@@ -988,7 +988,7 @@ export default function CartModal({
 
                             <button
                                 onClick={closeWithAnimation}
-                                className="cursor-pointer text-brand font-semibold text-[13px] 2xl:text-lg text-left"
+                                className="cursor-pointer text-[var(--im-menu-link,#f14400)] font-semibold text-[13px] 2xl:text-lg text-left"
                             >
                                 Adicionar mais itens
                             </button>
@@ -1032,17 +1032,17 @@ export default function CartModal({
                                     <p className={`font-semibold 2xl:text-lg leading-normal ${it.pizza ? "break-words" : "line-clamp-2"}`}>{it.name}</p>
 
                                     <p className="font-semibold 2xl:text-base sm:text-sm mt-0.5">
-                                        {freeItem ? <><span className="font-semibold text-green-700">{discountedTotal === 0 ? "GRÁTIS" : formatPrice(discountedTotal)}</span> <span className="font-normal text-gray-400 line-through text-xs">{formatPrice(it.unit_price_cents * it.qty)}</span></> : (it.promotion && it.promotion.value > 0) ? <><span className={"text-green"}>{formatPrice(promotionPrice(it) || it.unit_price_cents*it.qty)}</span> <span className={"font-normal text-gray-400 line-through text-xs"}>{formatPrice(it.unit_price_cents*it.qty)}</span></>
+                                        {freeItem ? <><span className="font-semibold text-[var(--im-menu-success-text,#15803d)]">{discountedTotal === 0 ? "GRÁTIS" : formatPrice(discountedTotal)}</span> <span className="font-normal text-[var(--im-menu-subtle,#9ca3af)] line-through text-xs">{formatPrice(it.unit_price_cents * it.qty)}</span></> : (it.promotion && it.promotion.value > 0) ? <><span className={"text-[var(--im-menu-success-text,#15b058)]"}>{formatPrice(promotionPrice(it) || it.unit_price_cents*it.qty)}</span> <span className={"font-normal text-[var(--im-menu-subtle,#9ca3af)] line-through text-xs"}>{formatPrice(it.unit_price_cents*it.qty)}</span></>
                                             : formatPrice(it.unit_price_cents*it.qty)
                                         }
                                     </p>
 
                                     {freeItem && discountedTotal > 0 && (
-                                        <span className="mt-1 inline-block rounded-full bg-green-50 px-2 py-1 text-xs font-semibold text-green-700">{freeItem.quantity}× GRÁTIS</span>
+                                        <span className="mt-1 inline-block rounded-full bg-[var(--im-menu-success-bg,#f0fdf4)] px-2 py-1 text-xs font-semibold text-[var(--im-menu-success-text,#15803d)]">{freeItem.quantity}× GRÁTIS</span>
                                     )}
 
                                     {(it.selectedSubitems?.length > 0 || it.observation) && (
-                                        <div className="text-sm text-gray-500 mb-2 mt-2">
+                                        <div className="text-sm text-[var(--im-menu-muted,#6b7280)] mb-2 mt-2">
                                             {it.selectedSubitems?.map((s) => (
                                                 <p key={s.subitemId}>+ {s.subitemName}</p>
                                             ))}
@@ -1054,14 +1054,14 @@ export default function CartModal({
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-5 bg-gray-100 px-3 py-3 rounded-lg text-sm 2xl:text-lg mt-[0.33rem]">
+                            <div className="flex items-center gap-5 bg-[var(--im-menu-soft,#f3f4f6)] px-3 py-3 rounded-lg text-sm 2xl:text-lg mt-[0.33rem]">
                                 <button
                                     onClick={() =>
                                         it.qty > 1
                                             ? changeQty(it.id, it.qty - 1)
                                             : removeItem(it.id)
                                     }
-                                    className="text-brand cursor-pointer"
+                                    className="text-[var(--im-menu-link,#f14400)] cursor-pointer"
                                 >
                                     <FontAwesomeIcon icon={it.qty > 1 ? icons.faMinus : icons.faTrash} />
                                 </button>
@@ -1070,7 +1070,7 @@ export default function CartModal({
 
                                 <button
                                     onClick={() => changeQty(it.id, it.qty + 1)}
-                                    className="text-brand cursor-pointer"
+                                    className="text-[var(--im-menu-link,#f14400)] cursor-pointer"
                                 >
                                     <FontAwesomeIcon icon={icons.faPlus} />
                                 </button>
@@ -1082,7 +1082,7 @@ export default function CartModal({
                     <div className="mt-6 mb-20">
                         <button
                             onClick={closeWithAnimation}
-                            className="cursor-pointer text-brand font-semibold text-[14px] 2xl:text-lg w-full mt-8"
+                            className="cursor-pointer text-[var(--im-menu-link,#f14400)] font-semibold text-[14px] 2xl:text-lg w-full mt-8"
                         >
                             Adicionar mais itens
                         </button>
@@ -1091,7 +1091,7 @@ export default function CartModal({
                     {upsells.length > 0 && (
                     <div className="-mt-10 mb-10 md:-mt-13 md:mb-13 relative overflow-hidden">
                         <h3 className="text-base font-semibold mb-3">Peça também</h3>
-                        <div className={"pointer-events-none w-[20%] h-full bg-gradient-to-l from-white/67 to-transparent absolute -right-1 -top-1 z-232"}></div>
+                        <div className={"pointer-events-none w-[20%] h-full absolute -right-1 -top-1 z-232"} style={{ backgroundImage: "linear-gradient(to left, var(--im-menu-fade, rgba(255, 255, 255, 0.67)), transparent)" }}></div>
 
                         <div className="flex relative gap-3 overflow-x-auto pb-2 items-start hidden-x-scroll">
                             {upsells.map(item => (
@@ -1109,7 +1109,7 @@ export default function CartModal({
                                             className="w-full h-28 md:h-40 aspect-square object-cover rounded-xl"
                                         />
 
-                                        <div className="absolute bottom-2 right-2 cursor-pointer bg-white rounded-full w-8 h-8 flex items-center justify-center shadow">
+                                        <div className="absolute bottom-2 right-2 cursor-pointer bg-[var(--im-menu-surface,#fff)] rounded-full w-8 h-8 flex items-center justify-center shadow">
                                             <FontAwesomeIcon icon={icons.faPlus} className="text-sm" />
                                         </div>
                                     </div>
@@ -1175,11 +1175,11 @@ export default function CartModal({
                                 className="2xl:text-lg md:text-sm"
                             />
 
-                            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                                <h2 className="mb-4 font-semibold text-gray-900 2xl:text-lg">
+                            <div className="rounded-xl border border-[var(--im-menu-border,#e5e7eb)] bg-[var(--im-menu-soft,#f9fafb)] p-4">
+                                <h2 className="mb-4 font-semibold text-[var(--im-menu-text,#111827)] 2xl:text-lg">
                                     Resumo de valores
                                 </h2>
-                                <div className="flex justify-between text-[15px] text-gray-600 2xl:text-lg">
+                                <div className="flex justify-between text-[15px] text-[var(--im-menu-muted,#4b5563)] 2xl:text-lg">
                                     <span>Subtotal</span>
                                     <span>
                                         {formatPrice(
@@ -1194,7 +1194,7 @@ export default function CartModal({
                                     </span>
                                 </div>
                                 <PromotionSummary promotion={promotionResult?.promotion} />
-                                <div className="mt-3 flex justify-between border-t border-gray-200 pt-3 text-lg font-bold text-gray-900 2xl:text-xl">
+                                <div className="mt-3 flex justify-between border-t border-[var(--im-menu-border,#e5e7eb)] pt-3 text-lg font-bold text-[var(--im-menu-text,#111827)] 2xl:text-xl">
                                     <span>Total</span>
                                     <span>
                                         {formatPrice(
@@ -1214,15 +1214,15 @@ export default function CartModal({
                         <>
                     <CheckoutCustomerFields restaurantId={String(restaurant.id)} />
                     {deliveryDisabled && (
-                        <div className="mb-5 rounded-xl border border-gray-200 bg-gray-50 p-4">
+                        <div className="mb-5 rounded-xl border border-[var(--im-menu-border,#e5e7eb)] bg-[var(--im-menu-soft,#f9fafb)] p-4">
                             <p className="font-semibold text-md 2xl:text-lg">{restaurant.name} aceita apenas retiradas.</p>
                             {formattedRestaurantAddress && (
-                                <p className="mt-1 text-sm text-gray-500 2xl:text-base">{formattedRestaurantAddress}</p>
+                                <p className="mt-1 text-sm text-[var(--im-menu-muted,#6b7280)] 2xl:text-base">{formattedRestaurantAddress}</p>
                             )}
                         </div>
                     )}
                     {!deliveryDisabled && hasRestaurantAddress && (
-                        <label className={`mb-5 flex cursor-pointer items-center gap-3 rounded-xl border p-4 transition-colors ${isPickup ? "border-brand bg-brand/5" : "border-gray-200 bg-white hover:border-gray-300"}`}>
+                        <label className={`mb-5 flex cursor-pointer items-center gap-3 rounded-xl border p-4 transition-colors ${isPickup ? "border-[var(--im-menu-action,#f14400)] bg-[var(--im-menu-accent-soft,#f144000d)]" : "border-[var(--im-menu-border,#e5e7eb)] bg-[var(--im-menu-surface,#fff)] hover:border-[var(--im-menu-border,#d1d5db)]"}`}>
                             <input
                                 type="checkbox"
                                 checked={isPickup}
@@ -1231,13 +1231,13 @@ export default function CartModal({
                             />
                             <span
                                 aria-hidden="true"
-                                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${isPickup ? "border-brand bg-brand" : "border-gray-300 bg-white"}`}
+                                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${isPickup ? "border-[var(--im-menu-action,#f14400)] bg-[var(--im-menu-action,#f14400)]" : "border-[var(--im-menu-border,#d1d5db)] bg-[var(--im-menu-surface,#fff)]"}`}
                             >
                                 {isPickup && <FontAwesomeIcon icon={icons.faCheck} className="text-[11px] text-white" />}
                             </span>
                             <span className="flex min-w-0 flex-col">
                                 <span className="font-semibold text-md 2xl:text-lg">Retirar pedido no balcão</span>
-                                <span className="mt-1 text-sm text-gray-500 2xl:text-base">{formattedRestaurantAddress}</span>
+                                <span className="mt-1 text-sm text-[var(--im-menu-muted,#6b7280)] 2xl:text-base">{formattedRestaurantAddress}</span>
                             </span>
                         </label>
                     )}
@@ -1253,11 +1253,11 @@ export default function CartModal({
                             </h2>
 
                             <button
-                                className={`relative inline-flex justify-center items-center gap-1 text-brand text-md 2xl:text-lg cursor-pointer mb-5 md:mb-0`}
+                                className={`relative inline-flex justify-center items-center gap-1 text-[var(--im-menu-link,#f14400)] text-md 2xl:text-lg cursor-pointer mb-5 md:mb-0`}
                                 onClick={handleUseMyLocation}
                                 type="button"
                             >
-                                {loadingUseMyLocation && (<Loader className={"scale-75 absolute !border-brand/20 !border-t-brand -right-9 md:-left-9 md:right-0"}/>)}
+                                {loadingUseMyLocation && (<Loader className={"scale-75 absolute !border-[var(--im-menu-accent-border,#f1440033)] !border-t-brand -right-9 md:-left-9 md:right-0"}/>)}
                                 <FontAwesomeIcon icon={icons.faLocationCrosshairs}/> Usar minha localização
                             </button>
                         </div>
@@ -1356,7 +1356,7 @@ export default function CartModal({
                                 <div className={showSchedulePicker ? "overflow-visible" : "overflow-hidden"}>
                                     <div
                                         data-ui="checkout-scheduling"
-                                        className="rounded-xl border border-green-200 bg-green-50 p-4"
+                                        className="rounded-xl border border-[var(--im-menu-success-border,#bbf7d0)] bg-[var(--im-menu-success-bg,#f0fdf4)] p-4"
                                         style={{
                                             backgroundColor: "var(--im-menu-soft, #f0fdf4)",
                                             borderColor: "var(--im-menu-border, #bbf7d0)",
@@ -1367,7 +1367,7 @@ export default function CartModal({
                                                 <h2 className="font-semibold text-md 2xl:text-lg">
                                                     Pedido agendado
                                                 </h2>
-                                                <p className="mt-1 text-sm text-green-800 2xl:text-base">
+                                                <p className="mt-1 text-sm text-[var(--im-menu-success-text,#166534)] 2xl:text-base">
                                                     {allowFutureScheduling
                                                         ? `Escolha o dia e horário para ${isPickup ? "retirar" : "receber"} seu pedido.`
                                                         : `Escolha o horário para ${isPickup ? "retirar" : "receber"} seu pedido hoje.`}
@@ -1383,7 +1383,7 @@ export default function CartModal({
                                                         setField("scheduled_for", null);
                                                         setScheduleDate(todayInput);
                                                     }}
-                                                    className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full text-green-800 transition hover:bg-green-100"
+                                                    className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full text-[var(--im-menu-success-text,#166534)] transition hover:bg-[var(--im-menu-success-raised,#dcfce7)]"
                                                 >
                                                     <FontAwesomeIcon icon={icons.faTimes} />
                                                 </button>
@@ -1392,7 +1392,7 @@ export default function CartModal({
 
                                         {allowFutureScheduling && (
                                             <div className="mt-4">
-                                                <div className="mb-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-green-800">
+                                                <div className="mb-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--im-menu-success-text,#166534)]">
                                                     <FontAwesomeIcon icon={faCalendarDays} />
                                                     Dia
                                                 </div>
@@ -1407,8 +1407,8 @@ export default function CartModal({
                                                         setField("scheduled_for", null);
                                                         setScheduleDropdownOpen(false);
                                                     }}
-                                                    className="!rounded-xl !border-[var(--im-menu-border,#bbf7d0)] !bg-[var(--im-menu-soft,#ffffff)] !py-3 !text-sm !font-medium hover:!border-green-300 focus:!border-green-400 2xl:!text-lg"
-                                                    chevronClassName="!text-green-700"
+                                                    className="!rounded-xl !border-[var(--im-menu-border,#bbf7d0)] !bg-[var(--im-menu-soft,#ffffff)] !py-3 !text-sm !font-medium hover:!border-[var(--im-menu-success-border,#86efac)] focus:!border-[var(--im-menu-success-border,#4ade80)] 2xl:!text-lg"
+                                                    chevronClassName="!text-[var(--im-menu-success-text,#15803d)]"
                                                 />
                                             </div>
                                         )}
@@ -1420,22 +1420,22 @@ export default function CartModal({
                                                     aria-haspopup="listbox"
                                                     aria-expanded={scheduleDropdownOpen}
                                                     onClick={() => setScheduleDropdownOpen((open) => !open)}
-                                                    className="flex w-full cursor-pointer items-center justify-between rounded-xl border border-green-200 bg-white px-5 py-3 text-sm font-medium text-gray-800 outline-none transition hover:border-green-300 focus:border-green-400 2xl:text-lg"
+                                                    className="flex w-full cursor-pointer items-center justify-between rounded-xl border border-[var(--im-menu-success-border,#bbf7d0)] bg-[var(--im-menu-surface,#fff)] px-5 py-3 text-sm font-medium text-[var(--im-menu-text-soft,#1f2937)] outline-none transition hover:border-[var(--im-menu-success-border,#86efac)] focus:border-[var(--im-menu-success-border,#4ade80)] 2xl:text-lg"
                                                 >
                                                     <span className="flex items-center gap-3">
-                                                        <FontAwesomeIcon icon={icons.faClock} className="text-green-700" />
+                                                        <FontAwesomeIcon icon={icons.faClock} className="text-[var(--im-menu-success-text,#15803d)]" />
                                                         {preorderOnly && !scheduled_for ? "Selecione um horário" : selectedScheduledOption?.label}
                                                     </span>
                                                     <FontAwesomeIcon
                                                         icon={icons.faChevronDown}
-                                                        className={`mr-1 text-xs text-green-700 transition-transform duration-200 ${scheduleDropdownOpen ? "rotate-180" : ""}`}
+                                                        className={`mr-1 text-xs text-[var(--im-menu-success-text,#15803d)] transition-transform duration-200 ${scheduleDropdownOpen ? "rotate-180" : ""}`}
                                                     />
                                                 </button>
 
                                                 <div
-                                                    className={`absolute left-0 right-0 top-full z-[100] mt-2 origin-top overflow-hidden rounded-xl border bg-white shadow-lg transition-all duration-200 ease-out ${
+                                                    className={`absolute left-0 right-0 top-full z-[100] mt-2 origin-top overflow-hidden rounded-xl border bg-[var(--im-menu-surface,#fff)] shadow-lg transition-all duration-200 ease-out ${
                                                         scheduleDropdownOpen
-                                                            ? "max-h-56 translate-y-0 scale-y-100 border-green-100 opacity-100"
+                                                            ? "max-h-56 translate-y-0 scale-y-100 border-[var(--im-menu-success-border,#dcfce7)] opacity-100"
                                                             : "pointer-events-none max-h-0 -translate-y-1 scale-y-95 border-transparent opacity-0"
                                                     }`}
                                                 >
@@ -1454,13 +1454,13 @@ export default function CartModal({
                                                                     }}
                                                                     className={`flex w-full cursor-pointer items-center gap-3 rounded-lg px-3.5 py-2.5 text-left text-sm font-medium transition 2xl:text-base ${
                                                                         selected
-                                                                            ? "bg-green-50 text-green-800"
-                                                                            : "text-gray-700 hover:bg-gray-50"
+                                                                            ? "bg-[var(--im-menu-success-bg,#f0fdf4)] text-[var(--im-menu-success-text,#166534)]"
+                                                                            : "text-[var(--im-menu-text-soft,#374151)] hover:bg-[var(--im-menu-raised,#f9fafb)]"
                                                                     }`}
                                                                 >
                                                                     <FontAwesomeIcon
                                                                         icon={icons.faClock}
-                                                                        className={selected ? "text-green-700" : "text-gray-400"}
+                                                                        className={selected ? "text-[var(--im-menu-success-text,#15803d)]" : "text-[var(--im-menu-subtle,#9ca3af)]"}
                                                                     />
                                                                     {option.label}
                                                                 </button>
@@ -1470,7 +1470,7 @@ export default function CartModal({
                                                 </div>
                                             </div>
                                         ) : (
-                                            <p className="mt-3 rounded-lg bg-white px-4 py-3 text-sm text-gray-500">
+                                            <p className="mt-3 rounded-lg bg-[var(--im-menu-surface,#fff)] px-4 py-3 text-sm text-[var(--im-menu-muted,#6b7280)]">
                                                 {preorderOnly ? "Não há horários disponíveis para este dia." : "O restaurante não possui horários disponíveis neste dia."}
                                             </p>
                                         )}
@@ -1492,7 +1492,7 @@ export default function CartModal({
                                             setField("scheduled_for", scheduledOptions[0].value);
                                         }
                                     }}
-                                    className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-brand transition hover:opacity-75 2xl:text-base"
+                                    className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-[var(--im-menu-link,#f14400)] transition hover:opacity-75 2xl:text-base"
                                 >
                                     <FontAwesomeIcon icon={faCalendarDays} />
                                     Agendar meu pedido
@@ -1507,8 +1507,8 @@ export default function CartModal({
                                         type="button"
                                         className={`w-full border cursor-pointer p-3 rounded-xl duration-200 text-left flex items-center gap-3 ${
                                             pagamento === option.value
-                                                ? "border-brand"
-                                                : "border-gray-300"
+                                                ? "border-[var(--im-menu-action,#f14400)]"
+                                                : "border-[var(--im-menu-border,#d1d5db)]"
                                         }`}
                                         onClick={() => setField("pagamento", option.value)}
                                     >
@@ -1601,7 +1601,7 @@ export default function CartModal({
                         <div className="flex justify-between text-[15px] mb-2 2xl:text-lg">
                             <span>{isPickup ? "Retirada" : "Taxa de entrega"}</span>
 
-                            <span className="text-green-700">
+                            <span className="text-[var(--im-menu-success-text,#15803d)]">
                                 {effectiveDeliveryFeeCents === null
                                     ? "—"
                                     : `R$ ${(effectiveDeliveryFeeCents / 100).toFixed(2).replace(".", ",")}`}
@@ -1611,7 +1611,7 @@ export default function CartModal({
                         <PromotionSummary promotion={promotionResult?.promotion} />
 
                         { (coupon_code && coupon_discount_cents) && (
-                        <div className="flex justify-between text-[15px] mb-2 2xl:text-lg border-t border-gray-200 pt-2">
+                        <div className="flex justify-between text-[15px] mb-2 2xl:text-lg border-t border-[var(--im-menu-border,#e5e7eb)] pt-2">
                             <span>Cupom: {coupon_code}</span>
                             <span>
 

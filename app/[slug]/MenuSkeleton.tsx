@@ -2,13 +2,13 @@ import ListLoader from "@/components/ui/ListLoader";
 
 export default function MenuSkeleton() {
     return (
-        <div className="min-h-screen bg-white text-gray-900 pb-10 animate-pulse">
+        <div className="min-h-screen bg-[var(--im-menu-surface,#fff)] text-[var(--im-menu-text,#111827)] pb-10 animate-pulse">
 
             {/* ============================
                 BANNER
             ============================ */}
             <div className="relative w-full h-[21vh] overflow-hidden">
-                <div className="w-full h-full bg-gray-200" />
+                <div className="w-full h-full bg-[var(--im-menu-raised,#e5e7eb)]" />
             </div>
 
             {/* ============================
@@ -18,10 +18,10 @@ export default function MenuSkeleton() {
 
                 {/* Logo circle */}
                 <div className="absolute left-1/2 -translate-x-1/2 -top-8 z-20">
-                    <div className="w-17 h-17 rounded-full bg-gray-200 border-1 border-gray-300" />
+                    <div className="w-17 h-17 rounded-full bg-[var(--im-menu-raised,#e5e7eb)] border-1 border-[var(--im-menu-border,#d1d5db)]" />
                 </div>
 
-                <div className="bg-white mx-5 px-5 py-6 rounded-3xl shadow-[0_2px_10px_rgba(0,0,0,0.08)] space-y-5">
+                <div className="bg-[var(--im-menu-surface,#fff)] mx-5 px-5 py-6 rounded-3xl shadow-[0_2px_10px_rgba(0,0,0,0.08)] space-y-5">
 
                     {/* Restaurant title */}
                     <div className={"mt-7"}>
@@ -51,7 +51,7 @@ export default function MenuSkeleton() {
                                 <div key={j} className="space-y-2">
 
                                     {/* Item image */}
-                                    <div className="w-full h-[29dvw] bg-gray-200 rounded-2xl shadow-sm" />
+                                    <div className="w-full h-[29dvw] bg-[var(--im-menu-raised,#e5e7eb)] rounded-2xl shadow-sm" />
 
                                     {/* Item title + subtitle */}
                                     <ListLoader lines={1} />
