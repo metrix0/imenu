@@ -29,7 +29,16 @@ export default function DataTable<T>({ columns, rows, rowKey, onRowClick, loadin
             </th>
         ))}</tr></thead>
             <tbody>{loading ? <tr><td colSpan={columns.length} className="border-b border-[#e2e5e9] px-4 py-3.5"><ListLoader lines={6} /></td></tr> : rows.length === 0
-                ? <tr><td colSpan={columns.length} className="px-4 py-20 text-center text-gray-500 sm:py-24"><div className="flex flex-col items-center justify-center gap-3"><Inbox size={32} strokeWidth={1.5} className="text-gray-400" aria-hidden="true" /><span>{emptyMessage}</span></div></td></tr>
+                ? <tr>
+                    <td colSpan={columns.length} className="px-4 py-0 text-center">
+                        <div className="flex min-h-[224px] flex-col items-center justify-center gap-4 px-4 py-10 sm:min-h-[240px]">
+                            <div className="flex h-14 w-14 items-center justify-center rounded-[12px] border border-[#e2e5e9] bg-[#f7f8fa]">
+                                <Inbox size={26} strokeWidth={1.5} className="text-[#818994]" aria-hidden="true" />
+                            </div>
+                            <div className="max-w-lg text-sm font-medium leading-6 text-[#626973]">{emptyMessage}</div>
+                        </div>
+                    </td>
+                </tr>
                 : rows.map(row => <tr key={rowKey(row)} tabIndex={onRowClick ? 0 : undefined} className={`transition-colors hover:bg-[#f7f8fa] ${onRowClick ? "cursor-pointer" : ""}`}
                     onClick={() => onRowClick?.(row)} onKeyDown={event => { if (event.target === event.currentTarget && onRowClick && ["Enter", " "].includes(event.key)) { event.preventDefault(); onRowClick(row); } }}>
                     {columns.map(column => <td key={column.key} className={`border-b border-[#e2e5e9] px-4 py-3.5 ${column.className ?? ""}`}>{column.render(row)}</td>)}
