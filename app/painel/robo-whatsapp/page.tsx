@@ -9,20 +9,13 @@ import {
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faChevronDown,
-    faCircleCheck,
-    faCreditCard,
-    faLink,
     faPlus,
     faPowerOff,
     faQrcode,
     faRotate,
     faTriangleExclamation,
-    faTruck,
-    faUser,
-    faUtensils,
 } from "@fortawesome/free-solid-svg-icons";
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
-import { Inbox } from "lucide-react";
 
 import OrderNotificationSettings from "@/components/restaurant-owner/pedidos/OrderNotificationSettings";
 import Button from "@/components/ui/Button";
@@ -247,6 +240,7 @@ export default function RoboWhatsAppPage() {
     const [templates, setTemplates] = useState<WhatsAppMessageTemplates | null>(null);
     const [variables, setVariables] = useState<TemplateVariable[]>([]);
     const [handoffs, setHandoffs] = useState<HandoffConversation[]>([]);
+    const [messagesOpen, setMessagesOpen] = useState(false);
     const [openTemplate, setOpenTemplate] = useState<WhatsAppTemplateKey | null>(null);
     const [openVariables, setOpenVariables] = useState<WhatsAppTemplateKey | null>(null);
     const [showToast, setShowToast] = useState(false);
@@ -490,6 +484,87 @@ export default function RoboWhatsAppPage() {
             new Date(handoff.handoff_requested_at).getTime()
     ).length;
 
+    const renderTemplate = (field: TemplateField) => {
+        if (!templates) return null;
+        const isOpen = openTemplate === field.key;
+        return (
+            <div key={field.key}>
+                <button
+                    type="button"
+                    onClick={() => {
+                        setOpenTemplate(isOpen ? null : field.key);
+                        setOpenVariables(null);
+                    }}
+                    className="flex w-full cursor-pointer items-center justify-between gap-4 px-4 py-4 text-left"
+                    aria-expanded={isOpen}
+                    aria-controls={`template-${field.key}`}
+                >
+                    <span>
+                        <span className="block text-sm font-semibold text-gray-900">
+                            {field.title}
+                        </span>
+                        {field.description && (
+                            <span className="mt-0.5 block text-xs text-gray-500">
+                                {field.description}
+                            </span>
+                        )}
+                    </span>
+                    <FontAwesomeIcon
+                        icon={faChevronDown}
+                        className={`text-gray-400 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`}
+                    />
+                </button>
+
+                <div
+                    className={`grid transition-[grid-template-rows,opacity,transform] duration-300 ease-out ${
+                        isOpen
+                            ? "grid-rows-[1fr] translate-y-0 opacity-100"
+                            : "pointer-events-none grid-rows-[0fr] -translate-y-1 opacity-0"
+                    }`}
+                    id={`template-${field.key}`}
+                    aria-hidden={!isOpen}
+                    inert={!isOpen}
+                >
+                    <div className="min-h-0 overflow-hidden">
+                        <div className="border-t border-gray-100 px-4 pb-5 pt-4">
+                            {field.key === "status_notification" && <SaveStatus status={saveStatus} className="mb-3" />}
+                            <TemplateEditor
+                                ref={(editor) => {
+                                    editorRefs.current[field.key] = editor;
+                                }}
+                                value={templates[field.key]}
+                                variables={variables}
+                                ariaLabel={`Mensagem: ${field.key === "status_notification" ? "Atualização automática do pedido" : field.title}`}
+                                onChange={(value) => updateTemplate(field.key, value)}
+                            />
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setOpenVariables(
+                                        openVariables === field.key ? null : field.key
+                                    )
+                                }
+                                className="mt-3 cursor-pointer rounded-md border border-brand/20 px-3 py-2 text-sm font-medium text-brand transition-colors hover:bg-brand/5"
+                            >
+                                <FontAwesomeIcon icon={faPlus} className="mr-2" />
+                                Adicionar variável
+                            </button>
+                            <VariablePicker
+                                allowedVariables={field.variables}
+                                variables={variables}
+                                open={openVariables === field.key}
+                                onSelect={(variable) => {
+                                    editorRefs.current[field.key]?.insertVariable(variable);
+                                    setOpenVariables(null);
+                                }}
+                            />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     if (loading) {
         return (
             <div role="status" aria-label="Carregando robô WhatsApp" className="flex justify-center p-10">
@@ -576,22 +651,21 @@ export default function RoboWhatsAppPage() {
                             )}
                         </div>
                     </div>
-                    <div id="atendimentos-humanos" aria-label="Conversas encaminhadas para atendimento humano" className={`mt-6 [&_th]:py-3 ${handoffs.length === 0 ? "[&_table]:table-auto @min-[720px]:[&_table]:table-fixed [&_td]:py-4" : "[&_table]:table-fixed"}`}>
-                        {pendingHandoffs > 0 && (
-                            <div className="mb-2 flex justify-end">
+                    <div id="atendimentos-humanos" aria-label="Conversas encaminhadas para atendimento humano" className="mt-6">
+                        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                            <h2 className="text-lg font-semibold text-gray-900">Atendimento humano</h2>
+                            {pendingHandoffs > 0 && (
                                 <Badge variant="warning">
                                     {pendingHandoffs} aguardando
                                 </Badge>
-                            </div>
-                        )}
+                            )}
+                        </div>
+                        <p className="mb-3 text-sm text-gray-600">
+                            Ao responder manualmente, o robô pausa por 30 minutos; cada nova mensagem sua reinicia esse prazo.
+                        </p>
                         <DataTable
                             rows={handoffs}
-                            emptyMessage={
-                                <div className="mx-auto flex max-w-lg flex-col items-center gap-2 py-4">
-                                    <Inbox className="h-8 w-8 text-gray-400" strokeWidth={1.75} aria-hidden="true" />
-                                    <p>As conversas encaminhadas para atendimento humano ficam aqui. Você também receberá uma notificação!</p>
-                                </div>
-                            }
+                            emptyMessage="As conversas encaminhadas para atendimento humano ficam aqui. Você também receberá uma notificação!"
                             rowKey={(handoff) => handoff.chat_id}
                             columns={[
                                 {
@@ -726,150 +800,49 @@ export default function RoboWhatsAppPage() {
                     </Card>
                 )}
 
+                {restaurantId && notificationSettings && (
+                    <OrderNotificationSettings
+                        key={restaurantId}
+                        restaurantId={restaurantId}
+                        plus={notificationSettings.plus}
+                        initialEnabled={notificationSettings.enabled}
+                    >
+                        {templates && TEMPLATE_FIELDS.filter((field) => field.key === "status_notification").map((field) =>
+                            renderTemplate({ ...field, title: "Personalizar mensagem", description: "" })
+                        )}
+                    </OrderNotificationSettings>
+                )}
+
                 {templates && (
-                    <Card className="border border-gray-200 p-7">
-                        <div className="flex flex-wrap items-start justify-between gap-4">
-                            <div>
-                                <h3 className="text-lg font-semibold text-gray-900">
-                                    Customizar mensagens automáticas
-                                </h3>
-                                <p className="mt-1 text-sm text-gray-600">
-                                    Personalize as mensagens principais.
-                                </p>
-                            </div>
-                            <SaveStatus status={saveStatus} className="self-start" />
+                    <Card className="!p-0">
+                        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-7">
+                            <h2 className="min-w-0 flex-1">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setMessagesOpen(!messagesOpen);
+                                        setOpenVariables(null);
+                                    }}
+                                    className="flex w-full cursor-pointer items-center justify-between gap-4 text-left text-lg font-semibold text-gray-900"
+                                    aria-expanded={messagesOpen}
+                                    aria-controls="message-templates"
+                                >
+                                    Personalizar mensagens
+                                    <FontAwesomeIcon
+                                        icon={faChevronDown}
+                                        className={`text-sm text-gray-400 transition-transform duration-300 ${messagesOpen ? "rotate-180" : ""}`}
+                                    />
+                                </button>
+                            </h2>
+                            <SaveStatus status={saveStatus} />
                         </div>
-                        {saveError ? <p role="alert" className="mt-3 text-sm text-red-600">{saveError}</p> : null}
-
-                        <div className="mt-6 divide-y divide-gray-200 rounded-lg border border-gray-200">
-                            {TEMPLATE_FIELDS.map((field) => {
-                                const isOpen = openTemplate === field.key;
-                                return (
-                                    <div key={field.key}>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setOpenTemplate(isOpen ? null : field.key);
-                                                setOpenVariables(null);
-                                            }}
-                                            className="flex w-full cursor-pointer items-center justify-between gap-4 px-4 py-4 text-left"
-                                            aria-expanded={isOpen}
-                                        >
-                                            <span>
-                                                <span className="block text-sm font-semibold text-gray-900">
-                                                    {field.title}
-                                                </span>
-                                                <span className="mt-0.5 block text-xs text-gray-500">
-                                                    {field.description}
-                                                </span>
-                                            </span>
-                                            <FontAwesomeIcon
-                                                icon={faChevronDown}
-                                                className={`text-gray-400 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`}
-                                            />
-                                        </button>
-
-                                        <div
-                                            className={`grid transition-[grid-template-rows,opacity,transform] duration-300 ease-out ${
-                                                isOpen
-                                                    ? "grid-rows-[1fr] translate-y-0 opacity-100"
-                                                    : "pointer-events-none grid-rows-[0fr] -translate-y-1 opacity-0"
-                                            }`}
-                                            aria-hidden={!isOpen}
-                                        >
-                                            <div className="min-h-0 overflow-hidden">
-                                                <div className="border-t border-gray-100 px-4 pb-5 pt-4">
-                                                    <TemplateEditor
-                                                        ref={(editor) => {
-                                                            editorRefs.current[field.key] = editor;
-                                                        }}
-                                                        value={templates[field.key]}
-                                                        variables={variables}
-                                                        ariaLabel={`Mensagem: ${field.title}`}
-                                                        onChange={(value) => updateTemplate(field.key, value)}
-                                                    />
-                                                    <button
-                                                        type="button"
-                                                        onClick={() =>
-                                                            setOpenVariables(
-                                                                openVariables === field.key ? null : field.key
-                                                            )
-                                                        }
-                                                        className="mt-3 cursor-pointer rounded-md border border-brand/20 px-3 py-2 text-sm font-medium text-brand transition-colors hover:bg-brand/5"
-                                                    >
-                                                        <FontAwesomeIcon icon={faPlus} className="mr-2" />
-                                                        Adicionar variável
-                                                    </button>
-                                                    <VariablePicker
-                                                        allowedVariables={field.variables}
-                                                        variables={variables}
-                                                        open={openVariables === field.key}
-                                                        onSelect={(variable) => {
-                                                            editorRefs.current[field.key]?.insertVariable(variable);
-                                                            setOpenVariables(null);
-                                                        }}
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                        {saveError ? <p role="alert" className="px-5 pb-4 text-sm text-red-600 sm:px-7">{saveError}</p> : null}
+                        <div id="message-templates" hidden={!messagesOpen} className="divide-y divide-gray-200 border-t border-gray-200 px-1 sm:px-3">
+                            {TEMPLATE_FIELDS.filter((field) => field.key !== "status_notification").map(renderTemplate)}
                         </div>
                     </Card>
                 )}
 
-                {restaurantId && notificationSettings && <OrderNotificationSettings key={restaurantId} restaurantId={restaurantId} plus={notificationSettings.plus} initialEnabled={notificationSettings.enabled}/>}
-
-                <Card className="border border-gray-200 p-7">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                        O que o atendimento faz
-                    </h3>
-                    <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                        {[
-                            {
-                                icon: faUtensils,
-                                title: "Cardápio e preços",
-                                text: "Responde com os itens disponíveis, preços atuais e o link do cardápio.",
-                            },
-                            {
-                                icon: faTruck,
-                                title: "Entrega",
-                                text: "Explica taxas, distâncias, prazos, retirada e pedido mínimo configurados no iMenu.",
-                            },
-                            {
-                                icon: faCreditCard,
-                                title: "Pagamentos",
-                                text: "Informa as formas de pagamento habilitadas no restaurante.",
-                            },
-                            {
-                                icon: faLink,
-                                title: "Link para pedir",
-                                text: "Direciona o cliente para finalizar o pedido no iMenu.",
-                            },
-                            {
-                                icon: faUser,
-                                title: "Atendimento humano",
-                                text: "Para de responder quando o cliente pede uma pessoa ou quando você entra na conversa. Ao responder manualmente, o robô pausa por 30 minutos; cada nova mensagem sua reinicia esse prazo.",
-                            },
-                            {
-                                icon: faCircleCheck,
-                                title: "Reconexão automática",
-                                text: "Tenta restaurar a sessão após quedas e pede um novo QR somente quando necessário.",
-                            },
-                        ].map((feature) => (
-                            <div key={feature.title} className="flex gap-3 rounded-lg border border-gray-200 p-4">
-                                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand/10 text-brand">
-                                    <FontAwesomeIcon icon={feature.icon} />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-semibold text-gray-900">{feature.title}</p>
-                                    <p className="mt-1 text-sm text-gray-600">{feature.text}</p>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </Card>
                 <PanelFeatureCallout feature="marketing" />
             </div>
 
