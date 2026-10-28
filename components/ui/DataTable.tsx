@@ -35,7 +35,7 @@ export default function DataTable<T>({ columns, rows, rowKey, onRowClick, loadin
                             <div className="flex h-14 w-14 items-center justify-center rounded-[12px] border border-[#e2e5e9] bg-[#f7f8fa]">
                                 <Inbox size={26} strokeWidth={1.5} className="text-[#818994]" aria-hidden="true" />
                             </div>
-                            <div className="max-w-lg text-sm font-medium leading-6 text-[#626973]">{emptyMessage}</div>
+                            <div className="max-w-lg text-sm font-normal leading-6 text-[#626973]">{emptyMessage}</div>
                         </div>
                     </td>
                 </tr>
