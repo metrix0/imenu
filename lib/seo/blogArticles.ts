@@ -17,6 +17,20 @@ export type BlogArticleDefinition = {
 
 export const BLOG_ARTICLES: BlogArticleDefinition[] = [
     {
+        slug: "automacao-marketing-whatsapp-restaurantes",
+        title: "Automação de marketing pelo WhatsApp para restaurantes: guia completo",
+        shortTitle: "Marketing automático pelo WhatsApp",
+        metaTitle: "Automação de Marketing WhatsApp para Restaurantes | iMenu",
+        metaDescription:
+            "Aprenda a automatizar o WhatsApp do restaurante: recupere carrinhos, reative clientes e use hábitos de compra na aba Marketing do iMenu.",
+        excerpt:
+            "Guia da aba Marketing do iMenu: como configurar as três automações, mensagens, cupons, consentimento e histórico de envios.",
+        category: "Vendas",
+        readingTime: "14 min de leitura",
+        publishedAt: "2026-10-28",
+        updatedAt: "2026-10-28",
+    },
+    {
         slug: "imenu-plus",
         title: "iMenu Plus: como vender mais com IA e automações de WhatsApp para restaurantes",
         shortTitle: "iMenu Plus: IA e automações",
