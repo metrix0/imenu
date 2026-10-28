@@ -14,6 +14,7 @@ import {
     sendWahaList,
     sendWahaText,
     findWahaSentTextSince,
+    getWahaRecentTextHistory,
     resolveWahaChatPhone,
     startWahaTyping,
     stopWahaTyping,
@@ -34,6 +35,7 @@ type OrderStatusRow = {
     is_delivery: boolean | string | null;
     customer_name: string | null;
     created_at: string;
+    delivery_eta: string | Date | null;
 };
 
 type BotFlow =
@@ -58,13 +60,15 @@ const FALLBACK_COOLDOWN_SECONDS = 30;
 const FALLBACK_SUSPEND_COUNT_5_MINUTES = 3;
 const LIST_FAILURE_LIMIT_5_MINUTES = 3;
 const STORM_QUIET_SECONDS = 60;
+const ORDER_PHONE_REQUEST_TEXT = "Não encontrei um pedido pelo número deste WhatsApp. Envie o telefone com DDD usado no pedido (ex.: 11999999999).";
+const ORDER_PHONE_RETRY_TEXT = "Não encontrei um pedido recente para esse telefone. Envie outro telefone com DDD ou escolha *Falar com atendente*.";
 // WAHA can accept a send after our HTTP request times out. Check its history
 // a bounded number of times instead of retrying or claiming delivery failed.
 const OUTBOUND_CONFIRMATION_DELAYS_MS = [0, 1_500, 2_500, 3_500, 4_500];
 
 const MENU_ROWS: WahaListRow[] = [
     { title: "Ver o cardápio", rowId: "menu_link" },
-    { title: "Onde está meu pedido?", rowId: "order_status" },
+    { title: "Meu pedido está chegando?", rowId: "order_status" },
     { title: "Entrega e retirada", rowId: "delivery" },
     { title: "Formas de pagamento", rowId: "payment" },
     { title: "Falar com atendente", rowId: "handoff" },
@@ -86,6 +90,7 @@ const FLOW_BY_TEXT = new Map<string, BotFlow>([
     ["2", "order_status"],
     ["order status", "order_status"],
     ["order_status", "order_status"],
+    ["meu pedido esta chegando", "order_status"],
     ["onde esta meu pedido", "order_status"],
     ["onde esta o meu pedido", "order_status"],
     ["meu pedido", "order_status"],
@@ -629,28 +634,25 @@ async function sendTrackedMenu({
     }
 }
 
-function getPhoneCandidates(chatId: string): string[] {
-    const digits = String(chatId).split("@")[0].replace(/\D/g, "");
-    if (!digits) return [];
-    const candidates = new Set<string>([digits]);
-    if (digits.startsWith("55") && (digits.length === 12 || digits.length === 13)) {
-        candidates.add(digits.slice(2));
-    } else if (digits.length === 10 || digits.length === 11) {
-        candidates.add(`55${digits}`);
-    }
-    return [...candidates];
+function getPhoneCandidates(phone: string | null): string[] {
+    const digits = String(phone ?? "").replace(/\D/g, "");
+    const local = digits.startsWith("55") && (digits.length === 12 || digits.length === 13)
+        ? digits.slice(2)
+        : digits;
+    if (!/^\d{10,11}$/.test(local)) return [];
+    return [local, `55${local}`];
 }
 
 async function getLatestOrder(
     restaurantId: string,
-    chatId: string
+    phone: string | null
 ): Promise<OrderStatusRow | null> {
-    const phoneCandidates = getPhoneCandidates(chatId);
+    const phoneCandidates = getPhoneCandidates(phone);
     if (!phoneCandidates.length) return null;
 
     const result = await query<OrderStatusRow>(
         `
-            SELECT id, display_id, status, is_delivery, customer_name, created_at
+            SELECT id, display_id, status, is_delivery, customer_name, created_at, delivery_eta
             FROM orders
             WHERE restaurant_id = $1
               AND regexp_replace(COALESCE(customer_phone, ''), '[^0-9]', '', 'g')
@@ -713,12 +715,55 @@ function detectFlow(value: unknown): BotFlow | null {
 
     const prefixes: Array<[string, BotFlow]> = [
         ["ver o cardapio", "menu_link"],
+        ["meu pedido esta chegando", "order_status"],
         ["onde esta meu pedido", "order_status"],
         ["entrega e retirada", "delivery"],
         ["formas de pagamento", "payment"],
         ["falar com atendente", "handoff"],
     ];
     return prefixes.find(([prefix]) => normalized.startsWith(`${prefix} `))?.[1] || null;
+}
+
+function getOrderEtaText(order: OrderStatusRow): string {
+    if (!order.delivery_eta || ["done", "canceled"].includes(order.status)) return "";
+    const center = new Date(order.delivery_eta).getTime();
+    if (!Number.isFinite(center)) return "";
+
+    const start = new Date(center - 10 * 60_000);
+    const end = new Date(center + 10 * 60_000);
+    const date = new Intl.DateTimeFormat("pt-BR", {
+        day: "2-digit", month: "2-digit", timeZone: "America/Sao_Paulo",
+    }).format(start);
+    const clock = new Intl.DateTimeFormat("pt-BR", {
+        hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo",
+    });
+    const pickup = isPickup(order.is_delivery) || normalize(order.is_delivery) === "balcao";
+    const label = pickup ? "Previsão de retirada" : "Previsão de entrega";
+    const overdue = end.getTime() < Date.now() ? " (horário já ultrapassado)" : "";
+    return `\n🕒 ${label}: ${date}, ${clock.format(start)}–${clock.format(end)} (estimativa)${overdue}.`;
+}
+
+function renderOrderStatus(order: OrderStatusRow, templates: WhatsAppMessageTemplates, variables: WhatsAppTemplateVariables): string {
+    return renderWhatsAppTemplate(templates.order_status_found, {
+        ...variables,
+        NOME_DO_CLIENTE: order.customer_name?.trim() || variables.NOME_DO_CLIENTE,
+        NUMERO_DO_PEDIDO: String(order.display_id ?? order.id.slice(0, 4).toUpperCase()),
+        STATUS_DO_PEDIDO: getOrderStatusLabel(order),
+    }) + getOrderEtaText(order);
+}
+
+async function awaitingOrderPhone(sessionName: string, chatId: string, messageId: string): Promise<boolean> {
+    try {
+        const messages = await getWahaRecentTextHistory(sessionName, chatId, messageId, 5, 3_000);
+        const last = messages[messages.length - 1];
+        return !!last?.fromMe
+            && [ORDER_PHONE_REQUEST_TEXT, ORDER_PHONE_RETRY_TEXT].includes(last.body)
+            && Date.now() - last.timestamp * 1000 >= 0
+            && Date.now() - last.timestamp * 1000 < BOT_SESSION_MINUTES * 60_000;
+    } catch (error) {
+        console.warn("[WHATSAPP_AUTOMATION] phone_lookup_history_failed", { error });
+        return false;
+    }
 }
 
 async function answerFlow({
@@ -729,6 +774,7 @@ async function answerFlow({
     sessionName,
     chatId,
     inboundMessageId,
+    resolvedPhone,
 }: {
     flow: BotFlow;
     templates: WhatsAppMessageTemplates;
@@ -737,6 +783,7 @@ async function answerFlow({
     sessionName: string;
     chatId: string;
     inboundMessageId: string;
+    resolvedPhone: string | null;
 }): Promise<void> {
     if (flow === "handoff") {
         let phone: string | null = null;
@@ -773,39 +820,29 @@ async function answerFlow({
         return;
     }
 
-    let template =
-        flow === "menu_link"
-            ? templates.menu_link
-            : flow === "delivery"
-              ? templates.delivery
-              : flow === "payment"
-                ? templates.payment
-                : templates.order_status_not_found;
-    let flowVariables = variables;
     if (flow === "order_status") {
-        const order = await getLatestOrder(restaurantId, chatId);
-        if (!order) {
-            template = templates.order_status_not_found;
-        } else {
-            template = templates.order_status_found;
-            flowVariables = {
-                ...variables,
-                NOME_DO_CLIENTE:
-                    order.customer_name?.trim() || variables.NOME_DO_CLIENTE,
-                NUMERO_DO_PEDIDO: String(
-                    order.display_id ?? order.id.slice(0, 4).toUpperCase()
-                ),
-                STATUS_DO_PEDIDO: getOrderStatusLabel(order),
-            };
-        }
+        const order = await getLatestOrder(restaurantId, resolvedPhone);
+        await sendTrackedText({
+            dedupeKey: `${inboundMessageId}:${flow}`,
+            restaurantId,
+            sessionName,
+            chatId,
+            text: order ? renderOrderStatus(order, templates, variables) : ORDER_PHONE_REQUEST_TEXT,
+        });
+        return;
     }
 
+    const template = flow === "menu_link"
+        ? templates.menu_link
+        : flow === "delivery"
+          ? templates.delivery
+          : templates.payment;
     await sendTrackedText({
         dedupeKey: `${inboundMessageId}:${flow}`,
         restaurantId,
         sessionName,
         chatId,
-        text: renderWhatsAppTemplate(template, flowVariables),
+        text: renderWhatsAppTemplate(template, variables),
     });
 }
 
@@ -857,6 +894,26 @@ export async function processIncomingWhatsAppMessage({
     if (prepared.state === "storm") {
         console.info("[WHATSAPP_AUTOMATION] inbound_suppressed_storm", {
             restaurantId,
+        });
+        return;
+    }
+
+    if (!hasMedia && getPhoneCandidates(body).length && await awaitingOrderPhone(sessionName, chatId, messageId)) {
+        const [restaurant, templates] = await Promise.all([
+            getRestaurantTemplateData(restaurantId),
+            getWhatsAppTemplates(restaurantId),
+        ]);
+        if (!restaurant) return;
+        const variables = buildRestaurantTemplateVariables(restaurant, {
+            NOME_DO_CLIENTE: prepared.customerName || customerName || "Cliente",
+        });
+        const order = await getLatestOrder(restaurantId, body);
+        await sendTrackedText({
+            dedupeKey: `${messageId}:order_phone_lookup`,
+            restaurantId,
+            sessionName,
+            chatId,
+            text: order ? renderOrderStatus(order, templates, variables) : ORDER_PHONE_RETRY_TEXT,
         });
         return;
     }
@@ -934,6 +991,7 @@ export async function processIncomingWhatsAppMessage({
             sessionName,
             chatId,
             inboundMessageId: messageId,
+            resolvedPhone: phone,
         });
         return;
     }

@@ -14,7 +14,7 @@ import { query, withTransaction } from "@/lib/database/sql";
 import { makeReport, productReportFormat, REPORT_INSTRUCTIONS } from "./report";
 import { validateProductEstimate } from "./products";
 import { FIELDS } from "./fields";
-import { actionValuesSchema } from "./catalog";
+import { actionValuesSchema, key } from "./catalog";
 import { analysisModelContext, context, readData, metrics, measure } from "./data";
 import { propose } from "./actions";
 import { applyProposal } from "./application";
@@ -196,6 +196,29 @@ const assistantTools = [
 const freeAssistantTools = assistantTools.map((definition) =>
   definition.name === "propose_images" ? imageProposalTool(FREE_AI_IMAGES) : definition,
 );
+
+async function missingProposalRecords(restaurant: string, operations: Data[]) {
+  const idsByEntity = new Map<string, Set<string>>();
+  for (const operation of operations) {
+    if (operation.kind === "create" || typeof operation.id !== "string" ||
+      !Object.hasOwn(FIELDS, operation.entity)) continue;
+    if (!idsByEntity.has(operation.entity))
+      idsByEntity.set(operation.entity, new Set());
+    idsByEntity.get(operation.entity)!.add(operation.id);
+  }
+  const missing: { entity: string; id: string }[] = [];
+  for (const [entity, ids] of idsByEntity) {
+    const records = await readData(restaurant, entity, 0, false, undefined, {
+      ids: [...ids],
+      fields: [key(entity)],
+      limit: 50,
+    });
+    const found = new Set(records.rows.map((record: Data) => record[key(entity)]));
+    for (const id of ids)
+      if (!found.has(id)) missing.push({ entity, id });
+  }
+  return missing;
+}
 
 const FREE_MESSAGE_LIMIT_MESSAGE =
   "Esta mensagem ficou grande demais para ser processada de uma vez. Envie o pedido em partes menores para continuar.";
@@ -611,8 +634,10 @@ export async function runChat(args: {
       summary = approvalReply ? String(conv.summary || "").slice(0, 6000) : "",
       round = args.resume?.round || 0;
     const deadline = batched ? Infinity : deep ? analysisDeadline : Date.now() + 220000,
-      maxOutput = deep ? LIMITS.analysisOutput : LIMITS.chatOutput,
-      maxRounds = deep ? LIMITS.analysisRounds : 5;
+      maxOutput = deep ? LIMITS.analysisOutput : LIMITS.chatOutput;
+    let maxRounds = deep ? LIMITS.analysisRounds : 5;
+    let retriedMissingProposal = false;
+    let retryingMissingProposal = false;
     while (!reply && round++ < maxRounds && Date.now() < deadline) {
       const estimatedInput =
         Math.ceil(
@@ -659,7 +684,7 @@ export async function runChat(args: {
                 !["propose_action", "estimate_revenue"].includes(definition.name))
             : tools,
           tool_choice:
-            deep && !finalRound ? "required" : finalRound ? "none" : "auto",
+            finalRound ? "none" : (deep || retryingMissingProposal) ? "required" : "auto",
           parallel_tool_calls: true,
           max_output_tokens: deep
             ? finalRound
@@ -739,8 +764,10 @@ export async function runChat(args: {
         summary = String(result.summary || "").slice(0, 6000);
         break;
       }
+      let repairInstruction: string | null = null;
       for (const call of calls) {
         const toolStarted = Date.now();
+        let attemptedRecovery = false;
         let result: any;
         let toolError: unknown = null;
         const cached = batched ? (await readBatch(restaurant, run)).tool_results?.[call.call_id] : null;
@@ -796,6 +823,10 @@ export async function runChat(args: {
                 break;
               }
               case "propose_action": {
+                if (retryingMissingProposal) {
+                  retryingMissingProposal = false;
+                  attemptedRecovery = true;
+                }
                 const a = await propose(restaurant, conversation, run, p, batched ? actionId(run, call.call_id) : undefined);
                 cards.push({ type: "action", id: a.id });
                 result = {
@@ -893,6 +924,31 @@ export async function runChat(args: {
                   ? e.message
                   : "Não foi possível concluir esta consulta ou proposta.",
             };
+            if (attemptedRecovery)
+              maxRounds = Math.min(maxRounds, round + 1);
+            else if (call.name === "propose_action" && !deep &&
+              !retriedMissingProposal && e instanceof SalesError &&
+              e.message === "Registro não encontrado.") {
+              try {
+                const missing = await missingProposalRecords(
+                  restaurant, JSON.parse(call.arguments).operations,
+                );
+                if (missing.length) {
+                  retriedMissingProposal = true;
+                  retryingMissingProposal = true;
+                  maxRounds = Math.max(maxRounds, round + 3);
+                  result.invalid_records = missing;
+                  repairInstruction = "Uma proposta falhou porque os registros em invalid_records não existem mais. " +
+                    "Os demais IDs da proposta foram revalidados no banco. " +
+                    "Faça uma única nova tentativa com propose_action usando só registros existentes; " +
+                    "se necessário consulte read_data para encontrar substitutos reais. " +
+                    "Nunca reutilize IDs inválidos ou invente substitutos. " +
+                    "Se não for possível corrigir com segurança, explique o impedimento.";
+                }
+              } catch {
+                // Preserve the original error if the recovery lookup fails.
+              }
+            }
           }
           if (batched) await saveToolResult(restaurant, run, call.call_id, { result, cards: cards.slice(cardStart), example, estimated });
           await recordTokens(restaurant, run, 0, 0, {
@@ -919,6 +975,7 @@ export async function runChat(args: {
           output: JSON.stringify(result),
         });
       }
+      if (repairInstruction) input.push({ role: "developer", content: repairInstruction });
       if (deep) {
         const actions = (
           await query(

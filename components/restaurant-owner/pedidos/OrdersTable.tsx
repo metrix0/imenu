@@ -1,7 +1,7 @@
 "use client";
 
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import { faChair, faEye, faTrash, faStore } from "@fortawesome/free-solid-svg-icons";
+import { faChair, faEye, faTrash, faStore, faBagShopping } from "@fortawesome/free-solid-svg-icons";
 import DataTable from "@/components/ui/DataTable";
 import Card from "@/components/ui/Card";
 import ListLoader from "@/components/ui/ListLoader";
@@ -99,10 +99,10 @@ export default function OrdersTable({ orders, isLoading, onViewOrder, onDeleteOr
                                             <p className="min-w-0 truncate text-sm font-medium text-gray-800">
                                                 {order.customer_name}
                                             </p>
-                                            {(order.is_delivery === "mesa" || order.is_delivery === "balcao") && (
-                                                <span className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-brand">
-                                                    <FontAwesomeIcon icon={order.is_delivery === "balcao" ? faStore : faChair} />
-                                                    {order.is_delivery === "balcao" ? "Balcão" : order.table_name_snapshot || "Mesa"}
+                                            {(order.is_delivery === "mesa" || order.is_delivery === "balcao" || order.is_delivery === "retirada") && (
+                                                <span className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-gray-500">
+                                                    <FontAwesomeIcon icon={order.is_delivery === "balcao" ? faStore : order.is_delivery === "retirada" ? faBagShopping : faChair} />
+                                                    {order.is_delivery === "balcao" ? "Balcão" : order.is_delivery === "retirada" ? "Retirada" : order.table_name_snapshot || "Mesa"}
                                                 </span>
                                             )}
                                         </div>
@@ -157,7 +157,7 @@ export default function OrdersTable({ orders, isLoading, onViewOrder, onDeleteOr
                 <DataTable rows={orders} rowKey={order => order.id} loading={isLoading} onRowClick={onViewOrder}
                     emptyMessage="Nenhum pedido encontrado com estes filtros." columns={[
                         { key: "number", label: "Pedido", render: order => <span className="font-semibold">#{order.display_id || order.id.slice(0, 4)}</span> },
-                        { key: "customer", label: "Cliente", render: order => <div className="max-w-xs"><div className="font-medium">{order.customer_name}</div>{order.customer_address && <div className="mt-1 truncate text-xs text-gray-500" title={order.customer_address}>{order.customer_address}</div>}{(order.is_delivery === "mesa" || order.is_delivery === "balcao") && <span className="inline-flex items-center gap-1 text-xs text-brand"><FontAwesomeIcon icon={order.is_delivery === "balcao" ? faStore : faChair} />{order.is_delivery === "balcao" ? "Balcão" : order.table_name_snapshot || "Mesa"}</span>}</div> },
+                        { key: "customer", label: "Cliente", render: order => <div className="max-w-xs"><div className="font-medium">{order.customer_name}</div>{order.customer_address && <div className="mt-1 truncate text-xs text-gray-500" title={order.customer_address}>{order.customer_address}</div>}{(order.is_delivery === "mesa" || order.is_delivery === "balcao" || order.is_delivery === "retirada") && <span className="inline-flex items-center gap-1 text-xs text-gray-500"><FontAwesomeIcon icon={order.is_delivery === "balcao" ? faStore : order.is_delivery === "retirada" ? faBagShopping : faChair} />{order.is_delivery === "balcao" ? "Balcão" : order.is_delivery === "retirada" ? "Retirada" : order.table_name_snapshot || "Mesa"}</span>}</div> },
                         { key: "date", label: "Data", render: order => <span className="whitespace-nowrap text-gray-500">{fmtDate(order.created_at)}</span> },
                         { key: "total", label: "Valor", render: order => <span className="whitespace-nowrap font-medium">{fmtMoney(order.total_cents)}</span> },
                         { key: "status", label: "Situação", render: order => getStatusBadge(order.status, order.is_delivery === "mesa" || order.is_delivery === "retirada" || order.is_delivery === "balcao") },

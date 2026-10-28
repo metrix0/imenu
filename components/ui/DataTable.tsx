@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import ListLoader from "./ListLoader";
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Inbox } from "lucide-react";
 
 export type TableColumn<T> = { key: string; label: string; render: (row: T) => ReactNode; className?: string; sortable?: boolean };
 
@@ -29,7 +29,16 @@ export default function DataTable<T>({ columns, rows, rowKey, onRowClick, loadin
             </th>
         ))}</tr></thead>
             <tbody>{loading ? <tr><td colSpan={columns.length} className="border-b border-[#e2e5e9] px-4 py-3.5"><ListLoader lines={6} /></td></tr> : rows.length === 0
-                ? <tr><td colSpan={columns.length} className="px-4 py-12 text-center text-gray-500">{emptyMessage}</td></tr>
+                ? <tr>
+                    <td colSpan={columns.length} className="px-4 py-0 text-center">
+                        <div className="flex min-h-[184px] flex-col items-center justify-center gap-4 px-4 py-8 sm:min-h-[200px]">
+                            <div className="flex h-14 w-14 items-center justify-center rounded-[12px] border border-[#e2e5e9] bg-[#f7f8fa]">
+                                <Inbox size={26} strokeWidth={1.5} className="text-[#818994]" aria-hidden="true" />
+                            </div>
+                            <div className="max-w-lg text-sm font-normal leading-6 text-[#626973]">{emptyMessage}</div>
+                        </div>
+                    </td>
+                </tr>
                 : rows.map(row => <tr key={rowKey(row)} tabIndex={onRowClick ? 0 : undefined} className={`transition-colors hover:bg-[#f7f8fa] ${onRowClick ? "cursor-pointer" : ""}`}
                     onClick={() => onRowClick?.(row)} onKeyDown={event => { if (event.target === event.currentTarget && onRowClick && ["Enter", " "].includes(event.key)) { event.preventDefault(); onRowClick(row); } }}>
                     {columns.map(column => <td key={column.key} className={`border-b border-[#e2e5e9] px-4 py-3.5 ${column.className ?? ""}`}>{column.render(row)}</td>)}

@@ -20,6 +20,7 @@ import {
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import Button from "@/components/ui/Button";
+import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Switch from "@/components/ui/Switch";
@@ -44,6 +45,7 @@ type Restaurant = {
     allow_future_order_scheduling?: boolean | null;
     preorder_only?: boolean | null;
     vitrine_enabled?: boolean;
+    dark_menu_enabled?: boolean;
 };
 
 type OrderDingleDuration = "short" | "medium" | "long";
@@ -221,6 +223,8 @@ export default function ConfiguracoesPage() {
     const [isExportingMenu, setIsExportingMenu] = useState(false);
     const [pdfAccess, setPdfAccess] = useState(false);
     const [pdfSalesOpen, setPdfSalesOpen] = useState(false);
+    const [darkThemeSalesOpen, setDarkThemeSalesOpen] = useState(false);
+    const [isSavingDarkMenu, setIsSavingDarkMenu] = useState(false);
     const [showVitrineQr, setShowVitrineQr] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -291,7 +295,7 @@ export default function ConfiguracoesPage() {
                     const { data: restData } = await supabase
                         .from("restaurants")
                         .select(
-                            "id, name, url_slug, user_id, phone, force_whatsapp_order_confirmation, allow_future_order_scheduling, preorder_only, vitrine_enabled",
+                            "id, name, url_slug, user_id, phone, force_whatsapp_order_confirmation, allow_future_order_scheduling, preorder_only, vitrine_enabled, dark_menu_enabled",
                         )
                         .eq("id", targetId)
                         .single();
@@ -456,6 +460,40 @@ export default function ConfiguracoesPage() {
             setToast({ message: "Erro ao salvar o Modo Vitrine.", type: "error" });
         } finally {
             setIsSavingVitrine(false);
+        }
+    };
+
+    const saveDarkMenuMode = async (enabled: boolean) => {
+        if (!restaurant || isSavingDarkMenu) return;
+        if (!pdfAccess) {
+            setDarkThemeSalesOpen(true);
+            return;
+        }
+
+        setIsSavingDarkMenu(true);
+        try {
+            const response = await qrTableAuthenticatedFetch("/api/menu/dark-theme", {
+                method: "PATCH",
+                body: JSON.stringify({ restaurantId: restaurant.id, enabled }),
+            });
+            const result = await response.json() as { enabled?: boolean; error?: string };
+            if (!response.ok) {
+                if (response.status === 403) {
+                    setPdfAccess(false);
+                    setDarkThemeSalesOpen(true);
+                }
+                throw new Error(result.error || "Não foi possível salvar o tema.");
+            }
+            setRestaurant((current) => current
+                ? { ...current, dark_menu_enabled: result.enabled === true }
+                : current);
+        } catch (error) {
+            setToast({
+                message: error instanceof Error ? error.message : "Erro ao salvar o tema escuro.",
+                type: "error",
+            });
+        } finally {
+            setIsSavingDarkMenu(false);
         }
     };
 
@@ -695,9 +733,19 @@ export default function ConfiguracoesPage() {
                 variant="danger"
             />
 
-            {restaurant && <IaPlusSalesModal open={pdfSalesOpen} onClose={() => setPdfSalesOpen(false)}
-                restaurantId={restaurant.id} contextMessage="Com o iMenu Plus, exporte seu cardápio em PDF para imprimir ou compartilhar."
-                onPaid={() => { setPdfSalesOpen(false); return loadPdfAccess(restaurant.id); }} />}
+            {restaurant && <IaPlusSalesModal
+                open={pdfSalesOpen || darkThemeSalesOpen}
+                onClose={() => { setPdfSalesOpen(false); setDarkThemeSalesOpen(false); }}
+                restaurantId={restaurant.id}
+                contextMessage={darkThemeSalesOpen
+                    ? "Com o iMenu Plus, ofereça seu cardápio com tema escuro."
+                    : "Com o iMenu Plus, exporte seu cardápio em PDF para imprimir ou compartilhar."}
+                onPaid={() => {
+                    setPdfSalesOpen(false);
+                    setDarkThemeSalesOpen(false);
+                    return loadPdfAccess(restaurant.id);
+                }}
+            />}
             {toast && (
                 <Toast
                     message={toast.message}
@@ -914,8 +962,6 @@ export default function ConfiguracoesPage() {
                                     <h2 className="text-xl font-medium text-gray-900">
                                         Forçar envio de Notificação no WhatsApp
                                     </h2>
-                                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide !text-amber-700 ring-1 ring-inset ring-amber-600/25">
-                                        Não recomendado
                                     <Tooltip
                                         text="Isso adiciona uma etapa extra à finalização e pode criar atrito no pedido. O pedido é criado antes do WhatsApp: o cliente pode simplesmente não enviar a mensagem e o pedido continuará válido."
                                         position="top"
@@ -923,12 +969,11 @@ export default function ConfiguracoesPage() {
                                         showOnClick
                                         parentClassName="inline-flex items-center self-center leading-none"
                                     >
-                                        <FontAwesomeIcon
-                                            icon={faCircleInfo}
-                                            className="cursor-help text-[11px] leading-none text-amber-700"
-                                        />
+                                        <Badge variant="notRecommended" className="gap-1 cursor-help">
+                                            Não recomendado
+                                            <FontAwesomeIcon icon={faCircleInfo} className="text-[11px] leading-none text-yellow-700" />
+                                        </Badge>
                                     </Tooltip>
-                                    </span>
                                 </div>
                                 <p className="mt-2 text-sm text-gray-500">
                                     Após confirmar o pedido, o cliente será direcionado ao
@@ -1007,6 +1052,42 @@ export default function ConfiguracoesPage() {
                                     </Button>
                                 </div>
                             )}
+                        </Card>
+                    )}
+
+                    {restaurant && (
+                        <Card className="border border-gray-200 shadow-sm">
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                <div className="min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <h2 className="text-xl font-medium text-gray-900">
+                                            Cardápio com Tema Escuro
+                                        </h2>
+                                        <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${pdfAccess ? "bg-green-50 text-green-700" : "bg-orange-50 text-orange-800"}`}>
+                                            <FontAwesomeIcon icon={pdfAccess ? faCheck : faLock} />
+                                            {pdfAccess ? "Plano ativo" : "Incluso no iMenu Plus"}
+                                        </span>
+                                    </div>
+                                    <p id="dark-menu-description" className="mt-2 text-sm text-gray-500">
+                                        Exiba seu cardápio com cores escuras, inclusive em Mesas e Vitrine.
+                                    </p>
+                                </div>
+                                <div className="flex shrink-0 items-start gap-3">
+                                    {isSavingDarkMenu && <SaveStatus status="saving" />}
+                                    <Tooltip
+                                        text={!pdfAccess ? "Disponível com iMenu Plus. Assine o plano para ativar o tema escuro." : ""}
+                                        parentClassName="!block"
+                                    >
+                                        <Switch
+                                            checked={restaurant.dark_menu_enabled === true && pdfAccess}
+                                            aria-label="Cardápio com Tema Escuro"
+                                            aria-describedby="dark-menu-description"
+                                            disabled={isSavingDarkMenu}
+                                            onClick={() => void saveDarkMenuMode(restaurant.dark_menu_enabled !== true)}
+                                        />
+                                    </Tooltip>
+                                </div>
+                            </div>
                         </Card>
                     )}
 
@@ -1104,6 +1185,7 @@ export default function ConfiguracoesPage() {
                     {restaurant && (
                         <ResetOrderCountSection restaurantId={restaurant.id} />
                     )}
+
 
                     <Card className="border-red-200 bg-red-50/30">
                         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">

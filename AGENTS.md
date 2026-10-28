@@ -39,7 +39,7 @@
 - Read `docs/ai-design-guidelines.md` first; inspect the actual affected page and existing `components/` and `components/ui/` patterns.
 - `design-system.html` remains the authoritative visual reference. Consult the full artifact when the concise guide is insufficient, ambiguous, stale, or when introducing/modifying a visual pattern. Do not invent a competing design pattern.
 - Reuse existing components, utilities, styles, spacing, and interactions; preserve unrelated UI behavior.
-- For UI changes, compare the rendered result against the existing design and verify affected interactions and screen sizes. Passing tests/builds alone does not prove visual correctness.
+- For UI changes, visually validate the actual changed page, usually at `http://localhost:3000`, before reporting completion. Confirm localhost is serving the updated target-branch code; reload after updates as needed. Use the connected Browser/Playwright, Remote Desktop Commander (when authorized), or another appropriate skill/tool to inspect the rendered result and verify affected interactions and desktop/mobile screen sizes. Passing tests/builds alone does not prove visual correctness. If visual validation is blocked, report the exact blocker and leave it explicitly pending; do not claim the UI is validated.
 
 ## Changes, validation, and delivery
 1. Locate and inspect only relevant code/DB/logs on the correct source branch; assess dependent behavior.
