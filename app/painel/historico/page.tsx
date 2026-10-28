@@ -15,15 +15,9 @@ import ConfirmModal from "@/components/ui/ConfirmModal";
 import Toast from "@/components/ui/Toast";
 import Card from "@/components/ui/Card";
 import DateRangePicker from "@/components/ui/DateRangePicker";
+import CashRegister, { type CashOrder } from "@/components/restaurant-owner/pedidos/CashRegister";
 
 
-
-type CashOrder = {
-    status: string;
-    payment_method: string | null;
-    total_cents: number;
-    is_delivery: string | null;
-};
 
 const CASH_PAGE_SIZE = 1000;
 const CASH_PAID_STATUSES = ["done", "paid", "preparing", "delivering"];
@@ -99,7 +93,7 @@ function DailyCashClosing({ restaurantId, refreshKey }: {
                 while (true) {
                     const { data, error: queryError } = await supabase
                         .from("orders")
-                        .select("id, status, payment_method, total_cents, is_delivery")
+                        .select("id, display_id, created_at, status, payment_method, total_cents, is_delivery")
                         .eq("restaurant_id", restaurantId)
                         .gte("created_at", date + "T00:00:00-03:00")
                         .lt("created_at", nextDate + "T00:00:00-03:00")
@@ -211,6 +205,9 @@ function DailyCashClosing({ restaurantId, refreshKey }: {
                         </div>
                     </Card>
                 </div>
+            )}
+            {!error && !loading && restaurantId && (
+                <CashRegister restaurantId={restaurantId} date={date} orders={orders} refreshKey={refreshKey} />
             )}
         </section>
     );
