@@ -88,8 +88,8 @@ export default function CheckoutCustomerFields({
         controller.signal.aborted ||
         normalizeCustomerPhone(useCheckoutStore.getState().celular) !== requestedPhone
       ) return;
+      if (!data?.customer?.name && !data?.customer?.address) return;
       lastLookedUp.current = key;
-      if (!data?.customer) return;
 
       const customer = data.customer as {
         name?: string;
