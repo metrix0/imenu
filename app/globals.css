@@ -404,3 +404,52 @@ html, body {
 :is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [class~="!bg-white"] {
     background-color: var(--im-menu-surface) !important;
 }
+
+
+/* Dark customer-menu controls: use the shared dropdown without native light OS popups. */
+:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [data-ui="dropdown-trigger"] {
+    background-color: var(--im-menu-soft) !important;
+    border-color: var(--im-menu-border) !important;
+    color: var(--im-menu-text) !important;
+}
+
+:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [data-ui="dropdown-trigger"] span {
+    color: var(--im-menu-text);
+}
+
+:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [data-ui="dropdown-menu"] {
+    background-color: var(--im-menu-surface);
+    border-color: var(--im-menu-border);
+}
+
+:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [data-ui="dropdown-menu"] [role="option"] {
+    color: var(--im-menu-text);
+}
+
+:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [data-ui="dropdown-menu"] [role="option"]:is(:hover, :focus-visible) {
+    background-color: var(--im-menu-raised);
+    color: var(--im-menu-text);
+}
+
+:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [data-ui="dropdown-menu"] [role="option"][aria-selected="true"] {
+    background-color: #493024;
+    color: #ffcfaf;
+}
+
+:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [data-ui="dropdown-menu"] [role="option"][aria-selected="true"] svg {
+    color: #ffb88c;
+}
+
+/* A scheduled order is a subtle status panel, not a saturated green block. */
+:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [data-ui="checkout-scheduling"] {
+    background-color: #252a26;
+    border-color: #405245;
+}
+
+:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [data-ui="checkout-scheduling"] :is(.text-green-700, .text-green-800) {
+    color: #b6d9c0;
+}
+
+:is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [data-ui="checkout-scheduling"] :is(.border-green-100, .border-green-200, .border-green-300) {
+    border-color: #405245;
+}

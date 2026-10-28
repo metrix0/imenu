@@ -1354,7 +1354,7 @@ export default function CartModal({
                                 }`}
                             >
                                 <div className={showSchedulePicker ? "overflow-visible" : "overflow-hidden"}>
-                                    <div className="rounded-xl border border-green-200 bg-green-50 p-4">
+                                    <div data-ui="checkout-scheduling" className="rounded-xl border border-green-200 bg-green-50 p-4">
                                         <div className="flex items-start justify-between gap-3">
                                             <div>
                                                 <h2 className="font-semibold text-md 2xl:text-lg">
@@ -1390,6 +1390,7 @@ export default function CartModal({
                                                     Dia
                                                 </div>
                                                 <Dropdown
+                                                    custom
                                                     aria-label="Dia do agendamento"
                                                     value={scheduleDate}
                                                     options={scheduleDateOptions}
