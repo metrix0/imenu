@@ -85,6 +85,8 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         );
         const [error, setError] = useState<string | null>(null);
 
+        const autosaveInitialized = useRef(false);
+
         useEffect(() => {
             if (!restaurantId) return;
 
@@ -202,6 +204,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
 
         useEffect(() => {
             if (isNew || !loaded) return;
+            if (!autosaveInitialized.current) { autosaveInitialized.current = true; return; }
 
             if (mode === "neighborhood" && validRules().length === 0) {
                 setStatus("idle");
@@ -210,7 +213,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
 
             setStatus("saving");
             const timeout = window.setTimeout(() => {
-                void saveNeighborhoodConfig().catch(() => undefined);
+                void saveNeighborhoodConfig().catch(() => { setStatus("idle"); setError("Não foi possível salvar as regras por bairro."); });
             }, 600);
 
             return () => window.clearTimeout(timeout);

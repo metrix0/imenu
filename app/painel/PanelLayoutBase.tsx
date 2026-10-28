@@ -1,5 +1,7 @@
 "use client";
 
+import { PageSaveStatusProvider } from "@/components/ui/SaveStatus";
+
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -861,7 +863,7 @@ export default function PainelLayout({
                     }`}
                 >
                     <div className="w-full min-w-0 md:mx-auto md:max-w-7xl">
-                        {children}
+                        <PageSaveStatusProvider key={pathname}>{children}</PageSaveStatusProvider>
                     </div>
                 </main>
             </div>

@@ -1,8 +1,11 @@
+"use client";
+
+import { createContext, useCallback, useContext, useEffect, useId, useState, type ReactNode } from "react";
 import { Check, CircleAlert, LoaderCircle } from "lucide-react";
 
 export type SaveState = "idle" | "saving" | "saved" | "error";
 
-export default function SaveStatus({ status, className = "" }: { status: SaveState; className?: string }) {
+function SaveStatusBadge({ status, className = "" }: { status: SaveState; className?: string }) {
     if (status === "idle") return null;
     const Icon = status === "saving" ? LoaderCircle : status === "error" ? CircleAlert : Check;
     return (
@@ -12,4 +15,41 @@ export default function SaveStatus({ status, className = "" }: { status: SaveSta
             {status === "saving" ? "Salvando..." : status === "error" ? "Não salvo" : "Tudo salvo"}
         </span>
     );
+}
+
+type Entry = { status: SaveState; changed: boolean };
+export function aggregatePageSaveStatus(entries: Record<string, Entry>): SaveState {
+    const active = Object.values(entries).filter(entry => entry.changed);
+    return !active.length ? "idle"
+        : active.some(entry => entry.status === "error" || entry.status === "idle") ? "error"
+        : active.some(entry => entry.status === "saving") ? "saving" : "saved";
+}
+const PageSaveContext = createContext<((id: string, status: SaveState) => void) | null>(null);
+
+// A page owns one indicator. Sources report independently and keep failures visible.
+export function PageSaveStatusProvider({ children }: { children: ReactNode }) {
+    const [entries, setEntries] = useState<Record<string, Entry>>({});
+    const report = useCallback((id: string, status: SaveState) => {
+        setEntries(previous => {
+            const old = previous[id];
+            const changed = Boolean(old?.changed || status === "saving");
+            if (old?.status === status && old.changed === changed) return previous;
+            return { ...previous, [id]: { status, changed } };
+        });
+    }, []);
+    const status = aggregatePageSaveStatus(entries);
+    return <PageSaveContext.Provider value={report}>
+        {status !== "idle" && <div className="mb-4 flex justify-end px-4 pt-4 sm:px-6" data-ui="page-save-status">
+            <SaveStatusBadge status={status} />
+        </div>}
+        {children}
+    </PageSaveContext.Provider>;
+}
+
+export default function SaveStatus({ status, className = "" }: { status: SaveState; className?: string }) {
+    const report = useContext(PageSaveContext);
+    const id = useId();
+    useEffect(() => { report?.(id, status); }, [report, id, status]);
+    // Retain a source's last result if its editor is collapsed/unmounted.
+    return report ? null : <SaveStatusBadge status={status} className={className} />;
 }

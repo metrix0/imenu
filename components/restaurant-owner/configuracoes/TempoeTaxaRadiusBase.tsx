@@ -65,7 +65,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         const [initialDataLoaded, setInitialDataLoaded] = useState(false);
         const [minOrderRevision, setMinOrderRevision] = useState(0);
         const [status, setStatus] = useState<
-            "idle" | "saving" | "saved"
+            "idle" | "saving" | "saved" | "error"
         >("idle");
 
         const minOrderRef = useRef<HTMLInputElement>(null);
@@ -75,6 +75,8 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         const taxaRefs = useRef<
             Record<number, HTMLInputElement | null>
         >({});
+
+        const autosaveInitialized = useRef(false);
 
         useEffect(() => {
             const handleBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -383,7 +385,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                     "[TEMPO_E_TAXA] Erro ao salvar:",
                     error
                 );
-                setStatus("idle");
+                setStatus("error");
                 throw error;
             }
         };
@@ -416,6 +418,8 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
             ) {
                 return;
             }
+
+            if (!autosaveInitialized.current) { autosaveInitialized.current = true; return; }
 
             setStatus("saving");
 

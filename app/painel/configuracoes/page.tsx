@@ -203,6 +203,7 @@ export default function ConfiguracoesPage() {
     const [user, setUser] = useState<User | null>(null);
     const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
     const [loading, setLoading] = useState(true);
+    const [saveErrors, setSaveErrors] = useState<Record<string, boolean>>({});
     const [savingField, setSavingField] = useState<"phone" | null>(null);
     const [isEditingPhone, setIsEditingPhone] = useState(false);
     const [phone, setPhone] = useState("");
@@ -344,6 +345,7 @@ export default function ConfiguracoesPage() {
         }
 
         setSavingField("phone");
+        setSaveErrors(previous => ({ ...previous, phone: false }));
         const response = await fetch(`/api/restaurants/${restaurant.id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
@@ -352,6 +354,7 @@ export default function ConfiguracoesPage() {
         setSavingField(null);
 
         if (!response.ok) {
+            setSaveErrors(previous => ({ ...previous, phone: true }));
             setToast({ message: "Erro ao salvar celular.", type: "error" });
             return;
         }
@@ -365,6 +368,7 @@ export default function ConfiguracoesPage() {
         if (!restaurant || isSavingWhatsappConfirmation) return;
 
         setIsSavingWhatsappConfirmation(true);
+        setSaveErrors(previous => ({ ...previous, whatsapp: false }));
         const { error } = await supabase
             .from("restaurants")
             .update({ force_whatsapp_order_confirmation: enabled })
@@ -372,6 +376,7 @@ export default function ConfiguracoesPage() {
         setIsSavingWhatsappConfirmation(false);
 
         if (error) {
+            setSaveErrors(previous => ({ ...previous, whatsapp: true }));
             console.error(
                 "Erro ao salvar confirmação obrigatória por WhatsApp:",
                 error,
@@ -404,6 +409,7 @@ export default function ConfiguracoesPage() {
         if (!restaurant || isSavingOrderScheduling || restaurant.preorder_only) return;
 
         setIsSavingOrderScheduling(true);
+        setSaveErrors(previous => ({ ...previous, scheduling: false }));
         const { error } = await supabase
             .from("restaurants")
             .update({ allow_future_order_scheduling: allowFuture })
@@ -411,6 +417,7 @@ export default function ConfiguracoesPage() {
         setIsSavingOrderScheduling(false);
 
         if (error) {
+            setSaveErrors(previous => ({ ...previous, scheduling: true }));
             console.error("Erro ao salvar modo de agendamento:", error);
             setToast({
                 message: "Erro ao salvar a configuração de agendamentos.",
@@ -439,6 +446,7 @@ export default function ConfiguracoesPage() {
     const saveVitrineMode = async (enabled: boolean) => {
         if (!restaurant || isSavingVitrine) return;
         setIsSavingVitrine(true);
+        setSaveErrors(previous => ({ ...previous, vitrine: false }));
         try {
             const { data, error } = await supabase
                 .from("restaurants")
@@ -456,6 +464,7 @@ export default function ConfiguracoesPage() {
                 type: "success",
             });
         } catch (error) {
+            setSaveErrors(previous => ({ ...previous, vitrine: true }));
             console.error("Erro ao salvar modo vitrine:", error);
             setToast({ message: "Erro ao salvar o Modo Vitrine.", type: "error" });
         } finally {
@@ -471,6 +480,7 @@ export default function ConfiguracoesPage() {
         }
 
         setIsSavingDarkMenu(true);
+        setSaveErrors(previous => ({ ...previous, dark: false }));
         try {
             const response = await qrTableAuthenticatedFetch("/api/menu/dark-theme", {
                 method: "PATCH",
@@ -488,6 +498,7 @@ export default function ConfiguracoesPage() {
                 ? { ...current, dark_menu_enabled: result.enabled === true }
                 : current);
         } catch (error) {
+            setSaveErrors(previous => ({ ...previous, dark: true }));
             setToast({
                 message: error instanceof Error ? error.message : "Erro ao salvar o tema escuro.",
                 type: "error",
@@ -807,9 +818,7 @@ export default function ConfiguracoesPage() {
                                                 {phone || "—"}
                                             </p>
                                         )}
-                                        {savingField === "phone" && (
-                                            <SaveStatus status="saving" className="mt-2" />
-                                        )}
+                                        <SaveStatus status={saveErrors.phone ? "error" : savingField === "phone" ? "saving" : "saved"} />
                                     </div>
                                     <Button
                                         variant="secondary"
@@ -915,9 +924,7 @@ export default function ConfiguracoesPage() {
                         />
 
                         {restaurant?.preorder_only && <p className="mt-3 text-sm text-gray-500">Dias futuros está ativado automaticamente pelo modo Encomendas. Para alterar, desative o modo em Horários.</p>}
-                        {isSavingOrderScheduling && (
-                            <SaveStatus status="saving" className="mt-3" />
-                        )}
+                        <SaveStatus status={saveErrors.scheduling ? "error" : isSavingOrderScheduling ? "saving" : "saved"} />
                     </Card>
 
                     <Card className="border border-gray-200 shadow-sm">
@@ -983,9 +990,7 @@ export default function ConfiguracoesPage() {
                             </div>
 
                             <div className="flex shrink-0 items-start gap-3">
-                                {isSavingWhatsappConfirmation && (
-                                    <SaveStatus status="saving" />
-                                )}
+                                <SaveStatus status={saveErrors.whatsapp ? "error" : isSavingWhatsappConfirmation ? "saving" : "saved"} />
                                 <Switch
                                     checked={forceWhatsappOrderConfirmation}
                                     aria-label="Obrigar envio de notificação no WhatsApp"
@@ -1011,7 +1016,7 @@ export default function ConfiguracoesPage() {
                                     </p>
                                 </div>
                                 <div className="flex shrink-0 items-start gap-3">
-                                    {isSavingVitrine && <SaveStatus status="saving" />}
+                                    <SaveStatus status={saveErrors.vitrine ? "error" : isSavingVitrine ? "saving" : "saved"} />
                                     <Switch
                                         checked={restaurant.vitrine_enabled === true}
                                         aria-label="Modo Vitrine"
@@ -1073,7 +1078,7 @@ export default function ConfiguracoesPage() {
                                     </p>
                                 </div>
                                 <div className="flex shrink-0 items-start gap-3">
-                                    {isSavingDarkMenu && <SaveStatus status="saving" />}
+                                    <SaveStatus status={saveErrors.dark ? "error" : isSavingDarkMenu ? "saving" : "saved"} />
                                     <Tooltip
                                         text={!pdfAccess ? "Disponível com iMenu Plus. Assine o plano para ativar o tema escuro." : ""}
                                         parentClassName="!block"
