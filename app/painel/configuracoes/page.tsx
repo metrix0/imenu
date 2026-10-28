@@ -1058,6 +1058,42 @@ export default function ConfiguracoesPage() {
                     {restaurant && (
                         <Card className="border border-gray-200 shadow-sm">
                             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                <div className="min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <h2 className="text-xl font-medium text-gray-900">
+                                            Cardápio com Tema Escuro
+                                        </h2>
+                                        <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${pdfAccess ? "bg-green-50 text-green-700" : "bg-orange-50 text-orange-800"}`}>
+                                            <FontAwesomeIcon icon={pdfAccess ? faCheck : faLock} />
+                                            {pdfAccess ? "Plano ativo" : "Incluso no iMenu Plus"}
+                                        </span>
+                                    </div>
+                                    <p id="dark-menu-description" className="mt-2 text-sm text-gray-500">
+                                        Exiba seu cardápio com cores escuras, inclusive em Mesas e Vitrine.
+                                    </p>
+                                </div>
+                                <div className="flex shrink-0 items-start gap-3">
+                                    {isSavingDarkMenu && <SaveStatus status="saving" />}
+                                    <Tooltip
+                                        text={!pdfAccess ? "Disponível com iMenu Plus. Assine o plano para ativar o tema escuro." : ""}
+                                        parentClassName="!block"
+                                    >
+                                        <Switch
+                                            checked={restaurant.dark_menu_enabled === true && pdfAccess}
+                                            aria-label="Cardápio com Tema Escuro"
+                                            aria-describedby="dark-menu-description"
+                                            disabled={isSavingDarkMenu}
+                                            onClick={() => void saveDarkMenuMode(restaurant.dark_menu_enabled !== true)}
+                                        />
+                                    </Tooltip>
+                                </div>
+                            </div>
+                        </Card>
+                    )}
+
+                    {restaurant && (
+                        <Card className="border border-gray-200 shadow-sm">
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                 <div>
                                     <div className="flex flex-wrap items-center gap-2">
                                         <h2 className="text-xl font-medium text-gray-900">
@@ -1150,41 +1186,6 @@ export default function ConfiguracoesPage() {
                         <ResetOrderCountSection restaurantId={restaurant.id} />
                     )}
 
-                    {restaurant && (
-                        <Card className="border border-gray-200 shadow-sm">
-                            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                                <div className="min-w-0">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <h2 className="text-xl font-medium text-gray-900">
-                                            Cardápio com Tema Escuro
-                                        </h2>
-                                        <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${pdfAccess ? "bg-green-50 text-green-700" : "bg-orange-50 text-orange-800"}`}>
-                                            <FontAwesomeIcon icon={pdfAccess ? faCheck : faLock} />
-                                            {pdfAccess ? "Plano ativo" : "Incluso no iMenu Plus"}
-                                        </span>
-                                    </div>
-                                    <p id="dark-menu-description" className="mt-2 text-sm text-gray-500">
-                                        Exiba seu cardápio com cores escuras, inclusive em Mesas e Vitrine.
-                                    </p>
-                                </div>
-                                <div className="flex shrink-0 items-start gap-3">
-                                    {isSavingDarkMenu && <SaveStatus status="saving" />}
-                                    <Tooltip
-                                        text={!pdfAccess ? "Disponível com iMenu Plus. Assine o plano para ativar o tema escuro." : ""}
-                                        parentClassName="!block"
-                                    >
-                                        <Switch
-                                            checked={restaurant.dark_menu_enabled === true && pdfAccess}
-                                            aria-label="Cardápio com Tema Escuro"
-                                            aria-describedby="dark-menu-description"
-                                            disabled={isSavingDarkMenu}
-                                            onClick={() => void saveDarkMenuMode(restaurant.dark_menu_enabled !== true)}
-                                        />
-                                    </Tooltip>
-                                </div>
-                            </div>
-                        </Card>
-                    )}
 
                     <Card className="border-red-200 bg-red-50/30">
                         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
