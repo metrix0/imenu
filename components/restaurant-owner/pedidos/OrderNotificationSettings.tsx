@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { faCheck, faLock } from "@fortawesome/free-solid-svg-icons";
 import Card from "@/components/ui/Card";
 import Switch from "@/components/ui/Switch";
@@ -11,7 +11,7 @@ import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSale
 import { useAutoSave } from "@/lib/utils/useAutoSave";
 import { supabase } from "@/lib/database/supabaseClient";
 
-export default function OrderNotificationSettings({ restaurantId, plus, initialEnabled }: { restaurantId: string; plus: boolean; initialEnabled: boolean }) {
+export default function OrderNotificationSettings({ restaurantId, plus, initialEnabled, children }: { restaurantId: string; plus: boolean; initialEnabled: boolean; children?: ReactNode }) {
     const [enabled, setEnabled] = useState(initialEnabled);
     const [sales, setSales] = useState(false);
     const save = useAutoSave<boolean>(restaurantId, async (value) => {
@@ -67,6 +67,7 @@ export default function OrderNotificationSettings({ restaurantId, plus, initialE
                     </Tooltip>
                 </div>
             </div>
+            {children && <div className="mt-5 border-t border-gray-200">{children}</div>}
             <IaPlusSalesModal
                 open={sales}
                 onClose={() => setSales(false)}
