@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import Input from "@/components/ui/Input";
 import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
 import { fetchAddressByCEP } from "@/lib/api/geocoding";
@@ -61,16 +61,20 @@ export default function CheckoutCustomerFields({
     name = useCheckoutStore((s) => s.nome),
     setField = useCheckoutStore((s) => s.setField);
   const lookupController = useRef<AbortController | null>(null);
+  const lookupTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastLookedUp = useRef<string | null>(null);
+  const activeLookup = useRef<string | null>(null);
 
-  useEffect(() => () => lookupController.current?.abort(), []);
-
-  const handlePhoneBlur = async () => {
-    lookupController.current?.abort();
+  const lookupCustomer = useCallback(async () => {
     const requestedPhone = normalizeCustomerPhone(useCheckoutStore.getState().celular);
     if (!requestedPhone || !restaurantId) return;
+    const key = `${restaurantId}:${requestedPhone}`;
+    if (lastLookedUp.current === key || activeLookup.current === key) return;
 
+    lookupController.current?.abort();
     const controller = new AbortController();
     lookupController.current = controller;
+    activeLookup.current = key;
     try {
       const response = await fetch("/api/checkout/customer", {
         method: "POST",
@@ -82,9 +86,10 @@ export default function CheckoutCustomerFields({
       const data = await response.json();
       if (
         controller.signal.aborted ||
-        normalizeCustomerPhone(useCheckoutStore.getState().celular) !== requestedPhone ||
-        !data?.customer
+        normalizeCustomerPhone(useCheckoutStore.getState().celular) !== requestedPhone
       ) return;
+      lastLookedUp.current = key;
+      if (!data?.customer) return;
 
       const customer = data.customer as {
         name?: string;
@@ -114,8 +119,25 @@ export default function CheckoutCustomerFields({
       });
     } catch {
       // No saved profile: customers can fill in their details normally.
+    } finally {
+      if (activeLookup.current === key) activeLookup.current = null;
     }
-  };
+  }, [restaurantId, setField]);
+
+  useEffect(() => {
+    lookupController.current?.abort();
+    if (lookupTimer.current) clearTimeout(lookupTimer.current);
+    if (!normalizeCustomerPhone(phone) || !restaurantId) return;
+    lookupTimer.current = setTimeout(() => void lookupCustomer(), 600);
+    return () => {
+      if (lookupTimer.current) clearTimeout(lookupTimer.current);
+    };
+  }, [phone, restaurantId, lookupCustomer]);
+
+  useEffect(() => () => {
+    lookupController.current?.abort();
+    if (lookupTimer.current) clearTimeout(lookupTimer.current);
+  }, []);
 
   return (
     <div className="mb-6 space-y-3">
@@ -126,7 +148,10 @@ export default function CheckoutCustomerFields({
         placeholder="(19) 99999-9999"
         value={phone}
         onChange={(e) => setField("celular", e.target.value)}
-        onBlur={() => void handlePhoneBlur()}
+        onBlur={() => {
+          if (lookupTimer.current) clearTimeout(lookupTimer.current);
+          void lookupCustomer();
+        }}
         className="md:text-sm 2xl:text-lg"
       />
       <Input

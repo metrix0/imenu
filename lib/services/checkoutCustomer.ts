@@ -4,7 +4,6 @@ import { normalizeCustomerPhone } from "./crmRules";
 
 export const checkoutCookie = (id: string) => `imenu_cart_${id}`;
 export const customerCookie = (id: string) => `imenu_customer_${id}`;
-export const otpCookie = (id: string) => `imenu_otp_${id}`;
 export function readCookie(request: Request, name: string): string {
   return (
     request.headers
