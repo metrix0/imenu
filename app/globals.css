@@ -310,6 +310,8 @@ html, body {
     --im-menu-success-border: #405746;
     --im-menu-success-text: #b6d9c0;
     --im-menu-success-fill: #276b43;
+    --im-menu-toast-success: #276b43;
+    --im-menu-shimmer: rgb(255 255 255 / 12%);
     --im-menu-info-bg: #27323b;
     --im-menu-info-text: #afd0e6;
     --im-menu-error-bg: #3a2228;
@@ -324,6 +326,7 @@ html, body {
 
 /* Preserve keyboard focus without the light-mode ring offset. */
 :is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [data-ui="button"]:focus-visible {
+    box-shadow: none;
     outline: 2px solid var(--im-menu-link);
     outline-offset: 2px;
 }

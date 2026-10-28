@@ -2,7 +2,7 @@ import ListLoader from "@/components/ui/ListLoader";
 
 export default function MenuSkeleton() {
     return (
-        <div className="min-h-screen bg-[var(--im-menu-surface,#fff)] text-[var(--im-menu-text,#111827)] pb-10 animate-pulse">
+        <div className="min-h-screen bg-[var(--im-menu-bg,#fff)] text-[var(--im-menu-text,#111827)] pb-10 animate-pulse">
 
             {/* ============================
                 BANNER

@@ -179,12 +179,12 @@ const LegacyDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functi
                                         aria-selected={selected}
                                         style={{
                                             color: selected && !placeholder
-                                                ? "var(--im-menu-text, #c43700)"
+                                                ? "var(--im-menu-link, #c43700)"
                                                 : placeholder
                                                     ? "var(--im-menu-muted, #818994)"
                                                     : "var(--im-menu-text, #1d1d1d)",
                                             ...(selected && !placeholder
-                                                ? { backgroundColor: "var(--im-menu-raised, #fff1ea)" }
+                                                ? { backgroundColor: "var(--im-menu-accent-soft, #fff1ea)" }
                                                 : {}),
                                         }}
                                         onKeyDown={custom ? (event) => {
@@ -210,7 +210,7 @@ const LegacyDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functi
                                         {selected && !placeholder && (
                                             <FontAwesomeIcon
                                                 icon={faCheck}
-                                                style={{ color: "var(--im-menu-text, #c43700)" }}
+                                                style={{ color: "var(--im-menu-link, #c43700)" }}
                                                 className="shrink-0 text-xs text-[var(--im-menu-link,#c43700)]"
                                             />
                                         )}

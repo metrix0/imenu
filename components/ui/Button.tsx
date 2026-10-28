@@ -29,7 +29,7 @@ export default function Button({
 
     if (usesStorefrontMainStyles) {
         const base =
-            "cursor-pointer duration-200 inline-flex items-center justify-center rounded-md font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 px-4 py-2 2xl:px-6 2xl:py-3 2xl:rounded-lg";
+            "cursor-pointer duration-200 inline-flex items-center justify-center rounded-md font-medium transition-all focus:outline-none focus:ring-0 focus:ring-offset-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--im-menu-link,#f14400)] px-4 py-2 2xl:px-6 2xl:py-3 2xl:rounded-lg";
         const variants: Record<NonNullable<ButtonProps["variant"]>, string> = {
             primary: hasContextualPrimaryBackground
                 ? "text-white focus:ring-0 focus:ring-offset-0"
