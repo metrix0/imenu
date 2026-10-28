@@ -60,7 +60,6 @@ export default function CheckoutCustomerFields({
 }) {
   const phone = useCheckoutStore((s) => s.celular),
     name = useCheckoutStore((s) => s.nome),
-    consent = useCheckoutStore((s) => s.marketingConsent),
     setField = useCheckoutStore((s) => s.setField);
   const [needsVerification, setNeedsVerification] = useState(false),
     [codeSent, setCodeSent] = useState(false),
@@ -228,18 +227,6 @@ export default function CheckoutCustomerFields({
         value={name}
         onChange={(e) => setField("nome", e.target.value)}
       />
-      <label className="flex cursor-pointer items-start gap-2 text-sm text-gray-600">
-        <input
-          type="checkbox"
-          className="mt-1 accent-[#f14400]"
-          checked={consent}
-          onChange={(e) => setField("marketingConsent", e.target.checked)}
-        />
-        <span>
-          Quero receber ofertas e lembretes deste restaurante pelo WhatsApp.
-          Posso cancelar quando quiser.
-        </span>
-      </label>
     </div>
   );
 }
