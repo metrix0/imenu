@@ -67,7 +67,7 @@ export default function OrderNotificationSettings({ restaurantId, plus, initialE
                     </Tooltip>
                 </div>
             </div>
-            {children && <div className="mt-5 border-t border-gray-200">{children}</div>}
+            {children && plus && enabled && <div className="mt-5">{children}</div>}
             <IaPlusSalesModal
                 open={sales}
                 onClose={() => setSales(false)}

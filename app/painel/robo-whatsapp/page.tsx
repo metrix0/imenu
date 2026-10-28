@@ -240,7 +240,6 @@ export default function RoboWhatsAppPage() {
     const [templates, setTemplates] = useState<WhatsAppMessageTemplates | null>(null);
     const [variables, setVariables] = useState<TemplateVariable[]>([]);
     const [handoffs, setHandoffs] = useState<HandoffConversation[]>([]);
-    const [messagesOpen, setMessagesOpen] = useState(false);
     const [openTemplate, setOpenTemplate] = useState<WhatsAppTemplateKey | null>(null);
     const [openVariables, setOpenVariables] = useState<WhatsAppTemplateKey | null>(null);
     const [showToast, setShowToast] = useState(false);
@@ -486,10 +485,10 @@ export default function RoboWhatsAppPage() {
 
     const renderTemplate = (field: TemplateField) => {
         if (!templates) return null;
-        const isOpen = openTemplate === field.key;
+        const isOpen = field.key === "status_notification" || openTemplate === field.key;
         return (
             <div key={field.key}>
-                <button
+                {field.key !== "status_notification" && <button
                     type="button"
                     onClick={() => {
                         setOpenTemplate(isOpen ? null : field.key);
@@ -513,7 +512,7 @@ export default function RoboWhatsAppPage() {
                         icon={faChevronDown}
                         className={`text-gray-400 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`}
                     />
-                </button>
+                </button>}
 
                 <div
                     className={`grid transition-[grid-template-rows,opacity,transform] duration-300 ease-out ${
@@ -526,7 +525,7 @@ export default function RoboWhatsAppPage() {
                     inert={!isOpen}
                 >
                     <div className="min-h-0 overflow-hidden">
-                        <div className="border-t border-gray-100 px-4 pb-5 pt-4">
+                        <div className={field.key === "status_notification" ? "pt-4" : "border-t border-gray-100 px-4 pb-5 pt-4"}>
                             {field.key === "status_notification" && <SaveStatus status={saveStatus} className="mb-3" />}
                             <TemplateEditor
                                 ref={(editor) => {
@@ -653,16 +652,12 @@ export default function RoboWhatsAppPage() {
                     </div>
                     <div id="atendimentos-humanos" aria-label="Conversas encaminhadas para atendimento humano" className="mt-6">
                         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                            <h2 className="text-lg font-semibold text-gray-900">Atendimento humano</h2>
                             {pendingHandoffs > 0 && (
                                 <Badge variant="warning">
                                     {pendingHandoffs} aguardando
                                 </Badge>
                             )}
                         </div>
-                        <p className="mb-3 text-sm text-gray-600">
-                            Ao responder manualmente, o robô pausa por 30 minutos; cada nova mensagem sua reinicia esse prazo.
-                        </p>
                         <DataTable
                             rows={handoffs}
                             emptyMessage="As conversas encaminhadas para atendimento humano ficam aqui. Você também receberá uma notificação!"
@@ -816,28 +811,11 @@ export default function RoboWhatsAppPage() {
                 {templates && (
                     <Card className="!p-0">
                         <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-7">
-                            <h2 className="min-w-0 flex-1">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setMessagesOpen(!messagesOpen);
-                                        setOpenVariables(null);
-                                    }}
-                                    className="flex w-full cursor-pointer items-center justify-between gap-4 text-left text-lg font-semibold text-gray-900"
-                                    aria-expanded={messagesOpen}
-                                    aria-controls="message-templates"
-                                >
-                                    Personalizar mensagens
-                                    <FontAwesomeIcon
-                                        icon={faChevronDown}
-                                        className={`text-sm text-gray-400 transition-transform duration-300 ${messagesOpen ? "rotate-180" : ""}`}
-                                    />
-                                </button>
-                            </h2>
+                            <h2 className="text-lg font-semibold text-gray-900">Personalizar mensagens</h2>
                             <SaveStatus status={saveStatus} />
                         </div>
                         {saveError ? <p role="alert" className="px-5 pb-4 text-sm text-red-600 sm:px-7">{saveError}</p> : null}
-                        <div id="message-templates" hidden={!messagesOpen} className="divide-y divide-gray-200 border-t border-gray-200 px-1 sm:px-3">
+                        <div id="message-templates" className="divide-y divide-gray-200 border-t border-gray-200 px-1 sm:px-3">
                             {TEMPLATE_FIELDS.filter((field) => field.key !== "status_notification").map(renderTemplate)}
                         </div>
                     </Card>
