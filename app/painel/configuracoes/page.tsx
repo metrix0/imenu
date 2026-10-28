@@ -20,6 +20,7 @@ import {
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import Button from "@/components/ui/Button";
+import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Switch from "@/components/ui/Switch";
@@ -961,7 +962,7 @@ export default function ConfiguracoesPage() {
                                     <h2 className="text-xl font-medium text-gray-900">
                                         Forçar envio de Notificação no WhatsApp
                                     </h2>
-                                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide !text-amber-700 ring-1 ring-inset ring-amber-600/25">
+                                    <Badge variant="notRecommended" uppercase className="gap-1">
                                         Não recomendado
                                     <Tooltip
                                         text="Isso adiciona uma etapa extra à finalização e pode criar atrito no pedido. O pedido é criado antes do WhatsApp: o cliente pode simplesmente não enviar a mensagem e o pedido continuará válido."
@@ -975,7 +976,7 @@ export default function ConfiguracoesPage() {
                                             className="cursor-help text-[11px] leading-none text-amber-700"
                                         />
                                     </Tooltip>
-                                    </span>
+                                    </Badge>
                                 </div>
                                 <p className="mt-2 text-sm text-gray-500">
                                     Após confirmar o pedido, o cliente será direcionado ao

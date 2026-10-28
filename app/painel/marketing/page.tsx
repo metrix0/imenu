@@ -344,7 +344,7 @@ export default function MarketingPage() {
           <Card className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-lg font-semibold text-gray-900">Limite diário de mensagens</h2>
-              <Badge variant="warning">Não recomendado</Badge>
+              <Badge variant="notRecommended" uppercase>Não recomendado</Badge>
             </div>
             <p className="max-w-3xl text-sm leading-relaxed text-gray-600">
               As três automações compartilham este limite diário por restaurante.
