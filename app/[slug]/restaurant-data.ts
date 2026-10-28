@@ -11,7 +11,7 @@ export const getPublicMenuRestaurant = cache(async (slug: string) => {
     const { data, error } = await supabase
         .from("restaurants")
         .select(
-            "id, name, is_closed, logo_url, rating, min_order_cents, description, banner_url, availability_json,delivery_fee_json, delivery_fee_mode, delivery_neighborhood_fee_json, latitude, longitude, allowed_payment_methods, address, store_whatsapp, pickup_enabled, delivery_disabled, force_whatsapp_order_confirmation, allow_future_order_scheduling, preorder_only, preorder_availability_json, preorder_min_days, automatic_promotions, pizza_settings, first_time, vitrine_enabled"
+            "id, name, is_closed, logo_url, rating, min_order_cents, description, banner_url, availability_json,delivery_fee_json, delivery_fee_mode, delivery_neighborhood_fee_json, latitude, longitude, allowed_payment_methods, address, store_whatsapp, pickup_enabled, delivery_disabled, force_whatsapp_order_confirmation, allow_future_order_scheduling, preorder_only, preorder_availability_json, preorder_min_days, automatic_promotions, pizza_settings, first_time, vitrine_enabled, dark_menu_enabled"
         )
         .eq("url_slug", slug)
         .maybeSingle();

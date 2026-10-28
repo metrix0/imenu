@@ -285,3 +285,112 @@ html, body {
     }
 }
 
+
+
+/* Public menu dark theme, including desktop modals rendered as body portals. */
+body:has([data-imenu-menu-theme="dark"]) {
+    --im-menu-bg: #101319;
+    --im-menu-surface: #1c222b;
+    --im-menu-soft: #262d38;
+    --im-menu-raised: #313947;
+    --im-menu-border: #394454;
+    --im-menu-text: #f3f5f8;
+    --im-menu-muted: #b6c0cd;
+    color-scheme: dark;
+    background-color: var(--im-menu-bg);
+    color: var(--im-menu-text);
+}
+
+body:has([data-imenu-menu-theme="dark"]) .imenu-menu-canvas {
+    background-color: var(--im-menu-bg);
+}
+
+body:has([data-imenu-menu-theme="dark"]) .bg-white {
+    background-color: var(--im-menu-surface);
+}
+
+body:has([data-imenu-menu-theme="dark"]) :is(.bg-gray-50, .bg-gray-100) {
+    background-color: var(--im-menu-soft);
+}
+
+body:has([data-imenu-menu-theme="dark"]) :is(.bg-gray-200, .bg-gray-300) {
+    background-color: var(--im-menu-raised);
+}
+
+body:has([data-imenu-menu-theme="dark"]) [class~="bg-white/90"] {
+    background-color: rgb(28 34 43 / 90%);
+}
+
+body:has([data-imenu-menu-theme="dark"]) :is(.text-black, .text-text, .text-gray-900, .text-gray-950) {
+    color: var(--im-menu-text);
+}
+
+body:has([data-imenu-menu-theme="dark"]) :is(.text-gray-700, .text-gray-800) {
+    color: #d5dce5;
+}
+
+body:has([data-imenu-menu-theme="dark"]) :is(.text-gray-500, .text-gray-600) {
+    color: var(--im-menu-muted);
+}
+
+body:has([data-imenu-menu-theme="dark"]) :is(.text-gray-200, .text-gray-400) {
+    color: #9aa6b5;
+}
+
+body:has([data-imenu-menu-theme="dark"]) :is(.border-gray-100, .border-gray-200, .border-gray-300) {
+    border-color: var(--im-menu-border);
+}
+
+body:has([data-imenu-menu-theme="dark"]) :is(.divide-gray-100, .divide-gray-200) > :not(:last-child) {
+    border-color: var(--im-menu-border);
+}
+
+body:has([data-imenu-menu-theme="dark"]) :is(input:not([type="checkbox"]):not([type="radio"]), textarea, select) {
+    background-color: var(--im-menu-soft);
+    border-color: var(--im-menu-border);
+    color: var(--im-menu-text);
+}
+
+body:has([data-imenu-menu-theme="dark"]) :is(input, textarea)::placeholder {
+    color: #9aa6b5;
+}
+
+body:has([data-imenu-menu-theme="dark"]) .bg-green-50 {
+    background-color: #17372b;
+}
+
+body:has([data-imenu-menu-theme="dark"]) :is(.text-green, .text-green-600, .text-green-700, .text-green-800) {
+    color: #82e0ad;
+}
+
+body:has([data-imenu-menu-theme="dark"]) :is(.border-green-100, .border-green-200, .border-green-300, .border-green-400) {
+    border-color: #33694e;
+}
+
+body:has([data-imenu-menu-theme="dark"]) .bg-blue-100 {
+    background-color: #1a334b;
+}
+
+body:has([data-imenu-menu-theme="dark"]) .text-blue-600 {
+    color: #8ac9ff;
+}
+
+body:has([data-imenu-menu-theme="dark"]) .bg-red-50 {
+    background-color: #3a2228;
+}
+
+body:has([data-imenu-menu-theme="dark"]) :is(.text-red-700, .text-red-600) {
+    color: #ffaaa8;
+}
+
+body:has([data-imenu-menu-theme="dark"]) .hover\:bg-gray-50:hover {
+    background-color: var(--im-menu-raised);
+}
+
+body:has([data-imenu-menu-theme="dark"]) .hover\:text-gray-950:hover {
+    color: var(--im-menu-text);
+}
+
+body:has([data-imenu-menu-theme="dark"]) footer img[alt="iMenu"] {
+    opacity: 0.65;
+}

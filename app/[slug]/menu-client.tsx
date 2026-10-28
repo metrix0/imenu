@@ -850,7 +850,7 @@ export default function MenuClientPage({
 
     return (
 
-        <div className="min-h-screen bg-white text-gray-900 pb-10">
+        <div className="imenu-menu-canvas min-h-screen bg-white text-gray-900 pb-10">
             <div className="relative w-full h-[21vh] overflow-hidden">
                 {restaurant.banner_url && (
                     <>

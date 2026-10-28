@@ -17,6 +17,7 @@ import PickupAvailabilityGuard from "./PickupAvailabilityGuard";
 
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 import { getPublicMenuRestaurant } from "./restaurant-data";
+import { hasIMenuPlusAccess } from "@/lib/addons/access";
 import type {
   QrTableMenuContext,
 } from "@/lib/qr-table/types";
@@ -119,6 +120,15 @@ export default async function Page({
 
   const readOnly = p.origem === "vitrine";
   if (readOnly && restaurantData.vitrine_enabled !== true) return notFound();
+
+  let darkMenuActive = false;
+  if (restaurantData.dark_menu_enabled === true) {
+    try {
+      darkMenuActive = await hasIMenuPlusAccess(restaurantData.id);
+    } catch (error) {
+      console.error("[MENU_DARK_THEME] Unable to check Plus access:", error);
+    }
+  }
   let tableOrder: QrTableMenuContext | null = null;
   if (p.origem === "mesa") {
     const [{ data: settings }, { data: legacyTokens }] = await Promise.all([
@@ -380,7 +390,7 @@ export default async function Page({
   );
 
   return (
-    <>
+    <div data-imenu-menu-theme={darkMenuActive ? "dark" : undefined}>
       {tracking && (
         <TrackingScripts
           ga4Id={tracking?.ga4_id}
@@ -458,7 +468,7 @@ export default async function Page({
             <span className="inline-flex items-center gap-2">
               <span>Criado com</span>
               <img
-                src="/logos/CombinationMarkLogo_Black.png"
+                src={darkMenuActive ? "/logos/CombinationMarkLogo_White.png" : "/logos/CombinationMarkLogo_Black.png"}
                 alt="iMenu"
                 className="h-5 w-auto opacity-35"
               />
@@ -467,6 +477,6 @@ export default async function Page({
           </a>
         </div>
       </footer>
-    </>
+    </div>
   );
 }
