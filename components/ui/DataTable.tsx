@@ -31,7 +31,7 @@ export default function DataTable<T>({ columns, rows, rowKey, onRowClick, loadin
             <tbody>{loading ? <tr><td colSpan={columns.length} className="border-b border-[#e2e5e9] px-4 py-3.5"><ListLoader lines={6} /></td></tr> : rows.length === 0
                 ? <tr>
                     <td colSpan={columns.length} className="px-4 py-0 text-center">
-                        <div className="flex min-h-[224px] flex-col items-center justify-center gap-4 px-4 py-10 sm:min-h-[240px]">
+                        <div className="flex min-h-[184px] flex-col items-center justify-center gap-4 px-4 py-8 sm:min-h-[200px]">
                             <div className="flex h-14 w-14 items-center justify-center rounded-[12px] border border-[#e2e5e9] bg-[#f7f8fa]">
                                 <Inbox size={26} strokeWidth={1.5} className="text-[#818994]" aria-hidden="true" />
                             </div>
