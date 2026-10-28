@@ -13,7 +13,6 @@ import OrderDetailsModal from "@/components/restaurant-owner/pedidos/OrderDetail
 import CreatePanelOrderModal from "@/components/restaurant-owner/CreatePanelOrderModal";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Toast from "@/components/ui/Toast";
-import Card from "@/components/ui/Card";
 import DateRangePicker from "@/components/ui/DateRangePicker";
 import CashRegister, { type CashOrder } from "@/components/restaurant-owner/pedidos/CashRegister";
 
@@ -21,8 +20,6 @@ import CashRegister, { type CashOrder } from "@/components/restaurant-owner/pedi
 
 const CASH_PAGE_SIZE = 1000;
 const CASH_PAID_STATUSES = ["done", "paid", "preparing", "delivering"];
-const formatCashTotal = (cents: number) =>
-    (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 const cashDateToday = () => {
     const parts = new Intl.DateTimeFormat("en-US", {
@@ -122,11 +119,17 @@ function DailyCashClosing({ restaurantId, refreshKey }: {
 
     return (
         <section aria-labelledby="cash-closing-heading" className="space-y-4">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-                <div>
-                    <h2 id="cash-closing-heading" className="text-xl font-semibold text-gray-900">Fechamento de Caixa</h2>
-                    <p className="mt-1 text-sm text-gray-500">Resumo de {formatCashDate(date)}</p>
-                </div>
+            {restaurantId && (
+                <CashRegister
+                    restaurantId={restaurantId}
+                    date={date}
+                    dateLabel={formatCashDate(date)}
+                    orders={orders}
+                    refreshKey={refreshKey}
+                    report={report}
+                    reportLoading={loading}
+                    reportError={error}
+                    dateControls={
                 <div className="inline-flex items-center gap-1 rounded-lg border border-[#e2e5e9] bg-white p-1">
                     {([{ value: 0, label: "Hoje" }, { value: 1, label: "Ontem" }] as const).map(day => (
                         <button
@@ -151,63 +154,8 @@ function DailyCashClosing({ restaurantId, refreshKey }: {
                         active={selectedDate !== null}
                     />
                 </div>
-            </div>
-
-            {error ? (
-                <p className="text-sm text-red-600">{error}</p>
-            ) : loading ? (
-                <p className="py-4 text-sm text-gray-500" role="status">Calculando fechamento de caixa...</p>
-            ) : (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    <Card className="min-w-0">
-                        <p className="text-sm font-medium text-gray-500">Total de vendas</p>
-                        <p className="mt-3 break-words text-2xl font-semibold tracking-tight tabular-nums text-gray-900 2xl:text-3xl">
-                            {formatCashTotal(report.total)}
-                        </p>
-                        <p className="mt-3 text-xs text-gray-500">{report.confirmed} pedidos pagos ou concluídos</p>
-                    </Card>
-
-                    <Card className="min-w-0">
-                        <p className="text-sm font-medium text-gray-500">Pedidos para entrega/retirada</p>
-                        <p className="mt-3 text-2xl font-semibold tracking-tight tabular-nums text-gray-900 2xl:text-3xl">
-                            {report.delivery + report.pickup}
-                        </p>
-                        <p className="mt-3 text-xs text-gray-500">{report.delivery} entregas · {report.pickup} retiradas</p>
-                    </Card>
-
-                    <Card className="min-w-0">
-                        <p className="text-sm font-medium text-gray-500">Pedidos no salão</p>
-                        <p className="mt-3 text-2xl font-semibold tracking-tight tabular-nums text-gray-900 2xl:text-3xl">
-                            {report.salon}
-                        </p>
-                        <p className="mt-3 text-xs text-gray-500">Pedidos de mesa concluídos</p>
-                    </Card>
-
-                    <Card className="min-w-0">
-                        <p className="text-sm font-medium text-gray-500">Vendas por pagamento</p>
-                        <div className="mt-3 space-y-1.5 text-xs">
-                            {([
-                                { label: "Pix", value: report.pix },
-                                { label: "Cartão", value: report.card },
-                                { label: "Dinheiro", value: report.cash },
-                            ] as const).map(item => (
-                                <div key={item.label} className="flex items-baseline justify-between gap-2">
-                                    <span className="text-gray-500">{item.label}</span>
-                                    <span className="font-semibold tabular-nums text-gray-900">{formatCashTotal(item.value)}</span>
-                                </div>
-                            ))}
-                            {report.unspecified > 0 && (
-                                <div className="flex items-baseline justify-between gap-2 border-t border-gray-100 pt-1.5">
-                                    <span className="text-gray-500">Não informado</span>
-                                    <span className="font-semibold tabular-nums text-gray-900">{formatCashTotal(report.unspecified)}</span>
-                                </div>
-                            )}
-                        </div>
-                    </Card>
-                </div>
-            )}
-            {!error && !loading && restaurantId && (
-                <CashRegister restaurantId={restaurantId} date={date} orders={orders} refreshKey={refreshKey} />
+                    }
+                />
             )}
         </section>
     );

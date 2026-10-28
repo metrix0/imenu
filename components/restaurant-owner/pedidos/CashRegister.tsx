@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { ArrowLeftRight } from "lucide-react";
 import { supabase } from "@/lib/database/supabaseClient";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import ChoiceCardGroup from "@/components/ui/ChoiceCardGroup";
 import DataTable from "@/components/ui/DataTable";
 import Input from "@/components/ui/Input";
 import Loader from "@/components/ui/Loader";
@@ -21,7 +23,8 @@ export type CashOrder = {
     is_delivery: string | null;
 };
 
-type CashWithdrawal = { id: string; amount_cents: number; created_at: string };
+type CashEntry = { id: string; amount_cents: number; created_at: string; movement_type: "entry" | "withdrawal" };
+type CashReport = { total: number; pix: number; card: number; cash: number; unspecified: number; confirmed: number; delivery: number; pickup: number; salon: number };
 type CashMovement = { id: string; label: string; created_at: string; amount_cents: number; withdrawal: boolean };
 const PAGE_SIZE = 15;
 const formatMoney = (cents: number) =>
@@ -33,24 +36,30 @@ const formatAmountInput = (value: string) => {
 const formatTime = (value: string) =>
     new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }).format(new Date(value));
 
-export default function CashRegister({ restaurantId, date, orders, refreshKey }: {
+export default function CashRegister({ restaurantId, date, dateLabel, dateControls, orders, refreshKey, report, reportLoading, reportError }: {
     restaurantId: string;
     date: string;
+    dateLabel: string;
+    dateControls: ReactNode;
     orders: CashOrder[];
     refreshKey: number;
+    report: CashReport;
+    reportLoading: boolean;
+    reportError: string;
 }) {
     const [balance, setBalance] = useState<number | null>(null);
     const [balanceError, setBalanceError] = useState("");
-    const [withdrawals, setWithdrawals] = useState<CashWithdrawal[]>([]);
+    const [entries, setEntries] = useState<CashEntry[]>([]);
     const [movementsLoading, setMovementsLoading] = useState(true);
     const [movementsError, setMovementsError] = useState("");
     const [reload, setReload] = useState(0);
     const [page, setPage] = useState(0);
-    const [withdrawOpen, setWithdrawOpen] = useState(false);
+    const [movementOpen, setMovementOpen] = useState(false);
+    const [movementType, setMovementType] = useState<"entry" | "withdrawal">("withdrawal");
     const [amount, setAmount] = useState("");
     const [submitError, setSubmitError] = useState("");
     const [saving, setSaving] = useState(false);
-    const [toast, setToast] = useState(false);
+    const [toast, setToast] = useState<string | null>(null);
 
     useEffect(() => {
         let canceled = false;
@@ -77,14 +86,14 @@ export default function CashRegister({ restaurantId, date, orders, refreshKey }:
             const [year, month, day] = date.split("-").map(Number);
             const nextDate = new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
             const { data, error } = await supabase.from("cash_withdrawals")
-                .select("id, amount_cents, created_at")
+                .select("id, amount_cents, created_at, movement_type")
                 .eq("restaurant_id", restaurantId)
                 .gte("created_at", date + "T00:00:00-03:00")
                 .lt("created_at", nextDate + "T00:00:00-03:00")
                 .order("created_at", { ascending: false });
             if (canceled) return;
             if (error) setMovementsError("Não foi possível carregar as movimentações.");
-            else setWithdrawals((data || []) as CashWithdrawal[]);
+            else setEntries((data || []) as CashEntry[]);
             setMovementsLoading(false);
         })();
         return () => { canceled = true; };
@@ -99,36 +108,36 @@ export default function CashRegister({ restaurantId, date, orders, refreshKey }:
                 amount_cents: Number(order.total_cents || 0),
                 withdrawal: false,
             })),
-        ...withdrawals.map(item => ({
-            id: "withdrawal-" + item.id,
-            label: "Retirada",
+        ...entries.map(item => ({
+            id: "movement-" + item.id,
+            label: item.movement_type === "entry" ? "Entrada" : "Retirada",
             created_at: item.created_at,
             amount_cents: item.amount_cents,
-            withdrawal: true,
+            withdrawal: item.movement_type === "withdrawal",
         })),
-    ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [orders, withdrawals]);
+    ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [orders, entries]);
 
-    const withdraw = async (event: FormEvent<HTMLFormElement>) => {
+    const registerMovement = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         if (saving || balance === null) return;
         const cents = Number(amount.replace(/\D/g, ""));
-        if (!Number.isSafeInteger(cents) || cents <= 0 || cents > balance) {
-            setSubmitError("Informe um valor maior que zero e até o saldo disponível.");
+        if (!Number.isSafeInteger(cents) || cents <= 0 || (movementType === "withdrawal" && cents > balance)) {
+            setSubmitError(movementType === "withdrawal" ? "Informe um valor maior que zero e até o saldo disponível." : "Informe um valor maior que zero.");
             return;
         }
         setSaving(true);
         setSubmitError("");
         try {
             const { error } = await supabase.from("cash_withdrawals")
-                .insert({ restaurant_id: restaurantId, amount_cents: cents });
+                .insert({ restaurant_id: restaurantId, amount_cents: cents, movement_type: movementType });
             if (error) throw error;
-            setWithdrawOpen(false);
+            setMovementOpen(false);
             setAmount("");
-            setToast(true);
+            setToast(movementType === "entry" ? "Entrada registrada." : "Retirada registrada.");
             setReload(value => value + 1);
         } catch (error) {
-            console.error("Erro ao registrar retirada:", error);
-            setSubmitError("Não foi possível registrar a retirada.");
+            console.error("Erro ao registrar movimentação:", error);
+            setSubmitError("Não foi possível registrar a movimentação.");
         } finally {
             setSaving(false);
         }
@@ -137,24 +146,72 @@ export default function CashRegister({ restaurantId, date, orders, refreshKey }:
     return (
         <div className="space-y-4">
             <div className="flex flex-wrap items-end justify-between gap-3">
-                <Card className="w-full sm:w-auto sm:min-w-[260px]">
-                    <p className="text-sm font-medium text-gray-500">Caixa atual</p>
-                    {balanceError ? (
-                        <p className="mt-3 text-sm text-red-600">{balanceError}</p>
-                    ) : balance === null ? (
-                        <div className="mt-3"><Loader /></div>
-                    ) : (
-                        <p className="mt-3 text-2xl font-semibold tracking-tight tabular-nums text-gray-900">{formatMoney(balance)}</p>
-                    )}
-                    <p className="mt-2 text-xs text-gray-500">Dinheiro recebido menos retiradas registradas</p>
-                </Card>
-                <Button type="button" disabled={balance === null || balance <= 0}
-                    onClick={() => { setAmount(""); setSubmitError(""); setWithdrawOpen(true); }}>
-                    Retirar dinheiro do caixa
-                </Button>
+                <div>
+                    <h2 id="cash-closing-heading" className="text-xl font-semibold text-gray-900">Fechamento de Caixa</h2>
+                    <p className="mt-1 text-sm text-gray-500">Resumo de {dateLabel}</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                    <Button type="button" variant="secondary" disabled={balance === null}
+                        onClick={() => { setAmount(""); setSubmitError(""); setMovementType("withdrawal"); setMovementOpen(true); }}
+                        className="gap-2">
+                        <ArrowLeftRight size={16} aria-hidden="true" />
+                        Registrar movimentação de caixa
+                    </Button>
+                    {dateControls}
+                </div>
             </div>
-            <div>
-                <h3 className="mb-3 text-base font-semibold text-gray-900">Movimentações em dinheiro</h3>
+            {reportError ? (
+                <p className="text-sm text-red-600">{reportError}</p>
+            ) : reportLoading ? (
+                <p className="py-4 text-sm text-gray-500" role="status">Calculando fechamento de caixa...</p>
+            ) : (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <Card className="min-w-0">
+                        <p className="text-sm font-medium text-gray-500">Caixa atual</p>
+                        {balanceError ? (
+                            <p className="mt-3 text-sm text-red-600">{balanceError}</p>
+                        ) : balance === null ? (
+                            <div className="mt-3"><Loader /></div>
+                        ) : (
+                            <p className="mt-3 break-words text-2xl font-semibold tracking-tight tabular-nums text-gray-900 2xl:text-3xl">{formatMoney(balance)}</p>
+                        )}
+                        <p className="mt-3 text-xs text-gray-500">Dinheiro recebido e entradas, menos retiradas</p>
+                    </Card>
+                    <Card className="min-w-0">
+                        <p className="text-sm font-medium text-gray-500">Total de vendas</p>
+                        <p className="mt-3 break-words text-2xl font-semibold tracking-tight tabular-nums text-gray-900 2xl:text-3xl">{formatMoney(report.total)}</p>
+                        <p className="mt-3 text-xs text-gray-500">{report.confirmed} pedidos pagos ou concluídos</p>
+                    </Card>
+                    <Card className="min-w-0">
+                        <p className="text-sm font-medium text-gray-500">Pedidos</p>
+                        <p className="mt-3 text-2xl font-semibold tracking-tight tabular-nums text-gray-900 2xl:text-3xl">{report.confirmed}</p>
+                        <p className="mt-3 text-xs text-gray-500">{report.delivery} entregas · {report.pickup} retiradas · {report.salon} no salão</p>
+                    </Card>
+                    <Card className="min-w-0">
+                        <p className="text-sm font-medium text-gray-500">Vendas por pagamento</p>
+                        <div className="mt-3 space-y-1.5 text-xs">
+                            {([
+                                { label: "Pix", value: report.pix },
+                                { label: "Cartão", value: report.card },
+                                { label: "Dinheiro", value: report.cash },
+                            ] as const).map(item => (
+                                <div key={item.label} className="flex items-baseline justify-between gap-2">
+                                    <span className="text-gray-500">{item.label}</span>
+                                    <span className="font-semibold tabular-nums text-gray-900">{formatMoney(item.value)}</span>
+                                </div>
+                            ))}
+                            {report.unspecified > 0 && (
+                                <div className="flex items-baseline justify-between gap-2 border-t border-gray-100 pt-1.5">
+                                    <span className="text-gray-500">Não informado</span>
+                                    <span className="font-semibold tabular-nums text-gray-900">{formatMoney(report.unspecified)}</span>
+                                </div>
+                            )}
+                        </div>
+                    </Card>
+                </div>
+            )}
+            {!reportError && !reportLoading && (
+                <div>
                 {movementsError ? (
                     <p className="text-sm text-red-600">{movementsError}</p>
                 ) : (
@@ -180,24 +237,34 @@ export default function CashRegister({ restaurantId, date, orders, refreshKey }:
                             onChange={setPage} />
                     </div>
                 )}
-            </div>
-            <Modal open={withdrawOpen} onClose={() => { if (!saving) setWithdrawOpen(false); }}
-                height={320} className="max-w-md">
-                <form className="space-y-5 p-5 sm:p-6" onSubmit={event => void withdraw(event)}>
+                </div>
+            )}
+            <Modal open={movementOpen} onClose={() => { if (!saving) setMovementOpen(false); }}
+                height={395} className="max-w-md">
+                <form className="space-y-4 p-5 sm:p-6" onSubmit={event => void registerMovement(event)}>
                     <div>
-                        <h3 className="text-lg font-semibold text-gray-900">Retirar dinheiro</h3>
-                        <p className="mt-1 text-sm text-gray-500">Disponível: {formatMoney(balance ?? 0)}</p>
+                        <h3 className="text-lg font-semibold text-gray-900">Movimentação de caixa</h3>
+                        <p className="mt-1 text-sm text-gray-500">Caixa atual: {formatMoney(balance ?? 0)}</p>
                     </div>
-                    <Input label="Valor (R$)" inputMode="numeric" value={amount} onChange={event => setAmount(formatAmountInput(event.target.value))}
+                    <ChoiceCardGroup
+                        aria-label="Tipo de movimentação"
+                        value={movementType}
+                        onChange={setMovementType}
+                        disabled={saving}
+                        options={[{ value: "entry", label: "Adicionar dinheiro" }, { value: "withdrawal", label: "Retirar dinheiro" }]}
+                        className="!grid-cols-2 gap-2"
+                    />
+                    <Input label="Valor (R$)" inputMode="numeric" value={amount}
+                        onChange={event => setAmount(formatAmountInput(event.target.value))}
                         placeholder="0,00" autoFocus disabled={saving} />
                     {submitError && <p className="text-sm text-red-600" role="alert">{submitError}</p>}
                     <div className="flex justify-end gap-2">
-                        <Button type="button" variant="secondary" disabled={saving} onClick={() => setWithdrawOpen(false)}>Cancelar</Button>
-                        <Button type="submit" loading={saving}>Confirmar retirada</Button>
+                        <Button type="button" variant="secondary" disabled={saving} onClick={() => setMovementOpen(false)}>Cancelar</Button>
+                        <Button type="submit" loading={saving}>Registrar</Button>
                     </div>
                 </form>
             </Modal>
-            {toast && <Toast message="Retirada registrada." type="success" onClose={() => setToast(false)} />}
+            {toast && <Toast message={toast} type="success" onClose={() => setToast(null)} />}
         </div>
     );
 }
