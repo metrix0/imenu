@@ -16,11 +16,28 @@ export async function generateMetadata(): Promise<Metadata> {
         ? "https://" + host
         : "https://www.imenuapp.com.br";
 
+    const title = "Cardápio Digital Gratuito para Restaurantes e Delivery | iMenu";
+    const description =
+        "Crie seu cardápio digital gratuito para restaurantes e delivery. Receba pedidos online, sem taxas, sem mensalidades e sem pegadinhas.";
+    const shareImage = "/logos/LogoMark_Background_Brand_White.png";
+
     return {
-        title: "Cardápio Digital Gratuito para Restaurantes e Delivery | iMenu",
-        description:
-            "Crie seu cardápio digital gratuito para restaurantes e delivery. Receba pedidos online, sem taxas, sem mensalidades e sem pegadinhas.",
+        title,
+        description,
         metadataBase: new URL(baseUrl),
+        openGraph: {
+            title,
+            description,
+            type: "website",
+            siteName: "iMenu",
+            images: [{ url: shareImage, width: 500, height: 500, alt: "iMenu" }],
+        },
+        twitter: {
+            card: "summary",
+            title,
+            description,
+            images: [shareImage],
+        },
         manifest: "/manifest.webmanifest",
         appleWebApp: {
             capable: true,
