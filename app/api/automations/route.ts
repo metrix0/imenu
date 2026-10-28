@@ -25,19 +25,8 @@ type HistoryRow = {
   demo: boolean;
 };
 
-async function getAutomationHistory(restaurantId: string, email: string | undefined, page: number) {
-  // Only an authenticated owner sees these examples. They are not inserted in
-  // whatsapp_outbound_messages and cannot send messages or affect cooldowns.
-  const demos: HistoryRow[] = email?.toLowerCase() === "joaovralmeida@hotmail.com" ? [
-    { id: "example-cart-1", kind: "cart", customer_name: "Mariana Oliveira", phone: null, offer: null, status: "sent", occurred_at: new Date(Date.now() - 3600000).toISOString(), demo: true },
-    { id: "example-habit-1", kind: "habit", customer_name: "Bruno Martins", phone: null, offer: "promotion:example", status: "sent", occurred_at: new Date(Date.now() - 18000000).toISOString(), demo: true },
-    { id: "example-reactivation-1", kind: "reactivation", customer_name: "Camila Ferreira", phone: null, offer: "coupon:example", status: "sent", occurred_at: new Date(Date.now() - 86400000).toISOString(), demo: true },
-    { id: "example-cart-2", kind: "cart", customer_name: "Diego Souza", phone: null, offer: null, status: "failed", occurred_at: new Date(Date.now() - 172800000).toISOString(), demo: true },
-    { id: "example-reactivation-2", kind: "reactivation", customer_name: "Elisa Rocha", phone: null, offer: null, status: "sent", occurred_at: new Date(Date.now() - 345600000).toISOString(), demo: true },
-    { id: "example-habit-2", kind: "habit", customer_name: "Felipe Lima", phone: null, offer: "coupon:example", status: "sent", occurred_at: new Date(Date.now() - 604800000).toISOString(), demo: true },
-  ] : [];
+async function getAutomationHistory(restaurantId: string, page: number) {
   const offset = page * HISTORY_PAGE_SIZE;
-  const examples = demos.slice(offset, offset + HISTORY_PAGE_SIZE);
   const [real, total] = await Promise.all([
     query<HistoryRow>(
       `SELECT h.dedupe_key AS id, h.automation_type AS kind,
@@ -51,7 +40,7 @@ async function getAutomationHistory(restaurantId: string, email: string | undefi
          AND h.status IN ('sent', 'failed')
        ORDER BY h.created_at DESC, h.dedupe_key DESC
        LIMIT $2 OFFSET $3`,
-      [restaurantId, HISTORY_PAGE_SIZE - examples.length, Math.max(0, offset - demos.length)],
+      [restaurantId, HISTORY_PAGE_SIZE, offset],
     ),
     query<{ total: number }>(
       `SELECT COUNT(*)::int AS total FROM whatsapp_outbound_messages
@@ -61,7 +50,7 @@ async function getAutomationHistory(restaurantId: string, email: string | undefi
     ),
   ]);
   return NextResponse.json(
-    { history: [...examples, ...real.rows], total: demos.length + Number(total.rows[0]?.total || 0) },
+    { history: real.rows, total: Number(total.rows[0]?.total || 0) },
     { headers: { "Cache-Control": "no-store" } },
   );
 }
@@ -69,11 +58,11 @@ async function getAutomationHistory(restaurantId: string, email: string | undefi
 async function handle(request: NextRequest, save: boolean) {
   try {
     const id = request.nextUrl.searchParams.get("restaurantId") || "";
-    const { user } = await requireRestaurantOwner(request, id);
+    await requireRestaurantOwner(request, id);
     if (!save && request.nextUrl.searchParams.get("history") === "1") {
       const requested = Number(request.nextUrl.searchParams.get("page") || 0);
       const page = Number.isFinite(requested) ? Math.min(1000, Math.max(0, Math.floor(requested))) : 0;
-      return getAutomationHistory(id, user.email, page);
+      return getAutomationHistory(id, page);
     }
     if (save) {
       if (!(await hasIMenuPlusAccess(id))) return NextResponse.json({ error: IA_PLUS_FEATURE_MESSAGE, code: "IA_PLUS_REQUIRED" }, { status: 402 });
