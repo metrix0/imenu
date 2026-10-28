@@ -962,7 +962,6 @@ export default function ConfiguracoesPage() {
                                     <h2 className="text-xl font-medium text-gray-900">
                                         Forçar envio de Notificação no WhatsApp
                                     </h2>
-                                    <Badge variant="notRecommended">Não recomendado</Badge>
                                     <Tooltip
                                         text="Isso adiciona uma etapa extra à finalização e pode criar atrito no pedido. O pedido é criado antes do WhatsApp: o cliente pode simplesmente não enviar a mensagem e o pedido continuará válido."
                                         position="top"
@@ -970,10 +969,10 @@ export default function ConfiguracoesPage() {
                                         showOnClick
                                         parentClassName="inline-flex items-center self-center leading-none"
                                     >
-                                        <FontAwesomeIcon
-                                            icon={faCircleInfo}
-                                            className="cursor-help text-[11px] leading-none text-amber-700"
-                                        />
+                                        <Badge variant="notRecommended" className="gap-1 cursor-help">
+                                            Não recomendado
+                                            <FontAwesomeIcon icon={faCircleInfo} className="text-[11px] leading-none text-yellow-700" />
+                                        </Badge>
                                     </Tooltip>
                                 </div>
                                 <p className="mt-2 text-sm text-gray-500">
