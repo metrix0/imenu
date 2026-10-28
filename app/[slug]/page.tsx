@@ -390,7 +390,7 @@ export default async function Page({
   );
 
   return (
-    <div data-imenu-menu-theme={darkMenuActive ? "dark" : undefined}>
+    <div data-imenu-menu-theme={darkMenuActive ? "dark" : undefined} className={darkMenuActive ? "imenu-menu-theme-dark" : undefined}>
       {tracking && (
         <TrackingScripts
           ga4Id={tracking?.ga4_id}
@@ -422,6 +422,7 @@ export default async function Page({
         <MenuClientPage
           slug={slug}
           readOnly={readOnly}
+          darkTheme={darkMenuActive}
           restaurant={restaurant}
           categories={categoriesWithItems}
           itemsByCategory={itemsByCategory}

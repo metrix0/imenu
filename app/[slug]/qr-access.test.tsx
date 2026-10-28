@@ -5,7 +5,7 @@ import { hasIMenuPlusAccess } from "@/lib/addons/access";
 jest.mock("@/lib/addons/access",()=>({hasIMenuPlusAccess:jest.fn()}));
 jest.mock("next/navigation",()=>({notFound:()=>{throw new Error("NOT_FOUND")}}));
 jest.mock("next/image",()=>({__esModule:true,default:({fill,...props}:any)=><img {...props}/>}));
-jest.mock("./menu-client",()=>({__esModule:true,default:({tableOrder}:any)=><div data-table-mode={tableOrder.requiresTableSelection?"universal":"individual"} data-table-id={tableOrder.tableId}/>}));
+jest.mock("./menu-client",()=>({__esModule:true,default:({tableOrder,darkTheme}:any)=><div data-dark-prop={darkTheme?"true":"false"} data-table-mode={tableOrder.requiresTableSelection?"universal":"individual"} data-table-id={tableOrder.tableId}/>}));
 jest.mock("./StartingPriceLabels",()=>({__esModule:true,default:({children}:any)=><>{children}</>}));
 jest.mock("./PickupAvailabilityGuard",()=>({__esModule:true,default:()=>null}));
 jest.mock("@/components/costumer/TrackingScripts",()=>({__esModule:true,default:()=>null}));
@@ -54,5 +54,7 @@ test("dark theme is shared by delivery and table menus only with active Plus",as
  expect(hasIMenuPlusAccess).toHaveBeenCalledWith("restaurant");
  (hasIMenuPlusAccess as jest.Mock).mockResolvedValue(true);
  expect(await render(universal)).toContain('data-imenu-menu-theme="dark"');
+ expect(await render(universal)).toContain('class="imenu-menu-theme-dark"');
+ expect(await render(universal)).toContain('data-dark-prop="true"');
  expect(renderToStaticMarkup(await MenuPage({params:Promise.resolve({slug:"test"}),searchParams:Promise.resolve({})}))).toContain('data-imenu-menu-theme="dark"');
 });

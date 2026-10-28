@@ -77,6 +77,7 @@ export default function MenuClientPage({
     openedProductId,
     tableOrder,
     readOnly = false,
+    darkTheme = false,
                                        }: {
     slug: string;
     restaurant: Restaurant;
@@ -87,7 +88,14 @@ export default function MenuClientPage({
     selectedCouponCode?: string | null;
     tableOrder?: QrTableMenuContext | null;
     readOnly?: boolean;
+    darkTheme?: boolean;
 }) {
+    useEffect(() => {
+        if (!darkTheme) return;
+        document.body.dataset.imenuMenuTheme = "dark";
+        return () => { delete document.body.dataset.imenuMenuTheme; };
+    }, [darkTheme]);
+
     const router = useRouter();
     const [menuTime, setMenuTime] = useState(initialMenuTime ?? new Date().toISOString());
     const categoryTime = sourceCategories.some(category => category.availability_schedule != null) ? menuTime : null;
