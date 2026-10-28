@@ -1,17 +1,17 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { faCheck, faLock } from "@fortawesome/free-solid-svg-icons";
 import Card from "@/components/ui/Card";
 import Switch from "@/components/ui/Switch";
-import SaveStatus from "@/components/ui/SaveStatus";
+import SaveStatus, { type SaveState } from "@/components/ui/SaveStatus";
 import Tooltip from "@/components/ui/Tooltip";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
 import { useAutoSave } from "@/lib/utils/useAutoSave";
 import { supabase } from "@/lib/database/supabaseClient";
 
-export default function OrderNotificationSettings({ restaurantId, plus, initialEnabled, children }: { restaurantId: string; plus: boolean; initialEnabled: boolean; children?: ReactNode }) {
+export default function OrderNotificationSettings({ restaurantId, plus, initialEnabled, children, onSaveStatusChange }: { restaurantId: string; plus: boolean; initialEnabled: boolean; children?: ReactNode; onSaveStatusChange?: (status: SaveState) => void }) {
     const [enabled, setEnabled] = useState(initialEnabled);
     const [sales, setSales] = useState(false);
     const save = useAutoSave<boolean>(restaurantId, async (value) => {
@@ -24,6 +24,10 @@ export default function OrderNotificationSettings({ restaurantId, plus, initialE
         });
         if (!response.ok) throw new Error("Não foi possível salvar.");
     });
+
+    useEffect(() => {
+        onSaveStatusChange?.(save.status);
+    }, [save.status, onSaveStatusChange]);
 
     const toggle = () => {
         if (!plus) {
@@ -52,7 +56,7 @@ export default function OrderNotificationSettings({ restaurantId, plus, initialE
                     {save.status === "error" && <p role="alert" className="mt-2 text-sm text-red-600">{save.error}</p>}
                 </div>
                 <div className="flex shrink-0 items-start gap-3">
-                    {save.status === "saving" && <SaveStatus status="saving" />}
+                    {!onSaveStatusChange && save.status === "saving" && <SaveStatus status="saving" />}
                     <Tooltip
                         text={!plus ? "Disponível com iMenu Plus. Assine o plano para ativar as atualizações automáticas de pedidos." : ""}
                         parentClassName="!block"
