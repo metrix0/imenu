@@ -203,8 +203,8 @@ export default function HistoryModal({
                                     key={position}
                                     className={`flex h-8 w-8 items-center justify-center rounded-full border-2 transition-all duration-300 ${
                                         filled
-                                            ? "scale-110 border-brand bg-brand text-white"
-                                            : "border-gray-200 text-gray-200"
+                                            ? "scale-110 border-[var(--im-menu-action,#f14400)] bg-[var(--im-menu-action,#f14400)] text-white"
+                                            : "border-[var(--im-menu-border,#e5e7eb)] text-[var(--im-menu-subtle,#e5e7eb)]"
                                     }`}
                                 >
                                     <FontAwesomeIcon
@@ -219,7 +219,7 @@ export default function HistoryModal({
 
                 {canRedeem ? (
                     <div className="w-full animate-fadeUp">
-                        <p className="mb-3 font-bold text-green-600">
+                        <p className="mb-3 font-bold text-[var(--im-menu-success-text,#16a34a)]">
                             🎉 Meta atingida! Você ganhou um
                             prêmio.
                         </p>
@@ -236,13 +236,13 @@ export default function HistoryModal({
                             RESGATAR AGORA
                         </Button>
 
-                        <p className="mt-2 text-[10px] text-gray-400">
+                        <p className="mt-2 text-[10px] text-[var(--im-menu-subtle,#9ca3af)]">
                             O item será adicionado à sua sacola
                             gratuitamente.
                         </p>
                     </div>
                 ) : (
-                    <p className="mt-2 text-xs text-gray-400">
+                    <p className="mt-2 text-xs text-[var(--im-menu-subtle,#9ca3af)]">
                         Faltam{" "}
                         {Math.max(goal - current, 0)}{" "}
                         pedidos para sua recompensa.
@@ -275,14 +275,14 @@ export default function HistoryModal({
                 {step === "input_phone" && (
                     <div className="space-y-4 pt-10">
                         <div className="mb-4 flex justify-center">
-                            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand/10 text-2xl text-brand">
+                            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--im-menu-accent-soft,#f144001a)] text-2xl text-[var(--im-menu-link,#f14400)]">
                                 <FontAwesomeIcon
                                     icon={faGift}
                                 />
                             </div>
                         </div>
 
-                        <p className="text-center font-medium text-gray-600">
+                        <p className="text-center font-medium text-[var(--im-menu-muted,#4b5563)]">
                             Digite seu WhatsApp para consultar
                             seus selos e pedidos.
                         </p>
@@ -316,7 +316,7 @@ export default function HistoryModal({
                         />
 
                         {error && (
-                            <p className="text-center text-sm text-red-500">
+                            <p className="text-center text-sm text-[var(--im-menu-error-text,#ef4444)]">
                                 {error}
                             </p>
                         )}
@@ -334,7 +334,7 @@ export default function HistoryModal({
                             Acessar fidelidade
                         </Button>
 
-                        <p className="px-4 text-center text-xs text-gray-400">
+                        <p className="px-4 text-center text-xs text-[var(--im-menu-subtle,#9ca3af)]">
                             O número é usado somente para
                             localizar seus pedidos e seu saldo
                             neste restaurante.
@@ -344,24 +344,24 @@ export default function HistoryModal({
 
                 {step === "view_history" && (
                     <div className="space-y-8 animate-fadeIn">
-                        <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-6 text-center shadow-sm">
+                        <div className="relative overflow-hidden rounded-2xl border border-[var(--im-menu-border,#f3f4f6)] bg-[var(--im-menu-surface,#fff)] p-6 text-center shadow-sm">
                             <div className="absolute left-0 top-0 h-1 w-full bg-gradient-to-r from-brand/50 to-brand" />
 
-                            <h3 className="mb-1 text-xl font-bold text-gray-900">
+                            <h3 className="mb-1 text-xl font-bold text-[var(--im-menu-text,#111827)]">
                                 {program?.reward_description ||
                                     "Programa de Fidelidade"}
                             </h3>
 
                             {program?.active ? (
                                 <>
-                                    <p className="mb-2 text-sm text-gray-500">
+                                    <p className="mb-2 text-sm text-[var(--im-menu-muted,#6b7280)]">
                                         Complete a cartela para
                                         ganhar.
                                     </p>
                                     {renderProgress()}
                                 </>
                             ) : (
-                                <p className="py-4 text-sm text-gray-500">
+                                <p className="py-4 text-sm text-[var(--im-menu-muted,#6b7280)]">
                                     Este restaurante não possui
                                     programa ativo no momento.
                                 </p>
@@ -369,13 +369,13 @@ export default function HistoryModal({
                         </div>
 
                         <div>
-                            <h3 className="mb-3 ml-1 text-sm font-bold uppercase tracking-wider text-gray-400">
+                            <h3 className="mb-3 ml-1 text-sm font-bold uppercase tracking-wider text-[var(--im-menu-subtle,#9ca3af)]">
                                 Histórico recente
                             </h3>
 
                             {orders.length === 0 ? (
-                                <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 py-8 text-center">
-                                    <p className="text-sm text-gray-400">
+                                <div className="rounded-xl border border-dashed border-[var(--im-menu-border,#e5e7eb)] bg-[var(--im-menu-soft,#f9fafb)] py-8 text-center">
+                                    <p className="text-sm text-[var(--im-menu-subtle,#9ca3af)]">
                                         Nenhum pedido pontuado
                                         ainda.
                                     </p>
@@ -385,7 +385,7 @@ export default function HistoryModal({
                                     {orders.map((order) => (
                                         <div
                                             key={order.id}
-                                            className="flex items-center justify-between border-b border-gray-50 pb-3 last:border-0"
+                                            className="flex items-center justify-between border-b border-[var(--im-menu-border,#f9fafb)] pb-3 last:border-0"
                                         >
                                             <div className="flex items-center gap-3">
                                                 <div
@@ -395,17 +395,17 @@ export default function HistoryModal({
                                                             ? "bg-blue-500"
                                                             : order.loyalty_credited
                                                               ? "bg-green-500"
-                                                              : "bg-gray-300"
+                                                              : "bg-[var(--im-menu-raised,#d1d5db)]"
                                                     }`}
                                                 />
 
                                                 <div>
-                                                    <p className="text-sm font-medium text-gray-800">
+                                                    <p className="text-sm font-medium text-[var(--im-menu-text-soft,#1f2937)]">
                                                         Pedido #
                                                         {order.display_id ??
                                                             order.id.slice(0, 4)}
                                                     </p>
-                                                    <p className="text-xs text-gray-400">
+                                                    <p className="text-xs text-[var(--im-menu-subtle,#9ca3af)]">
                                                         {new Date(
                                                             order.created_at
                                                         ).toLocaleDateString(
@@ -417,7 +417,7 @@ export default function HistoryModal({
 
                                             {order.loyalty_points_used >
                                             0 ? (
-                                                <span className="rounded-full bg-blue-100 px-2 py-1 text-xs font-bold text-blue-600">
+                                                <span className="rounded-full bg-[var(--im-menu-info-bg,#dbeafe)] px-2 py-1 text-xs font-bold text-[var(--im-menu-info-text,#2563eb)]">
                                                     Trocou{" "}
                                                     {
                                                         order.loyalty_points_used
@@ -425,11 +425,11 @@ export default function HistoryModal({
                                                     pts
                                                 </span>
                                             ) : order.loyalty_credited ? (
-                                                <span className="rounded-full bg-brand/10 px-2 py-1 text-xs font-bold text-brand">
+                                                <span className="rounded-full bg-[var(--im-menu-accent-soft,#f144001a)] px-2 py-1 text-xs font-bold text-[var(--im-menu-link,#f14400)]">
                                                     +1 Selo
                                                 </span>
                                             ) : (
-                                                <span className="text-xs text-gray-400">
+                                                <span className="text-xs text-[var(--im-menu-subtle,#9ca3af)]">
                                                     Não pontuou
                                                 </span>
                                             )}
@@ -442,7 +442,7 @@ export default function HistoryModal({
                         <Button
                             variant="secondary"
                             onClick={reset}
-                            className="w-full text-xs text-gray-400 hover:text-gray-600"
+                            className="w-full text-xs text-[var(--im-menu-subtle,#9ca3af)] hover:text-[var(--im-menu-muted,#4b5563)]"
                         >
                             Sair / Trocar número
                         </Button>

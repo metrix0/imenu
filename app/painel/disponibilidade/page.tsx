@@ -1,5 +1,6 @@
 "use client";
 
+import { PageSaveHeader } from "@/components/ui/SaveStatus";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; // Store Global
@@ -170,7 +171,8 @@ export default function DisponibilidadePage() {
 
     return (
         <div className="max-w-6xl min-[1800px]:max-w-[100rem] min-[1800px]:w-full mx-auto pb-20 px-4 sm:px-6 pt-8">
-            <div className="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4 px-2">
+            <PageSaveHeader>
+<div className="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4 px-2">
                 <div>
                     <div className="flex items-center gap-2">
                         <h1 className="text-3xl font-bold text-gray-900">Horários de Funcionamento</h1>
@@ -194,6 +196,7 @@ export default function DisponibilidadePage() {
                     <SaveStatus status={saveError ? "error" : isSaving ? "saving" : "saved"} />
                 </div>
             </div>
+</PageSaveHeader>
 
             {!preorderOnly && <p className="mb-3 text-xs text-gray-500 md:hidden">Deslize a grade para os lados para ver todos os dias.</p>}
             {!preorderOnly && <div tabIndex={0} role="region" aria-label="Grade de horários da semana" className="bg-white border border-gray-200 rounded-xl py-4 pl-3 pr-4 sm:py-6 sm:pl-5 sm:pr-6 overflow-x-auto -mx-2 sm:mx-0">

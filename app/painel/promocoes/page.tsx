@@ -1,5 +1,6 @@
 "use client";
 
+import { PageSaveHeader } from "@/components/ui/SaveStatus";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
@@ -107,8 +108,10 @@ export default function PromocoesPage() {
                 }
             `}</style>
 
+<PageSaveHeader>
             <h1 className="text-3xl font-bold text-gray-900">Promoções</h1>
             <p className="text-gray-500 mt-1 2xl:text-lg mb-6">Descontos em produtos, promoções automáticas e cupons.</p>
+</PageSaveHeader>
 
 
             <Tabs

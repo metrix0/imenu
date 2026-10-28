@@ -14,8 +14,10 @@ services:
       timeout: 15s
       start_period: 30s
       retries: 3
-    mem_limit: 2g
-    cpus: 3
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: 0.75
+    pids_limit: 128
     logging:
       driver: json-file
       options: {max-size: "10m", max-file: "3"}

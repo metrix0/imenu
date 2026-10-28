@@ -128,11 +128,11 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
                 ${withIcon ? isLeft ? "pl-10" : "pr-10" : ""}
                 ${className}
                 ${locked ? "cursor-not-allowed bg-[#f1f3f5] text-[#626973]" : "bg-white"}`
-            : `w-full border border-gray-300 rounded-md px-3 py-3
-                focus:border-brand focus:outline-none focus:ring-0 2xl:text-lg
+            : `w-full border border-[var(--im-menu-border,#d1d5db)] rounded-md px-3 py-3 text-[var(--im-menu-text,#1d1d1d)]
+                focus:border-[var(--im-menu-link,#f14400)] focus:outline-none focus:ring-0 2xl:text-lg
                 ${withIcon ? isLeft ? "pl-10" : "pr-10" : ""}
                 ${className}
-                ${locked ? "bg-gray-100 cursor-not-allowed text-gray-500" : "bg-white"}`;
+                ${locked ? "bg-[var(--im-menu-soft,#f3f4f6)] cursor-not-allowed text-[var(--im-menu-muted,#6b7280)]" : "bg-[var(--im-menu-soft,#fff)]"}`;
 
         return (
             <div data-ui="field" className={wrapperClassName}>
@@ -145,7 +145,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
                 <div className="relative">
                     {withIcon && (
                         <span
-                            className={`absolute top-1/2 -translate-y-1/2 text-gray-500 ${
+                            className={`absolute top-1/2 -translate-y-1/2 text-[var(--im-menu-muted,#6b7280)] ${
                                 isLeft ? "left-3" : "right-3"
                             }`}
                         >

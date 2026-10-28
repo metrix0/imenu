@@ -1,8 +1,8 @@
 [Unit]
 Description=Keep Docker deployment storage bounded
 [Timer]
-OnBootSec=5min
-OnUnitActiveSec=15min
-Persistent=true
+OnCalendar=*-*-* 04:30:00
+RandomizedDelaySec=10min
+Persistent=false
 [Install]
 WantedBy=timers.target

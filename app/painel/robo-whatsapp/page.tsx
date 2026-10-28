@@ -1,5 +1,6 @@
 "use client";
 
+import { PageSaveHeader } from "@/components/ui/SaveStatus";
 import {
     useEffect,
     useMemo,
@@ -25,7 +26,7 @@ import DataTable from "@/components/ui/DataTable";
 import Loader from "@/components/ui/Loader";
 import Toast from "@/components/ui/Toast";
 import WarningBox from "@/components/ui/WarningBox";
-import SaveStatus, { type SaveState } from "@/components/ui/SaveStatus";
+import SaveStatus from "@/components/ui/SaveStatus";
 import PanelFeatureCallout from "@/components/ui/PanelFeatureCallout";
 import { useAutoSave } from "@/lib/utils/useAutoSave";
 import { TemplateEditor, VariablePicker, type TemplateEditorHandle, type TemplateVariable } from "@/components/ui/WhatsAppTemplateEditor";
@@ -229,7 +230,8 @@ function connectionPresentation(connection: WhatsAppConnection | null) {
 
 export default function RoboWhatsAppPage() {
     const { restaurantId, setRestaurantId } = useCreationStore();
-    const [notificationSaveStatus, setNotificationSaveStatus] = useState<SaveState>("idle");
+    const [messagesChanged, setMessagesChanged] = useState(false);
+    const [notificationTemplateChanged, setNotificationTemplateChanged] = useState(false);
     const editorRefs = useRef<Record<string, TemplateEditorHandle | null>>({});
     const [notificationSettings,setNotificationSettings]=useState<{plus:boolean;enabled:boolean}|null>(null);
     const [loading, setLoading] = useState(true);
@@ -291,6 +293,8 @@ export default function RoboWhatsAppPage() {
         let active = true;
         setLoading(true);
         setTemplates(null);
+        setMessagesChanged(false);
+        setNotificationTemplateChanged(false);
         const loadPage = async () => {
             const session = await getAuthenticatedSession();
             if (!active) return;
@@ -347,7 +351,7 @@ export default function RoboWhatsAppPage() {
                 setTemplates(settingsData.templates);
                 setVariables(settingsData.variables || []);
                 setHandoffs(settingsData.conversations || []);
-                resetSave("saved");
+                resetSave();
             } else {
                 showMessage(
                     settingsData.error || "Não foi possível carregar as mensagens do robô.",
@@ -466,7 +470,9 @@ export default function RoboWhatsAppPage() {
     };
 
     const updateTemplate = (key: WhatsAppTemplateKey, value: string) => {
-        if (!templates) return;
+        if (!templates || templates[key] === value) return;
+        if (key === "status_notification") setNotificationTemplateChanged(true);
+        else setMessagesChanged(true);
         const next = { ...templates, [key]: value };
         setTemplates(next);
         scheduleSave(next);
@@ -574,17 +580,14 @@ export default function RoboWhatsAppPage() {
 
     return (
         <div className="mx-auto max-w-4xl px-4 pb-24 pt-8 sm:px-6">
-            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <PageSaveHeader>
+<div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                     <h1 className="mb-2 text-3xl font-bold text-gray-900">Robô WhatsApp</h1>
                     <p className="text-gray-600">Conecte o número e personalize as respostas automáticas.</p>
                 </div>
-                <SaveStatus status={
-                    saveStatus === "error" || notificationSaveStatus === "error" ? "error"
-                        : saveStatus === "saving" || notificationSaveStatus === "saving" ? "saving"
-                        : saveStatus
-                } className="self-start sm:self-auto" />
             </div>
+</PageSaveHeader>
 
             <div className="space-y-6">
                 <section aria-label="WhatsApp do restaurante" className="@container min-w-0">
@@ -808,7 +811,7 @@ export default function RoboWhatsAppPage() {
                         restaurantId={restaurantId}
                         plus={notificationSettings.plus}
                         initialEnabled={notificationSettings.enabled}
-                        onSaveStatusChange={setNotificationSaveStatus}
+                        templateSaveStatus={notificationTemplateChanged ? saveStatus : "idle"}
                     >
                         {templates && TEMPLATE_FIELDS.filter((field) => field.key === "status_notification").map((field) =>
                             renderTemplate({ ...field, title: "Personalizar mensagem", description: "" })
@@ -819,7 +822,8 @@ export default function RoboWhatsAppPage() {
                 {templates && (
                     <Card className="!p-0">
                         <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-7">
-                            <h2 className="text-lg font-semibold text-gray-900">Personalizar mensagens</h2>
+                            <h2 className="min-w-0 text-lg font-semibold text-gray-900">Personalizar mensagens</h2>
+                            {messagesChanged && <SaveStatus status={saveStatus} className="ml-auto" />}
                         </div>
                         {saveError ? <p role="alert" className="px-5 pb-4 text-sm text-red-600 sm:px-7">{saveError}</p> : null}
                         <div id="message-templates" className="divide-y divide-gray-200 border-t border-gray-200 px-1 sm:px-3">

@@ -223,7 +223,7 @@ export default function UpsellTab({ restaurantId, items }: Props) {
                         {automaticError && <p className="mt-2 text-xs text-red-600" role="alert">{automaticError}</p>}
                     </div>
                     <div className="flex shrink-0 items-start gap-3">
-                        {automaticSaving && <SaveStatus status="saving" />}
+                        <SaveStatus status={automaticError ? "error" : automaticSaving ? "saving" : "saved"} />
                         <Tooltip text={plusActive === false ? "Disponível com iMenu Plus. Assine o plano para desbloquear o Upsell Automático." : ""} parentClassName="!block">
                             <Switch
                                 checked={plusActive === true && automaticEnabled}

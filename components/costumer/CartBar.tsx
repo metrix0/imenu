@@ -577,11 +577,11 @@ export default function CartBar({
             <div className="text-text mb-2 mt-2 text-md font-medium">
                 Não foi possível confirmar o pedido
             </div>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-[var(--im-menu-muted,#6b7280)]">
                 {orderWarning.message}
             </p>
             {typeof orderWarning.availableStock === "number" && (
-                <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
+                <div className="mt-4 rounded-lg border border-[var(--im-menu-border,#e5e7eb)] bg-[var(--im-menu-soft,#f9fafb)] px-4 py-3 text-sm text-[var(--im-menu-text-soft,#374151)]">
                     <div>
                         Estoque disponível: <b>{orderWarning.availableStock}</b>
                     </div>
@@ -607,7 +607,7 @@ export default function CartBar({
             <div className="text-text mb-2 mt-2 text-md font-medium">
                 Valor mínimo do pedido.
             </div>
-            <p className="mb-4 text-sm text-gray-500">
+            <p className="mb-4 text-sm text-[var(--im-menu-muted,#6b7280)]">
                 O pedido mínimo deste restaurante é de <b>R$ {(restaurant.min_order_cents/100).toFixed(2).replace(".",",")}</b>, sem contar com a taxa de entrega.
             </p>
             <Button variant="primary" className="w-full py-3 text-sm" onClick={() => {
@@ -616,7 +616,7 @@ export default function CartBar({
             }}>
                 Adicionar mais itens
             </Button>
-            <button type="button" className="mt-4 cursor-pointer text-sm text-brand" onClick={() => setCartWarningVisible(false)}>
+            <button type="button" className="mt-4 cursor-pointer text-sm text-[var(--im-menu-link,#f14400)]" onClick={() => setCartWarningVisible(false)}>
                 Ok, entendi
             </button>
         </div>
@@ -624,18 +624,18 @@ export default function CartBar({
 
     return (
         <>
-            <div className={`fixed pb-8 2xl:pb-6 2xl:pt-5 md:pb-4 bottom-0 left-0 right-0 ${cartOpen ? "z-[60]" : "z-[40]"} isolate bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.12)] px-4 py-3 border-t border-gray-200`}>
+            <div className={`fixed pb-8 2xl:pb-6 2xl:pt-5 md:pb-4 bottom-0 left-0 right-0 ${cartOpen ? "z-[60]" : "z-[40]"} isolate bg-[var(--im-menu-surface,#fff)] shadow-[0_-4px_12px_rgba(0,0,0,0.12)] px-4 py-3 border-t border-[var(--im-menu-border,#e5e7eb)]`}>
                 {promotionResult?.promotion && (
                     <div className="mb-2 flex flex-wrap gap-1.5 md:hidden" aria-live="polite">
                         {promotionResult.promotion.benefits.map((benefit, index) => (
-                            <span key={index} className="rounded-full bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-700">
+                            <span key={index} className="rounded-full bg-[var(--im-menu-success-bg,#f0fdf4)] px-2.5 py-1 text-xs font-semibold text-[var(--im-menu-success-text,#15803d)]">
                                 PROMOÇÃO: {benefit.label}
                             </span>
                         ))}
                     </div>
                 )}
                 <div className="relative z-10 flex items-center justify-between w-full md:px-7 2xl:px-12">
-                    <div className="flex flex-col text-left text-[12px] 2xl:text-lg text-gray-600">
+                    <div className="flex flex-col text-left text-[12px] 2xl:text-lg text-[var(--im-menu-muted,#4b5563)]">
                         <span>
                             {isTableOrder
                                 ? selectedTableName ? `Total • ${selectedTableName} ` : "Total "
@@ -645,7 +645,7 @@ export default function CartBar({
                             {promotionResult?.promotion && (
                                 <span className="ml-2 hidden md:inline-flex items-center gap-1.5 whitespace-nowrap align-middle" aria-live="polite">
                                     {promotionResult.promotion.benefits.map((benefit, index) => (
-                                        <span key={index} className="rounded-full bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-700">
+                                        <span key={index} className="rounded-full bg-[var(--im-menu-success-bg,#f0fdf4)] px-2.5 py-1 text-xs font-semibold text-[var(--im-menu-success-text,#15803d)]">
                                             PROMOÇÃO: {benefit.label}
                                         </span>
                                     ))}
@@ -653,10 +653,10 @@ export default function CartBar({
                             )}
                         </span>
                         <span>
-                            <span className={`${hasDiscount && "line-through text-gray-400 !text-sm 2xl:!text-base"} font-semibold text-black text-lg 2xl:text-xl leading-tight tracking-tighter`}>
+                            <span className={`${hasDiscount && "line-through text-[var(--im-menu-subtle,#9ca3af)] !text-sm 2xl:!text-base"} font-semibold text-[var(--im-menu-text,#000)] text-lg 2xl:text-xl leading-tight tracking-tighter`}>
                                 {formatPrice(displayTotalCents)}
                             </span>
-                            {hasDiscount && <span className="ml-1 font-semibold text-black text-lg 2xl:text-xl leading-tight tracking-tighter">{formatPrice(finalTotalCents)}</span>}
+                            {hasDiscount && <span className="ml-1 font-semibold text-[var(--im-menu-text,#000)] text-lg 2xl:text-xl leading-tight tracking-tighter">{formatPrice(finalTotalCents)}</span>}
                             <span> / {itemCount} {itemCount === 1 ? "item" : "itens"}</span>
                         </span>
                     </div>
@@ -667,7 +667,7 @@ export default function CartBar({
                             onClick={handleClick}
                             loading={isContinueBlocked}
                             disabled={disabledContinue}
-                            className={`relative z-10 py-3 px-10 2xl:px-15 2xl:py-4 text-[13px] 2xl:text-lg tracking-wide font-normal ${disabledContinue ? "!bg-gray-300 focus:ring-transparent" : ""}`}
+                            className={`relative z-10 py-3 px-10 2xl:px-15 2xl:py-4 text-[13px] 2xl:text-lg tracking-wide font-normal ${disabledContinue ? "!bg-[var(--im-menu-raised,#d1d5db)] focus:ring-transparent" : ""}`}
                         >
                             {isTableOrder && step === "info"
                                 ? "Confirmar pedido"
