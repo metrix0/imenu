@@ -63,7 +63,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         const [rules, setRules] = useState<RadiusRule[]>([]);
         const [pickupEnabled, setPickupEnabled] = useState(false);
         const [initialDataLoaded, setInitialDataLoaded] = useState(false);
-        const [minOrderRevision, setMinOrderRevision] = useState(0);
+        const [editRevision, setEditRevision] = useState(0);
         const [status, setStatus] = useState<
             "idle" | "saving" | "saved" | "error"
         >("idle");
@@ -76,7 +76,6 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
             Record<number, HTMLInputElement | null>
         >({});
 
-        const autosaveInitialized = useRef(false);
 
         useEffect(() => {
             const handleBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -260,6 +259,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         }, [restaurantId, isNew]);
 
         const handleAddRule = () => {
+            setEditRevision((revision) => revision + 1);
             setRules((currentRules) => {
                 const lastRadius = currentRules.length > 0
                     ? Math.max(...currentRules.map((rule) => Number(rule.radius_km) || 0))
@@ -291,6 +291,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         };
 
         const handleDeleteRule = (index: number) => {
+            setEditRevision((revision) => revision + 1);
             setRules((currentRules) => {
                 if (currentRules.length <= 1) {
                     const currentRule = currentRules[0];
@@ -419,7 +420,8 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                 return;
             }
 
-            if (!autosaveInitialized.current) { autosaveInitialized.current = true; return; }
+            // Database hydration and realtime refreshes do not count as edits.
+            if (editRevision === 0) return;
 
             setStatus("saving");
 
@@ -431,13 +433,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
 
             return () =>
                 window.clearTimeout(timeout);
-        }, [
-            rules,
-            pickupEnabled,
-            minOrderRevision,
-            initialDataLoaded,
-            isNew,
-        ]);
+        }, [editRevision, initialDataLoaded, isNew]);
 
         return (
             <div className="max-w-2xl 2xl:max-w-3xl mx-auto">
@@ -511,6 +507,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                                                 10
                                             );
 
+                                        setEditRevision((revision) => revision + 1);
                                         setRules(
                                             (
                                                 currentRules
@@ -583,6 +580,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                                                   )
                                                 : null;
 
+                                        setEditRevision((revision) => revision + 1);
                                         setRules(
                                             (
                                                 currentRules
@@ -655,10 +653,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                         defaultValue="20"
                         ref={minOrderRef}
                         onChange={() =>
-                            setMinOrderRevision(
-                                (currentRevision) =>
-                                    currentRevision + 1
-                            )
+                            setEditRevision((revision) => revision + 1)
                         }
                         className="w-full"
                     />
@@ -679,7 +674,10 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                         <Switch
                             aria-label="Permitir retirada no balcão"
                             checked={pickupEnabled}
-                            onClick={() => setPickupEnabled(!pickupEnabled)}
+                            onClick={() => {
+                                setPickupEnabled(!pickupEnabled);
+                                setEditRevision((revision) => revision + 1);
+                            }}
                         />
                     </div>
                 </div>

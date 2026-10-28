@@ -85,7 +85,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         );
         const [error, setError] = useState<string | null>(null);
 
-        const autosaveInitialized = useRef(false);
+        const [editRevision, setEditRevision] = useState(0);
 
         useEffect(() => {
             if (!restaurantId) return;
@@ -204,7 +204,8 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
 
         useEffect(() => {
             if (isNew || !loaded) return;
-            if (!autosaveInitialized.current) { autosaveInitialized.current = true; return; }
+            // Loading existing settings never counts as an edit.
+            if (editRevision === 0) return;
 
             if (mode === "neighborhood" && validRules().length === 0) {
                 setStatus("idle");
@@ -217,7 +218,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
             }, 600);
 
             return () => window.clearTimeout(timeout);
-        }, [mode, rules, loaded, isNew]);
+        }, [editRevision, loaded, isNew]);
 
         useImperativeHandle(ref, () => ({
             save: async () => {
@@ -232,6 +233,8 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         }));
 
         const changeMode = (nextMode: DeliveryFeeMode) => {
+            if (nextMode === mode) return;
+            setEditRevision((revision) => revision + 1);
             setError(null);
             setMode(nextMode);
 
@@ -244,6 +247,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
             id: string,
             changes: Partial<NeighborhoodDeliveryRule>
         ) => {
+            setEditRevision((revision) => revision + 1);
             setRules((current) =>
                 current.map((rule) =>
                     rule.id === id ? { ...rule, ...changes } : rule
@@ -252,6 +256,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         };
 
         const addRule = () => {
+            setEditRevision((revision) => revision + 1);
             const previous = rules[rules.length - 1];
             setRules((current) => [
                 ...current,
@@ -267,6 +272,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         };
 
         const deleteRule = (id: string) => {
+            setEditRevision((revision) => revision + 1);
             setRules((current) => {
                 const next = current.filter((rule) => rule.id !== id);
                 return next.length > 0
