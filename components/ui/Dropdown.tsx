@@ -125,8 +125,14 @@ const LegacyDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functi
                         } : undefined}
                         onClick={() => setOpen((prev) => !prev)}
                         className={`flex min-h-11 w-full cursor-pointer items-center justify-between rounded-lg border border-[#e2e5e9] bg-white px-3 py-2.5 text-left text-sm font-normal text-[#1d1d1d] outline-none transition-colors hover:bg-[#f7f8fa] focus:border-[#d93d00] disabled:cursor-not-allowed disabled:bg-[#f1f3f5] disabled:text-[#626973] ${custom ? className : ""}`}
+                        style={{
+                            backgroundColor: "var(--im-menu-soft, #ffffff)",
+                            borderColor: "var(--im-menu-border, #e2e5e9)",
+                            color: "var(--im-menu-text, #1d1d1d)",
+                        }}
                     >
                         <span
+                            style={{ color: selectedValue === "" ? "var(--im-menu-muted, #818994)" : "var(--im-menu-text, #1d1d1d)" }}
                             className={`truncate ${
                                 selectedValue === ""
                                     ? "text-[#818994]"
@@ -137,6 +143,7 @@ const LegacyDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functi
                         </span>
                         <FontAwesomeIcon
                             icon={faChevronDown}
+                            style={{ color: "var(--im-menu-muted, #626973)" }}
                             className={`ml-3 shrink-0 text-xs text-[#626973] transition-transform duration-150 ${
                                 open ? "rotate-180" : ""
                             }`}
@@ -151,6 +158,7 @@ const LegacyDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functi
                         aria-hidden={custom ? !open : undefined}
                         inert={custom ? !open : undefined}
                         data-ui="dropdown-menu"
+                        style={{ backgroundColor: "var(--im-menu-surface, #ffffff)", ...(open ? { borderColor: "var(--im-menu-border, #e2e5e9)" } : {}) }}
                         className={`absolute left-0 right-0 top-full z-[110] mt-1.5 origin-top overflow-hidden rounded-lg border bg-white shadow-[0_6px_20px_#1d1d1d12] transition-all duration-150 ease-out ${
                             open
                                 ? "max-h-64 translate-y-0 scale-y-100 border-[#e2e5e9] opacity-100"
@@ -169,6 +177,16 @@ const LegacyDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functi
                                         type="button"
                                         role="option"
                                         aria-selected={selected}
+                                        style={{
+                                            color: selected && !placeholder
+                                                ? "var(--im-menu-text, #c43700)"
+                                                : placeholder
+                                                    ? "var(--im-menu-muted, #818994)"
+                                                    : "var(--im-menu-text, #1d1d1d)",
+                                            ...(selected && !placeholder
+                                                ? { backgroundColor: "var(--im-menu-raised, #fff1ea)" }
+                                                : {}),
+                                        }}
                                         onKeyDown={custom ? (event) => {
                                             if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
                                                 event.preventDefault();
@@ -184,14 +202,15 @@ const LegacyDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functi
                                             selected && !placeholder
                                                 ? "bg-[#fff1ea] text-[#c43700]"
                                                 : placeholder
-                                                  ? "text-[#818994] hover:bg-[#f1f3f5]"
-                                                  : "text-[#1d1d1d] hover:bg-[#f1f3f5]"
+                                                  ? "text-[#818994] hover:bg-[var(--im-menu-raised,#f1f3f5)]"
+                                                  : "text-[#1d1d1d] hover:bg-[var(--im-menu-raised,#f1f3f5)]"
                                         }`}
                                     >
                                         <span className="truncate">{option.label}</span>
                                         {selected && !placeholder && (
                                             <FontAwesomeIcon
                                                 icon={faCheck}
+                                                style={{ color: "var(--im-menu-text, #c43700)" }}
                                                 className="shrink-0 text-xs text-[#c43700]"
                                             />
                                         )}

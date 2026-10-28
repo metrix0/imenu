@@ -1354,7 +1354,14 @@ export default function CartModal({
                                 }`}
                             >
                                 <div className={showSchedulePicker ? "overflow-visible" : "overflow-hidden"}>
-                                    <div data-ui="checkout-scheduling" className="rounded-xl border border-green-200 bg-green-50 p-4">
+                                    <div
+                                        data-ui="checkout-scheduling"
+                                        className="rounded-xl border border-green-200 bg-green-50 p-4"
+                                        style={{
+                                            backgroundColor: "var(--im-menu-soft, #f0fdf4)",
+                                            borderColor: "var(--im-menu-border, #bbf7d0)",
+                                        }}
+                                    >
                                         <div className="flex items-start justify-between gap-3">
                                             <div>
                                                 <h2 className="font-semibold text-md 2xl:text-lg">
@@ -1400,7 +1407,7 @@ export default function CartModal({
                                                         setField("scheduled_for", null);
                                                         setScheduleDropdownOpen(false);
                                                     }}
-                                                    className="!rounded-xl !border-green-200 !bg-white !py-3 !text-sm !font-medium hover:!border-green-300 focus:!border-green-400 2xl:!text-lg"
+                                                    className="!rounded-xl !border-[var(--im-menu-border,#bbf7d0)] !bg-[var(--im-menu-soft,#ffffff)] !py-3 !text-sm !font-medium hover:!border-green-300 focus:!border-green-400 2xl:!text-lg"
                                                     chevronClassName="!text-green-700"
                                                 />
                                             </div>
