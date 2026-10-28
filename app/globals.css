@@ -289,13 +289,13 @@ html, body {
 
 /* Public menu dark theme, scoped by the menu root and the body for portal modals. */
 :is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) {
-    --im-menu-bg: #101319;
-    --im-menu-surface: #1c222b;
-    --im-menu-soft: #262d38;
-    --im-menu-raised: #313947;
-    --im-menu-border: #394454;
-    --im-menu-text: #f3f5f8;
-    --im-menu-muted: #b6c0cd;
+    --im-menu-bg: #121212;
+    --im-menu-surface: #202020;
+    --im-menu-soft: #292929;
+    --im-menu-raised: #363636;
+    --im-menu-border: #424242;
+    --im-menu-text: #f4f4f4;
+    --im-menu-muted: #bdbdbd;
     color-scheme: dark;
     background-color: var(--im-menu-bg);
     color: var(--im-menu-text);
@@ -318,7 +318,7 @@ html, body {
 }
 
 :is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) [class~="bg-white/90"] {
-    background-color: rgb(28 34 43 / 90%);
+    background-color: rgb(32 32 32 / 90%);
 }
 
 :is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) :is(.text-black, .text-text, .text-gray-900, .text-gray-950) {
@@ -326,7 +326,7 @@ html, body {
 }
 
 :is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) :is(.text-gray-700, .text-gray-800) {
-    color: #d5dce5;
+    color: #d6d6d6;
 }
 
 :is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) :is(.text-gray-500, .text-gray-600) {
@@ -334,7 +334,7 @@ html, body {
 }
 
 :is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) :is(.text-gray-200, .text-gray-400) {
-    color: #9aa6b5;
+    color: #a8a8a8;
 }
 
 :is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) :is(.border-gray-100, .border-gray-200, .border-gray-300) {
@@ -352,7 +352,7 @@ html, body {
 }
 
 :is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) :is(input, textarea)::placeholder {
-    color: #9aa6b5;
+    color: #a8a8a8;
 }
 
 :is(.imenu-menu-theme-dark, body[data-imenu-menu-theme="dark"]) .bg-green-50 {
