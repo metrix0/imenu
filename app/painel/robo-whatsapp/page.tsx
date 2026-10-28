@@ -526,7 +526,6 @@ export default function RoboWhatsAppPage() {
                 >
                     <div className="min-h-0 overflow-hidden">
                         <div className={field.key === "status_notification" ? "pt-4" : "border-t border-gray-100 px-4 pb-5 pt-4"}>
-                            {field.key === "status_notification" && <SaveStatus status={saveStatus} className="mb-3" />}
                             <TemplateEditor
                                 ref={(editor) => {
                                     editorRefs.current[field.key] = editor;
@@ -548,6 +547,7 @@ export default function RoboWhatsAppPage() {
                                 <FontAwesomeIcon icon={faPlus} className="mr-2" />
                                 Adicionar variável
                             </button>
+                            {field.key === "status_notification" && <div className="mt-4 flex justify-end"><SaveStatus status={saveStatus} /></div>}
                             <VariablePicker
                                 allowedVariables={field.variables}
                                 variables={variables}
@@ -812,12 +812,12 @@ export default function RoboWhatsAppPage() {
                     <Card className="!p-0">
                         <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-7">
                             <h2 className="text-lg font-semibold text-gray-900">Personalizar mensagens</h2>
-                            <SaveStatus status={saveStatus} />
                         </div>
                         {saveError ? <p role="alert" className="px-5 pb-4 text-sm text-red-600 sm:px-7">{saveError}</p> : null}
                         <div id="message-templates" className="divide-y divide-gray-200 border-t border-gray-200 px-1 sm:px-3">
                             {TEMPLATE_FIELDS.filter((field) => field.key !== "status_notification").map(renderTemplate)}
                         </div>
+                        <div className="flex justify-end px-5 py-4 sm:px-7"><SaveStatus status={saveStatus} /></div>
                     </Card>
                 )}
 

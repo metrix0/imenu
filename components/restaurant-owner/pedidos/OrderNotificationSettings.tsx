@@ -67,7 +67,19 @@ export default function OrderNotificationSettings({ restaurantId, plus, initialE
                     </Tooltip>
                 </div>
             </div>
-            {children && plus && enabled && <div className="mt-5">{children}</div>}
+            {children && (
+                <div
+                    className={`grid transition-[grid-template-rows,opacity,transform] duration-300 ease-out motion-reduce:transition-none ${plus && enabled
+                        ? "grid-rows-[1fr] translate-y-0 opacity-100"
+                        : "pointer-events-none grid-rows-[0fr] -translate-y-1 opacity-0"}`}
+                    aria-hidden={!plus || !enabled}
+                    inert={!plus || !enabled}
+                >
+                    <div className="min-h-0 overflow-hidden">
+                        <div className="pt-5">{children}</div>
+                    </div>
+                </div>
+            )}
             <IaPlusSalesModal
                 open={sales}
                 onClose={() => setSales(false)}
