@@ -1015,6 +1015,27 @@ export async function processIncomingWhatsAppMessage({
         return;
     }
 
+    const { getWhatsAppAiReply } = await import("@/lib/services/whatsappAi");
+    const aiReply = await getWhatsAppAiReply({
+        restaurantId, sessionName, chatId, messageId, body, variables,
+    });
+    if (aiReply) {
+        // The owner may have taken over while the model was answering.
+        if (!(await canBotRespond(restaurantId, chatId))) return;
+        if (aiReply.flow) {
+            await answerFlow({
+                flow: aiReply.flow, templates, variables, restaurantId,
+                sessionName, chatId, inboundMessageId: messageId, resolvedPhone: phone,
+            });
+        } else {
+            await sendTrackedText({
+                dedupeKey: `${messageId}:ai`, restaurantId, sessionName, chatId,
+                text: aiReply.text,
+            });
+        }
+        return;
+    }
+
     const fallbackSent = await sendTrackedText({
         dedupeKey: `${messageId}:fallback`,
         restaurantId,
@@ -1082,3 +1103,4 @@ export async function processWhatsAppMenuVoteFailed({
         messageId: `legacy-menu:${Date.now()}`,
     });
 }
+

@@ -17,6 +17,7 @@ export const PLUS_FEATURE_ICONS: Record<string, LucideIcon> = {
 };
 
 export const PLUS_BONUS_ICONS: Record<string, LucideIcon> = {
+    "Robô WhatsApp com IA": Bot,
     "Atendimento exclusivo": Headset,
     "Upsells automáticos": ShoppingCart,
     "Atualizações de pedidos pelo WhatsApp": MessageCircle,

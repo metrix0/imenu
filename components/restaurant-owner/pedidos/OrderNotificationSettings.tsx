@@ -11,7 +11,10 @@ import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSale
 import { useAutoSave } from "@/lib/utils/useAutoSave";
 import { supabase } from "@/lib/database/supabaseClient";
 
-export default function OrderNotificationSettings({ restaurantId, plus, initialEnabled, children, templateSaveStatus = "idle" }: { restaurantId: string; plus: boolean; initialEnabled: boolean; children?: ReactNode; templateSaveStatus?: SaveState }) {
+export default function OrderNotificationSettings({ restaurantId, plus, initialEnabled, children, templateSaveStatus = "idle", feature = "orderNotifications" }: { restaurantId: string; plus: boolean; initialEnabled: boolean; children?: ReactNode; templateSaveStatus?: SaveState; feature?: "orderNotifications" | "ai" }) {
+    const ai = feature === "ai";
+    const title = ai ? "Robô com IA" : "Atualizar cliente sobre pedido automaticamente";
+    const descriptionId = ai ? "whatsapp-ai-description" : "order-notification-description";
     const [enabled, setEnabled] = useState(initialEnabled);
     const [sales, setSales] = useState(false);
     const save = useAutoSave<boolean>(restaurantId, async (value) => {
@@ -20,7 +23,7 @@ export default function OrderNotificationSettings({ restaurantId, plus, initialE
         const response = await fetch("/api/whatsapp/settings?restaurantId=" + encodeURIComponent(restaurantId), {
             method: "PATCH",
             headers: { "Content-Type": "application/json", Authorization: "Bearer " + session.access_token },
-            body: JSON.stringify({ orderNotificationsEnabled: value }),
+            body: JSON.stringify({ [ai ? "aiEnabled" : "orderNotificationsEnabled"]: value }),
         });
         if (!response.ok) throw new Error("Não foi possível salvar.");
     });
@@ -44,26 +47,26 @@ export default function OrderNotificationSettings({ restaurantId, plus, initialE
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                        <h2 className="text-xl font-medium text-gray-900">Atualizar cliente sobre pedido automaticamente</h2>
+                        <h2 className="text-xl font-medium text-gray-900">{title}</h2>
                         <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${plus ? "bg-green-50 text-green-700" : "bg-orange-50 text-orange-800"}`}>
                             <FontAwesomeIcon icon={plus ? faCheck : faLock} />
                             {plus ? "Plano ativo" : "Incluso no iMenu Plus"}
                         </span>
                     </div>
-                    <p id="order-notification-description" className="mt-2 text-sm text-gray-500">
-                        Avise quando o pedido sair para entrega ou estiver pronto no balcão. Apenas clientes que enviaram mensagens nos últimos 7 dias recebem o aviso.
+                    <p id={descriptionId} className="mt-2 text-sm text-gray-500">
+                        {ai ? "Responda dúvidas dos clientes com IA usando as informações do seu cardápio." : "Avise quando o pedido sair para entrega ou estiver pronto no balcão. Apenas clientes que enviaram mensagens nos últimos 7 dias recebem o aviso."}
                     </p>
                     {save.status === "error" && <p role="alert" className="mt-2 text-sm text-red-600">{save.error}</p>}
                 </div>
                 <div className="flex shrink-0 items-center gap-3">
                     <SaveStatus status={status} />
                     <Tooltip
-                        text={!plus ? "Disponível com iMenu Plus. Assine o plano para ativar as atualizações automáticas de pedidos." : ""}
+                        text={!plus ? (ai ? "Disponível com iMenu Plus. Assine o plano para ativar o Robô com IA." : "Disponível com iMenu Plus. Assine o plano para ativar as atualizações automáticas de pedidos.") : ""}
                         parentClassName="!block"
                     >
                         <Switch
-                            aria-label="Atualizar cliente sobre pedido automaticamente"
-                            aria-describedby="order-notification-description"
+                            aria-label={title}
+                            aria-describedby={descriptionId}
                             checked={plus && enabled}
                             disabled={save.status === "saving"}
                             onClick={toggle}
@@ -88,9 +91,10 @@ export default function OrderNotificationSettings({ restaurantId, plus, initialE
                 open={sales}
                 onClose={() => setSales(false)}
                 restaurantId={restaurantId}
-                contextMessage="Para avisar automaticamente quando um pedido sair para entrega ou ficar pronto para retirada, assine o iMenu Plus."
+                contextMessage={ai ? "Para responder dúvidas dos clientes com o Robô com IA, assine o iMenu Plus." : "Para avisar automaticamente quando um pedido sair para entrega ou ficar pronto para retirada, assine o iMenu Plus."}
                 onPaid={() => window.location.reload()}
             />
         </Card>
     );
 }
+

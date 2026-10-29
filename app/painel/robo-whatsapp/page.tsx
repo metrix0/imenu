@@ -233,7 +233,7 @@ export default function RoboWhatsAppPage() {
     const [messagesChanged, setMessagesChanged] = useState(false);
     const [notificationTemplateChanged, setNotificationTemplateChanged] = useState(false);
     const editorRefs = useRef<Record<string, TemplateEditorHandle | null>>({});
-    const [notificationSettings,setNotificationSettings]=useState<{plus:boolean;enabled:boolean}|null>(null);
+    const [notificationSettings,setNotificationSettings]=useState<{plus:boolean;enabled:boolean;aiEnabled:boolean}|null>(null);
     const [loading, setLoading] = useState(true);
     const [whatsAppAction, setWhatsAppAction] = useState<
         "connect" | "reconnect" | "refresh_qr" | "disconnect" | null
@@ -347,7 +347,7 @@ export default function RoboWhatsAppPage() {
             }
 
             if (settingsResponse.ok) {
-                setNotificationSettings({plus:settingsData.plus===true,enabled:settingsData.orderNotificationsEnabled===true});
+                setNotificationSettings({plus:settingsData.plus===true,enabled:settingsData.orderNotificationsEnabled===true,aiEnabled:settingsData.aiEnabled===true});
                 setTemplates(settingsData.templates);
                 setVariables(settingsData.variables || []);
                 setHandoffs(settingsData.conversations || []);
@@ -807,6 +807,16 @@ export default function RoboWhatsAppPage() {
 
                 {restaurantId && notificationSettings && (
                     <OrderNotificationSettings
+                        key={`${restaurantId}:ai`}
+                        restaurantId={restaurantId}
+                        plus={notificationSettings.plus}
+                        initialEnabled={notificationSettings.aiEnabled}
+                        feature="ai"
+                    />
+                )}
+
+                {restaurantId && notificationSettings && (
+                    <OrderNotificationSettings
                         key={restaurantId}
                         restaurantId={restaurantId}
                         plus={notificationSettings.plus}
@@ -845,4 +855,5 @@ export default function RoboWhatsAppPage() {
         </div>
     );
 }
+
 
