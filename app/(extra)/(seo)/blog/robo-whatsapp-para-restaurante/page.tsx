@@ -22,6 +22,7 @@ const sections = [
     { id: "o-que-automatizar", label: "O que automatizar" },
     { id: "fluxo", label: "Fluxo ideal" },
     { id: "humano", label: "Bot + atendente" },
+    { id: "ia-plus", label: "Robô com IA no iMenu Plus" },
     { id: "configurar", label: "Como configurar" },
     { id: "erros", label: "Erros comuns" },
     { id: "metricas", label: "O que medir" },
@@ -42,7 +43,7 @@ const faq = [
     {
         question: "Preciso usar inteligência artificial no chatbot?",
         answer:
-            "Não. Para restaurante, um fluxo simples e previsível costuma resolver boa parte do volume. IA pode ser útil em outros cenários, mas não é obrigatória para automatizar cardápio, status, entrega e pagamento.",
+            "Não. O Robô WhatsApp básico do iMenu é gratuito e cobre cardápio, status, entrega e pagamentos. Com iMenu Plus, a IA opcional pode responder dúvidas sobre produtos e preços fora dos fluxos padrão.",
     },
     {
         question: "O robô pode informar onde está o pedido?",
@@ -179,6 +180,34 @@ export default function RoboWhatsappParaRestaurantePage() {
                         "Mantenha cardápio, entrega e pagamentos atualizados para o bot responder certo",
                     ]}
                 />
+            </BlogSection>
+
+            <BlogSection id="ia-plus" title="Robô WhatsApp mais inteligente com IA: o que muda no iMenu Plus?">
+                <p>
+                    O <strong>Robô WhatsApp básico</strong> continua gratuito: oferece cardápio,
+                    consulta de pedidos vinculados ao número da conversa, entrega, pagamentos e
+                    atendimento humano. O <strong>Robô WhatsApp com IA</strong> é um bônus do
+                    iMenu Plus que ajuda em perguntas não reconhecidas pelos fluxos tradicionais.
+                </p>
+                <p>
+                    Quando o cliente pergunta sobre ingredientes cadastrados, produtos, descrição,
+                    disponibilidade ou preços, a IA pode consultar o cardápio do restaurante e
+                    responder com base nas informações encontradas. Ela também pode seguir os
+                    mesmos fluxos do robô ou transferir para atendimento humano.
+                    Não deve inventar informações ausentes ou prometer resposta a toda pergunta.
+                </p>
+                <p>
+                    Para ativar, conecte o número e abra
+                    {" "}<Link href="/painel/robo-whatsapp" className="font-semibold text-brand underline">Robô WhatsApp</Link>.
+                    Com iMenu Plus válido, habilite a opção de IA. Boas-vindas, ações
+                    predefinidas e atendimento humano continuam prioritários. Se a IA falhar,
+                    o fluxo tradicional permanece disponível.
+                </p>
+                <BlogCallout title="Quando chamar um atendente?" variant="tip">
+                    Problemas de pagamento, exceções e casos que exigem verificação devem
+                    continuar acessíveis à equipe. A qualidade das respostas depende das
+                    informações atualizadas no cardápio.
+                </BlogCallout>
             </BlogSection>
 
             <BlogSection id="configurar" title="Como configurar um robô de atendimento no WhatsApp">
