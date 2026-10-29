@@ -1,6 +1,6 @@
 import { query } from "@/lib/database/sql";
 import { resolveWahaChatPhone } from "@/lib/services/wahaClient";
-import { isSecondaryBlastRecipient } from "./supportWhatsApp";
+import { isGenericPricingQuestion, isSecondaryBlastRecipient } from "./supportWhatsApp";
 
 jest.mock("@/lib/database/sql", () => ({
     query: jest.fn(),
@@ -59,4 +59,21 @@ test("secondary WhatsApp recognizes a recipient from a resolved LID", async () =
 
     const [, params] = (query as jest.Mock).mock.calls[0];
     expect(params[0]).toContain("5511999999999@c.us");
+});
+
+test.each([
+    "E como vcs ganham dinheiro oferecendo algo gratis?",
+    "Como o iMenu monetiza o cardápio gratuito?",
+    "Qual é o modelo de negócio se é grátis?",
+    "Como voces faturam se é gratis?",
+])("does not mistake monetization question for generic pricing: %s", (body) => {
+    expect(isGenericPricingQuestion(body)).toBe(false);
+});
+
+test.each([
+    "Qual valor da mensalidade?",
+    "O iMenu é grátis?",
+    "Tem plano gratuito?",
+])("still answers genuine generic pricing questions directly: %s", (body) => {
+    expect(isGenericPricingQuestion(body)).toBe(true);
 });

@@ -606,8 +606,12 @@ function isQrCodeMesaQuestion(body: string): boolean {
     ].some((term) => value.includes(term));
 }
 
-function isGenericPricingQuestion(body: string): boolean {
+export function isGenericPricingQuestion(body: string): boolean {
     const value = normalize(body);
+    // Mentioning "grátis" does not make a business-model question a pricing question.
+    if (/\b(?:ganh(?:a|am|amos) dinheiro|monetiz\w*|modelo de negocio|como (?:voces|vcs|o imenu) (?:lucra|lucram|fatura|faturam|se mantem))\b/.test(value)) {
+        return false;
+    }
     if (
         [
             "pix",
