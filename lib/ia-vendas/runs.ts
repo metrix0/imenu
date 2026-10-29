@@ -60,8 +60,8 @@ export async function beginRun(
     if (
       kind !== "analysis" &&
       (usage.recent >= 5 ||
-        usage.input + (kind === "image" ? 0 : LIMITS.runInput) > 2_000_000 ||
-        usage.output + (kind === "image" ? 0 : output) > 120000)
+        usage.input + (kind === "image" ? 0 : LIMITS.runInput) > LIMITS.monthlyChatInput ||
+        usage.output + (kind === "image" ? 0 : output) > LIMITS.monthlyChatOutput)
     )
       throw new SalesError(
         "A IA atingiu a capacidade disponível. Tente novamente mais tarde. Caso precise de mais limite ou ajuda, entre em contato com o suporte.",
@@ -160,3 +160,4 @@ export async function finishRun(
     ],
   );
 }
+

@@ -18,6 +18,7 @@ const sections = [
     { id: "como-fazer", label: "Como fechar o caixa diariamente" },
     { id: "conferir", label: "Conferência por pagamento" },
     { id: "imenu", label: "Fechamento de Caixa no iMenu" },
+    { id: "movimentacoes", label: "Entradas, retiradas e saldo" },
     { id: "erros-comuns", label: "Erros para evitar" },
     { id: "perguntas-frequentes", label: "Perguntas frequentes" },
 ];
@@ -34,6 +35,10 @@ const faq = [
     {
         question: "Pedidos cancelados ou ainda não pagos entram no fechamento?",
         answer: "O resumo considera pedidos pagos ou concluídos conforme o status e a forma de pagamento. Pedidos cancelados e pedidos sem confirmação de pagamento não devem ser tratados como vendas recebidas.",
+    },
+    {
+        question: "Posso registrar entradas e retiradas no caixa do iMenu?",
+        answer: "Sim. Em Histórico, use Registrar movimentação de caixa para incluir entradas e retiradas. Caixa atual considera dinheiro recebido, entradas e retiradas; a tabela mostra as movimentações da data selecionada.",
     },
     {
         question: "O total de vendas é igual ao dinheiro na gaveta?",
@@ -180,6 +185,25 @@ export default function ComoFazerFechamentoDeCaixaRestaurantePage() {
                     informa a quantidade de pedidos dessas modalidades consideradas
                     no dia. Assim fica mais fácil entender de onde veio o movimento.
                 </p>
+            </BlogSection>
+
+            <BlogSection id="movimentacoes" title="Como registrar entradas, retiradas e acompanhar o saldo do caixa">
+                <p>
+                    Além dos totais por pagamento, o <strong>Fechamento de Caixa</strong> mostra
+                    o <strong>Caixa atual</strong>: o dinheiro recebido de pedidos concluídos,
+                    somado às entradas e descontadas as retiradas registradas.
+                    O saldo é acumulado; não é o faturamento de uma única data.
+                </p>
+                <BlogSteps items={[
+                    { title: "Abra Histórico", description: "No painel iMenu, acesse Histórico e encontre Fechamento de Caixa." },
+                    { title: "Registre uma movimentação", description: "Clique em Registrar movimentação de caixa e escolha Entrada ou Retirada." },
+                    { title: "Informe o valor", description: "Registre um valor positivo. Uma retirada não pode exceder o saldo disponível." },
+                    { title: "Confira o histórico", description: "A tabela mostra pedidos concluídos em dinheiro e entradas/retiradas, com horário e valor, da data selecionada." },
+                ]} />
+                <BlogCallout title="Vendas, saldo e lucro não são a mesma coisa" variant="info">
+                    Pix e cartão entram no resumo de vendas, mas não são dinheiro na gaveta.
+                    Entradas e retiradas também não representam, por si só, lucro ou faturamento.
+                </BlogCallout>
             </BlogSection>
 
             <BlogSection id="erros-comuns" title="Erros comuns que fazem o fechamento não bater">

@@ -18,10 +18,12 @@ const run = "33333333-3333-4333-8333-333333333333";
 const proposal = "44444444-4444-4444-8444-444444444444";
 const item = { id: "55555555-5555-4555-8555-555555555555", name: "Prato", price_cents: 1000, image_path: null };
 const generate = jest.fn();
+let appliedImage: boolean, requestMessage: string;
 let actions: Map<string, any>, imageCount: number, statements: string[], plus: boolean;
 
 beforeEach(() => {
   imageCount = 0;
+  appliedImage = false; requestMessage = "todos os pratos";
   plus = false;
   statements = [];
   actions = new Map([[proposal, {
@@ -35,6 +37,8 @@ beforeEach(() => {
   (signedAttachment as jest.Mock).mockResolvedValue({ url: "https://example.test/preview.webp" });
   (query as jest.Mock).mockImplementation(async (sql: string, params: any[] = []) => {
     statements.push(sql);
+    if (sql.startsWith("SELECT 1 FROM public.ia_vendas_actions a")) return { rows: appliedImage ? [{}] : [] };
+    if (sql.startsWith("SELECT m.content FROM public.ia_vendas_runs")) return { rows: [{ content: requestMessage }] };
     if (sql.startsWith("SELECT * FROM public.ia_vendas_actions")) return { rows: [actions.get(params[1])].filter(Boolean) };
     if (sql.includes("SET status='applying'")) {
       const action = actions.get(params[0]);
@@ -142,4 +146,26 @@ test("failed image generation releases its reserved quota", async () => {
   await expect(applyProposal(restaurant, proposal, conversation, "generate", run)).rejects.toThrow("Generation failed");
   expect(imageCount).toBe(0);
   expect(statements.some((sql) => sql.includes("SET image_count=greatest(image_count-1,0)"))).toBe(true);
+});
+
+
+
+test("broad image requests skip applied products before proposing or spending any image quota", async () => {
+  appliedImage = true;
+  const result = await proposeImages(restaurant, conversation, run, { jobs: [{ target: "item", item_id: item.id, prompt: "new" }] });
+  expect(result).toMatchObject({ id: null, status: "skipped", skipped: ["Prato"] });
+  expect(generate).not.toHaveBeenCalled();
+  expect(imageCount).toBe(0);
+});
+test("an old approved batch rechecks applied images before calling the provider", async () => {
+  appliedImage = true;
+  await applyProposal(restaurant, proposal, conversation, "generate", run);
+  expect(generate).not.toHaveBeenCalled();
+  expect(imageCount).toBe(0);
+});
+test("explicit product-specific regeneration remains allowed", async () => {
+  appliedImage = true; requestMessage = "Refaça a foto do Prato";
+  await applyProposal(restaurant, proposal, conversation, "generate", run);
+  expect(generate).toHaveBeenCalledTimes(1);
+  expect(imageCount).toBe(1);
 });

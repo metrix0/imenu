@@ -21,6 +21,8 @@ export async function GET(request: Request) {
         request,
         url.searchParams.get("restaurant_id"),
       );
+    if (url.searchParams.get("usage_only") === "1")
+      return Response.json({ access: await aiAccess(restaurant) }, { headers: { "Cache-Control": "no-store" } });
     await query(
       "INSERT INTO public.ia_vendas_conversations (restaurant_id,kind,title) VALUES ($1,'analysis','Análise') ON CONFLICT(restaurant_id) WHERE kind='analysis' DO NOTHING",
       [restaurant],
@@ -357,3 +359,4 @@ export async function POST(request: Request) {
     return failure(e);
   }
 }
+

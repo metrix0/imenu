@@ -248,7 +248,7 @@ export function promotionDescription(
 // add a separate discount; they never change the product-promotion records.
 export function promotionCartSubtotal(items: PromotionCartItem[]) {
   return items.reduce(
-    (sum, item) => sum + (promotionPrice(item) || item.total_cents),
+    (sum, item) => sum + (promotionPrice(item) ?? item.total_cents),
     0,
   );
 }
@@ -271,7 +271,7 @@ export function evaluateAutomaticPromotions(
   const automaticGiftChargedSubtotal = input.items
     .filter((item) => Boolean(item.automatic_promotion_id))
     .reduce(
-      (sum, item) => sum + Math.max(0, promotionPrice(item) || item.total_cents),
+      (sum, item) => sum + Math.max(0, promotionPrice(item) ?? item.total_cents),
       0,
     );
   const subtotal = Math.max(0, rawSubtotal - automaticGiftChargedSubtotal);
