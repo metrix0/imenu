@@ -5,7 +5,11 @@ const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u0
 
 // Permission comes from the owner's original message, never a model-provided flag.
 export function explicitlyTargetsImage(message: string, name: string, target: string) {
-  const text = normalize(message), label = normalize(name);
+  // Publication approval is separate from permission to generate a preview.
+  const text = normalize(message)
+    .replace(/\b(?:nao|nunca)\s+(?:publique|publicar|publica)(?:\s+automaticamente)?\b[^;.!?]*/g, "")
+    .replace(/\b(?:do not|don t|dont|never)\s+publish(?:\s+automatically)?\b[^;.!?]*/g, "");
+  const label = normalize(name);
   if (/\b(todos|todas|all|restantes|nao|nunca|never|dont|not|don t)\b/.test(text)) return false;
   if (!/\b(imagem|imagens|foto|fotos|image|photo|refaca|refazer|regenere|regenerar|regenerate|melhore|melhorar|arruma|arrumar|altere|alterar|mude|mudar|troque|trocar|igual|fundo|escrito|nova|novo|redo|replace|change|improve)\b/.test(text)) return false;
   if (target !== "item") return new RegExp(`\\b${target === "logo" ? "logo|logotipo" : "banner"}\\b`).test(text);
