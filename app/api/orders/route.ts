@@ -1314,7 +1314,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: error.message }, { status: 409 });
         }
         if (error instanceof PromotionPricingError) {
-            return NextResponse.json({ error: error.message }, { status: 400 });
+            return NextResponse.json({ error: error.message }, { status: 409 });
         }
         if (error instanceof RestaurantOwnerAuthError) {
             return NextResponse.json({ error: error.message }, { status: error.status });

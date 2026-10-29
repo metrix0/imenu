@@ -238,10 +238,15 @@ it("rejects a gift promotion when the panel omits its free product", async () =>
   offers = [{ ...offer, benefits: [{ type: "product", item_id: giftId, quantity: 1 }] }];
   const response = await send({
     panel_order: true,
+    paymentMethod: "pix",
     expected_promotion: { id: offer.id, total_cents: 5800 },
   });
   expect(response.status).toBe(409);
+  expect((await response.json()).error).toMatch(/item grátis/);
   expect(insert).toBeNull();
+  expect(writes).toEqual([]);
+  expect(transactions).toEqual(["rollback"]);
+  expect(createMercadoPagoPixCharge).not.toHaveBeenCalled();
 });
 
 it("preserves orders with no automatic promotion", async () => {
