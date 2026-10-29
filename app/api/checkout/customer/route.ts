@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { query } from "@/lib/database/sql";
 import { isUuid } from "@/lib/promotions/automatic";
 import { normalizeCustomerPhone } from "@/lib/services/crmRules";
 import { savedCheckoutProfile, validCheckoutOrigin } from "@/lib/services/checkoutCustomer";
@@ -18,10 +19,29 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
 
-    // Never disclose historical profiles based solely on a supplied phone.
-    // Signed snapshots remain available only on the original device/store.
+    const result = await query(
+      `SELECT
+        (SELECT name
+         FROM customers
+         WHERE phone=$1 AND NULLIF(BTRIM(name), '') IS NOT NULL
+         ORDER BY updated_at DESC NULLS LAST
+         LIMIT 1) AS name,
+        (SELECT address
+         FROM customers
+         WHERE phone=$1 AND address IS NOT NULL AND address <> '{}'::jsonb
+         ORDER BY updated_at DESC NULLS LAST
+         LIMIT 1) AS address`,
+      [phone],
+    );
     const saved = savedCheckoutProfile(request, restaurantId);
-    const customer = saved?.phone === phone ? saved.snapshot || null : null;
+    const snapshot = saved?.phone === phone ? saved.snapshot : null;
+    const record = result.rows[0];
+    const customer = record?.name || record?.address
+      ? {
+          name: record.name || snapshot?.name || null,
+          address: record.address || snapshot?.address || null,
+        }
+      : snapshot || null;
 
     return NextResponse.json(
       { customer },

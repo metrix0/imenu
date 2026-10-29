@@ -14,6 +14,7 @@ import {
     sendWahaList,
     sendWahaText,
     findWahaSentTextSince,
+    getWahaRecentTextHistory,
     resolveWahaChatPhone,
     startWahaTyping,
     stopWahaTyping,
@@ -59,7 +60,8 @@ const FALLBACK_COOLDOWN_SECONDS = 30;
 const FALLBACK_SUSPEND_COUNT_5_MINUTES = 3;
 const LIST_FAILURE_LIMIT_5_MINUTES = 3;
 const STORM_QUIET_SECONDS = 60;
-const ORDER_NOT_FOUND_TEXT = "Não encontrei um pedido recente vinculado a este WhatsApp. Para consultar pedidos de outro número, escolha *Falar com atendente*.";
+const ORDER_PHONE_REQUEST_TEXT = "Não encontrei um pedido pelo número deste WhatsApp. Envie o telefone com DDD usado no pedido (ex.: 11999999999).";
+const ORDER_PHONE_RETRY_TEXT = "Não encontrei um pedido recente para esse telefone. Envie outro telefone com DDD ou escolha *Falar com atendente*.";
 // WAHA can accept a send after our HTTP request times out. Check its history
 // a bounded number of times instead of retrying or claiming delivery failed.
 const OUTBOUND_CONFIRMATION_DELAYS_MS = [0, 1_500, 2_500, 3_500, 4_500];
@@ -750,6 +752,20 @@ function renderOrderStatus(order: OrderStatusRow, templates: WhatsAppMessageTemp
     }) + getOrderEtaText(order);
 }
 
+async function awaitingOrderPhone(sessionName: string, chatId: string, messageId: string): Promise<boolean> {
+    try {
+        const messages = await getWahaRecentTextHistory(sessionName, chatId, messageId, 5, 3_000);
+        const last = messages[messages.length - 1];
+        return !!last?.fromMe
+            && [ORDER_PHONE_REQUEST_TEXT, ORDER_PHONE_RETRY_TEXT].includes(last.body)
+            && Date.now() - last.timestamp * 1000 >= 0
+            && Date.now() - last.timestamp * 1000 < BOT_SESSION_MINUTES * 60_000;
+    } catch (error) {
+        console.warn("[WHATSAPP_AUTOMATION] phone_lookup_history_failed", { error });
+        return false;
+    }
+}
+
 async function answerFlow({
     flow,
     templates,
@@ -811,7 +827,7 @@ async function answerFlow({
             restaurantId,
             sessionName,
             chatId,
-            text: order ? renderOrderStatus(order, templates, variables) : ORDER_NOT_FOUND_TEXT,
+            text: order ? renderOrderStatus(order, templates, variables) : ORDER_PHONE_REQUEST_TEXT,
         });
         return;
     }
@@ -878,6 +894,26 @@ export async function processIncomingWhatsAppMessage({
     if (prepared.state === "storm") {
         console.info("[WHATSAPP_AUTOMATION] inbound_suppressed_storm", {
             restaurantId,
+        });
+        return;
+    }
+
+    if (!hasMedia && getPhoneCandidates(body).length && await awaitingOrderPhone(sessionName, chatId, messageId)) {
+        const [restaurant, templates] = await Promise.all([
+            getRestaurantTemplateData(restaurantId),
+            getWhatsAppTemplates(restaurantId),
+        ]);
+        if (!restaurant) return;
+        const variables = buildRestaurantTemplateVariables(restaurant, {
+            NOME_DO_CLIENTE: prepared.customerName || customerName || "Cliente",
+        });
+        const order = await getLatestOrder(restaurantId, body);
+        await sendTrackedText({
+            dedupeKey: `${messageId}:order_phone_lookup`,
+            restaurantId,
+            sessionName,
+            chatId,
+            text: order ? renderOrderStatus(order, templates, variables) : ORDER_PHONE_RETRY_TEXT,
         });
         return;
     }

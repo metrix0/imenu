@@ -67,13 +67,9 @@ test.each(["menu_link", "order_status", "delivery", "payment", "handoff"])("exec
     await processIncomingWhatsAppMessage(input);
     expect(sendWahaText).toHaveBeenCalledTimes(1);
     const text = (sendWahaText as jest.Mock).mock.calls[0][2];
-    if (flow === "order_status") expect(text).toContain("vinculado a este WhatsApp");
+    if (flow === "order_status") expect(text).toContain("Envie o telefone com DDD");
     else expect(text).toContain(DEFAULT_WHATSAPP_MESSAGE_TEMPLATES[flow as "menu_link" | "delivery" | "payment" | "handoff"].split("{{")[0]);
     if (flow === "handoff") expect(sendOwnerPush).toHaveBeenCalled();
-});
-test("does not look up arbitrary phone numbers entered in chat", async () => {
-    await processIncomingWhatsAppMessage({ ...input, body: "11999999999" });
-    expect((query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes("FROM orders"))).toBe(false);
 });
 test("retains the original fallback when AI is disabled or fails", async () => {
     await processIncomingWhatsAppMessage(input);
