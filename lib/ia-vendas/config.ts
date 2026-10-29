@@ -10,7 +10,7 @@ export const MODELS = {
 export const LIMITS = {
   input: 1_850_000,
   output: 156_000,
-  images: 50,
+  images: 75,
   imageBatch: 8,
   runInput: 100_000,
   monthlyChatInput: 2_000_000,

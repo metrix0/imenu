@@ -14,7 +14,7 @@ export class IaPlusRequired extends SalesError {
 export class IaImageLimitReached extends SalesError {
   constructor(plus = false) {
     super(plus
-      ? "Seu limite mensal de 50 imagens do iMenu Plus foi atingido. Novas gerações estarão disponíveis no próximo mês."
+      ? `Seu limite mensal de ${LIMITS.images} imagens do iMenu Plus foi atingido. Novas gerações estarão disponíveis no próximo mês.`
       : "Seu limite semanal de geração de imagens foi atingido. Para gerar mais imagens, assine o iMenu Plus. Você ainda pode conversar e realizar outras tarefas pelo Assistente IA.");
   }
 }

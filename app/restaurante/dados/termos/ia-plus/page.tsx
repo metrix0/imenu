@@ -113,7 +113,7 @@ export default function IaPlusTermsPage() {
                             <li>
                                 No iMenu Plus, o Assistente está sujeito a tetos
                                 mensais de 2.000.000 tokens de entrada e 120.000
-                                tokens de saída e à capacidade de até 50 gerações
+                                tokens de saída e à capacidade de até 75 gerações
                                 de imagem por restaurante no mês calendário.
                                 A contagem mensal usa o horário de referência do
                                 servidor (UTC). Cada pedido de conversa aceita
