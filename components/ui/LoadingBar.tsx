@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 
 type LoadingBarProps = {
     progress?: number;
+    label?: string;
     indeterminate?: boolean;
     size?: "sm" | "md" | "lg";
     colorClass?: string;
@@ -14,6 +15,7 @@ type LoadingBarProps = {
 
 export default function LoadingBar({
                                        progress = 0,
+                                       label,
                                        indeterminate = false,
                                        size = "md",
                                        colorClass = "bg-brand",
@@ -92,6 +94,7 @@ export default function LoadingBar({
         >
             <div
                 role="progressbar"
+                aria-label={label}
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-valuenow={indeterminate ? undefined : clamped}
@@ -118,3 +121,4 @@ export default function LoadingBar({
         </div>
     );
 }
+

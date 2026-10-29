@@ -13,6 +13,8 @@ export const LIMITS = {
   images: 50,
   imageBatch: 8,
   runInput: 100_000,
+  monthlyChatInput: 2_000_000,
+  monthlyChatOutput: 120_000,
   analysisInput: 120_000,
   analysisRequestOverhead: 8_000,
   analysisRounds: 3,
@@ -28,3 +30,4 @@ export const LIMITS = {
   cooldownDays: 14,
 };
 export const PRIVATE_BUCKET = "ia-vendas-private";
+

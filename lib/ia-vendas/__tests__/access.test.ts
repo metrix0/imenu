@@ -139,3 +139,14 @@ test("manual analysis remains available even after all free allowances are exhau
   await expect(beginRun("restaurant", "conversation", "run", "analysis")).resolves.toBeNull();
   expect(sql.mock.calls.some(([s]) => s.includes("restaurant_addons"))).toBe(false);
 });
+
+
+test('Plus usage follows the enforced monthly input/output budgets and reports both resources', async () => {
+ addon = { status: 'active' };
+ usage = { monthly_input: 1_400_000, monthly_output: 0, monthly_images: 10 };
+ expect((await aiAccess('restaurant')).usage).toMatchObject({ tokens: { percent: 70 }, images: { percent: 20 } });
+ usage = { monthly_input: 0, monthly_output: 84_000, monthly_images: 35 };
+ expect((await aiAccess('restaurant')).usage).toMatchObject({ tokens: { percent: 70 }, images: { percent: 70 } });
+ addon = null;
+ expect((await aiAccess('restaurant')).usage).toBeNull();
+});
