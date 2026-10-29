@@ -74,73 +74,123 @@ type PairingRow = {
     desired_state: string;
     status: string;
     pairing_started_at: string | Date | null;
+    last_disconnected_at: string | Date | null;
+    updated_at: string | Date;
 };
 
+export function shouldCleanupStaleWhatsAppConnection(
+    connection: PairingRow,
+    now = Date.now()
+): boolean {
+    if (connection.desired_state === "connected") {
+        return connection.status !== "WORKING" &&
+            isWhatsAppPairingExpired(
+                connection.pairing_started_at ?? connection.last_disconnected_at, now
+            );
+    }
+    const updated = typeof connection.updated_at === "string"
+        ? Date.parse(connection.updated_at)
+        : connection.updated_at.getTime();
+    return connection.desired_state === "disconnected" &&
+        Number.isFinite(updated) && now - updated > 15 * 60_000;
+}
+
 export async function cleanupExpiredWhatsAppPairing() {
-    const result = { checked: 0, stopped: 0, skipped: 0, errors: 0 };
+    const result = { checked: 0, stopped: 0, reconciled: 0, skipped: 0, errors: 0 };
     const started = Date.now();
+    // A bounded, daily rotation checks all disconnected accounts without
+    // repeatedly scanning just the first 25. Existing failed connections
+    // without a pairing timestamp use their last disconnect timestamp.
     const candidates = await query<{ restaurant_id: string }>(
-        `SELECT restaurant_id FROM whatsapp_connections
-         WHERE desired_state = 'connected' AND status <> 'WORKING'
-           AND pairing_started_at <= NOW() - INTERVAL '5 days'
-         ORDER BY pairing_started_at, restaurant_id LIMIT $1`,
-        [MAX_SESSIONS_PER_RUN]
+        `WITH expired AS (
+            SELECT restaurant_id FROM whatsapp_connections
+            WHERE desired_state = 'connected' AND status <> 'WORKING'
+              AND COALESCE(pairing_started_at, last_disconnected_at)
+                    <= NOW() - INTERVAL '5 days'
+            ORDER BY COALESCE(pairing_started_at, last_disconnected_at), restaurant_id
+            LIMIT 10
+        ), disconnected AS (
+            SELECT restaurant_id FROM whatsapp_connections
+            WHERE desired_state = 'disconnected'
+              AND updated_at <= NOW() - INTERVAL '15 minutes'
+              AND ((hashtext(restaurant_id::text) & 2147483647) % 7) =
+                  (FLOOR(EXTRACT(EPOCH FROM NOW()) / 86400)::integer % 7)
+            ORDER BY restaurant_id LIMIT 15
+        )
+        SELECT restaurant_id FROM expired UNION ALL
+        SELECT restaurant_id FROM disconnected`
     );
 
-    for (const candidate of candidates.rows) {
-        // Each session uses at most two five-second WAHA requests.
+    for (const candidate of candidates.rows.slice(0, MAX_SESSIONS_PER_RUN)) {
         if (Date.now() - started > CLEANUP_BUDGET_MS - 10_000) break;
         result.checked += 1;
         try {
-            const stopped = await withTransaction(async (client) => {
+            const outcome = await withTransaction(async (client) => {
                 const lock = await client.query<{ locked: boolean }>(
                     "SELECT pg_try_advisory_xact_lock(hashtextextended($1, 0)) AS locked",
                     ["whatsapp-pairing:" + candidate.restaurant_id.toLowerCase()]
                 );
-                if (!lock.rows[0]?.locked) return false;
+                if (!lock.rows[0]?.locked) return "skipped" as const;
+
                 const rows = await client.query<PairingRow>(
-                    `SELECT restaurant_id, session_name, desired_state, status, pairing_started_at
+                    `SELECT restaurant_id, session_name, desired_state, status,
+                            pairing_started_at, last_disconnected_at, updated_at
                      FROM whatsapp_connections WHERE restaurant_id = $1`,
                     [candidate.restaurant_id]
                 );
                 const connection = rows.rows[0];
-                if (!connection || connection.desired_state !== "connected" ||
-                    connection.status === "WORKING" ||
-                    !isWhatsAppPairingExpired(connection.pairing_started_at)) return false;
+                if (!connection || !shouldCleanupStaleWhatsAppConnection(connection)) {
+                    return "skipped" as const;
+                }
 
-                // The provider is authoritative: a just-paired session must survive
-                // even if its WORKING webhook has not reached the database yet.
+                // Never stop a currently working session, even if Supabase
+                // contains an outdated disconnected/failed state.
                 const live = await getWahaSession(connection.session_name, 5_000);
                 if (live?.status === "WORKING") {
-                    await client.query(
-                        "UPDATE whatsapp_connections SET pairing_started_at = NULL WHERE restaurant_id = $1",
-                        [connection.restaurant_id]
-                    );
-                    return false;
+                    if (connection.desired_state === "connected") {
+                        await client.query(
+                            `UPDATE whatsapp_connections SET status = 'WORKING',
+                                pairing_started_at = NULL, last_connected_at = NOW(),
+                                last_error = NULL, updated_at = NOW()
+                             WHERE restaurant_id = $1`,
+                            [connection.restaurant_id]
+                        );
+                        return "reconciled" as const;
+                    }
+                    console.warn("[whatsapp-pairing-cleanup] Disconnected account is WORKING; manual review required", {
+                        restaurantId: connection.restaurant_id,
+                    });
+                    return "skipped" as const;
                 }
-
                 if (live && live.status !== "STOPPED") {
+                    // STOP retains WhatsApp credentials. Never logout/delete
+                    // on an unattended cleanup.
                     await stopWahaSession(connection.session_name);
+                    const after = await getWahaSession(connection.session_name, 5_000);
+                    if (after && after.status !== "STOPPED") {
+                        throw new Error("WAHA did not confirm session stop");
+                    }
                 }
 
-                // Stop, never logout/delete. Clear the desired state so subsequent
-                // STOPPED webhooks cannot automatically restart this attempt.
+                if (connection.desired_state === "disconnected") {
+                    return live && live.status !== "STOPPED" ? "stopped" as const : "skipped" as const;
+                }
                 await client.query(
-                    `UPDATE whatsapp_connections
-                     SET desired_state = 'disconnected', status = 'STOPPED',
-                         pairing_started_at = NULL, qr_code_data = NULL, qr_updated_at = NULL,
-                         last_disconnected_at = NOW(), last_event_at = NOW(), updated_at = NOW(),
-                         last_error = 'A conexão foi pausada após 5 dias sem concluir o pareamento. Clique em Conectar para tentar novamente.'
+                    `UPDATE whatsapp_connections SET desired_state = 'disconnected',
+                        status = 'STOPPED', pairing_started_at = NULL,
+                        qr_code_data = NULL, qr_updated_at = NULL,
+                        last_disconnected_at = NOW(), last_event_at = NOW(),
+                        updated_at = NOW(),
+                        last_error = 'A conexão foi pausada após 5 dias sem reconectar. Clique em Conectar para tentar novamente.'
                      WHERE restaurant_id = $1`,
                     [connection.restaurant_id]
                 );
-                return true;
+                return "stopped" as const;
             });
-            if (stopped) result.stopped += 1;
-            else result.skipped += 1;
+            result[outcome] += 1;
         } catch (error) {
             result.errors += 1;
-            console.warn("[whatsapp-pairing-cleanup] Could not stop expired pairing", {
+            console.warn("[whatsapp-pairing-cleanup] Could not reconcile session", {
                 restaurantId: candidate.restaurant_id,
                 error,
             });
