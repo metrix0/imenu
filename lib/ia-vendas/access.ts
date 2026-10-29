@@ -14,7 +14,7 @@ export class IaPlusRequired extends SalesError {
 export class IaImageLimitReached extends SalesError {
   constructor(plus = false) {
     super(plus
-      ? "Seu limite mensal de 50 imagens do iMenu Plus foi atingido. Novas gerações estarão disponíveis no próximo mês."
+      ? `Seu limite mensal de ${LIMITS.images} imagens do iMenu Plus foi atingido. Novas gerações estarão disponíveis no próximo mês.`
       : "Seu limite semanal de geração de imagens foi atingido. Para gerar mais imagens, assine o iMenu Plus. Você ainda pode conversar e realizar outras tarefas pelo Assistente IA.");
   }
 }
@@ -30,9 +30,17 @@ export async function aiAccess(restaurant: string, client?: Pick<PoolClient, "qu
     coalesce(sum(input_tokens + output_tokens) FILTER (WHERE kind='chat' AND status='completed' AND coalesce(result->>'quota_exempt','false')<>'true' AND created_at>=now()-interval '7 days'),0)::int tokens,
     coalesce(sum(reserved_input + reserved_output) FILTER (WHERE kind='chat' AND status='running' AND created_at>now()-interval '6 minutes'),0)::int reserved,
     coalesce(sum(image_count) FILTER (WHERE created_at>=now()-interval '7 days'),0)::int images,
-    coalesce(sum(image_count) FILTER (WHERE created_at>=date_trunc('month',now())),0)::int monthly_images
+    coalesce(sum(image_count) FILTER (WHERE created_at>=date_trunc('month',now())),0)::int monthly_images,
+    coalesce(sum(greatest(input_tokens,reserved_input)) FILTER (WHERE kind='chat' AND created_at>=date_trunc('month',now())),0)::float monthly_input,
+    coalesce(sum(greatest(output_tokens,reserved_output)) FILTER (WHERE kind='chat' AND created_at>=date_trunc('month',now())),0)::float monthly_output
     FROM public.ia_vendas_runs WHERE restaurant_id=$1`, [restaurant])).rows[0];
-  return { plus, free_applications_remaining: plus ? null : usedApplication ? 0 : 1, reserved_tokens: Number(usage?.reserved || 0), tokens_remaining: plus ? null : Math.max(0, FREE_AI_TOKENS - Number(usage?.tokens || 0)), images_remaining: plus ? Math.max(0, LIMITS.images - Number(usage?.monthly_images || 0)) : Math.max(0, FREE_AI_IMAGES - Number(usage?.images || 0)) };
+  const input = Number(usage?.monthly_input || 0), output = Number(usage?.monthly_output || 0);
+  const monthlyUsage = plus ? {
+    tokens: { input, output, input_limit: LIMITS.monthlyChatInput, output_limit: LIMITS.monthlyChatOutput,
+      percent: Math.max(input / LIMITS.monthlyChatInput, output / LIMITS.monthlyChatOutput) * 100 },
+    images: { used: Number(usage?.monthly_images || 0), limit: LIMITS.images, percent: Number(usage?.monthly_images || 0) / LIMITS.images * 100 },
+  } : null;
+  return { plus, usage: monthlyUsage, free_applications_remaining: plus ? null : usedApplication ? 0 : 1, reserved_tokens: Number(usage?.reserved || 0), tokens_remaining: plus ? null : Math.max(0, FREE_AI_TOKENS - Number(usage?.tokens || 0)), images_remaining: plus ? Math.max(0, LIMITS.images - Number(usage?.monthly_images || 0)) : Math.max(0, FREE_AI_IMAGES - Number(usage?.images || 0)) };
 }
 export async function requireApplicationAccess(restaurant: string, conversation: string, client?: Pick<PoolClient, "query">) {
   const execute = (sql: string, params: any[]) => client ? client.query(sql, params) : query(sql, params);
@@ -46,3 +54,4 @@ export async function requireApplicationAccess(restaurant: string, conversation:
 export async function requireIaPlus(restaurant: string) {
   if (!(await aiAccess(restaurant)).plus) throw new IaPlusRequired();
 }
+

@@ -1,6 +1,7 @@
 "use client";
 import { create } from "zustand";
 import { supabase } from "@/lib/database/supabaseClient";
+import type { aiAccess } from "@/lib/ia-vendas/access";
 import type { Action, Message, Data } from "@/lib/ia-vendas/types";
 async function headers(json = true) {
   const { data } = await supabase.auth.getSession();
@@ -21,8 +22,11 @@ async function api(path: string, body?: Data) {
   return data;
 }
 let version = 0;
+let usageVersion = 0;
 type State = {
   access: { plus: boolean; free_applications_remaining: number | null; tokens_remaining: number | null; images_remaining: number | null } | null;
+  usageAccess: { restaurant_id: string; access: Awaited<ReturnType<typeof aiAccess>> } | null;
+  refreshUsage: (restaurant: string) => Promise<void>;
   upgradeRequired: boolean;
   clearUpgrade: () => void;
   restaurant_id: string | null;
@@ -58,6 +62,14 @@ type State = {
 };
 export const useSalesStore = create<State>((set, get) => ({
   access: null,
+  usageAccess: null,
+  refreshUsage: async (restaurant) => {
+    const request = ++usageVersion;
+    try {
+      const data = await api(`/api/ia-vendas?usage_only=1&restaurant_id=${encodeURIComponent(restaurant)}`);
+      if (request === usageVersion) set({ usageAccess: { restaurant_id: restaurant, access: data.access } });
+    } catch { /* Preserve the last known usage on transient network failures. */ }
+  },
   upgradeRequired: false,
   clearUpgrade: () => set({ upgradeRequired: false }),
   restaurant_id: null,
@@ -109,14 +121,17 @@ export const useSalesStore = create<State>((set, get) => ({
       if (older && previous.messages[0])
         params.set("before", previous.messages[0].created_at);
       const data = await api(`/api/ia-vendas?${params}`);
-      if (request === version)
+      if (request === version) {
+        usageVersion += 1;
         set({
           ...data,
+          usageAccess: { restaurant_id: data.restaurant_id, access: data.access },
           messages: older
             ? [...data.messages, ...previous.messages]
             : data.messages,
           loading: false,
         });
+      }
     } catch (e) {
       if (request === version)
         set({ loading: false, error: (e as Error).message });
@@ -265,3 +280,4 @@ export const useSalesStore = create<State>((set, get) => ({
     return data;
   },
 }));
+

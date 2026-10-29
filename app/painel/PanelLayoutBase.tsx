@@ -41,6 +41,8 @@ import {
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Loader from "@/components/ui/Loader";
 import Badge from "@/components/ui/Badge";
+import AiUsage from "@/components/restaurant-owner/ia-vendas/AiUsage";
+import { useSalesStore } from "@/lib/stores/restaurant-owner/iaVendasStore";
 import SupportButton, {
     type SupportButtonRef,
 } from "@/components/common/SupportButton";
@@ -116,6 +118,8 @@ export default function PainelLayout({
     const pathname = usePathname();
     const router = useRouter();
     const restaurantId = useCreationStore(state => state.restaurantId);
+    const usageAccess = useSalesStore(state => state.usageAccess);
+    const refreshUsage = useSalesStore(state => state.refreshUsage);
     const supportButtonRef = useRef<SupportButtonRef>(null);
     const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
     const productPageViewRef = useRef<string | null>(null);
@@ -132,6 +136,14 @@ export default function PainelLayout({
 
     const base = "/painel";
     const targetRestaurantId = restaurantId || getParamRestaurantId(params);
+
+    useEffect(() => {
+        if (!targetRestaurantId || isChecking) return;
+        const refresh = () => { if (document.visibilityState === "visible") void refreshUsage(targetRestaurantId); };
+        refresh();
+        window.addEventListener("focus", refresh);
+        return () => window.removeEventListener("focus", refresh);
+    }, [targetRestaurantId, pathname, isChecking, refreshUsage]);
 
     useEffect(() => {
         const wakeLock = (
@@ -426,7 +438,6 @@ export default function PainelLayout({
         { label: "Robô WhatsApp", icon: faRobot, href: `${base}/robo-whatsapp` },
         { label: "Impressora", icon: faPrint, href: `${base}/impressora` },
         { label: "Integrações", icon: faPuzzlePiece, href: `${base}/integracoes` },
-        { label: "iMenu Plus", icon: faCrown, href: `${base}/planos`, isNew: true },
         {
             label: "Configurações",
             icon: faGear,
@@ -504,6 +515,20 @@ export default function PainelLayout({
                   ? "Loja aberta"
                   : "Loja fechada"}
         </button>
+    );
+
+    const plusFooter = (compact: boolean) => (
+        <div className="shrink-0 border-t border-gray-100 bg-white py-2">
+            <AiUsage access={usageAccess?.restaurant_id === targetRestaurantId ? usageAccess.access : null} compact={compact} />
+            <Link href={`${base}/planos`} title={compact ? "iMenu Plus" : undefined}
+                onClick={() => trackPanelTabOpen({ label: "iMenu Plus", href: `${base}/planos` })}
+                aria-current={pathname?.startsWith(`${base}/planos`) ? "page" : undefined}
+                aria-label={compact ? "iMenu Plus" : undefined}
+                className={`panel-nav-link flex items-center rounded-lg text-sm text-gray-600 hover:bg-gray-50 ${compact ? "justify-center py-3" : "gap-3 px-4 py-3"}`}>
+                <FontAwesomeIcon icon={faCrown} className="text-gray-400" />
+                {!compact && <><span>iMenu Plus</span><Badge mode="pill" className="ml-auto">Novo</Badge></>}
+            </Link>
+        </div>
     );
 
     return (
@@ -694,6 +719,7 @@ export default function PainelLayout({
                             Ajuda
                         </button>
                     </nav>
+                    {plusFooter(false)}
                 </aside>
 
                 <aside
@@ -851,6 +877,7 @@ export default function PainelLayout({
                             </span>
                         </button>
                     </nav>
+                    {plusFooter(!expanded)}
                 </aside>
 
                 <main
@@ -870,3 +897,4 @@ export default function PainelLayout({
         </OrderSoundProvider>
     );
 }
+

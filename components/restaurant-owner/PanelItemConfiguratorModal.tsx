@@ -18,7 +18,7 @@ import {
     pricePizza,
     SAME_CATEGORY_PIZZA_ERROR,
 } from "@/lib/pizza/pricing";
-import { formatPrice } from "@/lib/utils/formatPrice";
+import { formatPrice, promotionPrice } from "@/lib/utils/formatPrice";
 import { icons } from "@/lib/utils/fontawesome";
 
 export type PanelOrderMenuItem = {
@@ -32,6 +32,7 @@ export type PanelOrderMenuItem = {
     position?: number | null;
     stock_enabled?: boolean | null;
     stock_quantity?: number | null;
+    promotion?: { type: "fixed" | "percent"; value: number };
 };
 
 export type PanelOrderSubitem = {
@@ -966,7 +967,7 @@ export default function PanelItemConfiguratorModal({
                                             ? "Próximo sabor"
                                             : "Adicionar"}
                                     </span>
-                                    <span>{formatPrice(total)}</span>
+                                    <span>{formatPrice(promotionPrice({ ...item, unit_price_cents: unitPrice, total_cents: total, qty }) ?? total)}</span>
                                 </span>
                             </Button>
                         </div>

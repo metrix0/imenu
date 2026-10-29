@@ -53,6 +53,9 @@ const body = {
 };
 let offers: AutomaticPromotion[];
 let stock: number;
+let activeProductPromotion: { type: "percent" | "fixed"; value: number } | null;
+let giftProductEnabled: boolean;
+const giftId = "10000000-0000-4000-8000-000000000002";
 let insert: any[] | null;
 let writes: string[];
 let transactions: string[];
@@ -64,6 +67,8 @@ beforeEach(() => {
   (requireRestaurantOwner as jest.Mock).mockReset().mockResolvedValue({});
   offers = [offer];
   stock = 10;
+  activeProductPromotion = null;
+  giftProductEnabled = false;
   insert = null;
   writes = [];
   transactions = [];
@@ -83,23 +88,21 @@ beforeEach(() => {
       if (sql.includes("LEFT JOIN promotions"))
         return {
           rows: [
-            {
-              id: itemId,
-              name: "Produto",
-              price_cents: 5000,
-              is_available: true,
-            },
+            { id: itemId, name: "Produto", price_cents: 5000, is_available: true, promotion: activeProductPromotion },
+            ...(giftProductEnabled ? [{ id: giftId, name: "Brinde", price_cents: 1200, is_available: true }] : []),
           ],
         };
+      if (sql.includes("FROM promotions p"))
+        return { rows: activeProductPromotion ? [{ item_id: itemId, ...activeProductPromotion }] : [] };
       if (sql.includes("FROM public.restaurant_tables AS table_entry"))
         return { rows: [{ id: tableId, name: "Mesa 1" }] };
       if (/FROM items\s+WHERE id/.test(sql))
         return {
           rows: [
             {
-              id: itemId,
+              id: values?.[0] === giftId ? giftId : itemId,
               restaurant_id: restaurantId,
-              name: "Produto",
+              name: values?.[0] === giftId ? "Brinde" : "Produto",
               is_available: true,
               stock_enabled: true,
               stock_quantity: stock,
@@ -195,6 +198,55 @@ it("rejects a manual order for another restaurant", async () => {
   const response = await send({ panel_order: true }, { Authorization: "Bearer non-owner-token" });
   expect(response.status).toBe(403);
   expect(insert).toBeNull();
+});
+
+it("reprices panel orders with current individual product promotions", async () => {
+  offers = [];
+  activeProductPromotion = { type: "percent", value: 20 };
+  const response = await send({
+    panel_order: true,
+    expected_promotion: { id: null, total_cents: 4800 },
+  });
+  expect(response.status).toBe(200);
+  expect(saved()[2]).toBe(4000);
+  expect(saved()[4]).toBe(4800);
+});
+
+it("creates a panel order with a real free-product promotion line", async () => {
+  giftProductEnabled = true;
+  offers = [{ ...offer, benefits: [{ type: "product", item_id: giftId, quantity: 1 }] }];
+  const response = await send({
+    panel_order: true,
+    expected_promotion: { id: offer.id, total_cents: 5800 },
+    items: [...body.items, {
+      base_item_id: giftId,
+      name: "Brinde",
+      qty: 1,
+      unit_price_cents: 1200,
+      total_cents: 0,
+      selectedSubitems: [],
+      automatic_promotion_id: offer.id,
+    }],
+  });
+  expect(response.status).toBe(200);
+  expect(saved()[4]).toBe(5800);
+  expect(writes.filter(sql => sql.includes("INSERT INTO order_items"))).toHaveLength(2);
+});
+
+it("rejects a gift promotion when the panel omits its free product", async () => {
+  giftProductEnabled = true;
+  offers = [{ ...offer, benefits: [{ type: "product", item_id: giftId, quantity: 1 }] }];
+  const response = await send({
+    panel_order: true,
+    paymentMethod: "pix",
+    expected_promotion: { id: offer.id, total_cents: 5800 },
+  });
+  expect(response.status).toBe(409);
+  expect((await response.json()).error).toMatch(/item grátis/);
+  expect(insert).toBeNull();
+  expect(writes).toEqual([]);
+  expect(transactions).toEqual(["rollback"]);
+  expect(createMercadoPagoPixCharge).not.toHaveBeenCalled();
 });
 
 it("preserves orders with no automatic promotion", async () => {
