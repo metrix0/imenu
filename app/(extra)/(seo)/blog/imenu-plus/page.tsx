@@ -26,6 +26,7 @@ const sections = [
 const faq = [
     { question: "O que é o iMenu Plus?", answer: "É o plano opcional do iMenu, que reúne automações de marketing pelo WhatsApp, recursos ampliados do Assistente IA, Vendas IA e bônus como upsells automáticos e download do cardápio em PDF." },
     { question: "Quanto custa o iMenu Plus?", answer: "O preço regular é R$ 49,99 por mês. Consulte o painel Planos para conferir as condições de contratação vigentes." },
+    { question: "O Robô WhatsApp com IA faz parte do Plus?", answer: "Sim. O Robô WhatsApp tradicional permanece gratuito. Com Plus válido, o robô pode usar IA para dúvidas sobre produtos e preços não atendidas pelos fluxos comuns, mantendo atendimento humano." },
     { question: "O iMenu continua gratuito?", answer: "Sim. O cardápio digital, o recebimento de pedidos, o Robô WhatsApp, o CRM, o QR Code Mesa, o Painel Garçom e outros recursos gratuitos continuam disponíveis sem contratar o iMenu Plus." },
     { question: "O WhatsApp automático de marketing é gratuito?", answer: "O Robô WhatsApp do cardápio é gratuito. Recuperação de carrinho, reativação e mensagens por hábitos de compra são automações de marketing incluídas no iMenu Plus e exigem as condições de envio, como conexão e consentimento." },
     { question: "O Assistente IA só funciona com iMenu Plus?", answer: "Não. Existe acesso gratuito ao Assistente IA, inclusive para geração de imagens, dentro das condições aplicáveis. O Plus amplia a capacidade e o acesso." },
@@ -92,6 +93,8 @@ export default function IMenuPlusPage() {
                     <span key="robo"><strong>Gratuito:</strong> Robô WhatsApp para o fluxo de atendimento do cardápio, separado das campanhas de marketing.</span>,
                     <span key="assist"><strong>Gratuito com condições de uso:</strong> Assistente IA, inclusive geração de imagens, e visualização de análises gratuitas quando disponíveis.</span>,
                     <span key="marketing"><strong>Plus:</strong> mensagens automáticas de marketing para carrinho, reativação e hábitos de compra.</span>,
+                    <span key="robot"><strong>Plus:</strong> Robô WhatsApp com IA para dúvidas sobre produtos e cardápio; o fluxo básico permanece gratuito.</span>,
+                    <span key="dark"><strong>Plus:</strong> Cardápio com Tema Escuro em Configurações; sem Plus válido a apresentação volta ao tema claro.</span>,
                     <span key="vendas"><strong>Plus:</strong> acesso ampliado ao Assistente e ao Vendas IA, incluindo revisão e aplicação de melhorias aprovadas.</span>,
                 ]} />
                 <p>
@@ -238,11 +241,12 @@ export default function IMenuPlusPage() {
 
             <BlogSection id="bonus" title="O que mais está incluído no iMenu Plus?">
                 <p>
-                    Além dos três recursos principais, o plano apresenta quatro bônus: atendimento
-                    exclusivo, upsells automáticos, atualizações de pedidos pelo WhatsApp e download
-                    do cardápio em PDF. Eles complementam, mas não substituem, as ferramentas grátis.
+                    Além dos três recursos principais, o plano apresenta cinco bônus: Robô WhatsApp com IA,
+                    atendimento exclusivo, upsells automáticos, atualizações de pedidos pelo WhatsApp
+                    e download do cardápio em PDF. Eles complementam, mas não substituem, as ferramentas grátis.
                 </p>
                 <BlogChecklist items={[
+                    <span key="robot"><strong>Robô WhatsApp com IA:</strong> dúvidas sobre produtos, preços e cardápio não atendidas pelos fluxos padrão, com possibilidade de falar com um atendente.</span>,
                     <span key="suporte"><strong>Atendimento exclusivo:</strong> canal para solicitar integrações e funcionalidades, sujeito à avaliação da equipe; solicitação não é garantia de implementação.</span>,
                     <span key="upsell"><strong>Upsells automáticos:</strong> recomendações de produtos que combinam com a compra, buscando oportunidades de aumentar o ticket médio.</span>,
                     <span key="status"><strong>Atualizações pelo WhatsApp:</strong> avisos de andamento do pedido conforme as condições de conexão, elegibilidade e envio aplicáveis.</span>,
@@ -252,6 +256,11 @@ export default function IMenuPlusPage() {
                     Atenção à diferença entre <strong>upsell manual</strong> e automático:
                     recomendações configuradas manualmente continuam gratuitas; o recurso
                     que sugere automaticamente itens compatíveis pertence ao Plus.
+                </p>
+                <p>
+                    O <strong>Cardápio com Tema Escuro</strong> é outra funcionalidade Plus:
+                    ative em Configurações. Sem acesso válido, a visualização retorna ao
+                    tema claro; o tema escuro não é um sexto bônus da lista principal.
                 </p>
                 <p>
                     QR Code Mesa, Painel Garçom, Modo Vitrine e importação de cardápio com IA

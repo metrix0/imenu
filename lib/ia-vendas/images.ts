@@ -1,4 +1,5 @@
 import sharp from "sharp";
+import { imageAllowed, approvedImageStyles, resolveImageStyle } from "./imagePolicy";
 import OpenAI, { toFile } from "openai";
 import { randomUUID } from "crypto";
 import { query } from "@/lib/database/sql";
@@ -159,9 +160,13 @@ export async function previewImage(
   conversation: string,
   run: string,
   input: Data,
+  sourceRun = run,
 ): Promise<Action> {
   const t = await target(restaurant, input),
     ai = new OpenAI({ maxRetries: 0, timeout: 90000 });
+  if (!(await imageAllowed(restaurant, sourceRun, input, t.row.name)))
+    throw new SalesError("Esta imagem já foi aplicada. Para refazê-la, peça explicitamente a alteração e o nome do produto.", 409);
+  const style = resolveImageStyle(await approvedImageStyles(restaurant), input, t.row.id);
   let reference: Buffer | undefined;
   if (input.attachment_id) {
     const a = await download(restaurant, input.attachment_id);
@@ -185,7 +190,7 @@ export async function previewImage(
     reference = Buffer.from(await data.arrayBuffer());
   }
   await reserveImage(restaurant, run);
-  const prompt = `Crie uma imagem comercial realista para ${t.row.name}. ${input.target === "item" ? "Fotografia gastronômica. Preserve exatamente ingredientes, porção, quantidade e apresentação do produto de referência. Não invente acompanhamentos ou ingredientes. Sem texto sobreposto." : "Preserve a identidade da marca."} Pedido do proprietário: ${input.prompt}`;
+  const prompt = `Crie uma imagem comercial realista para ${t.row.name}. ${input.target === "item" ? "Fotografia gastronômica. Preserve exatamente ingredientes, porção, quantidade e apresentação do produto de referência. Não invente acompanhamentos ou ingredientes. Texto sobreposto somente quando solicitado no pedido ou definido no estilo aprovado." : "Preserve a identidade da marca."} Pedido do proprietário: ${input.prompt}. Estilo aprovado (preserve, salvo alteração explícita neste pedido): ${JSON.stringify(style)}`;
   const generationSize =
       t.profile === "banner" ? "1536x1024" : "816x816",
     args = {
@@ -257,6 +262,8 @@ export async function previewImage(
     throw new SalesError("A imagem original mudou. Peça uma nova prévia.", 409);
   }
   const image = {
+    profile: input.target,
+    style,
     before: imageUrl(before, t.bucket),
     attachment_id: saved.id,
     bucket: t.bucket,
@@ -317,12 +324,18 @@ export async function proposeImages(
   );
   if (count >= LIMITS.actions)
     throw new SalesError("Revise as propostas primeiro.");
-  const jobs = [];
+  const jobs = [], skipped: string[] = [];
   for (const job of data.jobs) {
     const t = await target(restaurant, job);
+    if (!(await imageAllowed(restaurant, run, job, t.row.name))) {
+      skipped.push(t.row.name);
+      continue;
+    }
     jobs.push({ ...job, label: t.row.name });
   }
-  return (
+  if (!jobs.length) return { status: "skipped", skipped, id: null };
+
+  const proposal = (
     await query(
       "INSERT INTO public.ia_vendas_actions (restaurant_id,conversation_id,run_id,title,reason,image_jobs,id) VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7) ON CONFLICT(id) DO UPDATE SET id=excluded.id RETURNING *",
       [
@@ -336,6 +349,7 @@ export async function proposeImages(
       ],
     )
   ).rows[0];
+  return { ...proposal, skipped };
 }
 export async function applyImages(restaurant: string, id: string, existingRun?: string) {
   const action = await claim(restaurant, id);
@@ -355,12 +369,21 @@ export async function applyImages(restaurant: string, id: string, existingRun?: 
       started = true;
     }
     const generated = action.generated_actions || [];
+    // Recheck queued proposals too: a photo may have been applied after proposal creation.
+    const remaining = [];
     for (const job of (action.image_jobs || []).slice(generated.length)) {
+      const t = await target(restaurant, job);
+      if (await imageAllowed(restaurant, action.run_id || run, job, t.row.name)) remaining.push(job);
+    }
+    const jobs = [...(action.image_jobs || []).slice(0, generated.length), ...remaining];
+    await query("UPDATE public.ia_vendas_actions SET image_jobs=$3::jsonb WHERE restaurant_id=$1 AND id=$2", [restaurant, id, JSON.stringify(jobs)]);
+    for (const job of remaining) {
       const preview = await previewImage(
         restaurant,
         action.conversation_id,
         run,
         job,
+        action.run_id || run,
       );
       generated.push(preview.id);
       await query(
@@ -384,3 +407,4 @@ export async function applyImages(restaurant: string, id: string, existingRun?: 
     throw e;
   }
 }
+

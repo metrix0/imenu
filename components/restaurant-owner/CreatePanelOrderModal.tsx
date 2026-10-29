@@ -11,7 +11,8 @@ import HybridModal from "@/components/ui/HybridModal";
 import ModalFlowStep from "@/components/ui/ModalFlowStep";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
-import { formatPrice } from "@/lib/utils/formatPrice";
+import { formatPrice, promotionPrice } from "@/lib/utils/formatPrice";
+import { promotionCartSubtotal } from "@/lib/promotions/automatic";
 import PromotionSummary from "@/components/costumer/PromotionSummary";
 import { evaluateAutomaticPromotions, parseAutomaticPromotions, type AutomaticPromotion } from "@/lib/promotions/automatic";
 import Toast from "@/components/ui/Toast";
@@ -35,7 +36,8 @@ type RestaurantTable = {
     position?: number | null;
 };
 
-type Item = PanelOrderMenuItem;
+type Item = PanelOrderMenuItem & { promotion?: { type: "fixed" | "percent"; value: number } };
+type OrderItem = SelectedItem & { promotion?: Item["promotion"]; automatic_promotion_id?: string };
 type Subcategory = PanelOrderSubcategory;
 type Subitem = PanelOrderSubcategory["subitems"][number];
 type SelectedSubitem = PanelOrderSelectedSubitem;
@@ -118,6 +120,7 @@ export default function CreatePanelOrderModal({
                 { data: itemsData, error: itemsError },
                 { data: tablesData, error: tablesError },
                 { data: promotionData, error: promotionError },
+                { data: productPromotions, error: productPromotionError },
             ] = await Promise.all([
                 supabase
                     .from("categories")
@@ -137,6 +140,12 @@ export default function CreatePanelOrderModal({
                     .eq("is_active", true)
                     .order("position", { ascending: true }),
                 supabase.from("restaurants").select("automatic_promotions, pizza_settings").eq("id", restaurantId).single(),
+                supabase.from("promotions")
+                    .select("item_id, type, value")
+                    .eq("restaurant_id", restaurantId)
+                    .eq("active", true)
+                    .lte("starts_at", new Date().toISOString())
+                    .or(`ends_at.gte.${new Date().toISOString()},ends_at.is.null`),
             ]);
 
             if (categoriesError) {
@@ -150,7 +159,9 @@ export default function CreatePanelOrderModal({
                 console.error("Erro ao buscar itens:", itemsError);
                 setItemsByCategory({});
             } else {
+                const activeByItem = new Map((productPromotions || []).map(p => [p.item_id, { type: p.type, value: p.value }]));
                 const grouped = ((itemsData as Item[]) || []).reduce<Record<string, Item[]>>((acc, item) => {
+                    item = { ...item, promotion: activeByItem.get(item.id) as Item["promotion"] };
                     if (!acc[item.category_id]) acc[item.category_id] = [];
                     acc[item.category_id].push(item);
                     return acc;
@@ -165,7 +176,7 @@ export default function CreatePanelOrderModal({
                 setTables((tablesData as RestaurantTable[]) || []);
             }
 
-            setPromotionLoadError(Boolean(promotionError));
+            setPromotionLoadError(Boolean(promotionError || productPromotionError));
             setAutomaticPromotions(parseAutomaticPromotions(promotionData?.automatic_promotions));
             setPizzaSettings(promotionData?.pizza_settings ?? null);
             setPromotionNow(new Date());
@@ -498,9 +509,12 @@ export default function CreatePanelOrderModal({
         });
     };
 
-    const itemsTotalCents = useMemo(() => {
-        return selectedItems.reduce((sum, item) => sum + item.total_cents, 0);
-    }, [selectedItems]);
+    const menuItems = useMemo(() => Object.values(itemsByCategory).flat(), [itemsByCategory]);
+    const pricedSelectedItems: OrderItem[] = useMemo(() => selectedItems.map(item => ({
+        ...item,
+        promotion: menuItems.find(menuItem => menuItem.id === item.base_item_id)?.promotion,
+    })), [selectedItems, menuItems]);
+    const itemsTotalCents = promotionCartSubtotal(pricedSelectedItems);
 
     const deliveryFeeCents = useMemo(() => {
         const normalized = deliveryFeeInput.replace(/\./g, "").replace(",", ".").trim();
@@ -517,17 +531,41 @@ export default function CreatePanelOrderModal({
     );
     const isCounterOrder = selectedTableId === "balcao";
 
-    const promotionResult = automaticPromotions.length ? evaluateAutomaticPromotions(automaticPromotions, {
-        items: selectedItems, products: Object.values(itemsByCategory).flat(),
-        subtotal_cents: itemsTotalCents, delivery_cents: selectedTable || isCounterOrder ? 0 : deliveryFeeCents,
-        coupon_discount_cents: 0, channel: selectedTable || isCounterOrder ? "mesa" : "delivery", pickup: Boolean(editingOrder && originalDeliveryType === "retirada"), at: promotionNow,
-    }) : undefined;
-    const totalCents = promotionResult?.total_cents ?? itemsTotalCents + (selectedTable || isCounterOrder ? 0 : deliveryFeeCents);
-
-    const selectedItemCount = useMemo(
-        () => selectedItems.reduce((sum, item) => sum + item.qty, 0),
-        [selectedItems]
-    );
+    const promotionInput = {
+        products: menuItems,
+        subtotal_cents: itemsTotalCents,
+        delivery_cents: selectedTable || isCounterOrder ? 0 : deliveryFeeCents,
+        coupon_discount_cents: 0,
+        channel: (selectedTable || isCounterOrder ? "mesa" : "delivery") as "mesa" | "delivery",
+        pickup: Boolean(editingOrder && originalDeliveryType === "retirada"),
+        at: promotionNow,
+    };
+    const initialPromotion = automaticPromotions.length
+        ? evaluateAutomaticPromotions(automaticPromotions, { ...promotionInput, items: pricedSelectedItems })
+        : undefined;
+    // Gifts are real, zero-priced order lines, like in the customer checkout.
+    const giftItems: OrderItem[] = (initialPromotion?.free_products || []).flatMap((gift, index) => {
+        const product = menuItems.find(item => item.id === gift.item_id && item.is_available);
+        if (!product || !initialPromotion?.promotion) return [];
+        return [{
+            id: `gift-${initialPromotion.promotion.id}-${product.id}-${index}`,
+            base_item_id: product.id,
+            category_id: product.category_id,
+            name: product.name,
+            qty: gift.quantity,
+            unit_price_cents: product.price_cents,
+            total_cents: 0,
+            observation: null,
+            selectedSubitems: [],
+            automatic_promotion_id: initialPromotion.promotion.id,
+        }];
+    });
+    const orderItems: OrderItem[] = [...pricedSelectedItems, ...giftItems];
+    const promotionResult = automaticPromotions.length
+        ? evaluateAutomaticPromotions(automaticPromotions, { ...promotionInput, items: orderItems })
+        : undefined;
+    const totalCents = promotionResult?.total_cents ?? itemsTotalCents + promotionInput.delivery_cents;
+    const selectedItemCount = orderItems.reduce((sum, item) => sum + item.qty, 0);
 
     const selectedQuantityByItemId = useMemo(() => {
         return selectedItems.reduce<Record<string, number>>((acc, item) => {
@@ -601,7 +639,7 @@ export default function CreatePanelOrderModal({
                 table_id: selectedTable?.id,
                 table_token: selectedTable?.public_token,
                 coupon_discount_cents: 0,
-                items: selectedItems.map((item) => ({
+                items: orderItems.map((item) => ({
                     id: item.id,
                     base_item_id: item.base_item_id,
                     name: item.name,
@@ -611,6 +649,8 @@ export default function CreatePanelOrderModal({
                     observation: item.observation,
                     selectedSubitems: item.selectedSubitems,
                     pizza: item.pizza,
+                    promotion: item.promotion,
+                    automatic_promotion_id: item.automatic_promotion_id,
                 })),
             };
 
@@ -803,7 +843,8 @@ export default function CreatePanelOrderModal({
                                                                     </p>
                                                                 )}
                                                                 <p className="mt-2 text-sm font-bold text-gray-900">
-                                                                    {formatPrice(item.price_cents)}
+                                                                    {item.promotion && <span className="mr-2 font-normal text-gray-400 line-through">{formatPrice(item.price_cents)}</span>}
+                                                                    {formatPrice(promotionPrice({ ...item, unit_price_cents: item.price_cents, qty: 1 }) ?? item.price_cents)}
                                                                 </p>
                                                             </div>
 
@@ -1011,7 +1052,8 @@ export default function CreatePanelOrderModal({
                                                         <div className="font-semibold text-gray-900">{item.name}</div>
 
                                                         <div className="mt-1 text-sm text-gray-500">
-                                                            {formatPrice(item.unit_price_cents)} cada
+                                                            {pricedSelectedItems.some(p => p.id === item.id && p.promotion) && <span className="mr-2 line-through text-gray-400">{formatPrice(item.unit_price_cents)}</span>}
+                                                            {formatPrice(promotionPrice({ ...item, qty: 1, promotion: pricedSelectedItems.find(p => p.id === item.id)?.promotion }) ?? item.unit_price_cents)} cada
                                                         </div>
 
                                                         {!isExpanded && item.selectedSubitems.length > 0 && (
@@ -1189,6 +1231,14 @@ export default function CreatePanelOrderModal({
                                             </div>
                                         );
                                     })}
+                                    {giftItems.map(item => (
+                                        <div key={item.id} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                                            <div className="flex items-center justify-between gap-3">
+                                                <div className="min-w-0 font-semibold text-gray-900">{item.name} <span className="ml-1 text-xs font-medium text-brand">Brinde</span></div>
+                                                <span className="shrink-0 text-sm font-semibold text-brand">{item.qty} × Grátis</span>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
                         </div>
