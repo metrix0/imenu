@@ -9,6 +9,7 @@ import {
     getWahaSession,
     logoutWahaSession,
     restartWahaSession,
+    stopWahaSession,
     type WahaSession,
 } from "@/lib/services/wahaClient";
 
