@@ -11,6 +11,7 @@ export const IA_PLUS_BENEFITS = [
   { title: "Vendas IA", description: "Analise suas vendas, descubra oportunidades e aplique melhorias depois de revisar cada sugestão." },
 ] as const;
 export const IA_PLUS_BONUSES = [
+  { title: "Robô WhatsApp com IA", description: "Seu robô do WhatsApp mais inteligente, respondendo qualquer tipo de pergunta!" },
   { title: "Atendimento exclusivo", description: "Solicite integrações e novas funcionalidades com atendimento exclusivo e entrega em até 3 dias úteis." },
   { title: "Upsells automáticos", description: "Sugira automaticamente produtos que combinam com o pedido para aumentar o ticket médio." },
   { title: "Atualizações de pedidos pelo WhatsApp", description: "Notifique clientes pelo WhatsApp quando o pedido estiver pronto ou sair para entrega." },
