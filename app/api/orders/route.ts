@@ -483,9 +483,7 @@ export async function POST(request: Request) {
         let subtotal = items.reduce(
             (totalValue: number, item: any) =>
                 totalValue +
-                (promotionPrice(item) ||
-                    Number(item?.total_cents) ||
-                    0),
+                (promotionPrice(item) ?? Number(item?.total_cents) ?? 0),
             0
         );
 
@@ -720,11 +718,29 @@ export async function POST(request: Request) {
                     if (!restaurantResult.rows[0]) throw new OrderRequestError("Restaurante não encontrado.");
                     if (items.some((item: any) => item.pizza != null)) {
                         items = await pricePizzaOrderItems(client, restaurantId, restaurantResult.rows[0].pizza_settings, items);
-                        subtotal = items.reduce((sum: number, item: any) => sum + (promotionPrice(item) || Number(item.total_cents) || 0), 0);
+                        subtotal = items.reduce((sum: number, item: any) => sum + (promotionPrice(item) ?? Number(item.total_cents) ?? 0), 0);
                         safeCouponDiscount = Math.min(safeCouponDiscount, subtotal);
                         total = Math.max(0, subtotal + safeDeliveryFeeCents - safeCouponDiscount);
                         isOnlinePix = !isTableOrder && paymentMethod === "pix" && total > 0;
                         orderStatus = isOnlinePix ? "pending_online_payment" : "pending_physical_payment";
+                    }
+                    // Panel orders use the same active product prices/promotions as the storefront.
+                    if (panel_order === true) {
+                        const ids = [...new Set(items.map((item: any) => String(item.base_item_id || item.item_id || "")))];
+                        const currentPromotions = await client.query(
+                            `SELECT p.item_id, p.type, p.value FROM promotions p
+                             WHERE p.restaurant_id = $1 AND p.item_id = ANY($2::uuid[])
+                             AND p.active = true AND p.starts_at <= NOW()
+                             AND (p.ends_at >= NOW() OR p.ends_at IS NULL)`,
+                            [restaurantId, ids],
+                        );
+                        const promotionsByItem = new Map(currentPromotions.rows.map(p => [p.item_id, { type: p.type, value: p.value }]));
+                        items = items.map((item: any) => ({
+                            ...item,
+                            promotion: promotionsByItem.get(String(item.base_item_id || item.item_id)) || undefined,
+                        }));
+                        subtotal = items.reduce((sum: number, item: any) => sum + (promotionPrice(item) ?? Number(item.total_cents) ?? 0), 0);
+                        total = Math.max(0, subtotal + safeDeliveryFeeCents - safeCouponDiscount);
                     }
                     const pricing = await automaticOrderPricing(client, {
                         restaurantId, promotions: restaurantResult.rows[0].automatic_promotions,
@@ -734,7 +750,7 @@ export async function POST(request: Request) {
                         channel: isTableOrder || isCounterOrder ? "mesa" : "delivery", pickup: isPickup,
                         at: scheduledFor ?? new Date(),
                     });
-                    if (expected_promotion && (pricing.result.promotion || expected_promotion.id) && (
+                    if (expected_promotion && (panel_order === true || pricing.result.promotion || expected_promotion.id) && (
                         expected_promotion.id !== (pricing.result.promotion?.id || null) ||
                         expected_promotion.total_cents !== pricing.result.total_cents
                     )) throw new OrderRequestError("A promoção ou os preços mudaram. Atualize a sacola e confira o total antes de confirmar novamente.", 409);
@@ -1075,10 +1091,10 @@ export async function POST(request: Request) {
                                         : promotionPrice(
                                               cartItem,
                                               false
-                                          ) ||
+                                          ) ??
                                           Number(
                                               cartItem.unit_price_cents
-                                          ) ||
+                                          ) ??
                                           0,
                                     Number(
                                         cartItem.qty
@@ -1089,10 +1105,10 @@ export async function POST(request: Request) {
                                         ? 0
                                         : promotionPrice(
                                               cartItem
-                                          ) ||
+                                          ) ??
                                           Number(
                                               cartItem.total_cents
-                                          ) ||
+                                          ) ??
                                           0,
                                     isRewardItem
                                         ? 0
