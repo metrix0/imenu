@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
 
         const [access, notificationSettings] = await Promise.all([
             hasIMenuPlusAccess(restaurantId),
-            query<{enabled: boolean}>("SELECT COALESCE(automations->>'order_notifications_enabled','false')='true' enabled FROM whatsapp_bot_settings WHERE restaurant_id=$1", [restaurantId]),
+            query<{enabled: boolean; ai_enabled: boolean}>("SELECT COALESCE(automations->>'order_notifications_enabled','false')='true' enabled, COALESCE(automations->>'ai_enabled','false')='true' ai_enabled FROM whatsapp_bot_settings WHERE restaurant_id=$1", [restaurantId]),
         ]);
         const previewVariables = buildRestaurantTemplateVariables(restaurant);
         const variables = Object.entries(previewVariables).map(([key, value]) => ({
@@ -112,6 +112,7 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({
             orderNotificationsEnabled: notificationSettings.rows[0]?.enabled === true,
+            aiEnabled: notificationSettings.rows[0]?.ai_enabled === true,
             plus: access,
             templates,
             variables,
@@ -179,12 +180,15 @@ export async function PATCH(request: NextRequest) {
 
         await requireRestaurantOwner(request, restaurantId);
         const body = await request.json();
-        if (typeof body?.orderNotificationsEnabled === "boolean") {
+        if (typeof body?.orderNotificationsEnabled === "boolean" || typeof body?.aiEnabled === "boolean") {
             if (!(await hasIMenuPlusAccess(restaurantId))) return NextResponse.json({error:"Recurso exclusivo do iMenu Plus."},{status:402});
+            const settings: Record<string, boolean> = {};
+            if (typeof body.orderNotificationsEnabled === "boolean") settings.order_notifications_enabled = body.orderNotificationsEnabled;
+            if (typeof body.aiEnabled === "boolean") settings.ai_enabled = body.aiEnabled;
             await query(`INSERT INTO whatsapp_bot_settings (restaurant_id,message_templates,automations,updated_at)
-                VALUES ($1,'{}'::jsonb,jsonb_build_object('order_notifications_enabled',$2::boolean),NOW())
+                VALUES ($1,'{}'::jsonb,$2::jsonb,NOW())
                 ON CONFLICT (restaurant_id) DO UPDATE SET automations=COALESCE(whatsapp_bot_settings.automations,'{}'::jsonb) ||
-                EXCLUDED.automations,updated_at=NOW()`,[restaurantId,body.orderNotificationsEnabled]);
+                EXCLUDED.automations,updated_at=NOW()`,[restaurantId,JSON.stringify(settings)]);
             return NextResponse.json({ok:true});
         }
         const chatId = typeof body?.chatId === "string" ? body.chatId.trim() : "";
@@ -220,3 +224,4 @@ export async function PATCH(request: NextRequest) {
         return jsonError(error);
     }
 }
+

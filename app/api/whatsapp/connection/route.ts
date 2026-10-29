@@ -295,6 +295,12 @@ export async function POST(request: NextRequest) {
             const now = new Date().toISOString();
 
             if (action === "disconnect") {
+                // Do not report success if WAHA failed to unlink the account.
+                // Only change the desired state after logout succeeds, so a
+                // transient provider outage cannot silently unpair customers.
+                const live = await getWahaSession(sessionName);
+                if (live) await logoutWahaSession(sessionName);
+
                 const { error } = await supabase
                     .from("whatsapp_connections")
                     .upsert(
@@ -304,7 +310,7 @@ export async function POST(request: NextRequest) {
                             desired_state: "disconnected",
                             pairing_started_at: null,
                             automatic_restart_attempts: 0,
-                            status: "STOPPED",
+                            status: live ? "STARTING" : "STOPPED",
                             qr_code_data: null,
                             qr_updated_at: null,
                             last_disconnected_at: now,
@@ -313,16 +319,31 @@ export async function POST(request: NextRequest) {
                         },
                         { onConflict: "restaurant_id" }
                     );
-
                 if (error) throw error;
 
-                try {
-                    await logoutWahaSession(sessionName);
-                } catch (logoutError) {
-                    console.warn(
-                        "[WHATSAPP_CONNECTION] WAHA logout returned an error:",
-                        logoutError
-                    );
+                if (live) {
+                    try {
+                        // Logout may start a new QR session; stop it explicitly.
+                        await stopWahaSession(sessionName);
+                        const after = await getWahaSession(sessionName);
+                        if (after && after.status !== "STOPPED") {
+                            throw new Error("WAHA did not confirm session stop");
+                        }
+                    } catch (stopError) {
+                        await supabase.from("whatsapp_connections")
+                            .update({
+                                status: "FAILED",
+                                last_error: "Não foi possível encerrar a sessão do WhatsApp. Tente novamente.",
+                                updated_at: new Date().toISOString(),
+                            })
+                            .eq("restaurant_id", restaurantId);
+                        throw stopError;
+                    }
+                    const { error: finishError } = await supabase
+                        .from("whatsapp_connections")
+                        .update({ status: "STOPPED", updated_at: new Date().toISOString() })
+                        .eq("restaurant_id", restaurantId);
+                    if (finishError) throw finishError;
                 }
 
                 return NextResponse.json({
@@ -356,13 +377,10 @@ export async function POST(request: NextRequest) {
             if (startingError) throw startingError;
 
             if (action === "refresh_qr") {
-                try {
+                // An absent session is fine. Other logout failures must be
+                // surfaced instead of claiming that a new QR was requested.
+                if (await getWahaSession(sessionName)) {
                     await logoutWahaSession(sessionName);
-                } catch (logoutError) {
-                    console.warn(
-                        "[WHATSAPP_CONNECTION] Old WAHA session was already absent:",
-                        logoutError
-                    );
                 }
             }
 
