@@ -29,5 +29,12 @@ export const LIMITS = {
   actions: 15,
   cooldownDays: 14,
 };
+// Cabral Sushi Bar | Itaberaí receives 30% extra monthly chat input capacity.
+export function monthlyChatInputLimit(restaurant: string) {
+  return restaurant === "5ba55c30-6f55-4bd9-82da-eb6dbf1b6c43"
+    ? Math.round(LIMITS.monthlyChatInput * 1.3)
+    : LIMITS.monthlyChatInput;
+}
+
 export const PRIVATE_BUCKET = "ia-vendas-private";
 

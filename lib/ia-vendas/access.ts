@@ -2,7 +2,7 @@ import type { PoolClient } from "pg";
 import { query } from "@/lib/database/sql";
 import { hasIMenuPlusAccess } from "@/lib/addons/access";
 import { SalesError } from "./types";
-import { LIMITS } from "./config";
+import { LIMITS, monthlyChatInputLimit } from "./config";
 
 export const FREE_AI_TOKENS = 150_000;
 export const FREE_AI_IMAGES = 3;
@@ -35,9 +35,10 @@ export async function aiAccess(restaurant: string, client?: Pick<PoolClient, "qu
     coalesce(sum(greatest(output_tokens,reserved_output)) FILTER (WHERE kind='chat' AND created_at>=date_trunc('month',now())),0)::float monthly_output
     FROM public.ia_vendas_runs WHERE restaurant_id=$1`, [restaurant])).rows[0];
   const input = Number(usage?.monthly_input || 0), output = Number(usage?.monthly_output || 0);
+  const inputLimit = monthlyChatInputLimit(restaurant);
   const monthlyUsage = plus ? {
-    tokens: { input, output, input_limit: LIMITS.monthlyChatInput, output_limit: LIMITS.monthlyChatOutput,
-      percent: Math.max(input / LIMITS.monthlyChatInput, output / LIMITS.monthlyChatOutput) * 100 },
+    tokens: { input, output, input_limit: inputLimit, output_limit: LIMITS.monthlyChatOutput,
+      percent: Math.max(input / inputLimit, output / LIMITS.monthlyChatOutput) * 100 },
     images: { used: Number(usage?.monthly_images || 0), limit: LIMITS.images, percent: Number(usage?.monthly_images || 0) / LIMITS.images * 100 },
   } : null;
   return { plus, usage: monthlyUsage, free_applications_remaining: plus ? null : usedApplication ? 0 : 1, reserved_tokens: Number(usage?.reserved || 0), tokens_remaining: plus ? null : Math.max(0, FREE_AI_TOKENS - Number(usage?.tokens || 0)), images_remaining: plus ? Math.max(0, LIMITS.images - Number(usage?.monthly_images || 0)) : Math.max(0, FREE_AI_IMAGES - Number(usage?.images || 0)) };

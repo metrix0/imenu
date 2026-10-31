@@ -6,7 +6,7 @@ import {
 } from "./access";
 import type { PoolClient } from "pg";
 import { query, withTransaction } from "@/lib/database/sql";
-import { LIMITS, MODELS } from "./config";
+import { LIMITS, MODELS, monthlyChatInputLimit } from "./config";
 import { SalesError } from "./types";
 export async function beginRun(
   restaurant: string,
@@ -60,7 +60,7 @@ export async function beginRun(
     if (
       kind !== "analysis" &&
       (usage.recent >= 5 ||
-        usage.input + (kind === "image" ? 0 : LIMITS.runInput) > LIMITS.monthlyChatInput ||
+        usage.input + (kind === "image" ? 0 : LIMITS.runInput) > monthlyChatInputLimit(restaurant) ||
         usage.output + (kind === "image" ? 0 : output) > LIMITS.monthlyChatOutput)
     )
       throw new SalesError(
