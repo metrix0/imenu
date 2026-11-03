@@ -1,6 +1,7 @@
 import sharp from "sharp";
 import { imageAllowed, approvedImageStyles, resolveImageStyle } from "./imagePolicy";
 import OpenAI, { toFile } from "openai";
+import { openAiAlertFetch } from "@/lib/services/openAiAlerts";
 import { randomUUID } from "crypto";
 import { query } from "@/lib/database/sql";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
@@ -163,7 +164,7 @@ export async function previewImage(
   sourceRun = run,
 ): Promise<Action> {
   const t = await target(restaurant, input),
-    ai = new OpenAI({ maxRetries: 0, timeout: 90000 });
+    ai = new OpenAI({ maxRetries: 0, timeout: 90000, fetch: openAiAlertFetch("Vendas IA (imagens)") });
   if (!(await imageAllowed(restaurant, sourceRun, input, t.row.name)))
     throw new SalesError("Esta imagem já foi aplicada. Para refazê-la, peça explicitamente a alteração e o nome do produto.", 409);
   const style = resolveImageStyle(await approvedImageStyles(restaurant), input, t.row.id);

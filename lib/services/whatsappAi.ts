@@ -87,7 +87,8 @@ export async function getWhatsAppAiReply({ restaurantId, sessionName, chatId, me
             .map(message => ({ role: message.fromMe ? "assistant" as const : "user" as const, content: message.body.slice(0, 800) }));
         input.push({ role: "user", content: body.slice(0, 2_000) });
         const { default: OpenAI } = await import("openai");
-        const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, maxRetries: 0 });
+        const { openAiAlertFetch } = await import("@/lib/services/openAiAlerts");
+        const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, maxRetries: 0, fetch: openAiAlertFetch("Robô WhatsApp") });
         const signal = AbortSignal.timeout(18_000);
         for (let round = 0; round < 3; round++) {
             const response = await client.responses.create({
