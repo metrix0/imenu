@@ -1,6 +1,7 @@
 import OpenAI, { toFile } from "openai";
 import type { Response, ResponseCreateParamsNonStreaming } from "openai/resources/responses/responses";
 import { createHash } from "crypto";
+import { notifyOpenAiBatchLimit, notifyOpenAiLimit } from "@/lib/services/openAiAlerts";
 import { query } from "@/lib/database/sql";
 import { SalesError, type Data } from "./types";
 
@@ -119,16 +120,24 @@ export async function batchResponse(
   }
   const batch = await ai.batches.retrieve(state.id);
   await patchBatch(restaurant, run, { status: batch.status });
+  for (const error of batch.errors?.data || []) {
+    await notifyOpenAiLimit(error, "Vendas IA (Batch)");
+  }
   if (!["completed", "failed", "expired", "cancelled"].includes(batch.status))
     throw new BatchPending();
   // Expired/cancelled jobs can still contain a completed request. Consume it first.
   if (batch.output_file_id) {
     const content = await (await ai.files.content(batch.output_file_id)).text();
+    await notifyOpenAiBatchLimit(content, customId);
     const response = parseBatchOutput(content, customId);
     if (response) {
       await patchBatch(restaurant, run, { response });
       return response;
     }
+  }
+  if (batch.error_file_id) {
+    const errors = await (await ai.files.content(batch.error_file_id)).text();
+    await notifyOpenAiBatchLimit(errors, customId);
   }
   throw new SalesError("A análise em lote foi interrompida. As propostas prontas foram preservadas no relatório parcial.");
 }

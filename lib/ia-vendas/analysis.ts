@@ -6,6 +6,9 @@ import { isUuid } from "./catalog";
 import { failure } from "./http";
 import { SalesError } from "./types";
 
+// Analyses are authored in ChatGPT; never initiate paid OpenAI API analyses.
+export const API_ANALYSIS_ENABLED = false;
+
 export function authorizeAnalysis(request: Request, cron = false) {
   const secret = (cron ? process.env.CRON_SECRET : process.env.IA_VENDAS_ANALYSIS_SECRET || process.env.CRON_SECRET)?.trim();
   const provided = request.headers.get("authorization") || "";
@@ -25,6 +28,7 @@ export async function analysisConversation(restaurant: string) {
 }
 
 export async function processAnalysisBatches() {
+  if (!API_ANALYSIS_ENABLED) return [];
   const jobs = (await query(
     "SELECT id,restaurant_id FROM public.ia_vendas_runs WHERE status='running' AND kind='analysis' AND result->'batch'->>'mode'='batch' ORDER BY coalesce(result->'batch'->>'polled_at',created_at::text) LIMIT 3",
   )).rows;
@@ -64,6 +68,8 @@ export async function processAnalysisBatches() {
 export async function startAnalysis(request: Request, immediate = false) {
   try {
     authorizeAnalysis(request);
+    if (!API_ANALYSIS_ENABLED)
+      throw new SalesError("Análises via API desativadas. Use o ChatGPT.", 410);
     const body = await request.json();
     if (!isUuid(body.restaurant_id) || (body.run_id != null && !isUuid(body.run_id)) ||
         (body.text != null && (typeof body.text !== "string" || !body.text.trim() || body.text.length > 8000)))

@@ -8,6 +8,7 @@ import {
 } from "./access";
 import { loadPostHogConsumerMetrics } from "@/lib/analytics/posthogConsumer";
 import OpenAI from "openai";
+import { openAiAlertFetch, notifyOpenAiLimit } from "@/lib/services/openAiAlerts";
 import { BatchPending, batchResponse, readBatch, saveToolResult, actionId, type BatchSnapshot, type AnalysisRequest } from "./batch";
 import { randomUUID } from "crypto";
 import { query, withTransaction } from "@/lib/database/sql";
@@ -426,7 +427,7 @@ export async function runChat(args: {
     }
     if (args.deep && conv.kind !== "analysis")
       throw new SalesError("Use a conversa Análise.");
-    const ai = new OpenAI({ maxRetries: 0, timeout: 60000 });
+    const ai = new OpenAI({ maxRetries: 0, timeout: 60000, fetch: openAiAlertFetch("Vendas IA") });
     let ctx: Data,
       input: any[],
       freeAssistant = false;
@@ -1039,6 +1040,11 @@ export async function runChat(args: {
     });
     send("done", { id });
   } catch (e) {
+    if (isDeep && e instanceof SalesError &&
+        (e.message.startsWith("A análise atingiu o orçamento máximo desta execução.") ||
+         e.message.startsWith("A análise atingiu o limite de resposta desta execução."))) {
+      await notifyOpenAiLimit({ code: "analysis_token_budget_exceeded" }, "Vendas IA (análise)");
+    }
     if (e instanceof BatchPending) {
       send("queued", { run_id: run, message: "Análise em processamento. O relatório aparecerá aqui quando estiver pronto." });
       return;

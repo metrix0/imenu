@@ -1,4 +1,5 @@
 import OpenAI, { toFile } from "openai";
+import { openAiAlertFetch } from "@/lib/services/openAiAlerts";
 
 import { query } from "@/lib/database/sql";
 import {
@@ -299,7 +300,7 @@ const SUPPORT_AUDIO_SAMPLE_RATE = 16_000;
 function getSupportOpenAIClient(): OpenAI {
     const apiKey = process.env.OPENAI_API_KEY?.trim();
     if (!apiKey) throw new Error("OPENAI_API_KEY is not configured.");
-    return new OpenAI({ apiKey });
+    return new OpenAI({ apiKey, fetch: openAiAlertFetch("Suporte IA") });
 }
 
 function limitMediaContext(value: string, maxCharacters = 1_600): string {
@@ -583,7 +584,7 @@ export async function generateSupportReply(
 
     const model =
         process.env.OPENAI_SUPPORT_MODEL?.trim() || "gpt-5.6-luna";
-    const client = new OpenAI({ apiKey });
+    const client = new OpenAI({ apiKey, fetch: openAiAlertFetch("Suporte IA") });
     const serverUrl =
         getSupportMcpBaseUrl() +
         "/api/support/mcp?conversationId=" +

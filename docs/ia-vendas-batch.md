@@ -1,5 +1,7 @@
 # IA Vendas analysis execution
 
+> **API analyses disabled (2026-11-03):** `API_ANALYSIS_ENABLED = false` in `lib/ia-vendas/analysis.ts` blocks both internal analysis routes, the customer `start_analysis` command, and Batch polling. Analyses must run in ChatGPT, not the paid OpenAI API. The implementation described below is inactive.
+
 Deep analysis defaults to OpenAI Batch using `IA_VENDAS_ANALYSIS_MODEL` (default `gpt-5.6-terra`). Normal chat stays synchronous. The customer chat endpoint continues to reject deep analysis; initiation is internal/manual.
 
 ## Start an analysis

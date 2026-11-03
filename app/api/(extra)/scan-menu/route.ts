@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
+import { openAiAlertFetch } from "@/lib/services/openAiAlerts";
 import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
 import { readPublicMenuLink, MenuLinkError } from "@/lib/menu/readPublicMenuLink";
 import { query } from "@/lib/database/sql";
@@ -707,7 +708,7 @@ async function scanWithOpenAI(
     pageText?: string,
     existingMenuContext?: string
 ): Promise<ParsedMenu> {
-    const client = new OpenAI({ apiKey });
+    const client = new OpenAI({ apiKey, fetch: openAiAlertFetch("Importação de cardápio") });
 
     const fileContent = pageText
         ? [{ type: "input_text" as const, text: pageText }]
