@@ -15,7 +15,7 @@ export const LIMITS = {
   runInput: 100_000,
   monthlyChatInput: 2_000_000,
   monthlyChatOutput: 120_000,
-  analysisInput: 120_000,
+  analysisInput: 200_000,
   analysisRequestOverhead: 8_000,
   analysisRounds: 3,
   analysisPhotos: 10,
