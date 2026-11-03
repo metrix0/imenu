@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { analysisPreview } from "@/lib/ia-vendas/paywall";
 import { aiAccess, requireIaPlus, IaPlusRequired } from "@/lib/ia-vendas/access";
-import { analysisConversation } from "@/lib/ia-vendas/analysis";
+import { API_ANALYSIS_ENABLED, analysisConversation } from "@/lib/ia-vendas/analysis";
 import { runChat } from "@/lib/ia-vendas/chat";
 import { query, withTransaction } from "@/lib/database/sql";
 import { authorize, failure } from "@/lib/ia-vendas/http";
@@ -191,6 +191,8 @@ export async function POST(request: Request) {
     const body = await request.json(),
       restaurant = await authorize(request, body.restaurant_id);
     if (body.command === "start_analysis") {
+      if (!API_ANALYSIS_ENABLED)
+        throw new SalesError("Análises via API desativadas. Use o ChatGPT.", 410);
       await requireIaPlus(restaurant);
       const existing = (
         await query(
