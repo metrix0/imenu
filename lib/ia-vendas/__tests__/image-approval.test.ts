@@ -58,7 +58,7 @@ beforeEach(() => {
       imageCount += 1;
       return { rows: [], rowCount: 1 };
     }
-    if (sql.includes("SET image_count=greatest(image_count-1,0)")) {
+    if (sql.includes("SET image_count=image_count-1")) {
       imageCount = Math.max(0, imageCount - 1);
       return { rows: [], rowCount: 1 };
     }
@@ -162,7 +162,7 @@ test("failed image generation releases its reserved quota", async () => {
   generate.mockRejectedValueOnce(new Error("Generation failed"));
   await expect(applyProposal(restaurant, proposal, conversation, "generate", run)).rejects.toThrow("Generation failed");
   expect(imageCount).toBe(0);
-  expect(statements.some((sql) => sql.includes("SET image_count=greatest(image_count-1,0)"))).toBe(true);
+  expect(statements.some((sql) => sql.includes("SET image_count=image_count-1"))).toBe(true);
 });
 
 

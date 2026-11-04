@@ -1,4 +1,4 @@
-import { createMercadoPagoPixCharge, getMercadoPagoPixPayment } from "./mercadoPagoPix";
+import { createMercadoPagoPixCharge, getMercadoPagoPixPayment, findMercadoPagoPixPaymentByReference } from "./mercadoPagoPix";
 const payment = { id: 123, status: "approved", transaction_amount: 20, external_reference: "order1", payment_method_id: "pix", fee_details: [{ amount: 0.2, fee_payer: "collector" }, { amount: 1, fee_payer: "payer" }] };
 afterEach(() => jest.restoreAllMocks());
 it("uses actual collector fees and keeps payer fees separate", async () => {
@@ -13,4 +13,13 @@ it("recovers a lost create response through an exact reference match", async () 
     jest.spyOn(global, "fetch").mockRejectedValueOnce(new Error("timeout"))
         .mockResolvedValueOnce(new Response(JSON.stringify({ results: [payment] })));
     expect(await createMercadoPagoPixCharge({ amount: 20, externalReference: "order1", idempotencyKey: "order1", notificationUrl: "https://example.com/webhook" })).toMatchObject({ id: "123" });
+});
+
+it("rejects malformed search responses instead of treating them as absent charges", async () => {
+    jest.spyOn(global, "fetch").mockResolvedValue(new Response(JSON.stringify({})));
+    await expect(findMercadoPagoPixPaymentByReference("order1")).rejects.toThrow("consulta Pix inválida");
+});
+it("only reports no charge after a valid empty search", async () => {
+    jest.spyOn(global, "fetch").mockResolvedValue(new Response(JSON.stringify({ results: [] })));
+    expect(await findMercadoPagoPixPaymentByReference("order1")).toBeNull();
 });

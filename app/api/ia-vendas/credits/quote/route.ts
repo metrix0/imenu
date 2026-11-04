@@ -2,6 +2,7 @@ import { authorize, failure } from "@/lib/ia-vendas/http";
 
 import { getCreditRates, getUsdBrlRate, getAvailableCreditRechargeRates, quoteCreditPurchase } from "@/lib/ia-vendas/creditPricing";
 import { SalesError } from "@/lib/ia-vendas/types";
+import { refreshPendingCreditPurchases } from "@/lib/ia-vendas/creditPayments";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,6 +16,7 @@ function ratesOrUnavailable() {
 export async function GET(request: Request) {
   try {
     const restaurantId = await authorize(request, new URL(request.url).searchParams.get("restaurant_id"));
+    await refreshPendingCreditPurchases(restaurantId);
     const rate = await getUsdBrlRate();
     return Response.json(
       { rates: await getAvailableCreditRechargeRates(restaurantId), rate },
@@ -30,6 +32,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const restaurantId = await authorize(request, body.restaurant_id);
+    await refreshPendingCreditPurchases(restaurantId);
     ratesOrUnavailable();
     let pricing;
     try {

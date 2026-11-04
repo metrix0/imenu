@@ -2,6 +2,7 @@ import { query, withTransaction } from "@/lib/database/sql";
 import {
   createMercadoPagoPixCharge,
   getMercadoPagoPixPayment,
+  findMercadoPagoPixPaymentByReference,
   isMercadoPagoPixFailureStatus,
   type MercadoPagoPixPayment,
 } from "@/lib/payments/mercadoPagoPix";
@@ -35,14 +36,18 @@ export async function reconcileCreditPayment(
     );
     const purchase = result.rows[0];
     if (!purchase) return false;
-    if (!purchase.provider_payment_id) {
-      throw new Error("A cobrança ainda não está vinculada à compra.");
-    }
-    if (purchase.provider_payment_id !== payment.id ||
+    if ((purchase.provider_payment_id && purchase.provider_payment_id !== payment.id) ||
         payment.externalReference !== externalReference(purchase.id) ||
         payment.paymentMethodId !== "pix" ||
         Math.round(payment.amount * 100) !== purchase.price_cents) {
       throw new Error("Cobrança de créditos divergente.");
+    }
+    // Recover interrupted provider responses only after authoritative validation.
+    if (!purchase.provider_payment_id) {
+      await client.query(
+        "UPDATE public.ia_vendas_credit_purchases SET provider_payment_id=$2,updated_at=NOW() WHERE id=$1 AND provider_payment_id IS NULL",
+        [purchaseId, payment.id],
+      );
     }
     const status = expectedStatus(payment.status);
     if (status === "approved") {
@@ -84,9 +89,44 @@ export async function reconcileCreditPayment(
              updated_at=NOW() WHERE id=$1`,
         [purchaseId, reversed ? "refunded" : "failed", reversed],
       );
+    } else {
+      await client.query(
+        "UPDATE public.ia_vendas_credit_purchases SET updated_at=NOW() WHERE id=$1",
+        [purchaseId],
+      );
     }
     return false;
   });
+}
+
+export async function refreshPendingCreditPurchases(restaurantId: string) {
+  const pending = (await query<CreditPurchase>(
+    `SELECT * FROM public.ia_vendas_credit_purchases
+     WHERE restaurant_id=$1 AND status='pending'
+       AND ((provider_payment_id IS NOT NULL AND updated_at<NOW()-interval '1 minute')
+         OR (provider_payment_id IS NULL AND created_at<NOW()-interval '30 minutes'))
+     ORDER BY created_at LIMIT 10`,
+    [restaurantId],
+  )).rows;
+  await Promise.all(pending.map(async (purchase) => {
+    try {
+      const payment = purchase.provider_payment_id
+        ? await getMercadoPagoPixPayment({ id: purchase.provider_payment_id })
+        : await findMercadoPagoPixPaymentByReference(externalReference(purchase.id));
+      if (payment) {
+        await reconcileCreditPayment(payment, purchase.id);
+      } else if (!purchase.provider_payment_id) {
+        await query(
+          `UPDATE public.ia_vendas_credit_purchases SET status='failed',updated_at=NOW()
+           WHERE id=$1 AND restaurant_id=$2 AND status='pending'
+             AND provider_payment_id IS NULL AND created_at<NOW()-interval '30 minutes'`,
+          [purchase.id, restaurantId],
+        );
+      }
+    } catch {
+      // Network/lookup errors are ambiguous: keep the capacity reserved.
+    }
+  }));
 }
 
 export async function createCreditPurchasePayment(input: {
@@ -164,9 +204,10 @@ export async function createCreditPurchasePayment(input: {
 
   if (purchase.status === "approved" && purchase.credited_at) {
     return { active: true, recurring: false, paymentMethod: "pix" as const,
-      paymentStatus: "approved", transactionId: purchase.provider_payment_id };
+      paymentStatus: "approved", transactionId: purchase.id };
   }
   if (purchase.revoked_at) throw new SalesError("Compra cancelada.", 409);
+  if (purchase.status !== "pending") throw new SalesError("Esta cobrança foi encerrada. Inicie uma nova recarga.", 409);
 
   let payment = purchase.provider_payment_id
     ? await getMercadoPagoPixPayment({ id: purchase.provider_payment_id })

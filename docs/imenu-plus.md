@@ -53,3 +53,6 @@ Plus bonuses, in order: Robô WhatsApp com IA; Atendimento exclusivo; Upsells au
 
 The legacy `IaPlus*` filenames, exports, error code `IA_PLUS_REQUIRED`, CSS classes and analytics/database keys remain stable. Search for both legacy identifiers and the current display name when locating related code. New customer-visible text uses iMenu Plus and the central benefits/bonuses whenever possible.
 
+
+
+Assistant credit recharge reservations are refreshed against Mercado Pago before quoting. Linked charges are released only after a confirmed terminal provider status; unlinked reservations older than 30 minutes are released only after a successful reference search finds no charge. Lookup failures keep reservations intact. Verified late payment notifications can recover a missing provider link after reference, Pix method and amount validation. Closed purchases cannot restart with their old request ID. Invalid or stale calculator selections show the existing error state instead of crashing the panel.

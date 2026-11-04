@@ -178,7 +178,7 @@ export async function getMercadoPagoPixPayment(input: {
     return normalizePayment(payload);
 }
 
-async function findMercadoPagoPixPaymentByReference(
+export async function findMercadoPagoPixPaymentByReference(
     externalReference: string
 ): Promise<MercadoPagoPixPayment | null> {
     const params = new URLSearchParams({
@@ -191,7 +191,10 @@ async function findMercadoPagoPixPaymentByReference(
         `/v1/payments/search?${params.toString()}`
     );
 
-    const exact = (payload.results || []).find(
+    if (!Array.isArray(payload.results)) {
+        throw new Error("Resposta de consulta Pix inválida.");
+    }
+    const exact = payload.results.find(
         (payment) =>
             String(payment.external_reference || "") === externalReference &&
             String(payment.payment_method_id || "").toLowerCase() === "pix"

@@ -87,10 +87,17 @@ export default function CreditPurchaseCalculator({
 
   const selectedInput = prices ? Math.min(inputTokens, prices.rates.maxInputTokens) : 0;
   const selectedImages = prices ? Math.min(images, prices.rates.maxImages) : 0;
-  const quote = useMemo(
-    () => prices ? calculateCreditQuote(prices.rates, selectedInput, selectedImages) : null,
+  const calculation = useMemo(
+    () => {
+      try {
+        return { quote: prices ? calculateCreditQuote(prices.rates, selectedInput, selectedImages) : null, error: "" };
+      } catch {
+        return { quote: null, error: "Não foi possível calcular esta seleção. Feche e abra a recarga novamente." };
+      }
+    },
     [prices, selectedInput, selectedImages],
   );
+  const quote = calculation.quote;
   const priceCents = prices && quote ? convertCreditCostToBrlCents(quote.totalUsd, prices.rate) : 0;
   const tokenCents = quote?.totalUsd
     ? Math.round(priceCents * (quote.inputUsd + quote.outputUsd) / quote.totalUsd) : 0;
@@ -132,7 +139,7 @@ export default function CreditPurchaseCalculator({
     cardNotice: "",
     pixConfirmationDescription: "Os créditos serão liberados após a confirmação.",
     cardConfirmationDescription: "",
-  }), [selectedInput, selectedImages, quote?.outputTokens, priceCents]);
+  }), [selectedInput, selectedImages, quote?.outputAllowanceTokens, priceCents]);
 
   return <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
     {checkout && prices && quote ? (
@@ -157,9 +164,9 @@ export default function CreditPurchaseCalculator({
 
     {loading ? (
       <div className="flex min-h-0 flex-1 items-center justify-center"><Loader /></div>
-    ) : error || !prices || !quote ? (
+    ) : error || calculation.error || !prices || !quote ? (
       <div className="flex min-h-0 flex-1 items-center justify-center p-6">
-        <p role="alert" className="text-sm text-red-600">{error || "Preços indisponíveis."}</p>
+        <p role="alert" className="text-sm text-red-600">{error || calculation.error || "Preços indisponíveis."}</p>
       </div>
     ) : (
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto md:grid-cols-[minmax(0,1fr)_320px]">

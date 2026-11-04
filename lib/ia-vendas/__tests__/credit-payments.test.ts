@@ -1,5 +1,6 @@
-import { reconcileCreditPayment } from "../creditPayments";
-import { withTransaction } from "@/lib/database/sql";
+import { createCreditPurchasePayment, reconcileCreditPayment, refreshPendingCreditPurchases } from "../creditPayments";
+import { withTransaction, query } from "@/lib/database/sql";
+import { getMercadoPagoPixPayment, findMercadoPagoPixPaymentByReference } from "@/lib/payments/mercadoPagoPix";
 import type { MercadoPagoPixPayment } from "@/lib/payments/mercadoPagoPix";
 
 jest.mock("@/lib/database/sql", () => ({
@@ -9,6 +10,7 @@ jest.mock("@/lib/database/sql", () => ({
 jest.mock("@/lib/payments/mercadoPagoPix", () => ({
   createMercadoPagoPixCharge: jest.fn(),
   getMercadoPagoPixPayment: jest.fn(),
+  findMercadoPagoPixPaymentByReference: jest.fn(),
   isMercadoPagoPixFailureStatus: (status: string) =>
     ["rejected","cancelled","canceled","refunded","charged_back","expired"].includes(status),
 }));
@@ -31,8 +33,12 @@ let revoked: string | null;
 let inserts: number;
 let deductions: number;
 let row: Record<string, unknown>;
+let transactionQuery: jest.Mock;
 
 beforeEach(() => {
+  (query as jest.Mock).mockReset();
+  (getMercadoPagoPixPayment as jest.Mock).mockReset();
+  (findMercadoPagoPixPaymentByReference as jest.Mock).mockReset();
   credited = null;
   revoked = null;
   inserts = 0;
@@ -60,6 +66,7 @@ beforeEach(() => {
       return { rows: [], rowCount: 1 };
     }),
   };
+  transactionQuery = client.query;
   (withTransaction as jest.Mock).mockImplementation(async (fn) => fn(client));
 });
 
@@ -82,4 +89,69 @@ test("refunded payments subtract credits once and cannot grant again", async () 
   expect(deductions).toBe(1);
   expect(await reconcileCreditPayment(payment, id)).toBe(false);
   expect(inserts).toBe(1);
+});
+
+test("an interrupted provider response can be linked and credited once", async () => {
+  row.provider_payment_id = null;
+  expect(await reconcileCreditPayment(payment, id)).toBe(true);
+  expect(await reconcileCreditPayment(payment, id)).toBe(true);
+  expect(inserts).toBe(1);
+});
+
+test("missing provider links still reject a mismatched reference before crediting", async () => {
+  row.provider_payment_id = null;
+  await expect(reconcileCreditPayment({ ...payment, externalReference: 'another-purchase' }, id)).rejects.toThrow('divergente');
+  expect(inserts).toBe(0);
+});
+
+test("orphaned reservations are released only after a successful empty provider lookup", async () => {
+  (query as jest.Mock).mockResolvedValueOnce({ rows: [{ ...row, provider_payment_id: null }] }).mockResolvedValue({ rows: [] });
+  (findMercadoPagoPixPaymentByReference as jest.Mock).mockResolvedValue(null);
+  await refreshPendingCreditPurchases('test-restaurant');
+  expect(findMercadoPagoPixPaymentByReference).toHaveBeenCalledWith(payment.externalReference);
+  expect((query as jest.Mock).mock.calls[1][0]).toContain("provider_payment_id IS NULL AND created_at<NOW()-interval '30 minutes'");
+});
+
+test("a provider lookup error never releases a pending reservation", async () => {
+  (query as jest.Mock).mockResolvedValue({ rows: [{ ...row, provider_payment_id: null }] });
+  (findMercadoPagoPixPaymentByReference as jest.Mock).mockRejectedValue(new Error('timeout'));
+  await refreshPendingCreditPurchases('test-restaurant');
+  expect(query).toHaveBeenCalledTimes(1);
+});
+
+test("expired provider charges are reconciled so they no longer reserve capacity", async () => {
+  (query as jest.Mock).mockResolvedValue({ rows: [row] });
+  (getMercadoPagoPixPayment as jest.Mock).mockResolvedValue({ ...payment, status: 'expired' });
+  await refreshPendingCreditPurchases('test-restaurant');
+  expect(getMercadoPagoPixPayment).toHaveBeenCalledWith({ id: payment.id });
+  expect(inserts).toBe(0);
+  expect(deductions).toBe(0);
+  expect(transactionQuery).toHaveBeenCalledWith(expect.stringContaining("SET status=$2"), [id, "failed", false]);
+});
+
+test("confirmed pending charges stay reserved and refresh their lookup timestamp", async () => {
+  (query as jest.Mock).mockResolvedValue({ rows: [row] });
+  (getMercadoPagoPixPayment as jest.Mock).mockResolvedValue({ ...payment, status: "pending" });
+  await refreshPendingCreditPurchases("test-restaurant");
+  expect(transactionQuery).toHaveBeenCalledWith("UPDATE public.ia_vendas_credit_purchases SET updated_at=NOW() WHERE id=$1", [id]);
+  expect(inserts).toBe(0);
+  expect(deductions).toBe(0);
+});
+
+const checkout = {
+  restaurantId: "test-restaurant", requestId: id,
+  inputTokens: 1_000_000, images: 10, priceCents: 250,
+  payerEmail: null, payerName: null, origin: "https://example.com",
+};
+
+test("an approved checkout retry returns the purchase ID used for reconciliation", async () => {
+  (query as jest.Mock).mockResolvedValue({ rows: [{ ...row, status: "approved", credited_at: "2026-11-04T00:00:00Z" }] });
+  expect(await createCreditPurchasePayment(checkout)).toMatchObject({ active: true, transactionId: id });
+  expect(getMercadoPagoPixPayment).not.toHaveBeenCalled();
+});
+
+test("a closed checkout cannot restart a released reservation with an old request ID", async () => {
+  (query as jest.Mock).mockResolvedValue({ rows: [{ ...row, status: "failed" }] });
+  await expect(createCreditPurchasePayment(checkout)).rejects.toThrow("cobrança foi encerrada");
+  expect(getMercadoPagoPixPayment).not.toHaveBeenCalled();
 });

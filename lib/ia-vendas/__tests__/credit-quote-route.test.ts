@@ -1,5 +1,6 @@
 import { GET, POST } from "@/app/api/ia-vendas/credits/quote/route";
 import { authorize } from "@/lib/ia-vendas/http";
+jest.mock("@/lib/ia-vendas/creditPayments", () => ({ refreshPendingCreditPurchases: jest.fn().mockResolvedValue(undefined) }));
 
 
 jest.mock("@/lib/ia-vendas/http", () => ({

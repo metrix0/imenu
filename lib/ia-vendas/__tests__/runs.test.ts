@@ -58,6 +58,8 @@ test("completion is always tenant scoped", async () => {
   ]);
 });
 test("deep analysis ignores monthly token totals while chat keeps its quota", async () => {
+  const { hasIMenuPlusAccess } = require("@/lib/addons/access");
+  (hasIMenuPlusAccess as jest.Mock).mockResolvedValueOnce(true);
   c.query.mockImplementation(async (sql: string) => ({
     rows: sql.includes("sum(greatest")
       ? [{ input: 9000000, output: 900000, recent: 0 }]
@@ -90,10 +92,10 @@ test("Plus monthly exhaustion displays the exact reset instant", async () => {
   const { hasIMenuPlusAccess } = require("@/lib/addons/access");
   (hasIMenuPlusAccess as jest.Mock).mockResolvedValueOnce(true);
   c.query.mockImplementation(async (sql: string) => ({
-    rows: sql.includes("sum(greatest")
-      ? [{ input: 2_000_000, output: 0, recent: 0 }]
-      : sql.includes("sum(input_tokens + output_tokens)")
-        ? [{ tokens: 0, reserved: 0, images: 0, monthly_images: 0, monthly_input: 2_000_000, monthly_output: 0, monthly_reset_at: "2026-12-01T00:00:00Z" }]
+    rows: sql.includes("sum(input_tokens + output_tokens)")
+      ? [{ tokens: 0, reserved: 0, images: 0, monthly_images: 0, monthly_input: 2_000_000, monthly_output: 0, monthly_reset_at: "2026-12-01T00:00:00Z" }]
+      : sql.includes("sum(greatest")
+        ? [{ input: 2_000_000, output: 0, recent: 0 }]
         : [],
     rowCount: 0,
   }));
