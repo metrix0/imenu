@@ -9,7 +9,6 @@ import {
     getWahaSession,
     logoutWahaSession,
     restartWahaSession,
-    requestWahaPairingCode,
     stopWahaSession,
     type WahaSession,
 } from "@/lib/services/wahaClient";
@@ -19,7 +18,7 @@ import { pairingStartedAtForStatus, withWhatsAppPairingLock } from "@/lib/servic
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type ConnectionAction = "connect" | "reconnect" | "refresh_qr" | "disconnect" | "request_code";
+type ConnectionAction = "connect" | "reconnect" | "refresh_qr" | "disconnect";
 
 type ConnectionRow = {
     restaurant_id: string;
@@ -76,7 +75,7 @@ async function requireOwnedRestaurant(
 
     const { data: restaurant, error } = await supabase
         .from("restaurants")
-        .select("id, name, url_slug, store_whatsapp, phone")
+        .select("id, name, url_slug")
         .eq("id", restaurantId)
         .eq("user_id", user.id)
         .maybeSingle();
@@ -278,7 +277,7 @@ export async function POST(request: NextRequest) {
 
         if (
             !restaurantId ||
-            !["connect", "reconnect", "refresh_qr", "disconnect", "request_code"].includes(action)
+            !["connect", "reconnect", "refresh_qr", "disconnect"].includes(action)
         ) {
             return NextResponse.json(
                 { error: "Invalid request" },
@@ -295,39 +294,6 @@ export async function POST(request: NextRequest) {
             const sessionName =
                 existing?.session_name || buildWahaSessionName(restaurantId);
             const now = new Date().toISOString();
-
-            if (action === "request_code") {
-                const enteredPhone = String(body?.phoneNumber || "").replace(/\D/g, "");
-                const phoneNumber = /^\d{10,11}$/.test(enteredPhone) ? "55" + enteredPhone : enteredPhone;
-                if (!/^\d{10,15}$/.test(phoneNumber)) {
-                    return NextResponse.json(
-                        { error: "Informe um número com DDD e código do país." },
-                        { status: 400 }
-                    );
-                }
-                if (existing?.desired_state !== "connected") {
-                    return NextResponse.json(
-                        { error: "Inicie a conexão do WhatsApp primeiro." },
-                        { status: 409 }
-                    );
-                }
-                const session = await getWahaSession(sessionName);
-                if (!session || !["SCAN_QR_CODE", "STARTING"].includes(session.status)) {
-                    return NextResponse.json(
-                        { error: "A conexão não está aguardando um código. Inicie uma nova conexão." },
-                        { status: 409 }
-                    );
-                }
-                try {
-                    const code = await requestWahaPairingCode(sessionName, phoneNumber);
-                    return NextResponse.json({ code });
-                } catch {
-                    return NextResponse.json(
-                        { error: "Não foi possível gerar o código agora. Tente novamente ou use o QR Code." },
-                        { status: 502 }
-                    );
-                }
-            }
 
             if (action === "disconnect") {
                 // Do not report success if WAHA failed to unlink the account.
