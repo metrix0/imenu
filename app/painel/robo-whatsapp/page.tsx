@@ -42,6 +42,8 @@ type RestaurantInfo = {
     id: string;
     name: string;
     url_slug: string | null;
+    store_whatsapp: string | null;
+    phone: string | null;
 };
 
 type WhatsAppConnection = {
@@ -428,6 +430,14 @@ export default function RoboWhatsAppPage() {
     }, [restaurantId]);
 
     useEffect(() => {
+        const savedPhone = [restaurant?.store_whatsapp, restaurant?.phone].find((candidate) => {
+            const digits = String(candidate || "").replace(/\D/g, "");
+            return /^55\d{10,11}$/.test(digits) || /^\d{10,11}$/.test(digits);
+        });
+        setPairingPhone(savedPhone ? formatPhone(savedPhone) : "");
+    }, [restaurant?.id, restaurant?.store_whatsapp, restaurant?.phone]);
+
+    useEffect(() => {
         if (connection?.status === "WORKING" || connection?.status === "FAILED" ||
             connection?.status === "STOPPED" || connection?.desired_state === "disconnected") {
             setPairingCode(null);
@@ -707,6 +717,110 @@ export default function RoboWhatsAppPage() {
                             )}
                         </div>
                     </div>
+                    <div
+                        className={`mt-6 grid transition-[grid-template-rows,opacity,transform] duration-300 ease-out ${
+                            showPairingPanel
+                                ? "grid-rows-[1fr] translate-y-0 opacity-100"
+                                : "pointer-events-none grid-rows-[0fr] -translate-y-2 opacity-0"
+                        }`}
+                        aria-hidden={!showPairingPanel}
+                        hidden={!showPairingPanel}
+                    >
+                        <div className="min-h-0 overflow-hidden">
+                            <div>
+                                <div className="grid items-center gap-7 sm:grid-cols-[220px_1fr]">
+                                    <div className="flex min-h-[220px] items-center justify-center rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                                        {connection?.qr_code_data ? (
+                                            <img
+                                                src={connection.qr_code_data}
+                                                alt="QR Code para conectar o WhatsApp"
+                                                className="h-48 w-48"
+                                            />
+                                        ) : (
+                                            <div className="text-center text-sm text-gray-500">
+                                                Preparando o novo QR Code…
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-semibold text-gray-900">
+                                            Escaneie pelo celular do restaurante
+                                        </h3>
+                                        <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm text-gray-700">
+                                            <li>Abra o WhatsApp no celular.</li>
+                                            <li>Toque no menu <b>⋮</b> no Android ou em <b>Configurações</b> no iPhone.</li>
+                                            <li>Toque em <b>Aparelhos conectados</b>.</li>
+                                            <li>Toque em <b>Conectar um aparelho</b>.</li>
+                                            <li>Aponte a câmera para este QR Code.</li>
+                                        </ol>
+                                        <div className="mt-4">
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPhonePairing((open) => !open)}
+                                                aria-expanded={showPhonePairing}
+                                                className="cursor-pointer text-sm font-semibold text-[#c43700] hover:underline"
+                                            >
+                                                Sem outro celular? Conectar com código
+                                            </button>
+                                            {showPhonePairing && (
+                                                <div className="mt-3 space-y-3">
+                                                    <p className="text-sm text-gray-700">
+                                                        Informe o número do WhatsApp do restaurante para gerar um código.
+                                                    </p>
+                                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                                                        <div className="min-w-0 flex-1">
+                                                            <Input
+                                                                label="Número do WhatsApp"
+                                                                type="tel"
+                                                                inputMode="tel"
+                                                                autoComplete="tel"
+                                                                placeholder="(11) 99999-9999"
+                                                                value={pairingPhone}
+                                                                onChange={(event) => {
+                                                                    setPairingPhone(event.target.value);
+                                                                    setPairingCode(null);
+                                                                }}
+                                                            />
+                                                        </div>
+                                                        <Button
+                                                            type="button"
+                                                            onClick={requestPairingCode}
+                                                            loading={requestingPairingCode}
+                                                            disabled={whatsAppAction !== null ||
+                                                                (connection?.status !== "SCAN_QR_CODE" && connection?.status !== "STARTING")}
+                                                        >
+                                                            Gerar código
+                                                        </Button>
+                                                    </div>
+                                                    {pairingCode && (
+                                                        <div className="rounded-[8px] border border-blue-200 bg-white px-4 py-3" role="status">
+                                                            <p className="text-xs text-gray-500">Código de conexão</p>
+                                                            <p className="mt-1 select-all font-mono text-2xl font-semibold tracking-widest text-gray-900">
+                                                                {pairingCode}
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                    <p className="text-xs text-gray-600">
+                                                        No WhatsApp do restaurante, vá em <b>Aparelhos conectados</b>,
+                                                        toque em <b>Conectar um aparelho</b> e escolha
+                                                        <b> Conectar com número de telefone</b>. Digite o código acima.
+                                                        Se não funcionar, use o QR Code.
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <WarningBox icon={faTriangleExclamation} className="mt-4">
+                                            Depois de conectar, mensagens enviadas manualmente ao cliente irão pausar o robô naquela conversa por 30 minutos, para não interromper a conversa com atendentes humanos.
+                                        </WarningBox>
+                                        <p className="mt-4 text-xs text-gray-500">
+                                            O código muda automaticamente quando expira. Esta tela é atualizada em tempo real, sem precisar recarregar a página.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div id="atendimentos-humanos" aria-label="Conversas encaminhadas para atendimento humano" className="mt-6">
                         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                             {pendingHandoffs > 0 && (
@@ -793,110 +907,6 @@ export default function RoboWhatsAppPage() {
                         />
                     </div>
                 </section>
-
-                <div
-                    className={`grid transition-[grid-template-rows,opacity,transform] duration-300 ease-out ${
-                        showPairingPanel
-                            ? "grid-rows-[1fr] translate-y-0 opacity-100"
-                            : "pointer-events-none grid-rows-[0fr] -translate-y-2 opacity-0"
-                    }`}
-                    aria-hidden={!showPairingPanel}
-                    hidden={!showPairingPanel}
-                >
-                    <div className="min-h-0 overflow-hidden">
-                        <Card className="border border-blue-200 bg-blue-50/40 p-7">
-                            <div className="grid items-center gap-7 sm:grid-cols-[220px_1fr]">
-                                <div className="flex min-h-[220px] items-center justify-center rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
-                                    {connection?.qr_code_data ? (
-                                        <img
-                                            src={connection.qr_code_data}
-                                            alt="QR Code para conectar o WhatsApp"
-                                            className="h-48 w-48"
-                                        />
-                                    ) : (
-                                        <div className="text-center text-sm text-gray-500">
-                                            Preparando o novo QR Code…
-                                        </div>
-                                    )}
-                                </div>
-                                <div>
-                                    <h3 className="text-lg font-semibold text-gray-900">
-                                        Escaneie pelo celular do restaurante
-                                    </h3>
-                                    <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm text-gray-700">
-                                        <li>Abra o WhatsApp no celular.</li>
-                                        <li>Toque no menu <b>⋮</b> no Android ou em <b>Configurações</b> no iPhone.</li>
-                                        <li>Toque em <b>Aparelhos conectados</b>.</li>
-                                        <li>Toque em <b>Conectar um aparelho</b>.</li>
-                                        <li>Aponte a câmera para este QR Code.</li>
-                                    </ol>
-                                    <div className="mt-5 border-t border-blue-200 pt-4">
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowPhonePairing((open) => !open)}
-                                            aria-expanded={showPhonePairing}
-                                            className="cursor-pointer text-sm font-semibold text-[#c43700] hover:underline"
-                                        >
-                                            Sem outro celular? Conectar com código
-                                        </button>
-                                        {showPhonePairing && (
-                                            <div className="mt-3 space-y-3">
-                                                <p className="text-sm text-gray-700">
-                                                    Informe o número do WhatsApp do restaurante para gerar um código.
-                                                </p>
-                                                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                                                    <div className="min-w-0 flex-1">
-                                                        <Input
-                                                            label="Número do WhatsApp"
-                                                            type="tel"
-                                                            inputMode="tel"
-                                                            autoComplete="tel"
-                                                            placeholder="(11) 99999-9999"
-                                                            value={pairingPhone}
-                                                            onChange={(event) => {
-                                                                setPairingPhone(event.target.value);
-                                                                setPairingCode(null);
-                                                            }}
-                                                        />
-                                                    </div>
-                                                    <Button
-                                                        type="button"
-                                                        onClick={requestPairingCode}
-                                                        loading={requestingPairingCode}
-                                                        disabled={whatsAppAction !== null ||
-                                                            (connection?.status !== "SCAN_QR_CODE" && connection?.status !== "STARTING")}
-                                                    >
-                                                        Gerar código
-                                                    </Button>
-                                                </div>
-                                                {pairingCode && (
-                                                    <div className="rounded-[8px] border border-blue-200 bg-white px-4 py-3" role="status">
-                                                        <p className="text-xs text-gray-500">Código de conexão</p>
-                                                        <p className="mt-1 select-all font-mono text-2xl font-semibold tracking-widest text-gray-900">
-                                                            {pairingCode}
-                                                        </p>
-                                                    </div>
-                                                )}
-                                                <p className="text-xs text-gray-600">
-                                                    No WhatsApp do restaurante, vá em <b>Aparelhos conectados</b>,
-                                                    toque em <b>Conectar um aparelho</b> e escolha
-                                                    <b> Conectar com número de telefone</b>. Digite o código acima.
-                                                    Se não funcionar, use o QR Code.
-                                                </p>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <WarningBox icon={faTriangleExclamation} className="mt-4">
-                                        Depois de conectar, mensagens enviadas manualmente ao cliente irão pausar o robô naquela conversa por 30 minutos, para não interromper a conversa com atendentes humanos.
-                                    </WarningBox>
-                                    <p className="mt-4 text-xs text-gray-500">
-                                        O código muda automaticamente quando expira. Esta tela é atualizada em tempo real, sem precisar recarregar a página.
-                                    </p>
-                                </div>
-                            </div>
-                        </Card>
-                    </div>
-                </div>
 
                 {connection?.status === "PASSKEY_CONFIRMATION_REQUIRED" && (
                     <Card className="border border-blue-200 bg-blue-50 p-6">

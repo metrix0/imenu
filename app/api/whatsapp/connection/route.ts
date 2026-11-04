@@ -76,7 +76,7 @@ async function requireOwnedRestaurant(
 
     const { data: restaurant, error } = await supabase
         .from("restaurants")
-        .select("id, name, url_slug")
+        .select("id, name, url_slug, store_whatsapp, phone")
         .eq("id", restaurantId)
         .eq("user_id", user.id)
         .maybeSingle();
