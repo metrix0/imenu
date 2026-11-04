@@ -7,6 +7,7 @@ import { LIMITS } from '../config';
 const resetAt = '2026-12-01T00:00:00.000Z';
 const access = (plus: boolean, tokens: number, images: number): Awaited<ReturnType<typeof aiAccess>> => ({
  plus, free_applications_remaining:plus ? null : 1, reserved_tokens:0,
+ purchased_credits: { input:0, output:0, images:0 }, base_tokens_remaining: plus ? null : 150000, base_images_remaining:plus ? 75 : 3,
  tokens_remaining:plus ? null : Math.max(0, 150000 - tokens * 1500),
  images_remaining:plus ? Math.max(0, LIMITS.images - images * LIMITS.images/100) : Math.max(0, 3 - images * 3/100),
  free_tokens_limit:plus ? null : 150000, free_images_limit:plus ? null : 3,

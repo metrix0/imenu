@@ -1,177 +1,235 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ImageIcon, Coins } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { faCoins } from "@fortawesome/free-solid-svg-icons";
+import styles from "./CreditPurchaseCalculator.module.css";
 import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
+import PaymentCheckout from "@/components/payments/PaymentCheckout";
+import type { PaymentCheckoutInput } from "@/lib/payments/types";
 import { supabase } from "@/lib/database/supabaseClient";
-import { calculateCreditQuote, type CreditRates } from "@/lib/ia-vendas/creditMath";
+import {
+  calculateCreditQuote,
+  convertCreditCostToBrlCents,
+  type CreditRates,
+} from "@/lib/ia-vendas/creditMath";
 
-const formatNumber = (value: number) => value.toLocaleString("pt-BR");
-const formatUsd = (value: number) =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 4,
-  }).format(value);
+type Prices = { rates: CreditRates; rate: number };
+const count = (n: number) => n.toLocaleString("pt-BR");
+const brl = (cents: number) => new Intl.NumberFormat("pt-BR", {
+  style: "currency", currency: "BRL",
+}).format(cents / 100);
+
+async function authenticatedPost(url: string, body: unknown) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error("Entre novamente para continuar.");
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer " + session.access_token,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error || "Não foi possível processar a compra.");
+  return result;
+}
 
 export default function CreditPurchaseCalculator({
-  open,
-  restaurantId,
-  onClose,
+  restaurantId, onClose, onPaid,
 }: {
-  open: boolean;
   restaurantId: string;
   onClose: () => void;
+  onPaid: () => void | Promise<void>;
 }) {
-  const [rates, setRates] = useState<CreditRates | null>(null);
+  const [prices, setPrices] = useState<Prices | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [inputTokens, setInputTokens] = useState(1_000_000);
   const [images, setImages] = useState(0);
+  const [checkout, setCheckout] = useState(false);
+  const [requestId, setRequestId] = useState("");
+  const [purchaseId, setPurchaseId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open || !restaurantId) return;
     let active = true;
-    setLoading(true);
-    setError("");
-
     void (async () => {
+      setLoading(true);
+      setError("");
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) throw new Error("Entre novamente para consultar os valores.");
+        if (!session?.access_token) throw new Error("Entre novamente para consultar os preços.");
         const response = await fetch(
           "/api/ia-vendas/credits/quote?restaurant_id=" + encodeURIComponent(restaurantId),
-          {
-            headers: { Authorization: "Bearer " + session.access_token },
-            cache: "no-store",
-          },
+          { cache: "no-store", headers: { Authorization: "Bearer " + session.access_token } },
         );
-        const result = await response.json();
-        if (!response.ok || !result.rates) {
-          throw new Error(result.error || "Não foi possível consultar os valores.");
+        const data = await response.json();
+        if (!response.ok || !data.rates || !Number.isFinite(data.rate)) {
+          throw new Error(data.error || "Não foi possível carregar os preços.");
         }
-        if (active) setRates(result.rates);
+        if (active) setPrices({ rates: data.rates, rate: data.rate });
       } catch (cause) {
-        if (active) {
-          setRates(null);
-          setError(cause instanceof Error ? cause.message : "Não foi possível consultar os valores.");
-        }
+        if (active) setError(cause instanceof Error ? cause.message : "Não foi possível carregar os preços.");
       } finally {
         if (active) setLoading(false);
       }
     })();
-
     return () => { active = false; };
-  }, [open, restaurantId]);
+  }, [restaurantId]);
 
-  const quote = rates ? calculateCreditQuote(rates, inputTokens, images) : null;
+  const quote = useMemo(
+    () => prices ? calculateCreditQuote(prices.rates, inputTokens, images) : null,
+    [prices, inputTokens, images],
+  );
+  const priceCents = prices && quote ? convertCreditCostToBrlCents(quote.totalUsd, prices.rate) : 0;
+  const tokenCents = quote?.totalUsd
+    ? Math.round(priceCents * (quote.inputUsd + quote.outputUsd) / quote.totalUsd) : 0;
+  const imageCents = priceCents - tokenCents;
 
-  return (
-    <div className="space-y-5">
-      <div>
-        <h2 className="text-xl font-semibold text-gray-900">Recarregar créditos</h2>
-        <p className="mt-2 text-sm leading-6 text-gray-600">
-          Escolha quantos tokens e imagens deseja adicionar ao Assistente IA.
-        </p>
+  const startPayment = useCallback(async (payment: PaymentCheckoutInput) => {
+    if (payment.method !== "pix") throw new Error("Escolha o Pix para esta compra.");
+    const result = await authenticatedPost("/api/ia-vendas/credits/checkout", {
+      restaurant_id: restaurantId,
+      requestId,
+      inputTokens,
+      images,
+      priceCents,
+      paymentMethod: "pix",
+    });
+    setPurchaseId(result.transactionId || null);
+    return result;
+  }, [restaurantId, requestId, inputTokens, images, priceCents]);
+
+  const reconcilePayment = useCallback(async () => {
+    if (!purchaseId) return { active: false, paymentStatus: "pending" };
+    return authenticatedPost("/api/ia-vendas/credits/reconcile", {
+      restaurant_id: restaurantId, purchaseId,
+    });
+  }, [restaurantId, purchaseId]);
+
+  const paymentProduct = useMemo(() => ({
+    name: "Créditos do Assistente IA",
+    periodLabel: "Compra única",
+    detail: [
+      inputTokens ? count(inputTokens) + " entrada + " + count(quote?.outputTokens || 0) + " saída" : "",
+      images ? count(images) + " imagens" : "",
+    ].filter(Boolean).join(" · "),
+    priceLabel: brl(priceCents),
+    icon: faCoins,
+    pixDescription: "Pagamento único",
+    cardDescription: "",
+    pixNotice: "Os créditos serão adicionados após a confirmação do Pix.",
+    cardNotice: "",
+    pixConfirmationDescription: "Os créditos serão liberados após a confirmação.",
+    cardConfirmationDescription: "",
+  }), [inputTokens, images, quote?.outputTokens, priceCents]);
+
+  if (checkout && prices && quote) {
+    return <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <PaymentCheckout
+        key={requestId}
+        product={paymentProduct}
+        pixOnly
+        onBack={() => setCheckout(false)}
+        onClose={onClose}
+        startPayment={startPayment}
+        reconcilePayment={reconcilePayment}
+        onPaid={onPaid}
+      />
+    </div>;
+  }
+
+  return <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white">
+    <header className="shrink-0 border-b border-[#e2e5e9] px-6 py-5 sm:px-8">
+      <h2 className="text-xl font-semibold text-[#1d1d1d]">Recarregar créditos</h2>
+    </header>
+
+    {loading ? (
+      <div className="flex min-h-0 flex-1 items-center justify-center"><Loader /></div>
+    ) : error || !prices || !quote ? (
+      <div className="flex min-h-0 flex-1 items-center justify-center p-6">
+        <p role="alert" className="text-sm text-red-600">{error || "Preços indisponíveis."}</p>
       </div>
-
-      {loading ? (
-        <div className="flex min-h-48 items-center justify-center"><Loader /></div>
-      ) : error || !rates || !quote ? (
-        <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {error || "Preços temporariamente indisponíveis."}
-        </p>
-      ) : (
-        <>
-          <section className="rounded-[10px] border border-[#e2e5e9] bg-white p-4" aria-label="Tokens adicionais">
-            <div className="mb-3 flex items-center gap-2">
-              <Coins size={18} className="text-brand" aria-hidden="true" />
-              <h3 className="text-sm font-semibold text-gray-900">Tokens</h3>
-              <strong className="ml-auto text-sm tabular-nums text-gray-900">
-                {formatNumber(inputTokens)} entrada
-              </strong>
+    ) : (
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto md:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="space-y-12 px-6 py-10 sm:px-8 md:py-14">
+          <section aria-label="Tokens" className="space-y-4">
+            <div className="flex items-baseline justify-between gap-3">
+              <h3 className="text-base font-semibold text-[#1d1d1d]">Tokens</h3>
+              <span className="text-lg font-semibold tabular-nums text-[#1d1d1d]">
+                {count(inputTokens)}
+              </span>
             </div>
             <input
               type="range"
-              aria-label="Tokens de entrada adicionais"
+              aria-label="Tokens de entrada"
               min={0}
-              max={rates.maxInputTokens}
-              step={rates.inputStep}
+              max={prices.rates.maxInputTokens}
+              step={prices.rates.inputStep}
               value={inputTokens}
-              onChange={(event) => setInputTokens(Number(event.target.value))}
-              className="w-full cursor-pointer accent-[#d93d00]"
+              onChange={(e) => setInputTokens(Number(e.target.value))}
+              className={styles.range}
             />
-            <div className="mt-1 flex justify-between text-xs text-gray-500">
-              <span>0</span><span>{formatNumber(rates.maxInputTokens)}</span>
+            <div className="flex items-center justify-between text-xs text-[#626973]">
+              <span>0</span><span>{count(prices.rates.maxInputTokens)}</span>
             </div>
-            <div className="mt-3 flex items-center justify-between rounded-[8px] bg-[#f7f8fa] px-3 py-2 text-sm">
-              <span className="text-gray-600">Tokens de saída incluídos</span>
-              <strong className="tabular-nums text-gray-900">
-                {formatNumber(quote.outputTokens)}
-              </strong>
+            <div className="flex items-center justify-between text-sm text-[#626973]">
+              <span>Saída incluída</span>
+              <span className="font-medium tabular-nums text-[#1d1d1d]">{count(quote.outputTokens)}</span>
             </div>
-            <p className="mt-2 text-xs leading-5 text-gray-500">
-              Saída calculada automaticamente pela proporção atual do Assistente IA ({Math.round(rates.outputRatio * 100)}%).
-            </p>
           </section>
 
-          <section className="rounded-[10px] border border-[#e2e5e9] bg-white p-4" aria-label="Imagens adicionais">
-            <div className="mb-3 flex items-center gap-2">
-              <ImageIcon size={18} className="text-brand" aria-hidden="true" />
-              <h3 className="text-sm font-semibold text-gray-900">Imagens</h3>
-              <strong className="ml-auto text-sm tabular-nums text-gray-900">
-                {formatNumber(images)}
-              </strong>
+          <section aria-label="Imagens" className="space-y-4">
+            <div className="flex items-baseline justify-between gap-3">
+              <h3 className="text-base font-semibold text-[#1d1d1d]">Imagens</h3>
+              <span className="text-lg font-semibold tabular-nums text-[#1d1d1d]">{count(images)}</span>
             </div>
             <input
               type="range"
-              aria-label="Imagens adicionais"
+              aria-label="Imagens"
               min={0}
-              max={rates.maxImages}
+              max={prices.rates.maxImages}
               step={1}
               value={images}
-              onChange={(event) => setImages(Number(event.target.value))}
-              className="w-full cursor-pointer accent-[#d93d00]"
+              onChange={(e) => setImages(Number(e.target.value))}
+              className={styles.range}
             />
-            <div className="mt-1 flex justify-between text-xs text-gray-500">
-              <span>0</span><span>{formatNumber(rates.maxImages)}</span>
+            <div className="flex items-center justify-between text-xs text-[#626973]">
+              <span>0</span><span>{count(prices.rates.maxImages)}</span>
             </div>
           </section>
+        </div>
 
-          <section className="rounded-[10px] bg-[#f7f8fa] p-4" aria-label="Resumo dos valores">
-            <div className="space-y-2 text-sm text-gray-600">
-              <div className="flex justify-between gap-2">
-                <span>Entrada · {formatNumber(quote.inputTokens)} tokens</span>
-                <span className="tabular-nums">{formatUsd(quote.inputUsd)}</span>
-              </div>
-              <div className="flex justify-between gap-2">
-                <span>Saída · {formatNumber(quote.outputTokens)} tokens</span>
-                <span className="tabular-nums">{formatUsd(quote.outputUsd)}</span>
-              </div>
-              <div className="flex justify-between gap-2">
-                <span>Imagens · {formatNumber(quote.images)}</span>
-                <span className="tabular-nums">{formatUsd(quote.imagesUsd)}</span>
-              </div>
+        <aside className="border-t border-[#e2e5e9] bg-[#f7f8fa] px-6 py-8 sm:px-8 md:border-l md:border-t-0">
+          <h3 className="text-base font-semibold text-[#1d1d1d]">Resumo</h3>
+          <div className="mt-7 space-y-4 text-sm">
+            <div className="flex justify-between gap-3 text-[#626973]">
+              <span>Tokens</span><span className="tabular-nums text-[#1d1d1d]">{brl(tokenCents)}</span>
             </div>
-            <div className="mt-3 flex justify-between border-t border-[#e2e5e9] pt-3">
-              <strong className="text-sm text-gray-900">Custo estimado (USD)</strong>
-              <strong className="text-lg tabular-nums text-gray-900">{formatUsd(quote.totalUsd)}</strong>
+            <div className="flex justify-between gap-3 text-[#626973]">
+              <span>Imagens</span><span className="tabular-nums text-[#1d1d1d]">{brl(imageCents)}</span>
             </div>
-          </section>
-
-          <p className="text-xs leading-5 text-gray-500">
-            Estimativa com base nos custos de API dos modelos atuais. O valor real de uma imagem
-            depende do tamanho, da referência e do processamento. Não é um preço de venda.
-          </p>
-        </>
-      )}
-
-      <div className="flex flex-wrap justify-end gap-2">
-        <Button variant="secondary" onClick={onClose}>Fechar</Button>
-        <Button disabled>Pagamento em breve</Button>
+            <div className="flex items-center justify-between border-t border-[#e2e5e9] pt-4 font-semibold text-[#1d1d1d]">
+              <span>Total</span><span className="text-xl tabular-nums">{brl(priceCents)}</span>
+            </div>
+          </div>
+        </aside>
       </div>
-    </div>
-  );
+    )}
+
+    <footer className="flex shrink-0 items-center justify-end gap-3 border-t border-[#e2e5e9] bg-white px-6 py-4 sm:px-8">
+      <Button variant="secondary" onClick={onClose}>Cancelar</Button>
+      <Button
+        disabled={loading || !prices || !quote || !(inputTokens || images)}
+        className="min-w-44"
+        onClick={() => {
+          setRequestId(crypto.randomUUID());
+          setPurchaseId(null);
+          setCheckout(true);
+        }}
+      >Continuar</Button>
+    </footer>
+  </div>;
 }

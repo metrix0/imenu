@@ -1,5 +1,6 @@
-import { calculateCreditQuote, type CreditRates } from "../creditMath";
+import { calculateCreditQuote, convertCreditCostToBrlCents, type CreditRates } from "../creditMath";
 import { getCreditRates } from "../creditPricing";
+import { LIMITS } from "../config";
 
 const rates: CreditRates = {
   chatModel: "gpt-5.6-luna",
@@ -41,5 +42,20 @@ test("published rates are tied to the configured model and quota ratio", () => {
     expect(current.inputUsdPerMillion).toBeGreaterThan(0);
     expect(current.outputUsdPerMillion).toBeGreaterThan(0);
     expect(current.imageUsdEstimate).toBeGreaterThan(0);
+    expect(current.maxInputTokens).toBe(LIMITS.monthlyChatInput);
+    expect(current.maxImages).toBe(LIMITS.images);
+    expect(calculateCreditQuote(current, current.maxInputTokens, current.maxImages).outputTokens)
+      .toBe(LIMITS.monthlyChatOutput);
+    expect(() => calculateCreditQuote(current, current.maxInputTokens + current.inputStep, 0))
+      .toThrow("Quantidade");
+    expect(() => calculateCreditQuote(current, 0, current.maxImages + 1))
+      .toThrow("Quantidade");
   }
+});
+
+test("BRL price rounds upward by less than R$ 0,50", () => {
+  expect(convertCreditCostToBrlCents(0.272, 5)).toBe(150);
+  expect(convertCreditCostToBrlCents(0.301, 5)).toBe(200);
+  expect(convertCreditCostToBrlCents(0, 5)).toBe(0);
+  expect(() => convertCreditCostToBrlCents(1, 0)).toThrow();
 });

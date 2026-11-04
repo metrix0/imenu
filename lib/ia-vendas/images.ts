@@ -190,7 +190,7 @@ export async function previewImage(
     if (error || !data) throw new SalesError("Anexe a foto original.");
     reference = Buffer.from(await data.arrayBuffer());
   }
-  await reserveImage(restaurant, run);
+  const purchasedImageCredit = await reserveImage(restaurant, run);
   const prompt = `Crie uma imagem comercial realista para ${t.row.name}. ${input.target === "item" ? "Fotografia gastronômica. Preserve exatamente ingredientes, porção, quantidade e apresentação do produto de referência. Não invente acompanhamentos ou ingredientes. Texto sobreposto somente quando solicitado no pedido ou definido no estilo aprovado." : "Preserve a identidade da marca."} Pedido do proprietário: ${input.prompt}. Estilo aprovado (preserve, salvo alteração explícita neste pedido): ${JSON.stringify(style)}`;
   const generationSize =
       t.profile === "banner" ? "1536x1024" : "816x816",
@@ -235,7 +235,7 @@ export async function previewImage(
     t.profile,
     );
   } catch (error) {
-    await releaseImage(restaurant, run);
+    await releaseImage(restaurant, run, purchasedImageCredit);
     throw error;
   }
   const after = `${restaurant}/ia-vendas/${saved.id}.webp`,

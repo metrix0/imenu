@@ -1086,22 +1086,37 @@ export default function SalesPage() {
       </div>
       {restaurant && <IaPlusSalesModal active={sales.access?.plus === true} open={plusModal !== null} checkout={plusModal === "checkout"} contextMessage={plusContext} restaurantId={restaurant} onClose={() => setPlusModal(null)} onPaid={async () => { setPlusModal(null); sales.clearUpgrade(); await sales.load(restaurant, sales.conversation_id || undefined); }} />}
       <Modal
-        open={modal !== null}
+        open={modal === "buy_tokens"}
+        onClose={() => setModal(null)}
+        height={760}
+        fixedHeight
+        className="max-w-4xl !border-0 [&>[data-ui=modal-close]]:!rounded-full"
+        bodyClassName="flex min-h-0 flex-1 flex-col !overflow-hidden"
+        showCloseButton
+      >
+        {restaurant && (
+          <CreditPurchaseCalculator
+            restaurantId={restaurant}
+            onClose={() => setModal(null)}
+            onPaid={async () => {
+              setModal(null);
+              sales.clearUpgrade();
+              await sales.load(restaurant, sales.conversation_id || undefined);
+            }}
+          />
+        )}
+      </Modal>
+      <Modal
+        open={modal !== null && modal !== "buy_tokens"}
         onClose={() => {
           if (!sales.acting) setModal(null);
         }}
-        height={modal === "rename" ? 260 : modal === "buy_tokens" ? 720 : "80dvh"}
-        className={modal === "rename" || modal === "buy_tokens" ? "!max-w-lg" : ""}
+        height={modal === "rename" ? 260 : "80dvh"}
+        className={modal === "rename" ? "!max-w-md" : ""}
         showCloseButton
       >
         <div className="p-5 md:p-6">
-          {modal === "buy_tokens" && restaurant && (
-            <CreditPurchaseCalculator
-              open
-              restaurantId={restaurant}
-              onClose={() => setModal(null)}
-            />
-          )}
+
           {modal === "rename" && (
             <>
               <h2 className="text-xl font-semibold">Renomear conversa</h2>

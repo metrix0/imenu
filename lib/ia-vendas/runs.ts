@@ -27,10 +27,24 @@ export async function beginRun(
       )
     ).rows[0];
     if (old) return old;
-    await c.query(
-      "UPDATE public.ia_vendas_runs SET status='failed',error='Processamento interrompido.',finished_at=now() WHERE restaurant_id=$1 AND status='running' AND created_at<now()-interval '6 minutes' AND coalesce(result->'batch'->>'mode','')<>'batch'",
+    const expired = await c.query(
+      "UPDATE public.ia_vendas_runs SET status='failed',error='Processamento interrompido.',finished_at=now() WHERE restaurant_id=$1 AND status='running' AND created_at<now()-interval '6 minutes' AND coalesce(result->'batch'->>'mode','')<>'batch' RETURNING credit_input_reserved,credit_output_reserved,credit_included_input,credit_included_output,input_tokens,output_tokens",
       [restaurant],
     );
+    for (const oldRun of expired.rows) {
+      const inputAdjustment = Number(oldRun.credit_input_reserved) > 0
+        ? Number(oldRun.credit_input_reserved) - Math.max(0, Number(oldRun.input_tokens) - Number(oldRun.credit_included_input))
+        : 0;
+      const outputAdjustment = Number(oldRun.credit_output_reserved) > 0
+        ? Number(oldRun.credit_output_reserved) - Math.max(0, Number(oldRun.output_tokens) - Number(oldRun.credit_included_output))
+        : 0;
+      if (inputAdjustment || outputAdjustment) {
+        await c.query(
+          "UPDATE public.ia_vendas_credit_balances SET input_tokens=input_tokens+$2,output_tokens=output_tokens+$3,updated_at=NOW() WHERE restaurant_id=$1",
+          [restaurant, inputAdjustment, outputAdjustment],
+        );
+      }
+    }
     if (
       (
         await c.query(
@@ -48,26 +62,48 @@ export async function beginRun(
     ).rows[0];
     const access = kind === "analysis" ? null : await aiAccess(restaurant, c);
     const free = !!access && !access.plus;
-    if (
-      (kind === "chat" || kind === "image") &&
-      free &&
-      Number(access.tokens_remaining) <= 0
-    )
+    const inputReservation = kind === "analysis" ? LIMITS.analysisInput :
+      kind === "image" ? 0 : free ? FREE_AI_MESSAGE_TOKENS : LIMITS.runInput;
+    const outputReservation = kind === "analysis" ? LIMITS.analysisOutput :
+      kind === "image" ? 0 : LIMITS.chatOutput;
+    const inputUsed = Number(usage.input || 0), outputUsed = Number(usage.output || 0);
+    // Preserve the existing free allowance: the last free request may exceed
+    // its small remaining balance. Purchased credits take over afterwards.
+    const freeExhausted = free && Number(access.base_tokens_remaining) <= 0;
+    if (kind === "image" && freeExhausted && Number(access?.purchased_credits.images || 0) <= 0) {
       throw new IaPlusRequired(
-        `Seu limite gratuito foi atingido.${formatAiResetAt(access.tokens_reset_at) ? ` Limites serão reiniciados em ${formatAiResetAt(access.tokens_reset_at)}.` : ""}`,
+        `Seu limite gratuito foi atingido.${formatAiResetAt(access?.tokens_reset_at) ? ` Limites serão reiniciados em ${formatAiResetAt(access?.tokens_reset_at)}.` : ""}`,
       );
-    const output =
-      kind === "analysis" ? LIMITS.analysisOutput : LIMITS.chatOutput;
-    if (
-      kind !== "analysis" &&
-      (usage.input + (kind === "image" ? 0 : LIMITS.runInput) > LIMITS.monthlyChatInput ||
-        usage.output + (kind === "image" ? 0 : output) > LIMITS.monthlyChatOutput)
-    ) {
-      const resetAt = formatAiResetAt(access?.tokens_reset_at);
-      throw new SalesError(
-        `Limite mensal de IA atingido.${resetAt ? ` Limites serão reiniciados em ${resetAt}.` : ""}`,
-        429,
+    }
+    const includedInput = kind !== "chat" ? 0 : free
+      ? (freeExhausted || inputUsed + inputReservation > LIMITS.monthlyChatInput ? 0 : inputReservation)
+      : Math.max(0, Math.min(inputReservation, LIMITS.monthlyChatInput - inputUsed));
+    const includedOutput = kind !== "chat" ? 0 : free
+      ? (freeExhausted || outputUsed + outputReservation > LIMITS.monthlyChatOutput ? 0 : outputReservation)
+      : Math.max(0, Math.min(outputReservation, LIMITS.monthlyChatOutput - outputUsed));
+    const purchasedInput = kind !== "chat" ? 0 : inputReservation - includedInput;
+    const purchasedOutput = kind !== "chat" ? 0 : outputReservation - includedOutput;
+
+    if (purchasedInput || purchasedOutput) {
+      const wallet = await c.query(
+        `UPDATE public.ia_vendas_credit_balances
+          SET input_tokens=input_tokens-$2, output_tokens=output_tokens-$3, updated_at=NOW()
+          WHERE restaurant_id=$1 AND input_tokens >= $2 AND output_tokens >= $3
+          RETURNING restaurant_id`,
+        [restaurant, purchasedInput, purchasedOutput],
       );
+      if (!wallet.rowCount) {
+        if (free) {
+          throw new IaPlusRequired(
+            `Seu limite gratuito foi atingido.${formatAiResetAt(access?.tokens_reset_at) ? ` Limites serão reiniciados em ${formatAiResetAt(access?.tokens_reset_at)}.` : ""}`,
+          );
+        }
+        const resetAt = formatAiResetAt(access?.tokens_reset_at);
+        throw new SalesError(
+          `Limite mensal de IA atingido.${resetAt ? ` Limites serão reiniciados em ${resetAt}.` : ""}`,
+          429,
+        );
+      }
     }
     if (kind !== "analysis" && usage.recent >= 5)
       throw new SalesError(
@@ -75,22 +111,17 @@ export async function beginRun(
         429,
       );
     await c.query(
-      "INSERT INTO public.ia_vendas_runs (id,restaurant_id,conversation_id,kind,model,reserved_input,reserved_output,result) VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb)",
+      `INSERT INTO public.ia_vendas_runs
+         (id,restaurant_id,conversation_id,kind,model,reserved_input,reserved_output,result,
+          credit_input_reserved,credit_output_reserved,credit_included_input,credit_included_output)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10,$11,$12)`,
       [
-        id,
-        restaurant,
-        conversation,
-        kind,
+        id, restaurant, conversation, kind,
         kind === "image" ? MODELS.image : MODELS[kind],
-        kind === "image"
-          ? 0
-          : kind === "analysis"
-            ? LIMITS.analysisInput
-            : free
-              ? FREE_AI_MESSAGE_TOKENS
-              : LIMITS.runInput,
-        kind === "image" || free ? 0 : output,
+        inputReservation,
+        kind === "chat" && free ? 0 : outputReservation,
         initialResult ? JSON.stringify(initialResult) : null,
+        purchasedInput, purchasedOutput, includedInput, includedOutput,
       ],
     );
     return null;
@@ -108,42 +139,48 @@ export async function recordTokens(
     [restaurant, id, input, output, cycle ? JSON.stringify([cycle]) : null, cycle?.response_id || null],
   );
 }
-export async function reserveImage(restaurant: string, run: string) {
-  await withTransaction(async (c) => {
-    await c.query("SELECT pg_advisory_xact_lock(hashtextextended($1,1))", [
-      restaurant,
-    ]);
-    const n = Number(
-      (
-        await c.query(
-          "SELECT coalesce(sum(image_count),0) n FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND created_at>=date_trunc('month',now())",
-          [restaurant],
-        )
-      ).rows[0].n,
-    );
+export async function reserveImage(restaurant: string, run: string): Promise<boolean | undefined> {
+  return withTransaction(async (c) => {
+    await c.query("SELECT pg_advisory_xact_lock(hashtextextended($1,1))", [restaurant]);
+    const n = Number((
+      await c.query(
+        "SELECT coalesce(sum(image_count),0) n FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND created_at>=date_trunc('month',now())",
+        [restaurant],
+      )
+    ).rows[0].n);
     const access = await aiAccess(restaurant, c);
-    if (!access.plus && Number(access.images_remaining) <= 0)
-      throw new IaImageLimitReached(false, access.images_reset_at);
-    if (n >= LIMITS.images)
-      throw new IaImageLimitReached(true, access.images_reset_at);
-    if (
-      !(
-        await c.query(
-          "UPDATE public.ia_vendas_runs SET image_count=image_count+1 WHERE id=$1 AND restaurant_id=$2 AND status='running'",
-          [run, restaurant],
-        )
-      ).rowCount
-    )
-      throw new SalesError("Geração expirada.", 409);
+    const baseAvailable = n < LIMITS.images &&
+      (access.plus || Number(access.base_images_remaining) > 0);
+    let purchased = false;
+    if (!baseAvailable) {
+      const wallet = await c.query(
+        `UPDATE public.ia_vendas_credit_balances SET images=images-1,updated_at=NOW()
+         WHERE restaurant_id=$1 AND images>0 RETURNING restaurant_id`,
+        [restaurant],
+      );
+      if (!wallet.rowCount) throw new IaImageLimitReached(access.plus, access.images_reset_at);
+      purchased = true;
+    }
+    if (!(await c.query(
+      "UPDATE public.ia_vendas_runs SET image_count=image_count+1 WHERE id=$1 AND restaurant_id=$2 AND status='running'",
+      [run, restaurant],
+    )).rowCount) throw new SalesError("Geração expirada.", 409);
+    return purchased || undefined;
   });
 }
-export async function releaseImage(restaurant: string, run: string) {
+export async function releaseImage(restaurant: string, run: string, purchased = false) {
   await withTransaction(async (c) => {
     await c.query("SELECT pg_advisory_xact_lock(hashtextextended($1,1))", [restaurant]);
-    await c.query(
-      "UPDATE public.ia_vendas_runs SET image_count=greatest(image_count-1,0) WHERE restaurant_id=$1 AND id=$2",
+    const changed = await c.query(
+      "UPDATE public.ia_vendas_runs SET image_count=image_count-1 WHERE restaurant_id=$1 AND id=$2 AND image_count>0 RETURNING id",
       [restaurant, run],
     );
+    if (purchased && changed.rowCount) {
+      await c.query(
+        "UPDATE public.ia_vendas_credit_balances SET images=images+1,updated_at=NOW() WHERE restaurant_id=$1",
+        [restaurant],
+      );
+    }
   });
 }
 export async function finishRun(
@@ -157,14 +194,29 @@ export async function finishRun(
     ? (sql: string, params: any[]) => client.query(sql, params)
     : query;
   await execute(
-    "UPDATE public.ia_vendas_runs SET status=$3,result=(coalesce(result,'{}'::jsonb)-'batch')||coalesce($4::jsonb,'{}'::jsonb)||CASE WHEN result->'batch'->>'mode'='batch' THEN jsonb_build_object('batch',jsonb_build_object('mode','batch','id',result->'batch'->>'id','round',result->'batch'->'round','status',$3::text)) ELSE '{}'::jsonb END,error=$5,finished_at=now(),reserved_input=0,reserved_output=0 WHERE restaurant_id=$1 AND id=$2 AND status='running'",
-    [
-      restaurant,
-      id,
-      error ? "failed" : "completed",
-      JSON.stringify(result),
-      error || null,
-    ],
+    `WITH finished AS (
+       UPDATE public.ia_vendas_runs
+       SET status=$3,
+           result=(coalesce(result,'{}'::jsonb)-'batch')||coalesce($4::jsonb,'{}'::jsonb)||
+             CASE WHEN result->'batch'->>'mode'='batch' THEN
+               jsonb_build_object('batch',jsonb_build_object('mode','batch','id',
+                 result->'batch'->>'id','round',result->'batch'->'round','status',$3::text))
+             ELSE '{}'::jsonb END,
+           error=$5, finished_at=now(),reserved_input=0,reserved_output=0
+       WHERE restaurant_id=$1 AND id=$2 AND status='running'
+       RETURNING restaurant_id,credit_input_reserved,credit_output_reserved,
+                 credit_included_input,credit_included_output,input_tokens,output_tokens
+     ), refunded AS (
+       UPDATE public.ia_vendas_credit_balances b
+       SET input_tokens=b.input_tokens + CASE WHEN f.credit_input_reserved>0
+             THEN f.credit_input_reserved-GREATEST(0,f.input_tokens-f.credit_included_input) ELSE 0 END,
+           output_tokens=b.output_tokens + CASE WHEN f.credit_output_reserved>0
+             THEN f.credit_output_reserved-GREATEST(0,f.output_tokens-f.credit_included_output) ELSE 0 END,
+           updated_at=NOW()
+       FROM finished f WHERE b.restaurant_id=f.restaurant_id
+       RETURNING b.restaurant_id
+     ) SELECT count(*) FROM finished`,
+    [restaurant,id,error ? "failed" : "completed",JSON.stringify(result),error || null],
   );
 }
 

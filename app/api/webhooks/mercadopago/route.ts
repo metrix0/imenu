@@ -15,6 +15,7 @@ import {
     saveMercadoPagoQrTablePayment,
 } from "@/lib/qr-table/mercadoPagoBilling";
 import { notifyOrderReady } from "@/lib/push/server";
+import { reconcileCreditPayment } from "@/lib/ia-vendas/creditPayments";
 
 function qrTableAddonId(externalReference: string): string | null {
     const match = externalReference.match(
@@ -281,6 +282,14 @@ export async function POST(req: Request) {
                 "[MERCADO_PAGO] Webhook não corresponde a um Pix do iMenu:",
                 { paymentId }
             );
+            return NextResponse.json({ ok: true });
+        }
+
+        const creditMatch = payment.externalReference.match(
+            /^ia-credits:([0-9a-f]{8}-[0-9a-f-]{27}):v1$/i
+        );
+        if (creditMatch) {
+            await reconcileCreditPayment(payment, creditMatch[1]);
             return NextResponse.json({ ok: true });
         }
 

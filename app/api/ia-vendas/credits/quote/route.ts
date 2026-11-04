@@ -1,6 +1,6 @@
 import { authorize, failure } from "@/lib/ia-vendas/http";
-import { calculateCreditQuote } from "@/lib/ia-vendas/creditMath";
-import { getCreditRates } from "@/lib/ia-vendas/creditPricing";
+
+import { getCreditRates, getUsdBrlRate, quoteCreditPurchase } from "@/lib/ia-vendas/creditPricing";
 import { SalesError } from "@/lib/ia-vendas/types";
 
 export const runtime = "nodejs";
@@ -15,8 +15,9 @@ function ratesOrUnavailable() {
 export async function GET(request: Request) {
   try {
     await authorize(request, new URL(request.url).searchParams.get("restaurant_id"));
+    const rate = await getUsdBrlRate();
     return Response.json(
-      { rates: ratesOrUnavailable(), purchaseAvailable: false },
+      { rates: ratesOrUnavailable(), rate },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
@@ -24,23 +25,26 @@ export async function GET(request: Request) {
   }
 }
 
-// Recalculate on the server: never trust quantities or prices supplied by the browser.
-// This endpoint returns a quote only and does not create a charge or grant credits.
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     await authorize(request, body.restaurant_id);
-    const rates = ratesOrUnavailable();
-    let quote;
+    ratesOrUnavailable();
+    let pricing;
     try {
-      quote = calculateCreditQuote(rates, body.inputTokens, body.images);
-    } catch {
-      throw new SalesError("Quantidade de créditos inválida.", 400);
+      pricing = await quoteCreditPurchase(body.inputTokens, body.images);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("Quantidade")) {
+        throw new SalesError(error.message, 400);
+      }
+      throw error;
     }
+    const { quote, rate, priceCents } = pricing;
     if (!quote.inputTokens && !quote.images) {
       throw new SalesError("Selecione tokens ou imagens.", 400);
     }
-    return Response.json({ quote, purchaseAvailable: false }, { headers: { "Cache-Control": "no-store" } });
+    return Response.json({ quote, rate, priceCents }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     return failure(error);
   }

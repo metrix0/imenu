@@ -51,3 +51,12 @@ export function calculateCreditQuote(
     totalUsd: inputUsd + outputUsd + imagesUsd,
   };
 }
+
+/** Round upward to the nearest R$ 0,50 (up to R$ 0,49 above converted cost). */
+export function convertCreditCostToBrlCents(totalUsd: number, usdBrlRate: number): number {
+  if (!Number.isFinite(totalUsd) || totalUsd < 0 || !Number.isFinite(usdBrlRate) || usdBrlRate <= 0) {
+    throw new Error("Cotação indisponível.");
+  }
+  if (totalUsd === 0) return 0;
+  return Math.ceil((totalUsd * usdBrlRate * 100 - 1e-8) / 50) * 50;
+}

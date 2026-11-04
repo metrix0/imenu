@@ -57,6 +57,15 @@ export async function aiAccess(restaurant: string, client?: Pick<PoolClient, "qu
     coalesce(sum(greatest(output_tokens,reserved_output)) FILTER (WHERE kind='chat' AND created_at>=date_trunc('month',now())),0)::float monthly_output,
     (date_trunc('month', now()) + interval '1 month') monthly_reset_at
     FROM public.ia_vendas_runs WHERE restaurant_id=$1`, [restaurant])).rows[0];
+  const wallet = (await execute(
+    "SELECT input_tokens,output_tokens,images FROM public.ia_vendas_credit_balances WHERE restaurant_id=$1",
+    [restaurant],
+  )).rows[0];
+  const purchased = {
+    input: Number(wallet?.input_tokens || 0),
+    output: Number(wallet?.output_tokens || 0),
+    images: Number(wallet?.images || 0),
+  };
   const input = Number(usage?.monthly_input || 0), output = Number(usage?.monthly_output || 0);
   const monthlyUsage = plus ? {
     tokens: { input, output, input_limit: LIMITS.monthlyChatInput, output_limit: LIMITS.monthlyChatOutput,
@@ -98,8 +107,14 @@ export async function aiAccess(restaurant: string, client?: Pick<PoolClient, "qu
     plus, usage: monthlyUsage,
     free_applications_remaining: plus ? null : usedApplication ? 0 : 1,
     reserved_tokens: Number(usage?.reserved || 0),
-    tokens_remaining: plus ? null : Math.max(0, FREE_AI_TOKENS - freeTokensUsed),
-    images_remaining: plus ? Math.max(0, LIMITS.images - Number(usage?.monthly_images || 0)) : Math.max(0, FREE_AI_IMAGES - freeImagesUsed),
+    tokens_remaining: plus ? null : Math.max(0, FREE_AI_TOKENS - freeTokensUsed) +
+      Math.max(0, Math.min(purchased.input, purchased.output)),
+    images_remaining: Math.max(0,
+      plus ? LIMITS.images - Number(usage?.monthly_images || 0) : FREE_AI_IMAGES - freeImagesUsed)
+      + Math.max(0, purchased.images),
+    purchased_credits: purchased,
+    base_tokens_remaining: plus ? null : Math.max(0, FREE_AI_TOKENS - freeTokensUsed),
+    base_images_remaining: Math.max(0, plus ? LIMITS.images - Number(usage?.monthly_images || 0) : FREE_AI_IMAGES - freeImagesUsed),
     free_tokens_limit: plus ? null : FREE_AI_TOKENS,
     free_images_limit: plus ? null : FREE_AI_IMAGES,
     tokens_reset_at: plus ? monthlyResetAt : freeTokensResetAt,
