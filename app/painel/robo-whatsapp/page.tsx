@@ -728,8 +728,8 @@ export default function RoboWhatsAppPage() {
                     >
                         <div className="min-h-0 overflow-hidden">
                             <Card className="border border-blue-200 bg-blue-50/40 p-7">
-                                <div className="grid items-center gap-7 sm:grid-cols-[220px_1fr]">
-                                    <div className="flex min-h-[220px] items-center justify-center rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                                <div className="grid items-start gap-7 sm:grid-cols-[220px_1fr]">
+                                    <div className="flex min-h-[220px] items-start justify-center">
                                         {connection?.qr_code_data ? (
                                             <img
                                                 src={connection.qr_code_data}
@@ -758,12 +758,23 @@ export default function RoboWhatsAppPage() {
                                                 type="button"
                                                 onClick={() => setShowPhonePairing((open) => !open)}
                                                 aria-expanded={showPhonePairing}
+                                                aria-controls="whatsapp-phone-pairing"
                                                 className="cursor-pointer text-sm font-semibold text-[#c43700] hover:underline"
                                             >
                                                 Sem outro celular? Conectar com código
                                             </button>
-                                            {showPhonePairing && (
-                                                <div className="mt-3 space-y-3">
+                                            <div
+                                                id="whatsapp-phone-pairing"
+                                                className={`grid transition-[grid-template-rows,opacity,transform] duration-300 ease-out ${
+                                                    showPhonePairing
+                                                        ? "grid-rows-[1fr] translate-y-0 opacity-100"
+                                                        : "pointer-events-none grid-rows-[0fr] -translate-y-1 opacity-0"
+                                                }`}
+                                                aria-hidden={!showPhonePairing}
+                                                inert={!showPhonePairing}
+                                            >
+                                                <div className="min-h-0 overflow-hidden">
+                                                    <div className="space-y-3 pt-3">
                                                     <p className="text-sm text-gray-700">
                                                         Informe o número do WhatsApp do restaurante para gerar um código.
                                                     </p>
@@ -792,29 +803,37 @@ export default function RoboWhatsAppPage() {
                                                             Gerar código
                                                         </Button>
                                                     </div>
-                                                    {pairingCode && (
-                                                        <div className="rounded-[8px] border border-blue-200 bg-white px-4 py-3" role="status">
-                                                            <p className="text-xs text-gray-500">Código de conexão</p>
-                                                            <p className="mt-1 select-all font-mono text-2xl font-semibold tracking-widest text-gray-900">
-                                                                {pairingCode}
-                                                            </p>
+                                                    <div
+                                                        className={`grid transition-[grid-template-rows,opacity,transform] duration-300 ease-out ${
+                                                            pairingCode
+                                                                ? "grid-rows-[1fr] translate-y-0 opacity-100"
+                                                                : "pointer-events-none grid-rows-[0fr] -translate-y-1 opacity-0"
+                                                        }`}
+                                                        aria-hidden={!pairingCode}
+                                                        inert={!pairingCode}
+                                                    >
+                                                        <div className="min-h-0 overflow-hidden">
+                                                            <div className="rounded-[8px] border border-blue-200 bg-white px-4 py-3" role="status">
+                                                                <p className="text-xs text-gray-500">Código de conexão</p>
+                                                                <p className="mt-1 select-all font-mono text-2xl font-semibold tracking-widest text-gray-900">
+                                                                    {pairingCode}
+                                                                </p>
+                                                            </div>
                                                         </div>
-                                                    )}
+                                                    </div>
                                                     <p className="text-xs text-gray-600">
                                                         No WhatsApp do restaurante, vá em <b>Aparelhos conectados</b>,
                                                         toque em <b>Conectar um aparelho</b> e escolha
                                                         <b> Conectar com número de telefone</b>. Digite o código acima.
                                                         Se não funcionar, use o QR Code.
                                                     </p>
+                                                    </div>
                                                 </div>
-                                            )}
+                                            </div>
                                         </div>
                                         <WarningBox icon={faTriangleExclamation} className="mt-4">
                                             Depois de conectar, mensagens enviadas manualmente ao cliente irão pausar o robô naquela conversa por 30 minutos, para não interromper a conversa com atendentes humanos.
                                         </WarningBox>
-                                        <p className="mt-4 text-xs text-gray-500">
-                                            O código muda automaticamente quando expira. Esta tela é atualizada em tempo real, sem precisar recarregar a página.
-                                        </p>
                                     </div>
                                 </div>
                             </Card>
