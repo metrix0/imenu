@@ -54,16 +54,22 @@ export async function beginRun(
       Number(access.tokens_remaining) <= 0
     )
       throw new IaPlusRequired(
-        `Seu limite gratuito foi atingido.${formatAiResetAt(access.tokens_reset_at) ? ` Tokens reiniciados em ${formatAiResetAt(access.tokens_reset_at)}.` : ""}`,
+        `Seu limite gratuito foi atingido.${formatAiResetAt(access.tokens_reset_at) ? ` Limites serão reiniciados em ${formatAiResetAt(access.tokens_reset_at)}.` : ""}`,
       );
     const output =
       kind === "analysis" ? LIMITS.analysisOutput : LIMITS.chatOutput;
     if (
       kind !== "analysis" &&
-      (usage.recent >= 5 ||
-        usage.input + (kind === "image" ? 0 : LIMITS.runInput) > LIMITS.monthlyChatInput ||
+      (usage.input + (kind === "image" ? 0 : LIMITS.runInput) > LIMITS.monthlyChatInput ||
         usage.output + (kind === "image" ? 0 : output) > LIMITS.monthlyChatOutput)
-    )
+    ) {
+      const resetAt = formatAiResetAt(access?.tokens_reset_at);
+      throw new SalesError(
+        `Limite mensal de IA atingido.${resetAt ? ` Limites serão reiniciados em ${resetAt}.` : ""}`,
+        429,
+      );
+    }
+    if (kind !== "analysis" && usage.recent >= 5)
       throw new SalesError(
         "A IA atingiu a capacidade disponível. Tente novamente mais tarde. Caso precise de mais limite ou ajuda, entre em contato com o suporte.",
         429,

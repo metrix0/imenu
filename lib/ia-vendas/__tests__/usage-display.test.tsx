@@ -19,42 +19,43 @@ test.each([[false,0,0],[true,69.99,69.99]])('hidden below threshold', (plus,toke
 test.each([[70,0],[0,70],[100,100]])('either Plus resource at 70%% reveals both bars', (tokens,images) => {
  const html=renderToStaticMarkup(<AiUsage access={access(true,tokens,images)} />);
  expect(html.match(/role="progressbar"/g)).toHaveLength(2);
- expect(html).toContain('Tokens'); expect(html).toContain('Imagens'); expect(html).toContain('75 imagens');
+ expect(html).toContain('Limite'); expect(html).toContain('Imagens'); expect(html).toContain('75 imagens');
 });
 test('collapsed sidebar keeps both accessible resource names', () => {
  const html=renderToStaticMarkup(<AiUsage compact access={access(true,80,10)} />);
- expect(html).toContain('aria-label="Tokens:'); expect(html).toContain('aria-label="Imagens:');
+ expect(html).toContain('aria-label="Limite:'); expect(html).toContain('aria-label="Imagens:');
 });
 test('shows exact token and image usage counts with information controls', () => {
  const html = renderToStaticMarkup(<AiUsage access={access(true,90,93.33333333333333)} />);
  expect(html).toContain('Entrada: 1.800.000 / 2.000.000');
  expect(html).toContain('Saída: 0 / 120.000');
  expect(html).toContain('70 / 75 imagens');
- expect(html).toContain('aria-label="Informações de uso de Tokens"');
+ expect(html).toContain('aria-label="Informações de uso de Limite"');
  expect(html).toContain('aria-label="Informações de uso de Imagens"');
 });
 test('info icon comes after percent; exact numbers stay inside info tooltip', () => {
  const html = renderToStaticMarkup(<AiUsage access={access(true,90,93.33333333333333)} />);
- const tokenHeader = html.slice(html.indexOf('aria-label="Tokens"'), html.indexOf('role="progressbar"'));
+ const tokenHeader = html.slice(html.indexOf('aria-label="Limite"'), html.indexOf('role="progressbar"'));
  expect(tokenHeader.indexOf('90%')).toBeGreaterThan(-1);
- expect(tokenHeader.indexOf('90%')).toBeLessThan(tokenHeader.indexOf('aria-label="Informações de uso de Tokens"'));
+ expect(tokenHeader.indexOf('90%')).toBeLessThan(tokenHeader.indexOf('aria-label="Informações de uso de Limite"'));
  expect(html).toContain('Entrada: 1.800.000 / 2.000.000');
  expect(html).toContain('70 / 75 imagens');
 });
 test('100% Plus usage shows exact reset and buy-more button, without upsell CTA', () => {
  const html=renderToStaticMarkup(<AiUsage access={access(true,100,93)} onBuyTokens={() => {}} />);
- expect(html).toContain('Tokens reiniciados em 30/11/2026 às 21:00 (horário de Brasília).');
+ expect(html).toContain('Limites serão reiniciados em 30/11 às 21:00.');
  expect(html).toContain('Comprar mais tokens');
  expect(html).not.toContain('Assinar iMenu Plus');
+ expect(html.indexOf('Limites serão reiniciados')).toBeLessThan(html.indexOf('aria-label="Limite"'));
 });
 test('free usage only appears near its cap and shows the rolling reset', () => {
  const html=renderToStaticMarkup(<AiUsage access={access(false,100,0)} onBuyTokens={() => {}} />);
  expect(html).toContain('Uso gratuito de IA');
- expect(html).toContain('Tokens reiniciados em');
+ expect(html).toContain('Limites serão reiniciados em');
  expect(html).toContain('Comprar mais tokens');
 });
 test('reset formatting is timezone-aware and invalid dates are omitted', () => {
- expect(formatAiResetAt(resetAt)).toBe('30/11/2026 às 21:00 (horário de Brasília)');
+ expect(formatAiResetAt(resetAt)).toBe('30/11 às 21:00');
  expect(formatAiResetAt(null)).toBeNull();
  expect(formatAiResetAt('not-a-date')).toBeNull();
 });

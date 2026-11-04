@@ -52,7 +52,7 @@ export function IaPlusLimitMessage({ onCheckout, onBuyTokens, resetAt }: {
   return <article aria-label="Limite gratuito do Assistente IA" className="mx-auto my-5 max-w-2xl rounded-xl border border-brand/20 bg-white p-5">
     <div className="mb-4 flex items-center gap-2 text-sm font-medium text-brand">
       <Sparkles size={18} />
-      <span>Seu limite gratuito foi atingido.{reset ? ` Tokens reiniciados em ${reset}.` : ""}</span>
+      <span>Seu limite gratuito foi atingido.{reset ? ` Limites serão reiniciados em ${reset}.` : ""}</span>
     </div>
     <IaPlusDetails />
     <div className="mt-5 flex flex-wrap gap-2">

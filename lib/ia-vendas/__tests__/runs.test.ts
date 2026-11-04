@@ -1,5 +1,6 @@
 import { beginRun, finishRun } from "../runs";
 import { query, withTransaction } from "@/lib/database/sql";
+jest.mock("@/lib/addons/access", () => ({ hasIMenuPlusAccess: jest.fn().mockResolvedValue(false) }));
 jest.mock("@/lib/database/sql", () => ({
   query: jest.fn(),
   withTransaction: jest.fn(),
@@ -68,7 +69,7 @@ test("deep analysis ignores monthly token totals while chat keeps its quota", as
   ).resolves.toBeNull();
   await expect(
     beginRun("restaurant", "conversation", "chat-run", "chat"),
-  ).rejects.toThrow("Caso precise de mais limite ou ajuda, entre em contato com o suporte.");
+  ).rejects.toThrow("Limite mensal de IA atingido.");
 });
 test("manual analysis has no minute quota while chat retains storm protection", async () => {
   c.query.mockImplementation(async (sql: string) => ({
@@ -85,6 +86,20 @@ test("manual analysis has no minute quota while chat retains storm protection", 
   ).rejects.toThrow("Caso precise de mais limite ou ajuda, entre em contato com o suporte.");
 });
 
+test("Plus monthly exhaustion displays the exact reset instant", async () => {
+  const { hasIMenuPlusAccess } = require("@/lib/addons/access");
+  (hasIMenuPlusAccess as jest.Mock).mockResolvedValueOnce(true);
+  c.query.mockImplementation(async (sql: string) => ({
+    rows: sql.includes("sum(greatest")
+      ? [{ input: 2_000_000, output: 0, recent: 0 }]
+      : sql.includes("sum(input_tokens + output_tokens)")
+        ? [{ tokens: 0, reserved: 0, images: 0, monthly_images: 0, monthly_input: 2_000_000, monthly_output: 0, monthly_reset_at: "2026-12-01T00:00:00Z" }]
+        : [],
+    rowCount: 0,
+  }));
+  await expect(beginRun("restaurant", "conversation", "chat-run", "chat"))
+    .rejects.toThrow("Limites serão reiniciados em 30/11 às 21:00.");
+});
 test("queued analyses survive the synchronous stale timeout and don't block contextual chat", async () => {
   await beginRun("restaurant", "conversation", "run", "chat");
   const cleanup = c.query.mock.calls.find(([sql]) => sql.startsWith("UPDATE public.ia_vendas_runs"));

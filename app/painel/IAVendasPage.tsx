@@ -52,8 +52,8 @@ function ErrorNoticeContent({ message }: { message: string }) {
 
   const main = message.slice(0, -IA_CAPACITY_SUPPORT_SUFFIX.length).trim();
   return (
-    <span>
-      {main} {IA_CAPACITY_SUPPORT_SUFFIX}{" "}
+    <span className="flex flex-col items-start gap-2">
+      <span>{main} {IA_CAPACITY_SUPPORT_SUFFIX}</span>
       <SupportWhatsappBadge />
     </span>
   );
@@ -300,7 +300,7 @@ export default function SalesPage() {
     if (isAnalysis && locked) { setPlusModal("checkout"); return; }
     if (freeLimitReached) {
       const reset = formatAiResetAt(sales.access?.tokens_reset_at);
-      openPlus(`Você atingiu o limite gratuito do Assistente IA.${reset ? ` Tokens reiniciados em ${reset}.` : ""} Assine o iMenu Plus para continuar conversando.`);
+      openPlus(`Você atingiu o limite gratuito do Assistente IA.${reset ? ` Limites serão reiniciados em ${reset}.` : ""} Assine o iMenu Plus para continuar conversando.`);
       return;
     }
     if (!text.trim() || disabled || uploading) return;
@@ -316,12 +316,16 @@ export default function SalesPage() {
         return;
       }
       setNewConversation(false);
-      await useSalesStore
+      const sent = await useSalesStore
         .getState()
         .send(draft, pendingAttachments, false);
+      if (!sent) {
+        setText((current) => current ? `${draft}\n${current}` : draft);
+        setAttachments((current) => current.length ? current : pendingAttachments);
+      }
       return;
     }
-    await sales.send(
+    const sent = await sales.send(
       draft,
       pendingAttachments,
       false,
@@ -329,6 +333,10 @@ export default function SalesPage() {
         ? { report_id: selectedReport.id, opportunity_id: opportunity?.id }
         : {},
     );
+    if (!sent) {
+      setText((current) => current ? `${draft}\n${current}` : draft);
+      setAttachments((current) => current.length ? current : pendingAttachments);
+    }
   }
   async function upload(files: FileList | null) {
     if (!files) return;

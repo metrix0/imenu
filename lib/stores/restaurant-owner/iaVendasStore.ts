@@ -55,7 +55,7 @@ type State = {
     attachments: Data[],
     deep: boolean,
     scope?: { report_id?: string; opportunity_id?: string },
-  ) => Promise<void>;
+  ) => Promise<boolean>;
   command: (command: string, extra?: Data) => Promise<any>;
   upload: (file: File) => Promise<Data>;
   clearError: () => void;
@@ -139,7 +139,7 @@ export const useSalesStore = create<State>((set, get) => ({
   },
   send: async (text, attachments, deep, scope = {}) => {
     const current = get();
-    if (current.busy || !current.conversation_id) return;
+    if (current.busy || !current.conversation_id) return false;
     const conversation = current.conversation_id;
     version += 1;
     set({
@@ -161,6 +161,7 @@ export const useSalesStore = create<State>((set, get) => ({
       ],
     });
     let error: string | null = null;
+    let delivered = false;
     try {
       const response = await fetch("/api/ia-vendas/chat", {
         method: "POST",
@@ -177,7 +178,7 @@ export const useSalesStore = create<State>((set, get) => ({
       });
       if (!response.ok) {
         const d = await response.json();
-        if (d.code === "IA_PLUS_REQUIRED") { set({ upgradeRequired: true }); return; }
+        if (d.code === "IA_PLUS_REQUIRED") { set({ upgradeRequired: true }); return false; }
         throw new Error(d.error);
       }
       if (!response.body) throw new Error("Conexão interrompida.");
@@ -203,7 +204,10 @@ export const useSalesStore = create<State>((set, get) => ({
             else error = data.message;
             done = true;
           }
-          if (event === "done") done = true;
+          if (event === "done") {
+            done = true;
+            delivered = data.status !== "failed";
+          }
         }
       }
       if (!done)
@@ -215,6 +219,7 @@ export const useSalesStore = create<State>((set, get) => ({
       await get().load(current.restaurant_id, conversation);
       set({ busy: false, status: "", error });
     }
+    return delivered && error === null;
   },
   command: async (command, extra = {}) => {
     const current = get();

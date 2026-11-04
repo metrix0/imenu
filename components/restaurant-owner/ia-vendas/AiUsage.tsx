@@ -21,7 +21,7 @@ export default function AiUsage({ access, compact = false, onBuyTokens }: {
     if (!access.usage) return null;
     const usage = access.usage;
     rows = [
-      { label: "Tokens", short: "T", percent: usage.tokens.percent, resetAt: access.tokens_reset_at,
+      { label: "Limite", short: "L", percent: usage.tokens.percent, resetAt: access.tokens_reset_at,
         values: [
           `Entrada: ${format(usage.tokens.input)} / ${format(usage.tokens.input_limit)}`,
           `Saída: ${format(usage.tokens.output)} / ${format(usage.tokens.output_limit)}`,
@@ -34,7 +34,7 @@ export default function AiUsage({ access, compact = false, onBuyTokens }: {
     const tokensUsed = Math.max(0, access.free_tokens_limit - Number(access.tokens_remaining ?? access.free_tokens_limit));
     const imagesUsed = Math.max(0, access.free_images_limit - Number(access.images_remaining ?? access.free_images_limit));
     rows = [
-      { label: "Tokens", short: "T", percent: tokensUsed / access.free_tokens_limit * 100, resetAt: access.tokens_reset_at,
+      { label: "Limite", short: "L", percent: tokensUsed / access.free_tokens_limit * 100, resetAt: access.tokens_reset_at,
         values: [`${format(tokensUsed)} / ${format(access.free_tokens_limit)} tokens em 7 dias`] },
       { label: "Imagens", short: "I", percent: imagesUsed / access.free_images_limit * 100, resetAt: access.images_reset_at,
         values: [`${format(imagesUsed)} / ${format(access.free_images_limit)} imagens em 7 dias`] },
@@ -42,7 +42,12 @@ export default function AiUsage({ access, compact = false, onBuyTokens }: {
   }
   if (Math.max(...rows.map((row) => row.percent)) < 70) return null;
   const reached = rows.some((row) => row.percent >= 100);
+  const resetDates = rows
+    .filter((row) => row.percent >= 100 && row.resetAt && formatAiResetAt(row.resetAt))
+    .map((row) => new Date(row.resetAt!).getTime());
+  const reset = resetDates.length ? formatAiResetAt(new Date(Math.max(...resetDates)).toISOString()) : null;
   return <div aria-label={access.plus ? "Uso mensal de IA" : "Uso gratuito de IA"} className={`space-y-3 ${compact ? "px-2 py-3" : "px-1 pb-2 pt-2"}`}>
+    {reset && <p className="text-[11px] leading-4 text-gray-600">Limites serão reiniciados em {reset}.</p>}
     {rows.map(row => <div key={row.label}>
       <div className={`mb-1 flex items-center gap-1 text-gray-600 ${compact ? "text-[10px]" : "text-xs"}`}>
         <span aria-label={row.label}>{compact ? row.short : row.label}</span>
@@ -54,11 +59,6 @@ export default function AiUsage({ access, compact = false, onBuyTokens }: {
         </Tooltip>
       </div>
       <LoadingBar progress={row.percent} size="sm" label={`${row.label}: ${row.values.join(". ")}`} colorClass={row.percent >= 100 ? "bg-red-500" : "bg-brand"} />
-      {row.percent >= 100 && formatAiResetAt(row.resetAt) && (
-        <p className="mt-1.5 text-[11px] leading-4 text-gray-600">
-          {row.label === "Tokens" ? "Tokens reiniciados" : "Imagens reiniciadas"} em {formatAiResetAt(row.resetAt)}.
-        </p>
-      )}
     </div>)}
     {reached && onBuyTokens && <Button variant="secondary" className="w-full !min-h-9 !px-2 !py-1.5" onClick={onBuyTokens}>Comprar mais tokens</Button>}
   </div>;
