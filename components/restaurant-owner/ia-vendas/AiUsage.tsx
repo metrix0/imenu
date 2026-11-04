@@ -36,4 +36,3 @@ export default function AiUsage({ access, compact = false }: { access?: Access |
     </div>)}
   </div>;
 }
-}
