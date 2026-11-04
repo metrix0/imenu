@@ -8,7 +8,7 @@ Read this document before changing plan features, names, pricing, access or bill
 
 Main benefits, in order: Automações de Marketing WhatsApp; Assistente IA; Vendas IA. The iMenu Plus product card subtitle is **Venda mais com iMenu Plus.** (no unverified sales multiplier claims), and its main-benefits list is displayed without a "Recursos principais" heading.
 
-Plus bonuses, in order: Robô WhatsApp com IA; Atendimento exclusivo; Upsells automáticos; Atualizações de pedidos pelo WhatsApp; Download Cardápio em PDF. Order updates require the established WhatsApp interaction and deduplication rules. PDF export is exclusive to valid iMenu Plus access; free QR does not unlock it. Scan de Cardápio com IA, Modo vitrine and Painel Garçom are free features, not Plus bonuses. This presentation does not remove existing free access to other features; the existing Assistente IA free allowance and automatic upsell behavior are preserved.
+Plus bonuses, in order: Robô WhatsApp com IA; Atendimento exclusivo; Upsells automáticos; Atualizações de pedidos pelo WhatsApp; Download Cardápio em PDF. **Cardápio Tema Escuro** is an additional Plus feature (not a sixth bonus), listed separately below the five bonuses in the sales modal and landing Plus card via `IA_PLUS_ADDITIONAL_FEATURES` from `lib/addons/products.ts`. Order updates require the established WhatsApp interaction and deduplication rules. PDF export is exclusive to valid iMenu Plus access; free QR does not unlock it. Scan de Cardápio com IA, Modo vitrine and Painel Garçom are free features, not Plus bonuses. This presentation does not remove existing free access to other features; the existing Assistente IA free allowance and automatic upsell behavior are preserved.
 
 ## Compatibility and entitlement
 
