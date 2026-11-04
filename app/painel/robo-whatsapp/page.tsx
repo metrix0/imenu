@@ -20,6 +20,7 @@ import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 
 import OrderNotificationSettings from "@/components/restaurant-owner/pedidos/OrderNotificationSettings";
 import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import DataTable from "@/components/ui/DataTable";
@@ -240,6 +241,10 @@ export default function RoboWhatsAppPage() {
     >(null);
     const [restaurant, setRestaurant] = useState<RestaurantInfo | null>(null);
     const [connection, setConnection] = useState<WhatsAppConnection | null>(null);
+    const [showPhonePairing, setShowPhonePairing] = useState(false);
+    const [pairingPhone, setPairingPhone] = useState("");
+    const [pairingCode, setPairingCode] = useState<string | null>(null);
+    const [requestingPairingCode, setRequestingPairingCode] = useState(false);
     const [templates, setTemplates] = useState<WhatsAppMessageTemplates | null>(null);
     const [variables, setVariables] = useState<TemplateVariable[]>([]);
     const [handoffs, setHandoffs] = useState<HandoffConversation[]>([]);
@@ -422,6 +427,46 @@ export default function RoboWhatsAppPage() {
         };
     }, [restaurantId]);
 
+    useEffect(() => {
+        if (connection?.status === "WORKING" || connection?.status === "FAILED" ||
+            connection?.status === "STOPPED" || connection?.desired_state === "disconnected") {
+            setPairingCode(null);
+        }
+    }, [connection?.status, connection?.desired_state]);
+
+    const requestPairingCode = async () => {
+        if (!restaurantId || requestingPairingCode || whatsAppAction) return;
+        const enteredPhone = pairingPhone.replace(/\D/g, "");
+        const phoneNumber = /^\d{10,11}$/.test(enteredPhone) ? "55" + enteredPhone : enteredPhone;
+        if (!/^\d{10,15}$/.test(phoneNumber)) {
+            showMessage("Informe um número válido com DDD e código do país.", "error");
+            return;
+        }
+        const session = await getAuthenticatedSession();
+        if (!session) return;
+        setRequestingPairingCode(true);
+        setPairingCode(null);
+        try {
+            const response = await fetch("/api/whatsapp/connection", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({ restaurantId, action: "request_code", phoneNumber }),
+            });
+            const data = await response.json();
+            if (!response.ok || typeof data.code !== "string") {
+                throw new Error(data.error || "Não foi possível gerar o código.");
+            }
+            setPairingCode(data.code);
+        } catch (error) {
+            showMessage(error instanceof Error ? error.message : "Erro ao gerar código.", "error");
+        } finally {
+            setRequestingPairingCode(false);
+        }
+    };
+
     const runWhatsAppAction = async (
         action: "connect" | "reconnect" | "refresh_qr" | "disconnect"
     ) => {
@@ -438,6 +483,7 @@ export default function RoboWhatsAppPage() {
         const session = await getAuthenticatedSession();
         if (!session) return;
         setWhatsAppAction(action);
+        setPairingCode(null);
 
         try {
             const response = await fetch("/api/whatsapp/connection", {
@@ -484,6 +530,7 @@ export default function RoboWhatsAppPage() {
         (connection.status === "SCAN_QR_CODE" || connection.status === "FAILED");
     const isConnected =
         connection?.desired_state === "connected" && connection.status === "WORKING";
+    const showPairingPanel = showQr || Boolean(pairingCode && !isConnected && connection?.desired_state === "connected");
     const pendingHandoffs = handoffs.filter((handoff) =>
         !handoff.last_owner_message_at ||
         new Date(handoff.last_owner_message_at).getTime() <
@@ -749,12 +796,12 @@ export default function RoboWhatsAppPage() {
 
                 <div
                     className={`grid transition-[grid-template-rows,opacity,transform] duration-300 ease-out ${
-                        showQr
+                        showPairingPanel
                             ? "grid-rows-[1fr] translate-y-0 opacity-100"
                             : "pointer-events-none grid-rows-[0fr] -translate-y-2 opacity-0"
                     }`}
-                    aria-hidden={!showQr}
-                    hidden={!showQr}
+                    aria-hidden={!showPairingPanel}
+                    hidden={!showPairingPanel}
                 >
                     <div className="min-h-0 overflow-hidden">
                         <Card className="border border-blue-200 bg-blue-50/40 p-7">
@@ -783,6 +830,62 @@ export default function RoboWhatsAppPage() {
                                         <li>Toque em <b>Conectar um aparelho</b>.</li>
                                         <li>Aponte a câmera para este QR Code.</li>
                                     </ol>
+                                    <div className="mt-5 border-t border-blue-200 pt-4">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPhonePairing((open) => !open)}
+                                            aria-expanded={showPhonePairing}
+                                            className="cursor-pointer text-sm font-semibold text-[#c43700] hover:underline"
+                                        >
+                                            Sem outro celular? Conectar com código
+                                        </button>
+                                        {showPhonePairing && (
+                                            <div className="mt-3 space-y-3">
+                                                <p className="text-sm text-gray-700">
+                                                    Informe o número do WhatsApp do restaurante para gerar um código.
+                                                </p>
+                                                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                                                    <div className="min-w-0 flex-1">
+                                                        <Input
+                                                            label="Número do WhatsApp"
+                                                            type="tel"
+                                                            inputMode="tel"
+                                                            autoComplete="tel"
+                                                            placeholder="(11) 99999-9999"
+                                                            value={pairingPhone}
+                                                            onChange={(event) => {
+                                                                setPairingPhone(event.target.value);
+                                                                setPairingCode(null);
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <Button
+                                                        type="button"
+                                                        onClick={requestPairingCode}
+                                                        loading={requestingPairingCode}
+                                                        disabled={whatsAppAction !== null ||
+                                                            (connection?.status !== "SCAN_QR_CODE" && connection?.status !== "STARTING")}
+                                                    >
+                                                        Gerar código
+                                                    </Button>
+                                                </div>
+                                                {pairingCode && (
+                                                    <div className="rounded-[8px] border border-blue-200 bg-white px-4 py-3" role="status">
+                                                        <p className="text-xs text-gray-500">Código de conexão</p>
+                                                        <p className="mt-1 select-all font-mono text-2xl font-semibold tracking-widest text-gray-900">
+                                                            {pairingCode}
+                                                        </p>
+                                                    </div>
+                                                )}
+                                                <p className="text-xs text-gray-600">
+                                                    No WhatsApp do restaurante, vá em <b>Aparelhos conectados</b>,
+                                                    toque em <b>Conectar um aparelho</b> e escolha
+                                                    <b> Conectar com número de telefone</b>. Digite o código acima.
+                                                    Se não funcionar, use o QR Code.
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
                                     <WarningBox icon={faTriangleExclamation} className="mt-4">
                                         Depois de conectar, mensagens enviadas manualmente ao cliente irão pausar o robô naquela conversa por 30 minutos, para não interromper a conversa com atendentes humanos.
                                     </WarningBox>
