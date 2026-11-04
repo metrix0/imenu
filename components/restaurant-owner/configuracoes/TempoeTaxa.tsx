@@ -283,6 +283,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         return (
             <div className="mx-auto max-w-2xl 2xl:max-w-3xl">
                 <div className="mb-4">
+                    <p className="mb-3 text-sm text-gray-500">Escolha um método. Apenas a opção selecionada será utilizada.</p>
                     <ChoiceCardGroup
                         value={mode}
                         onChange={changeMode}
