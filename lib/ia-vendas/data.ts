@@ -69,6 +69,52 @@ export async function readData(
     next_offset: offset + limit,
   };
 }
+export async function marketingCohorts(restaurant: string, client: PoolClient): Promise<Data> {
+  const result = await client.query(
+    `WITH customer_orders AS (
+      SELECT c.phone,o.created_at
+      FROM public.customers c
+      JOIN public.orders o ON o.restaurant_id=c.restaurant_id
+        AND public.crm_phone(o.customer_phone)=c.phone
+        AND o.status NOT IN ('canceled','pending_online_payment')
+      WHERE c.restaurant_id=$1 AND c.marketing_consent AND c.opted_out_at IS NULL
+    ), last_orders AS (
+      SELECT phone,max(created_at) last_purchase FROM customer_orders GROUP BY phone
+    ), habit_customers AS (
+      SELECT phone FROM customer_orders
+      WHERE created_at>=now()-interval '90 days'
+      GROUP BY phone,
+        extract(isodow FROM created_at AT TIME ZONE 'America/Sao_Paulo'),
+        extract(hour FROM created_at AT TIME ZONE 'America/Sao_Paulo')
+      HAVING count(DISTINCT (created_at AT TIME ZONE 'America/Sao_Paulo')::date)>=3
+    )
+    SELECT
+      (SELECT count(DISTINCT s.phone)::int FROM public.checkout_sessions s
+        LEFT JOIN public.customers c ON c.restaurant_id=s.restaurant_id AND c.phone=s.phone
+        WHERE s.restaurant_id=$1 AND s.phone IS NOT NULL AND s.marketing_consent
+          AND s.completed_at IS NULL AND s.created_at>=now()-interval '28 days'
+          AND s.updated_at<now()-interval '30 minutes'
+          AND jsonb_array_length(s.items)>0 AND c.opted_out_at IS NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM public.orders o WHERE o.restaurant_id=$1
+              AND public.crm_phone(o.customer_phone)=s.phone
+              AND o.created_at>=s.created_at AND o.status<>'canceled'
+          )) AS cart,
+      (SELECT count(*)::int FROM last_orders
+        WHERE last_purchase<now()-interval '30 days') AS reactivation,
+      (SELECT count(DISTINCT h.phone)::int FROM habit_customers h
+        JOIN last_orders l ON l.phone=h.phone
+        WHERE l.last_purchase>now()-interval '30 days') AS habit`,
+    [restaurant],
+  );
+  const row = result.rows[0] || {};
+  return {
+    cart: Number(row.cart || 0),
+    reactivation: Number(row.reactivation || 0),
+    habit: Number(row.habit || 0),
+  };
+}
+
 export const window28 = () => ({
   start: new Date(Date.now() - 28 * 86400000).toISOString(),
   end: new Date().toISOString(),
@@ -369,6 +415,7 @@ async function analysisContext(restaurant: string): Promise<Data> {
     );
     const marketingAccess = await hasIMenuPlusAccess(restaurant, c);
     const whatsapp = await c.query("SELECT EXISTS(SELECT 1 FROM public.whatsapp_connections WHERE restaurant_id=$1 AND status='WORKING' AND desired_state='connected') AS connected", [restaurant]);
+    const marketing = await marketingCohorts(restaurant, c);
     const upsell = entities.automatic_upsell.rows[0];
     const bot = entities.whatsapp_bot_settings.rows[0];
     return {
@@ -381,7 +428,7 @@ async function analysisContext(restaurant: string): Promise<Data> {
       categories: entities.categories,
       entities,
       coverage,
-      sales,
+      sales: { ...sales, marketing },
       instructions: memory.rows[0]?.instructions || "",
       actions: actions.rows,
       prior_analyses: prior.rows,

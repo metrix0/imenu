@@ -71,6 +71,8 @@ test("growth settings are included in complete tenant-scoped analysis snapshots"
   expect(sql.some(statement => statement.includes("FROM public.whatsapp_bot_settings t WHERE t.restaurant_id=$1"))).toBe(true);
   expect(ctx.growth_settings.upsell_automatico.enabled).toBe(false);
   expect(ctx.growth_settings.marketing.settings.cart.enabled).toBe(false);
+  expect(ctx.sales.marketing).toEqual({ cart: 0, reactivation: 0, habit: 0 });
+  expect(sql.some(statement => statement.includes("FROM public.checkout_sessions s") && statement.includes("habit_customers"))).toBe(true);
 });
 
 test("normal reads retain 50-row pagination", async () => {

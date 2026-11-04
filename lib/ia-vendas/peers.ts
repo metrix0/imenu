@@ -157,12 +157,12 @@ export function potential(sales: Data, input: Data, items?: Data[]) {
       note: "Base do cálculo: pedidos concluídos e valores dos adicionais em pedidos elegíveis; pagamentos pendentes e cancelados ficam fora.",
     };
   }
-  if (!input.opportunities.length || input.opportunities.length > 5)
-    throw new SalesError("Inclua de uma a cinco oportunidades na estimativa.");
+  if (!input.opportunities.length || input.opportunities.length > 8)
+    throw new SalesError("Inclua de uma a oito oportunidades na estimativa.");
 
   const profiles: Record<
       string,
-      { low: number; high: number; basis: "orders" | "revenue" }
+      { low: number; high: number; basis: "orders" | "revenue" | "marketing" }
     > = {
       cart_addon: { low: 0.1, high: 0.2, basis: "orders" },
       menu_clarity: { low: 0.02, high: 0.05, basis: "revenue" },
@@ -171,6 +171,9 @@ export function potential(sales: Data, input: Data, items?: Data[]) {
         high: 0.08,
         basis: "revenue",
       },
+      marketing_cart: { low: 0.05, high: 0.1, basis: "marketing" },
+      marketing_reactivation: { low: 0.02, high: 0.05, basis: "marketing" },
+      marketing_habit: { low: 0.02, high: 0.05, basis: "marketing" },
     },
     scale = days / Number(sales.days || 0),
     baselineCents = Number(sales.revenue_cents) * scale;
@@ -222,7 +225,17 @@ export function potential(sales: Data, input: Data, items?: Data[]) {
       max = 0,
       basis = "";
 
-    if (profile.basis === "orders") {
+    if (profile.basis === "marketing") {
+      const segment = kind.slice("marketing_".length);
+      const eligibleCustomers = Number(sales.marketing?.[segment]);
+      const ticket = Number(sales.ticket_cents);
+      if (!Number.isInteger(eligibleCustomers) || eligibleCustomers < 0 ||
+          !Number.isFinite(ticket) || ticket <= 0)
+        throw new SalesError("Não há dados suficientes de clientes de Marketing para esta projeção.");
+      min = eligibleCustomers * profile.low * ticket * scale;
+      max = eligibleCustomers * profile.high * ticket * scale;
+      basis = `${eligibleCustomers} clientes com potencial para esta automação, com retorno estimado de ${(profile.low * 100).toFixed(0)}%–${(profile.high * 100).toFixed(0)}% e ticket médio de ${(ticket / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}.`;
+    } else if (profile.basis === "orders") {
       const eligibleOrders = Number(opportunity.eligible_orders),
         extraCents = Number(opportunity.extra_cents);
       if (
