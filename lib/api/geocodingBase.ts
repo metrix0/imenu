@@ -50,168 +50,205 @@ export async function fetchAddressByCEP(cep: string): Promise<GeoAddress | null>
  * 2. Transforma Endereço (texto) em Coordenadas
  */
 export async function fetchCoordinates(fullAddress: string): Promise<{ latitude: number; longitude: number } | null> {
+    const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    const TOMTOM_API_KEY = process.env.NEXT_PUBLIC_TOMTOM_API_KEY;
+    const ARCGIS_API_KEY = process.env.NEXT_PUBLIC_ARCGIS_API_KEY;
+
+    const parts = fullAddress.split(",").map((part) => part.trim());
+    const cepIndex = parts.findIndex((part) => /^\d{5}-?\d{3}$/.test(part));
+    const hasNumberField = cepIndex === 4;
+    const wantedStreet = parts[0] || "";
+    const wantedNumber = hasNumberField ? parts[1].match(/^\d+[a-z]?/i)?.[0] || "" : "";
+    const wantedCity = (parts[hasNumberField ? 3 : 2] || "").split(/\s+-\s+/)[0];
+    const wantedCEP = cepIndex >= 0 ? parts[cepIndex].replace(/\D/g, "") : "";
+    const addressWithoutNumber = hasNumberField
+        ? [parts[0], ...parts.slice(2)].join(", ")
+        : fullAddress;
+
+    const normalize = (value: unknown) => String(value ?? "")
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+
+    const normalizeStreet = (value: unknown) => normalize(value)
+        .replace(/\b(rua|avenida|av|r|travessa|estrada|rodovia|praca|alameda|doutor|dr|de|da|do|dos|das)\b/g, " ")
+        .replace(/\s+/g, " ").trim();
+
+    const streetMatches = (actual: unknown) => {
+        const expected = normalizeStreet(wantedStreet);
+        const found = normalizeStreet(actual);
+        if (!expected || !found) return false;
+        if (expected === found) return true;
+        if (Math.min(expected.length, found.length) < 8 || Math.abs(expected.length - found.length) > 1) return false;
+        // Permit one spelling difference (e.g. Sodero/Sodrero), not a different street.
+        let a = 0, b = 0, differences = 0;
+        while (a < expected.length && b < found.length) {
+            if (expected[a] === found[b]) { a++; b++; continue; }
+            if (++differences > 1) return false;
+            if (expected.length > found.length) a++;
+            else if (found.length > expected.length) b++;
+            else { a++; b++; }
+        }
+        return differences + Number(a < expected.length) + Number(b < found.length) <= 1;
+    };
+
+    const cityMatches = (actual: unknown) =>
+        Boolean(wantedCity) && normalize(actual) === normalize(wantedCity);
+
+    const postcodeMatches = (actual: unknown, allowGeneric = false) => {
+        if (!wantedCEP) return true;
+        const values = String(actual ?? "").match(/\d{5}-?\d{3}/g) || [];
+        return values.some((value) => {
+            const cep = value.replace(/\D/g, "");
+            return cep === wantedCEP ||
+                (allowGeneric && cep.endsWith("000") && cep.slice(0, 5) === wantedCEP.slice(0, 5));
+        });
+    };
+
+    const position = (lat: unknown, lon: unknown) => {
+        const latitude = Number(lat);
+        const longitude = Number(lon);
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude) ||
+            Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return null;
+        return { latitude, longitude };
+    };
+
     console.log("[geocoding] start", { fullAddress, hasGoogleKey: Boolean(GOOGLE_API_KEY) });
     let googleQuotaExceeded = false;
 
-    const geocodeGoogle = async (address: string): Promise<{ latitude: number; longitude: number } | null> => {
-        if (!GOOGLE_API_KEY) {
-            console.log("[geocoding] Google skipped: no key");
-            return null;
-        }
-
+    const geocodeGoogle = async (address: string) => {
+        if (!GOOGLE_API_KEY) return null;
         try {
             const res = await fetch(
-                `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
-                    address
-                )}&key=${GOOGLE_API_KEY}&language=pt-BR`
+                "https://maps.googleapis.com/maps/api/geocode/json?address=" +
+                encodeURIComponent(address) + "&key=" + GOOGLE_API_KEY + "&language=pt-BR"
             );
-
             const json = await res.json();
             console.log("[geocoding] Google response", {
-                address,
-                httpStatus: res.status,
-                status: json.status,
-                resultCount: json.results?.length ?? 0,
-                errorMessage: json.error_message ?? null,
+                httpStatus: res.status, status: json.status, resultCount: json.results?.length ?? 0,
             });
-
-            if (json.status === "OVER_QUERY_LIMIT") {
-                googleQuotaExceeded = true;
-            }
-
-            if (json.status !== "OK" || !json.results?.length) {
-                return null;
-            }
-
-            const { lat, lng } = json.results[0].geometry.location;
-
-            return {
-                latitude: lat,
-                longitude: lng
-            };
+            if (json.status === "OVER_QUERY_LIMIT") googleQuotaExceeded = true;
+            if (json.status !== "OK" || !json.results?.length) return null;
+            return position(json.results[0].geometry?.location?.lat, json.results[0].geometry?.location?.lng);
         } catch (error) {
-            console.log("[geocoding] Google request failed", { address, error });
+            console.log("[geocoding] Google failed", error);
             return null;
         }
     };
 
-    const geocodeTomTom = async (address: string): Promise<{ latitude: number; longitude: number } | null> => {
-        if (!TOMTOM_API_KEY) {
-            console.log("[geocoding] TomTom skipped: no key");
-            return null;
-        }
-
+    const geocodeTomTom = async () => {
+        if (!TOMTOM_API_KEY) return null;
         try {
             const res = await fetch(
-                `https://api.tomtom.com/search/2/geocode/${encodeURIComponent(address)}.json?key=${TOMTOM_API_KEY}&countrySet=BR&limit=1&language=pt-BR`
+                "https://api.tomtom.com/search/2/geocode/" + encodeURIComponent(fullAddress) +
+                ".json?key=" + TOMTOM_API_KEY + "&countrySet=BR&limit=5&language=pt-BR"
             );
-
-            if (!res.ok) {
-                console.log("[geocoding] TomTom HTTP failure", { address, status: res.status });
-                return null;
-            }
-
+            if (!res.ok) return null;
             const json = await res.json();
-            console.log("[geocoding] TomTom response", {
-                address,
-                resultCount: json.results?.length ?? 0,
+            const match = json.results?.find((result: any) => {
+                const address = result.address || {};
+                const confidence = result.matchConfidence?.score;
+                return streetMatches(address.streetName) &&
+                    cityMatches(address.municipality) &&
+                    postcodeMatches(address.extendedPostalCode || address.postalCode) &&
+                    (!wantedNumber || normalize(address.streetNumber) === normalize(wantedNumber)) &&
+                    (typeof confidence !== "number" || confidence >= 0.7);
             });
-
-            const latitude = Number(json.results?.[0]?.position?.lat);
-            const longitude = Number(json.results?.[0]?.position?.lon);
-            if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
-
-            return { latitude, longitude };
-        } catch (error) {
-            console.log("[geocoding] TomTom request failed", { address, error });
-            return null;
-        }
-    };
-
-    const geocodeNominatim = async (address: string): Promise<{ latitude: number; longitude: number } | null> => {
-        try {
-            const res = await fetch(
-                `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=br&q=${encodeURIComponent(address)}`
-            );
-            if (!res.ok) {
-                console.log("[geocoding] Nominatim HTTP failure", { address, status: res.status });
+            if (!match) {
+                console.log("[geocoding] TomTom rejected: no matching street, city, number and CEP");
                 return null;
             }
-
-            const results = await res.json();
-            console.log("[geocoding] Nominatim response", {
-                address,
-                resultCount: Array.isArray(results) ? results.length : 0,
-            });
-            if (!Array.isArray(results) || !results.length) return null;
-
-            const latitude = Number(results[0].lat);
-            const longitude = Number(results[0].lon);
-            if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
-
-            return { latitude, longitude };
+            return position(match.position?.lat, match.position?.lon);
         } catch (error) {
-            console.log("[geocoding] Nominatim request failed", { address, error });
+            console.log("[geocoding] TomTom failed", error);
             return null;
         }
     };
 
-    const coords = await geocodeGoogle(fullAddress);
-    if (coords) {
-        console.log("[geocoding] resolved with Google full address", coords);
-        return coords;
-    }
-
-    const addressParts = fullAddress.split(",").map((part) => part.trim());
-    const addressWithoutNumber = addressParts.length >= 6
-        ? [addressParts[0], ...addressParts.slice(2)].join(", ")
-        : fullAddress;
-
-    if (!googleQuotaExceeded && addressWithoutNumber !== fullAddress) {
-        const googleFallback = await geocodeGoogle(addressWithoutNumber);
-        if (googleFallback) {
-            console.log("[geocoding] resolved with Google without number", googleFallback);
-            return googleFallback;
-        }
-    }
-
-    const tomTomFallback = await geocodeTomTom(fullAddress);
-    if (tomTomFallback) {
-        console.log("[geocoding] resolved with TomTom", tomTomFallback);
-        return tomTomFallback;
-    }
-
-    const nominatimFallback = await geocodeNominatim(addressWithoutNumber);
-    if (nominatimFallback) {
-        console.log("[geocoding] resolved with Nominatim", nominatimFallback);
-        return nominatimFallback;
-    }
-
-    const cepMatch = fullAddress.match(/\b\d{5}-?\d{3}\b/);
-    const cleanCep = cepMatch?.[0]?.replace(/\D/g, "") ?? "";
-    if (cleanCep.length === 8) {
+    const geocodeArcGIS = async () => {
         try {
-            const res = await fetch(`https://brasilapi.com.br/api/cep/v2/${cleanCep}`);
-            const data = res.ok ? await res.json() : null;
-            const latitude = Number(data?.location?.coordinates?.latitude);
-            const longitude = Number(data?.location?.coordinates?.longitude);
-
-            console.log("[geocoding] BrasilAPI CEP V2 fallback", {
-                cep: cleanCep,
-                status: res.status,
-                latitude: Number.isFinite(latitude) ? latitude : null,
-                longitude: Number.isFinite(longitude) ? longitude : null,
+            const params = new URLSearchParams({
+                SingleLine: fullAddress,
+                f: "json",
+                outFields: "Addr_type,StName,AddNum,City,Postal,Match_addr",
+                maxLocations: "5",
+                forStorage: "false",
             });
-
-            if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
-                return { latitude, longitude };
+            if (ARCGIS_API_KEY) params.set("token", ARCGIS_API_KEY);
+            const host = ARCGIS_API_KEY ? "https://geocode-api.arcgis.com" : "https://geocode.arcgis.com";
+            const res = await fetch(
+                host + "/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?" + params.toString()
+            );
+            if (!res.ok) return null;
+            const json = await res.json();
+            const match = json.candidates?.find((candidate: any) => {
+                const details = candidate.attributes || {};
+                const type = details.Addr_type;
+                return candidate.score >= 95 &&
+                    streetMatches(details.StName) &&
+                    cityMatches(details.City) &&
+                    postcodeMatches(details.Postal, true) &&
+                    (!wantedNumber ||
+                        (["PointAddress", "Subaddress"].includes(type) &&
+                            normalize(details.AddNum) === normalize(wantedNumber))) &&
+                    (wantedNumber || ["PointAddress", "StreetAddress", "StreetAddressExt", "StreetName"].includes(type));
+            });
+            if (!match) {
+                console.log("[geocoding] ArcGIS rejected: no sufficiently precise address match");
+                return null;
             }
+            console.log("[geocoding] resolved with ArcGIS", {
+                type: match.attributes.Addr_type, score: match.score,
+            });
+            return position(match.location?.y, match.location?.x);
         } catch (error) {
-            console.log("[geocoding] BrasilAPI CEP V2 request failed", { cep: cleanCep, error });
+            console.log("[geocoding] ArcGIS failed", error);
+            return null;
         }
+    };
+
+    const geocodeNominatim = async () => {
+        try {
+            const res = await fetch(
+                "https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&countrycodes=br&q=" +
+                encodeURIComponent(fullAddress)
+            );
+            if (!res.ok) return null;
+            const results = await res.json();
+            if (!Array.isArray(results)) return null;
+            const match = results.find((result: any) => {
+                const address = result.address || {};
+                return streetMatches(address.road || address.pedestrian || address.residential) &&
+                    cityMatches(address.city || address.town || address.village || address.municipality) &&
+                    postcodeMatches(address.postcode, true) &&
+                    (!wantedNumber || normalize(address.house_number) === normalize(wantedNumber));
+            });
+            if (!match) return null;
+            return position(match.lat, match.lon);
+        } catch (error) {
+            console.log("[geocoding] Nominatim failed", error);
+            return null;
+        }
+    };
+
+    // Google always runs first; retain its existing numberless retry when quota permits.
+    const google = await geocodeGoogle(fullAddress);
+    if (google) return google;
+    if (!googleQuotaExceeded && addressWithoutNumber !== fullAddress) {
+        const googleWithoutNumber = await geocodeGoogle(addressWithoutNumber);
+        if (googleWithoutNumber) return googleWithoutNumber;
     }
 
-    console.log("[geocoding] failed to resolve coordinates", { fullAddress });
+    const tomtom = await geocodeTomTom();
+    if (tomtom) return tomtom;
+
+    const arcgis = await geocodeArcGIS();
+    if (arcgis) return arcgis;
+
+    const nominatim = await geocodeNominatim();
+    if (nominatim) return nominatim;
+
+    // CEP lookup is for address verification; generic BrasilAPI coordinates are not precise enough for fees.
+    console.log("[geocoding] failed to resolve precise coordinates", { fullAddress });
     return null;
 }
 
