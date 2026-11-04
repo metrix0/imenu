@@ -121,7 +121,7 @@ export default function CreditPurchaseCalculator({
     name: "Créditos do Assistente IA",
     periodLabel: "Compra única",
     detail: [
-      selectedInput ? count(selectedInput) + " entrada + " + count(quote?.outputTokens || 0) + " saída" : "",
+      selectedInput ? count(selectedInput) + " entrada + " + count(quote?.outputAllowanceTokens || 0) + " saída" : "",
       selectedImages ? count(selectedImages) + " imagens" : "",
     ].filter(Boolean).join(" · "),
     priceLabel: brl(priceCents),
@@ -187,7 +187,7 @@ export default function CreditPurchaseCalculator({
             </div>
             <div className="flex items-center justify-between text-sm text-[#626973]">
               <span>Saída incluída</span>
-              <span className="font-medium tabular-nums text-[#1d1d1d]">{count(quote.outputTokens)}</span>
+              <span className="font-medium tabular-nums text-[#1d1d1d]">{count(quote.outputAllowanceTokens)}</span>
             </div>
           </section>
 

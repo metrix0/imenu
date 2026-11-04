@@ -17,6 +17,7 @@ const rates: CreditRates = {
 test("additional input tokens automatically bring the matching output allowance", () => {
   const quote = calculateCreditQuote(rates, 1_000_000, 0);
   expect(quote.outputTokens).toBe(60_000);
+  expect(quote.outputAllowanceTokens).toBe(60_000);
   expect(quote.inputUsd).toBeCloseTo(0.20);
   expect(quote.outputUsd).toBeCloseTo(0.072);
   expect(quote.totalUsd).toBeCloseTo(0.272);

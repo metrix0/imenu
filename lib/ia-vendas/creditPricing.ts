@@ -72,9 +72,13 @@ export async function getAvailableCreditRechargeRates(
   const includedInput = access.plus
     ? Math.max(0, LIMITS.monthlyChatInput - Number(access.usage?.tokens.input ?? 0))
     : Math.max(0, Number(access.base_tokens_remaining ?? 0));
+  // Plus has a separate monthly output allowance. Reuse what remains,
+  // instead of selling another 120k output tokens unnecessarily.
+  // Free's weekly token pool is shared between input/output, so it does
+  // not represent a separately guaranteed output allowance.
   const includedOutput = access.plus
     ? Math.max(0, LIMITS.monthlyChatOutput - Number(access.usage?.tokens.output ?? 0))
-    : Math.max(0, Number(access.base_tokens_remaining ?? 0));
+    : 0;
   const includedImages = Math.max(0, Number(access.base_images_remaining ?? 0));
   const execute = (sql: string, params: unknown[]) =>
     client ? client.query(sql, params) : query(sql, params);
@@ -89,14 +93,25 @@ export async function getAvailableCreditRechargeRates(
 
   const purchased = access.purchased_credits;
   const availableInput = includedInput + Math.max(0, purchased.input) + Number(pending?.input || 0);
-  const availableOutput = includedOutput + Math.max(0, purchased.output) + Number(pending?.output || 0);
+  const availableOutput = includedOutput + Math.max(0, purchased.output);
+  const pendingOutput = Number(pending?.output || 0);
+  const maxOutputTokens = Math.max(
+    0, Math.floor(LIMITS.monthlyChatOutput - availableOutput - pendingOutput),
+  );
+  const outputCompatibleInput = Math.floor(
+    (availableOutput + maxOutputTokens) / rates.outputRatio / rates.inputStep,
+  ) * rates.inputStep;
   const availableImages = includedImages + Math.max(0, purchased.images) + Number(pending?.images || 0);
   return {
     ...rates,
     maxInputTokens: Math.max(
-      0, Math.floor((LIMITS.monthlyChatInput - availableInput) / rates.inputStep) * rates.inputStep,
+      0, Math.min(
+        Math.floor((LIMITS.monthlyChatInput - availableInput) / rates.inputStep) * rates.inputStep,
+        outputCompatibleInput,
+      ),
     ),
-    maxOutputTokens: Math.max(0, Math.floor(LIMITS.monthlyChatOutput - availableOutput)),
+    maxOutputTokens,
+    availableOutputTokens: availableOutput,
     maxImages: Math.max(0, Math.floor(LIMITS.images - availableImages)),
   };
 }

@@ -8,12 +8,16 @@ export type CreditRates = {
   maxInputTokens: number;
   maxImages: number;
   maxOutputTokens?: number;
+  /** Existing output tokens the recharge can reuse without buying twice. */
+  availableOutputTokens?: number;
   inputStep: number;
 };
 
 export type CreditQuote = {
   inputTokens: number;
   outputTokens: number;
+  /** Total output supported by the selected input (existing + newly added). */
+  outputAllowanceTokens: number;
   images: number;
   inputUsd: number;
   outputUsd: number;
@@ -38,16 +42,19 @@ export function calculateCreditQuote(
     throw new Error("Quantidade de créditos inválida.");
   }
 
-  const outputTokens = Math.min(
-    Math.round(inputTokens * rates.outputRatio),
-    rates.maxOutputTokens ?? Number.MAX_SAFE_INTEGER,
-  );
+  const outputAllowanceTokens = Math.round(inputTokens * rates.outputRatio);
+  // Reuse output still available in the plan. Only sell the missing credits.
+  const outputTokens = Math.max(0, outputAllowanceTokens - (rates.availableOutputTokens ?? 0));
+  if (outputTokens > (rates.maxOutputTokens ?? Number.MAX_SAFE_INTEGER)) {
+    throw new Error("Quantidade de créditos inválida.");
+  }
   const inputUsd = inputTokens / 1_000_000 * rates.inputUsdPerMillion;
   const outputUsd = outputTokens / 1_000_000 * rates.outputUsdPerMillion;
   const imagesUsd = images * rates.imageUsdEstimate;
   return {
     inputTokens,
     outputTokens,
+    outputAllowanceTokens,
     images,
     inputUsd,
     outputUsd,
