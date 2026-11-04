@@ -54,7 +54,7 @@ export default function OrderNotificationSettings({ restaurantId, plus, initialE
                         </span>
                     </div>
                     <p id={descriptionId} className="mt-2 text-sm text-gray-500">
-                        {ai ? "Responda dúvidas dos clientes com IA usando as informações do seu cardápio." : "Avise quando o pedido sair para entrega ou estiver pronto no balcão. Apenas clientes que enviaram mensagens nos últimos 7 dias recebem o aviso."}
+                        {ai ? "Atenda seus clientes automaticamente pelo WhatsApp, respondendo dúvidas sobre produtos, preços e opções do cardápio com IA." : "Avise quando o pedido sair para entrega ou estiver pronto no balcão. Apenas clientes que enviaram mensagens nos últimos 7 dias recebem o aviso."}
                     </p>
                     {save.status === "error" && <p role="alert" className="mt-2 text-sm text-red-600">{save.error}</p>}
                 </div>
