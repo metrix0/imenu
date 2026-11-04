@@ -379,6 +379,14 @@ export default function CartModal({
         return data?.publicUrl || null;
     };
 
+    const missingDeliveryRanges = !neighborhoodMode && !isTableOrder && !isPickup && (() => {
+        const configured = getDeliveryTiers();
+        const ranges = Array.isArray(configured)
+            ? configured
+            : Array.isArray(configured?.entrega) ? configured.entrega : [];
+        return ranges.length === 0;
+    })();
+
     function computeFeeFromTiers(distanceKm: number, tiersAny: any): number | null {
         if (!tiersAny) return null;
 
@@ -392,7 +400,7 @@ export default function CartModal({
                 }))
                 : null;
 
-        if (!tiers) return null;
+        if (!tiers?.length) return null;
 
         tiers.sort((a: any, b: any) => (a.radius_km ?? 0) - (b.radius_km ?? 0));
 
@@ -421,6 +429,12 @@ export default function CartModal({
 
         setField("showAddressWarning", false);
         setCepLocationError(false);
+        if (missingDeliveryRanges) {
+            setDeliveryFeeCents(null);
+            setField("delivery_fee_cents", null);
+            setField("delivery_time_minutes", null);
+            return;
+        }
 
         if (
             !st.cep ||
@@ -1262,7 +1276,17 @@ export default function CartModal({
                             </button>
                         </div>
 
-                        {showAddressWarning && !isPickup &&
+                        {missingDeliveryRanges && (
+                            <WarningBox
+                                role="alert"
+                                icon={icons.faTriangleExclamation}
+                                className="mt-2 mb-8 p-4 2xl:text-lg"
+                            >
+                                O restaurante não tem faixas de entrega cadastradas.
+                            </WarningBox>
+                        )}
+
+                        {showAddressWarning && !isPickup && !missingDeliveryRanges &&
                             <WarningBox
                                 icon={icons.faTriangleExclamation}
                                 className="mt-2 mb-8 p-4 2xl:text-lg"

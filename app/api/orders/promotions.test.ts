@@ -163,6 +163,19 @@ const enablePreorders = () => {
   );
 };
 
+it("rejects a delivery checkout without registered distance ranges", async () => {
+  (query as jest.Mock).mockImplementation(async (sql: string) =>
+    sql.includes("SELECT preorder_only, preorder_availability_json")
+      ? { rows: [{ delivery_disabled: false, delivery_fee_mode: "radius", delivery_fee_json: [] }] }
+      : { rows: [], rowCount: 1 },
+  );
+  const response = await send();
+  expect(response.status).toBe(409);
+  expect((await response.json()).error).toBe("O restaurante não tem faixas de entrega cadastradas.");
+  expect(insert).toBeNull();
+  expect(writes).toEqual([]);
+});
+
 it("requires a schedule for customer checkout in preorder-only mode", async () => {
   enablePreorders();
   const response = await send();
