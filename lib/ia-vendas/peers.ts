@@ -154,7 +154,7 @@ export function potential(sales: Data, input: Data, items?: Data[]) {
       percent: baselineCents > 0 ? cents / baselineCents : 0,
       formula: `Consideramos ${affected} pedidos em que a mudança pode ajudar, ${adoption.toLocaleString("pt-BR", { style: "percent", maximumFractionDigits: 1 })} deles aderindo e ${(lift / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} extras por adesão, projetados para ${days} dias. Para ser conservador, limitamos o cenário a 15% da receita atual.`,
       assumptions: String(input.assumptions || "").slice(0, 2000),
-      note: "É uma estimativa, não uma garantia. O lucro depende dos custos do restaurante.",
+      note: "Base do cálculo: pedidos concluídos e valores dos adicionais em pedidos elegíveis; pagamentos pendentes e cancelados ficam fora.",
     };
   }
   if (!input.opportunities.length || input.opportunities.length > 5)
@@ -297,6 +297,6 @@ export function potential(sales: Data, input: Data, items?: Data[]) {
     formula:
       "A faixa combina cenários conservador e de maior adesão para cada mudança. O mesmo grupo de pedidos não é somado duas vezes e o total fica limitado a 15% da receita atual.",
     assumptions: String(input.assumptions || "").slice(0, 2000),
-    note: "É uma estimativa, não uma garantia. O lucro depende dos custos do restaurante.",
+    note: "Base do cálculo: pedidos concluídos e vendas observadas dos produtos envolvidos; oportunidades sem dados suficientes não são somadas.",
   };
 }
