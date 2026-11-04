@@ -27,3 +27,13 @@ test('shows exact token and image usage counts with information controls', () =>
  expect(html).toContain('aria-label="Informações de uso de Tokens"');
  expect(html).toContain('aria-label="Informações de uso de Imagens"');
 });
+
+test('info icon comes after percent; exact numbers stay inside info tooltip', () => {
+ const html = renderToStaticMarkup(<AiUsage access={access(true,90,93.33333333333333)} />);
+ const tokenHeader = html.slice(html.indexOf('aria-label="Tokens"'), html.indexOf('role="progressbar"'));
+ expect(tokenHeader.indexOf('90%')).toBeGreaterThan(-1);
+ expect(tokenHeader.indexOf('90%')).toBeLessThan(tokenHeader.indexOf('aria-label="Informações de uso de Tokens"'));
+ expect(html).not.toContain('space-y-0.5');
+ expect(html).toContain('Entrada: 1.800.000 / 2.000.000');
+ expect(html).toContain('70 / 75 imagens');
+});

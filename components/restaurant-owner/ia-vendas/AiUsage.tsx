@@ -22,17 +22,14 @@ export default function AiUsage({ access, compact = false }: { access?: Access |
     {rows.map(row => <div key={row.label}>
       <div className={`mb-1 flex items-center gap-1 text-gray-600 ${compact ? "text-[10px]" : "text-xs"}`}>
         <span aria-label={row.label}>{compact ? row.short : row.label}</span>
-        <Tooltip text={row.values.join(" · ")} showOnClick position="top" size="medium">
+        <span className="ml-auto">{Math.floor(Math.min(100, row.percent))}%</span>
+        <Tooltip text={row.values.join(" · ")} showOnClick position="bottom" size="medium">
           <button type="button" aria-label={`Informações de uso de ${row.label}`} className="flex size-5 cursor-help items-center justify-center rounded text-gray-500 hover:text-gray-800">
             <Info size={13} />
           </button>
         </Tooltip>
-        <span className="ml-auto">{Math.floor(Math.min(100, row.percent))}%</span>
       </div>
       <LoadingBar progress={row.percent} size="sm" label={`${row.label}: ${row.values.join(". ")}`} colorClass={row.percent >= 100 ? "bg-red-500" : "bg-brand"} />
-      {!compact && <div className="mt-1 space-y-0.5 text-[10px] leading-4 text-gray-500">
-        {row.values.map(value => <div key={value}>{value}</div>)}
-      </div>}
     </div>)}
   </div>;
 }
