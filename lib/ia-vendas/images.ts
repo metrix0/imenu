@@ -15,7 +15,7 @@ import {
 import { beginRun, finishRun, reserveImage, releaseImage } from "./runs";
 import { propose, claim } from "./actions";
 import { MODELS, LIMITS } from "./config";
-import { aiAccess, FREE_AI_IMAGES } from "./access";
+import { aiAccess, FREE_AI_IMAGES, IaImageLimitReached, saveImageLimitNotice } from "./access";
 import { SalesError, object, type Data, type Action } from "./types";
 import { isUuid } from "./catalog";
 import { isSellableItem, productReviewTargets } from "./products";
@@ -190,7 +190,7 @@ export async function previewImage(
     if (error || !data) throw new SalesError("Anexe a foto original.");
     reference = Buffer.from(await data.arrayBuffer());
   }
-  await reserveImage(restaurant, run);
+  const purchasedImageCredit = await reserveImage(restaurant, run);
   const prompt = `Crie uma imagem comercial realista para ${t.row.name}. ${input.target === "item" ? "Fotografia gastronômica. Preserve exatamente ingredientes, porção, quantidade e apresentação do produto de referência. Não invente acompanhamentos ou ingredientes. Texto sobreposto somente quando solicitado no pedido ou definido no estilo aprovado." : "Preserve a identidade da marca."} Pedido do proprietário: ${input.prompt}. Estilo aprovado (preserve, salvo alteração explícita neste pedido): ${JSON.stringify(style)}`;
   const generationSize =
       t.profile === "banner" ? "1536x1024" : "816x816",
@@ -235,7 +235,7 @@ export async function previewImage(
     t.profile,
     );
   } catch (error) {
-    await releaseImage(restaurant, run);
+    await releaseImage(restaurant, run, purchasedImageCredit);
     throw error;
   }
   const after = `${restaurant}/ia-vendas/${saved.id}.webp`,
@@ -274,11 +274,13 @@ export async function previewImage(
     "UPDATE public.ia_vendas_actions SET image=$3::jsonb WHERE restaurant_id=$1 AND id=$2",
     [restaurant, action.id, JSON.stringify(image)],
   );
+  const afterUrl = (await signedAttachment(restaurant, saved.id)).url;
+  await saveImageLimitNotice(restaurant, conversation);
   return {
     ...action,
     image: {
       ...image,
-      after: (await signedAttachment(restaurant, saved.id)).url,
+      after: afterUrl,
     },
   };
 }
@@ -308,7 +310,10 @@ export async function proposeImages(
   proposalId?: string,
 ) {
   const data = object(input);
-  const maxJobs = (await aiAccess(restaurant)).plus ? LIMITS.imageBatch : FREE_AI_IMAGES;
+  const access = await aiAccess(restaurant);
+  if (Number(access.images_remaining) <= 0)
+    throw new IaImageLimitReached(access.plus, access.images_reset_at);
+  const maxJobs = access.plus ? LIMITS.imageBatch : FREE_AI_IMAGES;
   if (!Array.isArray(data.jobs) || !data.jobs.length || data.jobs.length > maxJobs)
     throw new SalesError(`Proponha até ${maxJobs} ${maxJobs === 1 ? "imagem" : "imagens"} por lote.`);
   if (proposalId) {

@@ -47,6 +47,7 @@ export type PanelOrderSubcategory = {
     name: string;
     min_select: number;
     max_select: number;
+    max_per_option?: number | null;
     allow_multiple_units?: boolean;
     position?: number | null;
     subitems: PanelOrderSubitem[];
@@ -95,6 +96,7 @@ function normalizeSubcategories(
         description: null,
         min_select: group.min_select,
         max_select: group.max_select,
+        max_per_option: group.max_per_option ?? null,
         allow_multiple_units: group.allow_multiple_units === true,
         position: group.position ?? groupIndex,
         subitems: group.subitems.map((subitem, subitemIndex) => ({
@@ -191,8 +193,8 @@ export default function PanelItemConfiguratorModal({
 
             if (
                 delta > 0 &&
-                group.max_select > 0 &&
-                currentGroupCount >= group.max_select
+                ((group.max_select > 0 && currentGroupCount >= group.max_select) ||
+                    (group.max_per_option != null && currentQuantity >= group.max_per_option))
             ) {
                 return previous;
             }
@@ -732,6 +734,7 @@ export default function PanelItemConfiguratorModal({
                                                         {group.max_select > 0
                                                             ? `Escolha até ${group.max_select}`
                                                             : "Escolha o quanto quiser"}
+                                                        {group.allow_multiple_units && group.max_per_option != null && `. Até ${group.max_per_option} por tipo.`}
                                                     </p>
                                                 </div>
                                                 {group.min_select > 0 && (
@@ -812,7 +815,8 @@ export default function PanelItemConfiguratorModal({
                                                                         <button
                                                                             type="button"
                                                                             disabled={
-                                                                                quantityLimitReached
+                                                                                quantityLimitReached ||
+                                                                                (group.max_per_option != null && quantity >= group.max_per_option)
                                                                             }
                                                                             onClick={() =>
                                                                                 changeSubitemQuantity(

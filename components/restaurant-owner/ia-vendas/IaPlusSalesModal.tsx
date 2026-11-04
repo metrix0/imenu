@@ -15,6 +15,7 @@ import QrCodeMesaCheckoutModal from "@/components/restaurant-owner/mesas/QrCodeM
 import { IA_PLUS_BENEFITS, IA_PLUS_BONUSES, IA_PLUS_PRICE_LABEL } from "@/lib/addons/products";
 import { PROMO_QR_CODE, PROMO_QR_PRICE_LABEL } from "@/lib/addons/promoQr";
 import { PLUS_BONUS_ICONS, PLUS_FEATURE_ICONS } from "@/components/restaurant-owner/mesas/MenuProductCard";
+import { formatAiResetAt } from "@/lib/ia-vendas/usageReset";
 
 const SUPPORT_URL =
   "https://wa.me/5519997235394?text=Ol%C3%A1%2C%20tenho%20uma%20d%C3%BAvida%20sobre%20o%20iMenu%20Plus.";
@@ -30,7 +31,7 @@ export function IaPlusDetails() {
         <div><h3 className="text-sm font-semibold text-gray-900">{benefit.title}</h3><p className="mt-1 text-sm leading-6 text-gray-600">{benefit.description}</p></div>
       </li>;
     })}</ul>
-    <h3 className="mt-5 text-sm font-semibold text-gray-900">Bônus</h3>
+    <h3 className="mt-5 text-sm font-semibold text-gray-900">+{IA_PLUS_BONUSES.length} Bônus no Plus</h3>
     <ul className="mt-3 space-y-3 text-sm text-gray-600">{IA_PLUS_BONUSES.map(bonus => {
       const Icon = PLUS_BONUS_ICONS[bonus.title] ?? Sparkles;
       return <li key={bonus.title} className="flex items-center gap-2">
@@ -42,11 +43,22 @@ export function IaPlusDetails() {
     <p className="mt-2 text-xs text-gray-500">Cartão com renovação mensal; Pix libera um mês de acesso. Cancele quando quiser. Você revisa cada mudança antes de aplicar.</p>
   </>;
 }
-export function IaPlusLimitMessage({ onCheckout }: { onCheckout: () => void }) {
+export function IaPlusLimitMessage({ onCheckout, onBuyTokens, resetAt }: {
+  onCheckout: () => void;
+  onBuyTokens: () => void;
+  resetAt: string | null | undefined;
+}) {
+  const reset = formatAiResetAt(resetAt);
   return <article aria-label="Limite gratuito do Assistente IA" className="mx-auto my-5 max-w-2xl rounded-xl border border-brand/20 bg-white p-5">
-    <div className="mb-4 flex items-center gap-2 text-sm font-medium text-brand"><Sparkles size={18} />Seu limite gratuito foi atingido. Seus limites são reiniciados em 7 dias.</div>
+    <div className="mb-4 flex items-center gap-2 text-sm font-medium text-brand">
+      <Sparkles size={18} />
+      <span>Seu limite gratuito foi atingido.{reset ? ` Limites serão reiniciados em ${reset}.` : ""}</span>
+    </div>
     <IaPlusDetails />
-    <Button className="mt-5" onClick={onCheckout}>Assinar iMenu Plus</Button>
+    <div className="mt-5 flex flex-wrap gap-2">
+      <Button onClick={onCheckout}>Assinar iMenu Plus</Button>
+      <Button variant="secondary" onClick={onBuyTokens}>Recarregar créditos</Button>
+    </div>
   </article>;
 }
 export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout = false, active = false, onPaid, contextMessage, coupon }: {
@@ -138,7 +150,7 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
                 </section>;
               })}
               <section className="mt-1 pt-5 sm:col-span-3">
-                <h3 className="text-sm font-semibold text-gray-900">Também incluído no seu plano</h3>
+                <h3 className="text-sm font-semibold text-gray-900">+{IA_PLUS_BONUSES.length} Bônus no Plus</h3>
                 <ul className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2">{IA_PLUS_BONUSES.map(bonus => {
                   const Icon = PLUS_BONUS_ICONS[bonus.title] ?? Sparkles;
                   return <li key={bonus.title} className="flex gap-3 text-sm text-gray-600">

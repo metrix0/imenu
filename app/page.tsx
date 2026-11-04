@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
     Bot, ChevronDown, Crown, ExternalLink, FileDown, Headset, Info, Megaphone, MessageCircle,
-    ScanLine, ShoppingCart, TrendingUp,
+    Moon, ScanLine, ShoppingCart, TrendingUp,
     type LucideIcon,
 } from "lucide-react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -154,6 +154,7 @@ const PLUS_BONUS_ICONS: Record<string, LucideIcon> = {
     "Atualizações de pedidos pelo WhatsApp": MessageCircle,
     "Scan de cardápio com IA": ScanLine,
     "Download Cardápio em PDF": FileDown,
+    "Cardápio Tema Escuro": Moon,
 };
 
 const LANDING_HERO_PRIMARY_BUTTON =
@@ -858,7 +859,7 @@ export default function LandingPage() {
                                     })}
                                 </ul>
                                 <div className="mt-6 border-t border-gray-100 pt-5">
-                                    <p className="mb-3 text-sm font-semibold text-gray-900">Bônus do Plus</p>
+                                    <p className="mb-3 text-sm font-semibold text-gray-900">+{IA_PLUS_BONUSES.length} Bônus no Plus</p>
                                     <ul className="grid gap-x-5 gap-y-3 sm:grid-cols-2">
                                         {IA_PLUS_BONUSES.map((bonus) => {
                                             const Icon = PLUS_BONUS_ICONS[bonus.title];

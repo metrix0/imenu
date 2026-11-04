@@ -4,6 +4,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import PlanosPage from "@/app/painel/planos/page";
 import PanelAppearance from "@/components/ui/PanelAppearance";
+import { IA_PLUS_BONUSES } from "@/lib/addons/products";
 import QrCodeMesaSettingsSection from "../QrCodeMesaSettingsSection";
 
 jest.mock("next/navigation", () => ({
@@ -82,6 +83,7 @@ test("plans separate discovery from billing without selection checkboxes", () =>
     expect(html).not.toContain("Selecionar iMenu");
     expect(html.match(/Conhecer o plano/g)).toHaveLength(1);
     expect(html).toContain('aria-label="Bônus do iMenu Plus"');
+    expect(html).toContain(`+${IA_PLUS_BONUSES.length} Bônus no Plus`);
     expect(html).toContain('class="plans-product plans-plus"');
     const plusCard = html.slice(html.indexOf('class="plans-product plans-plus"'));
     expect(plusCard).toMatch(/class="plans-plus-status"[\s\S]*?>Disponível<\/span>/);

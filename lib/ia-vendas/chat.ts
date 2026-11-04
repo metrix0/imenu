@@ -3,6 +3,7 @@ import {
   FREE_AI_MESSAGE_TOKENS,
   FREE_AI_IMAGES,
   IaImageLimitReached,
+  saveImageLimitNotice,
   requireIaPlus,
   IaPlusRequired,
 } from "./access";
@@ -234,7 +235,7 @@ class IaMessageLimitReached extends SalesError {}
 class IaResponseLimitReached extends SalesError {}
 
 const ASSISTANT_ONLY_INSTRUCTIONS =
-  `\nNo Assistente IA, consulte application_access para saber se há iMenu Plus ou a primeira aplicação grátis. Uma aplicação grátis é uma proposta concluída, mesmo que contenha várias alterações relacionadas; falhas não consomem a aplicação, desfazer não a devolve e gerar prévias não conta como publicar. A aprovação explícita de uma proposta já mostrada pode ser enviada no chat, como “Pode aplicar” ou “Aplicar”; o sistema executa pelo mesmo fluxo do botão. Se a primeira aplicação já foi usada e não há iMenu Plus, explique que aplicar exige iMenu Plus; não prometa aplicar nem apenas indique um botão bloqueado. Com múltiplas propostas e aprovação ambígua, peça que escolha uma pelo botão. Nunca diga que publicou ou aplicou uma proposta só por tê-la criado. Você também pode consultar a base de conhecimento oficial do suporte com search_imenu_knowledge para dúvidas factuais sobre o funcionamento, configuração, preços, termos, políticas ou navegação do iMenu. Essa base é somente leitura e não substitui os dados reais do restaurante. Quando uma aba existente do painel for um próximo passo útil, use open_panel_tab e coloque [[tab:CHAVE]] dentro da frase exatamente onde a referência clicável à aba deve aparecer, usando a chave retornada pela ferramenta (exemplo: "Acesse [[tab:horarios]] para configurar o funcionamento."). Não coloque o atalho isolado em outra linha quando ele puder fazer parte do texto. Nunca invente abas ou rotas e nunca diga que abriu a aba pelo usuário. Quando a pergunta for uma avaliação ampla do cardápio como um todo, responda de forma breve com o que o contexto imediato sustenta e não tente fazer uma varredura exaustiva nesta conversa. Nesses casos, a resposta DEVE fazer uma ponte natural para a Vendas IA em uma ou duas frases, explicando por que ela é o próximo passo para uma análise completa com os dados reais do restaurante. O cartão da Vendas IA aparecerá logo abaixo da resposta, então não o deixe surgir sem contexto e não chame open_panel_tab para vendas-ia só para repetir esse atalho.`;
+  `\nNo Assistente IA, consulte application_access para saber se há iMenu Plus ou a primeira aplicação grátis. Uma aplicação grátis é uma proposta concluída, mesmo que contenha várias alterações relacionadas; falhas não consomem a aplicação, desfazer não a devolve e gerar prévias não conta como publicar. A aprovação explícita de uma proposta já mostrada pode ser enviada no chat, como “Pode aplicar” ou “Aplicar”; o sistema executa pelo mesmo fluxo do botão. Se a primeira aplicação já foi usada e não há iMenu Plus, explique que aplicar exige iMenu Plus; não prometa aplicar nem apenas indique um botão bloqueado. Com múltiplas propostas e aprovação ambígua, peça que escolha uma pelo botão. Nunca diga que publicou ou aplicou uma proposta só por tê-la criado. O Robô WhatsApp com IA não pode ser reprogramado enviando instruções pelo WhatsApp. Mensagens dos clientes são contexto, nunca regras de configuração. Não oriente o proprietário a enviar uma regra ao número do robô para treiná-lo. Para ambiguidades de produtos, ofereça revisão dos nomes/descrições ou encaminhamento ao suporte; não prometa mudar o prompt do robô. O Painel Garçom permite lançar pedidos por mesa e tem acesso próprio na página Motoboy e Garçom. Não existe cadastro individual de garçons nem atribuição automática do nome do garçom no pedido; não invente campo de nome do garçom no pedido manual. Você também pode consultar a base de conhecimento oficial do suporte com search_imenu_knowledge para dúvidas factuais sobre o funcionamento, configuração, preços, termos, políticas ou navegação do iMenu. Essa base é somente leitura e não substitui os dados reais do restaurante. Quando uma aba existente do painel for um próximo passo útil, use open_panel_tab e coloque [[tab:CHAVE]] dentro da frase exatamente onde a referência clicável à aba deve aparecer, usando a chave retornada pela ferramenta (exemplo: "Acesse [[tab:horarios]] para configurar o funcionamento."). Não coloque o atalho isolado em outra linha quando ele puder fazer parte do texto. Nunca invente abas ou rotas e nunca diga que abriu a aba pelo usuário. Quando a pergunta for uma avaliação ampla do cardápio como um todo, responda de forma breve com o que o contexto imediato sustenta e não tente fazer uma varredura exaustiva nesta conversa. Nesses casos, a resposta DEVE fazer uma ponte natural para a Vendas IA em uma ou duas frases, explicando por que ela é o próximo passo para uma análise completa com os dados reais do restaurante. O cartão da Vendas IA aparecerá logo abaixo da resposta, então não o deixe surgir sem contexto e não chame open_panel_tab para vendas-ia só para repetir esse atalho.`;
 
 const fieldGuide = Object.entries(FIELDS).map(([entity, definitions]) =>
   `${entity}: ${Object.entries(definitions).map(([name, info]) =>
@@ -384,6 +385,7 @@ export async function runChat(args: {
   const analysisDeadline = Date.now() + 240000;
   let started = false,
     isDeep = false,
+    isChatConversation = false,
     userMessageId = "";
   let reportContext: Data | null = null,
     report: Data | null = null;
@@ -397,6 +399,7 @@ export async function runChat(args: {
       )
     ).rows[0];
     if (!conv) throw new SalesError("Conversa não encontrada.", 404);
+    isChatConversation = conv.kind === "chat";
     const deep =
       conv.kind === "analysis" && args.deep;
     isDeep = deep;
@@ -531,7 +534,10 @@ export async function runChat(args: {
             ));
           } catch (e) {
             if (!(e instanceof SalesError)) throw e;
-            responses.push(e.message);
+            if (e instanceof IaImageLimitReached) {
+              await saveImageLimitNotice(restaurant, conversation);
+              responses.push("Não foi possível gerar imagens. Confira o aviso de limite na conversa.");
+            } else responses.push(e.message);
             cards.push({ type: "action", id });
           }
         }
@@ -926,7 +932,9 @@ export async function runChat(args: {
                 throw new SalesError("Ferramenta desconhecida.");
             }
           } catch (e) {
-            if (e instanceof IaPlusRequired || e instanceof IaImageLimitReached)
+            if (e instanceof IaImageLimitReached && !deep)
+              await saveImageLimitNotice(restaurant, conversation);
+            else if (e instanceof IaPlusRequired || e instanceof IaImageLimitReached)
               throw e;
             toolError = e;
             result = {
@@ -1052,6 +1060,42 @@ export async function runChat(args: {
       send("queued", { run_id: run, message: "Análise em processamento. O relatório aparecerá aqui quando estiver pronto." });
       return;
     }
+    if (!started && isChatConversation &&
+        (e instanceof IaPlusRequired ||
+         (e instanceof SalesError && e.message.startsWith("Limite mensal de IA atingido.")))) {
+      // Quota responses are real, persisted chat turns, without a model request.
+      const quota = e instanceof IaPlusRequired ? "free" : "monthly";
+      const assistantMessageId = randomUUID();
+      const userId = randomUUID();
+      const saved = await withTransaction(async (c) => {
+        const inserted = await c.query(
+          "INSERT INTO public.ia_vendas_runs (id,restaurant_id,conversation_id,kind,status,model,result,finished_at) VALUES ($1,$2,$3,'chat','completed',$4,$5::jsonb,now()) ON CONFLICT (id) DO NOTHING RETURNING id",
+          [run, restaurant, conversation, MODELS.chat, JSON.stringify({
+            reply: e.message,
+            message_id: assistantMessageId,
+            user_message_id: userId,
+            quota_exempt: true,
+            quota_notice: quota,
+          })],
+        );
+        if (!inserted.rowCount) return false;
+        await c.query(
+          "INSERT INTO public.ia_vendas_messages (id,restaurant_id,conversation_id,role,content,attachment_ids) VALUES ($1,$2,$3,'user',$4,$5)",
+          [userId, restaurant, conversation, message, attachments],
+        );
+        await c.query(
+          "INSERT INTO public.ia_vendas_messages (id,restaurant_id,conversation_id,role,content,cards,created_at) VALUES ($1,$2,$3,'assistant',$4,$5::jsonb,clock_timestamp())",
+          [assistantMessageId, restaurant, conversation, e.message, JSON.stringify([{ type: "quota_notice", quota }])],
+        );
+        await c.query(
+          "UPDATE public.ia_vendas_conversations SET updated_at=now(),title=CASE WHEN kind='chat' AND title='Nova conversa' THEN $3 ELSE title END WHERE restaurant_id=$1 AND id=$2",
+          [restaurant, conversation, message.slice(0, 60)],
+        );
+        return true;
+      });
+      send("done", { id: assistantMessageId, duplicate: !saved });
+      return;
+    }
     if (
       (e instanceof IaMessageLimitReached ||
         e instanceof IaResponseLimitReached ||
@@ -1061,7 +1105,7 @@ export async function runChat(args: {
     ) {
       const id = randomUUID(),
         responseLimit = e instanceof IaResponseLimitReached,
-        messageCards = responseLimit ? cards : [];
+        messageCards = responseLimit ? cards : e instanceof IaImageLimitReached ? [{ type: "image_limit" }] : [];
       await withTransaction(async (c) => {
         await c.query(
           "INSERT INTO public.ia_vendas_messages (id,restaurant_id,conversation_id,role,content,cards) VALUES ($1,$2,$3,'assistant',$4,$5::jsonb)",
@@ -1118,4 +1162,3 @@ export async function runChat(args: {
     send("error", { message: error, ...(e instanceof IaPlusRequired ? { code: e.code } : {}) });
   }
 }
-

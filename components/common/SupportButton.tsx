@@ -16,7 +16,7 @@ const SUPPORT_BUTTON_BASE =
 const SUPPORT_PRIMARY_BUTTON = `${SUPPORT_BUTTON_BASE} !border-[#d93d00] !bg-[#d93d00] !text-white hover:!border-[#c43700] hover:!bg-[#c43700] focus:!ring-[#d93d00]`;
 const SUPPORT_SECONDARY_BUTTON = `${SUPPORT_BUTTON_BASE} !bg-white !text-[#1d1d1d] hover:!bg-[#f1f3f5] focus:!ring-[#d93d00]`;
 
-export function SupportWhatsappBadge() {
+export function SupportWhatsappBadge({ compact = false }: { compact?: boolean } = {}) {
     const whatsappUrl = `https://wa.me/${PHONE}?text=${encodeURIComponent(MESSAGE)}`;
 
     return (
@@ -25,10 +25,12 @@ export function SupportWhatsappBadge() {
             target="_blank"
             rel="noopener noreferrer"
             aria-label={`Abrir WhatsApp do suporte no número ${DISPLAY_PHONE}`}
-            className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:border-green-200 hover:bg-green-50 hover:text-green-700"
+            className={compact
+                ? `${SUPPORT_SECONDARY_BUTTON} inline-flex items-center gap-2`
+                : "inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:border-green-200 hover:bg-green-50 hover:text-green-700"}
         >
             <FontAwesomeIcon icon={icons.faWhatsapp} className="!h-4 !w-4 text-green-600" />
-            <span>{DISPLAY_PHONE}</span>
+            <span>{compact ? "Suporte via WhatsApp" : DISPLAY_PHONE}</span>
         </a>
     );
 }

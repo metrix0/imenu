@@ -24,8 +24,8 @@ async function api(path: string, body?: Data) {
 let version = 0;
 let usageVersion = 0;
 type State = {
-  access: { plus: boolean; free_applications_remaining: number | null; tokens_remaining: number | null; images_remaining: number | null } | null;
-  usageAccess: { restaurant_id: string; access: Awaited<ReturnType<typeof aiAccess>> } | null;
+  access: Awaited<ReturnType<typeof aiAccess>> | null;
+  usageAccess: { restaurant_id: string; access: Awaited<ReturnType<typeof aiAccess>>; latest_analysis_finished_at: string | null } | null;
   refreshUsage: (restaurant: string) => Promise<void>;
   upgradeRequired: boolean;
   clearUpgrade: () => void;
@@ -55,7 +55,7 @@ type State = {
     attachments: Data[],
     deep: boolean,
     scope?: { report_id?: string; opportunity_id?: string },
-  ) => Promise<void>;
+  ) => Promise<boolean>;
   command: (command: string, extra?: Data) => Promise<any>;
   upload: (file: File) => Promise<Data>;
   clearError: () => void;
@@ -67,7 +67,7 @@ export const useSalesStore = create<State>((set, get) => ({
     const request = ++usageVersion;
     try {
       const data = await api(`/api/ia-vendas?usage_only=1&restaurant_id=${encodeURIComponent(restaurant)}`);
-      if (request === usageVersion) set({ usageAccess: { restaurant_id: restaurant, access: data.access } });
+      if (request === usageVersion) set({ usageAccess: { restaurant_id: restaurant, access: data.access, latest_analysis_finished_at: data.latest_analysis_finished_at ?? null } });
     } catch { /* Preserve the last known usage on transient network failures. */ }
   },
   upgradeRequired: false,
@@ -125,7 +125,7 @@ export const useSalesStore = create<State>((set, get) => ({
         usageVersion += 1;
         set({
           ...data,
-          usageAccess: { restaurant_id: data.restaurant_id, access: data.access },
+          usageAccess: { restaurant_id: data.restaurant_id, access: data.access, latest_analysis_finished_at: data.latest_analysis_finished_at ?? null },
           messages: older
             ? [...data.messages, ...previous.messages]
             : data.messages,
@@ -139,7 +139,7 @@ export const useSalesStore = create<State>((set, get) => ({
   },
   send: async (text, attachments, deep, scope = {}) => {
     const current = get();
-    if (current.busy || !current.conversation_id) return;
+    if (current.busy || !current.conversation_id) return false;
     const conversation = current.conversation_id;
     version += 1;
     set({
@@ -161,6 +161,7 @@ export const useSalesStore = create<State>((set, get) => ({
       ],
     });
     let error: string | null = null;
+    let delivered = false;
     try {
       const response = await fetch("/api/ia-vendas/chat", {
         method: "POST",
@@ -177,7 +178,7 @@ export const useSalesStore = create<State>((set, get) => ({
       });
       if (!response.ok) {
         const d = await response.json();
-        if (d.code === "IA_PLUS_REQUIRED") { set({ upgradeRequired: true }); return; }
+        if (d.code === "IA_PLUS_REQUIRED") { set({ upgradeRequired: true }); return false; }
         throw new Error(d.error);
       }
       if (!response.body) throw new Error("Conexão interrompida.");
@@ -203,7 +204,10 @@ export const useSalesStore = create<State>((set, get) => ({
             else error = data.message;
             done = true;
           }
-          if (event === "done") done = true;
+          if (event === "done") {
+            done = true;
+            delivered = data.status !== "failed";
+          }
         }
       }
       if (!done)
@@ -215,6 +219,7 @@ export const useSalesStore = create<State>((set, get) => ({
       await get().load(current.restaurant_id, conversation);
       set({ busy: false, status: "", error });
     }
+    return delivered && error === null;
   },
   command: async (command, extra = {}) => {
     const current = get();
@@ -252,7 +257,7 @@ export const useSalesStore = create<State>((set, get) => ({
               : current.conversation_id || undefined
             : current.conversation_id || undefined;
       await get().load(current.restaurant_id, nextConversation);
-      const failed = data.results?.filter((r: Data) => !r.ok);
+      const failed = data.results?.filter((r: Data) => !r.ok && !r.image_limit_notice);
       if (failed?.length)
         set({ error: failed.map((r: Data) => r.error).join(" ") });
       return data;

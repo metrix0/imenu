@@ -58,7 +58,7 @@ beforeEach(() => {
       imageCount += 1;
       return { rows: [], rowCount: 1 };
     }
-    if (sql.includes("SET image_count=greatest(image_count-1,0)")) {
+    if (sql.includes("SET image_count=image_count-1")) {
       imageCount = Math.max(0, imageCount - 1);
       return { rows: [], rowCount: 1 };
     }
@@ -98,6 +98,15 @@ test("chat-approved generation reuses its running chat, preserves image quotas a
   expect((await aiAccess(restaurant)).free_applications_remaining).toBe(1);
 });
 
+test("reaching the last free image saves a chat message immediately", async () => {
+  imageCount = 2;
+  const applied = await applyProposal(restaurant, proposal, conversation, "generate", run);
+  expect(applied.generated_actions).toHaveLength(1);
+  expect(imageCount).toBe(3);
+  expect(statements.filter(sql => sql.startsWith("INSERT INTO public.ia_vendas_messages"))).toHaveLength(1);
+  expect(statements.some(sql => sql.startsWith("UPDATE public.ia_vendas_conversations SET updated_at"))).toBe(true);
+});
+
 test("without an existing chat run the separate image run still respects the active-run guard", async () => {
   await expect(applyProposal(restaurant, proposal, conversation, "generate"))
     .rejects.toThrow("Aguarde a resposta em andamento.");
@@ -130,6 +139,14 @@ test("free proposals accept three images but reject four before saving a batch",
   expect(proposed.image_jobs).toHaveLength(3);
 });
 
+test("image proposal attempts after exhausting credits keep backend image generation blocked", async () => {
+  imageCount = 3;
+  await expect(proposeImages(restaurant, conversation, run, { jobs: [
+    { target: "item", item_id: item.id, prompt: "Mais uma foto" },
+  ] })).rejects.toThrow("limite semanal de geração de imagens");
+  expect(statements.some(sql => sql.startsWith("INSERT INTO public.ia_vendas_actions"))).toBe(false);
+});
+
 test("iMenu Plus can still propose eight images per batch, but not nine", async () => {
   plus = true;
   const jobs = Array.from({ length: LIMITS.imageBatch }, () => ({
@@ -145,7 +162,7 @@ test("failed image generation releases its reserved quota", async () => {
   generate.mockRejectedValueOnce(new Error("Generation failed"));
   await expect(applyProposal(restaurant, proposal, conversation, "generate", run)).rejects.toThrow("Generation failed");
   expect(imageCount).toBe(0);
-  expect(statements.some((sql) => sql.includes("SET image_count=greatest(image_count-1,0)"))).toBe(true);
+  expect(statements.some((sql) => sql.includes("SET image_count=image_count-1"))).toBe(true);
 });
 
 

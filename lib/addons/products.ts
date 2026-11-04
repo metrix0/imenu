@@ -16,5 +16,6 @@ export const IA_PLUS_BONUSES = [
   { title: "Upsells automáticos", description: "Sugira automaticamente produtos que combinam com o pedido para aumentar o ticket médio." },
   { title: "Atualizações de pedidos pelo WhatsApp", description: "Notifique clientes pelo WhatsApp quando o pedido estiver pronto ou sair para entrega." },
   { title: "Download Cardápio em PDF", description: "Baixe seu cardápio em PDF para imprimir ou compartilhar." },
+  { title: "Cardápio Tema Escuro", description: "Personalize seu cardápio com uma aparência escura." },
 ] as const;
 export const IA_PLUS_PRICE_LABEL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(IA_PLUS.priceCents / 100);

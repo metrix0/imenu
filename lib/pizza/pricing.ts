@@ -45,7 +45,7 @@ export function matchPizzaComplements(source: CartItem["selectedSubitems"], grou
         if (options.length !== 1) throw new PizzaPricingError(`Este sabor não tem a opção ${selected.subitemName} disponível.`);
         const option = options[0];
         const quantity = selected.quantity ?? 1;
-        if (!Number.isInteger(quantity) || quantity < 1 || quantity > 99 || (!group.allow_multiple_units && quantity !== 1) || seen.has(option.id)) throw new PizzaPricingError("Quantidade de complemento inválida.");
+        if (!Number.isInteger(quantity) || quantity < 1 || quantity > 99 || (!group.allow_multiple_units && quantity !== 1) || (group.allow_multiple_units && group.max_per_option != null && quantity > group.max_per_option) || seen.has(option.id)) throw new PizzaPricingError("Quantidade de complemento inválida.");
         seen.add(option.id);
         return { subcategoryId: group.id, subcategoryName: group.name, subitemId: option.id, subitemName: option.name, price_cents: Number(option.price_cents), quantity };
     });

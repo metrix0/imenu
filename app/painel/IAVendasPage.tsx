@@ -4,6 +4,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   Sparkles,
+  Crown,
   SquarePen,
   Send,
   Paperclip,
@@ -20,6 +21,7 @@ import {
 } from "lucide-react";
 import IaPlusSalesModal, { IaPlusLimitMessage } from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
 import AiUsage from "@/components/restaurant-owner/ia-vendas/AiUsage";
+import CreditPurchaseCalculator from "@/components/restaurant-owner/ia-vendas/CreditPurchaseCalculator";
 import Button from "@/components/ui/Button";
 import Dropdown from "@/components/ui/Dropdown";
 import Modal from "@/components/ui/Modal";
@@ -39,23 +41,9 @@ import {
 import type { Action, Data } from "@/lib/ia-vendas/types";
 import { IA_PLUS_FEATURE_MESSAGE } from "@/lib/addons/products";
 import { isPanelTabKey, type PanelTabKey } from "@/lib/ia-vendas/panelTabs";
+import ErrorNoticeContent, { AssistantQuotaReply } from "@/components/restaurant-owner/ia-vendas/ErrorNoticeContent";
 import { SupportWhatsappBadge } from "@/components/common/SupportButton";
 import { capturePosthogLightweight } from "@/lib/api/instrumentation-client";
-
-const IA_CAPACITY_SUPPORT_SUFFIX =
-  "Caso precise de mais limite ou ajuda, entre em contato com o suporte.";
-
-function ErrorNoticeContent({ message }: { message: string }) {
-  if (!message.endsWith(IA_CAPACITY_SUPPORT_SUFFIX)) return <>{message}</>;
-
-  const main = message.slice(0, -IA_CAPACITY_SUPPORT_SUFFIX.length).trim();
-  return (
-    <span>
-      {main} {IA_CAPACITY_SUPPORT_SUFFIX}{" "}
-      <SupportWhatsappBadge />
-    </span>
-  );
-}
 
 type MessagePart =
   | { type: "text"; content: string }
@@ -100,7 +88,7 @@ export default function SalesPage() {
     [uploading, setUploading] = useState(false),
     [localError, setLocalError] = useState(""),
     [modal, setModal] = useState<
-      "batch" | "history" | "instructions" | "rename" | null
+      "batch" | "history" | "instructions" | "rename" | "buy_tokens" | null
     >(null),
     [renameConversationId, setRenameConversationId] = useState(""),
     [renameTitle, setRenameTitle] = useState(""),
@@ -296,7 +284,6 @@ export default function SalesPage() {
   }, [sales.upgradeRequired, isAnalysis, openPlus]);
   async function send() {
     if (isAnalysis && locked) { setPlusModal("checkout"); return; }
-    if (freeLimitReached) { openPlus("Você atingiu o limite gratuito do Assistente IA. Assine o iMenu Plus para continuar conversando."); return; }
     if (!text.trim() || disabled || uploading) return;
     const draft = text.trim(),
       pendingAttachments = attachments;
@@ -310,12 +297,16 @@ export default function SalesPage() {
         return;
       }
       setNewConversation(false);
-      await useSalesStore
+      const sent = await useSalesStore
         .getState()
         .send(draft, pendingAttachments, false);
+      if (!sent) {
+        setText((current) => current ? `${draft}\n${current}` : draft);
+        setAttachments((current) => current.length ? current : pendingAttachments);
+      }
       return;
     }
-    await sales.send(
+    const sent = await sales.send(
       draft,
       pendingAttachments,
       false,
@@ -323,6 +314,10 @@ export default function SalesPage() {
         ? { report_id: selectedReport.id, opportunity_id: opportunity?.id }
         : {},
     );
+    if (!sent) {
+      setText((current) => current ? `${draft}\n${current}` : draft);
+      setAttachments((current) => current.length ? current : pendingAttachments);
+    }
   }
   async function upload(files: FileList | null) {
     if (!files) return;
@@ -438,6 +433,7 @@ export default function SalesPage() {
                     m.role === "assistant"
                       ? splitMessageParts(m.content)
                       : [{ type: "text" as const, content: m.content }],
+                  quotaNotice = m.role === "assistant" && m.cards.some((card) => card.type === "quota_notice"),
                   panelTabs = m.cards
                     .filter(
                       (card) =>
@@ -495,13 +491,21 @@ export default function SalesPage() {
                       <div className="min-w-0 flex-1">
                     {parts.map((part, i) => {
                       if (part.type === "text")
-                        return (
-                              <SalesMarkdown
-                                key={`text-${i}`}
-                                content={part.content}
-                                panelTabs={panelTabs}
-                                mobileCompact={!isAnalysis}
-                              />
+                        return quotaNotice ? (
+                          <AssistantQuotaReply
+                            key={`quota-${i}`}
+                            message={part.content}
+                            access={sales.access}
+                            onBuyCredits={() => setModal("buy_tokens")}
+                            onSubscribe={sales.access?.plus ? undefined : () => setPlusModal("checkout")}
+                          />
+                        ) : (
+                          <SalesMarkdown
+                            key={`text-${i}`}
+                            content={part.content}
+                            panelTabs={panelTabs}
+                            mobileCompact={!isAnalysis}
+                          />
                         );
                       if (part.type === "action") {
                         const action = actionById.get(part.id),
@@ -555,6 +559,7 @@ export default function SalesPage() {
                       </a>
                     ))}
                     {m.cards.map((card, i) => {
+                      if (card.type === "quota_notice") return null;
                       const marker =
                         card.type === "action"
                           ? `action:${card.id}`
@@ -589,6 +594,11 @@ export default function SalesPage() {
                         ) : null;
                       if (card.type === "sales_analysis_cta")
                         return <SalesAnalysisSuggestionCard key={i} />;
+                      if (card.type === "image_limit")
+                        return <div key={i} className="mt-3 flex flex-wrap items-center gap-2">
+                          <Button variant="secondary" onClick={() => setModal("buy_tokens")}>Comprar tokens</Button>
+                          <SupportWhatsappBadge />
+                        </div>;
                       return card.type !== "action" ? (
                         <DataCard key={i} card={card} />
                       ) : null;
@@ -639,7 +649,7 @@ export default function SalesPage() {
               role="alert"
               className="mx-4 mb-2 flex items-start justify-between gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700"
             >
-              <ErrorNoticeContent message={localError || sales.error || ""} />
+              <ErrorNoticeContent message={localError || sales.error || ""} access={sales.access} onBuyCredits={() => setModal("buy_tokens")} />
               <button
                 aria-label="Fechar aviso"
                 className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-[8px] transition-colors hover:bg-red-100"
@@ -738,7 +748,7 @@ export default function SalesPage() {
                   />
                   <Button
                     aria-label="Enviar mensagem"
-                    disabled={!freeLimitReached && (!text.trim() || disabled || uploading)}
+                    disabled={!text.trim() || disabled || uploading}
                     onClick={() => void send()}
                     className="h-10 min-h-10 w-10 shrink-0 !px-0 !py-0"
                   >
@@ -859,9 +869,12 @@ export default function SalesPage() {
               <div className="mt-3 shrink-0">
                 <AiUsage
                   access={sales.usageAccess?.restaurant_id === restaurant ? sales.usageAccess.access : null}
+                  onBuyTokens={() => setModal("buy_tokens")}
                 />
               </div>
-              <Button className="mt-3 shrink-0" variant={isAnalysis ? "secondary" : "primary"} onClick={() => openPlus()}><Sparkles size={16} className="mr-2" />iMenu Plus</Button>
+              {sales.access?.plus === false && (
+                <Button className="mt-3 shrink-0" variant="primary" onClick={() => openPlus()}><Crown size={16} className="mr-2" />iMenu Plus</Button>
+              )}
             </div>
           </aside>
         )}
@@ -925,9 +938,11 @@ export default function SalesPage() {
               {conversationPicker}
             </div>
             <div className="ml-auto flex shrink-0 gap-2">
-              <span className="hidden md:inline-flex lg:hidden">
-                <Button variant={isAnalysis ? "secondary" : "primary"} onClick={() => openPlus()}>iMenu Plus</Button>
-              </span>
+              {sales.access?.plus === false && (
+                <span className="hidden md:inline-flex lg:hidden">
+                  <Button variant="primary" onClick={() => openPlus()}><Crown size={16} className="mr-2" />iMenu Plus</Button>
+                </span>
+              )}
               <Button
                 variant="secondary"
                 className="lg:hidden"
@@ -1056,7 +1071,11 @@ export default function SalesPage() {
             )}
             <div className="mx-auto max-w-3xl space-y-8">
               {messageList}
-              {freeLimitReached && <IaPlusLimitMessage onCheckout={() => setPlusModal("checkout")} />}
+              {freeLimitReached && !threadMessages.some((m) => m.cards.some((card) => card.type === "quota_notice")) && <IaPlusLimitMessage
+                resetAt={sales.access?.tokens_reset_at}
+                onCheckout={() => setPlusModal("checkout")}
+                onBuyTokens={() => setModal("buy_tokens")}
+              />}
             </div>
           </div>
           {notice}
@@ -1068,7 +1087,28 @@ export default function SalesPage() {
       </div>
       {restaurant && <IaPlusSalesModal active={sales.access?.plus === true} open={plusModal !== null} checkout={plusModal === "checkout"} contextMessage={plusContext} restaurantId={restaurant} onClose={() => setPlusModal(null)} onPaid={async () => { setPlusModal(null); sales.clearUpgrade(); await sales.load(restaurant, sales.conversation_id || undefined); }} />}
       <Modal
-        open={modal !== null}
+        open={modal === "buy_tokens"}
+        onClose={() => setModal(null)}
+        height={760}
+        fixedHeight
+        className="max-w-4xl !border-0 [&>[data-ui=modal-close]]:!rounded-full"
+        bodyClassName="flex min-h-0 flex-1 flex-col !overflow-hidden"
+        showCloseButton
+      >
+        {restaurant && (
+          <CreditPurchaseCalculator
+            restaurantId={restaurant}
+            onClose={() => setModal(null)}
+            onPaid={async () => {
+              setModal(null);
+              sales.clearUpgrade();
+              await sales.load(restaurant, sales.conversation_id || undefined);
+            }}
+          />
+        )}
+      </Modal>
+      <Modal
+        open={modal !== null && modal !== "buy_tokens"}
         onClose={() => {
           if (!sales.acting) setModal(null);
         }}
@@ -1077,6 +1117,7 @@ export default function SalesPage() {
         showCloseButton
       >
         <div className="p-5 md:p-6">
+
           {modal === "rename" && (
             <>
               <h2 className="text-xl font-semibold">Renomear conversa</h2>

@@ -33,6 +33,7 @@ type ComplementGroupRow = {
     description: string | null;
     min_select: number;
     max_select: number;
+    max_per_option: number | null;
     allow_multiple_units: boolean;
     position: number;
     created_at: string;
@@ -76,6 +77,7 @@ const getGroupSignature = (
         description: normalizeText(group.description),
         minSelect: group.min_select,
         maxSelect: group.max_select,
+        maxPerOption: group.max_per_option,
         allowMultipleUnits: Boolean(group.allow_multiple_units),
         options: options.map((option) => [
             normalizeText(option.name),
@@ -194,6 +196,7 @@ const buildSharedGroups = (
                 description: firstGroup.description,
                 min_select: firstGroup.min_select,
                 max_select: firstGroup.max_select,
+                max_per_option: firstGroup.max_per_option,
                 allow_multiple_units: Boolean(firstGroup.allow_multiple_units),
                 options,
             });
@@ -242,7 +245,7 @@ export default function ComplementosTab({
             const { data: groupRows, error: groupsError } = await supabase
                 .from("item_subcategories")
                 .select(
-                    "id, item_id, name, description, min_select, max_select, allow_multiple_units, position, created_at"
+                    "id, item_id, name, description, min_select, max_select, max_per_option, allow_multiple_units, position, created_at"
                 )
                 .in("item_id", itemIds)
                 .order("created_at", { ascending: false });

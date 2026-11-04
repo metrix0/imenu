@@ -24,6 +24,7 @@ beforeEach(() => {
       : statement.startsWith("SELECT kind") ? [{ kind }]
       : statement.includes("restaurant_addons") ? (addon ? [addon] : [])
       : statement.includes("sum(input_tokens + output_tokens)") ? [usage]
+      : statement.includes("WITH counted AS") ? [{ tokens_reset_at: new Date("2026-11-09T14:30:00Z"), images_reset_at: new Date("2026-11-10T14:30:00Z") }]
       : statement.includes("sum(greatest") ? [{ input: 0, output: 0, recent: 0 }]
       : statement.includes("sum(image_count),0) n") ? [{ n: usage.monthly_images }] : [],
     rowCount: statement.startsWith("UPDATE public.ia_vendas_runs SET image_count") ? 1 : 0,
@@ -63,7 +64,9 @@ test("a restaurant without Plus starts with 150,000 weekly tokens and three week
     images_remaining: 1,
   });
   usage.images = 3;
-  expect((await aiAccess("restaurant")).images_remaining).toBe(0);
+  const exhausted = await aiAccess("restaurant");
+  expect(exhausted.images_remaining).toBe(0);
+  expect(exhausted.images_reset_at).toBe("2026-11-10T14:30:00.000Z");
   await expect(requireIaPlus("restaurant")).rejects.toBeInstanceOf(IaPlusRequired);
 });
 test("free tokens and images use the rolling seven-day window", async () => {
@@ -149,4 +152,24 @@ test('Plus usage follows the enforced monthly input/output budgets and reports b
  expect((await aiAccess('restaurant')).usage).toMatchObject({ tokens: { percent: 70 }, images: { percent: 100 } });
  addon = null;
  expect((await aiAccess('restaurant')).usage).toBeNull();
+});
+
+test("image limit text includes reset, continued chat and support phone", async () => {
+  const { imageLimitMessage } = await import("../access");
+  expect(imageLimitMessage({ plus: false, images_reset_at: "2026-11-10T14:30:00Z" })).toContain("10/11 às 11:30");
+  expect(imageLimitMessage({ plus: true, images_reset_at: "2026-12-01T00:00:00Z" })).toContain("75 imagens");
+  expect(imageLimitMessage({ plus: true, images_reset_at: "2026-12-01T00:00:00Z" })).toContain("Assistente IA normalmente");
+  expect(imageLimitMessage({ plus: false })).toContain("+55 19 99723-5394");
+});
+
+test("rolling free reset timestamp is computed only when tokens are exhausted", async () => {
+  usage = { tokens: 149_999, reserved: 0, images: 0 };
+  expect((await aiAccess("restaurant")).tokens_reset_at).toBeNull();
+  expect(sql.mock.calls.some(([statement]) => statement.includes("WITH counted AS"))).toBe(false);
+  usage.tokens = 150_000;
+  const exhausted = await aiAccess("restaurant");
+  expect(exhausted.tokens_reset_at).toBe("2026-11-09T14:30:00.000Z");
+  const resetCall = sql.mock.calls.find(([statement]) => statement.includes("WITH counted AS"));
+  expect(resetCall?.[0]).toContain("sum(tokens) OVER");
+  expect(resetCall?.[1]).toEqual(["restaurant", 0, 0]);
 });

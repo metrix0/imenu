@@ -33,6 +33,7 @@ type Subcategory = {
     name: string;
     min_select: number;
     max_select: number;
+    max_per_option: number | null;
     allow_multiple_units: boolean;
     required: boolean; 
     position: number;
@@ -85,6 +86,7 @@ const getImportGroupSignature = (group: ImportableGroup) =>
         description: normalizeImportText(group.original_data.description),
         minSelect: group.original_data.min_select,
         maxSelect: group.original_data.max_select,
+        maxPerOption: group.original_data.max_per_option ?? null,
         allowMultipleUnits: Boolean(group.original_data.allow_multiple_units),
         options: group.subitems.map((subitem) => [
             normalizeImportText(subitem.name),
@@ -339,6 +341,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
             name: groupToImport.name,
             min_select: groupToImport.original_data.min_select,
             max_select: groupToImport.original_data.max_select,
+            max_per_option: groupToImport.original_data.max_per_option ?? null,
             allow_multiple_units: Boolean(groupToImport.original_data.allow_multiple_units),
             position: currentGroupsLength // Usa a posição calculada dinamicamente
         }).select().single();
@@ -386,6 +389,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                 name: groupToImport.name,
                 min_select: groupToImport.original_data.min_select,
                 max_select: groupToImport.original_data.max_select,
+                max_per_option: groupToImport.original_data.max_per_option ?? null,
                 allow_multiple_units: Boolean(groupToImport.original_data.allow_multiple_units),
                 position: groups.length
             }).select().single();
@@ -595,7 +599,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                                     <div className="flex-1 min-w-0">
                                         <div className="flex min-w-0 items-center gap-2">
                                             <Input inline
-                                                className="min-w-0 flex-1 bg-transparent font-bold text-gray-800 text-lg 2xl:text-xl focus:outline-none focus:border-b focus:border-brand"
+                                                className="min-w-0 flex-1 !bg-transparent pl-3 font-bold text-gray-800 text-lg 2xl:text-xl focus:outline-none focus:border-b focus:border-brand"
                                                 value={group.name}
                                                 onChange={(e) => updateGroupLocally(group.id, { name: e.target.value })}
                                                 onBlur={(e) => handleUpdateGroup(group.id, { name: e.currentTarget.value })}
@@ -645,6 +649,33 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                                                     </span>
                                                 </Tooltip>
                                             </div>
+                                            {group.allow_multiple_units === true && (
+                                                <label className="flex items-center gap-2">
+                                                    <span>Máximo por opção:</span>
+                                                    <Input inline
+                                                        type="number"
+                                                        aria-label="Máximo por opção"
+                                                        min={1}
+                                                        max={99}
+                                                        placeholder="Sem limite"
+                                                        value={group.max_per_option ?? ""}
+                                                        onChange={(event) => {
+                                                            const value = event.target.value;
+                                                            updateGroupLocally(group.id, {
+                                                                max_per_option: value === "" ? null : Math.max(1, Math.min(99, Number.parseInt(value, 10) || 1)),
+                                                            });
+                                                        }}
+                                                        onBlur={(event) => {
+                                                            const value = event.currentTarget.value;
+                                                            void handleUpdateGroup(group.id, {
+                                                                max_per_option: value === "" ? null : Math.max(1, Math.min(99, Number.parseInt(value, 10) || 1)),
+                                                            });
+                                                        }}
+                                                        onMouseDown={event => event.stopPropagation()}
+                                                        className="w-24 rounded border border-gray-300 p-1 text-center text-sm 2xl:text-base"
+                                                    />
+                                                </label>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

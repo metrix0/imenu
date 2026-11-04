@@ -16,6 +16,7 @@ export function getPosthog(): Promise<PosthogClient | null> {
         .then(({ default: posthog }) => {
             posthog.init(key, {
                 api_host: url,
+                autocapture: false,
                 before_send: (event) => {
                     if (
                         typeof window !== "undefined" &&
