@@ -6,14 +6,13 @@ import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import {
   ArrowRight,
-  Moon,
   Sparkles,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import ModalFlowStep from "@/components/ui/ModalFlowStep";
 import Button from "@/components/ui/Button";
 import QrCodeMesaCheckoutModal from "@/components/restaurant-owner/mesas/QrCodeMesaCheckoutModal";
-import { IA_PLUS_ADDITIONAL_FEATURES, IA_PLUS_BENEFITS, IA_PLUS_BONUSES, IA_PLUS_PRICE_LABEL } from "@/lib/addons/products";
+import { IA_PLUS_BENEFITS, IA_PLUS_BONUSES, IA_PLUS_PRICE_LABEL } from "@/lib/addons/products";
 import { PROMO_QR_CODE, PROMO_QR_PRICE_LABEL } from "@/lib/addons/promoQr";
 import { PLUS_BONUS_ICONS, PLUS_FEATURE_ICONS } from "@/components/restaurant-owner/mesas/MenuProductCard";
 import { formatAiResetAt } from "@/lib/ia-vendas/usageReset";
@@ -159,13 +158,6 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
                     <div><h4 className="font-semibold text-gray-900">{bonus.title}</h4><p className="mt-1 text-xs leading-5 text-gray-500">{bonus.description}</p></div>
                   </li>;
                 })}</ul>
-                <div className="mt-4 flex items-start gap-3 border-t border-gray-100 pt-4">
-                  <Moon size={21} strokeWidth={1.85} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" />
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-900">{IA_PLUS_ADDITIONAL_FEATURES[0].title}</h4>
-                    <p className="mt-1 text-xs leading-5 text-gray-500">{IA_PLUS_ADDITIONAL_FEATURES[0].description}</p>
-                  </div>
-                </div>
               </section>
             </div>
 

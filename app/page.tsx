@@ -24,7 +24,7 @@ import SupportButton, {
     SupportButtonRef,
 } from "@/components/common/SupportButton";
 import BestSellers from "@/components/landing/BestSellers";
-import { IA_PLUS_ADDITIONAL_FEATURES, IA_PLUS_BENEFITS, IA_PLUS_BONUSES, IA_PLUS_PRICE_LABEL } from "@/lib/addons/products";
+import { IA_PLUS_BENEFITS, IA_PLUS_BONUSES, IA_PLUS_PRICE_LABEL } from "@/lib/addons/products";
 import SignupConfirmationHandler from "@/components/auth/SignupConfirmationHandler";
 import "@/app/reveal.css";
 
@@ -154,6 +154,7 @@ const PLUS_BONUS_ICONS: Record<string, LucideIcon> = {
     "Atualizações de pedidos pelo WhatsApp": MessageCircle,
     "Scan de cardápio com IA": ScanLine,
     "Download Cardápio em PDF": FileDown,
+    "Cardápio Tema Escuro": Moon,
 };
 
 const LANDING_HERO_PRIMARY_BUTTON =
@@ -870,13 +871,6 @@ export default function LandingPage() {
                                             );
                                         })}
                                     </ul>
-                                    <div className="mt-4 flex items-start gap-2.5 border-t border-gray-100 pt-4 text-xs leading-5 text-gray-700">
-                                        <Moon size={17} strokeWidth={1.8} aria-hidden="true" className="mt-0.5 shrink-0 text-brand" />
-                                        <div>
-                                            <strong className="font-semibold text-gray-900">{IA_PLUS_ADDITIONAL_FEATURES[0].title}</strong>
-                                            <p className="text-gray-500">{IA_PLUS_ADDITIONAL_FEATURES[0].description}</p>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
                             <div className="mt-auto pt-8">
