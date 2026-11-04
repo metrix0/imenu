@@ -13,6 +13,7 @@ import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
 import { formatPrice, promotionPrice } from "@/lib/utils/formatPrice";
 import { promotionCartSubtotal } from "@/lib/promotions/automatic";
+import { isCategoryAvailable, type CategorySchedule } from "@/lib/menu/categorySchedule";
 import PromotionSummary from "@/components/costumer/PromotionSummary";
 import { evaluateAutomaticPromotions, parseAutomaticPromotions, type AutomaticPromotion } from "@/lib/promotions/automatic";
 import Toast from "@/components/ui/Toast";
@@ -27,6 +28,7 @@ type Category = {
     id: string;
     name: string;
     position?: number | null;
+    availability_schedule?: CategorySchedule;
 };
 
 type RestaurantTable = {
@@ -67,10 +69,10 @@ export default function CreatePanelOrderModal({
     const [promotionNow, setPromotionNow] = useState(new Date());
     const [menuVersion, setMenuVersion] = useState(0);
     useEffect(() => {
-        if (!isOpen || !automaticPromotions.length) return;
+        if (!isOpen || (!automaticPromotions.length && !categories.some(category => category.availability_schedule != null))) return;
         const timer = window.setInterval(() => setPromotionNow(new Date()), 30_000);
         return () => window.clearInterval(timer);
-    }, [isOpen, automaticPromotions]);
+    }, [isOpen, automaticPromotions, categories]);
     const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
     const [subcategoriesByItemId, setSubcategoriesByItemId] = useState<Record<string, Subcategory[]>>({});
     const [loadingSubcategoriesByItemId, setLoadingSubcategoriesByItemId] = useState<Record<string, boolean>>({});
@@ -124,7 +126,7 @@ export default function CreatePanelOrderModal({
             ] = await Promise.all([
                 supabase
                     .from("categories")
-                    .select("id, name, position")
+                    .select("id, name, position, availability_schedule")
                     .eq("restaurant_id", restaurantId)
                     .order("position", { ascending: true }),
                 supabase
@@ -206,12 +208,12 @@ export default function CreatePanelOrderModal({
             setIsLoadingExisting(true);
             try {
                 const { data, error } = await supabase.from("orders")
-                    .select("id, customer_name, customer_phone, customer_address, delivery_cents, payment_method, is_delivery, table_id, coupon_code, loyalty_points_used, loyalty_credited, order_items(id, item_id, name, quantity, price_cents, total_cents, observation, pizza, order_item_subitems(subitem_id, name, price_cents, quantity))")
+                    .select("id, customer_name, customer_phone, customer_address, delivery_cents, payment_method, is_delivery, table_id, coupon_code, loyalty_points_used, loyalty_credited, order_items(id, item_id, name, quantity, price_cents, total_cents, original_value, observation, pizza, order_item_subitems(subitem_id, name, price_cents, quantity))")
                     .eq("id", editingOrder.id).eq("restaurant_id", restaurantId).single();
                 if (error || !data) throw new Error("Não foi possível carregar o pedido.");
                 const lines = (data.order_items || []) as Array<{
                     id: string; item_id: string | null; name: string; quantity: number;
-                    price_cents: number; total_cents: number; observation: string | null;
+                    price_cents: number; total_cents: number; original_value: number | null; observation: string | null;
                     pizza: SelectedItem["pizza"];
                     order_item_subitems: Array<{ subitem_id: string | null; name: string; price_cents: number; quantity: number }>;
                 }>;
@@ -222,8 +224,8 @@ export default function CreatePanelOrderModal({
                 const groupIds = new Map<string, string>((metadata.data || []).map(sub => [sub.id, sub.item_subcategory_id] as [string, string]));
                 setSelectedItems(lines.map(line => ({
                     id: line.id, base_item_id: line.item_id || "", category_id: "", name: line.name,
-                    qty: Number(line.quantity), unit_price_cents: Number(line.price_cents),
-                    total_cents: Number(line.total_cents), observation: line.observation,
+                    qty: Number(line.quantity), unit_price_cents: Number(line.original_value ?? line.price_cents),
+                    total_cents: Number(line.original_value ?? line.price_cents) * Number(line.quantity), observation: line.observation,
                     pizza: line.pizza || undefined,
                     selectedSubitems: line.order_item_subitems.map(sub => ({
                         subcategoryId: groupIds.get(sub.subitem_id || "") || "",
@@ -578,6 +580,7 @@ export default function CreatePanelOrderModal({
         const query = menuSearch.trim().toLocaleLowerCase("pt-BR");
 
         return categories
+            .filter((category) => isCategoryAvailable(category.availability_schedule, promotionNow))
             .map((category) => ({
                 category,
                 items: (itemsByCategory[category.id] || []).filter((item) => {
@@ -588,7 +591,7 @@ export default function CreatePanelOrderModal({
                 }),
             }))
             .filter(({ items }) => items.length > 0);
-    }, [categories, itemsByCategory, menuSearch]);
+    }, [categories, itemsByCategory, menuSearch, promotionNow]);
 
     const handleSubmit = async () => {
         if (!restaurantId || promotionLoadError || isLoadingMenu || isLoadingExisting || editBlockReason) return;
@@ -1044,6 +1047,9 @@ export default function CreatePanelOrderModal({
                                         const isExpanded = !!expandedItems[item.id];
                                         const isLoadingSubcategories = !!loadingSubcategoriesByItemId[item.base_item_id];
                                         const missingRequired = isMissingRequiredForSelectedItem(item);
+                                        const pricedItem = pricedSelectedItems.find(priced => priced.id === item.id);
+                                        const displayedUnitCents = pricedItem ? promotionPrice(pricedItem, false) ?? item.unit_price_cents : item.unit_price_cents;
+                                        const displayedTotalCents = pricedItem ? promotionPrice(pricedItem) ?? item.total_cents : item.total_cents;
 
                                         return (
                                             <div key={item.id} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -1052,8 +1058,8 @@ export default function CreatePanelOrderModal({
                                                         <div className="font-semibold text-gray-900">{item.name}</div>
 
                                                         <div className="mt-1 text-sm text-gray-500">
-                                                            {pricedSelectedItems.some(p => p.id === item.id && p.promotion) && <span className="mr-2 line-through text-gray-400">{formatPrice(item.unit_price_cents)}</span>}
-                                                            {formatPrice(promotionPrice({ ...item, qty: 1, promotion: pricedSelectedItems.find(p => p.id === item.id)?.promotion }) ?? item.unit_price_cents)} cada
+                                                            {pricedItem?.promotion && <span className="mr-2 line-through text-gray-400">{formatPrice(item.unit_price_cents)}</span>}
+                                                            {formatPrice(displayedUnitCents)} cada
                                                         </div>
 
                                                         {!isExpanded && item.selectedSubitems.length > 0 && (
@@ -1120,7 +1126,7 @@ export default function CreatePanelOrderModal({
                                                     </div>
 
                                                     <div className="text-right font-bold text-gray-900">
-                                                        {formatPrice(item.total_cents)}
+                                                        {formatPrice(displayedTotalCents)}
                                                     </div>
                                                 </div>
 

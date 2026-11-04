@@ -52,6 +52,10 @@ const calculate = (p: AutomaticPromotion[], extra: Record<string, any> = {}) =>
   });
 
 describe("automatic promotion rules and totals", () => {
+  it("applies fixed product discounts to every unit in the cart", () => {
+    expect(promotionCartSubtotal([{ ...item(burger, 1740, 4), promotion: { type: "fixed", value: 750 } }])).toBe(3960);
+  });
+
   it("keeps the checkout and coupon unchanged without an automatic promotion", () => {
     expect(calculate([], { coupon_discount_cents: 700 })).toEqual({
       promotion: null,

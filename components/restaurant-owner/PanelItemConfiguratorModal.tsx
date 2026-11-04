@@ -337,6 +337,7 @@ export default function PanelItemConfiguratorModal({
     const unitPrice =
         pizzaQuote?.unit_price_cents ?? item.price_cents + extrasTotal;
     const total = unitPrice * qty;
+    const promotionalUnitPrice = promotionPrice({ ...item, unit_price_cents: unitPrice }, false) ?? unitPrice;
 
     const showFlavorSearch = async () => {
         setPizzaError("");
@@ -575,7 +576,8 @@ export default function PanelItemConfiguratorModal({
                             </p>
                         )}
                         <p className="mt-2 font-semibold text-gray-900">
-                            {formatPrice(unitPrice)}
+                            {item.promotion && <span className="mr-2 font-normal text-gray-400 line-through">{formatPrice(unitPrice)}</span>}
+                            {formatPrice(promotionalUnitPrice)}
                         </p>
                     </div>
 
@@ -967,7 +969,7 @@ export default function PanelItemConfiguratorModal({
                                             ? "Próximo sabor"
                                             : "Adicionar"}
                                     </span>
-                                    <span>{formatPrice(promotionPrice({ ...item, unit_price_cents: unitPrice, total_cents: total, qty }) ?? total)}</span>
+                                    <span>{formatPrice(promotionalUnitPrice * qty)}</span>
                                 </span>
                             </Button>
                         </div>

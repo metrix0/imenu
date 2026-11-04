@@ -227,6 +227,23 @@ it("reprices panel orders with current individual product promotions", async () 
   expect(saved()[4]).toBe(4800);
 });
 
+it("charges every unit at the fixed product promotional price in manual orders", async () => {
+  offers = [];
+  activeProductPromotion = { type: "fixed", value: 750 };
+  const response = await send({
+    panel_order: true,
+    delivery_fee_cents: 500,
+    expected_promotion: { id: null, total_cents: 4460 },
+    items: [{ ...body.items[0], qty: 4, unit_price_cents: 1740, total_cents: 6960 }],
+  });
+  expect(response.status).toBe(200);
+  expect(saved()[2]).toBe(3960);
+  expect(saved()[4]).toBe(4460);
+  const itemWrite = client.query.mock.calls.find(([sql]) => String(sql).includes("INSERT INTO order_items"));
+  expect(itemWrite?.[1][3]).toBe(990);
+  expect(itemWrite?.[1][6]).toBe(3960);
+});
+
 it("creates a panel order with a real free-product promotion line", async () => {
   giftProductEnabled = true;
   offers = [{ ...offer, benefits: [{ type: "product", item_id: giftId, quantity: 1 }] }];

@@ -115,8 +115,17 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
                 };
             });
             items = await pricePizzaOrderItems(client, restaurantId, restaurant.pizza_settings, items);
+            const activePromotions = await client.query(
+                `SELECT p.item_id, p.type, p.value FROM promotions p
+                 WHERE p.restaurant_id = $1 AND p.item_id = ANY($2::uuid[])
+                 AND p.active = true AND p.starts_at <= NOW()
+                 AND (p.ends_at >= NOW() OR p.ends_at IS NULL)`,
+                [restaurantId, itemIds]
+            );
+            const promotionsByItem = new Map(activePromotions.rows.map(p => [p.item_id, { type: p.type, value: p.value }]));
+            items = items.map((item: any) => ({ ...item, promotion: promotionsByItem.get(item.base_item_id) }));
 
-            const subtotal = items.reduce((sum: number, item: any) => sum + Number(item.total_cents), 0);
+            const subtotal = items.reduce((sum: number, item: any) => sum + (promotionPrice(item) ?? Number(item.total_cents)), 0);
             const requestedTableId = body.table_id || null;
             let table: { id: string; name: string } | null = null;
             if (requestedTableId) {
@@ -200,9 +209,9 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
                 const saved = await client.query(
                     "INSERT INTO order_items (order_id, item_id, name, price_cents, quantity, observation, total_cents, original_value, pizza) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb) RETURNING id",
                     [id, item.base_item_id, item.name,
-                        promotionPrice(item, false) || Number(item.unit_price_cents),
+                        promotionPrice(item, false) ?? Number(item.unit_price_cents),
                         item.qty, item.observation,
-                        promotionPrice(item) || Number(item.total_cents), Number(item.unit_price_cents),
+                        promotionPrice(item) ?? Number(item.total_cents), Number(item.unit_price_cents),
                         item.pizza ? JSON.stringify(item.pizza) : null]
                 );
                 for (const sub of item.selectedSubitems) {
