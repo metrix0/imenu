@@ -78,14 +78,14 @@ export async function fetchCoordinates(fullAddress: string) {
     const cleanCep = cepMatch?.[0]?.replace(/\D/g, "") ?? "";
 
     if (cleanCep.length !== 8) {
-        neighborhoodDeliveryReferenceCoordinates = null;
-        return null;
+        neighborhoodDeliveryReferenceCoordinates = await fetchCoordinatesBase(fullAddress);
+        return neighborhoodDeliveryReferenceCoordinates;
     }
 
     const cepAddress = await fetchAddressByCEP(cleanCep);
     if (!cepAddress) {
-        neighborhoodDeliveryReferenceCoordinates = null;
-        return null;
+        neighborhoodDeliveryReferenceCoordinates = await fetchCoordinatesBase(fullAddress);
+        return neighborhoodDeliveryReferenceCoordinates;
     }
 
     const cepValidation =

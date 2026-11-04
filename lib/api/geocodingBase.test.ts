@@ -1,134 +1,160 @@
-import { fetchCoordinates } from "./geocodingBase";
+import { fetchCoordinates, fetchAddressByCEP } from "./geocodingBase";
+import { cities, states } from "./brazilianMunicipalities";
 
-const input = "Rua Otávio Alves Ourique, 90, Canudos, Novo Hamburgo - Rio Grande do Sul, 93544425, Brasil";
-const street = {
-    score: 98,
-    attributes: {
-        Addr_type: "StreetName",
-        StName: "Rua Otávio Alves Ourique",
-        City: "Novo Hamburgo",
-        Postal: "93500-000",
-    },
-    location: { y: -29.686, x: -51.12 },
-};
-const postal = {
-    state: "RS",
-    city: "Novo Hamburgo",
-    neighborhood: "Canudos",
-    street: "Rua Otávio Alves Ourique",
-};
-
+const cases = [
+    { input: "Rua Otavio Alves Ourique, 90, Canudos, Novo Hamburgo - Rio Grande do Sul, 93544385, Brasil", city: "Novo Hamburgo", street: "Rua Otavio Alves Ourique", number: "90", uf: "RS", lat: -29.686, lon: -51.12 },
+    { input: "Rua Lucas Carneiro, 116, Recanto Tranquilo, Lavrinhas - SP, 12760-142, Brasil", city: "Lavrinhas", street: "Rua Lucas Carneiro", number: "116", uf: "SP", lat: -22.572, lon: -44.902 },
+    { input: "Rua das Araras, 64, Jardim Mavisou, Lavrinhas - SP, 12760-246, Brasil", city: "Lavrinhas", street: "Rua das Araras", number: "64", uf: "SP", lat: -22.57, lon: -44.9 },
+];
 const originalFetch = global.fetch;
-const originalArcGIS = process.env.NEXT_PUBLIC_ARCGIS_API_KEY;
-const originalTomTom = process.env.NEXT_PUBLIC_TOMTOM_API_KEY;
-const originalGoogle = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-
+const keys = ["NEXT_PUBLIC_ARCGIS_API_KEY", "NEXT_PUBLIC_TOMTOM_API_KEY", "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY"];
+const originalKeys = keys.map(k => process.env[k]);
+const reply = (data: unknown, ok = true) => ({ ok, json: async () => data }) as Response;
+function candidate(c = cases[0], type = "PointAddress", overrides = {}) {
+    return { score: 100, attributes: { Addr_type: type, StName: c.street, AddNum: c.number, City: c.city, RegionAbbr: c.uf, Postal: "", ...overrides }, location: { y: c.lat, x: c.lon } };
+}
+function providers(handler: (url: URL) => Response | Promise<Response>) {
+    global.fetch = jest.fn(async input => handler(new URL(String(input)))) as typeof fetch;
+}
+function arcgisOnly(data: unknown[]) {
+    providers(url => reply(url.hostname.includes("arcgis.com") ? { candidates: data } : []));
+}
 beforeEach(() => {
-    process.env.NEXT_PUBLIC_ARCGIS_API_KEY = "";
-    process.env.NEXT_PUBLIC_TOMTOM_API_KEY = "";
-    process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY = "";
+    keys.forEach(k => process.env[k] = "");
     jest.spyOn(console, "log").mockImplementation(() => undefined);
+    jest.spyOn(console, "warn").mockImplementation(() => undefined);
 });
-
 afterEach(() => {
     global.fetch = originalFetch;
+    keys.forEach((k, i) => originalKeys[i] === undefined ? delete process.env[k] : process.env[k] = originalKeys[i]);
     jest.restoreAllMocks();
-    if (originalArcGIS === undefined) delete process.env.NEXT_PUBLIC_ARCGIS_API_KEY;
-    else process.env.NEXT_PUBLIC_ARCGIS_API_KEY = originalArcGIS;
-    if (originalTomTom === undefined) delete process.env.NEXT_PUBLIC_TOMTOM_API_KEY;
-    else process.env.NEXT_PUBLIC_TOMTOM_API_KEY = originalTomTom;
-    if (originalGoogle === undefined) delete process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-    else process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY = originalGoogle;
+    jest.useRealTimers();
 });
 
-function mockProviders(confirmedStreet = postal, candidate = street) {
-    const requests: string[] = [];
-    global.fetch = jest.fn(async (input: string | URL | Request) => {
-        const url = new URL(String(input));
-        requests.push(url.toString());
-        if (url.hostname === "brasilapi.com.br") {
-            return { ok: true, json: async () => confirmedStreet } as Response;
-        }
-        if (url.hostname.includes("arcgis.com")) {
-            const line = url.searchParams.get("SingleLine") || "";
-            return {
-                ok: true,
-                json: async () => ({ candidates: line.includes(", 90,") ? [] : [candidate] }),
-            } as Response;
-        }
-        if (url.hostname === "nominatim.openstreetmap.org") {
-            return { ok: true, json: async () => [] } as Response;
-        }
-        throw new Error("Unexpected provider: " + url.hostname);
-    }) as typeof fetch;
-    return requests;
-}
-
-it("resolves a street when the building number is not mapped but CEP, city and street agree", async () => {
-    const requests = mockProviders();
-    expect(await fetchCoordinates(input)).toEqual({
-        latitude: -29.686,
-        longitude: -51.12,
+describe.each(cases)("reported address: $street", c => {
+    it("retains an exact number even with missing/stale provider CEP", async () => {
+        arcgisOnly([candidate(c)]);
+        expect(await fetchCoordinates(c.input)).toEqual({ latitude: c.lat, longitude: c.lon });
     });
-    expect(requests.some((url) => url.includes("brasilapi.com.br/api/cep/v1/93544425"))).toBe(true);
-    expect(requests.filter((url) => url.includes("arcgis.com"))).toHaveLength(2);
-});
-
-it("rejects street-level coordinates when the CEP names a different street", async () => {
-    const requests = mockProviders({ ...postal, street: "Rua de Outra Região" });
-    expect(await fetchCoordinates(input)).toBeNull();
-    expect(requests.filter((url) => url.includes("arcgis.com"))).toHaveLength(1);
-});
-
-it("does not accept a different numbered address as an exact match", async () => {
-    const requests = mockProviders();
-    (global.fetch as jest.Mock).mockImplementation(async (input: string | URL | Request) => {
-        const url = new URL(String(input));
-        requests.push(url.toString());
-        if (url.hostname === "brasilapi.com.br") return { ok: false } as Response;
-        if (url.hostname.includes("arcgis.com")) return {
-            ok: true,
-            json: async () => ({ candidates: [{
-                score: 100,
-                attributes: {
-                    Addr_type: "PointAddress", StName: "Rua Otávio Alves Ourique",
-                    City: "Novo Hamburgo", Postal: "93544425", AddNum: "92",
-                },
-                location: { y: -29.68, x: -51.13 },
-            }] }),
-        } as Response;
-        return { ok: true, json: async () => [] } as Response;
+    it("accepts a street if the building number is not mapped", async () => {
+        arcgisOnly([candidate(c, "StreetName", { AddNum: "" })]);
+        expect(await fetchCoordinates(c.input)).toEqual({ latitude: c.lat, longitude: c.lon });
     });
-    expect(await fetchCoordinates(input)).toBeNull();
-});
-
-it("keeps exact numbered ArcGIS matches without invoking the CEP fallback", async () => {
-    const requests: string[] = [];
-    global.fetch = jest.fn(async (input: string | URL | Request) => {
-        const url = new URL(String(input));
-        requests.push(url.toString());
-        if (url.hostname.includes("arcgis.com")) return {
-            ok: true,
-            json: async () => ({ candidates: [{
-                score: 100,
-                attributes: {
-                    Addr_type: "PointAddress", StName: "Rua Otávio Alves Ourique",
-                    City: "Novo Hamburgo", Postal: "93544425", AddNum: "90",
-                },
-                location: { y: -29.687, x: -51.121 },
-            }] }),
-        } as Response;
-        throw new Error("The exact match should not need another provider");
-    }) as typeof fetch;
-    expect(await fetchCoordinates(input)).toEqual({
-        latitude: -29.687,
-        longitude: -51.121,
+    it("returns the correct municipal reference when every provider is down", async () => {
+        providers(() => { throw new Error("offline"); });
+        const city = cities.find(([name, uf]) => name === c.city && uf === c.uf)!;
+        expect(await fetchCoordinates(c.input)).toEqual({ latitude: city[2], longitude: city[3] });
     });
-    expect(requests).toHaveLength(1);
 });
 
-it("rejects the reported Novo Hamburgo address when the CEP belongs to another street", async () => {
-    const mismatchedCepInput = input.replace("93544425", "93544385");
-    mockProviders({ ...postal, street: "Rua João Antônio Alves" });
-    expect(await fetchCoordinates(mismatchedCepInput)).toBeNull();
+it("tries another exact provider before accepting an ArcGIS street approximation", async () => {
+    process.env.NEXT_PUBLIC_TOMTOM_API_KEY = "test";
+    const c = cases[0];
+    providers(url => {
+        if (url.hostname.includes("arcgis")) return reply({ candidates: [candidate(c, "StreetName", { AddNum: "" })] });
+        if (url.hostname === "api.tomtom.com") return reply({ results: [{ address: { streetName: c.street, streetNumber: c.number, municipality: c.city, countrySubdivisionCode: c.uf }, position: { lat: -29.69, lon: -51.13 } }] });
+        return reply([]);
+    });
+    expect(await fetchCoordinates(c.input)).toEqual({ latitude: -29.69, longitude: -51.13 });
+});
+it("prefers a rooftop from another provider over an interpolated numbered street", async () => {
+    const c = cases[0];
+    providers(url => url.hostname.includes("arcgis") ? reply({ candidates: [candidate(c, "StreetAddress")] }) : reply([{ address: { road: c.street, house_number: c.number, city: c.city, state: "Rio Grande do Sul" }, lat: -29.69, lon: -51.13 }]));
+    expect(await fetchCoordinates(c.input)).toEqual({ latitude: -29.69, longitude: -51.13 });
+});
+it("accepts a numbered StreetAddress when no rooftop exists", async () => {
+    arcgisOnly([candidate(cases[0], "StreetAddress")]);
+    expect(await fetchCoordinates(cases[0].input)).toEqual({ latitude: cases[0].lat, longitude: cases[0].lon });
+});
+it("does not let a wrong number hide a later exact number", async () => {
+    arcgisOnly([candidate(cases[0], "PointAddress", { AddNum: "92" }), { ...candidate(), score: 98, location: { y: -29.69, x: -51.13 } }]);
+    expect(await fetchCoordinates(cases[0].input)).toEqual({ latitude: -29.69, longitude: -51.13 });
+});
+it("retries the street without the number or erroneous CEP", async () => {
+    providers(url => reply(url.hostname.includes("arcgis") ? { candidates: url.searchParams.get("SingleLine")?.includes("93544385") ? [] : [candidate(cases[0], "StreetName")] } : []));
+    expect(await fetchCoordinates(cases[0].input)).toEqual({ latitude: cases[0].lat, longitude: cases[0].lon });
+});
+it("uses valid CEP coordinates before the offline city reference", async () => {
+    providers(url => reply(url.hostname === "brasilapi.com.br" ? { city: "Novo Hamburgo", state: "RS", location: { coordinates: { latitude: "-29.69", longitude: "-51.13" } } } : []));
+    expect(await fetchCoordinates(cases[0].input)).toEqual({ latitude: -29.69, longitude: -51.13 });
+});
+it.each([null, "", "NaN", Infinity, 0, 91])("discards invalid coordinates %s and uses the next candidate", async value => {
+    arcgisOnly([{ ...candidate(), location: { y: value, x: value } }, { ...candidate(), score: 98 }]);
+    // A malformed first record must not prevent a usable result (at least street-level).
+    expect(await fetchCoordinates(cases[0].input)).toEqual({ latitude: cases[0].lat, longitude: cases[0].lon });
+});
+it.each([{ City: "Outra cidade" }, { RegionAbbr: "SP" }, { StName: "Rua totalmente diferente" }])("rejects unrelated candidates %j", async overrides => {
+    arcgisOnly([candidate(cases[0], "PointAddress", overrides)]);
+    const city = cities.find(([name]) => name === "Novo Hamburgo")!;
+    expect(await fetchCoordinates(cases[0].input)).toEqual({ latitude: city[2], longitude: city[3] });
+});
+it("returns a location for malformed provider bodies and HTTP failures", async () => {
+    providers(() => reply({ error: { code: 403 } }, false));
+    expect(await fetchCoordinates(cases[1].input)).toEqual(expect.objectContaining({ latitude: expect.any(Number), longitude: expect.any(Number) }));
+});
+it("bounds a hung connection and JSON body, then uses offline coordinates", async () => {
+    jest.useFakeTimers();
+    providers(() => new Promise<Response>(() => {}));
+    const result = fetchCoordinates(cases[0].input);
+    await jest.advanceTimersByTimeAsync(20000);
+    expect(await result).toEqual(expect.objectContaining({ latitude: expect.any(Number), longitude: expect.any(Number) }));
+    expect(jest.getTimerCount()).toBe(0);
+});
+it("bounds a hung JSON body", async () => {
+    jest.useFakeTimers();
+    providers(() => ({ ok: true, json: () => new Promise(() => {}) }) as Response);
+    const result = fetchCoordinates(cases[1].input);
+    await jest.advanceTimersByTimeAsync(20000);
+    expect(await result).toEqual(expect.objectContaining({ latitude: expect.any(Number), longitude: expect.any(Number) }));
+});
+it("handles the existing no-number/CEP lookup format", async () => {
+    providers(() => reply([]));
+    const city = cities.find(([name]) => name === "Lavrinhas")!;
+    expect(await fetchCoordinates("Rua das Araras, Jardim Mavisou, Lavrinhas - SP, Brasil")).toEqual({ latitude: city[2], longitude: city[3] });
+});
+it("has an offline fallback even for unknown cities or empty input", async () => {
+    providers(() => { throw new Error("offline"); });
+    for (const input of ["Rua A, 1, Centro, Cidade Desconhecida - SP, 12345678, Brasil", ""]) {
+        const coords = await fetchCoordinates(input);
+        expect(Number.isFinite(coords.latitude) && Number.isFinite(coords.longitude)).toBe(true);
+    }
+});
+it("ships valid municipal coordinates and disambiguates same-name cities by state", async () => {
+    expect(cities.length).toBeGreaterThan(5500);
+    expect(states).toHaveLength(27);
+    for (const [, uf, lat, lon] of cities) {
+        expect(states.some(([state]) => state === uf)).toBe(true);
+        expect(lat).toBeGreaterThan(-34); expect(lat).toBeLessThan(6);
+        expect(lon).toBeGreaterThan(-74); expect(lon).toBeLessThan(-28);
+    }
+    providers(() => reply([]));
+    for (const uf of ["SP", "RS"]) {
+        const reference = cities.find(([name, state]) => name === "Santa Maria" && state === uf);
+        if (reference) expect(await fetchCoordinates(`Rua A, 1, Centro, Santa Maria - ${uf}, 12345678, Brasil`)).toEqual({ latitude: reference[2], longitude: reference[3] });
+    }
+});
+it("bounds CEP lookups used by neighborhood delivery too", async () => {
+    jest.useFakeTimers();
+    providers(() => new Promise<Response>(() => {}));
+    const result = fetchAddressByCEP("12760142");
+    await jest.advanceTimersByTimeAsync(4000);
+    expect(await result).toBeNull();
+});
+
+// Actual ArcGIS responses observed 2026-11-04, rather than idealized score-100 fixtures.
+it("accepts the reported Novo Hamburgo interpolated address despite its differing postal code", async () => {
+    arcgisOnly([{ score: 99.41, attributes: { Addr_type: "StreetAddress", AddNum: "90", StName: "Otávio Alves Ourique", City: "Novo Hamburgo", RegionAbbr: "RS", Postal: "93544-425" }, location: { y: -29.695852764794, x: -51.085343282747 } }]);
+    expect(await fetchCoordinates(cases[0].input)).toEqual({ latitude: -29.695852764794, longitude: -51.085343282747 });
+});
+it("accepts the actual 89.15-score Araras street result", async () => {
+    arcgisOnly([{ score: 89.15, attributes: { Addr_type: "StreetName", AddNum: "", StName: "Araras", City: "Lavrinhas", RegionAbbr: "SP", Postal: "12760-000" }, location: { y: -22.554403197457, x: -44.92227705416 } }]);
+    expect(await fetchCoordinates(cases[2].input)).toEqual({ latitude: -22.554403197457, longitude: -44.92227705416 });
+});
+it("retains the actual Lucas Carneiro postal candidate when finer references are unavailable", async () => {
+    arcgisOnly([{ score: 81.25, attributes: { Addr_type: "Postal", StName: "", City: "Lavrinhas", RegionAbbr: "SP", Postal: "12760" }, location: { y: -22.5636654, x: -44.9246267 } }]);
+    expect(await fetchCoordinates(cases[1].input)).toEqual({ latitude: -22.5636654, longitude: -44.9246267 });
+});
+it("does not replace an exact address with a higher-score street", async () => {
+    arcgisOnly([candidate(cases[0], "StreetName"), { ...candidate(), score: 97, location: { y: -29.69, x: -51.13 } }]);
+    expect(await fetchCoordinates(cases[0].input)).toEqual({ latitude: -29.69, longitude: -51.13 });
 });
