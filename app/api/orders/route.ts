@@ -294,6 +294,9 @@ export async function POST(request: Request) {
 
         if (panel_order === true) {
             await requireRestaurantOwner(request, restaurantId);
+            if (!["entrega", "retirada", "balcao", "mesa"].includes(is_delivery)) {
+                throw new OrderRequestError("Selecione um destino válido para o pedido.");
+            }
         }
 
         if (stockCheckOnly) {

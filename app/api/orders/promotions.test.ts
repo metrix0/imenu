@@ -178,7 +178,22 @@ it("allows an unscheduled manual order for the authenticated restaurant owner", 
   expect(response.status).toBe(200);
   expect(requireRestaurantOwner).toHaveBeenCalledWith(expect.any(Request), restaurantId);
   expect(insert).not.toBeNull();
+  expect(saved()[11]).toBe("entrega");
 });
+
+it.each([undefined, null, "invalido"])(
+  "rejects a manual order with an invalid destination (%s)",
+  async (is_delivery) => {
+    const response = await send(
+      { panel_order: true, is_delivery },
+      { Authorization: "Bearer owner-token" },
+    );
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toMatch(/destino válido/);
+    expect(insert).toBeNull();
+    expect(writes).toEqual([]);
+  },
+);
 
 it("rejects a manual-order flag without owner authentication", async () => {
   enablePreorders();

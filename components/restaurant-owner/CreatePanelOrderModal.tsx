@@ -635,7 +635,7 @@ export default function CreatePanelOrderModal({
                 paymentMethod: selectedTable
                     ? undefined
                     : paymentMethod || "dinheiro",
-                is_delivery: selectedTable ? "mesa" : isCounterOrder ? "balcao" : editingOrder && originalDeliveryType !== "mesa" && originalDeliveryType !== "balcao" ? originalDeliveryType : undefined,
+                is_delivery: selectedTable ? "mesa" : isCounterOrder ? "balcao" : editingOrder && originalDeliveryType === "retirada" ? "retirada" : "entrega",
                 table_id: selectedTable?.id,
                 table_token: selectedTable?.public_token,
                 coupon_discount_cents: 0,
@@ -951,7 +951,7 @@ export default function CreatePanelOrderModal({
                                                         className="w-full appearance-none rounded-xl border border-gray-200 bg-white px-4 py-3 pr-10 text-gray-700 outline-none transition hover:border-gray-300 focus:border-brand focus:ring-2 focus:ring-brand/10"
                                                     >
                                                         <option value="balcao">Balcão</option>
-                                                        <option value="">Entrega / retirada</option>
+                                                        <option value="">{editingOrder && originalDeliveryType === "retirada" ? "Retirada" : "Entrega"}</option>
                                                         {tables.map((table) => (
                                                             <option key={table.id} value={table.id}>
                                                                 {table.name}
