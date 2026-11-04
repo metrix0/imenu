@@ -40,24 +40,9 @@ import {
 import type { Action, Data } from "@/lib/ia-vendas/types";
 import { IA_PLUS_FEATURE_MESSAGE } from "@/lib/addons/products";
 import { isPanelTabKey, type PanelTabKey } from "@/lib/ia-vendas/panelTabs";
-import { SupportWhatsappBadge } from "@/components/common/SupportButton";
+import ErrorNoticeContent from "@/components/restaurant-owner/ia-vendas/ErrorNoticeContent";
 import { capturePosthogLightweight } from "@/lib/api/instrumentation-client";
 import { formatAiResetAt } from "@/lib/ia-vendas/usageReset";
-
-const IA_CAPACITY_SUPPORT_SUFFIX =
-  "Caso precise de mais limite ou ajuda, entre em contato com o suporte.";
-
-function ErrorNoticeContent({ message }: { message: string }) {
-  if (!message.endsWith(IA_CAPACITY_SUPPORT_SUFFIX)) return <>{message}</>;
-
-  const main = message.slice(0, -IA_CAPACITY_SUPPORT_SUFFIX.length).trim();
-  return (
-    <span className="flex flex-col items-start gap-2">
-      <span>{main} {IA_CAPACITY_SUPPORT_SUFFIX}</span>
-      <SupportWhatsappBadge />
-    </span>
-  );
-}
 
 type MessagePart =
   | { type: "text"; content: string }
@@ -653,7 +638,7 @@ export default function SalesPage() {
               role="alert"
               className="mx-4 mb-2 flex items-start justify-between gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700"
             >
-              <ErrorNoticeContent message={localError || sales.error || ""} />
+              <ErrorNoticeContent message={localError || sales.error || ""} onBuyCredits={() => setModal("buy_tokens")} />
               <button
                 aria-label="Fechar aviso"
                 className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-[8px] transition-colors hover:bg-red-100"
@@ -1102,7 +1087,7 @@ export default function SalesPage() {
         <div className="p-5 md:p-6">
           {modal === "buy_tokens" && (
             <>
-              <h2 className="text-xl font-semibold">Comprar mais tokens</h2>
+              <h2 className="text-xl font-semibold">Comprar mais créditos</h2>
               <p className="mt-3 text-sm text-gray-600">A compra de tokens adicionais estará disponível em breve.</p>
               <div className="mt-5 flex justify-end">
                 <Button variant="secondary" onClick={() => setModal(null)}>Fechar</Button>

@@ -57,7 +57,7 @@ export function IaPlusLimitMessage({ onCheckout, onBuyTokens, resetAt }: {
     <IaPlusDetails />
     <div className="mt-5 flex flex-wrap gap-2">
       <Button onClick={onCheckout}>Assinar iMenu Plus</Button>
-      <Button variant="secondary" onClick={onBuyTokens}>Comprar mais tokens</Button>
+      <Button variant="secondary" onClick={onBuyTokens}>Comprar mais créditos</Button>
     </div>
   </article>;
 }

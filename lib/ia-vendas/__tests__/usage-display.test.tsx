@@ -44,7 +44,7 @@ test('info icon comes after percent; exact numbers stay inside info tooltip', ()
 test('100% Plus usage shows exact reset and buy-more button, without upsell CTA', () => {
  const html=renderToStaticMarkup(<AiUsage access={access(true,100,93)} onBuyTokens={() => {}} />);
  expect(html).toContain('Limites serão reiniciados em 30/11 às 21:00.');
- expect(html).toContain('Comprar mais tokens');
+ expect(html).toContain('Comprar mais créditos');
  expect(html).not.toContain('Assinar iMenu Plus');
  expect(html.indexOf('Limites serão reiniciados')).toBeLessThan(html.indexOf('aria-label="Limite"'));
 });
@@ -52,7 +52,7 @@ test('free usage only appears near its cap and shows the rolling reset', () => {
  const html=renderToStaticMarkup(<AiUsage access={access(false,100,0)} onBuyTokens={() => {}} />);
  expect(html).toContain('Uso gratuito de IA');
  expect(html).toContain('Limites serão reiniciados em');
- expect(html).toContain('Comprar mais tokens');
+ expect(html).toContain('Comprar mais créditos');
 });
 test('reset formatting is timezone-aware and invalid dates are omitted', () => {
  expect(formatAiResetAt(resetAt)).toBe('30/11 às 21:00');
