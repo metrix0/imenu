@@ -58,6 +58,22 @@ it("keeps quantities across multiple groups and enforces target limits", () => {
     target.subcategories[1].max_select = 1;
     expect(() => pricePizza([base, target], [...choice, extras], "average")).toThrow("Extras");
 });
+it("enforces optional maximum per option while leaving unlimited groups unchanged", () => {
+    const base = structuredClone(first), target = structuredClone(second);
+    for (const item of [base, target]) item.subcategories.push({
+        ...group(`${item.id}-extra`, 100),
+        name: "Extras",
+        min_select: 0,
+        max_select: 6,
+        max_per_option: 2,
+        allow_multiple_units: true,
+    });
+    const extra = { subcategoryId: "Portuguesa-extra-size", subcategoryName: "Extras", subitemId: "Portuguesa-extra-large", subitemName: "Grande", price_cents: 100, quantity: 2 };
+    expect(pricePizza([base, target], [...choice, extra], "average").unit_price_cents).toBeGreaterThan(0);
+    expect(() => pricePizza([base, target], [...choice, { ...extra, quantity: 3 }], "average")).toThrow("Quantidade");
+    for (const item of [base, target]) item.subcategories[1].max_per_option = null;
+    expect(pricePizza([base, target], [...choice, { ...extra, quantity: 3 }], "average").unit_price_cents).toBeGreaterThan(0);
+});
 it("validates mandatory groups, duplicate selections and unavailable flavors", () => {
     expect(() => pricePizza([first, second], [], "average")).toThrow("Tamanho");
     expect(() => pricePizza([first, second], [...choice, ...choice], "average")).toThrow("Quantidade");

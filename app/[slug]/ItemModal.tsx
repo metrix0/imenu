@@ -198,7 +198,8 @@ export default function ItemModal({
             const currentQuantity = group[si.id] || 0;
             const currentGroupCount = getQuantityGroupCount(group);
 
-            if (delta > 0 && sc.max_select > 0 && currentGroupCount >= sc.max_select) {
+            if (delta > 0 && ((sc.max_select > 0 && currentGroupCount >= sc.max_select) ||
+                (sc.max_per_option != null && currentQuantity >= sc.max_per_option))) {
                 return prev;
             }
 
@@ -526,7 +527,7 @@ export default function ItemModal({
                                                         <button
                                                             type="button"
                                                             aria-label={`Adicionar ${si.name}`}
-                                                            disabled={quantityLimitReached}
+                                                            disabled={quantityLimitReached || (sc.max_per_option != null && quantity >= sc.max_per_option)}
                                                             onClick={() => {
                                                                 changeSubitemQuantity(sc, si, 1);
                                                                 if (sc.max_select > 0 && quantityGroupCount + 1 === sc.max_select) {
@@ -551,7 +552,7 @@ export default function ItemModal({
                                                             <button
                                                                 type="button"
                                                                 aria-label={`Adicionar ${si.name}`}
-                                                                disabled={quantityLimitReached}
+                                                                disabled={quantityLimitReached || (sc.max_per_option != null && quantity >= sc.max_per_option)}
                                                                 onClick={() => {
                                                                     changeSubitemQuantity(sc, si, 1);
                                                                     if (sc.max_select > 0 && quantityGroupCount + 1 === sc.max_select) {

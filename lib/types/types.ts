@@ -80,6 +80,7 @@ export type Subcategory = {
     description: string | null;
     min_select: number;
     max_select: number;
+    max_per_option?: number | null;
     allow_multiple_units: boolean;
     position: number;
     subitems: Subitem[];

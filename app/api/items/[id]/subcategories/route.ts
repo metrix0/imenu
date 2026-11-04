@@ -24,6 +24,7 @@ export async function GET(
         description,
         min_select,
         max_select,
+        max_per_option,
         allow_multiple_units,
         position,
         subitems:subitems (

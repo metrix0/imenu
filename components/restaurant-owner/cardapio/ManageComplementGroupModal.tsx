@@ -41,6 +41,7 @@ export type SharedComplementGroup = {
     description: string | null;
     min_select: number;
     max_select: number;
+    max_per_option: number | null;
     allow_multiple_units: boolean;
     options: SharedComplementOption[];
 };
@@ -218,7 +219,7 @@ export default function ManageComplementGroupModal({
         updates: Partial<
             Pick<
                 SharedComplementGroup,
-                "name" | "min_select" | "max_select" | "allow_multiple_units"
+                "name" | "min_select" | "max_select" | "max_per_option" | "allow_multiple_units"
             >
         >
     ) => {
@@ -662,6 +663,35 @@ export default function ManageComplementGroupModal({
                                         </span>
                                     </Tooltip>
                                 </div>
+                                {draft.allow_multiple_units === true && (
+                                    <label className="flex items-center gap-2">
+                                        <span>Máximo por opção:</span>
+                                        <Input inline
+                                            aria-label="Máximo por opção"
+                                            type="number"
+                                            min={1}
+                                            max={99}
+                                            placeholder="Sem limite"
+                                            value={draft.max_per_option ?? ""}
+                                            disabled={isSaving}
+                                            onChange={(event) => {
+                                                const value = event.target.value;
+                                                setDraft({
+                                                    ...draft,
+                                                    max_per_option: value === "" ? null : Math.max(1, Math.min(99, Number.parseInt(value, 10) || 1)),
+                                                });
+                                            }}
+                                            onBlur={(event) => {
+                                                const value = event.currentTarget.value;
+                                                const max_per_option = value === "" ? null : Math.max(1, Math.min(99, Number.parseInt(value, 10) || 1));
+                                                if (max_per_option !== savedGroupRef.current?.max_per_option) {
+                                                    void updateGroup({ max_per_option });
+                                                }
+                                            }}
+                                            className="w-24 rounded border border-gray-300 p-1 text-center text-sm disabled:opacity-60 2xl:text-base"
+                                        />
+                                    </label>
+                                )}
                             </div>
                         </div>
 

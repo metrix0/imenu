@@ -1063,6 +1063,32 @@ export async function POST(request: Request) {
                         const isRewardItem =
                             rewardItem === cartItem;
 
+                        // This optional cap does not change existing unlimited groups.
+                        const quantitiesByOption = new Map<string, number>();
+                        for (const selected of selectedSubitems) {
+                            const id = String(selected?.subitemId || "");
+                            if (!id) continue;
+                            const quantity = isRewardItem ? 1 : Math.max(
+                                1, Math.min(99, Math.round(Number(selected?.quantity) || 1))
+                            );
+                            quantitiesByOption.set(id, (quantitiesByOption.get(id) || 0) + quantity);
+                        }
+                        if (quantitiesByOption.size) {
+                            const capped = await client.query(
+                                `SELECT s.id, g.max_per_option
+                                 FROM subitems s
+                                 JOIN item_subcategories g ON g.id = s.item_subcategory_id
+                                 WHERE s.id = ANY($1::uuid[]) AND g.item_id = $2
+                                   AND g.allow_multiple_units = true AND g.max_per_option IS NOT NULL`,
+                                [[...quantitiesByOption.keys()], itemId]
+                            );
+                            for (const option of capped.rows) {
+                                if ((quantitiesByOption.get(String(option.id)) || 0) > Number(option.max_per_option)) {
+                                    throw new OrderRequestError("Você selecionou mais unidades de um complemento do que o permitido. Atualize as escolhas.");
+                                }
+                            }
+                        }
+
                         const orderItemResult =
                             await client.query(
                                 `
