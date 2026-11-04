@@ -25,7 +25,7 @@ let version = 0;
 let usageVersion = 0;
 type State = {
   access: { plus: boolean; free_applications_remaining: number | null; tokens_remaining: number | null; images_remaining: number | null } | null;
-  usageAccess: { restaurant_id: string; access: Awaited<ReturnType<typeof aiAccess>> } | null;
+  usageAccess: { restaurant_id: string; access: Awaited<ReturnType<typeof aiAccess>>; latest_analysis_finished_at: string | null } | null;
   refreshUsage: (restaurant: string) => Promise<void>;
   upgradeRequired: boolean;
   clearUpgrade: () => void;
@@ -67,7 +67,7 @@ export const useSalesStore = create<State>((set, get) => ({
     const request = ++usageVersion;
     try {
       const data = await api(`/api/ia-vendas?usage_only=1&restaurant_id=${encodeURIComponent(restaurant)}`);
-      if (request === usageVersion) set({ usageAccess: { restaurant_id: restaurant, access: data.access } });
+      if (request === usageVersion) set({ usageAccess: { restaurant_id: restaurant, access: data.access, latest_analysis_finished_at: data.latest_analysis_finished_at ?? null } });
     } catch { /* Preserve the last known usage on transient network failures. */ }
   },
   upgradeRequired: false,
@@ -125,7 +125,7 @@ export const useSalesStore = create<State>((set, get) => ({
         usageVersion += 1;
         set({
           ...data,
-          usageAccess: { restaurant_id: data.restaurant_id, access: data.access },
+          usageAccess: { restaurant_id: data.restaurant_id, access: data.access, latest_analysis_finished_at: data.latest_analysis_finished_at ?? null },
           messages: older
             ? [...data.messages, ...previous.messages]
             : data.messages,

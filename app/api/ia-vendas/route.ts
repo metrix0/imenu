@@ -14,6 +14,13 @@ import { imageUrl } from "@/lib/ia-vendas/data";
 import { LIMITS } from "@/lib/ia-vendas/config";
 export const runtime = "nodejs";
 export const maxDuration = 300;
+async function latestCompletedAnalysisAt(restaurant: string): Promise<string | null> {
+  const result = await query<{ finished_at: string }>(
+    "SELECT finished_at FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND kind='analysis' AND status='completed' AND finished_at IS NOT NULL AND result->>'detached_at' IS NULL AND result->'report'->>'status'='complete' ORDER BY finished_at DESC LIMIT 1",
+    [restaurant],
+  );
+  return result.rows[0]?.finished_at || null;
+}
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url),
@@ -21,8 +28,13 @@ export async function GET(request: Request) {
         request,
         url.searchParams.get("restaurant_id"),
       );
-    if (url.searchParams.get("usage_only") === "1")
-      return Response.json({ access: await aiAccess(restaurant) }, { headers: { "Cache-Control": "no-store" } });
+    if (url.searchParams.get("usage_only") === "1") {
+      const [access, latest_analysis_finished_at] = await Promise.all([
+        aiAccess(restaurant),
+        latestCompletedAnalysisAt(restaurant),
+      ]);
+      return Response.json({ access, latest_analysis_finished_at }, { headers: { "Cache-Control": "no-store" } });
+    }
     await query(
       "INSERT INTO public.ia_vendas_conversations (restaurant_id,kind,title) VALUES ($1,'analysis','Análise') ON CONFLICT(restaurant_id) WHERE kind='analysis' DO NOTHING",
       [restaurant],
@@ -164,6 +176,7 @@ export async function GET(request: Request) {
     });
     const access = await aiAccess(restaurant);
     const visibleAnalyses = access.plus ? hydratedAnalyses : hydratedAnalyses.map(analysisPreview);
+    const latest_analysis_finished_at = await latestCompletedAnalysisAt(restaurant);
     const visibleIds = new Set(visibleAnalyses.flatMap(a => [...(a.result?.report?.opportunities || []), ...(a.result?.report?.review_items || [])].flatMap(o => o.action_ids || [])));
     return Response.json(
       {
@@ -176,6 +189,7 @@ export async function GET(request: Request) {
         actions: analysisConversation && !access.plus ? hydratedActions.filter(a => visibleIds.has(a.id)) : hydratedActions,
         instructions: memory.rows[0]?.instructions || "",
         analysis_available_at: null,
+        latest_analysis_finished_at,
         running: running.rows[0] || null,
         has_more: messages.rows.length > 50,
         references: Object.fromEntries(refs.rows.map((r) => [r.id, r.name])),

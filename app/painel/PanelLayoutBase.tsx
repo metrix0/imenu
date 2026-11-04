@@ -118,6 +118,7 @@ export default function PainelLayout({
     const router = useRouter();
     const restaurantId = useCreationStore(state => state.restaurantId);
     const refreshUsage = useSalesStore(state => state.refreshUsage);
+    const usageAccess = useSalesStore(state => state.usageAccess);
     const supportButtonRef = useRef<SupportButtonRef>(null);
     const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
     const productPageViewRef = useRef<string | null>(null);
@@ -131,9 +132,26 @@ export default function PainelLayout({
     const [isTogglingStore, setIsTogglingStore] = useState(false);
     const [isChecking, setIsChecking] = useState(true);
     const [isPasswordRecoveryFlow, setIsPasswordRecoveryFlow] = useState(false);
+    const [showNewAnalysisDot, setShowNewAnalysisDot] = useState(false);
 
     const base = "/painel";
     const targetRestaurantId = restaurantId || getParamRestaurantId(params);
+    const finishedAnalysisAt = usageAccess?.restaurant_id === targetRestaurantId
+        ? usageAccess.latest_analysis_finished_at
+        : null;
+
+    useEffect(() => {
+        const finished = finishedAnalysisAt ? Date.parse(finishedAnalysisAt) : NaN;
+        const now = Date.now();
+        const remaining = finished + 48 * 60 * 60 * 1000 - now;
+        if (!Number.isFinite(finished) || finished > now || remaining <= 0) {
+            setShowNewAnalysisDot(false);
+            return;
+        }
+        setShowNewAnalysisDot(true);
+        const timeout = window.setTimeout(() => setShowNewAnalysisDot(false), remaining);
+        return () => window.clearTimeout(timeout);
+    }, [finishedAnalysisAt]);
 
     useEffect(() => {
         if (!targetRestaurantId || typeof Notification === "undefined" ||
@@ -689,6 +707,9 @@ export default function PainelLayout({
                                         />
                                     </span>
                                     <span>{item.label}</span>
+                                    {item.href === `${base}/vendas-ia` && finishedAnalysisAt && showNewAnalysisDot && (
+                                        <span role="img" aria-label="Análise pronta" title="Análise pronta" className="ml-auto h-2 w-2 shrink-0 rounded-full bg-brand" />
+                                    )}
                                     {item.isNew && (
                                         <Badge mode="pill" className="ml-auto">Novo</Badge>
                                     )}
@@ -810,7 +831,7 @@ export default function PainelLayout({
                                     key={item.href}
                                     href={item.href}
                                     onClick={() => trackPanelTabOpen(item)}
-                                    title={!expanded ? item.label : ""}
+                                    title={!expanded ? (item.href === `${base}/vendas-ia` && finishedAnalysisAt && showNewAnalysisDot ? "Vendas IA — análise pronta" : item.label) : ""}
                                     aria-current={active ? "page" : undefined}
                                     style={{ outlineColor: "#d93d00" }}
                                     className={`panel-nav-link group relative flex cursor-pointer items-center transition-colors duration-200 ${item.isNew && expanded ? "!gap-1.5" : ""}`}
@@ -830,6 +851,9 @@ export default function PainelLayout({
                                                 className="absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full bg-brand 2xl:bottom-1 2xl:right-1"
                                             />
                                         )}
+                                        {item.href === `${base}/vendas-ia` && finishedAnalysisAt && showNewAnalysisDot && !expanded && (
+                                            <span role="img" aria-label="Análise pronta" className="absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full bg-brand 2xl:bottom-1 2xl:right-1" />
+                                        )}
                                     </div>
                                     <span
                                         className={`overflow-hidden whitespace-nowrap text-sm transition-[width,opacity] duration-300 2xl:text-lg ${
@@ -842,6 +866,9 @@ export default function PainelLayout({
                                     </span>
                                     {item.isNew && expanded && (
                                         <Badge mode="pill" className="ml-auto">Novo</Badge>
+                                    )}
+                                    {item.href === `${base}/vendas-ia` && finishedAnalysisAt && showNewAnalysisDot && expanded && (
+                                        <span role="img" aria-label="Análise pronta" title="Análise pronta" className="ml-auto h-2 w-2 shrink-0 rounded-full bg-brand" />
                                     )}
                                 </Link>
                             );
