@@ -52,8 +52,8 @@ test("POST recalculates quote and ignores client-side price fields", async () =>
   const body = await response.json();
   expect(body.priceCents).toBeGreaterThan(0);
   expect(body.quote.outputTokens).toBe(60_000);
-  expect(body.priceCents).toBeGreaterThan(0);
-  expect(body.quote.totalUsd).toBeGreaterThan(0);
+  expect(body.priceCents).toBe(200); // (US$ 0,20 + 0,072 + 0,06) * ceil(5,5 + 0,5)
+  expect(body.quote.totalUsd).toBeCloseTo(0.332);
 });
 
 test("POST rejects tampered or empty selections without payment", async () => {

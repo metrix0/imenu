@@ -8,15 +8,13 @@ export type CreditRates = {
   maxInputTokens: number;
   maxImages: number;
   maxOutputTokens?: number;
-  /** Existing output tokens the recharge can reuse without buying twice. */
-  availableOutputTokens?: number;
   inputStep: number;
 };
 
 export type CreditQuote = {
   inputTokens: number;
   outputTokens: number;
-  /** Total output supported by the selected input (existing + newly added). */
+  /** Output purchased alongside selected input at the configured ratio. */
   outputAllowanceTokens: number;
   images: number;
   inputUsd: number;
@@ -43,8 +41,8 @@ export function calculateCreditQuote(
   }
 
   const outputAllowanceTokens = Math.round(inputTokens * rates.outputRatio);
-  // Reuse output still available in the plan. Only sell the missing credits.
-  const outputTokens = Math.max(0, outputAllowanceTokens - (rates.availableOutputTokens ?? 0));
+  // Each recharge purchases its full output allocation, regardless of unused plan output.
+  const outputTokens = outputAllowanceTokens;
   if (outputTokens > (rates.maxOutputTokens ?? Number.MAX_SAFE_INTEGER)) {
     throw new Error("Quantidade de créditos inválida.");
   }
@@ -63,11 +61,12 @@ export function calculateCreditQuote(
   };
 }
 
-/** Charge at least R$ 0,50 above the converted cost; round only to the next cent. */
+/** Round the USD/BRL exchange rate up by at least R$ 0,50, then round the total up to cents. */
 export function convertCreditCostToBrlCents(totalUsd: number, usdBrlRate: number): number {
   if (!Number.isFinite(totalUsd) || totalUsd < 0 || !Number.isFinite(usdBrlRate) || usdBrlRate <= 0) {
     throw new Error("Cotação indisponível.");
   }
   if (totalUsd === 0) return 0;
-  return Math.ceil((totalUsd * usdBrlRate + 0.50) * 100 - 1e-8);
+  const billingUsdBrlRate = Math.ceil(usdBrlRate + 0.50);
+  return Math.ceil(totalUsd * billingUsdBrlRate * 100 - 1e-8);
 }
