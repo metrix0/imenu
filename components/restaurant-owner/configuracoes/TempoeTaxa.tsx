@@ -1,5 +1,6 @@
 "use client";
 import SaveStatus from "@/components/ui/SaveStatus";
+import ChoiceCardGroup from "@/components/ui/ChoiceCardGroup";
 
 import {
     forwardRef,
@@ -10,8 +11,6 @@ import {
 } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
-    faLocationDot,
-    faRoute,
     faTrash,
     faTriangleExclamation,
 } from "@fortawesome/free-solid-svg-icons";
@@ -283,37 +282,29 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
 
         return (
             <div className="mx-auto max-w-2xl 2xl:max-w-3xl">
-                <div className="mb-5 rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
-                    <div className="grid grid-cols-2 gap-1" role="group" aria-label="Tipo de entrega">
-                        <button
-                            type="button"
-                            data-ui="choice" aria-pressed={mode === "radius"}
-                            onClick={() => changeMode("radius")}
-                            className={`flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-all duration-200 2xl:text-base ${
-                                mode === "radius"
-                                    ? "bg-brand text-white shadow-sm"
-                                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                            }`}
-                        >
-                            <FontAwesomeIcon icon={faRoute} />
-                            <span className="flex flex-col items-center gap-0.5 sm:flex-row sm:gap-2">
-                                <span>Entrega por KM</span>
-                            </span>
-                        </button>
-                        <button
-                            type="button"
-                            data-ui="choice" aria-pressed={mode === "neighborhood"}
-                            onClick={() => changeMode("neighborhood")}
-                            className={`flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-all duration-200 2xl:text-base ${
-                                mode === "neighborhood"
-                                    ? "bg-brand text-white shadow-sm"
-                                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                            }`}
-                        >
-                            <FontAwesomeIcon icon={faLocationDot} />
-                            Entrega por Bairro
-                        </button>
+                <div className="mb-5">
+                    <div className="mb-3">
+                        <h2 className="text-xl font-medium text-gray-900">Como calcular a taxa de entrega?</h2>
+                        <p className="mt-1 text-sm text-gray-500">Escolha um método. Apenas a opção selecionada será utilizada.</p>
                     </div>
+                    <ChoiceCardGroup
+                        value={mode}
+                        onChange={changeMode}
+                        className="sm:grid-cols-2"
+                        aria-label="Método de cálculo da taxa de entrega"
+                        options={[
+                            {
+                                value: "radius",
+                                label: "Entrega por KM",
+                                description: "A taxa depende da distância até o cliente.",
+                            },
+                            {
+                                value: "neighborhood",
+                                label: "Entrega por Bairro",
+                                description: "Defina a taxa e o prazo de cada bairro.",
+                            },
+                        ]}
+                    />
                 </div>
 
                 <div
