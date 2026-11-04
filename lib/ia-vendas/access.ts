@@ -3,6 +3,7 @@ import { query } from "@/lib/database/sql";
 import { hasIMenuPlusAccess } from "@/lib/addons/access";
 import { SalesError } from "./types";
 import { LIMITS } from "./config";
+import { formatAiResetAt } from "./usageReset";
 
 export const FREE_AI_TOKENS = 150_000;
 export const FREE_AI_IMAGES = 3;
@@ -11,12 +12,33 @@ export class IaPlusRequired extends SalesError {
   code = "IA_PLUS_REQUIRED";
   constructor(message = "Continue com o iMenu Plus para usar esta função.") { super(message, 402); }
 }
+export function imageLimitMessage(access: { plus: boolean; images_reset_at?: string | null }) {
+  const reset = formatAiResetAt(access.images_reset_at);
+  return `${access.plus
+    ? `Seu limite mensal de ${LIMITS.images} imagens do iMenu Plus foi atingido.`
+    : "Seu limite semanal de geração de imagens foi atingido."} ${reset
+    ? `Novas imagens disponíveis em ${reset}.`
+    : "Novas imagens estarão disponíveis quando o limite for renovado."} Você pode continuar conversando e usando as outras funções do Assistente IA normalmente. Para ajuda, fale com o suporte pelo WhatsApp: +55 19 99723-5394.`;
+}
 export class IaImageLimitReached extends SalesError {
-  constructor(plus = false) {
-    super(plus
-      ? `Seu limite mensal de ${LIMITS.images} imagens do iMenu Plus foi atingido. Novas gerações estarão disponíveis no próximo mês.`
-      : "Seu limite semanal de geração de imagens foi atingido. Para gerar mais imagens, assine o iMenu Plus. Você ainda pode conversar e realizar outras tarefas pelo Assistente IA.");
+  constructor(plus = false, resetAt: string | null = null) {
+    super(imageLimitMessage({ plus, images_reset_at: resetAt }));
   }
+}
+
+/** Persist a regular assistant message with the existing purchase and support actions. */
+export async function saveImageLimitNotice(restaurant: string, conversation: string) {
+  const access = await aiAccess(restaurant);
+  if (Number(access.images_remaining) > 0) return false;
+  await query(
+    "INSERT INTO public.ia_vendas_messages (restaurant_id,conversation_id,role,content,cards) VALUES ($1,$2,'assistant',$3,$4::jsonb)",
+    [restaurant, conversation, imageLimitMessage(access), JSON.stringify([{ type: "image_limit" }])],
+  );
+  await query(
+    "UPDATE public.ia_vendas_conversations SET updated_at=now() WHERE restaurant_id=$1 AND id=$2",
+    [restaurant, conversation],
+  );
+  return true;
 }
 export async function aiAccess(restaurant: string, client?: Pick<PoolClient, "query">) {
   const execute = (sql: string, params: any[]) => client ? client.query(sql, params) : query(sql, params);

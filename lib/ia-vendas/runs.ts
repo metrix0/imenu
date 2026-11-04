@@ -123,9 +123,9 @@ export async function reserveImage(restaurant: string, run: string) {
     );
     const access = await aiAccess(restaurant, c);
     if (!access.plus && Number(access.images_remaining) <= 0)
-      throw new IaImageLimitReached();
+      throw new IaImageLimitReached(false, access.images_reset_at);
     if (n >= LIMITS.images)
-      throw new IaImageLimitReached(true);
+      throw new IaImageLimitReached(true, access.images_reset_at);
     if (
       !(
         await c.query(

@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { analysisPreview } from "@/lib/ia-vendas/paywall";
-import { aiAccess, requireIaPlus, IaPlusRequired } from "@/lib/ia-vendas/access";
+import { aiAccess, requireIaPlus, IaPlusRequired, IaImageLimitReached, saveImageLimitNotice } from "@/lib/ia-vendas/access";
 import { API_ANALYSIS_ENABLED, analysisConversation } from "@/lib/ia-vendas/analysis";
 import { runChat } from "@/lib/ia-vendas/chat";
 import { query, withTransaction } from "@/lib/database/sql";
@@ -360,6 +360,11 @@ export async function POST(request: Request) {
         results.push({ id, ok: true });
       } catch (e) {
         if (e instanceof IaPlusRequired) throw e;
+        if (e instanceof IaImageLimitReached) {
+          await saveImageLimitNotice(restaurant, a.conversation_id);
+          results.push({ id, ok: false, image_limit_notice: true });
+          continue;
+        }
         results.push({
           id,
           ok: false,

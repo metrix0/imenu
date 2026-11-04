@@ -3,6 +3,7 @@ import {
   FREE_AI_MESSAGE_TOKENS,
   FREE_AI_IMAGES,
   IaImageLimitReached,
+  saveImageLimitNotice,
   requireIaPlus,
   IaPlusRequired,
 } from "./access";
@@ -533,7 +534,10 @@ export async function runChat(args: {
             ));
           } catch (e) {
             if (!(e instanceof SalesError)) throw e;
-            responses.push(e.message);
+            if (e instanceof IaImageLimitReached) {
+              await saveImageLimitNotice(restaurant, conversation);
+              responses.push("Não foi possível gerar imagens. Confira o aviso de limite na conversa.");
+            } else responses.push(e.message);
             cards.push({ type: "action", id });
           }
         }
@@ -928,7 +932,9 @@ export async function runChat(args: {
                 throw new SalesError("Ferramenta desconhecida.");
             }
           } catch (e) {
-            if (e instanceof IaPlusRequired || e instanceof IaImageLimitReached)
+            if (e instanceof IaImageLimitReached && !deep)
+              await saveImageLimitNotice(restaurant, conversation);
+            else if (e instanceof IaPlusRequired || e instanceof IaImageLimitReached)
               throw e;
             toolError = e;
             result = {
@@ -1099,7 +1105,7 @@ export async function runChat(args: {
     ) {
       const id = randomUUID(),
         responseLimit = e instanceof IaResponseLimitReached,
-        messageCards = responseLimit ? cards : [];
+        messageCards = responseLimit ? cards : e instanceof IaImageLimitReached ? [{ type: "image_limit" }] : [];
       await withTransaction(async (c) => {
         await c.query(
           "INSERT INTO public.ia_vendas_messages (id,restaurant_id,conversation_id,role,content,cards) VALUES ($1,$2,$3,'assistant',$4,$5::jsonb)",

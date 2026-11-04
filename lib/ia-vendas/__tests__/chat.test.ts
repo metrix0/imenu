@@ -839,47 +839,42 @@ test("free chat turns an internal response limit into a normal assistant reply w
   expect(finished[3]).toBeUndefined();
 });
 
-test("weekly image exhaustion appears as a saved assistant reply without blocking the chat", async () => {
+test("weekly image exhaustion saves a notice with reset/support while chat stays usable", async () => {
   (args.send as jest.Mock).mockClear();
-  (aiAccess as jest.Mock).mockResolvedValueOnce({ plus: false });
+  (aiAccess as jest.Mock).mockResolvedValueOnce({ plus: false }).mockResolvedValueOnce({
+    plus: false, images_remaining: 0, images_reset_at: "2026-11-10T14:30:00Z",
+  });
   (query as jest.Mock).mockImplementation(async (sql: string) => ({
     rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
       ? [{ kind: "chat", summary: "" }]
-      : sql.includes("RETURNING id")
-        ? [{ id: "user" }]
-        : [],
+      : sql.includes("RETURNING id") ? [{ id: "user" }] : [],
   }));
   create.mockResolvedValueOnce({
     status: "completed",
-    output: [
-      {
-        type: "function_call",
-        name: "image_example",
-        arguments: JSON.stringify({
-          target: "item",
-          item_id: "item",
-          prompt: "Melhorar a foto",
-        }),
-        call_id: "image-limit",
-      },
-    ],
+    output: [{ type: "function_call", name: "image_example", arguments: JSON.stringify({
+      target: "item", item_id: "item", prompt: "Melhorar a foto",
+    }), call_id: "image-limit" }],
     usage: { input_tokens: 1000, output_tokens: 100 },
+  }).mockResolvedValueOnce({
+    status: "completed", output: [],
+    output_text: JSON.stringify({ reply: "Posso continuar ajudando com textos.", summary: "" }),
+    usage: { input_tokens: 100, output_tokens: 20 },
   });
   (previewImage as jest.Mock).mockRejectedValueOnce(new IaImageLimitReached());
 
   await runChat({ ...args, deep: false });
 
-  expect(create).toHaveBeenCalledTimes(1);
+  expect(create).toHaveBeenCalledTimes(2);
   expect(args.send).not.toHaveBeenCalledWith("error", expect.any(Object));
   expect(args.send).toHaveBeenCalledWith("done", expect.any(Object));
+  const notices = (query as jest.Mock).mock.calls.filter(([sql]) =>
+    sql.startsWith("INSERT INTO public.ia_vendas_messages (restaurant_id,conversation_id,role,content,cards)"));
+  expect(notices).toHaveLength(1);
+  expect(notices[0][1][2]).toContain("10/11 às 11:30");
+  expect(notices[0][1][2]).toContain("+55 19 99723-5394");
+  expect(JSON.parse(notices[0][1][3])).toEqual([{ type: "image_limit" }]);
   const finished = (finishRun as jest.Mock).mock.calls.at(-1);
-  expect(finished[2].reply).toContain("Seu limite semanal de geração de imagens foi atingido");
-  expect(finished[2].quota_exempt).toBe(true);
-  expect(finished[3]).toBeUndefined();
-  const insertedReply = (withTransaction as jest.Mock).mock.calls.some(
-    ([fn]) => typeof fn === "function",
-  );
-  expect(insertedReply).toBe(true);
+  expect(finished[2].reply).toBe("Posso continuar ajudando com textos.");
 });
 
 test.each(["Pode aplicar", "Aplicar", "Sim, pode aplicar!", "Pode publicar", "Aplique tudo"])("accepts explicit chat approval: %s", (text) => {

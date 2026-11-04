@@ -42,6 +42,7 @@ import type { Action, Data } from "@/lib/ia-vendas/types";
 import { IA_PLUS_FEATURE_MESSAGE } from "@/lib/addons/products";
 import { isPanelTabKey, type PanelTabKey } from "@/lib/ia-vendas/panelTabs";
 import ErrorNoticeContent, { AssistantQuotaReply } from "@/components/restaurant-owner/ia-vendas/ErrorNoticeContent";
+import { SupportWhatsappBadge } from "@/components/common/SupportButton";
 import { capturePosthogLightweight } from "@/lib/api/instrumentation-client";
 
 type MessagePart =
@@ -592,6 +593,11 @@ export default function SalesPage() {
                         ) : null;
                       if (card.type === "sales_analysis_cta")
                         return <SalesAnalysisSuggestionCard key={i} />;
+                      if (card.type === "image_limit")
+                        return <div key={i} className="mt-3 flex flex-wrap items-center gap-2">
+                          <Button variant="secondary" onClick={() => setModal("buy_tokens")}>Comprar tokens</Button>
+                          <SupportWhatsappBadge />
+                        </div>;
                       return card.type !== "action" ? (
                         <DataCard key={i} card={card} />
                       ) : null;

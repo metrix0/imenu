@@ -257,7 +257,7 @@ export const useSalesStore = create<State>((set, get) => ({
               : current.conversation_id || undefined
             : current.conversation_id || undefined;
       await get().load(current.restaurant_id, nextConversation);
-      const failed = data.results?.filter((r: Data) => !r.ok);
+      const failed = data.results?.filter((r: Data) => !r.ok && !r.image_limit_notice);
       if (failed?.length)
         set({ error: failed.map((r: Data) => r.error).join(" ") });
       return data;
