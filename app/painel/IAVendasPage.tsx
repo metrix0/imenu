@@ -495,6 +495,7 @@ export default function SalesPage() {
                           <AssistantQuotaReply
                             key={`quota-${i}`}
                             message={part.content}
+                            access={sales.access}
                             onBuyCredits={() => setModal("buy_tokens")}
                             onSubscribe={sales.access?.plus ? undefined : () => setPlusModal("checkout")}
                           />
@@ -648,7 +649,7 @@ export default function SalesPage() {
               role="alert"
               className="mx-4 mb-2 flex items-start justify-between gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700"
             >
-              <ErrorNoticeContent message={localError || sales.error || ""} onBuyCredits={() => setModal("buy_tokens")} />
+              <ErrorNoticeContent message={localError || sales.error || ""} access={sales.access} onBuyCredits={() => setModal("buy_tokens")} />
               <button
                 aria-label="Fechar aviso"
                 className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-[8px] transition-colors hover:bg-red-100"

@@ -110,31 +110,49 @@ export async function createCreditPurchasePayment(input: {
   )).rows[0];
 
   if (!purchase) {
-    let pricing;
-    try {
-      pricing = await quoteCreditPurchase(input.inputTokens, input.images);
-    } catch (error) {
-      if (error instanceof Error && error.message.includes("Quantidade")) {
-        throw new SalesError(error.message, 400);
+    purchase = await withTransaction(async (client) => {
+      // Serialize purchases per restaurant so simultaneous Pix checkouts cannot
+      // reserve more credits than the plan's available recharge capacity.
+      await client.query(
+        "SELECT pg_advisory_xact_lock(hashtextextended($1, 19))",
+        [input.restaurantId],
+      );
+      const existing = (await client.query<CreditPurchase>(
+        "SELECT * FROM public.ia_vendas_credit_purchases WHERE restaurant_id=$1 AND client_request_id=$2 LIMIT 1",
+        [input.restaurantId, input.requestId],
+      )).rows[0];
+      if (existing) return existing;
+
+      let pricing;
+      try {
+        pricing = await quoteCreditPurchase(
+          input.inputTokens, input.images, input.restaurantId, client,
+        );
+      } catch (error) {
+        if (error instanceof Error && error.message.includes("Quantidade")) {
+          throw new SalesError(error.message, 400);
+        }
+        throw error;
       }
-      throw error;
-    }
-    if (!pricing.quote.inputTokens && !pricing.quote.images)
-      throw new SalesError("Selecione tokens ou imagens.", 400);
-    if (pricing.priceCents !== input.priceCents)
-      throw new SalesError("O preço foi atualizado. Revise o valor antes de pagar.", 409);
-    await query(
-      `INSERT INTO public.ia_vendas_credit_purchases
-         (restaurant_id,client_request_id,input_tokens,output_tokens,image_count,price_cents,usd_brl_rate)
-       VALUES ($1,$2,$3,$4,$5,$6,$7)
-       ON CONFLICT (restaurant_id,client_request_id) DO NOTHING`,
-      [input.restaurantId, input.requestId, pricing.quote.inputTokens, pricing.quote.outputTokens,
-       pricing.quote.images, pricing.priceCents, pricing.rate],
-    );
-    purchase = (await query<CreditPurchase>(
-      "SELECT * FROM public.ia_vendas_credit_purchases WHERE restaurant_id=$1 AND client_request_id=$2 LIMIT 1",
-      [input.restaurantId, input.requestId],
-    )).rows[0];
+      if (!pricing.quote.inputTokens && !pricing.quote.images) {
+        throw new SalesError("Selecione tokens ou imagens.", 400);
+      }
+      if (pricing.priceCents !== input.priceCents) {
+        throw new SalesError("O preço foi atualizado. Revise o valor antes de pagar.", 409);
+      }
+      const inserted = await client.query<CreditPurchase>(
+        `INSERT INTO public.ia_vendas_credit_purchases
+           (restaurant_id,client_request_id,input_tokens,output_tokens,image_count,price_cents,usd_brl_rate)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)
+         RETURNING *`,
+        [
+          input.restaurantId, input.requestId, pricing.quote.inputTokens,
+          pricing.quote.outputTokens, pricing.quote.images,
+          pricing.priceCents, pricing.rate,
+        ],
+      );
+      return inserted.rows[0];
+    });
   }
 
   if (!purchase ||

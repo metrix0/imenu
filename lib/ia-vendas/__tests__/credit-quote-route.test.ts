@@ -1,6 +1,6 @@
 import { GET, POST } from "@/app/api/ia-vendas/credits/quote/route";
 import { authorize } from "@/lib/ia-vendas/http";
-import { getUsdBrlRate } from "@/lib/ia-vendas/creditPricing";
+
 
 jest.mock("@/lib/ia-vendas/http", () => ({
   authorize: jest.fn().mockResolvedValue("restaurant-id"),
@@ -13,9 +13,12 @@ jest.mock("@/lib/ia-vendas/creditPricing", () => {
   return {
     ...actual,
     getUsdBrlRate: jest.fn().mockResolvedValue(5.5),
+    getAvailableCreditRechargeRates: jest.fn(async () => ({
+      ...actual.getCreditRates(), maxOutputTokens: 120_000,
+    })),
     quoteCreditPurchase: jest.fn(async (input: number, images: number) => {
       const { calculateCreditQuote, convertCreditCostToBrlCents } = require("@/lib/ia-vendas/creditMath");
-      const rates = actual.getCreditRates();
+      const rates = { ...actual.getCreditRates(), maxOutputTokens: 120_000 };
       const quote = calculateCreditQuote(rates, input, images);
       return { rates, quote, rate: 5.5, priceCents: convertCreditCostToBrlCents(quote.totalUsd, 5.5) };
     }),
@@ -29,6 +32,7 @@ test("GET supplies server-configured rates without offering payment", async () =
   const body = await response.json();
   expect(body.rate).toBe(5.5);
   expect(body.rates.outputRatio).toBeCloseTo(0.06);
+  expect(body.rates.maxOutputTokens).toBe(120_000);
   expect(authorize).toHaveBeenCalledWith(expect.any(Request), "restaurant-id");
 });
 

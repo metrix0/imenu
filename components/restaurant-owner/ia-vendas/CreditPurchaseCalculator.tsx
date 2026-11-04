@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { faCoins } from "@fortawesome/free-solid-svg-icons";
 import styles from "./CreditPurchaseCalculator.module.css";
 import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
+import ModalFlowStep from "@/components/ui/ModalFlowStep";
 import PaymentCheckout from "@/components/payments/PaymentCheckout";
 import type { PaymentCheckoutInput } from "@/lib/payments/types";
 import { supabase } from "@/lib/database/supabaseClient";
@@ -50,6 +51,7 @@ export default function CreditPurchaseCalculator({
   const [inputTokens, setInputTokens] = useState(1_000_000);
   const [images, setImages] = useState(0);
   const [checkout, setCheckout] = useState(false);
+  const [navigated, setNavigated] = useState(false);
   const [requestId, setRequestId] = useState("");
   const [purchaseId, setPurchaseId] = useState<string | null>(null);
 
@@ -69,7 +71,11 @@ export default function CreditPurchaseCalculator({
         if (!response.ok || !data.rates || !Number.isFinite(data.rate)) {
           throw new Error(data.error || "Não foi possível carregar os preços.");
         }
-        if (active) setPrices({ rates: data.rates, rate: data.rate });
+        if (active) {
+          setInputTokens((current) => Math.min(current, data.rates.maxInputTokens));
+          setImages((current) => Math.min(current, data.rates.maxImages));
+          setPrices({ rates: data.rates, rate: data.rate });
+        }
       } catch (cause) {
         if (active) setError(cause instanceof Error ? cause.message : "Não foi possível carregar os preços.");
       } finally {
@@ -79,9 +85,11 @@ export default function CreditPurchaseCalculator({
     return () => { active = false; };
   }, [restaurantId]);
 
+  const selectedInput = prices ? Math.min(inputTokens, prices.rates.maxInputTokens) : 0;
+  const selectedImages = prices ? Math.min(images, prices.rates.maxImages) : 0;
   const quote = useMemo(
-    () => prices ? calculateCreditQuote(prices.rates, inputTokens, images) : null,
-    [prices, inputTokens, images],
+    () => prices ? calculateCreditQuote(prices.rates, selectedInput, selectedImages) : null,
+    [prices, selectedInput, selectedImages],
   );
   const priceCents = prices && quote ? convertCreditCostToBrlCents(quote.totalUsd, prices.rate) : 0;
   const tokenCents = quote?.totalUsd
@@ -93,14 +101,14 @@ export default function CreditPurchaseCalculator({
     const result = await authenticatedPost("/api/ia-vendas/credits/checkout", {
       restaurant_id: restaurantId,
       requestId,
-      inputTokens,
-      images,
+      inputTokens: selectedInput,
+      images: selectedImages,
       priceCents,
       paymentMethod: "pix",
     });
     setPurchaseId(result.transactionId || null);
     return result;
-  }, [restaurantId, requestId, inputTokens, images, priceCents]);
+  }, [restaurantId, requestId, selectedInput, selectedImages, priceCents]);
 
   const reconcilePayment = useCallback(async () => {
     if (!purchaseId) return { active: false, paymentStatus: "pending" };
@@ -113,8 +121,8 @@ export default function CreditPurchaseCalculator({
     name: "Créditos do Assistente IA",
     periodLabel: "Compra única",
     detail: [
-      inputTokens ? count(inputTokens) + " entrada + " + count(quote?.outputTokens || 0) + " saída" : "",
-      images ? count(images) + " imagens" : "",
+      selectedInput ? count(selectedInput) + " entrada + " + count(quote?.outputTokens || 0) + " saída" : "",
+      selectedImages ? count(selectedImages) + " imagens" : "",
     ].filter(Boolean).join(" · "),
     priceLabel: brl(priceCents),
     icon: faCoins,
@@ -124,24 +132,25 @@ export default function CreditPurchaseCalculator({
     cardNotice: "",
     pixConfirmationDescription: "Os créditos serão liberados após a confirmação.",
     cardConfirmationDescription: "",
-  }), [inputTokens, images, quote?.outputTokens, priceCents]);
+  }), [selectedInput, selectedImages, quote?.outputTokens, priceCents]);
 
-  if (checkout && prices && quote) {
-    return <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <PaymentCheckout
-        key={requestId}
-        product={paymentProduct}
-        pixOnly
-        onBack={() => setCheckout(false)}
-        onClose={onClose}
-        startPayment={startPayment}
-        reconcilePayment={reconcilePayment}
-        onPaid={onPaid}
-      />
-    </div>;
-  }
-
-  return <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white">
+  return <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+    {checkout && prices && quote ? (
+      <ModalFlowStep key="checkout" animate>
+        <PaymentCheckout
+          key={requestId}
+          product={paymentProduct}
+          pixOnly
+          onBack={() => setCheckout(false)}
+          onClose={onClose}
+          startPayment={startPayment}
+          reconcilePayment={reconcilePayment}
+          onPaid={onPaid}
+        />
+      </ModalFlowStep>
+    ) : (
+      <ModalFlowStep key="selection" reverse animate={navigated}>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white">
     <header className="shrink-0 border-b border-[#e2e5e9] px-6 py-5 sm:px-8">
       <h2 className="text-xl font-semibold text-[#1d1d1d]">Recarregar créditos</h2>
     </header>
@@ -159,7 +168,7 @@ export default function CreditPurchaseCalculator({
             <div className="flex items-baseline justify-between gap-3">
               <h3 className="text-base font-semibold text-[#1d1d1d]">Tokens</h3>
               <span className="text-lg font-semibold tabular-nums text-[#1d1d1d]">
-                {count(inputTokens)}
+                {count(selectedInput)}
               </span>
             </div>
             <input
@@ -168,9 +177,10 @@ export default function CreditPurchaseCalculator({
               min={0}
               max={prices.rates.maxInputTokens}
               step={prices.rates.inputStep}
-              value={inputTokens}
+              value={selectedInput}
               onChange={(e) => setInputTokens(Number(e.target.value))}
               className={styles.range}
+              style={{ "--range-progress": `${prices.rates.maxInputTokens ? selectedInput / prices.rates.maxInputTokens * 100 : 0}%` } as CSSProperties}
             />
             <div className="flex items-center justify-between text-xs text-[#626973]">
               <span>0</span><span>{count(prices.rates.maxInputTokens)}</span>
@@ -184,7 +194,7 @@ export default function CreditPurchaseCalculator({
           <section aria-label="Imagens" className="space-y-4">
             <div className="flex items-baseline justify-between gap-3">
               <h3 className="text-base font-semibold text-[#1d1d1d]">Imagens</h3>
-              <span className="text-lg font-semibold tabular-nums text-[#1d1d1d]">{count(images)}</span>
+              <span className="text-lg font-semibold tabular-nums text-[#1d1d1d]">{count(selectedImages)}</span>
             </div>
             <input
               type="range"
@@ -192,9 +202,10 @@ export default function CreditPurchaseCalculator({
               min={0}
               max={prices.rates.maxImages}
               step={1}
-              value={images}
+              value={selectedImages}
               onChange={(e) => setImages(Number(e.target.value))}
               className={styles.range}
+              style={{ "--range-progress": `${prices.rates.maxImages ? selectedImages / prices.rates.maxImages * 100 : 0}%` } as CSSProperties}
             />
             <div className="flex items-center justify-between text-xs text-[#626973]">
               <span>0</span><span>{count(prices.rates.maxImages)}</span>
@@ -222,14 +233,18 @@ export default function CreditPurchaseCalculator({
     <footer className="flex shrink-0 items-center justify-end gap-3 border-t border-[#e2e5e9] bg-white px-6 py-4 sm:px-8">
       <Button variant="secondary" onClick={onClose}>Cancelar</Button>
       <Button
-        disabled={loading || !prices || !quote || !(inputTokens || images)}
+        disabled={loading || !prices || !quote || !(selectedInput || selectedImages)}
         className="min-w-44"
         onClick={() => {
           setRequestId(crypto.randomUUID());
           setPurchaseId(null);
+          setNavigated(true);
           setCheckout(true);
         }}
       >Continuar</Button>
     </footer>
+        </div>
+      </ModalFlowStep>
+    )}
   </div>;
 }

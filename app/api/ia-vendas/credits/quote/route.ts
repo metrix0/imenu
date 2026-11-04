@@ -1,6 +1,6 @@
 import { authorize, failure } from "@/lib/ia-vendas/http";
 
-import { getCreditRates, getUsdBrlRate, quoteCreditPurchase } from "@/lib/ia-vendas/creditPricing";
+import { getCreditRates, getUsdBrlRate, getAvailableCreditRechargeRates, quoteCreditPurchase } from "@/lib/ia-vendas/creditPricing";
 import { SalesError } from "@/lib/ia-vendas/types";
 
 export const runtime = "nodejs";
@@ -14,10 +14,10 @@ function ratesOrUnavailable() {
 
 export async function GET(request: Request) {
   try {
-    await authorize(request, new URL(request.url).searchParams.get("restaurant_id"));
+    const restaurantId = await authorize(request, new URL(request.url).searchParams.get("restaurant_id"));
     const rate = await getUsdBrlRate();
     return Response.json(
-      { rates: ratesOrUnavailable(), rate },
+      { rates: await getAvailableCreditRechargeRates(restaurantId), rate },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
@@ -29,11 +29,11 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    await authorize(request, body.restaurant_id);
+    const restaurantId = await authorize(request, body.restaurant_id);
     ratesOrUnavailable();
     let pricing;
     try {
-      pricing = await quoteCreditPurchase(body.inputTokens, body.images);
+      pricing = await quoteCreditPurchase(body.inputTokens, body.images, restaurantId);
     } catch (error) {
       if (error instanceof Error && error.message.includes("Quantidade")) {
         throw new SalesError(error.message, 400);

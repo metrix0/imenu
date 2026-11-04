@@ -7,6 +7,7 @@ export type CreditRates = {
   outputRatio: number;
   maxInputTokens: number;
   maxImages: number;
+  maxOutputTokens?: number;
   inputStep: number;
 };
 
@@ -37,7 +38,10 @@ export function calculateCreditQuote(
     throw new Error("Quantidade de créditos inválida.");
   }
 
-  const outputTokens = Math.round(inputTokens * rates.outputRatio);
+  const outputTokens = Math.min(
+    Math.round(inputTokens * rates.outputRatio),
+    rates.maxOutputTokens ?? Number.MAX_SAFE_INTEGER,
+  );
   const inputUsd = inputTokens / 1_000_000 * rates.inputUsdPerMillion;
   const outputUsd = outputTokens / 1_000_000 * rates.outputUsdPerMillion;
   const imagesUsd = images * rates.imageUsdEstimate;
@@ -52,11 +56,11 @@ export function calculateCreditQuote(
   };
 }
 
-/** Round upward to the nearest R$ 0,50 (up to R$ 0,49 above converted cost). */
+/** Charge at least R$ 0,50 above the converted cost; round only to the next cent. */
 export function convertCreditCostToBrlCents(totalUsd: number, usdBrlRate: number): number {
   if (!Number.isFinite(totalUsd) || totalUsd < 0 || !Number.isFinite(usdBrlRate) || usdBrlRate <= 0) {
     throw new Error("Cotação indisponível.");
   }
   if (totalUsd === 0) return 0;
-  return Math.ceil((totalUsd * usdBrlRate * 100 - 1e-8) / 50) * 50;
+  return Math.ceil((totalUsd * usdBrlRate + 0.50) * 100 - 1e-8);
 }

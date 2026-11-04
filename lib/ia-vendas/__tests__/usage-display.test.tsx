@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import AiUsage from '@/components/restaurant-owner/ia-vendas/AiUsage';
+import { AssistantQuotaReply } from '@/components/restaurant-owner/ia-vendas/ErrorNoticeContent';
 import { formatAiResetAt } from '../usageReset';
 import type { aiAccess } from '../access';
 import { LIMITS } from '../config';
@@ -59,4 +60,22 @@ test('reset formatting is timezone-aware and invalid dates are omitted', () => {
  expect(formatAiResetAt(resetAt)).toBe('30/11 às 21:00');
  expect(formatAiResetAt(null)).toBeNull();
  expect(formatAiResetAt('not-a-date')).toBeNull();
+});
+
+test('monthly quota notice explains the exact plan limits and current usage', () => {
+ const value = access(true, 100, 93.33333333333333);
+ value.usage!.tokens.output = 29;
+ const html = renderToStaticMarkup(
+   <AssistantQuotaReply
+     message="Limite mensal de IA atingido. Limites serão reiniciados em 30/11 às 21:00."
+     access={value}
+     onBuyCredits={() => {}}
+   />,
+ );
+ expect(html).toContain("Seu plano inclui estes limites mensais.");
+ expect(html).toContain("2.000.000 / 2.000.000");
+ expect(html).toContain("29 / 120.000");
+ expect(html).toContain("70 / 75");
+ expect(html).toContain("30/11 às 21:00");
+ expect(html).toContain("Recarregar créditos");
 });

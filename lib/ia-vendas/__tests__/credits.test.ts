@@ -53,9 +53,10 @@ test("published rates are tied to the configured model and quota ratio", () => {
   }
 });
 
-test("BRL price rounds upward by less than R$ 0,50", () => {
-  expect(convertCreditCostToBrlCents(0.272, 5)).toBe(150);
-  expect(convertCreditCostToBrlCents(0.301, 5)).toBe(200);
+test("BRL prices add at least R$ 0,50 then round up to cents", () => {
+  expect(convertCreditCostToBrlCents(0.272, 5)).toBe(186);
+  expect(convertCreditCostToBrlCents(0.301, 5)).toBe(201);
+  expect(convertCreditCostToBrlCents(1, 5)).toBe(550);
   expect(convertCreditCostToBrlCents(0, 5)).toBe(0);
   expect(() => convertCreditCostToBrlCents(1, 0)).toThrow();
 });

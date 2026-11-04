@@ -1,5 +1,8 @@
 import { LIMITS, MODELS } from "./config";
 import type { CreditRates } from "./creditMath";
+import type { PoolClient } from "pg";
+import { query } from "@/lib/database/sql";
+import { aiAccess } from "./access";
 
 // Rates from https://developers.openai.com/api/docs/pricing (USD, standard API).
 // Keep model prices in one place; an unknown configured model must not show an incorrect price.
@@ -53,9 +56,56 @@ export async function getUsdBrlRate(): Promise<number> {
   return Number(payload.rate);
 }
 
-export async function quoteCreditPurchase(inputTokens: number, images: number) {
+/**
+ * Limits each new purchase to the capacity not already available to the restaurant.
+ * Both included and purchased credits count; pending Pix charges also reserve capacity.
+ * Output tokens never exceed their own headroom, even if input tokens are selected.
+ */
+export async function getAvailableCreditRechargeRates(
+  restaurantId: string,
+  client?: Pick<PoolClient, "query">,
+): Promise<CreditRates> {
   const rates = getCreditRates();
   if (!rates) throw new Error("Preços indisponíveis para o modelo atual.");
+
+  const access = await aiAccess(restaurantId, client);
+  const includedInput = access.plus
+    ? Math.max(0, LIMITS.monthlyChatInput - Number(access.usage?.tokens.input ?? 0))
+    : Math.max(0, Number(access.base_tokens_remaining ?? 0));
+  const includedOutput = access.plus
+    ? Math.max(0, LIMITS.monthlyChatOutput - Number(access.usage?.tokens.output ?? 0))
+    : Math.max(0, Number(access.base_tokens_remaining ?? 0));
+  const includedImages = Math.max(0, Number(access.base_images_remaining ?? 0));
+  const execute = (sql: string, params: unknown[]) =>
+    client ? client.query(sql, params) : query(sql, params);
+  const pending = (await execute(
+    `SELECT coalesce(sum(input_tokens),0)::float input,
+            coalesce(sum(output_tokens),0)::float output,
+            coalesce(sum(image_count),0)::float images
+     FROM public.ia_vendas_credit_purchases
+     WHERE restaurant_id=$1 AND status='pending'`,
+    [restaurantId],
+  )).rows[0];
+
+  const purchased = access.purchased_credits;
+  const availableInput = includedInput + Math.max(0, purchased.input) + Number(pending?.input || 0);
+  const availableOutput = includedOutput + Math.max(0, purchased.output) + Number(pending?.output || 0);
+  const availableImages = includedImages + Math.max(0, purchased.images) + Number(pending?.images || 0);
+  return {
+    ...rates,
+    maxInputTokens: Math.max(
+      0, Math.floor((LIMITS.monthlyChatInput - availableInput) / rates.inputStep) * rates.inputStep,
+    ),
+    maxOutputTokens: Math.max(0, Math.floor(LIMITS.monthlyChatOutput - availableOutput)),
+    maxImages: Math.max(0, Math.floor(LIMITS.images - availableImages)),
+  };
+}
+
+export async function quoteCreditPurchase(
+  inputTokens: number, images: number, restaurantId: string,
+  client?: Pick<PoolClient, "query">,
+) {
+  const rates = await getAvailableCreditRechargeRates(restaurantId, client);
   const { calculateCreditQuote, convertCreditCostToBrlCents } = await import("./creditMath");
   const quote = calculateCreditQuote(rates, inputTokens, images);
   const rate = await getUsdBrlRate();
