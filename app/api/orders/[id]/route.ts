@@ -195,12 +195,43 @@ export async function DELETE(
         await requireRestaurantOwner(request, restaurantId);
 
         await withTransaction(async (client) => {
-            const order = await client.query(
-                "SELECT id FROM public.orders WHERE id = $1 AND restaurant_id = $2 FOR UPDATE",
+            const order = await client.query<{
+                id: string;
+                payment_method: string | null;
+                payment_ref: string | null;
+                first_payout_status: string | null;
+            }>(
+                `
+                SELECT o.id, o.payment_method, o.payment_ref,
+                    (
+                        SELECT p.status
+                        FROM public.payouts p
+                        WHERE p.restaurant_id = o.restaurant_id
+                          AND p.created_at >= GREATEST(o.created_at, COALESCE(o.payment_paid_at, o.created_at))
+                        ORDER BY p.created_at ASC, p.id ASC
+                        LIMIT 1
+                    ) AS first_payout_status
+                FROM public.orders o
+                WHERE o.id = $1 AND o.restaurant_id = $2
+                FOR UPDATE OF o
+                `,
                 [id, restaurantId]
             );
-            if (!order.rowCount) {
+            const lockedOrder = order.rows[0];
+            if (!lockedOrder) {
                 throw new RestaurantOwnerAuthError("Pedido não encontrado.", 404);
+            }
+
+            // The first payout after this payment's eligibility cutoff must be settled.
+            if (
+                lockedOrder.payment_method === "pix" &&
+                lockedOrder.payment_ref &&
+                lockedOrder.first_payout_status !== "paid"
+            ) {
+                throw new RestaurantOwnerAuthError(
+                    "Este pedido não pode ser excluído enquanto o repasse Pix não estiver concluído. Repasses são realizados todos os dias às 12:00.",
+                    409
+                );
             }
 
             await client.query(

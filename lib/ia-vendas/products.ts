@@ -86,7 +86,7 @@ export function presentationItemIds(ctx: Data, actions: Data[]): Set<string> {
 export function validateProductEstimate(ctx: Data, input: Data, actions: Data[]) {
   const affected = presentationItemIds(ctx, actions);
   for (const opportunity of input.opportunities || []) {
-    if (opportunity.kind === "cart_addon") continue;
+    if (!["menu_clarity", "proven_combo_visibility"].includes(opportunity.kind)) continue;
     if (!Array.isArray(opportunity.item_ids) || !opportunity.item_ids.length)
       throw new SalesError("Informe quais produtos entram na melhoria de apresentação ou dos combos.");
     if (opportunity.item_ids.some((id: string) => !affected.has(id)))

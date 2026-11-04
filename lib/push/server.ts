@@ -2,6 +2,9 @@ import { importPKCS8, SignJWT } from "jose";
 
 import { query, withTransaction } from "@/lib/database/sql";
 
+const PUSH_TTL_SECONDS = 600;
+const PUSH_RETRY_DELAYS_MS = [2000, 5000];
+
 type PushPayload = {
     title: string;
     body: string;
@@ -72,35 +75,45 @@ async function deleteExpiredSubscription(subscriptionId: string): Promise<void> 
     );
 }
 
-async function wakeSubscription(
-    subscription: PushSubscriptionRow
-): Promise<boolean> {
-    const response = await fetch(subscription.endpoint, {
-        method: "POST",
-        headers: {
-            Authorization: await createVapidAuthorization(subscription.endpoint),
-            "Crypto-Key": `p256ecdsa=${getVapidPublicKey()}`,
-            TTL: "120",
-            Urgency: "high",
-        },
-        body: null,
-        cache: "no-store",
-        signal: AbortSignal.timeout(15_000),
-    });
 
-    if (response.status === 404 || response.status === 410) {
-        await deleteExpiredSubscription(subscription.id);
-        return false;
-    }
+async function wakeSubscription(subscription: PushSubscriptionRow): Promise<boolean> {
+    const authorization = await createVapidAuthorization(subscription.endpoint);
 
-    if (!response.ok) {
+    for (let attempt = 0; attempt <= PUSH_RETRY_DELAYS_MS.length; attempt++) {
+        let response: Response;
+        try {
+            response = await fetch(subscription.endpoint, {
+                method: "POST",
+                headers: {
+                    Authorization: authorization,
+                    "Crypto-Key": "p256ecdsa=" + getVapidPublicKey(),
+                    TTL: String(PUSH_TTL_SECONDS),
+                    Urgency: "high",
+                },
+                body: null,
+                cache: "no-store",
+                signal: AbortSignal.timeout(15_000),
+            });
+        } catch (error) {
+            if (attempt === PUSH_RETRY_DELAYS_MS.length) throw error;
+            await new Promise((resolve) => setTimeout(resolve, PUSH_RETRY_DELAYS_MS[attempt]));
+            continue;
+        }
+
+        if (response.status === 404 || response.status === 410) {
+            await deleteExpiredSubscription(subscription.id);
+            return false;
+        }
+        if (response.ok) return true;
+
         const body = await response.text().catch(() => "");
-        throw new Error(
-            `Push service returned HTTP ${response.status}${body ? `: ${body}` : ""}`
-        );
+        const error = new Error("Push service returned HTTP " + response.status + (body ? ": " + body : ""));
+        const retryable = response.status === 408 || response.status === 429 || response.status >= 500;
+        if (!retryable || attempt === PUSH_RETRY_DELAYS_MS.length) throw error;
+        await new Promise((resolve) => setTimeout(resolve, PUSH_RETRY_DELAYS_MS[attempt]));
     }
 
-    return true;
+    return false;
 }
 
 async function queueNotification(
@@ -207,7 +220,7 @@ export async function takeNextPushNotification(
     deviceToken: string
 ): Promise<PendingNotificationRow | null> {
     return withTransaction(async (client) => {
-        // Match the push wake's 120-second TTL; missed wakes must not leave old alerts.
+        // Match the push wake's 10-minute TTL; missed wakes must not leave old alerts.
         await client.query(
             `
                 DELETE FROM owner_push_notifications AS notification
@@ -215,9 +228,9 @@ export async function takeNextPushNotification(
                 WHERE subscription.id = notification.subscription_id
                   AND subscription.device_token = $1
                   AND notification.delivered_at IS NULL
-                  AND notification.created_at <= NOW() - INTERVAL '120 seconds'
+                  AND notification.created_at <= NOW() - ($2::integer * INTERVAL '1 second')
             `,
-            [deviceToken]
+            [deviceToken, PUSH_TTL_SECONDS]
         );
 
         const result = await client.query<PendingNotificationRow>(
@@ -229,19 +242,19 @@ export async function takeNextPushNotification(
                     notification.url,
                     notification.tag,
                     notification.created_at,
-                    (EXTRACT(EPOCH FROM notification.created_at + INTERVAL '120 seconds') * 1000)::double precision AS "expiresAt"
+                    (EXTRACT(EPOCH FROM notification.created_at + ($2::integer * INTERVAL '1 second')) * 1000)::double precision AS "expiresAt"
                 FROM owner_push_notifications AS notification
                 INNER JOIN owner_push_subscriptions AS subscription
                     ON subscription.id = notification.subscription_id
                 WHERE subscription.device_token = $1
                   AND subscription.enabled = true
                   AND notification.delivered_at IS NULL
-                  AND notification.created_at > NOW() - INTERVAL '120 seconds'
+                  AND notification.created_at > NOW() - ($2::integer * INTERVAL '1 second')
                 ORDER BY notification.created_at ASC
                 LIMIT 1
                 FOR UPDATE OF notification SKIP LOCKED
             `,
-            [deviceToken]
+            [deviceToken, PUSH_TTL_SECONDS]
         );
 
         const notification = result.rows[0];

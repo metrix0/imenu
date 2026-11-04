@@ -55,6 +55,16 @@ export default function CartBar({
     const isTableOrder = Boolean(tableOrder);
     useCheckoutSession(String(restaurant?.id || ""), !isTableOrder);
     const isPickup = !isTableOrder && (restaurant?.delivery_disabled === true || Boolean((checkoutState as any).is_pickup));
+    const missingDeliveryRanges = !isTableOrder && !isPickup && restaurant?.delivery_fee_mode !== "neighborhood" && (() => {
+        let configured = restaurant?.delivery_fee_json;
+        if (typeof configured === "string") {
+            try { configured = JSON.parse(configured); } catch { return true; }
+        }
+        const ranges = Array.isArray(configured)
+            ? configured
+            : Array.isArray(configured?.entrega) ? configured.entrega : [];
+        return ranges.length === 0;
+    })();
     const isContinueBlocked = useCheckoutStore(state => state.isContinueBlocked);
 
     useEffect(() => {
@@ -233,6 +243,10 @@ export default function CartBar({
         }
 
         if (step === "info" && !allRequiredFilled) return;
+        if (cartOpen && step === "info" && missingDeliveryRanges) {
+            setOrderWarning({ message: "O restaurante não tem faixas de entrega cadastradas." });
+            return;
+        }
 
         if (
             restaurant?.delivery_fee_mode === "neighborhood" &&

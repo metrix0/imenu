@@ -158,10 +158,23 @@ const saved = () => insert as unknown as any[];
 const enablePreorders = () => {
   (query as jest.Mock).mockImplementation(async (sql: string) =>
     sql.includes("SELECT preorder_only, preorder_availability_json")
-      ? { rows: [{ preorder_only: true, delivery_disabled: false }] }
+      ? { rows: [{ preorder_only: true, delivery_disabled: false, delivery_fee_mode: "neighborhood" }] }
       : { rows: [], rowCount: 1 },
   );
 };
+
+it("rejects a delivery checkout without registered distance ranges", async () => {
+  (query as jest.Mock).mockImplementation(async (sql: string) =>
+    sql.includes("SELECT preorder_only, preorder_availability_json")
+      ? { rows: [{ delivery_disabled: false, delivery_fee_mode: "radius", delivery_fee_json: [] }] }
+      : { rows: [], rowCount: 1 },
+  );
+  const response = await send();
+  expect(response.status).toBe(409);
+  expect((await response.json()).error).toBe("O restaurante não tem faixas de entrega cadastradas.");
+  expect(insert).toBeNull();
+  expect(writes).toEqual([]);
+});
 
 it("requires a schedule for customer checkout in preorder-only mode", async () => {
   enablePreorders();
@@ -178,7 +191,22 @@ it("allows an unscheduled manual order for the authenticated restaurant owner", 
   expect(response.status).toBe(200);
   expect(requireRestaurantOwner).toHaveBeenCalledWith(expect.any(Request), restaurantId);
   expect(insert).not.toBeNull();
+  expect(saved()[11]).toBe("entrega");
 });
+
+it.each([undefined, null, "invalido"])(
+  "rejects a manual order with an invalid destination (%s)",
+  async (is_delivery) => {
+    const response = await send(
+      { panel_order: true, is_delivery },
+      { Authorization: "Bearer owner-token" },
+    );
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toMatch(/destino válido/);
+    expect(insert).toBeNull();
+    expect(writes).toEqual([]);
+  },
+);
 
 it("rejects a manual-order flag without owner authentication", async () => {
   enablePreorders();
@@ -210,6 +238,23 @@ it("reprices panel orders with current individual product promotions", async () 
   expect(response.status).toBe(200);
   expect(saved()[2]).toBe(4000);
   expect(saved()[4]).toBe(4800);
+});
+
+it("charges every unit at the fixed product promotional price in manual orders", async () => {
+  offers = [];
+  activeProductPromotion = { type: "fixed", value: 750 };
+  const response = await send({
+    panel_order: true,
+    delivery_fee_cents: 500,
+    expected_promotion: { id: null, total_cents: 4460 },
+    items: [{ ...body.items[0], qty: 4, unit_price_cents: 1740, total_cents: 6960 }],
+  });
+  expect(response.status).toBe(200);
+  expect(saved()[2]).toBe(3960);
+  expect(saved()[4]).toBe(4460);
+  const itemWrite = client.query.mock.calls.find(([sql]) => String(sql).includes("INSERT INTO order_items"));
+  expect(itemWrite?.[1][3]).toBe(990);
+  expect(itemWrite?.[1][6]).toBe(3960);
 });
 
 it("creates a panel order with a real free-product promotion line", async () => {

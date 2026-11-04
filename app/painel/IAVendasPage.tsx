@@ -19,6 +19,7 @@ import {
   BadgePercent,
 } from "lucide-react";
 import IaPlusSalesModal, { IaPlusLimitMessage } from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
+import AiUsage from "@/components/restaurant-owner/ia-vendas/AiUsage";
 import Button from "@/components/ui/Button";
 import Dropdown from "@/components/ui/Dropdown";
 import Modal from "@/components/ui/Modal";
@@ -855,6 +856,11 @@ export default function SalesPage() {
                     </div>
                   ))}
               </nav>
+              <div className="mt-3 shrink-0">
+                <AiUsage
+                  access={sales.usageAccess?.restaurant_id === restaurant ? sales.usageAccess.access : null}
+                />
+              </div>
               <Button className="mt-3 shrink-0" variant={isAnalysis ? "secondary" : "primary"} onClick={() => openPlus()}><Sparkles size={16} className="mr-2" />iMenu Plus</Button>
             </div>
           </aside>

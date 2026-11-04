@@ -62,9 +62,12 @@ export async function POST(request: Request) {
         );
 
         // 4. PROCESS RULES (Sem mudança)
-        const rules: RadiusRule[] = (restaurant.delivery_fee_json || []).sort(
-            (a: RadiusRule, b: RadiusRule) => a.radius_km - b.radius_km
-        );
+        const rules: RadiusRule[] = Array.isArray(restaurant.delivery_fee_json)
+            ? [...restaurant.delivery_fee_json].sort((a: RadiusRule, b: RadiusRule) => a.radius_km - b.radius_km)
+            : [];
+        if (rules.length === 0) {
+            return NextResponse.json({ error: "O restaurante não tem faixas de entrega cadastradas." }, { status: 409 });
+        }
         let calculatedFee: number | null = null;
         let calculatedTime: number | null = null;
         for (const rule of rules) {

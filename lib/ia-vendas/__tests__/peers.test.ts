@@ -48,6 +48,25 @@ describe("potential", () => {
     expect(result.breakdown?.[2]?.basis).toContain("3%–8%");
   });
 
+  test("adds WhatsApp Marketing revenue from eligible customer counts", () => {
+    const result = potential({
+      ...sales,
+      marketing: { cart: 40, reactivation: 30, habit: 20 },
+    }, { days: 28, opportunities: [
+      { kind: "marketing_cart", label: "Carrinhos", overlap_group: "marketing-cart" },
+      { kind: "marketing_reactivation", label: "Reativação", overlap_group: "marketing-reactivation" },
+      { kind: "marketing_habit", label: "Hábitos", overlap_group: "marketing-habit" },
+    ] });
+    expect(result).toMatchObject({ min_cents: 30000, max_cents: 65000 });
+    expect(result.breakdown).toHaveLength(3);
+  });
+
+  test("does not accept fabricated Marketing eligibility", () => {
+    expect(() => potential(sales, { opportunities: [
+      { kind: "marketing_cart", eligible_orders: 100, overlap_group: "marketing" },
+    ] })).toThrow("clientes de Marketing");
+  });
+
   test("keeps the combined upside inside the existing 15% revenue cap", () => {
     const result = potential(sales, {
       days: 28,

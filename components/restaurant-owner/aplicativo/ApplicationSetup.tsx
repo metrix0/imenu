@@ -18,8 +18,15 @@ import Card from "@/components/ui/Card";
 import Modal from "@/components/ui/Modal";
 import { LegacyModalClose } from "@/components/ui/ModalCloseButton";
 import Toast from "@/components/ui/Toast";
-import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
+import {
+    ensureOwnerPushSubscription,
+    getAccessToken,
+    readStoredDeviceToken,
+    removeDeviceToken,
+    saveDeviceToken,
+    urlBase64ToUint8Array,
+} from "@/lib/push/client";
 
 type BeforeInstallPromptEvent = Event & {
     prompt(): Promise<void>;
@@ -31,11 +38,6 @@ type ToastState = {
     message: string;
     type: "success" | "error" | "info";
 };
-
-const PUSH_DB_NAME = "imenu-push";
-const PUSH_DB_VERSION = 1;
-const PUSH_STORE_NAME = "settings";
-const DEVICE_TOKEN_KEY = "deviceToken";
 
 function isStandaloneMode(): boolean {
     if (typeof window === "undefined") return false;
@@ -49,81 +51,6 @@ function isStandaloneMode(): boolean {
 function isIosDevice(): boolean {
     if (typeof navigator === "undefined") return false;
     return /iPad|iPhone|iPod/.test(navigator.userAgent);
-}
-
-function urlBase64ToUint8Array(value: string): Uint8Array {
-    const padding = "=".repeat((4 - (value.length % 4)) % 4);
-    const base64 = (value + padding).replace(/-/g, "+").replace(/_/g, "/");
-    const raw = window.atob(base64);
-
-    return Uint8Array.from([...raw].map((character) => character.charCodeAt(0)));
-}
-
-function openPushDatabase(): Promise<IDBDatabase> {
-    return new Promise((resolve, reject) => {
-        const request = indexedDB.open(PUSH_DB_NAME, PUSH_DB_VERSION);
-
-        request.onupgradeneeded = () => {
-            const database = request.result;
-            if (!database.objectStoreNames.contains(PUSH_STORE_NAME)) {
-                database.createObjectStore(PUSH_STORE_NAME);
-            }
-        };
-
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-    });
-}
-
-async function readStoredDeviceToken(): Promise<string | null> {
-    const database = await openPushDatabase();
-
-    return new Promise((resolve, reject) => {
-        const transaction = database.transaction(PUSH_STORE_NAME, "readonly");
-        const request = transaction.objectStore(PUSH_STORE_NAME).get(DEVICE_TOKEN_KEY);
-
-        request.onsuccess = () => resolve(String(request.result || "") || null);
-        request.onerror = () => reject(request.error);
-        transaction.oncomplete = () => database.close();
-    });
-}
-
-async function saveDeviceToken(deviceToken: string): Promise<void> {
-    const database = await openPushDatabase();
-
-    await new Promise<void>((resolve, reject) => {
-        const transaction = database.transaction(PUSH_STORE_NAME, "readwrite");
-        transaction.objectStore(PUSH_STORE_NAME).put(deviceToken, DEVICE_TOKEN_KEY);
-        transaction.oncomplete = () => resolve();
-        transaction.onerror = () => reject(transaction.error);
-    });
-
-    database.close();
-}
-
-async function removeDeviceToken(): Promise<void> {
-    const database = await openPushDatabase();
-
-    await new Promise<void>((resolve, reject) => {
-        const transaction = database.transaction(PUSH_STORE_NAME, "readwrite");
-        transaction.objectStore(PUSH_STORE_NAME).delete(DEVICE_TOKEN_KEY);
-        transaction.oncomplete = () => resolve();
-        transaction.onerror = () => reject(transaction.error);
-    });
-
-    database.close();
-}
-
-async function getAccessToken(): Promise<string> {
-    const {
-        data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session?.access_token) {
-        throw new Error("Sua sessão expirou. Entre novamente no painel.");
-    }
-
-    return session.access_token;
 }
 
 export default function ApplicationSetup() {
@@ -165,19 +92,28 @@ export default function ApplicationSetup() {
             return;
         }
 
-        const registration = await navigator.serviceWorker.register("/sw.js", {
-            scope: "/",
-        });
-        const subscription = await registration.pushManager.getSubscription();
-        setNotificationEnabled(
-            Notification.permission === "granted" && Boolean(subscription)
-        );
+        try {
+            const configResponse = await fetch("/api/push/config", {
+                cache: "no-store",
+            });
+            setServerConfigured(configResponse.ok);
 
-        const configResponse = await fetch("/api/push/config", {
-            cache: "no-store",
-        });
-        setServerConfigured(configResponse.ok);
-    }, []);
+            if (!restaurantId || Notification.permission !== "granted" || !configResponse.ok) {
+                setNotificationEnabled(false);
+                return;
+            }
+
+            const status = await ensureOwnerPushSubscription(restaurantId);
+            setNotificationEnabled(status.enabled);
+            if (status.repaired) {
+                showToast("Notificações reconectadas neste aparelho.", "success");
+            }
+        } catch (error) {
+            console.error("[OWNER_PUSH] Failed to verify registration:", error);
+            setNotificationEnabled(false);
+            showToast("Não foi possível verificar as notificações. Tente ativá-las novamente.", "error");
+        }
+    }, [restaurantId, showToast]);
 
     useEffect(() => {
         const handleInstallPrompt = (event: Event) => {

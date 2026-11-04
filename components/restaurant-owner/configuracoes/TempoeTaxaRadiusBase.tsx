@@ -437,13 +437,11 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
 
         return (
             <div className="max-w-2xl 2xl:max-w-3xl mx-auto">
-                <div className="flex justify-end mb-2 2xl:mb-3 h-8">
-                    {!isNew && (
-                        <div className="text-sm 2xl:text-lg font-medium h-8 flex items-center mb-4 transition-opacity duration-300">
-                            <SaveStatus status={status} />
-                        </div>
-                    )}
-                </div>
+                {!isNew && (
+                    <div className="flex justify-end text-sm 2xl:text-lg font-medium">
+                        <SaveStatus status={status} />
+                    </div>
+                )}
 
 
 

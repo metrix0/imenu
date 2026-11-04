@@ -294,6 +294,9 @@ export async function POST(request: Request) {
 
         if (panel_order === true) {
             await requireRestaurantOwner(request, restaurantId);
+            if (!["entrega", "retirada", "balcao", "mesa"].includes(is_delivery)) {
+                throw new OrderRequestError("Selecione um destino válido para o pedido.");
+            }
         }
 
         if (stockCheckOnly) {
@@ -401,12 +404,17 @@ export async function POST(request: Request) {
 
         const preorderSettings = !isTableOrder
             ? (await query(
-                "SELECT preorder_only, preorder_availability_json, preorder_min_days, delivery_disabled FROM public.restaurants WHERE id = $1 LIMIT 1",
+                "SELECT preorder_only, preorder_availability_json, preorder_min_days, delivery_disabled, delivery_fee_mode, delivery_fee_json FROM public.restaurants WHERE id = $1 LIMIT 1",
                 [restaurantId]
             )).rows[0]
             : null;
         if (preorderSettings?.delivery_disabled === true && is_delivery !== "retirada" && !isCounterOrder) {
             throw new OrderRequestError("Este restaurante aceita apenas retiradas.");
+        }
+        if (panel_order !== true && is_delivery === "entrega" && preorderSettings &&
+            preorderSettings.delivery_fee_mode !== "neighborhood" &&
+            (!Array.isArray(preorderSettings.delivery_fee_json) || preorderSettings.delivery_fee_json.length === 0)) {
+            throw new OrderRequestError("O restaurante não tem faixas de entrega cadastradas.", 409);
         }
         if (preorderSettings?.preorder_only === true && !scheduled_for && panel_order !== true) {
             throw new OrderRequestError("É obrigatório agendar a data e o horário da encomenda.");

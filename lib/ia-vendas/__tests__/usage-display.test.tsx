@@ -18,3 +18,22 @@ test('collapsed sidebar keeps both accessible resource names', () => {
  const html=renderToStaticMarkup(<AiUsage compact access={access(true,80,10)} />);
  expect(html).toContain('aria-label="Tokens:'); expect(html).toContain('aria-label="Imagens:');
 });
+
+test('shows exact token and image usage counts with information controls', () => {
+ const html = renderToStaticMarkup(<AiUsage access={access(true,90,93.33333333333333)} />);
+ expect(html).toContain('Entrada: 1.800.000 / 2.000.000');
+ expect(html).toContain('Saída: 0 / 120.000');
+ expect(html).toContain('70 / 75 imagens');
+ expect(html).toContain('aria-label="Informações de uso de Tokens"');
+ expect(html).toContain('aria-label="Informações de uso de Imagens"');
+});
+
+test('info icon comes after percent; exact numbers stay inside info tooltip', () => {
+ const html = renderToStaticMarkup(<AiUsage access={access(true,90,93.33333333333333)} />);
+ const tokenHeader = html.slice(html.indexOf('aria-label="Tokens"'), html.indexOf('role="progressbar"'));
+ expect(tokenHeader.indexOf('90%')).toBeGreaterThan(-1);
+ expect(tokenHeader.indexOf('90%')).toBeLessThan(tokenHeader.indexOf('aria-label="Informações de uso de Tokens"'));
+ expect(html).not.toContain('space-y-0.5');
+ expect(html).toContain('Entrada: 1.800.000 / 2.000.000');
+ expect(html).toContain('70 / 75 imagens');
+});

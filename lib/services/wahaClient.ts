@@ -381,6 +381,20 @@ export async function deleteWahaSession(sessionName: string): Promise<void> {
     }
 }
 
+export async function requestWahaPairingCode(
+    sessionName: string,
+    phoneNumber: string
+): Promise<string> {
+    const result = await wahaRequest<{ code?: string }>(
+        `/api/${encodeURIComponent(sessionName)}/auth/request-code`,
+        { method: "POST", body: JSON.stringify({ phoneNumber }) }
+    );
+    if (!result || typeof result.code !== "string" || !/^[A-Za-z0-9]{4}-?[A-Za-z0-9]{4}$/.test(result.code)) {
+        throw new Error("WAHA não retornou um código de conexão válido.");
+    }
+    return result.code;
+}
+
 export async function getWahaQrCode(
     sessionName: string
 ): Promise<string | null> {

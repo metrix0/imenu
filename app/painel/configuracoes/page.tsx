@@ -1077,7 +1077,15 @@ export default function ConfiguracoesPage() {
                                         </span>
                                     </div>
                                     <p id="dark-menu-description" className="mt-2 text-sm text-gray-500">
-                                        Exiba seu cardápio com cores escuras, inclusive em Mesas e Vitrine.
+                                        Exiba seu cardápio com cores escuras, inclusive em Mesas e Vitrine.{" "}
+                                        <a
+                                            href="https://www.imenuapp.com.br/pizzaria-la-grucia-dark"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="font-medium text-brand underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                                        >
+                                            Ver exemplo de Tema Escuro
+                                        </a>
                                     </p>
                                 </div>
                                 <div className="flex shrink-0 items-start gap-3">

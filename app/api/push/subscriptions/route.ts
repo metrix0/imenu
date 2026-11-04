@@ -55,6 +55,33 @@ function validateEndpoint(value: unknown): string {
     return endpoint;
 }
 
+
+export async function GET(request: NextRequest) {
+    try {
+        const restaurantId = request.nextUrl.searchParams.get("restaurantId")?.trim();
+        const rawDeviceToken = request.nextUrl.searchParams.get("deviceToken");
+        if (!restaurantId) {
+            return NextResponse.json({ error: "restaurantId is required" }, { status: 400 });
+        }
+
+        const { userId } = await requireOwnedRestaurant(request, restaurantId);
+        const deviceToken = validateDeviceToken(rawDeviceToken);
+        const result = await query<{ endpoint: string }>(
+            `SELECT endpoint FROM owner_push_subscriptions
+              WHERE restaurant_id = $1 AND user_id = $2 AND device_token = $3
+                AND enabled = true
+              LIMIT 1`,
+            [restaurantId, userId, deviceToken]
+        );
+        return NextResponse.json(
+            { endpoint: result.rows[0]?.endpoint ?? null },
+            { headers: { "Cache-Control": "no-store" } }
+        );
+    } catch (error) {
+        return jsonError(error);
+    }
+}
+
 export async function POST(request: NextRequest) {
     try {
         const body = (await request.json()) as PushSubscriptionBody;
