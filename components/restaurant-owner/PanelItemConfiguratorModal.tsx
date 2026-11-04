@@ -734,6 +734,7 @@ export default function PanelItemConfiguratorModal({
                                                         {group.max_select > 0
                                                             ? `Escolha até ${group.max_select}`
                                                             : "Escolha o quanto quiser"}
+                                                        {group.allow_multiple_units && group.max_per_option != null && `. Até ${group.max_per_option} por tipo.`}
                                                     </p>
                                                 </div>
                                                 {group.min_select > 0 && (

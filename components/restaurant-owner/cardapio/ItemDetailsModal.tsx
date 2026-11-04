@@ -599,7 +599,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                                     <div className="flex-1 min-w-0">
                                         <div className="flex min-w-0 items-center gap-2">
                                             <Input inline
-                                                className="min-w-0 flex-1 bg-transparent font-bold text-gray-800 text-lg 2xl:text-xl focus:outline-none focus:border-b focus:border-brand"
+                                                className="min-w-0 flex-1 !bg-transparent pl-3 font-bold text-gray-800 text-lg 2xl:text-xl focus:outline-none focus:border-b focus:border-brand"
                                                 value={group.name}
                                                 onChange={(e) => updateGroupLocally(group.id, { name: e.target.value })}
                                                 onBlur={(e) => handleUpdateGroup(group.id, { name: e.currentTarget.value })}

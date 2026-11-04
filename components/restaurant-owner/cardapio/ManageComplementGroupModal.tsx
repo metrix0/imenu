@@ -571,7 +571,7 @@ export default function ManageComplementGroupModal({
                                         void updateGroup({ name });
                                     }
                                 }}
-                                className="w-full bg-transparent text-lg font-bold text-gray-800 focus:border-b focus:border-brand focus:outline-none disabled:opacity-60 2xl:text-xl"
+                                className="w-full !bg-transparent pl-3 text-lg font-bold text-gray-800 focus:border-b focus:border-brand focus:outline-none disabled:opacity-60 2xl:text-xl"
                             />
 
                             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600 2xl:text-base">

@@ -480,6 +480,7 @@ export default function ItemModal({
                                             {sc.max_select > 0
                                                 ? `Escolha até ${sc.max_select}`
                                                 : "Escolha o quanto quiser"}
+                                            {sc.allow_multiple_units && sc.max_per_option != null && `. Até ${sc.max_per_option} por tipo.`}
                                         </p>}
                                     </div>
 
