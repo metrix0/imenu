@@ -57,7 +57,7 @@ it.each([null, "pending", "processing", "failed", "cancelled"])(
 
         expect(response.status).toBe(409);
         expect(await response.json()).toEqual({
-            error: "Este pedido não pode ser excluído enquanto o repasse Pix não estiver concluído.",
+            error: "Este pedido não pode ser excluído enquanto o repasse Pix não estiver concluído. Repasses são realizados todos os dias às 12:00.",
         });
         expect(dbQuery).toHaveBeenCalledTimes(1);
         expect(dbQuery.mock.calls[0][0]).toContain("ORDER BY p.created_at ASC");

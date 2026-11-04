@@ -229,7 +229,7 @@ export async function DELETE(
                 lockedOrder.first_payout_status !== "paid"
             ) {
                 throw new RestaurantOwnerAuthError(
-                    "Este pedido não pode ser excluído enquanto o repasse Pix não estiver concluído.",
+                    "Este pedido não pode ser excluído enquanto o repasse Pix não estiver concluído. Repasses são realizados todos os dias às 12:00.",
                     409
                 );
             }
