@@ -71,7 +71,7 @@ export default function CreditPurchaseCalculator({
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-xl font-semibold text-gray-900">Comprar mais créditos</h2>
+        <h2 className="text-xl font-semibold text-gray-900">Recarregar créditos</h2>
         <p className="mt-2 text-sm leading-6 text-gray-600">
           Escolha quantos tokens e imagens deseja adicionar ao Assistente IA.
         </p>

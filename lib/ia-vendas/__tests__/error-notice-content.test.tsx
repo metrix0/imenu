@@ -17,9 +17,9 @@ test("monthly limit includes the reset time, buy-more action and WhatsApp suppor
     />,
   );
   expect(html).toContain("Limites serão reiniciados em 30/11 às 21:00");
-  expect(html).toContain("Comprar mais créditos");
+  expect(html).toContain("Recarregar créditos");
   expect(html).toContain("Suporte WhatsApp");
-  expect(html.indexOf("Limites serão reiniciados")).toBeLessThan(html.indexOf("Comprar mais créditos"));
+  expect(html.indexOf("Limites serão reiniciados")).toBeLessThan(html.indexOf("Recarregar créditos"));
   expect(html).toContain("https://wa.me/5519997235394");
 });
 
@@ -31,7 +31,7 @@ test("generic capacity errors retain only existing support contact", () => {
     />,
   );
   expect(html).toContain("Suporte WhatsApp");
-  expect(html).not.toContain("Comprar mais créditos");
+  expect(html).not.toContain("Recarregar créditos");
 });
 
 test("unrelated errors do not show purchase or support controls", () => {
@@ -39,7 +39,7 @@ test("unrelated errors do not show purchase or support controls", () => {
     <ErrorNoticeContent message="Conexão interrompida." onBuyCredits={() => {}} />,
   );
   expect(html).toContain("Conexão interrompida.");
-  expect(html).not.toContain("Comprar mais créditos");
+  expect(html).not.toContain("Recarregar créditos");
   expect(html).not.toContain("Suporte WhatsApp");
 });
 
@@ -52,7 +52,7 @@ test("monthly quota reply is an assistant-style card with consistent purchase an
   );
   expect(html).toContain('aria-label="Limite mensal atingido"');
   expect(html).toContain("Limites serão reiniciados em 30/11 às 21:00.");
-  expect(html).toContain("Comprar mais créditos");
+  expect(html).toContain("Recarregar créditos");
   expect(html).toContain("Suporte WhatsApp");
   expect(html).not.toContain("bg-red-50");
   expect(html).not.toContain("Assinar iMenu Plus");
@@ -69,6 +69,6 @@ test("free quota reply keeps the subscriber upgrade path", () => {
   expect(html).toContain('aria-label="Limite gratuito atingido"');
   expect(html).toContain("Limites serão reiniciados em 10/11 às 14:00.");
   expect(html).toContain("Assinar iMenu Plus");
-  expect(html).toContain("Comprar mais créditos");
+  expect(html).toContain("Recarregar créditos");
   expect(html).toContain("Suporte WhatsApp");
 });

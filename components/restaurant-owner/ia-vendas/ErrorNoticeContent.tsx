@@ -22,7 +22,7 @@ export function AssistantQuotaReply({ message, onBuyCredits, onSubscribe }: {
       <p className="text-sm font-semibold text-[var(--panel-text,#1d1d1d)]">{title}</p>
       {detail && <p className="mt-1 text-sm leading-5 text-[var(--panel-muted,#626973)]">{detail}</p>}
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <Button type="button" onClick={onBuyCredits} className="!min-h-9 !px-3 !py-1.5">Comprar mais créditos</Button>
+        <Button type="button" onClick={onBuyCredits} className="!min-h-9 !px-3 !py-1.5">Recarregar créditos</Button>
         {onSubscribe && <Button type="button" variant="secondary" onClick={onSubscribe} className="!min-h-9 !px-3 !py-1.5">Assinar iMenu Plus</Button>}
         <SupportWhatsappBadge compact />
       </div>
