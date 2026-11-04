@@ -142,7 +142,7 @@ export function qrTableStatusLabel(status: string): string {
     return status;
 }
 
-export function ProductOverviewSections({ metrics }: { metrics: ProductOverview }) {
+export function ProductOverviewSections({ metrics, productsOnly }: { metrics: ProductOverview; productsOnly?: (keyof ProductOverview)[] }) {
     const products = [
         { key: "imenu", name: "iMenu", paths: "/", price: "-", priceInfo: "Referência do dashboard: sem mensalidade.", },
         { key: "ia_plus", name: "iMenu Plus", paths: "/painel/marketing + /painel/vendas-ia + /painel/assistente-ia", price: "R$ 49,99/m", priceInfo: "Marketing, Assistente IA e Vendas IA.", },
@@ -150,7 +150,7 @@ export function ProductOverviewSections({ metrics }: { metrics: ProductOverview 
     ] as const;
     return (
         <>
-            {products.map((product) => {
+            {(productsOnly ? productsOnly.map(key => products.find(product => product.key === key)!) : products).map((product) => {
                 const metric = metrics[product.key];
                 const views = metric.pageViews === null ? "—" : formatCount(metric.pageViews);
                 const trafficUnit = metric.trafficSource === "tab_opens" ? "aberturas da aba" : "page views";

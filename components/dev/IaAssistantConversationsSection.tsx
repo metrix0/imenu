@@ -1,4 +1,5 @@
 "use client";
+import Pagination from "@/components/ui/Pagination";
 
 import { useState, type CSSProperties } from "react";
 import { Sparkles } from "lucide-react";
@@ -44,6 +45,7 @@ type Conversation = {
 };
 
 type RestaurantConversations = {
+    pagination?: { total: number; messageTotal: number };
     restaurant: {
         id: string;
         name: string | null;
@@ -239,7 +241,11 @@ async function fetchDevJson<T>(path: string): Promise<T> {
     return payload;
 }
 
-export default function IaAssistantConversationsSection() {
+export default function IaAssistantConversationsSection({ restaurant }: { restaurant?: { restaurantId: string; restaurantName: string } } = {}) {
+    const [restaurantPage, setRestaurantPage] = useState(0);
+    const [restaurantTotal, setRestaurantTotal] = useState(0);
+    const [conversationPage, setConversationPage] = useState(0);
+    const [messagePage, setMessagePage] = useState(0);
     const [restaurants, setRestaurants] = useState<RestaurantSummary[] | null>(null);
     const [restaurantsLoading, setRestaurantsLoading] = useState(false);
     const [restaurantsError, setRestaurantsError] = useState("");
@@ -250,17 +256,19 @@ export default function IaAssistantConversationsSection() {
     const [conversationLoading, setConversationLoading] = useState(false);
     const [conversationError, setConversationError] = useState("");
 
-    const loadRestaurants = async () => {
-        if (restaurantsLoading || restaurants) return;
+    const loadRestaurants = async (page = 0) => {
+        if (restaurantsLoading) return;
+        setRestaurantPage(page);
 
         setRestaurantsLoading(true);
         setRestaurantsError("");
 
         try {
-            const payload = await fetchDevJson<{ restaurants: RestaurantSummary[] }>(
-                "/api/dev/dashboard/ia-assistant"
+            const payload = await fetchDevJson<{ restaurants: RestaurantSummary[]; total: number }>(
+                `/api/dev/dashboard/ia-assistant?paged=1&page=${page}`
             );
             setRestaurants(payload.restaurants);
+            setRestaurantTotal(payload.total);
         } catch (error) {
             setRestaurantsError(
                 error instanceof Error
@@ -272,7 +280,8 @@ export default function IaAssistantConversationsSection() {
         }
     };
 
-    const openRestaurant = async (restaurant: RestaurantSummary) => {
+    const openRestaurant = async (restaurant: RestaurantSummary, page = 0, messages = 0) => {
+        setConversationPage(page); setMessagePage(messages);
         setSelectedRestaurant(restaurant);
         setConversationData(null);
         setConversationError("");
@@ -282,7 +291,7 @@ export default function IaAssistantConversationsSection() {
             const payload = await fetchDevJson<RestaurantConversations>(
                 `/api/dev/dashboard/ia-assistant?restaurant_id=${encodeURIComponent(
                     restaurant.restaurantId
-                )}`
+                )}&paged=1&page=${page}&message_page=${messages}`
             );
             setConversationData(payload);
         } catch (error) {
@@ -305,14 +314,14 @@ export default function IaAssistantConversationsSection() {
 
     return (
         <section>
-            <div className="mb-4">
+            {!restaurant && <div className="mb-4">
                 <h2 className="text-xl font-bold text-gray-900">Assistente IA</h2>
                 <p className="mt-1 text-sm text-gray-500">
                     Restaurantes que conversaram com o Assistente IA, ordenados pela atividade mais recente.
                 </p>
-            </div>
+            </div>}
 
-            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+            {!restaurant && <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
                 {restaurants === null ? (
                     <div className="flex flex-col items-start gap-4 p-5 sm:p-6">
                         <p className="max-w-2xl text-sm leading-6 text-gray-500">
@@ -364,7 +373,9 @@ export default function IaAssistantConversationsSection() {
                         ))}
                     </div>
                 )}
-            </div>
+            </div>}
+            {!restaurant && restaurantTotal > 25 && <Pagination page={restaurantPage} pageCount={Math.ceil(restaurantTotal / 25)} onChange={page => void loadRestaurants(page)} />}
+            {restaurant && <Button variant="secondary" onClick={() => void openRestaurant({ ...restaurant, slug: null, conversationCount: 0, messageCount: 0, lastMessageAt: new Date().toISOString() })}>Abrir conversas do Assistente IA</Button>}
 
             <Modal
                 open={Boolean(selectedRestaurant)}
@@ -453,6 +464,8 @@ export default function IaAssistantConversationsSection() {
                                 </article>
                             ))}
 
+                            {selectedRestaurant && (conversationData.pagination?.total || 0) > 25 && <Pagination page={conversationPage} pageCount={Math.ceil((conversationData.pagination?.total || 0) / 25)} onChange={page => void openRestaurant(selectedRestaurant, page, 0)} disabled={conversationLoading} />}
+                            {selectedRestaurant && (conversationData.pagination?.messageTotal || 0) > 25 && <div><p className="text-xs text-gray-500">Mensagens das conversas</p><Pagination page={messagePage} pageCount={Math.ceil((conversationData.pagination?.messageTotal || 0) / 25)} onChange={page => void openRestaurant(selectedRestaurant, conversationPage, page)} disabled={conversationLoading} /></div>}
                             {conversationData.conversations.length === 0 && (
                                 <div className="py-8 text-center text-sm text-gray-400">
                                     Nenhuma conversa encontrada.

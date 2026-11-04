@@ -1,3 +1,4 @@
+import { sendNtfyNotification } from "@/lib/services/ntfy";
 import { NextResponse } from "next/server";
 
 import { query } from "@/lib/database/sql";
@@ -82,13 +83,9 @@ async function notifyPayoutAlarm({
     }
 
     try {
-        const response = await fetch(`https://ntfy.sh/${encodeURIComponent(topic)}`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "text/plain; charset=utf-8",
-                Title: "ALARM TRIGGER - iMenu payout automático",
-            },
-            body: [
+        await sendNtfyNotification({
+            title: "ALARM TRIGGER - iMenu payout automático",
+            message: [
                 "Pagamento automático não foi concluído.",
                 `Data: ${runDate}`,
                 `Status: ${status}`,
@@ -96,12 +93,7 @@ async function notifyPayoutAlarm({
                 `Motivo: ${message}`,
                 `Run: ${runId || "não iniciado"}`,
             ].join("\n"),
-            cache: "no-store",
         });
-
-        if (!response.ok) {
-            throw new Error(`ntfy HTTP ${response.status}`);
-        }
     } catch (error) {
         console.error("[DAILY_PAYOUT] Falha ao enviar alerta ntfy", {
             runId,

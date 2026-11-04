@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 
 import { query } from "@/lib/database/sql";
 import { authorize } from "@/lib/dev/authorize";
+import { getCrm } from "@/lib/dev/crm";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,6 +61,7 @@ export async function GET(request: Request) {
         if (!authorization.ok) return authorization.response;
 
         const searchParams = new URL(request.url).searchParams;
+        if (searchParams.get("mode") === "crm") return NextResponse.json(await getCrm(searchParams), { headers: { "Cache-Control": "no-store" } });
         const search = searchParams.get("q")?.trim() || "";
 
         if (!search) {

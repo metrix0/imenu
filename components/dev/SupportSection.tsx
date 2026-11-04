@@ -1,0 +1,1399 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+    faCircleCheck,
+    faPowerOff,
+    faQrcode,
+    faRotate,
+    faRobot,
+    faUser,
+} from "@fortawesome/free-solid-svg-icons";
+import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
+
+import BlastHistorySection from "@/components/dev/BlastHistorySection";
+import Pagination from "@/components/ui/Pagination";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import Dropdown from "@/components/ui/Dropdown";
+import Input from "@/components/ui/Input";
+import Loader from "@/components/ui/Loader";
+import Modal from "@/components/ui/Modal";
+import Switch from "@/components/ui/Switch";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
+import Textarea from "@/components/ui/Textarea";
+import { ABANDONED_BLAST_MESSAGE } from "@/lib/dev/abandonedBlast";
+import {
+    DID_NOT_ACTIVATE_BLAST_MESSAGE,
+    DID_NOT_ACTIVATE_BLAST_PREFILL_STORAGE_KEY,
+} from "@/lib/dev/didNotActivateBlast";
+import { supabase } from "@/lib/database/supabaseClient";
+import { parseBulkPhones, parseBulkRecipients, renderBulkMessage, type BulkInputRecipient } from "@/lib/dev/supportBulk";
+import type { AccessState, BlastCampaign, BlastRecipient, Connection, Stats, KnowledgeEntry, Conversation, DashboardData } from "@/lib/dev/supportTypes";
+import { formatPhone, getWhatsappUrl, statusPresentation } from "@/lib/dev/supportView";
+
+const ALLOWED_DEV_EMAIL = "joaovralmeida@hotmail.com";
+export default function SupportSection({ section = "support" }: { section?: "support" | "blast" | "legacy" }) {
+    const router = useRouter();
+    const [accessState, setAccessState] =
+        useState<AccessState>("checking");
+    const [supportPage, setSupportPage] = useState(0);
+    const [handoffPage, setHandoffPage] = useState(0);
+    const [knowledgePage, setKnowledgePage] = useState(0);
+    const [data, setData] = useState<DashboardData | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [action, setAction] = useState("");
+    const [error, setError] = useState("");
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [knowledgeEditorOpen, setKnowledgeEditorOpen] = useState(false);
+    const [knowledgeTitle, setKnowledgeTitle] = useState("");
+    const [knowledgeContent, setKnowledgeContent] = useState("");
+    const [bulkPhones, setBulkPhones] = useState("");
+    const [bulkMessage, setBulkMessage] = useState("");
+    const [bulkImage, setBulkImage] = useState<File | null>(null);
+    const [bulkImageUrl, setBulkImageUrl] = useState("");
+    const [bulkSending, setBulkSending] = useState(false);
+    const [bulkPreview, setBulkPreview] = useState<Array<{ phone: string; message: string }> | null>(null);
+    const [bulkStatus, setBulkStatus] = useState("");
+    const [bulkSkipRecent, setBulkSkipRecent] = useState(true);
+    const [bulkSender, setBulkSender] = useState<"blast" | "support">("blast");
+    const [bulkCadenceEnabled, setBulkCadenceEnabled] = useState(false);
+    const [bulkCadence, setBulkCadence] = useState("200");
+    const [blastRevision, setBlastRevision] = useState(0);
+    const [blastHistory, setBlastHistory] = useState<BlastCampaign[]>([]);
+    const [blastHistoryLoading, setBlastHistoryLoading] = useState(false);
+    const [selectedBlastId, setSelectedBlastId] = useState<string | null>(null);
+    const [blastRecipients, setBlastRecipients] = useState<BlastRecipient[]>([]);
+    const [blastAction, setBlastAction] = useState("");
+
+    useEffect(() => {
+        if (!bulkImage) {
+            setBulkImageUrl("");
+            return;
+        }
+        const url = URL.createObjectURL(bulkImage);
+        setBulkImageUrl(url);
+        return () => URL.revokeObjectURL(url);
+    }, [bulkImage]);
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("blast") !== "did-not-activate") return;
+        if (section !== "blast") { window.location.replace("/dev/blast?blast=did-not-activate"); return; }
+
+        const stored = window.sessionStorage.getItem(
+            DID_NOT_ACTIVATE_BLAST_PREFILL_STORAGE_KEY
+        );
+        if (!stored) return;
+
+        try {
+            const prefill = JSON.parse(stored) as {
+                phones?: string;
+                message?: string;
+            };
+            if (!prefill.phones) return;
+
+            setBulkPhones(prefill.phones);
+            setBulkMessage(
+                prefill.message === DID_NOT_ACTIVATE_BLAST_MESSAGE
+                    ? prefill.message
+                    : DID_NOT_ACTIVATE_BLAST_MESSAGE
+            );
+            setBulkSender("blast");
+            setBulkSkipRecent(false);
+        } catch {
+            // Ignore invalid one-time prefill data.
+        } finally {
+            window.sessionStorage.removeItem(
+                DID_NOT_ACTIVATE_BLAST_PREFILL_STORAGE_KEY
+            );
+        }
+    }, []);
+
+    const getAccessToken = useCallback(async () => {
+        const {
+            data: { session },
+        } = await supabase.auth.getSession();
+        return session?.access_token || null;
+    }, []);
+
+    const loadDashboard = useCallback(async () => {
+        const token = await getAccessToken();
+        if (!token) {
+            setAccessState("signed-out");
+            setLoading(false);
+            return;
+        }
+
+        const response = await fetch(`/api/dev/support?support_page=${supportPage}&handoff_page=${handoffPage}&knowledge_page=${knowledgePage}`, {
+            headers: { Authorization: "Bearer " + token },
+            cache: "no-store",
+        });
+        const payload = (await response.json()) as DashboardData & {
+            error?: string;
+        };
+
+        if (response.status === 401) {
+            setAccessState("signed-out");
+            setLoading(false);
+            return;
+        }
+        if (response.status === 403) {
+            setAccessState("forbidden");
+            setLoading(false);
+            return;
+        }
+        if (!response.ok) {
+            throw new Error(payload.error || "Erro ao carregar suporte.");
+        }
+
+        setData(payload);
+        setError("");
+        setLoading(false);
+    }, [getAccessToken, supportPage, handoffPage, knowledgePage]);
+
+    const loadBlastHistory = useCallback(async () => {
+        const token = await getAccessToken();
+        if (!token) return;
+        const response = await fetch("/api/dev/support?blast_history=1", {
+            headers: { Authorization: "Bearer " + token },
+            cache: "no-store",
+        });
+        const payload = (await response.json()) as { campaigns?: BlastCampaign[]; error?: string };
+        if (!response.ok) throw new Error(payload.error || "Erro ao carregar histórico.");
+        setBlastHistory(payload.campaigns || []);
+        setBlastRevision(value => value + 1);
+    }, [getAccessToken]);
+
+    const loadBlastRecipients = useCallback(async (id: string) => {
+        const token = await getAccessToken();
+        if (!token) return;
+        const response = await fetch("/api/dev/support?blast_id=" + encodeURIComponent(id), {
+            headers: { Authorization: "Bearer " + token },
+            cache: "no-store",
+        });
+        const payload = (await response.json()) as { recipients?: BlastRecipient[]; error?: string };
+        if (!response.ok) throw new Error(payload.error || "Erro ao carregar destinatários.");
+        setBlastRecipients(payload.recipients || []);
+    }, [getAccessToken]);
+
+    useEffect(() => {
+        let active = true;
+
+        const checkAccess = async () => {
+            const {
+                data: { user },
+                error: userError,
+            } = await supabase.auth.getUser();
+
+            if (!active) return;
+            if (userError || !user) {
+                setAccessState("signed-out");
+                setLoading(false);
+                return;
+            }
+            if (
+                user.email?.trim().toLowerCase() !== ALLOWED_DEV_EMAIL
+            ) {
+                setAccessState("forbidden");
+                setLoading(false);
+                return;
+            }
+
+            setAccessState("allowed");
+            try {
+                await loadDashboard();
+            } catch (caught) {
+                if (!active) return;
+                setError(
+                    caught instanceof Error
+                        ? caught.message
+                        : "Erro ao carregar suporte."
+                );
+                setLoading(false);
+            }
+        };
+
+        void checkAccess();
+        return () => {
+            active = false;
+        };
+    }, [loadDashboard]);
+
+    useEffect(() => {
+        const connections = [data?.connection, data?.blastConnection];
+        const hasConnectingSession = connections.some(
+            (connection) =>
+                connection?.desired_state === "connected" &&
+                connection.status !== "WORKING"
+        );
+
+        if (accessState !== "allowed" || !hasConnectingSession) return;
+
+        const timer = window.setInterval(() => {
+            void loadDashboard().catch(() => undefined);
+        }, 4000);
+
+        return () => window.clearInterval(timer);
+    }, [accessState, data?.connection, data?.blastConnection, loadDashboard]);
+
+    useEffect(() => {
+        if (accessState !== "allowed" || !data?.handedOff.length) return;
+
+        const timer = window.setInterval(() => {
+            void loadDashboard().catch(() => undefined);
+        }, 60_000);
+
+        return () => window.clearInterval(timer);
+    }, [accessState, data?.handedOff.length, loadDashboard]);
+
+    const runAction = async (
+        nextAction: string,
+        extra: Record<string, unknown> = {}
+    ) => {
+        const actionKey =
+            typeof extra.connection === "string"
+                ? nextAction + ":" + extra.connection
+                : nextAction;
+        setAction(actionKey);
+        setError("");
+
+        try {
+            const token = await getAccessToken();
+            if (!token) {
+                setAccessState("signed-out");
+                return;
+            }
+
+            const response = await fetch("/api/dev/support", {
+                method: "POST",
+                headers: {
+                    Authorization: "Bearer " + token,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ action: nextAction, ...extra }),
+            });
+            const payload = (await response.json()) as DashboardData & {
+                error?: string;
+            };
+
+            if (!response.ok) {
+                throw new Error(payload.error || "Ação falhou.");
+            }
+
+            setData(payload);
+            await loadDashboard();
+        } catch (caught) {
+            setError(
+                caught instanceof Error ? caught.message : "Ação falhou."
+            );
+        } finally {
+            setAction("");
+        }
+    };
+
+    const startBulkSend = async (confirmed = false) => {
+        const recipients = parseBulkRecipients(bulkPhones);
+        const messageTemplate = bulkMessage.trim();
+        const dailyLimit = bulkCadenceEnabled ? Number(bulkCadence) : null;
+        if (!recipients.length || (!messageTemplate && !bulkImage)) {
+            setBulkStatus("Informe pelo menos um número e uma mensagem ou imagem.");
+            return;
+        }
+        if (bulkCadenceEnabled && (!Number.isInteger(dailyLimit) || dailyLimit! < 1 || dailyLimit! > 10000)) {
+            setBulkStatus("Informe uma cadência de 1 a 10.000 mensagens por dia.");
+            return;
+        }
+
+        let resolvedRecipients: Array<{ phone: string; message: string }>;
+        try {
+            resolvedRecipients = recipients.map(({ phone, values }, index) => {
+                try {
+                    return { phone, message: messageTemplate ? renderBulkMessage(messageTemplate, values).trim() : "" };
+                } catch (error) {
+                    throw new Error(`Destinatário ${index + 1}: ${error instanceof Error ? error.message : "Dados inválidos."}`);
+                }
+            });
+        } catch (error) {
+            setBulkStatus(error instanceof Error ? error.message : "Verifique os campos da tabela.");
+            return;
+        }
+
+        if (!confirmed) {
+            setBulkPreview(resolvedRecipients);
+            setBulkStatus("");
+            return;
+        }
+
+        setBulkSending(true);
+        setBulkStatus("");
+        try {
+            const token = await getAccessToken();
+            if (!token) {
+                setAccessState("signed-out");
+                return;
+            }
+
+            if (!bulkCadenceEnabled && !bulkImage) {
+                window.alert("Deixe esta aba aberta durante o envio.");
+
+                const batchId = window.crypto.randomUUID();
+                let sent = 0;
+                let skipped = 0;
+                let failed = 0;
+                let previousStartedAt = 0;
+
+                for (let index = 0; index < resolvedRecipients.length; index += 1) {
+                    if (previousStartedAt) {
+                        const remainingDelay = 25_000 - (Date.now() - previousStartedAt);
+                        if (remainingDelay > 0) {
+                            await new Promise((resolve) =>
+                                window.setTimeout(resolve, remainingDelay)
+                            );
+                        }
+                    }
+
+                    previousStartedAt = Date.now();
+                    const recipient = resolvedRecipients[index];
+                    setBulkStatus(
+                        `Enviando ${index + 1}/${resolvedRecipients.length}...`
+                    );
+
+                    const response = await fetch("/api/dev/support", {
+                        method: "POST",
+                        headers: {
+                            Authorization: "Bearer " + token,
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                            action: "send_bulk_message",
+                            batchId,
+                            phone: recipient.phone,
+                            message: recipient.message,
+                            skipRecent: bulkSkipRecent,
+                            sender: bulkSender,
+                        }),
+                    });
+                    const payload = (await response.json()) as {
+                        error?: string;
+                        skippedRecent?: boolean;
+                        duplicate?: boolean;
+                    };
+
+                    if (response.status === 401) {
+                        setAccessState("signed-out");
+                        throw new Error("Sessão expirada. Entre novamente.");
+                    }
+                    if (!response.ok) {
+                        failed += 1;
+                        continue;
+                    }
+                    if (payload.skippedRecent || payload.duplicate) {
+                        skipped += 1;
+                    } else {
+                        sent += 1;
+                    }
+                }
+
+                setBulkPhones("");
+                setBulkPreview(null);
+                setBulkStatus(
+                    `Envio concluído. ${sent} enviado(s), ${skipped} ignorado(s), ${failed} falha(s).`
+                );
+                return;
+            }
+
+            const imageForm = new FormData();
+            if (bulkImage) {
+                imageForm.set("action", "create_blast");
+                imageForm.set("connection", bulkSender);
+                imageForm.set("message", messageTemplate);
+                imageForm.set("dailyLimit", String(dailyLimit));
+                imageForm.set("skipRecent", String(bulkSkipRecent));
+                imageForm.set("recipients", JSON.stringify(resolvedRecipients));
+                imageForm.set("image", bulkImage);
+            }
+            const response = await fetch("/api/dev/support", {
+                method: "POST",
+                headers: {
+                    Authorization: "Bearer " + token,
+                    ...(!bulkImage ? { "Content-Type": "application/json" } : {}),
+                },
+                body: bulkImage ? imageForm : JSON.stringify({
+                    action: "create_blast",
+                    connection: bulkSender,
+                    message: messageTemplate,
+                    dailyLimit,
+                    skipRecent: bulkSkipRecent,
+                    recipients: resolvedRecipients,
+                }),
+            });
+            const payload = (await response.json()) as { id?: string; error?: string };
+            if (!response.ok || !payload.id) {
+                throw new Error(payload.error || "Falha ao criar o envio.");
+            }
+
+            setBulkPhones("");
+            setBulkImage(null);
+            setBulkPreview(null);
+            setBulkStatus("Envio criado. Ele continuará automaticamente mesmo com a página fechada.");
+            setSelectedBlastId(payload.id);
+            await Promise.all([loadBlastHistory(), loadBlastRecipients(payload.id)]);
+        } catch (caught) {
+            setBulkStatus(caught instanceof Error ? caught.message : "Falha ao criar o envio.");
+        } finally {
+            setBulkSending(false);
+        }
+    };
+
+    const updateBlast = async (id: string, nextStatus: "pause" | "resume" | "cancel") => {
+        setBlastAction(id + ":" + nextStatus);
+        setError("");
+        try {
+            const token = await getAccessToken();
+            if (!token) {
+                setAccessState("signed-out");
+                return;
+            }
+            const response = await fetch("/api/dev/support", {
+                method: "POST",
+                headers: {
+                    Authorization: "Bearer " + token,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    action: "set_blast_status",
+                    id,
+                    nextStatus,
+                }),
+            });
+            const payload = (await response.json()) as { error?: string };
+            if (!response.ok) throw new Error(payload.error || "Ação indisponível.");
+            await loadBlastHistory();
+            if (selectedBlastId === id) await loadBlastRecipients(id);
+        } catch (caught) {
+            setError(caught instanceof Error ? caught.message : "Ação indisponível.");
+        } finally {
+            setBlastAction("");
+        }
+    };
+
+    const startEditing = (entry?: KnowledgeEntry) => {
+        setEditingId(entry?.id || null);
+        setKnowledgeTitle(entry?.title || "");
+        setKnowledgeContent(entry?.content || "");
+        setKnowledgeEditorOpen(true);
+    };
+
+    const saveKnowledge = async () => {
+        await runAction("save_knowledge", {
+            id: editingId,
+            title: knowledgeTitle,
+            content: knowledgeContent,
+        });
+        setEditingId(null);
+        setKnowledgeTitle("");
+        setKnowledgeContent("");
+        setKnowledgeEditorOpen(false);
+    };
+
+    if (accessState === "checking" || loading) {
+        return (
+            <main className="flex min-h-screen items-center justify-center bg-gray-50">
+                <Loader />
+            </main>
+        );
+    }
+
+    if (accessState === "signed-out") {
+        return (
+            <main className="flex min-h-screen items-center justify-center bg-gray-50 p-6">
+                <Card className="w-full max-w-md text-center">
+                    <h1 className="text-xl font-semibold">Faça login primeiro</h1>
+                    <p className="mt-2 text-sm text-gray-500">
+                        Entre com {ALLOWED_DEV_EMAIL}.
+                    </p>
+                    <Button
+                        className="mt-5"
+                        onClick={() => router.push("/restaurante/login")}
+                    >
+                        Ir para o login
+                    </Button>
+                </Card>
+            </main>
+        );
+    }
+
+    if (accessState === "forbidden") {
+        return (
+            <main className="flex min-h-screen items-center justify-center bg-gray-50 p-6">
+                <Card className="w-full max-w-md text-center">
+                    <h1 className="text-xl font-semibold text-red-700">
+                        Acesso negado
+                    </h1>
+                </Card>
+            </main>
+        );
+    }
+
+    const connection = data?.connection || null;
+    const blastConnection = data?.blastConnection || null;
+    const status = statusPresentation(connection);
+    const blastStatus = statusPresentation(blastConnection);
+    const showQr =
+        connection?.desired_state === "connected" &&
+        connection.status === "SCAN_QR_CODE";
+    const showBlastQr =
+        blastConnection?.desired_state === "connected" &&
+        blastConnection.status === "SCAN_QR_CODE";
+    const selectedBulkConnection =
+        bulkSender === "blast" ? blastConnection : connection;
+
+    return (
+        <main className="min-h-screen bg-gray-50 px-4 py-8 sm:px-6">
+            <div className="mx-auto max-w-6xl space-y-6">
+                <header>
+                    <p className="text-sm font-medium text-brand">{section === "blast" ? "/dev/blast" : "/dev/support"}</p>
+                    <h1 className="mt-1 text-3xl font-bold text-gray-900">
+                        {section === "blast" ? "Blast" : "Suporte iMenu"}
+                    </h1>
+                    <p className="mt-2 text-sm text-gray-600">
+                        WhatsApp, IA, base de conhecimento e conversas em um só lugar.
+                    </p>
+                </header>
+
+                {error && (
+                    <Card className="border-red-200 bg-red-50">
+                        <p className="text-sm text-red-700">{error}</p>
+                    </Card>
+                )}
+
+                {section !== "blast" && <>
+                <Card>
+                    <h2 className="text-lg font-semibold text-gray-900">
+                        Handed Off
+                    </h2>
+                    <p className="mt-1 text-sm text-gray-500">
+                        Conversas atualmente sob atendimento humano.
+                    </p>
+
+                    <div className="mt-5 overflow-x-auto rounded-xl border border-gray-200">
+                        {data?.handedOff.length ? (
+                            <table className="w-full min-w-[620px] text-left text-sm">
+                                <thead className="border-b border-gray-200 bg-gray-50 text-xs text-gray-500">
+                                    <tr>
+                                        <th className="px-4 py-3 font-semibold">
+                                            Restaurante
+                                        </th>
+                                        <th className="px-4 py-3 font-semibold">
+                                            Contato
+                                        </th>
+                                        <th className="px-4 py-3 text-right font-semibold">
+                                            Ação
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {data.handedOff.map((conversation) => {
+                                        const whatsappUrl = getWhatsappUrl(
+                                            conversation.phone
+                                        );
+
+                                        return (
+                                            <tr key={conversation.id} className={conversation.plus ? "bg-orange-50/60" : ""}>
+                                                <td className="px-4 py-3">
+                                                    <p className="font-medium text-gray-900">
+                                                        {conversation.restaurant_name ||
+                                                            "Restaurante não identificado"}
+                                                        {conversation.plus && <span className="ml-2 rounded bg-orange-100 px-2 py-1 text-xs font-medium text-orange-800">iMenu Plus</span>}
+                                                    </p>
+                                                </td>
+                                                <td className="px-4 py-3 text-gray-600">
+                                                    {conversation.customer_name
+                                                        ? conversation.customer_name + " · "
+                                                        : ""}
+                                                    {formatPhone(conversation.phone)}
+                                                </td>
+                                                <td className="px-4 py-3 text-right">
+                                                    <Button variant="secondary" loading={action === "set_conversation_mode"} onClick={() => void runAction("set_conversation_mode", { id: conversation.id, mode: "ai" })}>Reativar bot</Button>
+                                                    <Button
+                                                        variant="secondary"
+                                                        disabled={!whatsappUrl}
+                                                        onClick={() => {
+                                                            if (!whatsappUrl) return;
+                                                            window.open(
+                                                                whatsappUrl,
+                                                                "_blank",
+                                                                "noopener,noreferrer"
+                                                            );
+                                                        }}
+                                                    >
+                                                        <FontAwesomeIcon
+                                                            icon={faWhatsapp}
+                                                            className="mr-2"
+                                                        />
+                                                        Abrir WhatsApp
+                                                    </Button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        ) : (
+                            <p className="p-6 text-center text-sm text-gray-500">
+                                Nenhuma conversa em atendimento humano.
+                            </p>
+                        )}
+                    </div>
+                    <Pagination page={handoffPage} pageCount={Math.ceil((data?.stats.human_conversations || 0) / 25)} onChange={setHandoffPage} />
+                </Card>
+
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {[
+                        ["Resposta média · Bot (30 dias)", data?.responseTimes?.bot_seconds == null ? "—" : `${Math.round(data.responseTimes.bot_seconds)} s`],
+                        ["Resposta média · Humano (30 dias)", data?.responseTimes?.human_seconds == null ? "—" : `${Math.round(data.responseTimes.human_seconds / 60)} min`],
+                        ["Conversas hoje", data?.stats.conversations_today ?? 0],
+                        ["Respostas IA hoje", data?.stats.ai_replies_today ?? 0],
+                        ["Em atendimento humano", data?.stats.human_conversations ?? 0],
+                        ["Itens de conhecimento", data?.stats.knowledge_entries ?? 0],
+                    ].map(([label, value]) => (
+                        <Card key={String(label)}>
+                            <p className="text-sm text-gray-500">{label}</p>
+                            <p className="mt-2 text-3xl font-medium tabular-nums text-gray-900">
+                                {value}
+                            </p>
+                        </Card>
+                    ))}
+                </div>
+
+                <Card>
+                    <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex items-start gap-4">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-50 text-xl text-green-600">
+                                <FontAwesomeIcon icon={faWhatsapp} />
+                            </div>
+                            <div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <h2 className="text-lg font-semibold text-gray-900">
+                                        WhatsApp do suporte
+                                    </h2>
+                                    <span
+                                        className={
+                                            "rounded-full px-2.5 py-1 text-xs font-medium " +
+                                            status.className
+                                        }
+                                    >
+                                        {status.label}
+                                    </span>
+                                </div>
+                                <p className="mt-1 text-sm text-gray-500">
+                                    Sessão: {connection?.session_name || "imenu-support"}
+                                </p>
+                                {connection?.phone && (
+                                    <p className="mt-1 text-sm font-medium text-gray-800">
+                                        {connection.push_name || "Suporte iMenu"} ·{" "}
+                                        {formatPhone(connection.phone)}
+                                    </p>
+                                )}
+                                {connection?.last_error && (
+                                    <p className="mt-2 text-sm text-red-600">
+                                        {connection.last_error}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                            {!connection ||
+                            connection.desired_state === "disconnected" ? (
+                                <Button
+                                    onClick={() =>
+                                        void runAction("connect", {
+                                            connection: "support",
+                                        })
+                                    }
+                                    loading={action === "connect:support"}
+                                >
+                                    <FontAwesomeIcon
+                                        icon={faQrcode}
+                                        className="mr-2"
+                                    />
+                                    Conectar WhatsApp
+                                </Button>
+                            ) : (
+                                <>
+                                    {connection.status !== "WORKING" && (
+                                        <Button
+                                            onClick={() =>
+                                                void runAction("reconnect", {
+                                                    connection: "support",
+                                                })
+                                            }
+                                            loading={action === "reconnect:support"}
+                                        >
+                                            <FontAwesomeIcon
+                                                icon={faRotate}
+                                                className="mr-2"
+                                            />
+                                            Reconectar
+                                        </Button>
+                                    )}
+                                    {connection.status !== "WORKING" && (
+                                        <Button
+                                            variant="secondary"
+                                            onClick={() =>
+                                                void runAction("refresh_qr", {
+                                                    connection: "support",
+                                                })
+                                            }
+                                            loading={action === "refresh_qr:support"}
+                                        >
+                                            Novo QR
+                                        </Button>
+                                    )}
+                                    <Button
+                                        variant="secondary"
+                                        onClick={() =>
+                                            void runAction("disconnect", {
+                                                connection: "support",
+                                            })
+                                        }
+                                        loading={action === "disconnect:support"}
+                                    >
+                                        <FontAwesomeIcon
+                                            icon={faPowerOff}
+                                            className="mr-2"
+                                        />
+                                        Desconectar
+                                    </Button>
+                                </>
+                            )}
+                        </div>
+                    </div>
+
+                    {showQr && (
+                        <div className="mt-6 grid gap-5 rounded-xl border border-blue-100 bg-blue-50/40 p-5 sm:grid-cols-[220px_1fr] sm:items-center">
+                            <div className="flex min-h-[210px] items-center justify-center rounded-xl border border-gray-200 bg-white p-3">
+                                {connection?.qr_code_data ? (
+                                    <img
+                                        src={connection.qr_code_data}
+                                        alt="QR Code do WhatsApp de suporte"
+                                        className="h-48 w-48"
+                                    />
+                                ) : (
+                                    <p className="text-sm text-gray-500">
+                                        Preparando QR…
+                                    </p>
+                                )}
+                            </div>
+                            <div>
+                                <h3 className="font-semibold text-gray-900">
+                                    Escaneie com o número do suporte iMenu
+                                </h3>
+                                <p className="mt-2 text-sm text-gray-600">
+                                    WhatsApp → Aparelhos conectados → Conectar um aparelho.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="mt-6 flex items-center justify-between rounded-xl border border-gray-200 p-4">
+                        <div>
+                            <p className="font-medium text-gray-900">
+                                Respostas por IA
+                            </p>
+                            <p className="text-sm text-gray-500">
+                                Notificações automáticas continuam indo direto pelo WAHA.
+                            </p>
+                        </div>
+                        <Button
+                            variant={connection?.bot_enabled ? "secondary" : "primary"}
+                            onClick={() =>
+                                void runAction("set_bot_enabled", {
+                                    enabled: !connection?.bot_enabled,
+                                })
+                            }
+                            loading={action === "set_bot_enabled"}
+                        >
+                            <FontAwesomeIcon
+                                icon={connection?.bot_enabled ? faCircleCheck : faRobot}
+                                className="mr-2"
+                            />
+                            {connection?.bot_enabled ? "IA ativa" : "Ativar IA"}
+                        </Button>
+                    </div>
+                </Card>
+
+                </>}
+                {section !== "support" && <>
+                <Card>
+                    <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex items-start gap-4">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-50 text-xl text-green-600">
+                                <FontAwesomeIcon icon={faWhatsapp} />
+                            </div>
+                            <div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <h2 className="text-lg font-semibold text-gray-900">
+                                        WhatsApp Blast
+                                    </h2>
+                                    <span
+                                        className={
+                                            "rounded-full px-2.5 py-1 text-xs font-medium " +
+                                            blastStatus.className
+                                        }
+                                    >
+                                        {blastStatus.label}
+                                    </span>
+                                </div>
+                                <p className="mt-1 text-sm text-gray-500">
+                                    Sessão: {blastConnection?.session_name || "imenu-blast"}
+                                </p>
+                                {blastConnection?.phone && (
+                                    <p className="mt-1 text-sm font-medium text-gray-800">
+                                        {blastConnection.push_name || "Blast iMenu"} ·{" "}
+                                        {formatPhone(blastConnection.phone)}
+                                    </p>
+                                )}
+                                {blastConnection?.last_error && (
+                                    <p className="mt-2 text-sm text-red-600">
+                                        {blastConnection.last_error}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                            {!blastConnection ||
+                            blastConnection.desired_state === "disconnected" ? (
+                                <Button
+                                    onClick={() =>
+                                        void runAction("connect", {
+                                            connection: "blast",
+                                        })
+                                    }
+                                    loading={action === "connect:blast"}
+                                >
+                                    <FontAwesomeIcon
+                                        icon={faQrcode}
+                                        className="mr-2"
+                                    />
+                                    Conectar WhatsApp
+                                </Button>
+                            ) : (
+                                <>
+                                    {blastConnection.status !== "WORKING" && (
+                                        <Button
+                                            onClick={() =>
+                                                void runAction("reconnect", {
+                                                    connection: "blast",
+                                                })
+                                            }
+                                            loading={action === "reconnect:blast"}
+                                        >
+                                            <FontAwesomeIcon
+                                                icon={faRotate}
+                                                className="mr-2"
+                                            />
+                                            Reconectar
+                                        </Button>
+                                    )}
+                                    {blastConnection.status !== "WORKING" && (
+                                        <Button
+                                            variant="secondary"
+                                            onClick={() =>
+                                                void runAction("refresh_qr", {
+                                                    connection: "blast",
+                                                })
+                                            }
+                                            loading={action === "refresh_qr:blast"}
+                                        >
+                                            Novo QR
+                                        </Button>
+                                    )}
+                                    <Button
+                                        variant="secondary"
+                                        onClick={() =>
+                                            void runAction("disconnect", {
+                                                connection: "blast",
+                                            })
+                                        }
+                                        loading={action === "disconnect:blast"}
+                                    >
+                                        <FontAwesomeIcon
+                                            icon={faPowerOff}
+                                            className="mr-2"
+                                        />
+                                        Desconectar
+                                    </Button>
+                                </>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="mt-6 flex items-center justify-between gap-4 rounded-xl border border-gray-200 p-4">
+                        <div>
+                            <p className="font-medium text-gray-900">
+                                Respostas por IA
+                            </p>
+                            <p className="text-sm text-gray-500">
+                                Responde automaticamente pessoas que receberam disparos por este número.
+                            </p>
+                        </div>
+                        <Switch
+                            checked={blastConnection?.bot_enabled ?? true}
+                            disabled={action === "set_bot_enabled:blast"}
+                            aria-label="Ativar respostas por IA no WhatsApp Blast"
+                            onClick={() =>
+                                void runAction("set_bot_enabled", {
+                                    connection: "blast",
+                                    enabled: !(blastConnection?.bot_enabled ?? true),
+                                })
+                            }
+                        />
+                    </div>
+
+                    {showBlastQr && (
+                        <div className="mt-6 grid gap-5 rounded-xl border border-blue-100 bg-blue-50/40 p-5 sm:grid-cols-[220px_1fr] sm:items-center">
+                            <div className="flex min-h-[210px] items-center justify-center rounded-xl border border-gray-200 bg-white p-3">
+                                {blastConnection?.qr_code_data ? (
+                                    <img
+                                        src={blastConnection.qr_code_data}
+                                        alt="QR Code do WhatsApp Blast"
+                                        className="h-48 w-48"
+                                    />
+                                ) : (
+                                    <p className="text-sm text-gray-500">
+                                        Preparando QR…
+                                    </p>
+                                )}
+                            </div>
+                            <div>
+                                <h3 className="font-semibold text-gray-900">
+                                    Escaneie com o número secundário
+                                </h3>
+                                <p className="mt-2 text-sm text-gray-600">
+                                    WhatsApp → Aparelhos conectados → Conectar um aparelho.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                </Card>
+
+                <Card>
+                    <h2 className="text-lg font-semibold text-gray-900">
+                        Envio em massa
+                    </h2>
+                    <p className="mt-1 text-sm text-gray-500">
+                        Os envios continuam no servidor, mesmo com a página fechada. Sem cadência, o intervalo é de aproximadamente 25 segundos.
+                    </p>
+
+                    <div className="mt-5 max-w-md">
+                        <Dropdown
+                            custom
+                            label="Número de envio"
+                            value={bulkSender}
+                            onChange={(event) =>
+                                setBulkSender(
+                                    event.target.value as "blast" | "support"
+                                )
+                            }
+                            disabled={bulkSending}
+                            options={[
+                                {
+                                    value: "blast",
+                                    label:
+                                        "WhatsApp Blast" +
+                                        (blastConnection?.phone
+                                            ? " · " + formatPhone(blastConnection.phone)
+                                            : " · não conectado"),
+                                },
+                                {
+                                    value: "support",
+                                    label:
+                                        "WhatsApp do suporte" +
+                                        (connection?.phone
+                                            ? " · " + formatPhone(connection.phone)
+                                            : " · não conectado"),
+                                },
+                            ]}
+                        />
+                    </div>
+
+                    <div className="mt-5 flex flex-wrap items-center gap-4 rounded-xl border border-gray-200 p-4">
+                        <div className="min-w-0 flex-1">
+                            <p className="font-medium text-gray-900">Cadência</p>
+                            <p className="text-sm text-gray-500">
+                                Limita este envio a uma quantidade por dia, distribuída das 8h às 21h (horário de Brasília).
+                            </p>
+                        </div>
+                        <Switch
+                            checked={bulkCadenceEnabled}
+                            disabled={bulkSending}
+                            aria-label="Ativar cadência neste envio"
+                            onClick={() => setBulkCadenceEnabled(!bulkCadenceEnabled)}
+                        />
+                        {bulkCadenceEnabled && (
+                            <div className="w-36">
+                                <Input
+                                    label="Mensagens por dia"
+                                    type="number"
+                                    min={1}
+                                    max={10000}
+                                    value={bulkCadence}
+                                    disabled={bulkSending}
+                                    onChange={(event) => setBulkCadence(event.target.value)}
+                                />
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="mt-5 grid gap-4 md:grid-cols-2">
+                        <div>
+                            <label className="mb-1.5 block text-xs font-medium text-gray-800">
+                                Números
+                            </label>
+                            <Textarea
+                                value={bulkPhones}
+                                onChange={(event) =>
+                                    setBulkPhones(event.target.value)
+                                }
+                                rows={6}
+                                disabled={bulkSending}
+                                placeholder={"19 99999-9999\n19 98888-8888"}
+                                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand"
+                            />
+                            <p className="mt-1 text-xs text-gray-500">
+                                Um número por linha ou tabela Markdown com coluna WhatsApp/Telefone. {parseBulkPhones(bulkPhones).length} destinatário(s).
+                            </p>
+                        </div>
+
+                        <div>
+                            <label className="mb-1.5 block text-xs font-medium text-gray-800">
+                                Mensagem
+                            </label>
+                            <Textarea
+                                value={bulkMessage}
+                                onChange={(event) =>
+                                    setBulkMessage(event.target.value)
+                                }
+                                rows={6}
+                                disabled={bulkSending}
+                                placeholder="Digite a mensagem..."
+                                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand"
+                            />
+                            <p className="mt-1 text-xs text-gray-500">
+                                Use colunas da tabela como {"{{Restaurant Name}}"}. Fallback literal: {'{{Restaurant Name||"pessoal"}}'}. Sem aspas, o fallback é outra coluna.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="mt-4">
+                        <label htmlFor="blast-image" className="mb-1.5 block text-xs font-medium text-gray-800">
+                            Imagem (opcional)
+                        </label>
+                        <input
+                            id="blast-image"
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            disabled={bulkSending}
+                            onChange={(event) => {
+                                const file = event.target.files?.[0] || null;
+                                event.target.value = "";
+                                if (file && (file.size > 8 * 1024 * 1024 ||
+                                    !["image/jpeg", "image/png", "image/webp"].includes(file.type))) {
+                                    setBulkStatus("Escolha uma imagem JPG, PNG ou WebP de até 8 MB.");
+                                    return;
+                                }
+                                setBulkImage(file);
+                                setBulkPreview(null);
+                                setBulkStatus("");
+                            }}
+                            className="block w-full max-w-md rounded-lg border border-gray-200 bg-white p-2 text-sm text-gray-700 file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-gray-700"
+                        />
+                        {bulkImage && bulkImageUrl && (
+                            <div className="mt-3 flex flex-wrap items-center gap-3">
+                                <img src={bulkImageUrl} alt="Prévia da imagem do envio" className="h-24 w-24 rounded-lg border border-gray-200 object-cover" />
+                                <div className="min-w-0">
+                                    <p className="max-w-64 truncate text-sm text-gray-700">{bulkImage.name}</p>
+                                    <Button variant="secondary" disabled={bulkSending} onClick={() => setBulkImage(null)}>
+                                        Remover imagem
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <label className="mt-4 flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+                        <input
+                            type="checkbox"
+                            checked={bulkSkipRecent}
+                            onChange={(event) =>
+                                setBulkSkipRecent(event.target.checked)
+                            }
+                            disabled={bulkSending}
+                            className="h-4 w-4 cursor-pointer accent-brand disabled:cursor-not-allowed"
+                        />
+                        <span>
+                            Não repetir números que já receberam envio em massa nos últimos 7 dias
+                        </span>
+                    </label>
+
+                    <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                        <p>
+                            <strong>Atenção:</strong> não é recomendado enviar para mais de 50 destinatários por lote.
+                        </p>
+                        <p className="mt-1">
+                            Você pode fechar esta página depois de iniciar: o envio continuará no servidor.
+                        </p>
+                        {parseBulkPhones(bulkPhones).length > 50 && (
+                            <p className="mt-1 font-semibold">
+                                Este lote tem mais de 50 destinatários.
+                            </p>
+                        )}
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap items-center gap-3">
+                        <Button
+                            onClick={() => void startBulkSend()}
+                            loading={bulkSending}
+                            disabled={
+                                bulkSending ||
+                                (!bulkMessage.trim() && !bulkImage) ||
+                                !parseBulkPhones(bulkPhones).length ||
+                                selectedBulkConnection?.status !== "WORKING"
+                            }
+                        >
+                            Enviar em massa
+                        </Button>
+                    </div>
+                    {bulkStatus && (
+                        <p className="mt-3 text-sm text-gray-600">{bulkStatus}</p>
+                    )}
+                </Card>
+
+                <Modal
+                    open={bulkPreview !== null}
+                    onClose={() => { if (!bulkSending) setBulkPreview(null); }}
+                    height="80dvh"
+                    className="max-w-2xl"
+                >
+                    <div className="p-5 sm:p-6">
+                        <h3 className="text-lg font-semibold text-gray-900">Conferir mensagens antes do envio</h3>
+                        <p className="mt-2 text-sm text-gray-500">
+                            Confira se nomes, cidades e estabelecimentos estão corretos.
+                            {bulkPreview ? ` ${bulkPreview.length} destinatário(s); prévia dos primeiros ${Math.min(20, bulkPreview.length)}.` : ""}
+                        </p>
+                        {bulkImageUrl && (
+                            <img src={bulkImageUrl} alt="Imagem que será enviada" className="mt-4 max-h-52 max-w-full rounded-lg border border-gray-200 object-contain" />
+                        )}
+                        <div className="mt-4 max-h-[48dvh] space-y-3 overflow-y-auto">
+                            {bulkPreview?.slice(0, 20).map((recipient, index) => (
+                                <div key={index} className="rounded-lg border border-gray-200 p-3">
+                                    <p className="mb-2 text-xs font-medium text-gray-600">
+                                        {index + 1}. {formatPhone(recipient.phone)}
+                                    </p>
+                                    <p className="whitespace-pre-wrap text-sm text-gray-800">{recipient.message || "Imagem sem legenda"}</p>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="mt-5 flex flex-wrap justify-end gap-3">
+                            <Button variant="secondary" onClick={() => setBulkPreview(null)} disabled={bulkSending}>Voltar</Button>
+                            <Button onClick={() => void startBulkSend(true)} loading={bulkSending}>Confirmar envio</Button>
+                        </div>
+                    </div>
+                </Modal>
+
+                <BlastHistorySection refreshKey={blastRevision} />
+                </>}
+
+                {section !== "blast" && <>
+                <Card>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <h2 className="text-lg font-semibold text-gray-900">
+                                Base de conhecimento
+                            </h2>
+                            <p className="mt-1 text-sm text-gray-500">
+                                O agente busca aqui antes de responder dúvidas sobre o produto.
+                            </p>
+                        </div>
+                        <Button
+                            variant="secondary"
+                            onClick={() => startEditing()}
+                        >
+                            + Adicionar
+                        </Button>
+                    </div>
+
+                    {knowledgeEditorOpen && (
+                        <div className="mt-5 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
+                            <Input
+                                label="Título"
+                                value={knowledgeTitle}
+                                onChange={(event) =>
+                                    setKnowledgeTitle(event.target.value)
+                                }
+                            />
+                            <div>
+                                <label className="mb-1.5 block text-xs font-medium text-gray-800">
+                                    Conteúdo
+                                </label>
+                                <Textarea
+                                    value={knowledgeContent}
+                                    onChange={(event) =>
+                                        setKnowledgeContent(event.target.value)
+                                    }
+                                    rows={5}
+                                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand"
+                                />
+                            </div>
+                            <div className="flex gap-2">
+                                <Button
+                                    onClick={() => void saveKnowledge()}
+                                    loading={action === "save_knowledge"}
+                                >
+                                    Salvar
+                                </Button>
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => {
+                                        setEditingId(null);
+                                        setKnowledgeTitle("");
+                                        setKnowledgeContent("");
+                                        setKnowledgeEditorOpen(false);
+                                    }}
+                                >
+                                    Cancelar
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="mt-5 divide-y divide-gray-100 rounded-xl border border-gray-200">
+                        {data?.knowledge.map((entry) => (
+                            <div
+                                key={entry.id}
+                                className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between"
+                            >
+                                <div className="min-w-0">
+                                    <p className="font-medium text-gray-900">
+                                        {entry.title}
+                                    </p>
+                                    <p className="mt-1 text-sm text-gray-600">
+                                        {entry.content}
+                                    </p>
+                                </div>
+                                <div className="flex shrink-0 gap-2">
+                                    <Button
+                                        variant="secondary"
+                                        onClick={() => startEditing(entry)}
+                                    >
+                                        Editar
+                                    </Button>
+                                    <Button
+                                        variant="secondary"
+                                        onClick={() =>
+                                            void runAction(
+                                                "delete_knowledge",
+                                                { id: entry.id }
+                                            )
+                                        }
+                                    >
+                                        Excluir
+                                    </Button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </Card>
+
+                <Pagination page={knowledgePage} pageCount={Math.ceil((data?.stats.total_knowledge || 0) / 25)} onChange={setKnowledgePage} />
+                <Card>
+                    <h2 className="text-lg font-semibold text-gray-900">
+                        Conversas recentes
+                    </h2>
+                    <p className="mt-1 text-sm text-gray-500">
+                        O restaurante é identificado automaticamente pelo número do WhatsApp quando possível.
+                    </p>
+
+                    <div className="mt-5 divide-y divide-gray-100 rounded-xl border border-gray-200">
+                        {data?.conversations.length ? (
+                            data.conversations.map((conversation) => (
+                                <div
+                                    key={conversation.id}
+                                    className={`flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between ${conversation.plus ? "bg-orange-50/60" : ""}`}
+                                >
+                                    <div className="min-w-0">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <p className="font-medium text-gray-900">
+                                                {conversation.customer_name ||
+                                                    formatPhone(conversation.phone)}
+                                            </p>
+                                            <span
+                                                className={
+                                                    "rounded-full px-2 py-0.5 text-xs font-medium " +
+                                                    (conversation.mode === "ai"
+                                                        ? "bg-green-50 text-green-700"
+                                                        : "bg-amber-50 text-amber-700")
+                                                }
+                                            >
+                                                {conversation.mode === "ai"
+                                                    ? "IA"
+                                                    : "Humano"}
+                                            </span>
+                                        </div>
+                                        <p className="mt-1 text-xs text-gray-500">
+                                            {conversation.restaurant_name ||
+                                                "Restaurante não identificado"}{" "}
+                                            · {formatPhone(conversation.phone)}
+                                        </p>
+                                        <p className="mt-2 line-clamp-2 text-sm text-gray-600">
+                                            {conversation.last_message || "—"}
+                                        </p>
+                                    </div>
+                                    <Button
+                                        variant="secondary"
+                                        onClick={() =>
+                                            void runAction(
+                                                "set_conversation_mode",
+                                                {
+                                                    id: conversation.id,
+                                                    mode:
+                                                        conversation.mode ===
+                                                        "ai"
+                                                            ? "human"
+                                                            : "ai",
+                                                }
+                                            )
+                                        }
+                                    >
+                                        <FontAwesomeIcon
+                                            icon={
+                                                conversation.mode === "ai"
+                                                    ? faUser
+                                                    : faRobot
+                                            }
+                                            className="mr-2"
+                                        />
+                                        {conversation.mode === "ai"
+                                            ? "Assumir"
+                                            : "Reativar IA"}
+                                    </Button>
+                                </div>
+                            ))
+                        ) : (
+                            <p className="p-8 text-center text-sm text-gray-500">
+                                Nenhuma conversa ainda.
+                            </p>
+                        )}
+                    </div>
+                    <Pagination page={supportPage} pageCount={Math.ceil((data?.stats.total_conversations || 0) / 25)} onChange={setSupportPage} />
+                </Card>
+                </>}
+            </div>
+        </main>
+    );
+}

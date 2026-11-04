@@ -1,5 +1,6 @@
 // app/dev/layout.tsx
 import { ReactNode } from "react";
+import DevNavigation from "@/components/dev/DevNavigation";
 
 export default function DevLayout({ children }: { children: ReactNode }) {
     // if (process.env.NODE_ENV !== "development") {
@@ -10,5 +11,5 @@ export default function DevLayout({ children }: { children: ReactNode }) {
     //     );
     // }
 
-    return <div className="dev-responsive">{children}</div>;
+    return <div className="dev-responsive"><DevNavigation />{children}</div>;
 }

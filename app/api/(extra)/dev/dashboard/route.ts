@@ -1,3 +1,4 @@
+import { loadAcquisitionSeries } from "@/lib/dev/analyticsSeries";
 import { parseRange, toTimestamp, normalizePhone, ordersInside, distinctAccountSet, accountsWithMinPurchaseDays, isHandledOrder, customerQualifiedAccounts, type RangeKey } from "@/lib/dev/dashboardMetrics";
 import { NextResponse } from "next/server";
 import { authorize } from "@/lib/dev/authorize";
@@ -829,6 +830,7 @@ export async function GET(request: Request) {
                     endAt: new Date(endAt).toISOString(),
                     bucket: range === "90d" ? "week" : "day",
                 },
+                ...(new URL(request.url).searchParams.get("compact") === "1" ? { acquisitions: await loadAcquisitionSeries(buckets) } : {}),
                 cards,
                 productOverview: buildProductOverview(
                     postHog.productPageViews,

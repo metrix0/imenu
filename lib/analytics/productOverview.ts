@@ -19,7 +19,7 @@ export type AddonProductMetricsRow = {
 
 // Confirmed first purchases only; renewals and manual grants are not acquisitions.
 // Churn is an owner losing all paid access, among owners paying at the period start.
-export const ADDON_PRODUCT_METRICS_SQL = `
+export const ADDON_PRODUCT_METRICS_CTE = `
     WITH paid_addons AS (
         SELECT
             addon.product_key,
@@ -65,6 +65,9 @@ export const ADDON_PRODUCT_METRICS_SQL = `
         WHERE first_paid_at IS NOT NULL AND first_paid_at < $2::timestamptz
         GROUP BY product_key, account_id
     )
+`;
+
+export const ADDON_PRODUCT_METRICS_SQL = `${ADDON_PRODUCT_METRICS_CTE}
     SELECT
         product.product_key,
         COUNT(account.account_id) FILTER (

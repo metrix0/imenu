@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { authorize } from "@/lib/dev/authorize";
 
+import { payoutHistory } from "@/lib/dev/payoutHistory";
 import { query } from "@/lib/database/sql";
 import {
     createPayoutPlan,
@@ -25,6 +26,8 @@ export async function GET(request: Request) {
     if (denied) return denied;
 
     try {
+        const params = new URL(request.url).searchParams;
+        if (["history", "failed", "runs"].includes(params.get("section") || "")) return NextResponse.json(await payoutHistory(params));
         const data = await getPayoutDashboardData();
         const restaurantIds = Array.from(
             new Set([
@@ -53,8 +56,10 @@ export async function GET(request: Request) {
                   )
                 : { rows: [] };
 
+        const outstanding = await query<{ cents: string }>("SELECT COALESCE(SUM(amount_cents),0)::bigint cents FROM payouts WHERE status <> 'paid'");
         return NextResponse.json({
             ...data,
+            outstandingPayoutCents: Number(outstanding.rows[0]?.cents) || 0,
             ownerPhones: Object.fromEntries(
                 ownerPhoneResult.rows.map((row) => [
                     row.restaurant_id,

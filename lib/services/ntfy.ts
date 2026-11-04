@@ -1,3 +1,4 @@
+import { recordDevAlert } from "@/lib/dev/health";
 const NTFY_BASE_URL = "https://ntfy.sh";
 
 export async function sendNtfyNotification(input: {
@@ -28,6 +29,8 @@ export async function sendNtfyNotification(input: {
             cache: "no-store",
         }
     );
+
+    await recordDevAlert({ source: "phone", title: title || "iMenu", message, severity: response.ok ? "notification" : "error", notification: true });
 
     if (!response.ok) {
         throw new Error(`ntfy HTTP ${response.status}`);
