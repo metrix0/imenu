@@ -32,7 +32,8 @@ export async function aiAccess(restaurant: string, client?: Pick<PoolClient, "qu
     coalesce(sum(image_count) FILTER (WHERE created_at>=now()-interval '7 days'),0)::int images,
     coalesce(sum(image_count) FILTER (WHERE created_at>=date_trunc('month',now())),0)::int monthly_images,
     coalesce(sum(greatest(input_tokens,reserved_input)) FILTER (WHERE kind='chat' AND created_at>=date_trunc('month',now())),0)::float monthly_input,
-    coalesce(sum(greatest(output_tokens,reserved_output)) FILTER (WHERE kind='chat' AND created_at>=date_trunc('month',now())),0)::float monthly_output
+    coalesce(sum(greatest(output_tokens,reserved_output)) FILTER (WHERE kind='chat' AND created_at>=date_trunc('month',now())),0)::float monthly_output,
+    (date_trunc('month', now()) + interval '1 month') monthly_reset_at
     FROM public.ia_vendas_runs WHERE restaurant_id=$1`, [restaurant])).rows[0];
   const input = Number(usage?.monthly_input || 0), output = Number(usage?.monthly_output || 0);
   const monthlyUsage = plus ? {
@@ -40,7 +41,48 @@ export async function aiAccess(restaurant: string, client?: Pick<PoolClient, "qu
       percent: Math.max(input / LIMITS.monthlyChatInput, output / LIMITS.monthlyChatOutput) * 100 },
     images: { used: Number(usage?.monthly_images || 0), limit: LIMITS.images, percent: Number(usage?.monthly_images || 0) / LIMITS.images * 100 },
   } : null;
-  return { plus, usage: monthlyUsage, free_applications_remaining: plus ? null : usedApplication ? 0 : 1, reserved_tokens: Number(usage?.reserved || 0), tokens_remaining: plus ? null : Math.max(0, FREE_AI_TOKENS - Number(usage?.tokens || 0)), images_remaining: plus ? Math.max(0, LIMITS.images - Number(usage?.monthly_images || 0)) : Math.max(0, FREE_AI_IMAGES - Number(usage?.images || 0)) };
+  const freeTokensUsed = Number(usage?.tokens || 0);
+  const freeImagesUsed = Number(usage?.images || 0);
+  let freeTokensResetAt: string | null = null;
+  let freeImagesResetAt: string | null = null;
+  if (!plus && (freeTokensUsed >= FREE_AI_TOKENS || freeImagesUsed >= FREE_AI_IMAGES)) {
+    const reset = (await execute(`
+      WITH counted AS (
+        SELECT id, created_at,
+          CASE WHEN kind='chat' AND status='completed' AND coalesce(result->>'quota_exempt','false')<>'true'
+            THEN input_tokens + output_tokens ELSE 0 END AS tokens,
+          image_count AS images
+        FROM public.ia_vendas_runs
+        WHERE restaurant_id=$1 AND created_at>=now()-interval '7 days'
+      ), expired AS (
+        SELECT created_at + interval '7 days' AS expires_at,
+          sum(tokens) OVER (ORDER BY created_at,id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS tokens_expired,
+          sum(images) OVER (ORDER BY created_at,id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS images_expired
+        FROM counted
+      )
+      SELECT min(expires_at) FILTER (WHERE tokens_expired > $2) AS tokens_reset_at,
+             min(expires_at) FILTER (WHERE images_expired > $3) AS images_reset_at
+      FROM expired
+    `, [restaurant, Math.max(0, freeTokensUsed - FREE_AI_TOKENS), Math.max(0, freeImagesUsed - FREE_AI_IMAGES)])).rows[0];
+    if (freeTokensUsed >= FREE_AI_TOKENS && reset?.tokens_reset_at)
+      freeTokensResetAt = new Date(reset.tokens_reset_at).toISOString();
+    if (freeImagesUsed >= FREE_AI_IMAGES && reset?.images_reset_at)
+      freeImagesResetAt = new Date(reset.images_reset_at).toISOString();
+  }
+  const monthlyResetAt = usage?.monthly_reset_at
+    ? new Date(usage.monthly_reset_at).toISOString()
+    : null;
+  return {
+    plus, usage: monthlyUsage,
+    free_applications_remaining: plus ? null : usedApplication ? 0 : 1,
+    reserved_tokens: Number(usage?.reserved || 0),
+    tokens_remaining: plus ? null : Math.max(0, FREE_AI_TOKENS - freeTokensUsed),
+    images_remaining: plus ? Math.max(0, LIMITS.images - Number(usage?.monthly_images || 0)) : Math.max(0, FREE_AI_IMAGES - freeImagesUsed),
+    free_tokens_limit: plus ? null : FREE_AI_TOKENS,
+    free_images_limit: plus ? null : FREE_AI_IMAGES,
+    tokens_reset_at: plus ? monthlyResetAt : freeTokensResetAt,
+    images_reset_at: plus ? monthlyResetAt : freeImagesResetAt,
+  };
 }
 export async function requireApplicationAccess(restaurant: string, conversation: string, client?: Pick<PoolClient, "query">) {
   const execute = (sql: string, params: any[]) => client ? client.query(sql, params) : query(sql, params);

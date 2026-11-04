@@ -8,6 +8,7 @@ import type { PoolClient } from "pg";
 import { query, withTransaction } from "@/lib/database/sql";
 import { LIMITS, MODELS } from "./config";
 import { SalesError } from "./types";
+import { formatAiResetAt } from "./usageReset";
 export async function beginRun(
   restaurant: string,
   conversation: string,
@@ -53,7 +54,7 @@ export async function beginRun(
       Number(access.tokens_remaining) <= 0
     )
       throw new IaPlusRequired(
-        "Seu limite gratuito foi atingido. Seus limites são reiniciados em 7 dias.",
+        `Seu limite gratuito foi atingido.${formatAiResetAt(access.tokens_reset_at) ? ` Tokens reiniciados em ${formatAiResetAt(access.tokens_reset_at)}.` : ""}`,
       );
     const output =
       kind === "analysis" ? LIMITS.analysisOutput : LIMITS.chatOutput;

@@ -24,7 +24,7 @@ async function api(path: string, body?: Data) {
 let version = 0;
 let usageVersion = 0;
 type State = {
-  access: { plus: boolean; free_applications_remaining: number | null; tokens_remaining: number | null; images_remaining: number | null } | null;
+  access: Awaited<ReturnType<typeof aiAccess>> | null;
   usageAccess: { restaurant_id: string; access: Awaited<ReturnType<typeof aiAccess>>; latest_analysis_finished_at: string | null } | null;
   refreshUsage: (restaurant: string) => Promise<void>;
   upgradeRequired: boolean;

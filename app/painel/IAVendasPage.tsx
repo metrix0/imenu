@@ -4,6 +4,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   Sparkles,
+  Crown,
   SquarePen,
   Send,
   Paperclip,
@@ -41,6 +42,7 @@ import { IA_PLUS_FEATURE_MESSAGE } from "@/lib/addons/products";
 import { isPanelTabKey, type PanelTabKey } from "@/lib/ia-vendas/panelTabs";
 import { SupportWhatsappBadge } from "@/components/common/SupportButton";
 import { capturePosthogLightweight } from "@/lib/api/instrumentation-client";
+import { formatAiResetAt } from "@/lib/ia-vendas/usageReset";
 
 const IA_CAPACITY_SUPPORT_SUFFIX =
   "Caso precise de mais limite ou ajuda, entre em contato com o suporte.";
@@ -100,7 +102,7 @@ export default function SalesPage() {
     [uploading, setUploading] = useState(false),
     [localError, setLocalError] = useState(""),
     [modal, setModal] = useState<
-      "batch" | "history" | "instructions" | "rename" | null
+      "batch" | "history" | "instructions" | "rename" | "buy_tokens" | null
     >(null),
     [renameConversationId, setRenameConversationId] = useState(""),
     [renameTitle, setRenameTitle] = useState(""),
@@ -296,7 +298,11 @@ export default function SalesPage() {
   }, [sales.upgradeRequired, isAnalysis, openPlus]);
   async function send() {
     if (isAnalysis && locked) { setPlusModal("checkout"); return; }
-    if (freeLimitReached) { openPlus("Você atingiu o limite gratuito do Assistente IA. Assine o iMenu Plus para continuar conversando."); return; }
+    if (freeLimitReached) {
+      const reset = formatAiResetAt(sales.access?.tokens_reset_at);
+      openPlus(`Você atingiu o limite gratuito do Assistente IA.${reset ? ` Tokens reiniciados em ${reset}.` : ""} Assine o iMenu Plus para continuar conversando.`);
+      return;
+    }
     if (!text.trim() || disabled || uploading) return;
     const draft = text.trim(),
       pendingAttachments = attachments;
@@ -859,9 +865,12 @@ export default function SalesPage() {
               <div className="mt-3 shrink-0">
                 <AiUsage
                   access={sales.usageAccess?.restaurant_id === restaurant ? sales.usageAccess.access : null}
+                  onBuyTokens={() => setModal("buy_tokens")}
                 />
               </div>
-              <Button className="mt-3 shrink-0" variant={isAnalysis ? "secondary" : "primary"} onClick={() => openPlus()}><Sparkles size={16} className="mr-2" />iMenu Plus</Button>
+              {sales.access?.plus === false && (
+                <Button className="mt-3 shrink-0" variant="primary" onClick={() => openPlus()}><Crown size={16} className="mr-2" />iMenu Plus</Button>
+              )}
             </div>
           </aside>
         )}
@@ -925,9 +934,11 @@ export default function SalesPage() {
               {conversationPicker}
             </div>
             <div className="ml-auto flex shrink-0 gap-2">
-              <span className="hidden md:inline-flex lg:hidden">
-                <Button variant={isAnalysis ? "secondary" : "primary"} onClick={() => openPlus()}>iMenu Plus</Button>
-              </span>
+              {sales.access?.plus === false && (
+                <span className="hidden md:inline-flex lg:hidden">
+                  <Button variant="primary" onClick={() => openPlus()}><Crown size={16} className="mr-2" />iMenu Plus</Button>
+                </span>
+              )}
               <Button
                 variant="secondary"
                 className="lg:hidden"
@@ -1056,7 +1067,11 @@ export default function SalesPage() {
             )}
             <div className="mx-auto max-w-3xl space-y-8">
               {messageList}
-              {freeLimitReached && <IaPlusLimitMessage onCheckout={() => setPlusModal("checkout")} />}
+              {freeLimitReached && <IaPlusLimitMessage
+                resetAt={sales.access?.tokens_reset_at}
+                onCheckout={() => setPlusModal("checkout")}
+                onBuyTokens={() => setModal("buy_tokens")}
+              />}
             </div>
           </div>
           {notice}
@@ -1072,11 +1087,20 @@ export default function SalesPage() {
         onClose={() => {
           if (!sales.acting) setModal(null);
         }}
-        height={modal === "rename" ? 260 : "80dvh"}
+        height={modal === "rename" || modal === "buy_tokens" ? 260 : "80dvh"}
         className={modal === "rename" ? "!max-w-md" : ""}
         showCloseButton
       >
         <div className="p-5 md:p-6">
+          {modal === "buy_tokens" && (
+            <>
+              <h2 className="text-xl font-semibold">Comprar mais tokens</h2>
+              <p className="mt-3 text-sm text-gray-600">A compra de tokens adicionais estará disponível em breve.</p>
+              <div className="mt-5 flex justify-end">
+                <Button variant="secondary" onClick={() => setModal(null)}>Fechar</Button>
+              </div>
+            </>
+          )}
           {modal === "rename" && (
             <>
               <h2 className="text-xl font-semibold">Renomear conversa</h2>

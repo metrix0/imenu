@@ -29,3 +29,11 @@ test("iMenu Plus details use meaningful icons and concise customer-facing benefi
   expect(html).not.toContain("a partir de 2 produtos cadastrados");
   expect(html).not.toContain("deduplicação");
 });
+
+test("Assistant free limit displays the exact date and a non-checkout buy-tokens action", () => {
+  const { IaPlusLimitMessage } = require("@/components/restaurant-owner/ia-vendas/IaPlusSalesModal");
+  const html = renderToStaticMarkup(<IaPlusLimitMessage resetAt="2026-12-01T00:00:00.000Z" onCheckout={() => {}} onBuyTokens={() => {}} />);
+  expect(html).toContain("Tokens reiniciados em 30/11/2026 às 21:00");
+  expect(html).toContain("Comprar mais tokens");
+  expect(html).not.toContain("Seus limites são reiniciados em 7 dias");
+});
