@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const sections = [["Dashboard", "/dev"], ["Health", "/dev/health"], ["CRM", "/dev/crm"], ["Blast", "/dev/blast"], ["Payouts", "/dev/payouts"], ["Support", "/dev/support"], ["Analytics", "/dev/analytics"]] as const;
+const sections = [["Dashboard", "/dev"], ["Health", "/dev/health"], ["CRM", "/dev/crm"], ["Blast", "/dev/blast"], ["Messages", "/dev/messages"], ["Payouts", "/dev/payouts"], ["Support", "/dev/support"], ["Analytics", "/dev/analytics"]] as const;
 
 export default function DevNavigation() {
     const path = usePathname();

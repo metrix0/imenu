@@ -129,6 +129,8 @@ test("unused shares flow to a busy enabled mode without exceeding the shared 10"
     expect(sendWahaText).toHaveBeenCalledTimes(10);
     expect(sendWahaList).toHaveBeenCalledTimes(10);
     expect(client.query.mock.calls.filter((call) => String(call[0]).includes("INSERT INTO whatsapp_outbound_messages"))).toHaveLength(10);
+    expect(client.query.mock.calls[1][0]).toContain("'message',$12::text");
+    expect(client.query.mock.calls[1][1][11]).toContain("Para não receber mais ofertas, responda SAIR.");
   } finally {
     jest.useRealTimers();
   }

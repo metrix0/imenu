@@ -280,6 +280,7 @@ async function claim(
   offer: string,
   sharedLimit: number,
   kindLimit: number,
+  message: string,
 ): Promise<string | null> {
   return withTransaction(async (client) => {
     await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
@@ -292,7 +293,7 @@ async function claim(
     const result = await client.query(
       `
          INSERT INTO whatsapp_outbound_messages(dedupe_key,restaurant_id,chat_id,message_type,status,automation_type,customer_phone,checkout_session_id,context)
-         SELECT $1,$2,$3,'text','sending',$4,$5,$6,jsonb_build_object('offer',$7::text)
+         SELECT $1,$2,$3,'text','sending',$4,$5,$6,jsonb_build_object('offer',$7::text,'message',$12::text)
          WHERE (SELECT count(*) FROM whatsapp_outbound_messages WHERE restaurant_id=$2 AND automation_type IN ('cart','reactivation','habit') AND status IN ('sent','sending','failed') AND created_at>=date_trunc('day',now() AT TIME ZONE 'America/Sao_Paulo') AT TIME ZONE 'America/Sao_Paulo')<$8
           AND (SELECT count(*) FROM whatsapp_outbound_messages WHERE restaurant_id=$2 AND automation_type=$4 AND status IN ('sent','sending','failed') AND created_at>=date_trunc('day',now() AT TIME ZONE 'America/Sao_Paulo') AT TIME ZONE 'America/Sao_Paulo')<$11
          AND NOT EXISTS(SELECT 1 FROM whatsapp_outbound_messages WHERE restaurant_id=$2 AND customer_phone=$5 AND automation_type=$4 AND status IN ('sent','sending','failed') AND created_at>now()-($9::int*interval '1 day'))
@@ -319,6 +320,7 @@ async function claim(
         rule.cooldownDays,
         rule.days,
         kindLimit,
+        message,
       ],
     );
     return result.rows[0]?.dedupe_key || null;
@@ -378,6 +380,11 @@ export async function processCustomerAutomations() {
           const c = eligible[cursor[kind]++];
           // The shared AND kind limits are checked again in the same
           // advisory-locked transaction to prevent concurrent over-sending.
+          const text =
+            rule.message
+              .replaceAll("{{nome}}", c.name || "Cliente")
+              .replaceAll("{{restaurante}}", r.name) +
+            "\n\nPara não receber mais ofertas, responda SAIR.";
           const key = await claim(
             r.restaurant_id,
             kind,
@@ -386,6 +393,7 @@ export async function processCustomerAutomations() {
             rule.offer,
             settings.dailyTotalLimit,
             kindLimit,
+            text,
           );
           if (!key) continue;
           used[kind]++;
@@ -393,11 +401,6 @@ export async function processCustomerAutomations() {
           const chat = `${c.phone}@c.us`;
           let delivered = false;
           try {
-            const text =
-              rule.message
-                .replaceAll("{{nome}}", c.name || "Cliente")
-                .replaceAll("{{restaurante}}", r.name) +
-              "\n\nPara não receber mais ofertas, responda SAIR.";
             if (kind === "cart" && c.image_path) {
               const { data } = createSupabaseServerClient()
                 .storage.from("menu-images")
