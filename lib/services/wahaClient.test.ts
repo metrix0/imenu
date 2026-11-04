@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { findWahaSentTextSince, sendWahaImage } from "./wahaClient";
+import { findWahaSentTextSince, requestWahaPairingCode, sendWahaImage } from "./wahaClient";
 const originalFetch = global.fetch;
 afterEach(() => {
   global.fetch = originalFetch;
@@ -65,4 +65,30 @@ test("WAHA confirmation is unknown when its recent history has no matching outgo
     new Response(JSON.stringify([{ id: "inbound", timestamp: Math.floor(started / 1000), fromMe: false, body: "Bem-vindo" }]), { status: 200 })
   );
   await expect(findWahaSentTextSince("session", "123@lid", "Bem-vindo", started)).resolves.toBeNull();
+});
+
+test("requests a pairing code for the correct session and phone", async () => {
+  process.env.WAHA_API_URL = "http://waha.test";
+  process.env.WAHA_API_KEY = "test-only";
+  const fetchMock = jest.fn().mockResolvedValue(
+    new Response(JSON.stringify({ code: "ABCD-EFGH" }), { status: 200 })
+  );
+  global.fetch = fetchMock;
+  await expect(requestWahaPairingCode("imenu-test", "5511999991234")).resolves.toBe("ABCD-EFGH");
+  expect(fetchMock).toHaveBeenCalledWith(
+    "http://waha.test/api/imenu-test/auth/request-code",
+    expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({ phoneNumber: "5511999991234" }),
+    })
+  );
+});
+
+test("rejects pairing-code responses without a valid code", async () => {
+  process.env.WAHA_API_URL = "http://waha.test";
+  process.env.WAHA_API_KEY = "test-only";
+  global.fetch = jest.fn().mockResolvedValue(new Response("{}", { status: 200 }));
+  await expect(requestWahaPairingCode("imenu-test", "5511999991234")).rejects.toThrow(
+    "WAHA não retornou um código de conexão válido."
+  );
 });
