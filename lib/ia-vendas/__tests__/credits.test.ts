@@ -54,10 +54,20 @@ test("published rates are tied to the configured model and quota ratio", () => {
   }
 });
 
-test("BRL prices add at least R$ 0,50 then round up to cents", () => {
-  expect(convertCreditCostToBrlCents(0.272, 5)).toBe(186);
-  expect(convertCreditCostToBrlCents(0.301, 5)).toBe(201);
-  expect(convertCreditCostToBrlCents(1, 5)).toBe(550);
+test("BRL billing rounds the USD exchange rate up by at least R$ 0,50, then rounds cents up", () => {
+  expect(convertCreditCostToBrlCents(0.272, 5)).toBe(164);
+  expect(convertCreditCostToBrlCents(0.301, 5)).toBe(181);
+  expect(convertCreditCostToBrlCents(1, 5)).toBe(600);
   expect(convertCreditCostToBrlCents(0, 5)).toBe(0);
   expect(() => convertCreditCostToBrlCents(1, 0)).toThrow();
+});
+
+test("2M input + 120k purchased output + 70 low images costs R$ 5,79 at USD/BRL 5,4666", () => {
+  const quote = calculateCreditQuote(rates, 2_000_000, 70);
+  expect(quote.inputUsd).toBeCloseTo(0.4);
+  expect(quote.outputTokens).toBe(120_000);
+  expect(quote.outputUsd).toBeCloseTo(0.144);
+  expect(quote.imagesUsd).toBeCloseTo(0.42);
+  expect(quote.totalUsd).toBeCloseTo(0.964);
+  expect(convertCreditCostToBrlCents(quote.totalUsd, 5.4666)).toBe(579);
 });

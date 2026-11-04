@@ -26,8 +26,7 @@ beforeEach(() => {
 test("available recharge capacity is the Plus cap minus included, paid and pending credits", async () => {
   const rates = await getAvailableCreditRechargeRates("restaurant-1");
   expect(rates.maxInputTokens).toBe(1_000_000);
-  expect(rates.maxOutputTokens).toBe(83_000);
-  expect(rates.availableOutputTokens).toBe(35_000);
+  expect(rates.maxOutputTokens).toBe(103_000);
   expect(rates.maxImages).toBe(48);
   expect(rates.inputStep).toBe(100_000);
   expect(query).toHaveBeenCalledWith(
@@ -36,7 +35,7 @@ test("available recharge capacity is the Plus cap minus included, paid and pendi
   );
 });
 
-test("recharge does not exceed output headroom when the user buys more input", async () => {
+test("recharge purchases full output even when the Plus plan output is nearly unused", async () => {
   (aiAccess as jest.Mock).mockResolvedValue({
     ...current,
     usage: { tokens: { input: 2_000_000, output: 25 } },
@@ -46,15 +45,14 @@ test("recharge does not exceed output headroom when the user buys more input", a
   (query as jest.Mock).mockResolvedValue({ rows: [{ input: 0, output: 0, images: 0 }] });
   const rates = await getAvailableCreditRechargeRates("restaurant-1");
   expect(rates.maxInputTokens).toBe(LIMITS.monthlyChatInput);
-  expect(rates.maxOutputTokens).toBe(25);
-  expect(rates.availableOutputTokens).toBe(119_975);
+  expect(rates.maxOutputTokens).toBe(120_000);
   const quote = calculateCreditQuote(rates, 2_000_000, 0);
   expect(quote.outputAllowanceTokens).toBe(120_000);
-  expect(quote.outputTokens).toBe(25);
+  expect(quote.outputTokens).toBe(120_000);
   expect(quote.inputTokens).toBe(2_000_000);
 });
 
-test("output shown follows the slider despite just 29 extra output credits being needed", async () => {
+test("paid output follows the slider instead of reusing the remaining 119,971 included tokens", async () => {
   (aiAccess as jest.Mock).mockResolvedValue({
     ...current,
     usage: { tokens: { input: 2_000_000, output: 29 } },
@@ -63,17 +61,16 @@ test("output shown follows the slider despite just 29 extra output credits being
   });
   (query as jest.Mock).mockResolvedValue({ rows: [{ input: 0, output: 0, images: 0 }] });
   const rates = await getAvailableCreditRechargeRates("restaurant-1");
-  expect(rates.availableOutputTokens).toBe(119_971);
-  expect(rates.maxOutputTokens).toBe(29);
+  expect(rates.maxOutputTokens).toBe(120_000);
   expect(rates.maxInputTokens).toBe(2_000_000);
   expect(calculateCreditQuote(rates, 0, 0).outputAllowanceTokens).toBe(0);
   const halfMillion = calculateCreditQuote(rates, 500_000, 0);
   expect(halfMillion.outputAllowanceTokens).toBe(30_000);
-  expect(halfMillion.outputTokens).toBe(0);
+  expect(halfMillion.outputTokens).toBe(30_000);
   expect(calculateCreditQuote(rates, 1_000_000, 0).outputAllowanceTokens).toBe(60_000);
   const full = calculateCreditQuote(rates, 2_000_000, 0);
   expect(full.outputAllowanceTokens).toBe(120_000);
-  expect(full.outputTokens).toBe(29);
+  expect(full.outputTokens).toBe(120_000);
 });
 
 test("a full unused plan cannot buy credits beyond the existing allowance", async () => {
@@ -86,7 +83,7 @@ test("a full unused plan cannot buy credits beyond the existing allowance", asyn
   (query as jest.Mock).mockResolvedValue({ rows: [{ input: 0, output: 0, images: 0 }] });
   const rates = await getAvailableCreditRechargeRates("restaurant-1");
   expect(rates.maxInputTokens).toBe(0);
-  expect(rates.maxOutputTokens).toBe(0);
+  expect(rates.maxOutputTokens).toBe(120_000);
   expect(rates.maxImages).toBe(0);
   expect(() => calculateCreditQuote(rates, 100_000, 0)).toThrow("Quantidade");
 });
