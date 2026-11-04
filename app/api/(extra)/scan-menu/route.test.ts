@@ -6,9 +6,9 @@ import { readPublicMenuLink } from "@/lib/menu/readPublicMenuLink";
 const mockOpenAiCreate = jest.fn();
 jest.mock("openai", () => ({
     __esModule: true,
-    default: jest.fn().mockImplementation(() => ({
-        responses: { create: (...args: unknown[]) => mockOpenAiCreate(...args) },
-    })),
+    default: class MockOpenAI {
+        responses = { create: (...args: unknown[]) => mockOpenAiCreate(...args) };
+    },
 }));
 jest.mock("@/lib/menu/readPublicMenuLink", () => ({
     readPublicMenuLink: jest.fn(),
