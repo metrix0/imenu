@@ -230,19 +230,21 @@ export async function fetchCoordinates(fullAddress: string): Promise<{ latitude:
         }
     };
 
-    // Google always runs first; retain its existing numberless retry when quota permits.
+    // Google forward geocoding is disabled; keep its implementation and retry code for later.
+    /*
     const google = await geocodeGoogle(fullAddress);
     if (google) return google;
     if (!googleQuotaExceeded && addressWithoutNumber !== fullAddress) {
         const googleWithoutNumber = await geocodeGoogle(addressWithoutNumber);
         if (googleWithoutNumber) return googleWithoutNumber;
     }
-
-    const tomtom = await geocodeTomTom();
-    if (tomtom) return tomtom;
+    */
 
     const arcgis = await geocodeArcGIS();
     if (arcgis) return arcgis;
+
+    const tomtom = await geocodeTomTom();
+    if (tomtom) return tomtom;
 
     const nominatim = await geocodeNominatim();
     if (nominatim) return nominatim;
