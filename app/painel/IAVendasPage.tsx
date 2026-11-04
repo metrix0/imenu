@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import IaPlusSalesModal, { IaPlusLimitMessage } from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
 import AiUsage from "@/components/restaurant-owner/ia-vendas/AiUsage";
+import CreditPurchaseCalculator from "@/components/restaurant-owner/ia-vendas/CreditPurchaseCalculator";
 import Button from "@/components/ui/Button";
 import Dropdown from "@/components/ui/Dropdown";
 import Modal from "@/components/ui/Modal";
@@ -1083,19 +1084,17 @@ export default function SalesPage() {
         onClose={() => {
           if (!sales.acting) setModal(null);
         }}
-        height={modal === "rename" || modal === "buy_tokens" ? 260 : "80dvh"}
-        className={modal === "rename" ? "!max-w-md" : ""}
+        height={modal === "rename" ? 260 : modal === "buy_tokens" ? 720 : "80dvh"}
+        className={modal === "rename" || modal === "buy_tokens" ? "!max-w-lg" : ""}
         showCloseButton
       >
         <div className="p-5 md:p-6">
-          {modal === "buy_tokens" && (
-            <>
-              <h2 className="text-xl font-semibold">Comprar mais créditos</h2>
-              <p className="mt-3 text-sm text-gray-600">A compra de tokens adicionais estará disponível em breve.</p>
-              <div className="mt-5 flex justify-end">
-                <Button variant="secondary" onClick={() => setModal(null)}>Fechar</Button>
-              </div>
-            </>
+          {modal === "buy_tokens" && restaurant && (
+            <CreditPurchaseCalculator
+              open
+              restaurantId={restaurant}
+              onClose={() => setModal(null)}
+            />
           )}
           {modal === "rename" && (
             <>
