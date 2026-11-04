@@ -708,7 +708,7 @@ export default function PainelLayout({
                                     </span>
                                     <span>{item.label}</span>
                                     {item.href === `${base}/vendas-ia` && finishedAnalysisAt && showNewAnalysisDot && (
-                                        <span role="img" aria-label="Análise pronta" title="Análise pronta" className="ml-auto h-2 w-2 shrink-0 rounded-full bg-brand" />
+                                        <Badge mode="pill" className="ml-auto">PRONTO</Badge>
                                     )}
                                     {item.isNew && (
                                         <Badge mode="pill" className="ml-auto">Novo</Badge>
@@ -868,7 +868,7 @@ export default function PainelLayout({
                                         <Badge mode="pill" className="ml-auto">Novo</Badge>
                                     )}
                                     {item.href === `${base}/vendas-ia` && finishedAnalysisAt && showNewAnalysisDot && expanded && (
-                                        <span role="img" aria-label="Análise pronta" title="Análise pronta" className="ml-auto h-2 w-2 shrink-0 rounded-full bg-brand" />
+                                        <Badge mode="pill" className="ml-auto">PRONTO</Badge>
                                     )}
                                 </Link>
                             );
