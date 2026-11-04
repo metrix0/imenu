@@ -282,11 +282,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
 
         return (
             <div className="mx-auto max-w-2xl 2xl:max-w-3xl">
-                <div className="mb-5">
-                    <div className="mb-3">
-                        <h2 className="text-xl font-medium text-gray-900">Como calcular a taxa de entrega?</h2>
-                        <p className="mt-1 text-sm text-gray-500">Escolha um método. Apenas a opção selecionada será utilizada.</p>
-                    </div>
+                <div className="mb-4">
                     <ChoiceCardGroup
                         value={mode}
                         onChange={changeMode}
@@ -315,7 +311,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                     }`}
                 >
                     <div className="overflow-hidden">
-                        <div className="mb-3 flex h-8 justify-end text-sm font-medium">
+                        <div className="flex justify-end text-sm font-medium">
                             {!isNew && (
                                 <SaveStatus status={error ? "error" : status} />
                             )}
