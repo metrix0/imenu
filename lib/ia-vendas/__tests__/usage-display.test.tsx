@@ -18,3 +18,15 @@ test('collapsed sidebar keeps both accessible resource names', () => {
  const html=renderToStaticMarkup(<AiUsage compact access={access(true,80,10)} />);
  expect(html).toContain('aria-label="Tokens:'); expect(html).toContain('aria-label="Imagens:');
 });
+
+
+test("preview-only demo shows near-limit bars without changing real usage", () => {
+ const original = access(true, 0, 0);
+ const html = renderToStaticMarkup(<AiUsage access={original} previewDemo />);
+ expect(html).toContain("Simulação de uso");
+ expect(html).toContain("95%");
+ expect(html).toContain("94%");
+ expect(html.match(/role="progressbar"/g)).toHaveLength(2);
+ expect(original.usage?.tokens.input).toBe(0);
+ expect(original.usage?.images.used).toBe(0);
+});
