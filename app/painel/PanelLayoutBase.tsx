@@ -47,6 +47,7 @@ import SupportButton, {
     type SupportButtonRef,
 } from "@/components/common/SupportButton";
 import { OrderSoundProvider } from "@/components/restaurant-owner/OrderSoundProvider";
+import { ensureOwnerPushSubscription } from "@/lib/push/client";
 import { supabase } from "@/lib/database/supabaseClient";
 import { capturePosthogLightweight } from "@/lib/api/instrumentation-client";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
@@ -136,6 +137,15 @@ export default function PainelLayout({
 
     const base = "/painel";
     const targetRestaurantId = restaurantId || getParamRestaurantId(params);
+
+    useEffect(() => {
+        if (!targetRestaurantId || typeof Notification === "undefined" ||
+            Notification.permission !== "granted") return;
+
+        void ensureOwnerPushSubscription(targetRestaurantId).catch((error) => {
+            console.error("[OWNER_PUSH] Automatic registration repair failed:", error);
+        });
+    }, [targetRestaurantId]);
 
     useEffect(() => {
         if (!targetRestaurantId || isChecking) return;
