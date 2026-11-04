@@ -13,6 +13,7 @@ import {
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 
 import BlastHistorySection from "@/components/dev/BlastHistorySection";
+import SupportDraftsSection from "@/components/dev/SupportDraftsSection";
 import Pagination from "@/components/ui/Pagination";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -570,6 +571,7 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                 )}
 
                 {section !== "blast" && <>
+                {section === "support" && <SupportDraftsSection />}
                 <Card>
                     <h2 className="text-lg font-semibold text-gray-900">
                         Handed Off
