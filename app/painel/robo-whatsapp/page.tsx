@@ -247,6 +247,8 @@ export default function RoboWhatsAppPage() {
     const [pairingPhone, setPairingPhone] = useState("");
     const [pairingCode, setPairingCode] = useState<string | null>(null);
     const [requestingPairingCode, setRequestingPairingCode] = useState(false);
+    const [qrRetryExhausted, setQrRetryExhausted] = useState(false);
+    const [qrRetryKey, setQrRetryKey] = useState(0);
     const [templates, setTemplates] = useState<WhatsAppMessageTemplates | null>(null);
     const [variables, setVariables] = useState<TemplateVariable[]>([]);
     const [handoffs, setHandoffs] = useState<HandoffConversation[]>([]);
@@ -444,6 +446,59 @@ export default function RoboWhatsAppPage() {
         }
     }, [connection?.status, connection?.desired_state]);
 
+    useEffect(() => {
+        if (!restaurantId || connection?.desired_state !== "connected" ||
+            connection.status !== "SCAN_QR_CODE" || connection.qr_code_data) {
+            setQrRetryExhausted(false);
+            return;
+        }
+
+        let cancelled = false;
+        let attempts = 0;
+        let timer: ReturnType<typeof setTimeout>;
+        setQrRetryExhausted(false);
+
+        const refreshQr = async () => {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) throw new Error("Sessão expirada");
+                const response = await fetch(
+                    `/api/whatsapp/connection?restaurantId=${encodeURIComponent(restaurantId)}`,
+                    {
+                        headers: { Authorization: `Bearer ${session.access_token}` },
+                        cache: "no-store",
+                    }
+                );
+                if (!response.ok) throw new Error("QR indisponível");
+                const data = await response.json();
+                if (cancelled) return;
+                if (data.connection) {
+                    setConnection(data.connection);
+                    if (data.connection.status !== "SCAN_QR_CODE" ||
+                        data.connection.qr_code_data) return;
+                }
+            } catch {
+                if (cancelled) return;
+            }
+
+            attempts += 1;
+            if (attempts >= 3) {
+                if (!cancelled) setQrRetryExhausted(true);
+                return;
+            }
+            timer = setTimeout(refreshQr, 5_000);
+        };
+
+        timer = setTimeout(refreshQr, 3_000);
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
+        };
+    }, [
+        restaurantId, connection?.session_name, connection?.desired_state,
+        connection?.status, connection?.qr_code_data, qrRetryKey,
+    ]);
+
     const requestPairingCode = async () => {
         if (!restaurantId || requestingPairingCode || whatsAppAction) return;
         const enteredPhone = pairingPhone.replace(/\D/g, "");
@@ -494,6 +549,7 @@ export default function RoboWhatsAppPage() {
         if (!session) return;
         setWhatsAppAction(action);
         setPairingCode(null);
+        setQrRetryKey((current) => current + 1);
 
         try {
             const response = await fetch("/api/whatsapp/connection", {
@@ -727,10 +783,21 @@ export default function RoboWhatsAppPage() {
                         hidden={!showPairingPanel}
                     >
                         <div className="min-h-0 overflow-hidden">
-                            <div>
+                            <Card className="border border-blue-200 bg-blue-50/40 p-7">
                                 <div className="grid items-center gap-7 sm:grid-cols-[220px_1fr]">
                                     <div className="flex min-h-[220px] items-center justify-center rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
-                                        {connection?.qr_code_data ? (
+                                        {connection?.status === "FAILED" || qrRetryExhausted ? (
+                                            <div className="space-y-3 text-center">
+                                                <p className="text-sm text-gray-600">QR Code indisponível.</p>
+                                                <Button
+                                                    variant="secondary"
+                                                    onClick={() => runWhatsAppAction(connection?.status === "FAILED" ? "reconnect" : "refresh_qr")}
+                                                    loading={whatsAppAction === "reconnect" || whatsAppAction === "refresh_qr"}
+                                                >
+                                                    Tentar novamente
+                                                </Button>
+                                            </div>
+                                        ) : connection?.qr_code_data ? (
                                             <img
                                                 src={connection.qr_code_data}
                                                 alt="QR Code para conectar o WhatsApp"
@@ -738,21 +805,30 @@ export default function RoboWhatsAppPage() {
                                             />
                                         ) : (
                                             <div className="text-center text-sm text-gray-500">
-                                                Preparando o novo QR Code…
+                                                Preparando o QR Code…
                                             </div>
                                         )}
                                     </div>
                                     <div>
                                         <h3 className="text-lg font-semibold text-gray-900">
-                                            Escaneie pelo celular do restaurante
+                                            {connection?.status === "FAILED" || qrRetryExhausted
+                                                ? "Não foi possível carregar o QR Code"
+                                                : "Escaneie pelo celular do restaurante"}
                                         </h3>
-                                        <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm text-gray-700">
-                                            <li>Abra o WhatsApp no celular.</li>
-                                            <li>Toque no menu <b>⋮</b> no Android ou em <b>Configurações</b> no iPhone.</li>
-                                            <li>Toque em <b>Aparelhos conectados</b>.</li>
-                                            <li>Toque em <b>Conectar um aparelho</b>.</li>
-                                            <li>Aponte a câmera para este QR Code.</li>
-                                        </ol>
+                                        {connection?.status === "FAILED" || qrRetryExhausted ? (
+                                            <p className="mt-3 text-sm text-gray-600">
+                                                Tente reconectar o WhatsApp para gerar um novo QR Code.
+                                            </p>
+                                        ) : (
+                                            <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm text-gray-700">
+                                                <li>Abra o WhatsApp no celular.</li>
+                                                <li>Toque no menu <b>⋮</b> no Android ou em <b>Configurações</b> no iPhone.</li>
+                                                <li>Toque em <b>Aparelhos conectados</b>.</li>
+                                                <li>Toque em <b>Conectar um aparelho</b>.</li>
+                                                <li>Aponte a câmera para este QR Code.</li>
+                                            </ol>
+                                        )}
+                                        {(connection?.status === "SCAN_QR_CODE" || Boolean(pairingCode)) && (
                                         <div className="mt-4">
                                             <button
                                                 type="button"
@@ -809,15 +885,18 @@ export default function RoboWhatsAppPage() {
                                                 </div>
                                             )}
                                         </div>
+                                        )}
                                         <WarningBox icon={faTriangleExclamation} className="mt-4">
                                             Depois de conectar, mensagens enviadas manualmente ao cliente irão pausar o robô naquela conversa por 30 minutos, para não interromper a conversa com atendentes humanos.
                                         </WarningBox>
-                                        <p className="mt-4 text-xs text-gray-500">
-                                            O código muda automaticamente quando expira. Esta tela é atualizada em tempo real, sem precisar recarregar a página.
-                                        </p>
+                                        {connection?.status !== "FAILED" && !qrRetryExhausted && (
+                                            <p className="mt-4 text-xs text-gray-500">
+                                                O código muda automaticamente quando expira. Esta tela é atualizada em tempo real, sem precisar recarregar a página.
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
-                            </div>
+                            </Card>
                         </div>
                     </div>
 
