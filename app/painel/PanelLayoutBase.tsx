@@ -134,14 +134,9 @@ export default function PainelLayout({
     const [isTogglingStore, setIsTogglingStore] = useState(false);
     const [isChecking, setIsChecking] = useState(true);
     const [isPasswordRecoveryFlow, setIsPasswordRecoveryFlow] = useState(false);
-    const [isPreviewSite, setIsPreviewSite] = useState(false);
 
     const base = "/painel";
     const targetRestaurantId = restaurantId || getParamRestaurantId(params);
-
-    useEffect(() => {
-        setIsPreviewSite(window.location.hostname === "preview.imenuapp.com.br");
-    }, []);
 
     useEffect(() => {
         if (!targetRestaurantId || typeof Notification === "undefined" ||
@@ -534,11 +529,7 @@ export default function PainelLayout({
 
     const plusFooter = (compact: boolean) => (
         <div className="shrink-0 border-t border-gray-100 bg-white py-2">
-            <AiUsage
-                access={usageAccess?.restaurant_id === targetRestaurantId ? usageAccess.access : null}
-                compact={compact}
-                previewDemo={isPreviewSite && targetRestaurantId === "30dc57fb-2d60-4e05-be79-57eb9923107a"}
-            />
+            <AiUsage access={usageAccess?.restaurant_id === targetRestaurantId ? usageAccess.access : null} compact={compact} />
             <Link href={`${base}/planos`} title={compact ? "iMenu Plus" : undefined}
                 onClick={() => trackPanelTabOpen({ label: "iMenu Plus", href: `${base}/planos` })}
                 aria-current={pathname?.startsWith(`${base}/planos`) ? "page" : undefined}
