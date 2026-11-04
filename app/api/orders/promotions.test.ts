@@ -158,7 +158,7 @@ const saved = () => insert as unknown as any[];
 const enablePreorders = () => {
   (query as jest.Mock).mockImplementation(async (sql: string) =>
     sql.includes("SELECT preorder_only, preorder_availability_json")
-      ? { rows: [{ preorder_only: true, delivery_disabled: false }] }
+      ? { rows: [{ preorder_only: true, delivery_disabled: false, delivery_fee_mode: "neighborhood" }] }
       : { rows: [], rowCount: 1 },
   );
 };
