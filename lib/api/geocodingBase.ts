@@ -166,21 +166,26 @@ export async function fetchCoordinates(fullAddress: string): Promise<{ latitude:
 
     const geocodeArcGIS = async () => {
         try {
-            const params = new URLSearchParams({
-                SingleLine: fullAddress,
-                f: "json",
-                outFields: "Addr_type,StName,AddNum,City,Postal,Match_addr",
-                maxLocations: "5",
-                forStorage: "false",
-            });
-            if (ARCGIS_API_KEY) params.set("token", ARCGIS_API_KEY);
-            const host = ARCGIS_API_KEY ? "https://geocode-api.arcgis.com" : "https://geocode.arcgis.com";
-            const res = await fetch(
-                host + "/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?" + params.toString()
-            );
-            if (!res.ok) return null;
-            const json = await res.json();
-            const match = json.candidates?.find((candidate: any) => {
+            const search = async (address: string): Promise<any[]> => {
+                const params = new URLSearchParams({
+                    SingleLine: address,
+                    f: "json",
+                    outFields: "Addr_type,StName,AddNum,City,Postal,Match_addr",
+                    maxLocations: "5",
+                    forStorage: "false",
+                });
+                if (ARCGIS_API_KEY) params.set("token", ARCGIS_API_KEY);
+                const host = ARCGIS_API_KEY ? "https://geocode-api.arcgis.com" : "https://geocode.arcgis.com";
+                const res = await fetch(
+                    host + "/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?" + params.toString()
+                );
+                if (!res.ok) return [];
+                const json = await res.json();
+                return Array.isArray(json.candidates) ? json.candidates : [];
+            };
+
+            const candidates = await search(fullAddress);
+            const exact = candidates.find((candidate: any) => {
                 const details = candidate.attributes || {};
                 const type = details.Addr_type;
                 return candidate.score >= 95 &&
@@ -192,14 +197,37 @@ export async function fetchCoordinates(fullAddress: string): Promise<{ latitude:
                             normalize(details.AddNum) === normalize(wantedNumber))) &&
                     (wantedNumber || ["PointAddress", "StreetAddress", "StreetAddressExt", "StreetName"].includes(type));
             });
-            if (!match) {
-                console.log("[geocoding] ArcGIS rejected: no sufficiently precise address match");
-                return null;
+            if (exact) {
+                console.log("[geocoding] resolved with ArcGIS", {
+                    type: exact.attributes.Addr_type, score: exact.score,
+                });
+                return position(exact.location?.y, exact.location?.x);
             }
-            console.log("[geocoding] resolved with ArcGIS", {
-                type: match.attributes.Addr_type, score: match.score,
-            });
-            return position(match.location?.y, match.location?.x);
+
+            // Many Brazilian streets have no mapped building numbers. Confirm the
+            // street and city against the entered CEP before using street-level
+            // coordinates; never substitute a different numbered address.
+            if (wantedNumber && wantedCEP.length === 8 && addressWithoutNumber !== fullAddress) {
+                const postalAddress = await fetchAddressByCEP(wantedCEP);
+                if (postalAddress && cityMatches(postalAddress.city) && streetMatches(postalAddress.street)) {
+                    const streets = await search(addressWithoutNumber);
+                    const street = streets.find((candidate: any) => {
+                        const details = candidate.attributes || {};
+                        return candidate.score >= 90 &&
+                            ["StreetAddress", "StreetAddressExt", "StreetName"].includes(details.Addr_type) &&
+                            streetMatches(details.StName) &&
+                            cityMatches(details.City);
+                    });
+                    if (street) {
+                        console.log("[geocoding] resolved verified street with ArcGIS", {
+                            type: street.attributes.Addr_type, score: street.score,
+                        });
+                        return position(street.location?.y, street.location?.x);
+                    }
+                }
+            }
+            console.log("[geocoding] ArcGIS rejected: no verified address or street match");
+            return null;
         } catch (error) {
             console.log("[geocoding] ArcGIS failed", error);
             return null;
