@@ -40,9 +40,8 @@ import {
 import type { Action, Data } from "@/lib/ia-vendas/types";
 import { IA_PLUS_FEATURE_MESSAGE } from "@/lib/addons/products";
 import { isPanelTabKey, type PanelTabKey } from "@/lib/ia-vendas/panelTabs";
-import ErrorNoticeContent from "@/components/restaurant-owner/ia-vendas/ErrorNoticeContent";
+import ErrorNoticeContent, { AssistantQuotaReply } from "@/components/restaurant-owner/ia-vendas/ErrorNoticeContent";
 import { capturePosthogLightweight } from "@/lib/api/instrumentation-client";
-import { formatAiResetAt } from "@/lib/ia-vendas/usageReset";
 
 type MessagePart =
   | { type: "text"; content: string }
@@ -283,11 +282,6 @@ export default function SalesPage() {
   }, [sales.upgradeRequired, isAnalysis, openPlus]);
   async function send() {
     if (isAnalysis && locked) { setPlusModal("checkout"); return; }
-    if (freeLimitReached) {
-      const reset = formatAiResetAt(sales.access?.tokens_reset_at);
-      openPlus(`Você atingiu o limite gratuito do Assistente IA.${reset ? ` Limites serão reiniciados em ${reset}.` : ""} Assine o iMenu Plus para continuar conversando.`);
-      return;
-    }
     if (!text.trim() || disabled || uploading) return;
     const draft = text.trim(),
       pendingAttachments = attachments;
@@ -437,6 +431,7 @@ export default function SalesPage() {
                     m.role === "assistant"
                       ? splitMessageParts(m.content)
                       : [{ type: "text" as const, content: m.content }],
+                  quotaNotice = m.role === "assistant" && m.cards.some((card) => card.type === "quota_notice"),
                   panelTabs = m.cards
                     .filter(
                       (card) =>
@@ -494,13 +489,20 @@ export default function SalesPage() {
                       <div className="min-w-0 flex-1">
                     {parts.map((part, i) => {
                       if (part.type === "text")
-                        return (
-                              <SalesMarkdown
-                                key={`text-${i}`}
-                                content={part.content}
-                                panelTabs={panelTabs}
-                                mobileCompact={!isAnalysis}
-                              />
+                        return quotaNotice ? (
+                          <AssistantQuotaReply
+                            key={`quota-${i}`}
+                            message={part.content}
+                            onBuyCredits={() => setModal("buy_tokens")}
+                            onSubscribe={sales.access?.plus ? undefined : () => setPlusModal("checkout")}
+                          />
+                        ) : (
+                          <SalesMarkdown
+                            key={`text-${i}`}
+                            content={part.content}
+                            panelTabs={panelTabs}
+                            mobileCompact={!isAnalysis}
+                          />
                         );
                       if (part.type === "action") {
                         const action = actionById.get(part.id),
@@ -554,6 +556,7 @@ export default function SalesPage() {
                       </a>
                     ))}
                     {m.cards.map((card, i) => {
+                      if (card.type === "quota_notice") return null;
                       const marker =
                         card.type === "action"
                           ? `action:${card.id}`
@@ -737,7 +740,7 @@ export default function SalesPage() {
                   />
                   <Button
                     aria-label="Enviar mensagem"
-                    disabled={!freeLimitReached && (!text.trim() || disabled || uploading)}
+                    disabled={!text.trim() || disabled || uploading}
                     onClick={() => void send()}
                     className="h-10 min-h-10 w-10 shrink-0 !px-0 !py-0"
                   >
@@ -1060,7 +1063,7 @@ export default function SalesPage() {
             )}
             <div className="mx-auto max-w-3xl space-y-8">
               {messageList}
-              {freeLimitReached && <IaPlusLimitMessage
+              {freeLimitReached && !threadMessages.some((m) => m.cards.some((card) => card.type === "quota_notice")) && <IaPlusLimitMessage
                 resetAt={sales.access?.tokens_reset_at}
                 onCheckout={() => setPlusModal("checkout")}
                 onBuyTokens={() => setModal("buy_tokens")}

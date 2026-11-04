@@ -384,6 +384,7 @@ export async function runChat(args: {
   const analysisDeadline = Date.now() + 240000;
   let started = false,
     isDeep = false,
+    isChatConversation = false,
     userMessageId = "";
   let reportContext: Data | null = null,
     report: Data | null = null;
@@ -397,6 +398,7 @@ export async function runChat(args: {
       )
     ).rows[0];
     if (!conv) throw new SalesError("Conversa não encontrada.", 404);
+    isChatConversation = conv.kind === "chat";
     const deep =
       conv.kind === "analysis" && args.deep;
     isDeep = deep;
@@ -1050,6 +1052,42 @@ export async function runChat(args: {
     }
     if (e instanceof BatchPending) {
       send("queued", { run_id: run, message: "Análise em processamento. O relatório aparecerá aqui quando estiver pronto." });
+      return;
+    }
+    if (!started && isChatConversation &&
+        (e instanceof IaPlusRequired ||
+         (e instanceof SalesError && e.message.startsWith("Limite mensal de IA atingido.")))) {
+      // Quota responses are real, persisted chat turns, without a model request.
+      const quota = e instanceof IaPlusRequired ? "free" : "monthly";
+      const assistantMessageId = randomUUID();
+      const userId = randomUUID();
+      const saved = await withTransaction(async (c) => {
+        const inserted = await c.query(
+          "INSERT INTO public.ia_vendas_runs (id,restaurant_id,conversation_id,kind,status,model,result,finished_at) VALUES ($1,$2,$3,'chat','completed',$4,$5::jsonb,now()) ON CONFLICT (id) DO NOTHING RETURNING id",
+          [run, restaurant, conversation, MODELS.chat, JSON.stringify({
+            reply: e.message,
+            message_id: assistantMessageId,
+            user_message_id: userId,
+            quota_exempt: true,
+            quota_notice: quota,
+          })],
+        );
+        if (!inserted.rowCount) return false;
+        await c.query(
+          "INSERT INTO public.ia_vendas_messages (id,restaurant_id,conversation_id,role,content,attachment_ids) VALUES ($1,$2,$3,'user',$4,$5)",
+          [userId, restaurant, conversation, message, attachments],
+        );
+        await c.query(
+          "INSERT INTO public.ia_vendas_messages (id,restaurant_id,conversation_id,role,content,cards) VALUES ($1,$2,$3,'assistant',$4,$5::jsonb)",
+          [assistantMessageId, restaurant, conversation, e.message, JSON.stringify([{ type: "quota_notice", quota }])],
+        );
+        await c.query(
+          "UPDATE public.ia_vendas_conversations SET updated_at=now(),title=CASE WHEN kind='chat' AND title='Nova conversa' THEN $3 ELSE title END WHERE restaurant_id=$1 AND id=$2",
+          [restaurant, conversation, message.slice(0, 60)],
+        );
+        return true;
+      });
+      send("done", { id: assistantMessageId, duplicate: !saved });
       return;
     }
     if (

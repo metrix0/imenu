@@ -958,3 +958,51 @@ test("chat tells the model when the first application is already used", async ()
   expect(args.send).toHaveBeenCalledWith("done", expect.any(Object));
   expect((finishRun as jest.Mock).mock.calls.at(-1)[2].reply).toContain("primeira aplicação grátis já foi usada");
 });
+
+test.each([
+  ["monthly", () => new (require("../types").SalesError)("Limite mensal de IA atingido. Limites serão reiniciados em 30/11 às 21:00.", 429)],
+  ["free", () => new IaPlusRequired("Seu limite gratuito foi atingido. Limites serão reiniciados em 10/11 às 14:00.")],
+])("quota-exhausted %s sends persist both messages without invoking OpenAI", async (quota, reject) => {
+  (beginRun as jest.Mock).mockRejectedValueOnce(reject());
+  (query as jest.Mock).mockImplementation(async (statement: string) => ({
+    rows: statement.includes("SELECT * FROM public.ia_vendas_conversations")
+      ? [{ kind: "chat", summary: "" }]
+      : [],
+  }));
+  const sql = jest.fn().mockImplementation(async (statement: string) => ({
+    rowCount: 1,
+    rows: statement.startsWith("INSERT INTO public.ia_vendas_runs") ? [{ id: "run" }] : [],
+  }));
+  (withTransaction as jest.Mock).mockImplementationOnce(async (fn) => fn({ query: sql }));
+
+  await runChat({ ...args, text: "Minha pergunta", deep: false, attachments: [] });
+
+  const runInsert = sql.mock.calls.find(([statement]) => statement.startsWith("INSERT INTO public.ia_vendas_runs"));
+  expect(runInsert).toBeDefined();
+  const runResult = JSON.parse(runInsert[1][4]);
+  expect(runResult.quota_exempt).toBe(true);
+  expect(runResult.quota_notice).toBe(quota);
+
+  const inserts = sql.mock.calls.filter(([statement]) => statement.startsWith("INSERT INTO public.ia_vendas_messages"));
+  expect(inserts).toHaveLength(2);
+  expect(inserts[0][1][3]).toBe("Minha pergunta");
+  expect(inserts[1][1][3]).toContain("Limites serão reiniciados");
+  expect(JSON.parse(inserts[1][1][4])).toEqual([{ type: "quota_notice", quota }]);
+  expect(create).not.toHaveBeenCalled();
+  expect(args.send).toHaveBeenCalledWith("done", expect.objectContaining({ duplicate: false }));
+  expect(args.send).not.toHaveBeenCalledWith("error", expect.anything());
+});
+
+test("retrying an identical quota-rejected request does not duplicate messages", async () => {
+  (beginRun as jest.Mock).mockRejectedValueOnce(new (require("../types").SalesError)("Limite mensal de IA atingido.", 429));
+  (query as jest.Mock).mockImplementation(async (statement: string) => ({
+    rows: statement.includes("SELECT * FROM public.ia_vendas_conversations") ? [{ kind: "chat" }] : [],
+  }));
+  const sql = jest.fn().mockResolvedValue({ rowCount: 0, rows: [] });
+  (withTransaction as jest.Mock).mockImplementationOnce(async (fn) => fn({ query: sql }));
+
+  await runChat({ ...args, text: "Minha pergunta", deep: false, attachments: [] });
+
+  expect(sql).toHaveBeenCalledTimes(1);
+  expect(args.send).toHaveBeenCalledWith("done", expect.objectContaining({ duplicate: true }));
+});
