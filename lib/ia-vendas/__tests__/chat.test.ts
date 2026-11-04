@@ -981,6 +981,9 @@ test.each([
   const inserts = sql.mock.calls.filter(([statement]) => statement.startsWith("INSERT INTO public.ia_vendas_messages"));
   expect(inserts).toHaveLength(2);
   expect(inserts[0][1][3]).toBe("Minha pergunta");
+  expect(inserts[1][0]).toContain("clock_timestamp()");
+  // The read query sorts an assistant reply before its timestamp-tied user message (DESC),
+  // then reverses that window for natural user → assistant display.
   expect(inserts[1][1][3]).toContain("Limites serão reiniciados");
   expect(JSON.parse(inserts[1][1][4])).toEqual([{ type: "quota_notice", quota }]);
   expect(create).not.toHaveBeenCalled();

@@ -1084,7 +1084,7 @@ export async function runChat(args: {
           [userId, restaurant, conversation, message, attachments],
         );
         await c.query(
-          "INSERT INTO public.ia_vendas_messages (id,restaurant_id,conversation_id,role,content,cards) VALUES ($1,$2,$3,'assistant',$4,$5::jsonb)",
+          "INSERT INTO public.ia_vendas_messages (id,restaurant_id,conversation_id,role,content,cards,created_at) VALUES ($1,$2,$3,'assistant',$4,$5::jsonb,clock_timestamp())",
           [assistantMessageId, restaurant, conversation, e.message, JSON.stringify([{ type: "quota_notice", quota }])],
         );
         await c.query(

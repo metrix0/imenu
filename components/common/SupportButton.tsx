@@ -26,7 +26,7 @@ export function SupportWhatsappBadge({ compact = false }: { compact?: boolean } 
             rel="noopener noreferrer"
             aria-label={`Abrir WhatsApp do suporte no número ${DISPLAY_PHONE}`}
             className={compact
-                ? "inline-flex min-h-9 items-center gap-2 rounded-[8px] border border-[var(--panel-border,#e2e5e9)] bg-white px-3 py-1.5 text-[13px] font-medium text-gray-700 transition-colors hover:border-green-300 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600"
+                ? `${SUPPORT_SECONDARY_BUTTON} inline-flex items-center gap-2`
                 : "inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:border-green-200 hover:bg-green-50 hover:text-green-700"}
         >
             <FontAwesomeIcon icon={icons.faWhatsapp} className="!h-4 !w-4 text-green-600" />
