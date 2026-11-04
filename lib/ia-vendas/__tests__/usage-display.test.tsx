@@ -20,7 +20,7 @@ test('collapsed sidebar keeps both accessible resource names', () => {
 });
 
 test('shows exact token and image usage counts with information controls', () => {
- const html = renderToStaticMarkup(<AiUsage access={access(true,90,93.33)} />);
+ const html = renderToStaticMarkup(<AiUsage access={access(true,90,93.33333333333333)} />);
  expect(html).toContain('Entrada: 1.800.000 / 2.000.000');
  expect(html).toContain('Saída: 0 / 120.000');
  expect(html).toContain('70 / 75 imagens');
