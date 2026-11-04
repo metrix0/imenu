@@ -157,7 +157,7 @@ export default function MenuProductCard(props: MenuProductCardProps) {
                     </section>
                     <section className="plans-plus-extras" aria-label="Bônus do iMenu Plus">
                         <div className="plans-plus-section-heading">
-                            <h4>Bônus do Plus</h4>
+                            <h4>+{planBonuses.length} Bônus no Plus</h4>
                         </div>
                         <ul className="plans-plus-bonus-grid">
                             {planBonuses.map((bonus) => {

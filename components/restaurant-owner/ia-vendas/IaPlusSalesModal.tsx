@@ -31,7 +31,7 @@ export function IaPlusDetails() {
         <div><h3 className="text-sm font-semibold text-gray-900">{benefit.title}</h3><p className="mt-1 text-sm leading-6 text-gray-600">{benefit.description}</p></div>
       </li>;
     })}</ul>
-    <h3 className="mt-5 text-sm font-semibold text-gray-900">Bônus</h3>
+    <h3 className="mt-5 text-sm font-semibold text-gray-900">+{IA_PLUS_BONUSES.length} Bônus no Plus</h3>
     <ul className="mt-3 space-y-3 text-sm text-gray-600">{IA_PLUS_BONUSES.map(bonus => {
       const Icon = PLUS_BONUS_ICONS[bonus.title] ?? Sparkles;
       return <li key={bonus.title} className="flex items-center gap-2">
@@ -150,7 +150,7 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
                 </section>;
               })}
               <section className="mt-1 pt-5 sm:col-span-3">
-                <h3 className="text-sm font-semibold text-gray-900">Também incluído no seu plano</h3>
+                <h3 className="text-sm font-semibold text-gray-900">+{IA_PLUS_BONUSES.length} Bônus no Plus</h3>
                 <ul className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2">{IA_PLUS_BONUSES.map(bonus => {
                   const Icon = PLUS_BONUS_ICONS[bonus.title] ?? Sparkles;
                   return <li key={bonus.title} className="flex gap-3 text-sm text-gray-600">
