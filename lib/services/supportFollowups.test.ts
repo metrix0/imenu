@@ -66,6 +66,33 @@ test("reserves the single follow-up atomically and records its delivery", async 
     expect(claim?.[0]).toContain("c.mode = 'ai'");
 });
 
+test("retains PostgreSQL microseconds through the atomic reservation", async () => {
+    const preciseCandidate = {
+        ...candidate,
+        followup_anchor_inbound_at: "2026-11-03 10:29:56.525+00",
+        followup_last_ai_at: "2026-11-03 10:30:08.197898+00",
+    };
+    (query as jest.Mock).mockImplementation(async (sql: string) => {
+        if (sql.includes("SELECT c.id, c.chat_id")) return { rows: [preciseCandidate], rowCount: 1 };
+        if (sql.includes("SET followup_attempted_at = NOW()")) return { rows: [{ id: preciseCandidate.id }], rowCount: 1 };
+        if (sql.includes("INSERT INTO support_messages")) return { rows: [{ id: "followup-1" }], rowCount: 1 };
+        return { rows: [], rowCount: 1 };
+    });
+
+    expect(await processSupportFollowups()).toBe(1);
+    const [selectSql] = (query as jest.Mock).mock.calls[0];
+    expect(selectSql).toContain("c.followup_anchor_inbound_at::text AS followup_anchor_inbound_at");
+    expect(selectSql).toContain("c.followup_last_ai_at::text AS followup_last_ai_at");
+    const claim = (query as jest.Mock).mock.calls.find(([sql]) =>
+        String(sql).includes("SET followup_attempted_at = NOW()"));
+    expect(claim?.[1].slice(2, 4)).toEqual([
+        preciseCandidate.followup_anchor_inbound_at,
+        preciseCandidate.followup_last_ai_at,
+    ]);
+    expect(new Date(preciseCandidate.followup_last_ai_at).toISOString())
+        .toBe("2026-11-03T10:30:08.197Z");
+});
+
 test("no follow-up is sent when a reply or another worker invalidates the claim", async () => {
     (query as jest.Mock).mockImplementation(async (sql: string) =>
         sql.includes("SELECT c.id, c.chat_id")
