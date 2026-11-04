@@ -858,7 +858,7 @@ export default function SalesPage() {
               </nav>
               <div className="mt-3 shrink-0">
                 <AiUsage
-                  access={sales.usageAccess?.restaurant_id === restaurant ? sales.usageAccess.access : sales.access}
+                  access={sales.usageAccess?.restaurant_id === restaurant ? sales.usageAccess.access : null}
                 />
               </div>
               <Button className="mt-3 shrink-0" variant={isAnalysis ? "secondary" : "primary"} onClick={() => openPlus()}><Sparkles size={16} className="mr-2" />iMenu Plus</Button>

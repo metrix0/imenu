@@ -15,7 +15,7 @@ const itemId = "10000000-0000-4000-8000-000000000001";
 it("reapplies active fixed product discounts when editing a manual order", async () => {
   (requireRestaurantOwner as jest.Mock).mockResolvedValue({});
   const client = {
-    query: jest.fn(async (sql: string) => {
+    query: jest.fn(async (sql: string, _values: unknown[]) => {
       if (sql.includes("SELECT * FROM orders")) return { rows: [{
         status: "pending_physical_payment", payment_method: "dinheiro", is_delivery: "balcao",
         table_id: null, total_cents: 6960, coupon_code: null, loyalty_points_used: 0,
