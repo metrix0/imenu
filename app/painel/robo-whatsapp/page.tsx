@@ -727,14 +727,14 @@ export default function RoboWhatsAppPage() {
                         hidden={!showPairingPanel}
                     >
                         <div className="min-h-0 overflow-hidden">
-                            <Card className="border border-blue-200 bg-blue-50/40 p-7">
-                                <div className="grid items-start gap-7 sm:grid-cols-[220px_1fr]">
-                                    <div className="flex min-h-[220px] items-start justify-center">
+                            <Card className="border border-blue-200 bg-blue-50/40 p-4 sm:p-7">
+                                <div className="grid items-start gap-4 sm:grid-cols-[220px_1fr] sm:gap-7">
+                                    <div className="flex h-52 w-full items-center justify-center sm:h-[220px]">
                                         {connection?.qr_code_data ? (
                                             <img
                                                 src={connection.qr_code_data}
                                                 alt="QR Code para conectar o WhatsApp"
-                                                className="h-48 w-48"
+                                                className="h-52 w-52 sm:h-48 sm:w-48"
                                             />
                                         ) : (
                                             <div className="text-center text-sm text-gray-500">
