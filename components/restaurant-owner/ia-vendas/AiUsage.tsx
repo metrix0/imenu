@@ -23,7 +23,7 @@ export default function AiUsage({ access, compact = false }: { access?: Access |
       <div className={`mb-1 flex items-center gap-1 text-gray-600 ${compact ? "text-[10px]" : "text-xs"}`}>
         <span aria-label={row.label}>{compact ? row.short : row.label}</span>
         <span className="ml-auto">{Math.floor(Math.min(100, row.percent))}%</span>
-        <Tooltip text={row.values.join(" · ")} showOnClick position="bottom" size="medium">
+        <Tooltip text={row.values.join(" · ")} showOnClick position="bottom" tooltipClassName="!w-max !max-w-[min(14rem,calc(100vw-1rem))]">
           <button type="button" aria-label={`Informações de uso de ${row.label}`} className="flex size-5 cursor-help items-center justify-center rounded text-gray-500 hover:text-gray-800">
             <Info size={13} />
           </button>
