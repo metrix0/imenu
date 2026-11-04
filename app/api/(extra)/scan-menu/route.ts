@@ -907,6 +907,7 @@ export async function POST(req: Request) {
         let parsed: ParsedMenu;
 
         if (geminiApiKey) {
+            let usedOpenAiFallback = false;
             try {
                 parsed = await scanWithGemini(geminiApiKey, urls, pageText, existingMenuContext);
             } catch (geminiError) {
@@ -921,6 +922,13 @@ export async function POST(req: Request) {
                         : geminiError
                 );
 
+                usedOpenAiFallback = true;
+                parsed = await scanWithOpenAI(openAiApiKey, urls, pageText, existingMenuContext);
+            }
+            // A syntactically valid empty Gemini response is not success when
+            // importing a public menu. Give OpenAI a chance to read the same page.
+            if (!usedOpenAiFallback && parsed.items.length === 0 && openAiApiKey) {
+                console.warn("[SCAN_MENU] Gemini found zero products; trying OpenAI fallback");
                 parsed = await scanWithOpenAI(openAiApiKey, urls, pageText, existingMenuContext);
             }
         } else {
