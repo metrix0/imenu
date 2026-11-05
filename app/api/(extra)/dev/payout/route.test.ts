@@ -139,4 +139,6 @@ test("loads staging payout dashboard without reconciling production records", as
     }));
     expect(response.status).toBe(200);
     expect(getPayoutDashboardData).toHaveBeenCalledWith({ readOnly: true });
+    expect(await response.json()).not.toHaveProperty("outstandingPayoutCents");
+    expect(query).not.toHaveBeenCalled();
 });

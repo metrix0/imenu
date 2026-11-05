@@ -1,15 +1,11 @@
 "use client";
 
-import { PageSaveStatusProvider } from "@/components/ui/SaveStatus";
+import PanelNavigation, { type PanelMenuItem } from "@/components/common/PanelNavigation";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import Image from "next/image";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { PanelIcon as FontAwesomeIcon, faMotorRacingHelmet } from "@/components/ui/PanelIcon";
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import {
-    faBars,
     faBox,
     faChair,
     faChartLine,
@@ -28,18 +24,15 @@ import {
     faRobot,
     faRocket,
     faStore,
-    faTimes,
     faTruck,
     faUtensils,
     faUsers,
     faBullhorn,
     faWandMagicSparkles,
-    type IconDefinition,
 } from "@fortawesome/free-solid-svg-icons";
 
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Loader from "@/components/ui/Loader";
-import Badge from "@/components/ui/Badge";
 import { useSalesStore } from "@/lib/stores/restaurant-owner/iaVendasStore";
 import SupportButton, {
     type SupportButtonRef,
@@ -49,17 +42,6 @@ import { ensureOwnerPushSubscription } from "@/lib/push/client";
 import { supabase } from "@/lib/database/supabaseClient";
 import { capturePosthogLightweight } from "@/lib/api/instrumentation-client";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
-import "./mobile.css";
-
-type MenuItem =
-    | { type: "divider" }
-    | {
-          label: string;
-          icon: IconDefinition;
-          href: string;
-          isNew?: boolean;
-          type?: undefined;
-      };
 
 type ScreenWakeLockSentinel = {
     release: () => Promise<void>;
@@ -120,11 +102,8 @@ export default function PainelLayout({
     const refreshUsage = useSalesStore(state => state.refreshUsage);
     const usageAccess = useSalesStore(state => state.usageAccess);
     const supportButtonRef = useRef<SupportButtonRef>(null);
-    const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
     const productPageViewRef = useRef<string | null>(null);
 
-    const [expanded, setExpanded] = useState(true);
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isStoreClosed, setIsStoreClosed] = useState(false);
     const [availability, setAvailability] = useState<Availability | null>(null);
     const [scheduleNow, setScheduleNow] = useState(() => new Date());
@@ -327,78 +306,6 @@ export default function PainelLayout({
         void checkAuth();
     }, [pathname, router]);
 
-    useEffect(() => {
-        setMobileMenuOpen(false);
-        if (pathname?.startsWith("/painel/assistente-ia")) {
-            setExpanded(false);
-        }
-    }, [pathname]);
-
-    useEffect(() => {
-        const handleTouchStart = (event: TouchEvent) => {
-            if (!window.matchMedia("(max-width: 767px)").matches) {
-                swipeStartRef.current = null;
-                return;
-            }
-
-            const touch = event.touches[0];
-            swipeStartRef.current = { x: touch.clientX, y: touch.clientY };
-        };
-
-        const handleTouchEnd = (event: TouchEvent) => {
-            const start = swipeStartRef.current;
-            swipeStartRef.current = null;
-            if (!start) return;
-
-            const touch = event.changedTouches[0];
-            const horizontalDistance = touch.clientX - start.x;
-            const verticalDistance = Math.abs(touch.clientY - start.y);
-
-            if (
-                !mobileMenuOpen &&
-                horizontalDistance >= 70 &&
-                verticalDistance < 50
-            ) {
-                setMobileMenuOpen(true);
-            }
-
-            if (
-                mobileMenuOpen &&
-                horizontalDistance <= -70 &&
-                verticalDistance < 50
-            ) {
-                setMobileMenuOpen(false);
-            }
-        };
-
-        document.addEventListener("touchstart", handleTouchStart, {
-            passive: true,
-        });
-        document.addEventListener("touchend", handleTouchEnd, {
-            passive: true,
-        });
-
-        return () => {
-            document.removeEventListener("touchstart", handleTouchStart);
-            document.removeEventListener("touchend", handleTouchEnd);
-        };
-    }, [mobileMenuOpen]);
-
-    useEffect(() => {
-        if (!mobileMenuOpen) return;
-
-        const previousOverflow = document.body.style.overflow;
-        document.body.style.overflow = "hidden";
-
-        return () => {
-            document.body.style.overflow = previousOverflow;
-        };
-    }, [mobileMenuOpen]);
-
-    const toggleSidebar = () => {
-        setExpanded((current) => !current);
-    };
-
     const handleStoreToggle = async (action: "open" | "close") => {
         if (!targetRestaurantId) return;
 
@@ -432,7 +339,7 @@ export default function PainelLayout({
 
     const cardapioHref = `${base}/cardapio`;
 
-    const menuItems: MenuItem[] = [
+    const menuItems: PanelMenuItem[] = [
         { label: "Pedidos", icon: faHome, href: `${base}/` },
         { label: "Histórico", icon: faBox, href: `${base}/historico` },
         { label: "Cardápio", icon: faUtensils, href: cardapioHref },
@@ -451,7 +358,7 @@ export default function PainelLayout({
         },
         { type: "divider" },
         { label: "Loja", icon: faStore, href: `${base}/loja` },
-        { label: "Vendas IA", icon: faRocket, href: `${base}/vendas-ia` },
+        { label: "Vendas IA", icon: faRocket, href: `${base}/vendas-ia`, notification: finishedAnalysisAt && showNewAnalysisDot ? "PRONTO" : undefined, notificationTitle: "Vendas IA — análise pronta" },
         { label: "Promoções", icon: faPercent, href: `${base}/promocoes` },
         { label: "Marketing", icon: faBullhorn, href: `${base}/marketing`, isNew: true },
         { label: "Horários", icon: faClock, href: `${base}/disponibilidade` },
@@ -492,13 +399,6 @@ export default function PainelLayout({
     if (isPasswordRecoveryFlow) {
         return <main className="min-h-screen bg-gray-50">{children}</main>;
     }
-
-    const isItemActive = (item: Exclude<MenuItem, { type: "divider" }>) => {
-        const isHome = item.href === `${base}/`;
-        return isHome
-            ? pathname === base || pathname === `${base}/`
-            : pathname?.startsWith(item.href);
-    };
 
     const storeStatus = isStoreClosed
         ? "manual"
@@ -563,36 +463,40 @@ export default function PainelLayout({
                 isLoading={isTogglingStore}
             />
 
-            <div className="min-h-screen bg-gray-50 md:flex">
-                <SupportButton
-                    ref={supportButtonRef}
-                    showFloating={!pathname?.startsWith("/painel/ia-vendas")}
-                    floatingClassName={
-                        pathname?.startsWith("/painel/assistente-ia")
-                            ? "hidden md:flex"
-                            : ""
-                    }
-                />
-
-                <header className="panel-mobile-header sticky top-0 z-30 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4 md:hidden">
-                    <button
-                        type="button"
-                        onClick={() => setMobileMenuOpen(true)}
-                        className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-700 transition-colors hover:bg-gray-100"
-                        aria-label="Abrir menu"
-                    >
-                        <FontAwesomeIcon icon={faBars} className="text-xl" />
-                    </button>
-
-                    <Link href="/painel" aria-label="Ir para o painel">
-                        <Image
-                            src="/logos/CombinationMarkLogo_Brand.png"
-                            alt="Logo"
-                            width={104}
-                            height={35}
-                        />
-                    </Link>
-
+            <PanelNavigation
+                base={base}
+                menuItems={menuItems}
+                onNavigate={trackPanelTabOpen}
+                collapsePath="/painel/assistente-ia"
+                footerAction={{ label: "Ajuda", icon: faCircleQuestion, onClick: () => supportButtonRef.current?.open() }}
+                status={storeStatusButton(true)}
+                collapsedStatus={
+                            <div
+                                className="mt-2 flex h-[30px] items-center justify-center"
+                                title={
+                                    storeStatus === "manual"
+                                        ? "Fechada manualmente"
+                                        : storeStatus === "open"
+                                          ? "Loja aberta"
+                                          : "Loja fechada"
+                                }
+                            >
+                                <div
+                                    className={`relative h-3 w-3 rounded-full ${
+                                        storeStatus === "manual"
+                                            ? "bg-red-500"
+                                            : storeStatus === "open"
+                                              ? "bg-green-500"
+                                              : "bg-gray-400"
+                                    }`}
+                                >
+                                    {storeStatus === "open" && (
+                                        <div className="absolute inset-0 animate-[pulseHalo_2s_infinite] rounded-full bg-green-500" />
+                                    )}
+                                </div>
+                            </div>
+                }
+                headerAction={
                     <button
                         type="button"
                         onClick={() =>
@@ -631,288 +535,14 @@ export default function PainelLayout({
                               ? "Aberta"
                               : "Fechada"}
                     </button>
-                </header>
-
-                <div
-                    className={`fixed inset-0 z-40 bg-black/40 transition-opacity duration-200 md:hidden ${
-                        mobileMenuOpen
-                            ? "opacity-100"
-                            : "pointer-events-none opacity-0"
-                    }`}
-                    onClick={() => setMobileMenuOpen(false)}
-                    aria-hidden="true"
-                />
-
-                <aside
-                    className={`fixed inset-y-0 left-0 z-50 flex w-[min(84vw,20rem)] flex-col border-r border-gray-200 bg-white shadow-xl transition-transform duration-200 md:hidden ${
-                        mobileMenuOpen
-                            ? "translate-x-0"
-                            : "-translate-x-full"
-                    }`}
-                    aria-hidden={!mobileMenuOpen}
-                >
-                    <div className="flex h-16 items-center justify-between border-b border-gray-100 px-4">
-                        <Link href="/painel" aria-label="Ir para o painel">
-                            <Image
-                                src="/logos/CombinationMarkLogo_Brand.png"
-                                alt="Logo"
-                                width={112}
-                                height={38}
-                            />
-                        </Link>
-                        <button
-                            type="button"
-                            onClick={() => setMobileMenuOpen(false)}
-                            className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100"
-                            aria-label="Fechar menu"
-                        >
-                            <FontAwesomeIcon icon={faTimes} className="text-xl" />
-                        </button>
-                    </div>
-
-                    <div className="px-4 py-4">{storeStatusButton(true)}</div>
-
-                    <nav className="flex-1 overflow-y-auto px-2 pb-4">
-                        {menuItems.map((item, index) => {
-                            if (item.type === "divider") {
-                                return (
-                                    <hr
-                                        key={`mobile-divider-${index}`}
-                                        className="my-2 border-gray-100"
-                                    />
-                                );
-                            }
-
-                            const active = isItemActive(item);
-                            return (
-                                <Link
-                                    key={`mobile-${item.href}`}
-                                    href={item.href}
-                                    onClick={() => trackPanelTabOpen(item)}
-                                    aria-current={active ? "page" : undefined}
-                                    className={`panel-nav-link flex items-center gap-3 rounded-lg px-4 py-3 text-sm transition-colors ${
-                                        active
-                                            ? "bg-brand/10 font-medium text-brand"
-                                            : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                                    }`}
-                                >
-                                    <span className="flex h-6 w-6 items-center justify-center">
-                                        <FontAwesomeIcon
-                                            icon={item.icon}
-                                            className={
-                                                active
-                                                    ? "text-brand"
-                                                    : "text-gray-400"
-                                            }
-                                        />
-                                    </span>
-                                    <span>{item.label}</span>
-                                    {item.href === `${base}/vendas-ia` && finishedAnalysisAt && showNewAnalysisDot && (
-                                        <Badge mode="pill" className="ml-auto">PRONTO</Badge>
-                                    )}
-                                    {item.isNew && (
-                                        <Badge mode="pill" className="ml-auto">Novo</Badge>
-                                    )}
-                                </Link>
-                            );
-                        })}
-
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setMobileMenuOpen(false);
-                                supportButtonRef.current?.open();
-                            }}
-                            className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                        >
-                            <span className="flex h-6 w-6 items-center justify-center">
-                                <FontAwesomeIcon
-                                    icon={faCircleQuestion}
-                                    className="text-gray-400"
-                                />
-                            </span>
-                            Ajuda
-                        </button>
-                    </nav>
-                </aside>
-
-                <aside
-                    data-expanded={expanded}
-                    className={`panel-sidebar fixed z-20 hidden h-full flex-col border-r border-gray-200 bg-white transition-[width] duration-300 md:flex ${
-                        expanded ? "w-60 2xl:w-70" : "w-[4.5rem] 2xl:w-20"
-                    }`}
-                >
-                    <div className="panel-sidebar-header">
-                        <Link
-                            href="/painel"
-                            aria-label="Ir para o painel"
-                            aria-hidden={!expanded}
-                            tabIndex={expanded ? 0 : -1}
-                            className={`panel-sidebar-logo origin-left overflow-hidden transition-[width,transform,opacity] duration-300 ${
-                                expanded
-                                    ? "w-[108px] scale-100 opacity-100"
-                                    : "pointer-events-none w-0 scale-75 opacity-0"
-                            }`}
-                        >
-                            <Image
-                                src="/logos/CombinationMarkLogo_Brand.png"
-                                alt="iMenu"
-                                width={104}
-                                height={40}
-                            />
-                        </Link>
-                        <button type="button" onClick={toggleSidebar}
-                            aria-label={expanded ? "Recolher menu lateral" : "Expandir menu lateral"}
-                            aria-expanded={expanded} className="panel-sidebar-toggle cursor-pointer bg-white">
-                            <Image
-                                className={`panel-sidebar-mark transition-opacity duration-300 ${
-                                    expanded ? "opacity-0" : "opacity-100"
-                                }`}
-                                src="/logos/LogoMark_Brand.png"
-                                alt=""
-                                width={32}
-                                height={32}
-                            />
-                            {expanded ? <PanelLeftClose aria-hidden="true" strokeWidth={1.75} /> : <PanelLeftOpen aria-hidden="true" strokeWidth={1.75} />}
-                        </button>
-                    </div>
-
-                    <div
-                        className={`panel-sidebar-status mt-1 pb-2 transition-[width,padding] duration-300 2xl:mt-6 ${
-                            expanded
-                                ? "w-full px-4"
-                                : "w-[4.5rem] self-start 2xl:w-20"
-                        }`}
-                    >
-                        {expanded ? (
-                            storeStatusButton(true)
-                        ) : (
-                            <div
-                                className="mt-2 flex h-[30px] items-center justify-center"
-                                title={
-                                    storeStatus === "manual"
-                                        ? "Fechada manualmente"
-                                        : storeStatus === "open"
-                                          ? "Loja aberta"
-                                          : "Loja fechada"
-                                }
-                            >
-                                <div
-                                    className={`relative h-3 w-3 rounded-full ${
-                                        storeStatus === "manual"
-                                            ? "bg-red-500"
-                                            : storeStatus === "open"
-                                              ? "bg-green-500"
-                                              : "bg-gray-400"
-                                    }`}
-                                >
-                                    {storeStatus === "open" && (
-                                        <div className="absolute inset-0 animate-[pulseHalo_2s_infinite] rounded-full bg-green-500" />
-                                    )}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    <nav className="panel-sidebar-nav thin-scrollbar flex flex-1 flex-col overflow-y-auto">
-                        {menuItems.map((item, index) => {
-                            if (item.type === "divider") {
-                                return (
-                                    <hr
-                                        key={`desktop-divider-${index}`}
-                                        className="mx-4 my-3 border-gray-100"
-                                    />
-                                );
-                            }
-
-                            const active = isItemActive(item);
-                            return (
-                                <Link
-                                    key={item.href}
-                                    href={item.href}
-                                    onClick={() => trackPanelTabOpen(item)}
-                                    title={!expanded ? (item.href === `${base}/vendas-ia` && finishedAnalysisAt && showNewAnalysisDot ? "Vendas IA — análise pronta" : item.label) : ""}
-                                    aria-current={active ? "page" : undefined}
-                                    style={{ outlineColor: "#d93d00" }}
-                                    className={`panel-nav-link group relative flex cursor-pointer items-center transition-colors duration-200 ${item.isNew && expanded ? "!gap-1.5" : ""}`}
-                                >
-                                    <div className="relative flex h-6 w-6 shrink-0 items-center justify-center 2xl:h-10 2xl:w-12">
-                                        <FontAwesomeIcon
-                                            icon={item.icon}
-                                            className={`text-lg transition-colors 2xl:text-2xl ${
-                                                active
-                                                    ? "text-brand"
-                                                    : "text-gray-400 group-hover:text-gray-600"
-                                            }`}
-                                        />
-                                        {item.isNew && !expanded && (
-                                            <span
-                                                aria-label="Novo"
-                                                className="absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full bg-brand 2xl:bottom-1 2xl:right-1"
-                                            />
-                                        )}
-                                        {item.href === `${base}/vendas-ia` && finishedAnalysisAt && showNewAnalysisDot && !expanded && (
-                                            <span role="img" aria-label="Análise pronta" className="absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full bg-brand 2xl:bottom-1 2xl:right-1" />
-                                        )}
-                                    </div>
-                                    <span
-                                        className={`overflow-hidden whitespace-nowrap text-sm transition-[width,opacity] duration-300 2xl:text-lg ${
-                                            expanded
-                                                ? `ml-0 w-auto opacity-100 ${item.isNew ? "shrink-0" : ""}`
-                                                : "ml-0 w-0 opacity-0"
-                                        }`}
-                                    >
-                                        {item.label}
-                                    </span>
-                                    {item.isNew && expanded && (
-                                        <Badge mode="pill" className="ml-auto">Novo</Badge>
-                                    )}
-                                    {item.href === `${base}/vendas-ia` && finishedAnalysisAt && showNewAnalysisDot && expanded && (
-                                        <Badge mode="pill" className="ml-auto">PRONTO</Badge>
-                                    )}
-                                </Link>
-                            );
-                        })}
-
-                        <button
-                            type="button"
-                            onClick={() => supportButtonRef.current?.open()}
-                            title={!expanded ? "Ajuda" : ""}
-                            className="panel-nav-link group relative flex cursor-pointer items-center transition-colors duration-200"
-                        >
-                            <div className="flex h-6 w-6 shrink-0 items-center justify-center 2xl:h-10 2xl:w-12">
-                                <FontAwesomeIcon
-                                    icon={faCircleQuestion}
-                                    className="text-lg text-gray-400 transition-colors group-hover:text-gray-600 2xl:text-2xl"
-                                />
-                            </div>
-                            <span
-                                className={`overflow-hidden whitespace-nowrap text-sm transition-[width,opacity] duration-300 2xl:text-lg ${
-                                    expanded
-                                        ? "w-auto opacity-100"
-                                        : "w-0 opacity-0"
-                                }`}
-                            >
-                                Ajuda
-                            </span>
-                        </button>
-                    </nav>
-                </aside>
-
-                <main
-                    data-panel-path={pathname || base}
-                    data-sidebar-expanded={expanded}
-                    className={`panel-mobile-content relative min-h-screen min-w-0 bg-gray-50 transition-[margin-left] duration-300 md:flex-1 md:p-8 ${
-                        expanded
-                            ? "md:ml-60 2xl:ml-70"
-                            : "md:ml-[4.5rem] 2xl:ml-20"
-                    }`}
-                >
-                    <div className="w-full min-w-0 md:mx-auto md:max-w-7xl">
-                        <PageSaveStatusProvider key={pathname}>{children}</PageSaveStatusProvider>
-                    </div>
-                </main>
-            </div>
+                }
+                overlay={
+                    <SupportButton ref={supportButtonRef} showFloating={!pathname?.startsWith("/painel/ia-vendas")}
+                        floatingClassName={pathname?.startsWith("/painel/assistente-ia") ? "hidden md:flex" : ""} />
+                }
+            >
+                {children}
+            </PanelNavigation>
         </OrderSoundProvider>
     );
 }

@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
-
 import AddonExpiryPopup from "@/components/restaurant-owner/AddonExpiryPopup";
 import ApplicationInstallPrompt from "@/components/restaurant-owner/aplicativo/ApplicationInstallPrompt";
 import PixOnlineTemporaryNotice from "@/components/restaurant-owner/PixOnlineTemporaryNotice";
@@ -9,70 +7,14 @@ import PanelLayoutBase from "./PanelLayoutBase";
 import PanelAppearance from "@/components/ui/PanelAppearance";
 import "./essencial.css";
 
-function isInsideHorizontalScroller(target: EventTarget | null, boundary: HTMLElement) {
-    let element = target instanceof Element ? target : null;
-
-    while (element && element !== boundary) {
-        if (element instanceof HTMLElement) {
-            const overflowX = window.getComputedStyle(element).overflowX;
-            const isHorizontalScroller =
-                element.scrollWidth > element.clientWidth &&
-                (overflowX === "auto" ||
-                    overflowX === "scroll" ||
-                    overflowX === "overlay");
-
-            if (isHorizontalScroller) return true;
-        }
-
-        element = element.parentElement;
-    }
-
-    return false;
-}
-
 export default function PainelLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
-    useEffect(() => {
-        const content = document.querySelector<HTMLElement>(
-            ".panel-mobile-content"
-        );
-        if (!content) return;
-
-        const stopSidebarSwipe = (event: TouchEvent) => {
-            if (isInsideHorizontalScroller(event.target, content)) {
-                event.stopPropagation();
-            }
-        };
-
-        content.addEventListener("touchstart", stopSidebarSwipe, {
-            passive: true,
-        });
-        content.addEventListener("touchend", stopSidebarSwipe, {
-            passive: true,
-        });
-
-        return () => {
-            content.removeEventListener("touchstart", stopSidebarSwipe);
-            content.removeEventListener("touchend", stopSidebarSwipe);
-        };
-    }, []);
 
     return (
         <PanelAppearance>
-            <style jsx global>{`
-                @media (min-width: 768px) {
-                    .panel-essencial .panel-sidebar .panel-nav-link {
-                        border-color: var(--panel-brand);
-                    }
-                    .panel-essencial .panel-sidebar .panel-nav-link[aria-current="page"] {
-                        border-left: 3px solid var(--panel-brand);
-                        padding-left: 11px;
-                    }
-                }
-            `}</style>
             <PanelLayoutBase>{children}</PanelLayoutBase>
             <PixOnlineTemporaryNotice />
             <AddonExpiryPopup />

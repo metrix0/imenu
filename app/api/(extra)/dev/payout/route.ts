@@ -56,10 +56,8 @@ export async function GET(request: Request) {
                   )
                 : { rows: [] };
 
-        const outstanding = await query<{ cents: string }>("SELECT COALESCE(SUM(amount_cents),0)::bigint cents FROM payouts WHERE status <> 'paid'");
         return NextResponse.json({
             ...data,
-            outstandingPayoutCents: Number(outstanding.rows[0]?.cents) || 0,
             ownerPhones: Object.fromEntries(
                 ownerPhoneResult.rows.map((row) => [
                     row.restaurant_id,
