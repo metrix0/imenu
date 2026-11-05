@@ -115,10 +115,8 @@ async function refreshConnection(
     if (connection.desired_state !== "connected") return connection;
 
     try {
-        let session =
-            connectionId === "blast"
-                ? await ensureWahaBlastSession(connection.session_name)
-                : await getWahaSession(connection.session_name);
+        // Dashboard status reads must never reconfigure the shared WAHA session.
+        let session = await getWahaSession(connection.session_name);
 
         if (session?.status === "STARTING" && connectionId === "blast") {
             await sleep(700);
@@ -361,6 +359,14 @@ export async function POST(request: Request) {
             )
         ) {
             const connectionAction = action as ConnectionAction;
+            // The blast session belongs to production. Staging may inspect it,
+            // but must never restart, log out or replace its webhook settings.
+            if (connectionTarget === "blast" && !process.env.IMENU_SUPPORT_PUBLIC_URL?.trim()) {
+                return NextResponse.json(
+                    { error: "O WhatsApp Blast compartilhado só pode ser gerenciado na produção." },
+                    { status: 403 }
+                );
+            }
             const current = await readConnection(connectionId);
 
             if (connectionAction === "disconnect") {
