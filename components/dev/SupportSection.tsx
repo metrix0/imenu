@@ -20,7 +20,10 @@ import Card from "@/components/ui/Card";
 import Dropdown from "@/components/ui/Dropdown";
 import Input from "@/components/ui/Input";
 import Loader from "@/components/ui/Loader";
-import Modal from "@/components/ui/Modal";
+import DevDialog from "./DevDialog";
+import DevPage from "./DevPage";
+import Badge from "@/components/ui/Badge";
+import styles from "./dashboard.module.css";
 import Switch from "@/components/ui/Switch";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import Textarea from "@/components/ui/Textarea";
@@ -50,6 +53,7 @@ export default function SupportSection({ section = "support" }: { section?: "sup
     const [knowledgeEditorOpen, setKnowledgeEditorOpen] = useState(false);
     const [knowledgeTitle, setKnowledgeTitle] = useState("");
     const [knowledgeContent, setKnowledgeContent] = useState("");
+    const [composeOpen,setComposeOpen] = useState(false);
     const [bulkPhones, setBulkPhones] = useState("");
     const [bulkMessage, setBulkMessage] = useState("");
     const [bulkImage, setBulkImage] = useState<File | null>(null);
@@ -95,6 +99,7 @@ export default function SupportSection({ section = "support" }: { section?: "sup
             };
             if (!prefill.phones) return;
 
+            setComposeOpen(true);
             setBulkPhones(prefill.phones);
             setBulkMessage(
                 prefill.message === DID_NOT_ACTIVATE_BLAST_MESSAGE
@@ -221,33 +226,6 @@ export default function SupportSection({ section = "support" }: { section?: "sup
             active = false;
         };
     }, [loadDashboard]);
-
-    useEffect(() => {
-        const connections = [data?.connection, data?.blastConnection];
-        const hasConnectingSession = connections.some(
-            (connection) =>
-                connection?.desired_state === "connected" &&
-                connection.status !== "WORKING"
-        );
-
-        if (accessState !== "allowed" || !hasConnectingSession) return;
-
-        const timer = window.setInterval(() => {
-            void loadDashboard().catch(() => undefined);
-        }, 4000);
-
-        return () => window.clearInterval(timer);
-    }, [accessState, data?.connection, data?.blastConnection, loadDashboard]);
-
-    useEffect(() => {
-        if (accessState !== "allowed" || !data?.handedOff.length) return;
-
-        const timer = window.setInterval(() => {
-            void loadDashboard().catch(() => undefined);
-        }, 60_000);
-
-        return () => window.clearInterval(timer);
-    }, [accessState, data?.handedOff.length, loadDashboard]);
 
     const runAction = async (
         nextAction: string,
@@ -551,19 +529,7 @@ export default function SupportSection({ section = "support" }: { section?: "sup
     const selectedBulkConnection =
         bulkSender === "blast" ? blastConnection : connection;
 
-    return (
-        <main className="min-h-screen bg-gray-50 px-4 py-8 sm:px-6">
-            <div className="mx-auto max-w-6xl space-y-6">
-                <header>
-                    <p className="text-sm font-medium text-brand">{section === "blast" ? "/dev/blast" : "/dev/support"}</p>
-                    <h1 className="mt-1 text-3xl font-bold text-gray-900">
-                        {section === "blast" ? "Blast" : "Suporte iMenu"}
-                    </h1>
-                    <p className="mt-2 text-sm text-gray-600">
-                        WhatsApp, IA, base de conhecimento e conversas em um só lugar.
-                    </p>
-                </header>
-
+    return (<DevPage title={section === "blast" ? "Blast" : "Support"}>
                 {error && (
                     <Card className="border-red-200 bg-red-50">
                         <p className="text-sm text-red-700">{error}</p>
@@ -571,7 +537,6 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                 )}
 
                 {section !== "blast" && <>
-                {section === "support" && <SupportDraftsSection />}
                 <Card>
                     <h2 className="text-lg font-semibold text-gray-900">
                         Handed Off
@@ -608,7 +573,7 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                                                     <p className="font-medium text-gray-900">
                                                         {conversation.restaurant_name ||
                                                             "Restaurante não identificado"}
-                                                        {conversation.plus && <span className="ml-2 rounded bg-orange-100 px-2 py-1 text-xs font-medium text-orange-800">iMenu Plus</span>}
+                                                        {conversation.plus && <Badge variant="brand" className="ml-2">iMenu Plus</Badge>}
                                                     </p>
                                                 </td>
                                                 <td className="px-4 py-3 text-gray-600">
@@ -652,24 +617,9 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                     <Pagination page={handoffPage} pageCount={Math.ceil((data?.stats.human_conversations || 0) / 25)} onChange={setHandoffPage} />
                 </Card>
 
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    {[
-                        ["Resposta média · Bot (30 dias)", data?.responseTimes?.bot_seconds == null ? "—" : `${Math.round(data.responseTimes.bot_seconds)} s`],
-                        ["Resposta média · Humano (30 dias)", data?.responseTimes?.human_seconds == null ? "—" : `${Math.round(data.responseTimes.human_seconds / 60)} min`],
-                        ["Conversas hoje", data?.stats.conversations_today ?? 0],
-                        ["Respostas IA hoje", data?.stats.ai_replies_today ?? 0],
-                        ["Em atendimento humano", data?.stats.human_conversations ?? 0],
-                        ["Itens de conhecimento", data?.stats.knowledge_entries ?? 0],
-                    ].map(([label, value]) => (
-                        <Card key={String(label)}>
-                            <p className="text-sm text-gray-500">{label}</p>
-                            <p className="mt-2 text-3xl font-medium tabular-nums text-gray-900">
-                                {value}
-                            </p>
-                        </Card>
-                    ))}
-                </div>
-
+                <dl className={styles.metricStrip}><div><dt>Resposta média · Bot</dt><dd>{data?.responseTimes?.bot_seconds == null ? "—" : `${Math.round(data.responseTimes.bot_seconds)} s`}</dd><p>Últimos 30 dias</p></div><div><dt>Resposta média · Humano</dt><dd>{data?.responseTimes?.human_seconds == null ? "—" : `${Math.round(data.responseTimes.human_seconds/60)} min`}</dd><p>Últimos 30 dias</p></div></dl>
+               {section === "support" && <SupportDraftsSection/>}
+               {section === "legacy" && <>
                 <Card>
                     <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
                         <div className="flex items-start gap-4">
@@ -829,8 +779,10 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                 </Card>
 
                 </>}
+                </>}
                 {section !== "support" && <>
-                <Card>
+                <BlastHistorySection refreshKey={blastRevision}/>
+                <details className={`${styles.section} ${styles.disclosure}`}><summary className={styles.sectionHeader}><h2>Conexão WhatsApp Blast</h2></summary>                <Card>
                     <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
                         <div className="flex items-start gap-4">
                             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-50 text-xl text-green-600">
@@ -983,13 +935,11 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                         </div>
                     )}
                 </Card>
+                </details>
 
-                <Card>
-                    <h2 className="text-lg font-semibold text-gray-900">
-                        Envio em massa
-                    </h2>
+                <details open={composeOpen} onToggle={event=>setComposeOpen(event.currentTarget.open)} className={`${styles.section} ${styles.disclosure}`}><summary className={styles.sectionHeader}><h2>Envio em massa</h2></summary>                <Card>
                     <p className="mt-1 text-sm text-gray-500">
-                        Os envios continuam no servidor, mesmo com a página fechada. Sem cadência, o intervalo é de aproximadamente 25 segundos.
+                        Prepare os destinatários e a mensagem. Você poderá conferir tudo antes de enviar.
                     </p>
 
                     <div className="mt-5 max-w-md">
@@ -1143,7 +1093,7 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                         </span>
                     </label>
 
-                    <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                    <div className="mt-4 text-xs leading-5 text-gray-500">
                         <p>
                             <strong>Atenção:</strong> não é recomendado enviar para mais de 50 destinatários por lote.
                         </p>
@@ -1175,15 +1125,13 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                         <p className="mt-3 text-sm text-gray-600">{bulkStatus}</p>
                     )}
                 </Card>
+                </details>
 
-                <Modal
+                <DevDialog title="Conferir mensagens antes do envio"
                     open={bulkPreview !== null}
                     onClose={() => { if (!bulkSending) setBulkPreview(null); }}
-                    height="80dvh"
-                    className="max-w-2xl"
                 >
                     <div className="p-5 sm:p-6">
-                        <h3 className="text-lg font-semibold text-gray-900">Conferir mensagens antes do envio</h3>
                         <p className="mt-2 text-sm text-gray-500">
                             Confira se nomes, cidades e estabelecimentos estão corretos.
                             {bulkPreview ? ` ${bulkPreview.length} destinatário(s); prévia dos primeiros ${Math.min(20, bulkPreview.length)}.` : ""}
@@ -1206,12 +1154,11 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                             <Button onClick={() => void startBulkSend(true)} loading={bulkSending}>Confirmar envio</Button>
                         </div>
                     </div>
-                </Modal>
+                </DevDialog>
 
-                <BlastHistorySection refreshKey={blastRevision} />
                 </>}
 
-                {section !== "blast" && <>
+                {section === "legacy" && <>
                 <Card>
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
@@ -1395,7 +1342,6 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                     <Pagination page={supportPage} pageCount={Math.ceil((data?.stats.total_conversations || 0) / 25)} onChange={setSupportPage} />
                 </Card>
                 </>}
-            </div>
-        </main>
+        </DevPage>
     );
 }

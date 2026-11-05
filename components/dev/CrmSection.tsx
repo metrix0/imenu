@@ -4,7 +4,12 @@ import { useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
-import Modal from "@/components/ui/Modal";
+import DevDialog from "./DevDialog";
+import styles from "./dashboard.module.css";
+import InitialsAvatar from "@/components/ui/InitialsAvatar";
+import Badge from "@/components/ui/Badge";
+import { Search } from "lucide-react";
+import { formatPhone, getWhatsappUrl } from "@/lib/dev/supportView";
 import Tabs from "@/components/ui/Tabs";
 import Tooltip from "@/components/ui/Tooltip";
 import Loader from "@/components/ui/Loader";
@@ -32,12 +37,12 @@ function CrmList({ paid, search, onOpen }: { paid: boolean; search: string; onOp
             .then(result => { setData(result); setError(""); }).catch(e => { if (!controller.signal.aborted) setError(e.message); }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
         return () => controller.abort();
     }, [paid, search, page]);
-    return <section className="space-y-4"><h2 className="text-lg font-semibold">{paid ? "Clientes pagantes e históricos" : "Todos os restaurantes"} <span className="text-sm font-normal text-gray-500">({data.total})</span></h2>
+    return <section className={styles.section}><div className={styles.sectionHeader}><h2>{paid ? "Clientes pagantes e históricos" : "Todos os restaurantes"} <span className="text-sm font-normal text-gray-500">({data.total})</span></h2></div>
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
         <PagedTable data={data} loading={loading} rowKey={r => r.id} onPage={setPage} onRowClick={onOpen} columns={[
-            { key: "name", label: "Restaurante", render: r => <span className="font-medium">{r.name}</span> },
+            { key: "name", label: "Restaurante", render: r => <div className="flex min-w-48 items-center gap-3"><InitialsAvatar name={r.name}/><span className="font-medium">{r.name}</span></div> },
             { key: "status", label: "Cliente", render: r => <CustomerBadge restaurant={r} /> },
-            { key: "email", label: "Contato", render: r => r.email || r.phone || "—" },
+            { key: "email", label: "Contato", render: r => <div><p className="text-xs text-gray-500">{r.email || "—"}</p>{r.phone && <a className="mt-1 block text-[#c43700]" href={getWhatsappUrl(r.phone) || undefined} target="_blank" rel="noopener noreferrer" onClick={event=>event.stopPropagation()}>{formatPhone(r.phone)}</a>}</div> },
             { key: "since", label: "Desde", render: r => new Date(r.created_at).toLocaleDateString("pt-BR") },
             { key: "open", label: "", render: r => <Button variant="secondary" onClick={event => { event.stopPropagation(); onOpen(r); }}>Ver detalhes</Button> },
         ]} />
@@ -45,7 +50,7 @@ function CrmList({ paid, search, onOpen }: { paid: boolean; search: string; onOp
 }
 
 function CustomerBadge({ restaurant: r }: { restaurant: Restaurant }) {
-    return <span className={`rounded-md px-2 py-1 text-xs font-medium ${r.plus ? "bg-orange-50 text-orange-800" : "bg-gray-100 text-gray-600"}`}>{r.plus ? "iMenu Plus" : r.has_paid ? "Pagante histórico" : "Gratuito"}</span>;
+    return <Badge variant={r.plus ? "brand" : "neutral"}>{r.plus ? "iMenu Plus" : r.has_paid ? "Pagante histórico" : "Gratuito"}</Badge>;
 }
 
 function PaymentHistory({ id, kind }: { id: string; kind: "payments" | "payouts" }) {
@@ -98,7 +103,7 @@ function RestaurantDetails({ restaurant }: { restaurant: Restaurant }) {
         } catch (e) { target.close(); setError((e as Error).message); } finally { setEntering(false); }
     }
     return <div className="space-y-5 p-5 sm:p-6">
-        <div className="flex flex-wrap items-center justify-between gap-4 pr-8"><div><h2 className="text-xl font-semibold">{restaurant.name}</h2><div className="mt-2"><CustomerBadge restaurant={restaurant} /></div></div><Button loading={entering} onClick={() => void enter()}>Entrar no restaurante</Button></div>
+        <div className="flex flex-wrap items-center justify-between gap-4 pr-8"><div><p className="text-sm text-gray-500">{restaurant.email || "Sem e-mail"}</p>{restaurant.phone && <a className="mt-1 block text-sm text-[#c43700]" href={getWhatsappUrl(restaurant.phone)||undefined} target="_blank" rel="noopener noreferrer">{formatPhone(restaurant.phone)}</a>}<div className="mt-2"><CustomerBadge restaurant={restaurant} /></div></div><Button loading={entering} onClick={() => void enter()}>Entrar no restaurante</Button></div>
         <Tabs tabs={["Visão geral", "Pagamentos", "Repasses", "Assistente IA"]} active={tab} onChange={setTab} />
         {error && <p role="alert" className="text-red-700">{error}</p>}
         {tab === "Visão geral" && (!data ? <Loader /> : <>
@@ -120,8 +125,8 @@ export default function CrmSection() {
     const [query, setQuery] = useState("");
     const [selected, setSelected] = useState<Restaurant | null>(null);
     useEffect(() => { const timer = setTimeout(() => setQuery(search), 300); return () => clearTimeout(timer); }, [search]);
-    return <><Input type="search" aria-label="Buscar restaurantes" placeholder="Nome, e-mail ou telefone" value={search} onChange={e => setSearch(e.target.value)} />
+    return <><Input icon={<Search size={17}/>} type="search" aria-label="Buscar restaurantes" placeholder="Nome, e-mail ou telefone" value={search} onChange={e => setSearch(e.target.value)} />
         <CrmList paid search={query} onOpen={setSelected} /><CrmList paid={false} search={query} onOpen={setSelected} />
-        <Modal height="85dvh" open={Boolean(selected)} onClose={() => setSelected(null)} showCloseButton>{selected && <RestaurantDetails key={selected.id} restaurant={selected} />}</Modal>
+        <DevDialog title={selected?.name || "Restaurante"} description="Histórico e relacionamento" open={Boolean(selected)} onClose={() => setSelected(null)}>{selected && <RestaurantDetails key={selected.id} restaurant={selected} />}</DevDialog>
     </>;
 }

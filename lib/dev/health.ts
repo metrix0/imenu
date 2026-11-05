@@ -4,7 +4,6 @@ import { query } from "@/lib/database/sql";
 export const INTEGRATIONS = [
     { id: "asaas", name: "Asaas", priority: 1, hosts: ["asaas.com"] },
     { id: "mercadopago", name: "Mercado Pago", priority: 1, hosts: ["mercadopago.com"] },
-    { id: "payzu", name: "Payzu (legado)", priority: 1, hosts: ["payzu.io", "payzu.com.br", "api.payzu.processamento.com"] },
     { id: "supabase", name: "Supabase / Auth / Storage", priority: 1, hosts: ["supabase.co"] },
     { id: "waha", name: "WhatsApp / WAHA", priority: 2, hosts: [] },
     { id: "openai", name: "OpenAI", priority: 2, hosts: ["openai.com"] },

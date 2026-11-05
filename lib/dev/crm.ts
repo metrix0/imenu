@@ -26,7 +26,7 @@ export async function getCrm(params: URLSearchParams) {
             return paged(rows.rows, count.rows[0].total, page);
         }
         const [restaurant, metrics, analysis] = await Promise.all([
-            query(`SELECT r.id,r.name,r.url_slug,r.created_at,r.phone,r.payment_info,r.payment_info_type,u.email,
+            query(`SELECT r.id,r.name,r.url_slug,r.created_at,COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),r.phone) phone,r.payment_info,r.payment_info_type,u.email,
                 (${PAID}) AS has_paid,(${PLUS}) AS plus FROM restaurants r LEFT JOIN auth.users u ON u.id=r.user_id WHERE r.id=$1`, [id]),
             query(`SELECT COUNT(*)::int orders,COALESCE(SUM(total_cents),0)::bigint gmv_cents,
                 COALESCE(SUM(total_cents) FILTER(WHERE payment_method='pix'),0)::bigint online_cents,
@@ -41,9 +41,9 @@ export async function getCrm(params: URLSearchParams) {
     }
     const paidOnly = params.get("paid") === "1";
     const search = params.get("q")?.trim().slice(0, 200) || "";
-    const where = `($1='' OR r.name ILIKE '%'||$1||'%' OR u.email ILIKE '%'||$1||'%' OR r.phone ILIKE '%'||$1||'%') ${paidOnly ? `AND (${PAID})` : ""}`;
+    const where = `($1='' OR r.name ILIKE '%'||$1||'%' OR u.email ILIKE '%'||$1||'%' OR r.phone ILIKE '%'||$1||'%' OR u.raw_user_meta_data->>'phone' ILIKE '%'||$1||'%') ${paidOnly ? `AND (${PAID})` : ""}`;
     const [rows, count] = await Promise.all([
-        query(`SELECT r.id,r.name,r.url_slug,r.created_at,r.phone,u.email,(${PAID}) AS has_paid,(${PLUS}) AS plus
+        query(`SELECT r.id,r.name,r.url_slug,r.created_at,COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),r.phone) phone,u.email,(${PAID}) AS has_paid,(${PLUS}) AS plus
             FROM restaurants r LEFT JOIN auth.users u ON u.id=r.user_id WHERE ${where}
             ORDER BY ${paidOnly ? `(${PLUS}) DESC,` : ""} r.created_at DESC,r.id LIMIT $2 OFFSET $3`, [search, DEV_PAGE_SIZE, page * DEV_PAGE_SIZE]),
         query<{ total: number }>(`SELECT COUNT(*)::int total FROM restaurants r LEFT JOIN auth.users u ON u.id=r.user_id WHERE ${where}`, [search]),

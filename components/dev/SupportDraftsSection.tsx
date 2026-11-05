@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
-import Modal from "@/components/ui/Modal";
+import DevDialog from "./DevDialog";
 import PagedTable, { type PageData } from "@/components/dev/PagedTable";
 import SaveStatus from "@/components/ui/SaveStatus";
 import Tabs from "@/components/ui/Tabs";
@@ -53,14 +53,6 @@ export default function SupportDraftsSection() {
         });
         return () => controller.abort();
     }, [tab, page, revision]);
-
-    useEffect(() => {
-        if (selected) return;
-        const timer = window.setInterval(() => {
-            if (!document.hidden) setRevision((value) => value + 1);
-        }, 60000);
-        return () => window.clearInterval(timer);
-    }, [selected]);
 
     const selectedId = selected?.id || null;
     const save = useCallback(async (text: string) => {
@@ -113,7 +105,7 @@ export default function SupportDraftsSection() {
                     </div>
                     <p className="mt-1 text-sm text-gray-500">Respostas sugeridas após solicitação de atendimento humano.</p>
                 </div>
-                <Button variant="secondary" loading={loading} onClick={() => setRevision((value) => value + 1)}>Atualizar</Button>
+
             </div>
             <div className="mt-4">
                 <Tabs<Tab> tabs={["Pendentes", "Aprovadas", "Rejeitadas"]} active={tab}
@@ -137,7 +129,7 @@ export default function SupportDraftsSection() {
             </div>
         </Card>
 
-        <Modal height="80dvh" open={Boolean(selected)} onClose={close} showCloseButton>
+        <DevDialog title="Resposta sugerida" open={Boolean(selected)} onClose={close}>
             {selected && <div className="space-y-5 p-5 sm:p-6">
                 <div className="flex flex-wrap items-start justify-between gap-3 pr-8">
                     <div>
@@ -177,6 +169,6 @@ export default function SupportDraftsSection() {
                 </div>
                 <p className="text-xs text-gray-500">A aprovação não envia mensagens automaticamente.</p>
             </div>}
-        </Modal>
+        </DevDialog>
     </>;
 }

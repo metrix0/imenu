@@ -16,7 +16,7 @@ export type DevMessage = {
     error: string | null;
 };
 
-const MESSAGES = `WITH messages AS (
+export const MESSAGE_ROWS_SQL = `
     SELECT 'followup:' || m.id::text AS id, 'followup'::text AS category,
            NULL::text AS subtype, m.created_at, NULL::timestamptz AS sent_at,
            c.phone, COALESCE(r.name, c.customer_name) AS restaurant,
@@ -41,7 +41,8 @@ const MESSAGES = `WITH messages AS (
     FROM whatsapp_outbound_messages o
     LEFT JOIN restaurants r ON r.id = o.restaurant_id
     WHERE o.automation_type IN ('cart', 'reactivation', 'habit')
-)`;
+`;
+const MESSAGES = `WITH messages AS (${MESSAGE_ROWS_SQL})`;
 
 export async function getMessageHistory(params: URLSearchParams) {
     const page = devPage(params);

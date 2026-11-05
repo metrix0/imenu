@@ -13,7 +13,7 @@ import {
 } from "@/components/restaurant-owner/ia-vendas/SalesWidgets";
 import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
-import Modal from "@/components/ui/Modal";
+import DevDialog from "./DevDialog";
 import { supabase } from "@/lib/database/supabaseClient";
 import { isPanelTabKey, type PanelTabKey } from "@/lib/ia-vendas/panelTabs";
 import type { Action, Data } from "@/lib/ia-vendas/types";
@@ -377,11 +377,10 @@ export default function IaAssistantConversationsSection({ restaurant }: { restau
             {!restaurant && restaurantTotal > 25 && <Pagination page={restaurantPage} pageCount={Math.ceil(restaurantTotal / 25)} onChange={page => void loadRestaurants(page)} />}
             {restaurant && <Button variant="secondary" onClick={() => void openRestaurant({ ...restaurant, slug: null, conversationCount: 0, messageCount: 0, lastMessageAt: new Date().toISOString() })}>Abrir conversas do Assistente IA</Button>}
 
-            <Modal
+            <DevDialog title="Assistente IA"
                 open={Boolean(selectedRestaurant)}
                 onClose={closeModal}
-                height="82dvh"
-                showCloseButton
+
             >
                 <div className="p-5 sm:p-6">
                     <div className="pr-10">
@@ -474,7 +473,7 @@ export default function IaAssistantConversationsSection({ restaurant }: { restau
                         </div>
                     ) : null}
                 </div>
-            </Modal>
+            </DevDialog>
         </section>
     );
 }

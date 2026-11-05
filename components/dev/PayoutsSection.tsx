@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import styles from "./dashboard.module.css";
+import Badge from "@/components/ui/Badge";
+import Tabs from "@/components/ui/Tabs";
+import { formatPhone, getWhatsappUrl } from "@/lib/dev/supportView";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import ConfirmModal from "@/components/ui/ConfirmModal";
@@ -12,8 +16,8 @@ import { formatCurrencyFromCents as money, formatDateTime } from "@/lib/dev/dash
 import { calculateOnePercentPayout } from "@/lib/services/payoutSafety";
 
 type Payable = { restaurantId: string; restaurantName: string; grossCents: number; payzuFeeCents: number; waitingGrossCents: number; canSend: boolean; pixKey: string | null; nextEligibleAt: string | null };
-type Dashboard = { asaasBalanceCents: number | null; asaasConfigured: boolean; asaasError: string | null; cutoffAt: string; outstandingPayoutCents: number; payables: Payable[] };
-type History = { id: string; restaurant_name: string; created_at: string; amount_cents: number; status: string; failure_reason: string | null; run_date?: string; payout_cents?: number; restaurant_count?: number; failed_count?: number };
+type Dashboard = { asaasBalanceCents: number | null; asaasConfigured: boolean; asaasError: string | null; cutoffAt: string; outstandingPayoutCents: number; payables: Payable[]; ownerPhones:Record<string,string> };
+type History = { id: string; restaurant_name: string; created_at: string; amount_cents: number; status: string; failure_reason: string | null; run_date?: string; payout_cents?: number; restaurant_count?: number; failed_count?: number;pix_key?:string|null;owner_phone?:string|null;asaas_transfer_id?:string|null };
 
 function HistoryTable({ section, revision, onRetry }: { section: "failed" | "history" | "runs"; revision: number; onRetry: (id: string) => void }) {
     const [page, setPage] = useState(0);
@@ -26,19 +30,20 @@ function HistoryTable({ section, revision, onRetry }: { section: "failed" | "his
             .then(result => { setData(result); setError(""); }).catch(e => { if (!controller.signal.aborted) setError(e.message); }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
         return () => controller.abort();
     }, [section, page, revision]);
-    return <section className="space-y-4"><h2 className="text-lg font-semibold">{section === "failed" ? "Repasses com falha" : section === "runs" ? "Histórico diário" : "Histórico de repasses"}</h2>
+    return <section className={styles.section}><div className={styles.sectionHeader}><h2>{section === "failed" ? "Repasses com falha" : section === "runs" ? "Histórico diário" : "Histórico de repasses"}</h2></div>
         {error && <p role="alert" className="text-red-700">{error}</p>}
         <PagedTable data={data} loading={loading} rowKey={r => r.id} onPage={setPage} columns={[
-            { key: "name", label: section === "runs" ? "Dia" : "Restaurante", render: r => section === "runs" ? String(r.run_date).slice(0, 10) : r.restaurant_name },
+            { key: "name", label: section === "runs" ? "Dia" : "Restaurante", render: r => section === "runs" ? String(r.run_date).slice(0, 10) : <div className="min-w-40"><p className="font-medium">{r.restaurant_name}</p>{r.owner_phone && <a className="text-xs text-[#c43700]" href={getWhatsappUrl(r.owner_phone)||undefined} target="_blank" rel="noopener noreferrer">{formatPhone(r.owner_phone)}</a>}</div> },
             { key: "amount", label: "Valor", render: r => money(section === "runs" ? r.payout_cents || 0 : r.amount_cents) },
             { key: "status", label: "Status", render: r => <Tooltip text={r.failure_reason || ""} showOnClick><span className={section === "failed" ? "text-red-700" : ""}>{r.status}</span></Tooltip> },
             { key: "date", label: section === "runs" ? "Restaurantes / falhas" : "Data", render: r => section === "runs" ? `${r.restaurant_count} / ${r.failed_count}` : formatDateTime(r.created_at) },
-            ...(section === "failed" ? [{ key: "retry", label: "", render: (r: History) => <Button variant="secondary" onClick={() => onRetry(r.id)}>Tentar novamente</Button> }] : []),
+            ...(section === "failed" ? [{key:"pix",label:"PIX atual",render:(r:History)=><p className="max-w-44 break-all text-xs">{r.pix_key || "Não cadastrado"}</p>},{key:"reason",label:"Motivo da falha",render:(r:History)=><p className="min-w-48 max-w-sm text-xs text-red-700">{r.failure_reason || "Motivo não registrado."}</p>},{ key: "retry", label: "", render: (r: History) => <Button variant="secondary" disabled={r.status!=="failed"||!r.pix_key||Boolean(r.asaas_transfer_id)} onClick={() => onRetry(r.id)}>Tentar novamente</Button> }] : []),
         ]} />
     </section>;
 }
 
 export default function PayoutsSection() {
+    const [historyTab,setHistoryTab] = useState("Histórico diário");
     const [data, setData] = useState<Dashboard | null>(null);
     const [revision, setRevision] = useState(0);
     const [page, setPage] = useState(0);
@@ -51,7 +56,7 @@ export default function PayoutsSection() {
         void devJson<Dashboard>("/api/dev/payout", { signal: controller.signal }).then(setData).catch(e => { if (!controller.signal.aborted) setError(e.message); });
         return () => controller.abort();
     }, [revision]);
-    const payables = data?.payables || [];
+    const payables = [...(data?.payables || [])].sort((a,b)=>Number(!b.pixKey)-Number(!a.pixKey)||b.grossCents-a.grossCents);
     const net = (row: Payable) => calculateOnePercentPayout(row.grossCents, row.payzuFeeCents).netCents;
     const due = payables.reduce((sum, row) => sum + net(row) + calculateOnePercentPayout(row.waitingGrossCents, 0).netCents, data?.outstandingPayoutCents || 0);
     const selected = payables.filter(row => row.canSend && row.grossCents > 0 && (!confirmation?.ids || confirmation.ids.includes(row.restaurantId)));
@@ -68,19 +73,19 @@ export default function PayoutsSection() {
         {error && <p role="alert" className="text-red-700">{error}</p>}{message && <p role="status" className="text-green-700">{message}</p>}
         <HistoryTable section="failed" revision={revision} onRetry={id => setConfirmation({ retry: id })} />
         {!data ? <Loader /> : <>
-            <div className="grid gap-4 sm:grid-cols-2"><Card><p className="text-sm text-gray-500">Saldo Asaas</p><p className="mt-2 text-2xl font-semibold">{data.asaasBalanceCents === null ? "—" : money(data.asaasBalanceCents)}</p>{data.asaasError && <p className="mt-2 text-sm text-red-700">{data.asaasError}</p>}</Card><Card><p className="text-sm text-gray-500">Total a repassar (líquido)</p><p className="mt-2 text-2xl font-semibold">{money(due)}</p></Card></div>
-            <section className="space-y-4"><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-semibold">Valores por restaurante</h2><div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={sending} onClick={() => setRevision(r => r + 1)}>Atualizar</Button><Button variant="secondary" disabled={sending || !data.asaasConfigured} onClick={() => setConfirmation({ fund: true })}>Abastecer Asaas</Button><Button disabled={sending || !data.asaasConfigured || !payables.some(row => row.canSend && row.grossCents > 0)} onClick={() => setConfirmation({})}>Enviar repasses</Button></div></div>
+            <div className={styles.metricStrip}><div><p className="text-sm text-gray-500">Saldo Asaas</p><p className="mt-2 text-2xl font-semibold">{data.asaasBalanceCents === null ? "—" : money(data.asaasBalanceCents)}</p>{data.asaasError && <p className="mt-2 text-sm text-red-700">{data.asaasError}</p>}</div><div><p className="text-sm text-gray-500">Total a repassar (líquido)</p><p className="mt-2 text-2xl font-semibold">{money(due)}</p></div></div>
+            <section className={styles.section}><div className={styles.sectionHeader}><h2>Valores por restaurante</h2><div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={sending || !data.asaasConfigured} onClick={() => setConfirmation({ fund: true })}>Abastecer Asaas</Button><Button disabled={sending || !data.asaasConfigured || !payables.some(row => row.canSend && row.grossCents > 0)} onClick={() => setConfirmation({})}>Enviar repasses</Button></div></div>
                 <PagedTable data={{ rows: payables.slice(page * 25, (page + 1) * 25), total: payables.length, page, pageCount: Math.ceil(payables.length / 25) }} onPage={setPage} rowKey={r => r.restaurantId} columns={[
-                    { key: "name", label: "Restaurante", render: r => r.restaurantName },
+                    { key: "name", label: "Restaurante", render: r => <div className="min-w-40"><p className="font-medium">{r.restaurantName}</p>{data.ownerPhones[r.restaurantId] && <a className="text-xs text-[#c43700]" href={getWhatsappUrl(data.ownerPhones[r.restaurantId])||undefined} target="_blank" rel="noopener noreferrer">{formatPhone(data.ownerPhones[r.restaurantId])}</a>}</div> },
                     { key: "pix", label: "PIX", render: r => r.pixKey || <span className="text-red-700">Não cadastrado</span> },
-                    { key: "gross", label: "Bruto elegível", render: r => money(r.grossCents) },
+                    { key: "gross", label: "Bruto elegível", render: r => <div className="whitespace-nowrap">{money(r.grossCents)}<p className="mt-1 text-xs text-gray-500">Taxa total 1% · {money(r.grossCents-net(r))}</p></div> },
                     { key: "net", label: "Repasse líquido", render: r => money(net(r)) },
-                    { key: "waiting", label: "Na margem de 1h30", render: r => <Tooltip text={r.nextEligibleAt ? formatDateTime(r.nextEligibleAt) : ""} showOnClick><span>{money(r.waitingGrossCents)}</span></Tooltip> },
+                    { key: "waiting", label: "A liberar · margem de 1h30", render: r => <Tooltip text={r.nextEligibleAt ? formatDateTime(r.nextEligibleAt) : ""} showOnClick><span>{money(r.waitingGrossCents)}</span></Tooltip> },
                     { key: "send", label: "", render: r => <Button variant="secondary" disabled={sending || !data.asaasConfigured || !r.canSend || r.grossCents <= 0} onClick={() => setConfirmation({ ids: [r.restaurantId] })}>Enviar repasse</Button> },
                 ]} />
             </section>
         </>}
-        <HistoryTable section="runs" revision={revision} onRetry={() => undefined} /><HistoryTable section="history" revision={revision} onRetry={() => undefined} />
+        <Tabs tabs={["Histórico diário","Histórico de repasses"]} active={historyTab} onChange={setHistoryTab}/><HistoryTable key={historyTab} section={historyTab==="Histórico diário"?"runs":"history"} revision={revision} onRetry={()=>undefined}/>
         <ConfirmModal open={Boolean(confirmation)} onClose={() => { if (!sending) setConfirmation(null); }} onConfirm={() => void send()} isLoading={sending} variant="primary" title={confirmation?.fund ? "Abastecer Asaas" : "Confirmar repasse"} description={confirmation?.fund ? "Transferir apenas o valor necessário do Mercado Pago para cobrir os repasses elegíveis." : confirmation?.retry ? "Tentar novamente este repasse usando os valores registrados e os dados PIX atuais da loja." : `Enviar ${money(selected.reduce((sum, row) => sum + net(row), 0))} para ${selected.length} restaurante(s), com desconto total de 1% do bruto.`} confirmLabel="Confirmar e enviar" />
     </>;
 }

@@ -1,5 +1,8 @@
 "use client";
 
+import styles from "./dashboard.module.css";
+import DataTable from "@/components/ui/DataTable";
+import { CHART_CATEGORY_AXIS, CHART_VALUE_AXIS, STANDARD_CHART_TOOLTIP } from "@/components/restaurant-owner/exibicoes/chartStyles";
 import { Line } from "react-chartjs-2";
 import type { ReactNode } from "react";
 import type { ProductOverview } from "@/lib/analytics/productOverview";
@@ -22,7 +25,7 @@ export function lineOptions(
         interaction: { mode: "index" as const, intersect: false },
         plugins: {
             legend: { display: showLegend },
-            tooltip: {
+            tooltip: { ...STANDARD_CHART_TOOLTIP,
                 callbacks: {
                     label: (context: any) => {
                         const value = Number(context.parsed.y) || 0;
@@ -35,13 +38,14 @@ export function lineOptions(
         },
         scales: {
             x: {
-                grid: { display: false },
-                ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 10 },
+                ...CHART_CATEGORY_AXIS,
+                ticks: { ...CHART_CATEGORY_AXIS.ticks, maxTicksLimit: percentage ? 3 : 5 },
             },
             y: {
-                beginAtZero: true,
+                ...CHART_VALUE_AXIS,
                 ...(percentage ? { max: 100 } : {}),
                 ticks: {
+                    ...CHART_VALUE_AXIS.ticks,
                     precision: percentage || decimal ? 1 : 0,
                     callback: (value: string | number) => {
                         const numericValue = Number(value) || 0;
@@ -142,12 +146,15 @@ export function qrTableStatusLabel(status: string): string {
     return status;
 }
 
-export function ProductOverviewSections({ metrics, productsOnly }: { metrics: ProductOverview; productsOnly?: (keyof ProductOverview)[] }) {
+export function ProductOverviewSections({ metrics, productsOnly, compact = false }: { metrics: ProductOverview; productsOnly?: (keyof ProductOverview)[]; compact?: boolean }) {
     const products = [
         { key: "imenu", name: "iMenu", paths: "/", price: "-", priceInfo: "Referência do dashboard: sem mensalidade.", },
         { key: "ia_plus", name: "iMenu Plus", paths: "/painel/marketing + /painel/vendas-ia + /painel/assistente-ia", price: "R$ 49,99/m", priceInfo: "Marketing, Assistente IA e Vendas IA.", },
         { key: "qr_code_mesa", name: "iMenu QR", paths: "/painel/mesas", price: "Grátis", priceInfo: "QR Code Mesa gratuito; pagamentos antigos são apenas históricos.", },
     ] as const;
+    if (compact) return <section className={styles.section}><div className={styles.sectionHeader}><h2>Produtos</h2></div><DataTable rows={products.filter(p=>!productsOnly || productsOnly.includes(p.key))} rowKey={p=>p.key} columns={[
+        {key:"product",label:"Produto",render:p=>p.name},{key:"traffic",label:"Tráfego",render:p=><div>{metrics[p.key].pageViews == null ? "—" : formatCount(metrics[p.key].pageViews!)}<p className="mt-1 text-xs text-gray-500">Page views</p></div>},{key:"conversion",label:"Conversão",render:p=><div>{metrics[p.key].conversion == null ? "—" : formatRatio(metrics[p.key].conversion!)}<p className="mt-1 text-xs text-gray-500">{p.key==="imenu"?"Usuários ativados":"Compradores"}</p></div>},{key:"price",label:"Mensalidade",render:p=>p.price},{key:"churn",label:"Churn",render:p=><div>{metrics[p.key].churn == null ? "—" : formatRatio(metrics[p.key].churn!)}<p className="mt-1 text-xs text-gray-500">{p.key==="imenu"?"Ativos abandonados":"Pagantes perdidos"}</p></div>}
+    ]}/></section>;
     return (
         <>
             {(productsOnly ? productsOnly.map(key => products.find(product => product.key === key)!) : products).map((product) => {
@@ -267,8 +274,8 @@ export function MetricChart({
     secondaryLabel,
     secondaryColor,
     actionLabel,
-    onAction,
-}: {
+    onAction, embedded = false, value, change,
+}: { embedded?: boolean; value?: string; change?: number | null;
     title: string;
     series: SeriesPoint[];
     color: string;
@@ -294,7 +301,7 @@ export function MetricChart({
                 ),
                 borderColor: color,
                 backgroundColor: color,
-                pointRadius: 2,
+                pointRadius: series.length > 20 ? 0 : 2,
                 pointHoverRadius: 5,
                 tension: 0.3,
                 fill: false,
@@ -317,7 +324,7 @@ export function MetricChart({
     };
 
     return (
-        <article className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+        <article className={embedded ? styles.chartEmbedded : styles.chart}>
             <div className="flex items-center justify-between gap-3">
                 <h3 className="text-base font-semibold text-gray-900">{title}</h3>
                 {actionLabel && onAction && (
@@ -330,7 +337,8 @@ export function MetricChart({
                     </button>
                 )}
             </div>
-            <div className="mt-4 h-[280px]">
+            {value !== undefined && <div className="mt-3 flex items-baseline gap-3"><p className="text-2xl font-semibold tabular-nums">{value}</p>{change !== undefined && <InfoTooltip text="Variação em relação ao período anterior." showOnClick><span className={`text-xs font-medium ${change == null ? "text-gray-500" : change>=0 ? "text-green-700" : "text-red-700"}`}>{change == null ? "Sem base" : `${change>=0?"+":""}${formatRatio(change)}`}</span></InfoTooltip>}</div>}
+            <div className={styles.chartCanvas}>
                 {series.length || secondarySeries?.length ? (
                     <Line
                         data={chartData}

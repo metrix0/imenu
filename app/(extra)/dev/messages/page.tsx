@@ -1,4 +1,2 @@
-import DevPage from "@/components/dev/DevPage";
-import MessagesSection from "@/components/dev/MessagesSection";
-
-export default function Page() { return <DevPage title="Messages"><MessagesSection /></DevPage>; }
+import { redirect } from "next/navigation";
+export default function Page() { redirect("/dev/blast"); }

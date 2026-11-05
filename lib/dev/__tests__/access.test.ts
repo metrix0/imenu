@@ -1,0 +1,9 @@
+import { supabase } from '@/lib/database/supabaseClient';
+import { watchDevAccess, DEV_EMAIL } from '../access';
+jest.mock('@/lib/database/supabaseClient',()=>({supabase:{auth:{getUser:jest.fn(),onAuthStateChange:jest.fn()}}}));
+let emit:(event:string,session:unknown)=>void;
+beforeEach(()=>{jest.useFakeTimers();jest.clearAllMocks();(supabase.auth.onAuthStateChange as jest.Mock).mockImplementation(f=>{emit=f;return{data:{subscription:{unsubscribe:jest.fn()}}}})});
+afterEach(()=>jest.useRealTimers());
+test.each([[null,'signed-out'],[{email:'other@example.com'},'forbidden'],[{email:DEV_EMAIL},'allowed']])('only verified admin can access dashboard',async(user,expected)=>{(supabase.auth.getUser as jest.Mock).mockResolvedValue({data:{user},error:null});const update=jest.fn(),watch=watchDevAccess(update);await Promise.resolve();await Promise.resolve();expect(update).toHaveBeenLastCalledWith(expected);watch.unsubscribe()});
+test('logout immediately locks access and invalidates pending verification',async()=>{let resolve!:(v:unknown)=>void;(supabase.auth.getUser as jest.Mock).mockReturnValue(new Promise(r=>resolve=r));const update=jest.fn(),watch=watchDevAccess(update);emit('SIGNED_OUT',null);resolve({data:{user:{email:DEV_EMAIL}},error:null});await Promise.resolve();await Promise.resolve();expect(update).toHaveBeenLastCalledWith('signed-out');watch.unsubscribe()});
+test('auth verification stays outside the auth callback',async()=>{(supabase.auth.getUser as jest.Mock).mockResolvedValue({data:{user:{email:DEV_EMAIL}},error:null});const update=jest.fn(),watch=watchDevAccess(update);await Promise.resolve();emit('TOKEN_REFRESHED',{access_token:'test'});expect(update).toHaveBeenLastCalledWith('checking');expect(supabase.auth.getUser).toHaveBeenCalledTimes(1);jest.runOnlyPendingTimers();await Promise.resolve();expect(update).toHaveBeenLastCalledWith('allowed');watch.unsubscribe()});
