@@ -28,7 +28,7 @@ export async function GET(request: Request) {
     try {
         const params = new URL(request.url).searchParams;
         if (["history", "failed", "runs"].includes(params.get("section") || "")) return NextResponse.json(await payoutHistory(params));
-        const data = await getPayoutDashboardData();
+        const data = await getPayoutDashboardData({ readOnly: !(process.env.IMENU_SUPPORT_PUBLIC_URL?.trim().replace(/\/+$/, "") === "https://www.imenuapp.com.br") });
         const restaurantIds = Array.from(
             new Set([
                 ...data.payables.map((item) => item.restaurantId),
@@ -83,6 +83,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     const denied = await authorize(request);
     if (denied) return denied;
+    if (!(process.env.IMENU_SUPPORT_PUBLIC_URL?.trim().replace(/\/+$/, "") === "https://www.imenuapp.com.br")) {
+        return NextResponse.json({ error: "Repasses disponíveis apenas na produção." }, { status: 403 });
+    }
 
     let body: {
         action?: unknown;

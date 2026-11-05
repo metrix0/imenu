@@ -333,29 +333,34 @@ export async function isSecondaryBlastRecipient(input: {
     const chatIds = new Set<string>([
         input.chatId.replace("@s.whatsapp.net", "@c.us"),
     ]);
-
-    for (const candidate of phoneCandidates(resolvedPhone)) {
-        if (
-            candidate.startsWith("55") &&
+    const phones = phoneCandidates(resolvedPhone).filter(
+        (candidate) => candidate.startsWith("55") &&
             (candidate.length === 12 || candidate.length === 13)
-        ) {
-            chatIds.add(candidate + "@c.us");
-        }
-    }
+    );
+    for (const phone of phones) chatIds.add(phone + "@c.us");
 
     const result = await query(
         `
-            SELECT 1
-            FROM whatsapp_outbound_messages
+            SELECT 1 FROM whatsapp_outbound_messages
             WHERE status = 'sent'
               AND (
                   dedupe_key LIKE 'support:bulk:blast:%'
                   OR dedupe_key LIKE 'support:bulk:abandoned:%'
+                  OR dedupe_key LIKE 'support:payout:%'
               )
               AND chat_id = ANY($1::text[])
+            UNION ALL
+            SELECT 1 FROM support_blast_recipients r
+            JOIN support_blast_campaigns c ON c.id = r.campaign_id
+            WHERE r.status = 'sent' AND c.sender = 'blast'
+              AND r.sent_at >= NOW() - INTERVAL '60 days'
+              AND r.phone = ANY($2::text[])
+            UNION ALL
+            SELECT 1 FROM support_conversations
+            WHERE chat_id = $3 AND mode = 'ai'
             LIMIT 1
         `,
-        [[...chatIds]]
+        [[...chatIds], phones, getSupportScopedValue(input.sessionName, input.chatId)]
     );
 
     return result.rowCount > 0;

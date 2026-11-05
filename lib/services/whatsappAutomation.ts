@@ -437,7 +437,12 @@ async function claimOutboundMessage({
     if (Math.random() < 0.02) {
         void query(
             `DELETE FROM whatsapp_outbound_messages
-             WHERE dedupe_key NOT LIKE 'order:%' AND created_at < NOW() - INTERVAL '48 hours' AND (automation_type IS NULL OR automation_type NOT IN ('cart','habit','reactivation'))`
+             WHERE dedupe_key NOT LIKE 'order:%' AND created_at < NOW() - INTERVAL '48 hours'
+               AND (automation_type IS NULL OR automation_type NOT IN ('cart','habit','reactivation'))
+               AND (created_at < NOW() - INTERVAL '60 days'
+                    OR (dedupe_key NOT LIKE 'support:bulk:blast:%'
+                        AND dedupe_key NOT LIKE 'support:bulk:abandoned:%'
+                        AND dedupe_key NOT LIKE 'support:payout:%'))`
         ).catch((error) =>
             console.warn("[WHATSAPP_AUTOMATION] Outbound cleanup failed:", error)
         );

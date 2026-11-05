@@ -57,6 +57,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     const denied = await authorize(request);
     if (denied) return denied;
+    if (!(process.env.IMENU_SUPPORT_PUBLIC_URL?.trim().replace(/\/+$/, "") === "https://www.imenuapp.com.br")) {
+        return NextResponse.json({ error: "Revisões de suporte disponíveis apenas na produção." }, { status: 403 });
+    }
 
     let body: { id?: unknown; action?: unknown; text?: unknown };
     try { body = await request.json(); }

@@ -978,8 +978,8 @@ export async function retryFailedPayout(
     };
 }
 
-export async function getPayoutDashboardData() {
-    await reconcileProcessingPayouts();
+export async function getPayoutDashboardData(options: { readOnly?: boolean } = {}) {
+    if (!options.readOnly) await reconcileProcessingPayouts();
     const now = new Date();
     const cutoffAt = getPayoutCutoffAt(now);
     const [payables, waitingPayables, historyResult, automationResult] = await Promise.all([

@@ -124,7 +124,7 @@ async function refreshConnection(
                 (await getWahaSession(connection.session_name)) || session;
         }
 
-        if (session) {
+        if (session && process.env.IMENU_SUPPORT_PUBLIC_URL?.trim().replace(/\/+$/, "") === "https://www.imenuapp.com.br") {
             connection = await updateFromWahaSession(session, connectionId);
         }
     } catch (error) {
@@ -142,7 +142,7 @@ async function getDashboardData(params = new URLSearchParams()) {
     const supportPage = devPage(params, "support_page");
     const handoffPage = devPage(params, "handoff_page");
     const knowledgePage = devPage(params, "knowledge_page");
-    await releaseExpiredSupportHandoffs();
+    if (process.env.IMENU_SUPPORT_PUBLIC_URL?.trim().replace(/\/+$/, "") === "https://www.imenuapp.com.br") await releaseExpiredSupportHandoffs();
 
     const [connection, blastConnection] = await Promise.all([
         refreshConnection("default"),
@@ -258,6 +258,9 @@ export async function POST(request: Request) {
     try {
         const authorization = await authorizeDevRequest(request);
         if (!authorization.ok) return authorization.response;
+        if (!(process.env.IMENU_SUPPORT_PUBLIC_URL?.trim().replace(/\/+$/, "") === "https://www.imenuapp.com.br")) {
+            return NextResponse.json({ error: "Ações de suporte disponíveis apenas na produção." }, { status: 403 });
+        }
 
         const form = request.headers.get("content-type")?.startsWith("multipart/form-data")
             ? await request.formData() : null;
@@ -359,14 +362,6 @@ export async function POST(request: Request) {
             )
         ) {
             const connectionAction = action as ConnectionAction;
-            // The blast session belongs to production. Staging may inspect it,
-            // but must never restart, log out or replace its webhook settings.
-            if (connectionTarget === "blast" && !process.env.IMENU_SUPPORT_PUBLIC_URL?.trim()) {
-                return NextResponse.json(
-                    { error: "O WhatsApp Blast compartilhado só pode ser gerenciado na produção." },
-                    { status: 403 }
-                );
-            }
             const current = await readConnection(connectionId);
 
             if (connectionAction === "disconnect") {
