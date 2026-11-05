@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
-import Card from "@/components/ui/Card";
+import styles from "./dashboard.module.css";
 import DevDialog from "./DevDialog";
 import PagedTable, { type PageData } from "@/components/dev/PagedTable";
 import SaveStatus from "@/components/ui/SaveStatus";
@@ -96,23 +96,23 @@ export default function SupportDraftsSection() {
     const whatsappUrl = getWhatsappUrl(selected?.phone || null);
 
     return <>
-        <Card>
-            <div className="flex flex-wrap items-start justify-between gap-3">
+        <section className={`${styles.section} ${styles.scrollTable}`}>
+            <div className={styles.sectionHeader}>
                 <div>
                     <div className="flex items-center gap-3">
-                        <h2 className="text-lg font-semibold text-gray-900">Respostas IA para revisão</h2>
+                        <h2>Respostas IA para revisão</h2>
                         {data.pending > 0 && <Badge variant="warning">{data.pending} pendente(s)</Badge>}
                     </div>
                     <p className="mt-1 text-sm text-gray-500">Respostas sugeridas após solicitação de atendimento humano.</p>
                 </div>
 
             </div>
-            <div className="mt-4">
+            <div className="px-5">
                 <Tabs<Tab> tabs={["Pendentes", "Aprovadas", "Rejeitadas"]} active={tab}
                     onChange={(value) => { setTab(value); setPage(0); }} />
             </div>
             {error && <p role="alert" className="mt-4 text-sm text-red-700">{error}</p>}
-            <div className="mt-4">
+            <div>
                 <PagedTable data={data} loading={loading} onPage={setPage}
                     rowKey={(draft) => draft.id} onRowClick={open} columns={[
                     { key: "contact", label: "Contato", render: (draft) => <div className="min-w-36">
@@ -127,13 +127,12 @@ export default function SupportDraftsSection() {
                         <Button variant="secondary" onClick={(event) => { event.stopPropagation(); open(draft); }}>Revisar</Button> },
                 ]} />
             </div>
-        </Card>
+        </section>
 
         <DevDialog title="Resposta sugerida" open={Boolean(selected)} onClose={close}>
             {selected && <div className="space-y-5 p-5 sm:p-6">
                 <div className="flex flex-wrap items-start justify-between gap-3 pr-8">
                     <div>
-                        <h2 className="text-lg font-semibold text-gray-900">Resposta sugerida</h2>
                         <p className="mt-1 text-sm text-gray-500">
                             {selected.customer_name || selected.restaurant_name || "Contato sem nome"}
                             {selected.phone ? " · " + formatPhone(selected.phone) : ""}

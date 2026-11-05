@@ -17,6 +17,7 @@ import SupportDraftsSection from "@/components/dev/SupportDraftsSection";
 import Pagination from "@/components/ui/Pagination";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import DataTable from "@/components/ui/DataTable";
 import Dropdown from "@/components/ui/Dropdown";
 import Input from "@/components/ui/Input";
 import Loader from "@/components/ui/Loader";
@@ -537,85 +538,15 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                 )}
 
                 {section !== "blast" && <>
-                <Card>
-                    <h2 className="text-lg font-semibold text-gray-900">
-                        Handed Off
-                    </h2>
-                    <p className="mt-1 text-sm text-gray-500">
-                        Conversas atualmente sob atendimento humano.
-                    </p>
-
-                    <div className="mt-5 overflow-x-auto rounded-xl border border-gray-200">
-                        {data?.handedOff.length ? (
-                            <table className="w-full min-w-[620px] text-left text-sm">
-                                <thead className="border-b border-gray-200 bg-gray-50 text-xs text-gray-500">
-                                    <tr>
-                                        <th className="px-4 py-3 font-semibold">
-                                            Restaurante
-                                        </th>
-                                        <th className="px-4 py-3 font-semibold">
-                                            Contato
-                                        </th>
-                                        <th className="px-4 py-3 text-right font-semibold">
-                                            Ação
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100">
-                                    {data.handedOff.map((conversation) => {
-                                        const whatsappUrl = getWhatsappUrl(
-                                            conversation.phone
-                                        );
-
-                                        return (
-                                            <tr key={conversation.id} className={conversation.plus ? "bg-orange-50/60" : ""}>
-                                                <td className="px-4 py-3">
-                                                    <p className="font-medium text-gray-900">
-                                                        {conversation.restaurant_name ||
-                                                            "Restaurante não identificado"}
-                                                        {conversation.plus && <Badge variant="brand" className="ml-2">iMenu Plus</Badge>}
-                                                    </p>
-                                                </td>
-                                                <td className="px-4 py-3 text-gray-600">
-                                                    {conversation.customer_name
-                                                        ? conversation.customer_name + " · "
-                                                        : ""}
-                                                    {formatPhone(conversation.phone)}
-                                                </td>
-                                                <td className="px-4 py-3 text-right">
-                                                    <Button variant="secondary" loading={action === "set_conversation_mode"} onClick={() => void runAction("set_conversation_mode", { id: conversation.id, mode: "ai" })}>Reativar bot</Button>
-                                                    <Button
-                                                        variant="secondary"
-                                                        disabled={!whatsappUrl}
-                                                        onClick={() => {
-                                                            if (!whatsappUrl) return;
-                                                            window.open(
-                                                                whatsappUrl,
-                                                                "_blank",
-                                                                "noopener,noreferrer"
-                                                            );
-                                                        }}
-                                                    >
-                                                        <FontAwesomeIcon
-                                                            icon={faWhatsapp}
-                                                            className="mr-2"
-                                                        />
-                                                        Abrir WhatsApp
-                                                    </Button>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        ) : (
-                            <p className="p-6 text-center text-sm text-gray-500">
-                                Nenhuma conversa em atendimento humano.
-                            </p>
-                        )}
-                    </div>
-                    <Pagination page={handoffPage} pageCount={Math.ceil((data?.stats.human_conversations || 0) / 25)} onChange={setHandoffPage} />
-                </Card>
+                <section className={`${styles.section} ${styles.scrollTable} ${styles.handoffs}`}>
+                    <div className={styles.sectionHeader}><div><h2>Atendimento humano</h2><p>Conversas encaminhadas para a equipe.</p></div>{Boolean(data?.stats.human_conversations) && <Badge variant="neutral">{data?.stats.human_conversations} conversa(s)</Badge>}</div>
+                    <DataTable rows={data?.handedOff || []} rowKey={conversation => conversation.id} emptyMessage="Nenhuma conversa em atendimento humano." columns={[
+                        { key: "restaurant", label: "Restaurante", render: conversation => <div className="min-w-48"><p className="font-medium">{conversation.restaurant_name || "Restaurante não identificado"}</p>{conversation.plus && <Badge variant="brand" className="mt-2">iMenu Plus</Badge>}</div> },
+                        { key: "contact", label: "Contato", render: conversation => <div className="min-w-40"><p className="text-gray-600">{conversation.customer_name || "—"}</p><p className="mt-1 text-xs text-gray-500">{formatPhone(conversation.phone)}</p></div> },
+                        { key: "actions", label: "", render: conversation => <div className="flex justify-end gap-2"><Button variant="secondary" loading={action === "set_conversation_mode"} onClick={() => void runAction("set_conversation_mode", { id: conversation.id, mode: "ai" })}>Reativar bot</Button><Button variant="secondary" disabled={!getWhatsappUrl(conversation.phone)} onClick={() => { const url = getWhatsappUrl(conversation.phone); if (url) window.open(url, "_blank", "noopener,noreferrer"); }}><FontAwesomeIcon icon={faWhatsapp} className="mr-2" />Abrir WhatsApp</Button></div> },
+                    ]} />
+                    {(data?.stats.human_conversations || 0) > 25 && <div className={styles.tableFooter}><span>{data?.stats.human_conversations} conversa(s)</span><Pagination page={handoffPage} pageCount={Math.ceil((data?.stats.human_conversations || 0) / 25)} onChange={setHandoffPage} /></div>}
+                </section>
 
                 <dl className={styles.metricStrip}><div><dt>Resposta média · Bot</dt><dd>{data?.responseTimes?.bot_seconds == null ? "—" : `${Math.round(data.responseTimes.bot_seconds)} s`}</dd><p>Últimos 30 dias</p></div><div><dt>Resposta média · Humano</dt><dd>{data?.responseTimes?.human_seconds == null ? "—" : `${Math.round(data.responseTimes.human_seconds/60)} min`}</dd><p>Últimos 30 dias</p></div></dl>
                {section === "support" && <SupportDraftsSection/>}
@@ -937,12 +868,13 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                 </Card>
                 </details>
 
-                <details open={composeOpen} onToggle={event=>setComposeOpen(event.currentTarget.open)} className={`${styles.section} ${styles.disclosure}`}><summary className={styles.sectionHeader}><h2>Envio em massa</h2></summary>                <Card>
+                <details open={composeOpen} onToggle={event=>setComposeOpen(event.currentTarget.open)} className={`${styles.section} ${styles.disclosure}`}><summary className={styles.sectionHeader}><h2>Envio em massa</h2></summary>                <Card className={styles.composer}>
                     <p className="mt-1 text-sm text-gray-500">
                         Prepare os destinatários e a mensagem. Você poderá conferir tudo antes de enviar.
                     </p>
 
-                    <div className="mt-5 max-w-md">
+                    <div className={styles.composerSettings}>
+                    <div>
                         <Dropdown
                             custom
                             label="Número de envio"
@@ -974,7 +906,7 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                         />
                     </div>
 
-                    <div className="mt-5 flex flex-wrap items-center gap-4 rounded-xl border border-gray-200 p-4">
+                    <div className={styles.cadence}>
                         <div className="min-w-0 flex-1">
                             <p className="font-medium text-gray-900">Cadência</p>
                             <p className="text-sm text-gray-500">
@@ -1002,7 +934,8 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                         )}
                     </div>
 
-                    <div className="mt-5 grid gap-4 md:grid-cols-2">
+                    </div>
+                    <div className="mt-5 grid gap-5 md:grid-cols-2">
                         <div>
                             <label className="mb-1.5 block text-xs font-medium text-gray-800">
                                 Números

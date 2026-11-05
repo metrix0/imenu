@@ -6,6 +6,7 @@ import Tabs from "@/components/ui/Tabs";
 import styles from "./dashboard.module.css";
 import Loader from "@/components/ui/Loader";
 import DataTable from "@/components/ui/DataTable";
+import Badge from "@/components/ui/Badge";
 import AlertsSection from "./AlertsSection";
 import { MetricChart } from "./DashboardPresentation";
 import { devJson } from "@/lib/dev/client";
@@ -42,7 +43,13 @@ export default function HealthSection() {
                 <DataTable rows={data.connections} rowKey={row => row.id} columns={[
                     { key: "name", label: "Integração", render: row => row.name },
                     { key: "priority", label: "Prioridade", render: row => row.priority === 1 ? "Crítica" : row.priority === 2 ? "Alta" : "Normal" },
-                    { key: "status", label: "Última verificação", render: row => { const failure = data.failures.find(f => f.source === row.id); const observation = row.observation; const newerFailure = failure && (!observation || new Date(failure.created_at).getTime() > new Date(observation.checkedAt).getTime()); return <span className={newerFailure || observation?.ok === false ? "text-red-700" : "text-gray-600"}>{newerFailure ? `${failure.message} · ${formatDateTime(failure.created_at)}` : observation ? `${observation.ok ? "Conectado" : "Falha"} · ${formatDateTime(observation.checkedAt)}` : "Aguardando uso"}</span>; } },
+                    { key: "status", label: "Última verificação", render: row => {
+                        const failure = data.failures.find(f => f.source === row.id);
+                        const observation = row.observation;
+                        const newerFailure = failure && (!observation || new Date(failure.created_at).getTime() > new Date(observation.checkedAt).getTime());
+                        const failed = newerFailure || observation?.ok === false;
+                        return <div><Badge variant={failed ? "danger" : observation ? "success" : "neutral"}>{failed ? "Falha" : observation ? "Conectado" : "Aguardando uso"}</Badge>{(newerFailure || observation) && <p className="mt-1 text-xs text-gray-500">{formatDateTime(newerFailure ? failure.created_at : observation!.checkedAt)}</p>}{newerFailure && <p className="mt-1 max-w-lg text-xs text-red-700">{failure.message}</p>}</div>;
+                    } },
                 ]} />
             </section>
 

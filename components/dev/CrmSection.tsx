@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
-import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import DevDialog from "./DevDialog";
 import styles from "./dashboard.module.css";
@@ -37,13 +36,13 @@ function CrmList({ paid, search, onOpen }: { paid: boolean; search: string; onOp
             .then(result => { setData(result); setError(""); }).catch(e => { if (!controller.signal.aborted) setError(e.message); }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
         return () => controller.abort();
     }, [paid, search, page]);
-    return <section className={styles.section}><div className={styles.sectionHeader}><h2>{paid ? "Clientes pagantes e históricos" : "Todos os restaurantes"} <span className="text-sm font-normal text-gray-500">({data.total})</span></h2></div>
+    return <section className={`${styles.section} ${styles.scrollTable} ${paid ? styles.paidCustomers : ""}`}><div className={styles.sectionHeader}><h2>{paid ? "Clientes pagantes e históricos" : "Todos os restaurantes"} <span className="text-sm font-normal text-gray-500">({data.total})</span></h2></div>
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
         <PagedTable data={data} loading={loading} rowKey={r => r.id} onPage={setPage} onRowClick={onOpen} columns={[
             { key: "name", label: "Restaurante", render: r => <div className="flex min-w-48 items-center gap-3"><InitialsAvatar name={r.name}/><span className="font-medium">{r.name}</span></div> },
             { key: "status", label: "Cliente", render: r => <CustomerBadge restaurant={r} /> },
             { key: "email", label: "Contato", render: r => <div><p className="text-xs text-gray-500">{r.email || "—"}</p>{r.phone && <a className="mt-1 block text-[#c43700]" href={getWhatsappUrl(r.phone) || undefined} target="_blank" rel="noopener noreferrer" onClick={event=>event.stopPropagation()}>{formatPhone(r.phone)}</a>}</div> },
-            { key: "since", label: "Desde", render: r => new Date(r.created_at).toLocaleDateString("pt-BR") },
+            { key: "since", label: "Desde", className: styles.dateCell, render: r => new Date(r.created_at).toLocaleDateString("pt-BR") },
             { key: "open", label: "", render: r => <Button variant="secondary" onClick={event => { event.stopPropagation(); onOpen(r); }}>Ver detalhes</Button> },
         ]} />
     </section>;
@@ -107,12 +106,12 @@ function RestaurantDetails({ restaurant }: { restaurant: Restaurant }) {
         <Tabs tabs={["Visão geral", "Pagamentos", "Repasses", "Assistente IA"]} active={tab} onChange={setTab} />
         {error && <p role="alert" className="text-red-700">{error}</p>}
         {tab === "Visão geral" && (!data ? <Loader /> : <>
-            <dl className="grid gap-5 sm:grid-cols-2">
-                {[["GMV", formatCurrencyFromCents(data.metrics.gmv_cents)], ["GMV online", formatCurrencyFromCents(data.metrics.online_cents)], ["Pedidos", data.metrics.orders], ["Cliente desde", new Date(restaurant.created_at).toLocaleDateString("pt-BR")], ["Contato", restaurant.email || restaurant.phone || "—"]].map(([label, value]) => <div key={label}><dt className="text-xs text-gray-500">{label}</dt><dd className="mt-1 font-medium">{value}</dd></div>)}
+            <dl className={styles.detailMetrics}>
+                {[["GMV", formatCurrencyFromCents(data.metrics.gmv_cents)], ["GMV online", formatCurrencyFromCents(data.metrics.online_cents)], ["Pedidos", data.metrics.orders], ["Cliente desde", new Date(restaurant.created_at).toLocaleDateString("pt-BR")]].map(([label, value]) => <div key={label}><dt className="text-xs text-gray-500">{label}</dt><dd className="mt-2 font-semibold tabular-nums">{value}</dd></div>)}
             </dl>
-            <Card><h3 className="font-medium">Potencial Vendas IA</h3><div className="mt-2"><Tooltip size="medium" showOnClick text={data.analysis?.potential?.assumptions || data.analysis?.potential?.reason || data.analysis?.summary || ""}>
+            <section className={styles.analysisSummary}><h3 className="text-sm font-medium">Potencial Vendas IA</h3><div className="mt-2"><Tooltip size="medium" showOnClick text={data.analysis?.potential?.assumptions || data.analysis?.potential?.reason || data.analysis?.summary || ""}>
                 <span className="text-xl font-semibold">{data.analysis?.potential?.available && data.analysis.potential.cents != null ? formatCurrencyFromCents(data.analysis.potential.cents) : "Sem estimativa disponível"}</span>
-            </Tooltip></div></Card>
+            </Tooltip></div></section>
         </>)}
         {tab === "Pagamentos" && <PaymentHistory id={restaurant.id} kind="payments" />}
         {tab === "Repasses" && <><p className="text-sm">A repassar: {due === null ? "—" : formatCurrencyFromCents(due + Number(data?.metrics.pending_payout_cents || 0))}</p><PaymentHistory id={restaurant.id} kind="payouts" /></>}
@@ -125,7 +124,7 @@ export default function CrmSection() {
     const [query, setQuery] = useState("");
     const [selected, setSelected] = useState<Restaurant | null>(null);
     useEffect(() => { const timer = setTimeout(() => setQuery(search), 300); return () => clearTimeout(timer); }, [search]);
-    return <><Input icon={<Search size={17}/>} type="search" aria-label="Buscar restaurantes" placeholder="Nome, e-mail ou telefone" value={search} onChange={e => setSearch(e.target.value)} />
+    return <><div className={styles.searchToolbar}><Input icon={<Search size={17}/>} type="search" aria-label="Buscar restaurantes" placeholder="Nome, e-mail ou telefone" value={search} onChange={e => setSearch(e.target.value)} /></div>
         <CrmList paid search={query} onOpen={setSelected} /><CrmList paid={false} search={query} onOpen={setSelected} />
         <DevDialog title={selected?.name || "Restaurante"} description="Histórico e relacionamento" open={Boolean(selected)} onClose={() => setSelected(null)}>{selected && <RestaurantDetails key={selected.id} restaurant={selected} />}</DevDialog>
     </>;

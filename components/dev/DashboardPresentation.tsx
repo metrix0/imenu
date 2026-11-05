@@ -2,7 +2,8 @@
 
 import styles from "./dashboard.module.css";
 import DataTable from "@/components/ui/DataTable";
-import { CHART_CATEGORY_AXIS, CHART_VALUE_AXIS, STANDARD_CHART_TOOLTIP } from "@/components/restaurant-owner/exibicoes/chartStyles";
+import { CHART_CATEGORY_AXIS, CHART_VALUE_AXIS, STANDARD_CHART_TOOLTIP, createBrandAreaGradient } from "@/components/restaurant-owner/exibicoes/chartStyles";
+import { Chart as ChartJS, Filler } from "chart.js";
 import { Line } from "react-chartjs-2";
 import type { ReactNode } from "react";
 import type { ProductOverview } from "@/lib/analytics/productOverview";
@@ -12,6 +13,7 @@ import { PanelIcon } from "@/components/ui/PanelIcon";
 import { faCircleInfo } from "@fortawesome/free-solid-svg-icons";
 
 type SeriesPoint = { label: string; value: number };
+ChartJS.register(Filler);
 
 export function lineOptions(
     currency = false,
@@ -22,6 +24,7 @@ export function lineOptions(
     return {
         responsive: true,
         maintainAspectRatio: false,
+        animation: false as const,
         interaction: { mode: "index" as const, intersect: false },
         plugins: {
             legend: { display: showLegend },
@@ -39,13 +42,14 @@ export function lineOptions(
         scales: {
             x: {
                 ...CHART_CATEGORY_AXIS,
-                ticks: { ...CHART_CATEGORY_AXIS.ticks, maxTicksLimit: percentage ? 3 : 5 },
+                ticks: { ...CHART_CATEGORY_AXIS.ticks, maxTicksLimit: 4 },
             },
             y: {
                 ...CHART_VALUE_AXIS,
                 ...(percentage ? { max: 100 } : {}),
                 ticks: {
                     ...CHART_VALUE_AXIS.ticks,
+                    maxTicksLimit: 4,
                     precision: percentage || decimal ? 1 : 0,
                     callback: (value: string | number) => {
                         const numericValue = Number(value) || 0;
@@ -300,11 +304,12 @@ export function MetricChart({
                     currency ? point.value / 100 : point.value
                 ),
                 borderColor: color,
-                backgroundColor: color,
-                pointRadius: series.length > 20 ? 0 : 2,
+                backgroundColor: secondarySeries?.length ? color : color === "#d93d00" ? createBrandAreaGradient : `${color}12`,
+                borderWidth: 2,
+                pointRadius: 0,
                 pointHoverRadius: 5,
-                tension: 0.3,
-                fill: false,
+                tension: 0.25,
+                fill: !secondarySeries?.length,
             },
             ...(secondarySeries && secondaryLabel && secondaryColor
                 ? [
@@ -326,7 +331,7 @@ export function MetricChart({
     return (
         <article className={embedded ? styles.chartEmbedded : styles.chart}>
             <div className="flex items-center justify-between gap-3">
-                <h3 className="text-base font-semibold text-gray-900">{title}</h3>
+                <h3 className="text-sm font-medium text-gray-600">{title}</h3>
                 {actionLabel && onAction && (
                     <button
                         type="button"
