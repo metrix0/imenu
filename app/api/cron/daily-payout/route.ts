@@ -235,10 +235,13 @@ export async function GET(request: Request) {
             discountPercent: 1,
             adjustToOnePercent: true,
         });
-        const skippedRestaurantCount = plan.payables.length - plan.sendable.length;
+        const skippedRestaurantCount = plan.payables.length - plan.sendable.length + plan.validationErrors.length;
+        const validationSummary = plan.validationErrors
+            .map((error) => `${error.restaurantName}: ${error.message}`)
+            .join(" | ").slice(0, 1900);
 
         if (plan.sendable.length === 0) {
-            const message = "Nenhum restaurante com valor e chave PIX válidos para pagar.";
+            const message = validationSummary || "Nenhum restaurante com valor e chave PIX válidos para pagar.";
             await query(
                 `
                 UPDATE public.payout_automation_runs
@@ -274,6 +277,7 @@ export async function GET(request: Request) {
                 discount_cents = $4,
                 payout_cents = $5,
                 restaurant_count = $6,
+                error_message = $7,
                 updated_at = NOW()
             WHERE id = $1
             `,
@@ -283,7 +287,8 @@ export async function GET(request: Request) {
                 plan.payzuFeeCents,
                 plan.discountCents,
                 plan.totalNetCents,
-                plan.payables.length,
+                plan.payables.length + plan.validationErrors.length,
+                validationSummary || null,
             ]
         );
 
@@ -435,7 +440,7 @@ export async function GET(request: Request) {
         );
 
         if (status !== "completed" && status !== "processing") {
-            const message = `Execução terminou com status ${status}. Pagos: ${payoutResult.paidCount}; em processamento: ${payoutResult.processingCount}; falhas: ${payoutResult.failedCount}; restaurantes ignorados: ${skippedRestaurantCount}.`;
+            const message = `Execução terminou com status ${status}. Pagos: ${payoutResult.paidCount}; em processamento: ${payoutResult.processingCount}; falhas: ${payoutResult.failedCount}; restaurantes ignorados: ${skippedRestaurantCount}. ${validationSummary}`;
             await notifyPayoutAlarm({
                 runId,
                 runDate,
@@ -446,7 +451,7 @@ export async function GET(request: Request) {
         }
 
         return NextResponse.json({
-            success: payoutResult.failedCount === 0,
+            success: payoutResult.failedCount === 0 && plan.validationErrors.length === 0,
             runId,
             transferredCents,
             payoutCents: plan.totalNetCents,

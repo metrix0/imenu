@@ -120,6 +120,14 @@ export async function PATCH(
             }
 
             if (
+                order.payment_method === "pix" &&
+                order.status === "pending_online_payment" &&
+                !["pending_online_payment", "canceled"].includes(status)
+            ) {
+                throw new OrderStatusError("Pagamento PIX ainda não confirmado.", 409);
+            }
+
+            if (
                 status === "canceled" &&
                 order.payment_method === "pix" &&
                 order.status !== "pending_online_payment" &&
