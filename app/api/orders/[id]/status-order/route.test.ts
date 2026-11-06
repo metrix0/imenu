@@ -11,7 +11,7 @@ jest.mock("@/lib/auth/restaurantOwner", () => ({
         constructor(message: string, public status: number) { super(message); }
     },
 }));
-jest.mock("@/lib/services/whatsappNotification", () => ({ notifyOrderStatusUpdate: jest.fn() }));
+jest.mock("@/lib/services/whatsappNotification", () => ({ notifyOrderStatusUpdate: jest.fn().mockResolvedValue(undefined) }));
 jest.mock("@/lib/payments/payzu", () => ({
     isPayZuPaymentRef: jest.fn(),
     refundPayZuPixCharge: jest.fn(),
