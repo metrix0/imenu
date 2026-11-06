@@ -149,11 +149,6 @@ export default function CartModal({
     const todayInput = formatDateInputValue(new Date());
     const preorderOnly = restaurant?.preorder_only === true && !isTableOrder;
     const minAdvanceDays = preorderOnly ? Math.max(0, Math.min(59, Number(restaurant?.preorder_min_days) || 0)) : 0;
-    const [scheduleDate, setScheduleDate] = useState(() => {
-        const firstDate = new Date();
-        firstDate.setDate(firstDate.getDate() + minAdvanceDays);
-        return formatDateInputValue(firstDate);
-    });
     const allowFutureScheduling = restaurant?.allow_future_order_scheduling === true || preorderOnly;
     const scheduleDateOptions = Array.from({ length: 60 - minAdvanceDays }, (_, index) => {
         const date = new Date();
@@ -169,7 +164,12 @@ export default function CartModal({
             value,
             label: minAdvanceDays === 0 && index === 0 ? `Hoje • ${dateLabel}` : dateLabel,
         };
+    }).filter(({ value }) => {
+        if (!preorderOnly) return true;
+        const slots = restaurant?.preorder_availability_json?.[dateFromInput(value).getDay()];
+        return Array.isArray(slots) && slots.length > 0;
     });
+    const [scheduleDate, setScheduleDate] = useState(() => scheduleDateOptions[0]?.value ?? "");
     const coupon_code = useCheckoutStore((s) => s.coupon_code);
     const coupon_type = useCheckoutStore((s) => s.coupon_type);
     const storedCouponDiscount = useCheckoutStore((s) => s.coupon_discount_cents);
@@ -181,7 +181,7 @@ export default function CartModal({
         const availability = preorderOnly
             ? restaurant?.preorder_availability_json
             : restaurant?.availability_json;
-        if (!availability) {
+        if (!availability || (preorderOnly && scheduleDateOptions.length === 0)) {
             return {
                 options: [] as { value: string; label: string }[],
                 isOpenNow: false,
@@ -1414,7 +1414,7 @@ export default function CartModal({
                                             )}
                                         </div>
 
-                                        {allowFutureScheduling && (
+                                        {allowFutureScheduling && scheduleDateOptions.length > 0 && (
                                             <div className="mt-4">
                                                 <div className="mb-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--im-menu-success-text,#166534)]">
                                                     <FontAwesomeIcon icon={faCalendarDays} />
@@ -1495,7 +1495,7 @@ export default function CartModal({
                                             </div>
                                         ) : (
                                             <p className="mt-3 rounded-lg bg-[var(--im-menu-surface,#fff)] px-4 py-3 text-sm text-[var(--im-menu-muted,#6b7280)]">
-                                                {preorderOnly ? "Não há horários disponíveis para este dia." : "O restaurante não possui horários disponíveis neste dia."}
+                                                {preorderOnly && scheduleDateOptions.length === 0 ? "Não há dias disponíveis para encomendas." : preorderOnly ? "Não há horários disponíveis para este dia." : "O restaurante não possui horários disponíveis neste dia."}
                                             </p>
                                         )}
                                     </div>

@@ -256,6 +256,64 @@ async function flow(browser, method) {
     }
 }
 
+async function preorderDates(browser) {
+    const restaurant = data.restaurants[0];
+    const original = {
+        preorder_only: restaurant.preorder_only,
+        preorder_availability_json: restaurant.preorder_availability_json,
+        preorder_min_days: restaurant.preorder_min_days,
+        allow_future_order_scheduling: restaurant.allow_future_order_scheduling,
+    };
+    Object.assign(restaurant, {
+        preorder_only: true,
+        preorder_availability_json: {
+            "2": [{ open: "09:00", close: "18:00" }],
+            "5": [{ open: "09:00", close: "18:00" }],
+        },
+        preorder_min_days: 2,
+        allow_future_order_scheduling: true,
+    });
+    const context = await browser.createBrowserContext();
+    const page = await context.newPage();
+    await page.setRequestInterception(true);
+    page.on("request", request => {
+        const url = new URL(request.url());
+        if (url.origin === BASE && /^\/api\/items\/[^/]+\/subcategories$/.test(url.pathname)) {
+            return request.respond({ status: 200, contentType: "application/json", body: "[]" });
+        }
+        if (url.origin === BASE && url.pathname === "/api/checkout/delivery-config") {
+            return request.respond({ status: 200, contentType: "application/json", body: '{"mode":"radius","rules":[]}' });
+        }
+        return request.continue();
+    });
+    try {
+        const response = await page.goto(BASE + "/e2e-restaurant", { waitUntil: "networkidle2" });
+        assert.equal(response.status(), 200);
+        await click(page, "Hambúrguer E2E");
+        await click(page, "Adicionar");
+        await page.waitForFunction(() => !document.querySelector('[role="dialog"], [data-ui="sheet"]'));
+        await click(page, "Ver Sacola");
+        await click(page, "Continuar");
+        await page.waitForSelector('input[autocomplete="name"]');
+        await page.type('input[autocomplete="name"]', "Cliente E2E");
+        await page.type('input[autocomplete="tel"]', "11999990000");
+        await click(page, "Continuar");
+        await page.waitForSelector('select[aria-label="Dia do agendamento"]');
+        const { dates, selected } = await page.evaluate(() => {
+            const select = document.querySelector('select[aria-label="Dia do agendamento"]');
+            return { dates: [...select.options].map(option => option.value), selected: select.value };
+        });
+        assert.ok(dates.length > 0, "Preorder must offer matching dates");
+        assert.ok(dates.every(date => [2, 5].includes(new Date(date + "T12:00:00").getDay())),
+            "Preorder must offer only Tuesday and Friday");
+        assert.equal(selected, dates[0], "Preorder should default to the first valid date");
+        console.log("PASS preorder checkout dates limited to Tuesday/Friday");
+    } finally {
+        Object.assign(restaurant, original);
+        await context.close();
+    }
+}
+
 async function panelOrders(browser) {
     const context = await browser.createBrowserContext();
     const page = await context.newPage();
@@ -472,6 +530,7 @@ async function run() {
         await signup(browser);
         await flow(browser, "dinheiro");
         await flow(browser, "pix");
+        await preorderDates(browser);
         await panelOrders(browser);
         await crmPanels(browser);
     } catch (error) {
