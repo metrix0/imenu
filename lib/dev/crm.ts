@@ -6,6 +6,7 @@ const PAID = `EXISTS(SELECT 1 FROM restaurant_addons a JOIN restaurant_addon_pay
     AND UPPER(p.status) IN ('CONFIRMED','RECEIVED','RECEIVED_IN_CASH','PAID','COMPLETED','APPROVED'))
     OR EXISTS(SELECT 1 FROM restaurant_addons a WHERE a.restaurant_id=r.id AND a.activated_at IS NOT NULL
         AND UPPER(a.payzu_payment_status) IN ('PAID','COMPLETED','CONFIRMED'))`;
+const PLUS_SINCE = `(SELECT MIN(a.activated_at) FROM restaurant_addons a WHERE a.restaurant_id=r.id AND a.product_key='ia_plus')`;
 const PLUS = `EXISTS(SELECT 1 FROM restaurant_addons a WHERE a.restaurant_id=r.id AND a.product_key='ia_plus'
     AND (a.status='active' OR (a.status IN ('canceled','past_due') AND a.current_period_ends_at>NOW())))`;
 
@@ -26,7 +27,8 @@ export async function getCrm(params: URLSearchParams) {
             return paged(rows.rows, count.rows[0].total, page);
         }
         const [restaurant, metrics, analysis] = await Promise.all([
-            query(`SELECT r.id,r.name,r.url_slug,r.created_at,COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),r.phone) phone,r.payment_info,r.payment_info_type,u.email,
+            query(`SELECT r.id,r.name,r.url_slug,r.created_at,COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),r.phone) phone,r.store_whatsapp AS store_phone,
+                COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),NULLIF(TRIM(r.phone),'')) AS owner_phone,(${PLUS_SINCE}) AS plus_since,r.payment_info,r.payment_info_type,u.email,
                 (${PAID}) AS has_paid,(${PLUS}) AS plus FROM restaurants r LEFT JOIN auth.users u ON u.id=r.user_id WHERE r.id=$1`, [id]),
             query(`SELECT COUNT(*)::int orders,COALESCE(SUM(total_cents),0)::bigint gmv_cents,
                 COALESCE(SUM(total_cents) FILTER(WHERE payment_method='pix'),0)::bigint online_cents,
@@ -41,9 +43,18 @@ export async function getCrm(params: URLSearchParams) {
     }
     const paidOnly = params.get("paid") === "1";
     const search = params.get("q")?.trim().slice(0, 200) || "";
-    const where = `($1='' OR r.name ILIKE '%'||$1||'%' OR u.email ILIKE '%'||$1||'%' OR r.phone ILIKE '%'||$1||'%' OR u.raw_user_meta_data->>'phone' ILIKE '%'||$1||'%') ${paidOnly ? `AND (${PAID})` : ""}`;
+    const plan = params.get("plan");
+    const age = params.get("age");
+    const conditions = [
+        `($1='' OR r.name ILIKE '%'||$1||'%' OR u.email ILIKE '%'||$1||'%' OR r.phone ILIKE '%'||$1||'%' OR r.store_whatsapp ILIKE '%'||$1||'%' OR u.raw_user_meta_data->>'phone' ILIKE '%'||$1||'%')`,
+        ...(paidOnly ? [`(${PAID})`] : []),
+        ...(plan === "plus" ? [`(${PLUS})`] : plan === "historical" ? [`(${PAID}) AND NOT (${PLUS})`] : plan === "free" ? [`NOT (${PAID})`] : []),
+        ...(age === "30" ? ["r.created_at >= NOW() - INTERVAL '30 days'"] : age === "90" ? ["r.created_at >= NOW() - INTERVAL '90 days'"] : age === "older" ? ["r.created_at < NOW() - INTERVAL '90 days'"] : []),
+    ];
+    const where = conditions.join(" AND ");
     const [rows, count] = await Promise.all([
-        query(`SELECT r.id,r.name,r.url_slug,r.created_at,COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),r.phone) phone,u.email,(${PAID}) AS has_paid,(${PLUS}) AS plus
+        query(`SELECT r.id,r.name,r.url_slug,r.created_at,COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),r.phone) phone,r.store_whatsapp AS store_phone,
+            COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),NULLIF(TRIM(r.phone),'')) AS owner_phone,(${PLUS_SINCE}) AS plus_since,u.email,(${PAID}) AS has_paid,(${PLUS}) AS plus
             FROM restaurants r LEFT JOIN auth.users u ON u.id=r.user_id WHERE ${where}
             ORDER BY ${paidOnly ? `(${PLUS}) DESC,` : ""} r.created_at DESC,r.id LIMIT $2 OFFSET $3`, [search, DEV_PAGE_SIZE, page * DEV_PAGE_SIZE]),
         query<{ total: number }>(`SELECT COUNT(*)::int total FROM restaurants r LEFT JOIN auth.users u ON u.id=r.user_id WHERE ${where}`, [search]),
