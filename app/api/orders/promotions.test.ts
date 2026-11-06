@@ -208,6 +208,61 @@ it.each([undefined, null, "invalido"])(
   },
 );
 
+it("authenticates Balcão orders even if the panel flag is omitted", async () => {
+  (requireRestaurantOwner as jest.Mock).mockRejectedValueOnce(
+    new RestaurantOwnerAuthError("Não autenticado.", 401),
+  );
+  const response = await send({ is_delivery: "balcao", paymentMethod: "pix" });
+  expect(response.status).toBe(401);
+  expect(requireRestaurantOwner).toHaveBeenCalledWith(expect.any(Request), restaurantId);
+  expect(insert).toBeNull();
+  expect(writes).toEqual([]);
+  expect(createMercadoPagoPixCharge).not.toHaveBeenCalled();
+});
+
+it("rejects an authenticated Balcão request without the panel flag", async () => {
+  const response = await send(
+    { is_delivery: "balcao", paymentMethod: "pix-entrega" },
+    { Authorization: "Bearer owner-token" },
+  );
+  expect(response.status).toBe(400);
+  expect((await response.json()).error).toMatch(/pelo painel/);
+  expect(requireRestaurantOwner).toHaveBeenCalledWith(expect.any(Request), restaurantId);
+  expect(insert).toBeNull();
+  expect(createMercadoPagoPixCharge).not.toHaveBeenCalled();
+});
+
+it.each(["pix", "invalid-method"])(
+  "rejects %s at Balcão before creating a charge or order",
+  async (paymentMethod) => {
+    const response = await send(
+      { panel_order: true, is_delivery: "balcao", paymentMethod },
+      { Authorization: "Bearer owner-token" },
+    );
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toMatch(/Pix na entrega/);
+    expect(insert).toBeNull();
+    expect(writes).toEqual([]);
+    expect(createMercadoPagoPixCharge).not.toHaveBeenCalled();
+  },
+);
+
+it.each(["pix-entrega", "dinheiro", "trazer-maquininha"])(
+  "allows a Balcão order with the valid offline payment %s",
+  async (paymentMethod) => {
+    const response = await send(
+      { panel_order: true, is_delivery: "balcao", paymentMethod },
+      { Authorization: "Bearer owner-token" },
+    );
+    expect(response.status).toBe(200);
+    expect(requireRestaurantOwner).toHaveBeenCalledWith(expect.any(Request), restaurantId);
+    expect(saved()[1]).toBe("pending_physical_payment");
+    expect(saved()[10]).toBe(paymentMethod);
+    expect(saved()[11]).toBe("balcao");
+    expect(createMercadoPagoPixCharge).not.toHaveBeenCalled();
+  },
+);
+
 it("rejects a manual-order flag without owner authentication", async () => {
   enablePreorders();
   (requireRestaurantOwner as jest.Mock).mockRejectedValueOnce(
