@@ -12,6 +12,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 
+import {Send} from "lucide-react";
 import BlastHistorySection from "@/components/dev/BlastHistorySection";
 import SupportDraftsSection from "@/components/dev/SupportDraftsSection";
 import Pagination from "@/components/ui/Pagination";
@@ -54,6 +55,7 @@ export default function SupportSection({ section = "support" }: { section?: "sup
     const [knowledgeEditorOpen, setKnowledgeEditorOpen] = useState(false);
     const [knowledgeTitle, setKnowledgeTitle] = useState("");
     const [knowledgeContent, setKnowledgeContent] = useState("");
+    const [senderOpen,setSenderOpen] = useState(false);
     const [composeOpen,setComposeOpen] = useState(false);
     const [bulkPhones, setBulkPhones] = useState("");
     const [bulkMessage, setBulkMessage] = useState("");
@@ -530,7 +532,7 @@ export default function SupportSection({ section = "support" }: { section?: "sup
     const selectedBulkConnection =
         bulkSender === "blast" ? blastConnection : connection;
 
-    return (<DevPage title={section === "blast" ? "Blast" : "Support"}>
+    return (<DevPage title={section === "blast" ? "Blast" : "Support"} compactActions={section !== "support"} actions={section !== "support" ? <Button onClick={()=>setComposeOpen(true)}><Send size={16} aria-hidden="true" className="mr-2"/>Envio em massa</Button> : undefined}>
                 {error && (
                     <Card className="border-red-200 bg-red-50">
                         <p className="text-sm text-red-700">{error}</p>
@@ -560,7 +562,7 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                             <div>
                                 <div className="flex flex-wrap items-center gap-2">
                                     <h2 className="text-lg font-semibold text-gray-900">
-                                        WhatsApp do suporte
+                                        Suporte
                                     </h2>
                                     <span
                                         className={
@@ -712,8 +714,8 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                 </>}
                 </>}
                 {section !== "support" && <>
-                <BlastHistorySection refreshKey={blastRevision}/>
-                <details className={`${styles.section} ${styles.disclosure}`}><summary className={styles.sectionHeader}><h2>Conexão WhatsApp Blast</h2></summary>                <Card>
+                <BlastHistorySection refreshKey={blastRevision} connections={{support:connection,blast:blastConnection}} onManageSender={()=>setSenderOpen(true)}/>
+                <DevDialog title="Blast (remetente)" open={senderOpen} onClose={()=>setSenderOpen(false)}>                <Card>
                     <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
                         <div className="flex items-start gap-4">
                             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-50 text-xl text-green-600">
@@ -722,7 +724,7 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                             <div>
                                 <div className="flex flex-wrap items-center gap-2">
                                     <h2 className="text-lg font-semibold text-gray-900">
-                                        WhatsApp Blast
+                                        Blast (remetente)
                                     </h2>
                                     <span
                                         className={
@@ -830,7 +832,7 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                         <Switch
                             checked={blastConnection?.bot_enabled ?? true}
                             disabled={action === "set_bot_enabled:blast"}
-                            aria-label="Ativar respostas por IA no WhatsApp Blast"
+                            aria-label="Ativar respostas por IA no Blast (remetente)"
                             onClick={() =>
                                 void runAction("set_bot_enabled", {
                                     connection: "blast",
@@ -846,7 +848,7 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                                 {blastConnection?.qr_code_data ? (
                                     <img
                                         src={blastConnection.qr_code_data}
-                                        alt="QR Code do WhatsApp Blast"
+                                        alt="QR Code do Blast (remetente)"
                                         className="h-48 w-48"
                                     />
                                 ) : (
@@ -866,9 +868,9 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                         </div>
                     )}
                 </Card>
-                </details>
+                </DevDialog>
 
-                <details open={composeOpen} onToggle={event=>setComposeOpen(event.currentTarget.open)} className={`${styles.section} ${styles.disclosure}`}><summary className={styles.sectionHeader}><h2>Envio em massa</h2></summary>                <Card className={styles.composer}>
+                <DevDialog title="Envio em massa" open={composeOpen && bulkPreview === null} onClose={()=>{if(!bulkSending)setComposeOpen(false);}}>                <Card className={styles.composer}>
                     <p className="mt-1 text-sm text-gray-500">
                         Prepare os destinatários e a mensagem. Você poderá conferir tudo antes de enviar.
                     </p>
@@ -889,7 +891,7 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                                 {
                                     value: "blast",
                                     label:
-                                        "WhatsApp Blast" +
+                                        "Blast (remetente)" +
                                         (blastConnection?.phone
                                             ? " · " + formatPhone(blastConnection.phone)
                                             : " · não conectado"),
@@ -897,7 +899,7 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                                 {
                                     value: "support",
                                     label:
-                                        "WhatsApp do suporte" +
+                                        "Suporte" +
                                         (connection?.phone
                                             ? " · " + formatPhone(connection.phone)
                                             : " · não conectado"),
@@ -1058,7 +1060,7 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                         <p className="mt-3 text-sm text-gray-600">{bulkStatus}</p>
                     )}
                 </Card>
-                </details>
+                </DevDialog>
 
                 <DevDialog title="Conferir mensagens antes do envio"
                     open={bulkPreview !== null}

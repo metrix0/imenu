@@ -2,24 +2,7 @@
 @media(max-width:767px){.chartGrid{grid-template-columns:1fr}.chartEmbedded+.chartEmbedded,.analyticsCharts>.chartEmbedded:nth-child(even){border-left:0;border-top:1px solid #e2e5e9}.analyticsCharts>.chartEmbedded{border-bottom:0}}
 @media(max-width:639px){.content{gap:20px}.sectionHeader{padding:16px}.dialog{max-height:90dvh!important}.dialogHeader{padding:18px 50px 16px 18px}.dialogBody{padding:18px}}
 
-/* Keep long data sets inside the reused table, with pagination always reachable. */
-.scrollTable :global([data-ui="table"]) {
-    max-height: min(60dvh, 600px);
-    overflow: auto;
-    overscroll-behavior: contain;
-    scrollbar-width: thin;
-}
-.scrollTable :global(thead th) {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    background: #f7f8fa;
-    box-shadow: 0 1px #e2e5e9;
-}
-.paidCustomers :global([data-ui="table"]),
-.payoutFailures :global([data-ui="table"]) {
-    max-height: 320px;
-}
+.scrollTable{min-width:0}
 .dateCell { white-space: nowrap; font-size: 12px; }
 .numericCell { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .searchToolbar { max-width: 480px; }
@@ -52,7 +35,6 @@
     .detailMetrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .composerSettings { grid-template-columns: 1fr; gap: 20px; }
     .cadence { border-left: 0; border-top: 1px solid #e2e5e9; padding: 20px 0 0; }
-    .paidCustomers :global([data-ui="table"]), .payoutFailures :global([data-ui="table"]) { max-height: 320px; }
 }
 
 .content :global([style*="imenu-loader-spin"]){margin-inline:auto;align-self:center;justify-self:center}.externalSection{min-width:0}.externalSection>h2{font-size:15px;font-weight:600;margin-bottom:14px}.headingWithActions{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px}.headingWithActions>div:first-child{min-width:0}
@@ -68,3 +50,7 @@
 .crmDetailBlock h3{margin-bottom:12px;font-size:15px;font-weight:600}
 @media(max-width:767px){.crmDetails{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:420px){.crmDetails{grid-template-columns:1fr}}
+
+.blastTable :global(td){padding-block:8px}.blastTable :global(th){padding-block:11px}.blastMessage{max-width:440px;overflow-wrap:anywhere;white-space:pre-wrap}.blastPreview{max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.profileLink{display:inline-flex;align-items:center;gap:4px;min-width:0;max-width:100%;white-space:nowrap;color:#c43700;text-align:left;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+
+.compactHeading{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 16px}.compactHeading>div:first-child{display:contents}.compactHeading h1{grid-column:1;grid-row:1}.compactHeading p{grid-column:1/-1;grid-row:2;margin-top:0}.compactHeading>button{grid-column:2;grid-row:1}

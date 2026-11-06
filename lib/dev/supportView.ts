@@ -46,6 +46,9 @@ export function statusPresentation(connection: Connection | null) {
         };
     }
 
+    if (connection.status === "UNKNOWN") return {label:"Não verificado",className:"bg-gray-100 text-gray-600"};
+    if (connection.status === "STOPPED") return {label:"Desconectado",className:"bg-gray-100 text-gray-600"};
+
     if (connection.status === "WORKING") {
         return {
             label: "Conectado",

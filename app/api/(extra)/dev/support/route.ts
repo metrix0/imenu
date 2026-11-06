@@ -124,10 +124,14 @@ async function refreshConnection(
                 (await getWahaSession(connection.session_name)) || session;
         }
 
+        if (!session) connection={...connection,status:"STOPPED",last_error:"Sessão não encontrada."};
         if (session && process.env.IMENU_SUPPORT_PUBLIC_URL?.trim().replace(/\/+$/, "") === "https://www.imenuapp.com.br") {
             connection = await updateFromWahaSession(session, connectionId);
+        } else if(session) {
+            connection={...connection,status:session.status,phone:session.me?.id?.split("@")[0]||connection.phone,push_name:session.me?.pushName||connection.push_name,last_error:null};
         }
     } catch (error) {
+        connection={...connection,status:"UNKNOWN",last_error:"Não foi possível verificar a sessão."};
         console.warn(
             "[DEV_SUPPORT] WAHA status check unavailable:",
             connection.session_name,
