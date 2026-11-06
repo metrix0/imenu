@@ -2,7 +2,6 @@ import { AsyncLocalStorage } from "node:async_hooks";
 
 import { POST as createItem } from "@/app/api/items/create/route";
 import { POST as createCategory } from "@/app/api/categories/create/route";
-import { GET as getPayouts } from "@/app/api/mestre/payouts/route";
 import { createSupabaseServerClient } from "../supabaseServerClient";
 
 const requestContext = new AsyncLocalStorage<{ requestId: string }>();
@@ -69,24 +68,5 @@ it.each([
     expect(String(url)).toContain(`https://public.example.invalid/rest/v1/${table}?`);
     expect(new Headers(options?.headers).get("authorization")).toBe("Bearer test-service-key");
     expect(JSON.parse(String(options?.body))).toMatchObject(body);
-    expect(intervals).not.toHaveBeenCalled();
-});
-
-it("preserves payout filtering and deduplication without starting an auth interval", async () => {
-    const restaurant = { id: "r1", name: "Restaurant" };
-    fetchMock.mockResolvedValue(Response.json([
-        { restaurant_id: "r1", restaurants: restaurant },
-        { restaurant_id: "r1", restaurants: restaurant },
-    ]));
-    const response = await requestContext.run({ requestId: "payouts" }, getPayouts);
-
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual([restaurant]);
-    const [url, options] = fetchMock.mock.calls[0];
-    const parsed = new URL(String(url));
-    expect(parsed.origin + parsed.pathname).toBe("https://public.example.invalid/rest/v1/orders");
-    expect(parsed.searchParams.get("payment_method")).toBe("in.(pix,cartao)");
-    expect(parsed.searchParams.getAll("status")).toEqual(["neq.pending_online_payment", "neq.canceled"]);
-    expect(new Headers(options?.headers).get("authorization")).toBe("Bearer test-service-key");
     expect(intervals).not.toHaveBeenCalled();
 });

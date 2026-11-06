@@ -142,3 +142,35 @@ test("loads staging payout dashboard without reconciling production records", as
     expect(await response.json()).not.toHaveProperty("outstandingPayoutCents");
     expect(query).not.toHaveBeenCalled();
 });
+
+it("blocks unauthenticated payout reads and transfers", async () => {
+    const read = await GET(new Request("https://example.com/api/dev/payout"));
+    const transfer = await POST(new Request("https://example.com/api/dev/payout", { method: "POST" }));
+
+    expect(read.status).toBe(401);
+    expect(transfer.status).toBe(401);
+    expect(createPayoutPlan).not.toHaveBeenCalled();
+    expect(transferMercadoPagoToAsaas).not.toHaveBeenCalled();
+});
+
+it("blocks non-admin users from payout reads and transfers", async () => {
+    (createClient as jest.Mock).mockReturnValue({
+        auth: {
+            getUser: jest.fn(async () => ({
+                data: { user: { email: "other@example.com" } },
+                error: null,
+            })),
+        },
+    });
+    const headers = { authorization: "Bearer non-admin-token" };
+    const read = await GET(new Request("https://example.com/api/dev/payout", { headers }));
+    const transfer = await POST(new Request("https://example.com/api/dev/payout", {
+        method: "POST",
+        headers,
+    }));
+
+    expect(read.status).toBe(403);
+    expect(transfer.status).toBe(403);
+    expect(createPayoutPlan).not.toHaveBeenCalled();
+    expect(transferMercadoPagoToAsaas).not.toHaveBeenCalled();
+});
