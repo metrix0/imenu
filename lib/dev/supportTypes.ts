@@ -42,6 +42,8 @@ export type Stats = {
     ai_replies_today: number;
     human_conversations: number;
     knowledge_entries: number;
+    total_conversations?: number;
+    total_knowledge?: number;
 };
 
 export type KnowledgeEntry = {
@@ -63,9 +65,11 @@ export type Conversation = {
     human_started_at?: string | null;
     last_human_reply_at?: string | null;
     last_message: string | null;
+    plus?: boolean;
 };
 
 export type DashboardData = {
+    responseTimes?: { bot_seconds: number | null; human_seconds: number | null };
     connection: Connection;
     blastConnection: Connection;
     stats: Stats;

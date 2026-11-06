@@ -226,6 +226,7 @@ export async function GET(request: Request) {
         }
 
         try {
+            await query("UPDATE whatsapp_outbound_messages SET context=$2::jsonb WHERE dedupe_key=$1", [dedupeKey, JSON.stringify({ message: buildMessage(notification.products), sender: "support" })]);
             await sendWahaText(
                 sessionName,
                 chatId,

@@ -29,3 +29,12 @@ export function isSafePayoutDifference(
         differenceCents <= getMaxPayoutDifferenceCents(totalCents)
     );
 }
+
+export function summarizeOnePercentPayouts(rows: { grossCents: number; payzuFeeCents: number }[]) {
+    const initial = { grossCents: 0, payzuFeeCents: 0, discountCents: 0, netCents: 0 };
+    return rows.reduce<typeof initial>((total, row) => {
+        const payout = calculateOnePercentPayout(row.grossCents, row.payzuFeeCents);
+        return { grossCents: total.grossCents + row.grossCents, payzuFeeCents: total.payzuFeeCents + row.payzuFeeCents,
+            discountCents: total.discountCents + payout.discountCents, netCents: total.netCents + payout.netCents };
+    }, initial);
+}

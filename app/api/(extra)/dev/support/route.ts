@@ -1,3 +1,5 @@
+import { devPage } from "@/lib/dev/pagination";
+import { getBlastHistory } from "@/lib/dev/blastHistory";
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
@@ -113,10 +115,8 @@ async function refreshConnection(
     if (connection.desired_state !== "connected") return connection;
 
     try {
-        let session =
-            connectionId === "blast"
-                ? await ensureWahaBlastSession(connection.session_name)
-                : await getWahaSession(connection.session_name);
+        // Dashboard status reads must never reconfigure the shared WAHA session.
+        let session = await getWahaSession(connection.session_name);
 
         if (session?.status === "STARTING" && connectionId === "blast") {
             await sleep(700);
@@ -124,7 +124,7 @@ async function refreshConnection(
                 (await getWahaSession(connection.session_name)) || session;
         }
 
-        if (session) {
+        if (session && process.env.IMENU_SUPPORT_PUBLIC_URL?.trim().replace(/\/+$/, "") === "https://www.imenuapp.com.br") {
             connection = await updateFromWahaSession(session, connectionId);
         }
     } catch (error) {
@@ -138,8 +138,11 @@ async function refreshConnection(
     return connection;
 }
 
-async function getDashboardData() {
-    await releaseExpiredSupportHandoffs();
+async function getDashboardData(params = new URLSearchParams()) {
+    const supportPage = devPage(params, "support_page");
+    const handoffPage = devPage(params, "handoff_page");
+    const knowledgePage = devPage(params, "knowledge_page");
+    if (process.env.IMENU_SUPPORT_PUBLIC_URL?.trim().replace(/\/+$/, "") === "https://www.imenuapp.com.br") await releaseExpiredSupportHandoffs();
 
     const [connection, blastConnection] = await Promise.all([
         refreshConnection("default"),
@@ -152,8 +155,9 @@ async function getDashboardData() {
             ai_replies_today: number;
             human_conversations: number;
             knowledge_entries: number;
+            total_conversations: number;
         }>(
-            "SELECT (SELECT COUNT(*)::int FROM support_conversations WHERE created_at >= CURRENT_DATE) AS conversations_today, (SELECT COUNT(*)::int FROM support_messages WHERE direction = 'outbound' AND model IS NOT NULL AND created_at >= CURRENT_DATE) AS ai_replies_today, (SELECT COUNT(*)::int FROM support_conversations WHERE mode = 'human') AS human_conversations, (SELECT COUNT(*)::int FROM support_knowledge WHERE enabled = true) AS knowledge_entries"
+            "SELECT (SELECT COUNT(*)::int FROM support_conversations WHERE created_at >= CURRENT_DATE) AS conversations_today, (SELECT COUNT(*)::int FROM support_messages WHERE direction = 'outbound' AND model IS NOT NULL AND created_at >= CURRENT_DATE) AS ai_replies_today, (SELECT COUNT(*)::int FROM support_conversations WHERE mode = 'human') AS human_conversations, (SELECT COUNT(*)::int FROM support_knowledge WHERE enabled = true) AS knowledge_entries, (SELECT COUNT(*)::int FROM support_knowledge) AS total_knowledge, (SELECT COUNT(*)::int FROM support_conversations) AS total_conversations"
         ),
         query<{
             id: string;
@@ -162,7 +166,7 @@ async function getDashboardData() {
             enabled: boolean;
             updated_at: string;
         }>(
-            "SELECT id, title, content, enabled, updated_at FROM support_knowledge ORDER BY title ASC"
+            `SELECT id, title, content, enabled, updated_at FROM support_knowledge ORDER BY title ASC LIMIT 25 OFFSET ${knowledgePage * 25}`
         ),
         query<{
             id: string;
@@ -174,7 +178,7 @@ async function getDashboardData() {
             updated_at: string;
             last_message: string | null;
         }>(
-            "SELECT c.id, c.phone, c.customer_name, c.restaurant_id, r.name AS restaurant_name, c.mode, c.updated_at, (SELECT sm.body FROM support_messages sm WHERE sm.conversation_id = c.id ORDER BY sm.created_at DESC LIMIT 1) AS last_message FROM support_conversations c LEFT JOIN restaurants r ON r.id = c.restaurant_id ORDER BY c.updated_at DESC LIMIT 30"
+            `SELECT c.id, c.phone, c.customer_name, c.restaurant_id, r.name AS restaurant_name, EXISTS(SELECT 1 FROM restaurant_addons a WHERE a.restaurant_id=r.id AND a.product_key='ia_plus' AND (a.status='active' OR (a.status IN ('canceled','past_due') AND a.current_period_ends_at>NOW()))) AS plus, c.mode, c.updated_at, (SELECT sm.body FROM support_messages sm WHERE sm.conversation_id = c.id ORDER BY sm.created_at DESC LIMIT 1) AS last_message FROM support_conversations c LEFT JOIN restaurants r ON r.id = c.restaurant_id ORDER BY c.updated_at DESC LIMIT 25 OFFSET ${supportPage * 25}`
         ),
         query<{
             id: string;
@@ -188,11 +192,24 @@ async function getDashboardData() {
             last_human_reply_at: string | null;
             last_message: string | null;
         }>(
-            "SELECT c.id, c.phone, c.customer_name, c.restaurant_id, r.name AS restaurant_name, c.mode, c.updated_at, c.human_started_at, c.last_human_reply_at, (SELECT sm.body FROM support_messages sm WHERE sm.conversation_id = c.id ORDER BY sm.created_at DESC LIMIT 1) AS last_message FROM support_conversations c LEFT JOIN restaurants r ON r.id = c.restaurant_id WHERE c.mode = 'human' ORDER BY COALESCE(c.last_human_reply_at, c.human_started_at, c.updated_at) DESC LIMIT 50"
+            `SELECT c.id, c.phone, c.customer_name, c.restaurant_id, r.name AS restaurant_name, EXISTS(SELECT 1 FROM restaurant_addons a WHERE a.restaurant_id=r.id AND a.product_key='ia_plus' AND (a.status='active' OR (a.status IN ('canceled','past_due') AND a.current_period_ends_at>NOW()))) AS plus, c.mode, c.updated_at, c.human_started_at, c.last_human_reply_at, (SELECT sm.body FROM support_messages sm WHERE sm.conversation_id = c.id ORDER BY sm.created_at DESC LIMIT 1) AS last_message FROM support_conversations c LEFT JOIN restaurants r ON r.id = c.restaurant_id WHERE c.mode = 'human' ORDER BY COALESCE(c.last_human_reply_at, c.human_started_at, c.updated_at) DESC LIMIT 25 OFFSET ${handoffPage * 25}`
         ),
     ]);
 
+    const responseTimes = await query(`WITH replies AS (
+        SELECT reply.model,reply.dedupe_key,EXTRACT(EPOCH FROM reply.created_at-inbound.created_at) seconds
+        FROM support_messages reply JOIN support_conversations c ON c.id=reply.conversation_id
+        JOIN LATERAL(SELECT m.created_at FROM support_messages m WHERE m.conversation_id=reply.conversation_id
+            AND m.direction='inbound' AND m.created_at<reply.created_at ORDER BY m.created_at DESC LIMIT 1) inbound ON TRUE
+        WHERE reply.direction='outbound' AND reply.send_status='sent' AND reply.created_at>NOW()-INTERVAL '30 days'
+          AND c.chat_id NOT LIKE 'imenu-blast:%'
+          AND COALESCE(reply.dedupe_key,'') NOT LIKE 'support:blast%'
+          AND NOT EXISTS(SELECT 1 FROM support_messages previous WHERE previous.conversation_id=reply.conversation_id
+              AND previous.direction='outbound' AND previous.send_status='sent' AND previous.created_at>inbound.created_at AND previous.created_at<reply.created_at)
+    ) SELECT AVG(seconds) FILTER(WHERE model IS NOT NULL OR dedupe_key IS NOT NULL)::float8 bot_seconds,
+        AVG(seconds) FILTER(WHERE model IS NULL AND dedupe_key IS NULL)::float8 human_seconds FROM replies`);
     return {
+        responseTimes: responseTimes.rows[0],
         connection,
         blastConnection,
         stats: stats.rows[0],
@@ -208,6 +225,7 @@ export async function GET(request: Request) {
         if (!authorization.ok) return authorization.response;
 
         const searchParams = new URL(request.url).searchParams;
+        if (searchParams.get("section") === "blasts") return NextResponse.json(await getBlastHistory(searchParams));
         if (searchParams.get("blast_history") === "1") {
             return NextResponse.json({ campaigns: await listSupportBlasts() });
         }
@@ -216,7 +234,7 @@ export async function GET(request: Request) {
             return NextResponse.json({ recipients: await getSupportBlastRecipients(blastId) });
         }
 
-        return NextResponse.json(await getDashboardData(), {
+        return NextResponse.json(await getDashboardData(searchParams), {
             headers: { "Cache-Control": "no-store" },
         });
     } catch (error) {
@@ -240,6 +258,9 @@ export async function POST(request: Request) {
     try {
         const authorization = await authorizeDevRequest(request);
         if (!authorization.ok) return authorization.response;
+        if (!(process.env.IMENU_SUPPORT_PUBLIC_URL?.trim().replace(/\/+$/, "") === "https://www.imenuapp.com.br")) {
+            return NextResponse.json({ error: "Ações de suporte disponíveis apenas na produção." }, { status: 403 });
+        }
 
         const form = request.headers.get("content-type")?.startsWith("multipart/form-data")
             ? await request.formData() : null;
@@ -509,6 +530,7 @@ export async function POST(request: Request) {
             if (claim.rowCount === 0) {
                 return NextResponse.json({ ok: true, duplicate: true });
             }
+            await query("UPDATE whatsapp_outbound_messages SET context=$2::jsonb WHERE dedupe_key=$1", [dedupeKey, JSON.stringify({ message, sender })]);
 
             try {
                 const contact = await checkWahaPhoneExists(

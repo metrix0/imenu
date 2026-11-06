@@ -154,6 +154,14 @@ def notify(root, title, message):
     with urllib.request.urlopen(request, timeout=6) as response:
         if response.status < 200 or response.status >= 300:
             raise RuntimeError("ntfy notification failed")
+    # Store the exact phone notification using the existing local database connection.
+    try:
+        escape=lambda value: value.replace("'", "''")
+        statement="INSERT INTO public.dev_alerts(source,title,message,severity) VALUES('phone','"+escape(title[:200])+"','"+escape(message[:4000])+"','notification');"
+        subprocess.run(["docker","exec","-i","supabase-db","psql","-U","supabase_admin","-d","postgres","-Xq","-v","ON_ERROR_STOP=1"],input=statement,text=True,capture_output=True,check=True,timeout=5)
+    except Exception as error:
+        print("ALERT_HISTORY_WRITE_FAILED",type(error).__name__)
+
 
 
 def inspect(root, host_alerts, dry_run=False):

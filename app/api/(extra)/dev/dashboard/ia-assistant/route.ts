@@ -1,3 +1,4 @@
+import { devPage } from "@/lib/dev/pagination";
 import { NextResponse } from "next/server";
 import { authorize } from "@/lib/dev/authorize";
 
@@ -21,6 +22,9 @@ export async function GET(request: Request) {
     try {
         const url = new URL(request.url);
         const restaurantId = url.searchParams.get("restaurant_id");
+        const page = devPage(url.searchParams);
+        const messagePage = devPage(url.searchParams, "message_page");
+        const paginated = url.searchParams.get("paged") === "1";
 
         if (!restaurantId) {
             const restaurants = await query<{
@@ -45,11 +49,12 @@ export async function GET(request: Request) {
                   AND m.restaurant_id = c.restaurant_id
                  WHERE c.kind = 'chat'
                  GROUP BY r.id, r.name, r.url_slug
-                 ORDER BY MAX(m.created_at) DESC`
+                 ORDER BY MAX(m.created_at) DESC ${paginated ? `LIMIT 25 OFFSET ${page * 25}` : ""}`
             );
 
             return NextResponse.json(
                 {
+                    ...(paginated ? { total: Number((await query("SELECT COUNT(DISTINCT restaurant_id)::int total FROM ia_vendas_conversations WHERE kind='chat' AND EXISTS(SELECT 1 FROM ia_vendas_messages m WHERE m.conversation_id=ia_vendas_conversations.id)")).rows[0].total) } : {}),
                     restaurants: restaurants.rows.map((row) => ({
                         restaurantId: row.restaurant_id,
                         restaurantName: row.restaurant_name,
@@ -107,7 +112,7 @@ export async function GET(request: Request) {
              WHERE c.restaurant_id=$1
                AND c.kind='chat'
              GROUP BY c.id,c.title,c.created_at,c.updated_at
-             ORDER BY MAX(m.created_at) DESC`,
+             ORDER BY MAX(m.created_at) DESC ${paginated ? `LIMIT 25 OFFSET ${page * 25}` : ""}`,
             [restaurantId]
         );
 
@@ -121,11 +126,11 @@ export async function GET(request: Request) {
                   cards: Array<Record<string, unknown>>;
                   created_at: string | Date;
               }>(
-                  `SELECT id,conversation_id,role,content,cards,created_at
-                   FROM public.ia_vendas_messages
-                   WHERE restaurant_id=$1
-                     AND conversation_id=ANY($2::uuid[])
-                   ORDER BY created_at ASC`,
+                  `SELECT id,conversation_id,role,content,cards,created_at FROM (
+                       SELECT id,conversation_id,role,content,cards,created_at,
+                           ROW_NUMBER() OVER(PARTITION BY conversation_id ORDER BY created_at,id) AS message_rank
+                       FROM public.ia_vendas_messages WHERE restaurant_id=$1 AND conversation_id=ANY($2::uuid[])
+                   ) messages ${paginated ? `WHERE message_rank > ${messagePage * 25} AND message_rank <= ${(messagePage + 1) * 25}` : ""} ORDER BY created_at ASC`,
                   [restaurantId, conversationIds]
               )
             : { rows: [] };
@@ -206,6 +211,10 @@ export async function GET(request: Request) {
 
         return NextResponse.json(
             {
+                ...(paginated ? { pagination: {
+                    total: Number((await query("SELECT COUNT(*)::int total FROM ia_vendas_conversations c WHERE c.restaurant_id=$1 AND c.kind='chat' AND EXISTS(SELECT 1 FROM ia_vendas_messages m WHERE m.conversation_id=c.id)", [restaurantId])).rows[0].total),
+                    messageTotal: Number((await query("SELECT COALESCE(MAX(total),0)::int total FROM (SELECT COUNT(*) total FROM ia_vendas_messages WHERE restaurant_id=$1 AND conversation_id=ANY($2::uuid[]) GROUP BY conversation_id) counts", [restaurantId,conversationIds])).rows[0].total)
+                } } : {}),
                 restaurant: {
                     id: restaurant.id,
                     name: restaurant.name,

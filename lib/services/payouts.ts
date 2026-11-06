@@ -1,3 +1,6 @@
+import { notifyPayoutProblem } from "@/lib/services/payoutNotifications";
+import { observeIntegration } from "@/lib/dev/health";
+import { sendNtfyNotification } from "@/lib/services/ntfy";
 import { getMercadoPagoPixPayment } from "@/lib/payments/mercadoPagoPix";
 import * as https from "node:https";
 
@@ -23,6 +26,20 @@ type PayableRestaurant = {
 
 };
 
+export type PayoutRestaurantError = {
+    restaurantId: string;
+    restaurantName: string;
+    orderId: string;
+    paymentRef: string;
+    grossCents: number;
+    message: string;
+};
+
+type VerifiedPayables = {
+    payables: PayableRestaurant[];
+    validationErrors: PayoutRestaurantError[];
+};
+
 type AsaasTransfer = {
     id?: string;
     status?: string;
@@ -43,6 +60,7 @@ export type PayoutPlan = {
     cutoffAt: Date;
     payables: PayableRestaurant[];
     ambiguous: PayableRestaurant[];
+    validationErrors: PayoutRestaurantError[];
     sendable: PayoutPlanItem[];
     grossCents: number;
     payzuFeeCents: number;
@@ -57,6 +75,7 @@ export type SendPayoutResult = {
     paidCount: number;
     processingCount: number;
     failedCount: number;
+    validationErrors: PayoutRestaurantError[];
     results: Array<{
         restaurantId: string;
         restaurantName: string;
@@ -145,6 +164,8 @@ async function asaasRequest<T>(
                         Buffer.concat(chunks).toString("utf8")
                     );
 
+                    if (status >= 500 || [401,402,403,429].includes(status)) observeIntegration("asaas", false, status);
+                    else if (status >= 200 && status < 300) observeIntegration("asaas", true, status);
                     if (status < 200 || status >= 300) {
                         const message =
                             payload?.errors?.[0]?.description ||
@@ -162,7 +183,7 @@ async function asaasRequest<T>(
         request.on("timeout", () => {
             request.destroy(new Error("Tempo limite excedido ao chamar Asaas."));
         });
-        request.on("error", reject);
+        request.on("error", (error) => { observeIntegration("asaas", false, null); reject(error); });
         if (init.body) request.write(init.body);
         request.end();
     });
@@ -206,7 +227,7 @@ function resolvePixKeyType(
     return row.payment_info_type || inferPixKeyType(row.payment_info);
 }
 
-async function getPayables(cutoffAt: Date): Promise<PayableRestaurant[]> {
+async function getPayables(cutoffAt: Date): Promise<VerifiedPayables> {
     const { rows } = await query<PayableRestaurant>(
         `
         WITH last_payout AS (
@@ -238,26 +259,71 @@ async function getPayables(cutoffAt: Date): Promise<PayableRestaurant[]> {
         [cutoffAt.toISOString()]
     );
 
-    // Fees come from the account's actual payment response, never a guessed tariff.
+    // Exclude unverified orders, not all of a restaurant's verified sales.
+    const payables: PayableRestaurant[] = [];
+    const validationErrors: PayoutRestaurantError[] = [];
     for (const row of rows) {
-        row.provider_fee_cents = 0;
+        const verifiedPayments: PayableRestaurant["payments"] = [];
+        let grossCents = 0;
+        let feeCents = 0;
         for (let offset = 0; offset < row.payments.length; offset += 5) {
-            const fees = await Promise.all(row.payments.slice(offset, offset + 5).map(async order => {
+            const orders = row.payments.slice(offset, offset + 5);
+            const fees = await Promise.allSettled(orders.map(async order => {
                 if (/^(PAYZU|PIX)/i.test(order.payment_ref)) return 10;
-                if (!/^\d+$/.test(order.payment_ref)) throw new Error("Provedor de pagamento desconhecido no repasse.");
-                const payment = await getMercadoPagoPixPayment({ id: order.payment_ref });
-                if (!payment || payment.id !== order.payment_ref || payment.externalReference !== order.id ||
-                    payment.paymentMethodId !== "pix" || payment.status !== "approved" ||
-                    Math.round(payment.amount * 100) !== Number(order.total_cents) || payment.feeCents === null) {
+                if (!/^\d+$/.test(order.payment_ref)) {
+                    throw new Error(`Provedor desconhecido no pagamento ${order.payment_ref}.`);
+                }
+                let payment;
+                try {
+                    payment = await getMercadoPagoPixPayment({ id: order.payment_ref });
+                } catch (error) {
+                    throw new Error(`Consulta Mercado Pago ${order.payment_ref}: ${error instanceof Error ? error.message : "erro desconhecido"}`);
+                }
+                if (!payment || payment.id !== order.payment_ref ||
+                    payment.externalReference !== order.id ||
+                    payment.paymentMethodId !== "pix" ||
+                    Math.round(payment.amount * 100) !== Number(order.total_cents)) {
+                    throw new Error(`Pagamento Mercado Pago ${order.payment_ref} não corresponde ao pedido.`);
+                }
+                if (payment.status !== "approved") {
+                    throw new Error(`Pagamento Mercado Pago ${order.payment_ref} não aprovado (${payment.status}).`);
+                }
+                if (payment.feeCents === null) {
                     throw new Error(`Não foi possível confirmar a taxa do pagamento Mercado Pago ${order.payment_ref}.`);
                 }
                 return payment.feeCents;
             }));
-            row.provider_fee_cents += fees.reduce((sum, fee) => sum + fee, 0);
+            for (let index = 0; index < orders.length; index += 1) {
+                const order = orders[index];
+                const fee = fees[index];
+                if (fee.status === "fulfilled") {
+                    verifiedPayments.push(order);
+                    grossCents += Number(order.total_cents);
+                    feeCents += fee.value;
+                } else {
+                    validationErrors.push({
+                        restaurantId: row.restaurant_id,
+                        restaurantName: row.restaurant_name,
+                        orderId: order.id,
+                        paymentRef: order.payment_ref,
+                        grossCents: Number(order.total_cents) || 0,
+                        message: fee.reason instanceof Error ? fee.reason.message : "Não foi possível validar o pagamento.",
+                    });
+                }
+            }
+        }
+        if (grossCents > 0) {
+            payables.push({
+                ...row,
+                gross_cents: grossCents,
+                pix_order_count: verifiedPayments.length,
+                provider_fee_cents: feeCents,
+                payments: verifiedPayments,
+            });
         }
     }
 
-    return rows;
+    return { payables, validationErrors };
 }
 
 type WaitingPayableRestaurant = Pick<
@@ -359,6 +425,7 @@ async function syncAutomationRuns(): Promise<void> {
                 WHEN counts.processing_count > 0 THEN 'processing'
                 WHEN counts.failed_count > 0 AND counts.paid_count > 0 THEN 'partial'
                 WHEN counts.failed_count > 0 THEN 'failed'
+                WHEN run.error_message IS NOT NULL THEN 'partial'
                 WHEN counts.paid_count < run.restaurant_count THEN 'partial'
                 ELSE 'completed'
             END,
@@ -386,13 +453,9 @@ async function notifyReconciledUnsuccessfulRun(run: {
     if (!topic) return;
 
     try {
-        const response = await fetch(`https://ntfy.sh/${encodeURIComponent(topic)}`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "text/plain; charset=utf-8",
-                Title: "ALARM TRIGGER - iMenu payout automático",
-            },
-            body: [
+        await sendNtfyNotification({
+            title: "ALARM TRIGGER - iMenu payout automático",
+            message: [
                 "Pagamento automático não foi concluído.",
                 `Data: ${run.run_date}`,
                 `Status: ${run.status}`,
@@ -400,12 +463,7 @@ async function notifyReconciledUnsuccessfulRun(run: {
                 `Motivo: Execução reconciliada como ${run.status}. Pagos: ${run.paid_count}/${run.restaurant_count}; falhas: ${run.failed_count}.`,
                 `Run: ${run.id}`,
             ].join("\n"),
-            cache: "no-store",
         });
-
-        if (!response.ok) {
-            throw new Error(`ntfy HTTP ${response.status}`);
-        }
     } catch (error) {
         console.error("[DAILY_PAYOUT] Falha ao enviar alerta ntfy de repasse parcial", {
             runId: run.id,
@@ -483,9 +541,11 @@ export async function reconcileProcessingPayouts(): Promise<void> {
                 );
             } else if (["CANCELLED", "FAILED", "REFUSED"].includes(transfer.status)) {
                 await query(
-                    `UPDATE public.payouts SET status = 'cancelled', asaas_transfer_id = COALESCE(asaas_transfer_id, $2) WHERE id = $1 AND status = 'processing'`,
-                    [payout.id, transfer.id || null]
+                    `UPDATE public.payouts SET status = 'cancelled', asaas_transfer_id = COALESCE(asaas_transfer_id, $2), failure_reason=$3 WHERE id = $1 AND status = 'processing'`,
+                    [payout.id, transfer.id || null, transfer.failReason || 'Transferência cancelada pelo Asaas.']
                 );
+                const owner = await query<{ restaurant_id: string }>("SELECT restaurant_id FROM payouts WHERE id=$1", [payout.id]);
+                if (owner.rows[0]) await notifyPayoutProblem(owner.rows[0].restaurant_id, false);
             }
         }
     }
@@ -529,14 +589,25 @@ export async function createPayoutPlan(input: {
     const restaurantIds = input.restaurantIds
         ? new Set(input.restaurantIds)
         : null;
-    const payables = (await getPayables(input.cutoffAt)).filter(
+    const verified = await getPayables(input.cutoffAt);
+    const payables = verified.payables.filter(
         (row) => !restaurantIds || restaurantIds.has(row.restaurant_id)
     );
-    if (restaurantIds && payables.length !== restaurantIds.size) {
+    const validationErrors = verified.validationErrors.filter(
+        (error) => !restaurantIds || restaurantIds.has(error.restaurantId)
+    );
+    const knownRestaurantIds = new Set([
+        ...payables.map((row) => row.restaurant_id),
+        ...validationErrors.map((error) => error.restaurantId),
+    ]);
+    if (restaurantIds && [...restaurantIds].some((id) => !knownRestaurantIds.has(id))) {
         throw new PayoutValidationError(
             "Um ou mais restaurantes ainda não têm pedidos elegíveis após a margem de 1h30. Atualize a lista.",
             409
         );
+    }
+    for (const row of payables) {
+        if (!row.payment_info?.trim()) await notifyPayoutProblem(row.restaurant_id, true);
     }
     const ambiguous = payables.filter(
         (row) => row.payment_info && !resolvePixKeyType(row)
@@ -581,6 +652,7 @@ export async function createPayoutPlan(input: {
         cutoffAt: input.cutoffAt,
         payables,
         ambiguous,
+        validationErrors,
         sendable,
         grossCents: sendable.reduce((sum, item) => sum + item.grossCents, 0),
         payzuFeeCents: sendable.reduce((sum, item) => sum + item.payzuFeeCents, 0),
@@ -612,9 +684,10 @@ async function sendPayoutTransfer(input: {
 
         if (["CANCELLED", "FAILED", "REFUSED"].includes(transfer.status || "")) {
             await query(
-                `UPDATE public.payouts SET status = 'cancelled', asaas_transfer_id = $2 WHERE id = $1 AND status = 'processing'`,
-                [input.payoutId, transfer.id || null]
+                `UPDATE public.payouts SET status = 'cancelled', asaas_transfer_id = $2, failure_reason=$3 WHERE id = $1 AND status = 'processing'`,
+                [input.payoutId, transfer.id || null, transfer.failReason || 'Transferência cancelada pelo Asaas.']
             );
+            await notifyPayoutProblem(input.restaurantId, false);
             return {
                 restaurantId: input.restaurantId,
                 restaurantName: input.restaurantName,
@@ -650,13 +723,14 @@ async function sendPayoutTransfer(input: {
         };
     } catch (error) {
         const message = error instanceof Error ? error.message : "Falha ao enviar PIX.";
-        const isNetworkFailure = /fetch|network|socket|timeout|ECONN|UND_ERR/i.test(message);
+        const isNetworkFailure = /fetch|network|socket|timeout|ECONN|ETIMEDOUT|UND_ERR|tempo limite/i.test(message);
 
         if (!isNetworkFailure) {
             await query(
-                `UPDATE public.payouts SET status = 'failed' WHERE id = $1 AND status = 'processing'`,
-                [input.payoutId]
+                `UPDATE public.payouts SET status = 'failed', failure_reason=$2 WHERE id = $1 AND status = 'processing'`,
+                [input.payoutId, message.slice(0, 2000)]
             );
+            await notifyPayoutProblem(input.restaurantId, false);
         }
 
         return {
@@ -849,6 +923,7 @@ export async function sendPayouts(input: {
         paidCount,
         processingCount,
         failedCount,
+        validationErrors: plan.validationErrors,
         results,
     };
 }
@@ -906,6 +981,7 @@ export async function retryFailedPayout(
 
     const keyType = resolvePixKeyType(payout);
     if (!payout.payment_info || !keyType) {
+        await notifyPayoutProblem(payout.restaurant_id, !payout.payment_info?.trim());
         throw new PayoutValidationError(
             "O restaurante não possui uma chave PIX válida para o reenvio.",
             400
@@ -936,6 +1012,7 @@ export async function retryFailedPayout(
         SET
             status = 'processing',
             paid_at = NULL,
+            failure_reason = NULL,
             asaas_transfer_id = NULL,
             pix_address_key = $2
         WHERE id = $1
@@ -969,15 +1046,16 @@ export async function retryFailedPayout(
         paidCount: result.status === "paid" ? 1 : 0,
         processingCount: result.status === "processing" ? 1 : 0,
         failedCount: result.status === "failed" ? 1 : 0,
+        validationErrors: [],
         results: [result],
     };
 }
 
-export async function getPayoutDashboardData() {
-    await reconcileProcessingPayouts();
+export async function getPayoutDashboardData(options: { readOnly?: boolean } = {}) {
+    if (!options.readOnly) await reconcileProcessingPayouts();
     const now = new Date();
     const cutoffAt = getPayoutCutoffAt(now);
-    const [payables, waitingPayables, historyResult, automationResult] = await Promise.all([
+    const [verified, waitingPayables, historyResult, automationResult] = await Promise.all([
         getPayables(cutoffAt),
         getWaitingPayables(cutoffAt),
         query<{
@@ -1046,6 +1124,7 @@ export async function getPayoutDashboardData() {
         }
     }
 
+    const payables = verified.payables;
     const waitingByRestaurant = new Map(
         waitingPayables.map((row) => [row.restaurant_id, row])
     );
@@ -1089,6 +1168,7 @@ export async function getPayoutDashboardData() {
         generatedAt: now.toISOString(),
         cutoffAt: cutoffAt.toISOString(),
         payables: dashboardPayables,
+        validationErrors: verified.validationErrors,
         history: historyResult.rows.map((row) => ({
             ...row,
             amount_cents: Number(row.amount_cents) || 0,

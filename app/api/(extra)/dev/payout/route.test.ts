@@ -1,8 +1,10 @@
-import { POST } from "./route";
+import { GET, POST } from "./route";
 import { createClient } from "@supabase/supabase-js";
+import { query } from "@/lib/database/sql";
 import {
     createPayoutPlan,
     getAsaasBalance,
+    getPayoutDashboardData,
 } from "@/lib/services/payouts";
 import {
     assertMercadoPagoPayoutConfigured,
@@ -27,6 +29,7 @@ jest.mock("@/lib/services/mercadoPagoPayout", () => ({
 
 const originalUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const originalAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const originalProductionUrl = process.env.IMENU_SUPPORT_PUBLIC_URL;
 
 function request() {
     return POST(
@@ -45,6 +48,8 @@ beforeEach(() => {
     jest.clearAllMocks();
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon";
+    process.env.IMENU_SUPPORT_PUBLIC_URL = "https://www.imenuapp.com.br";
+    (query as jest.Mock).mockResolvedValue({ rows: [{ cents: "0" }], rowCount: 1 });
     (createClient as jest.Mock).mockReturnValue({
         auth: {
             getUser: jest.fn(async () => ({
@@ -77,6 +82,8 @@ afterAll(() => {
     else process.env.NEXT_PUBLIC_SUPABASE_URL = originalUrl;
     if (originalAnon === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     else process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = originalAnon;
+    if (originalProductionUrl === undefined) delete process.env.IMENU_SUPPORT_PUBLIC_URL;
+    else process.env.IMENU_SUPPORT_PUBLIC_URL = originalProductionUrl;
 });
 
 it("funds only the current Asaas shortfall through Mercado Pago", async () => {
@@ -113,5 +120,57 @@ it("does not create a payout when Asaas already covers the pending repasses", as
         amountCents: 0,
     });
     expect(assertMercadoPagoPayoutConfigured).not.toHaveBeenCalled();
+    expect(transferMercadoPagoToAsaas).not.toHaveBeenCalled();
+});
+
+it("blocks staging from funding the production Asaas account", async () => {
+    delete process.env.IMENU_SUPPORT_PUBLIC_URL;
+    const response = await request();
+    expect(response.status).toBe(403);
+    expect(createPayoutPlan).not.toHaveBeenCalled();
+    expect(transferMercadoPagoToAsaas).not.toHaveBeenCalled();
+});
+
+test("loads staging payout dashboard without reconciling production records", async () => {
+    delete process.env.IMENU_SUPPORT_PUBLIC_URL;
+    (getPayoutDashboardData as jest.Mock).mockResolvedValue({ payables: [], history: [], automationRuns: [] });
+    const response = await GET(new Request("https://example.com/api/dev/payout", {
+        headers: { authorization: "Bearer token" },
+    }));
+    expect(response.status).toBe(200);
+    expect(getPayoutDashboardData).toHaveBeenCalledWith({ readOnly: true });
+    expect(await response.json()).not.toHaveProperty("outstandingPayoutCents");
+    expect(query).not.toHaveBeenCalled();
+});
+
+it("blocks unauthenticated payout reads and transfers", async () => {
+    const read = await GET(new Request("https://example.com/api/dev/payout"));
+    const transfer = await POST(new Request("https://example.com/api/dev/payout", { method: "POST" }));
+
+    expect(read.status).toBe(401);
+    expect(transfer.status).toBe(401);
+    expect(createPayoutPlan).not.toHaveBeenCalled();
+    expect(transferMercadoPagoToAsaas).not.toHaveBeenCalled();
+});
+
+it("blocks non-admin users from payout reads and transfers", async () => {
+    (createClient as jest.Mock).mockReturnValue({
+        auth: {
+            getUser: jest.fn(async () => ({
+                data: { user: { email: "other@example.com" } },
+                error: null,
+            })),
+        },
+    });
+    const headers = { authorization: "Bearer non-admin-token" };
+    const read = await GET(new Request("https://example.com/api/dev/payout", { headers }));
+    const transfer = await POST(new Request("https://example.com/api/dev/payout", {
+        method: "POST",
+        headers,
+    }));
+
+    expect(read.status).toBe(403);
+    expect(transfer.status).toBe(403);
+    expect(createPayoutPlan).not.toHaveBeenCalled();
     expect(transferMercadoPagoToAsaas).not.toHaveBeenCalled();
 });

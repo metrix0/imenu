@@ -46,6 +46,8 @@ const data = {
     loyalty_programs: [{ active: false }],
     tracking_integrations: [],
     promotions: [],
+    orders: [],
+    restaurant_tables: [],
     item_subcategories: [],
     subitems: []
 };
@@ -254,6 +256,101 @@ async function flow(browser, method) {
     }
 }
 
+async function panelOrders(browser) {
+    const context = await browser.createBrowserContext();
+    const page = await context.newPage();
+    await page.setViewport({ width: 1280, height: 900 });
+    const user = { id: "60000000-0000-4000-8000-000000000001", aud: "authenticated", role: "authenticated", email: "e2e@example.invalid" };
+    const token = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url") + "." +
+        Buffer.from(JSON.stringify({ sub: user.id, aud: "authenticated", exp: Math.floor(Date.now() / 1000) + 3600 })).toString("base64url") + ".testsignature";
+    await page.evaluateOnNewDocument(({ user, token, restaurantId, authStorageKey }) => {
+        localStorage.setItem(authStorageKey, JSON.stringify({
+            access_token: token, refresh_token: "fixture", token_type: "bearer",
+            expires_at: Math.floor(Date.now() / 1000) + 3600, user
+        }));
+        localStorage.setItem("restaurant-creation-storage", JSON.stringify({
+            state: { restaurantId, email: user.email, productSelectionCompleted: true, restaurantSlug: "e2e-restaurant" },
+            version: 0
+        }));
+        sessionStorage.setItem("imenu-creation-complete:" + user.id, "true");
+        localStorage.setItem("imenu:application-promo-dismissed-at:v1", String(Date.now()));
+    }, { user, token, restaurantId, authStorageKey: process.env.NEXT_PUBLIC_SUPABASE_AUTH_STORAGE_KEY || "sb-127-auth-token" });
+
+    const submitted = [];
+    await page.setRequestInterception(true);
+    page.on("request", request => {
+        const url = new URL(request.url());
+        if (url.origin === BASE && url.pathname === "/api/orders" && request.method() === "POST") {
+            submitted.push({ payload: JSON.parse(request.postData()), auth: request.headers().authorization });
+            return request.respond({ status: 200, contentType: "application/json", body: JSON.stringify({ id: orderId }) });
+        }
+        if (url.origin === BASE && /^\/api\/items\/[^/]+\/subcategories$/.test(url.pathname)) {
+            return request.respond({ status: 200, contentType: "application/json", body: "[]" });
+        }
+        return request.continue();
+    });
+    try {
+        const response = await page.goto(BASE + "/painel", { waitUntil: "networkidle2" });
+        assert.equal(response.status(), 200, "The owner panel must load");
+        for (const method of ["dinheiro", "pix-entrega"]) {
+            await click(page, "Adicionar Pedido");
+            await page.waitForSelector(".panel-create-order");
+            await page.waitForSelector('button[aria-label="Adicionar uma unidade de Hambúrguer E2E"]');
+            await page.click('button[aria-label="Adicionar uma unidade de Hambúrguer E2E"]');
+            await page.waitForFunction(() => document.querySelector('[role="dialog"]')?.textContent.includes("Configurar item"));
+            const addItem = await page.waitForFunction(() =>
+                [...document.querySelectorAll('[role="dialog"] button')]
+                    .find(button => button.textContent.trim().startsWith("Adicionar") &&
+                        !button.textContent.includes("Pedido") && !button.disabled && button.offsetWidth > 0) || false);
+            try {
+                const element = addItem.asElement();
+                assert.ok(element, "Item configurator must have an add button");
+                await element.click();
+            } finally {
+                await addItem.dispose();
+            }
+            await page.waitForFunction(() => {
+                const panel = document.querySelector('[role="dialog"] .panel-create-order');
+                const create = [...(panel?.querySelectorAll("button") || [])]
+                    .find(button => button.textContent.trim() === "Criar pedido");
+                return Boolean(panel && create && !create.disabled);
+            }, { timeout: 15000 });
+            await page.type('input[placeholder="Nome do cliente *"]', "Cliente painel E2E");
+            await page.select('select:has(option[value="pix-entrega"])', method);
+            await page.waitForFunction(value =>
+                document.querySelector('select:has(option[value="pix-entrega"])')?.value === value, {}, method);
+            await screenshot(page, "panel-add-order-" + method);
+            await click(page, "Criar pedido");
+            await page.waitForFunction(() => !document.querySelector(".panel-create-order"), { timeout: 15000 });
+            assert.equal(submitted.length, method === "dinheiro" ? 1 : 2, "One order request per form submission");
+            const { payload, auth } = submitted.at(-1);
+            assert.equal(auth, "Bearer " + token, "Panel requests must include the owner session");
+            assert.equal(payload.restaurantId, restaurantId);
+            assert.equal(payload.panel_order, true);
+            assert.equal(payload.is_delivery, "balcao");
+            assert.equal(payload.paymentMethod, method, "Counter PIX must be offline (pix-entrega), never online (pix)");
+            assert.equal(payload.customer_name, "Cliente painel E2E");
+            assert.equal(payload.delivery_fee_cents, 0);
+            assert.equal(payload.expected_promotion.total_cents, 2500);
+            assert.equal(payload.items.length, 1);
+            assert.equal(payload.items[0].base_item_id, itemId);
+            assert.equal(payload.items[0].total_cents, 2500);
+            console.log("PASS painel → Adicionar Pedido → item → Balcão → " + method + " (order API simulated)");
+        }
+    } catch (error) {
+        console.error("PANEL_ORDER_FIXTURE", page.url(), await page.evaluate(() => ({
+            text: document.body.innerText.slice(-1800),
+            buttons: [...document.querySelectorAll('[role="dialog"] button')].map(button => ({
+                text: button.textContent.trim().slice(0, 70), disabled: button.disabled
+            }))
+        })), "requests:", submitted.length);
+        if (screenshotDir) await page.screenshot({ path: path.join(screenshotDir, "panel-order-failure.png") });
+        throw error;
+    } finally {
+        await context.close();
+    }
+}
+
 async function crmPanels(browser) {
     const context=await browser.createBrowserContext(),page=await context.newPage();
     await page.setViewport({width:1280,height:900});
@@ -375,6 +472,7 @@ async function run() {
         await signup(browser);
         await flow(browser, "dinheiro");
         await flow(browser, "pix");
+        await panelOrders(browser);
         await crmPanels(browser);
     } catch (error) {
         console.error(lastLogs);

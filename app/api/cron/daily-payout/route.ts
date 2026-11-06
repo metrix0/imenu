@@ -1,3 +1,4 @@
+import { sendNtfyNotification } from "@/lib/services/ntfy";
 import { NextResponse } from "next/server";
 
 import { query } from "@/lib/database/sql";
@@ -82,13 +83,9 @@ async function notifyPayoutAlarm({
     }
 
     try {
-        const response = await fetch(`https://ntfy.sh/${encodeURIComponent(topic)}`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "text/plain; charset=utf-8",
-                Title: "ALARM TRIGGER - iMenu payout automático",
-            },
-            body: [
+        await sendNtfyNotification({
+            title: "ALARM TRIGGER - iMenu payout automático",
+            message: [
                 "Pagamento automático não foi concluído.",
                 `Data: ${runDate}`,
                 `Status: ${status}`,
@@ -96,12 +93,7 @@ async function notifyPayoutAlarm({
                 `Motivo: ${message}`,
                 `Run: ${runId || "não iniciado"}`,
             ].join("\n"),
-            cache: "no-store",
         });
-
-        if (!response.ok) {
-            throw new Error(`ntfy HTTP ${response.status}`);
-        }
     } catch (error) {
         console.error("[DAILY_PAYOUT] Falha ao enviar alerta ntfy", {
             runId,
@@ -243,10 +235,21 @@ export async function GET(request: Request) {
             discountPercent: 1,
             adjustToOnePercent: true,
         });
-        const skippedRestaurantCount = plan.payables.length - plan.sendable.length;
+        const verifiedRestaurantIds = new Set(plan.payables.map((row) => row.restaurant_id));
+        const skippedRestaurantCount = plan.payables.length - plan.sendable.length +
+            new Set(plan.validationErrors.filter((error) => !verifiedRestaurantIds.has(error.restaurantId))
+                .map((error) => error.restaurantId)).size;
+        const skippedOrderCount = plan.validationErrors.length;
+        const restaurantCount = new Set([
+            ...verifiedRestaurantIds,
+            ...plan.validationErrors.map((error) => error.restaurantId),
+        ]).size;
+        const validationSummary = plan.validationErrors
+            .map((error) => `${error.restaurantName} (pedido ${error.orderId}): ${error.message}`)
+            .join(" | ").slice(0, 1900);
 
         if (plan.sendable.length === 0) {
-            const message = "Nenhum restaurante com valor e chave PIX válidos para pagar.";
+            const message = validationSummary || "Nenhum restaurante com valor e chave PIX válidos para pagar.";
             await query(
                 `
                 UPDATE public.payout_automation_runs
@@ -282,6 +285,7 @@ export async function GET(request: Request) {
                 discount_cents = $4,
                 payout_cents = $5,
                 restaurant_count = $6,
+                error_message = $7,
                 updated_at = NOW()
             WHERE id = $1
             `,
@@ -291,7 +295,8 @@ export async function GET(request: Request) {
                 plan.payzuFeeCents,
                 plan.discountCents,
                 plan.totalNetCents,
-                plan.payables.length,
+                restaurantCount,
+                validationSummary || null,
             ]
         );
 
@@ -409,7 +414,7 @@ export async function GET(request: Request) {
                   ? "partial"
                   : payoutResult.failedCount > 0
                     ? "failed"
-                    : skippedRestaurantCount > 0
+                    : skippedRestaurantCount > 0 || skippedOrderCount > 0
                       ? "partial"
                       : "completed";
         const payoutStepStatus =
@@ -443,7 +448,7 @@ export async function GET(request: Request) {
         );
 
         if (status !== "completed" && status !== "processing") {
-            const message = `Execução terminou com status ${status}. Pagos: ${payoutResult.paidCount}; em processamento: ${payoutResult.processingCount}; falhas: ${payoutResult.failedCount}; restaurantes ignorados: ${skippedRestaurantCount}.`;
+            const message = `Execução terminou com status ${status}. Pagos: ${payoutResult.paidCount}; em processamento: ${payoutResult.processingCount}; falhas: ${payoutResult.failedCount}; restaurantes ignorados: ${skippedRestaurantCount}; pedidos excluídos: ${skippedOrderCount}. ${validationSummary}`;
             await notifyPayoutAlarm({
                 runId,
                 runDate,
@@ -454,13 +459,14 @@ export async function GET(request: Request) {
         }
 
         return NextResponse.json({
-            success: payoutResult.failedCount === 0,
+            success: payoutResult.failedCount === 0 && plan.validationErrors.length === 0,
             runId,
             transferredCents,
             payoutCents: plan.totalNetCents,
             differenceCents,
             asaasBalanceCents,
             skippedRestaurantCount,
+            skippedOrderCount,
             ...payoutResult,
         });
     } catch (error) {

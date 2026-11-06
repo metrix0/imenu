@@ -297,9 +297,9 @@ export default function PaymentCheckout({
                                 <Button
                                     type="button"
                                     variant="secondary"
+                                    leftIcon={<FontAwesomeIcon icon={faCopy} />}
                                     onClick={() => void copyPix()}
                                 >
-                                    <FontAwesomeIcon icon={faCopy} />
                                     {copied ? "Copiado" : "Copiar"}
                                 </Button>
                             </div>

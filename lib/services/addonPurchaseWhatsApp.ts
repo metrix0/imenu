@@ -141,13 +141,14 @@ export async function sendAddonPurchaseWhatsApp(input: {
                     chat_id,
                     message_type,
                     status,
-                    updated_at
+                    updated_at,
+                    context
                 )
-                VALUES ($1, $2, $3, 'text', 'sending', NOW())
+                VALUES ($1, $2, $3, 'text', 'sending', NOW(), jsonb_build_object('message', $4::text))
                 ON CONFLICT (dedupe_key) DO NOTHING
                 RETURNING dedupe_key
             `,
-            [dedupeKey, addon.restaurant_id, chatId]
+            [dedupeKey, addon.restaurant_id, chatId, ADDON_PURCHASE_MESSAGES[addon.product_key]]
         );
 
         if (claim.rowCount === 0) return;

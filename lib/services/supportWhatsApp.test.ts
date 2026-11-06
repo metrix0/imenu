@@ -35,8 +35,14 @@ test("secondary WhatsApp accepts sent 20:00 recovery blasts and ordinary blasts"
     expect(sql).toContain("dedupe_key LIKE 'support:bulk:blast:%'");
     expect(sql).toContain("dedupe_key LIKE 'support:bulk:abandoned:%'");
     expect(sql).not.toContain("dedupe_key LIKE 'support:bulk:%'");
-    expect(params).toHaveLength(1);
+    expect(sql).toContain("dedupe_key LIKE 'support:payout:%'");
+    expect(sql).toContain("support_blast_recipients");
+    expect(sql).toContain("c.sender = 'blast'");
+    expect(sql).toContain("support_conversations");
+    expect(params).toHaveLength(3);
     expect(params[0]).toContain("5511999999999@c.us");
+    expect(params[1]).toContain("5511999999999");
+    expect(params[2]).toBe("imenu-blast:5511999999999@s.whatsapp.net");
 });
 
 test("secondary WhatsApp rejects a contact without any qualifying sent blast", async () => {
@@ -59,4 +65,18 @@ test("secondary WhatsApp recognizes a recipient from a resolved LID", async () =
 
     const [, params] = (query as jest.Mock).mock.calls[0];
     expect(params[0]).toContain("5511999999999@c.us");
+});
+
+test("keeps an established LID conversation eligible after the outbound history cleanup", async () => {
+    (resolveWahaChatPhone as jest.Mock).mockResolvedValue("5581992345056");
+    (query as jest.Mock).mockResolvedValue({ rows: [{ id: 1 }], rowCount: 1 });
+
+    await expect(isSecondaryBlastRecipient({
+        sessionName: "imenu-blast",
+        chatId: "209862940172373@lid",
+    })).resolves.toBe(true);
+
+    const [, params] = (query as jest.Mock).mock.calls[0];
+    expect(params[1]).toContain("5581992345056");
+    expect(params[2]).toBe("imenu-blast:209862940172373@lid");
 });

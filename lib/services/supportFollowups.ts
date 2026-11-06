@@ -13,7 +13,9 @@ type EligibleFollowup = {
 // The existing support-blast pg_cron runs every 10 minutes.
 export async function processSupportFollowups(): Promise<number> {
     const result = await query<EligibleFollowup>(
-        `SELECT c.id, c.chat_id, c.followup_anchor_inbound_at, c.followup_last_ai_at
+        `SELECT c.id, c.chat_id,
+                c.followup_anchor_inbound_at::text AS followup_anchor_inbound_at,
+                c.followup_last_ai_at::text AS followup_last_ai_at
          FROM support_conversations c
          WHERE c.mode = 'ai'
            AND NOT c.blacklisted AND NOT c.blocked_handoff
