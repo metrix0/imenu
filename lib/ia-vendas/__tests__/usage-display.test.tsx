@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import AiUsage from '@/components/restaurant-owner/ia-vendas/AiUsage';
+import { IaPlusLimitMessage } from '@/components/restaurant-owner/ia-vendas/IaPlusSalesModal';
 import { AssistantQuotaReply } from '@/components/restaurant-owner/ia-vendas/ErrorNoticeContent';
 import { formatAiResetAt } from '../usageReset';
 import type { aiAccess } from '../access';
@@ -54,7 +55,13 @@ test('free usage only appears near its cap and shows the rolling reset', () => {
  const html=renderToStaticMarkup(<AiUsage access={access(false,100,0)} onBuyTokens={() => {}} />);
  expect(html).toContain('Uso gratuito de IA');
  expect(html).toContain('Limites serão reiniciados em');
- expect(html).toContain('Recarregar créditos');
+ expect(html).not.toContain('Recarregar créditos');
+});
+test('free limit keeps the iMenu Plus paywall without credit recharge', () => {
+ const html = renderToStaticMarkup(<IaPlusLimitMessage resetAt={resetAt} onCheckout={() => {}} />);
+ expect(html).toContain('Limite gratuito do Assistente IA');
+ expect(html).toContain('Assinar iMenu Plus');
+ expect(html).not.toContain('Recarregar créditos');
 });
 test('reset formatting is timezone-aware and invalid dates are omitted', () => {
  expect(formatAiResetAt(resetAt)).toBe('30/11 às 21:00');

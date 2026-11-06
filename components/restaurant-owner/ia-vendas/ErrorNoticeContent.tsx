@@ -66,7 +66,7 @@ export function AssistantQuotaReply({ message, onBuyCredits, onSubscribe, access
         </div>
       )}
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <Button type="button" onClick={onBuyCredits} leftIcon={<Coins size={16} aria-hidden="true" />} className="!min-h-9 !px-3 !py-1.5">Recarregar créditos</Button>
+        {access?.plus !== false && <Button type="button" onClick={onBuyCredits} leftIcon={<Coins size={16} aria-hidden="true" />} className="!min-h-9 !px-3 !py-1.5">Recarregar créditos</Button>}
         {onSubscribe && <Button type="button" variant="secondary" onClick={onSubscribe} className="!min-h-9 !px-3 !py-1.5">Assinar iMenu Plus</Button>}
         <SupportWhatsappBadge compact />
       </div>

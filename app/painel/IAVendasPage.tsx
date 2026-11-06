@@ -428,7 +428,7 @@ export default function SalesPage() {
   );
   const messageList = (
     <>
-              {threadMessages.map((m) => {
+              {threadMessages.filter((m) => !(m.role === "assistant" && m.cards.some((card) => card.type === "quota_notice" && card.quota === "free"))).map((m) => {
                 const parts =
                     m.role === "assistant"
                       ? splitMessageParts(m.content)
@@ -596,7 +596,7 @@ export default function SalesPage() {
                         return <SalesAnalysisSuggestionCard key={i} />;
                       if (card.type === "image_limit")
                         return <div key={i} className="mt-3 flex flex-wrap items-center gap-2">
-                          <Button variant="secondary" onClick={() => setModal("buy_tokens")}>Comprar tokens</Button>
+                          {sales.access?.plus ? <Button variant="secondary" onClick={() => setModal("buy_tokens")}>Comprar tokens</Button> : <Button variant="secondary" onClick={() => setPlusModal("checkout")}>Assinar iMenu Plus</Button>}
                           <SupportWhatsappBadge />
                         </div>;
                       return card.type !== "action" ? (
@@ -1071,10 +1071,9 @@ export default function SalesPage() {
             )}
             <div className="mx-auto max-w-3xl space-y-8">
               {messageList}
-              {freeLimitReached && !threadMessages.some((m) => m.cards.some((card) => card.type === "quota_notice")) && <IaPlusLimitMessage
+              {freeLimitReached && <IaPlusLimitMessage
                 resetAt={sales.access?.tokens_reset_at}
                 onCheckout={() => setPlusModal("checkout")}
-                onBuyTokens={() => setModal("buy_tokens")}
               />}
             </div>
           </div>

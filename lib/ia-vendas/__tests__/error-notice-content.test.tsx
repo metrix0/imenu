@@ -64,11 +64,12 @@ test("free quota reply keeps the subscriber upgrade path", () => {
       message="Seu limite gratuito foi atingido. Limites serão reiniciados em 10/11 às 14:00."
       onBuyCredits={() => {}}
       onSubscribe={() => {}}
+      access={{ plus: false } as NonNullable<Parameters<typeof AssistantQuotaReply>[0]["access"]>}
     />,
   );
   expect(html).toContain('aria-label="Limite gratuito atingido"');
   expect(html).toContain("Limites serão reiniciados em 10/11 às 14:00.");
   expect(html).toContain("Assinar iMenu Plus");
-  expect(html).toContain("Recarregar créditos");
+  expect(html).not.toContain("Recarregar créditos");
   expect(html).toContain("Suporte WhatsApp");
 });

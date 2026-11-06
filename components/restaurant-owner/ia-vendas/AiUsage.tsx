@@ -60,6 +60,6 @@ export default function AiUsage({ access, compact = false, onBuyTokens }: {
       </div>
       <LoadingBar progress={row.percent} size="sm" label={`${row.label}: ${row.values.join(". ")}`} colorClass={row.percent >= 100 ? "bg-red-500" : "bg-brand"} />
     </div>)}
-    {reached && onBuyTokens && <Button variant="secondary" leftIcon={<Coins size={16} aria-hidden="true" />} className="w-full !min-h-9 !px-2 !py-1.5" onClick={onBuyTokens}>Recarregar créditos</Button>}
+    {reached && access.plus && onBuyTokens && <Button variant="secondary" leftIcon={<Coins size={16} aria-hidden="true" />} className="w-full !min-h-9 !px-2 !py-1.5" onClick={onBuyTokens}>Recarregar créditos</Button>}
   </div>;
 }
