@@ -1,8 +1,10 @@
 import { createCreditPurchasePayment, reconcileCreditPayment, refreshPendingCreditPurchases } from "../creditPayments";
 import { withTransaction, query } from "@/lib/database/sql";
-import { getMercadoPagoPixPayment, findMercadoPagoPixPaymentByReference } from "@/lib/payments/mercadoPagoPix";
+import { createMercadoPagoPixCharge, getMercadoPagoPixPayment, findMercadoPagoPixPaymentByReference } from "@/lib/payments/mercadoPagoPix";
+import { quoteCreditPurchase } from "../creditPricing";
 import type { MercadoPagoPixPayment } from "@/lib/payments/mercadoPagoPix";
 
+jest.mock("../creditPricing", () => ({ quoteCreditPurchase: jest.fn() }));
 jest.mock("@/lib/database/sql", () => ({
   query: jest.fn(),
   withTransaction: jest.fn(),
@@ -38,6 +40,8 @@ let transactionQuery: jest.Mock;
 beforeEach(() => {
   (query as jest.Mock).mockReset();
   (getMercadoPagoPixPayment as jest.Mock).mockReset();
+  (createMercadoPagoPixCharge as jest.Mock).mockReset();
+  (quoteCreditPurchase as jest.Mock).mockReset();
   (findMercadoPagoPixPaymentByReference as jest.Mock).mockReset();
   credited = null;
   revoked = null;
@@ -154,4 +158,83 @@ test("a closed checkout cannot restart a released reservation with an old reques
   (query as jest.Mock).mockResolvedValue({ rows: [{ ...row, status: "failed" }] });
   await expect(createCreditPurchasePayment(checkout)).rejects.toThrow("cobrança foi encerrada");
   expect(getMercadoPagoPixPayment).not.toHaveBeenCalled();
+});
+
+
+test("exact R$1.64 recharge creates a pending Pix once and preserves the purchase ID on retry", async () => {
+  row = { ...row, status: "pending", price_cents: 164, image_count: 0, provider_payment_id: null };
+  const pendingPix = {
+    ...payment,
+    amount: 1.64,
+    status: "pending",
+    qrCodeText: "000201-mock-pix",
+    qrCodeBase64: "mock-qr",
+  };
+  const baseTransactionQuery = transactionQuery.getMockImplementation()!;
+  transactionQuery.mockImplementation(async (sql: string, values?: unknown[]) => {
+    if (sql.includes("pg_advisory_xact_lock")) return { rows: [] };
+    if (sql.startsWith("SELECT * FROM public.ia_vendas_credit_purchases WHERE restaurant_id=")) {
+      return { rows: [] };
+    }
+    if (sql.includes("INSERT INTO public.ia_vendas_credit_purchases")) {
+      expect(values).toEqual(["test-restaurant", id, 1_000_000, 60_000, 0, 164, 5]);
+      return { rows: [row] };
+    }
+    return baseTransactionQuery(sql, values);
+  });
+  (query as jest.Mock).mockResolvedValue({ rows: [] });
+  (quoteCreditPurchase as jest.Mock).mockResolvedValue({
+    quote: { inputTokens: 1_000_000, outputTokens: 60_000, images: 0 },
+    priceCents: 164,
+    rate: 5,
+  });
+  (createMercadoPagoPixCharge as jest.Mock).mockResolvedValue(pendingPix);
+
+  const exactCheckout = { ...checkout, images: 0, priceCents: 164 };
+  const first = await createCreditPurchasePayment(exactCheckout);
+  expect(first).toMatchObject({
+    active: false, paymentMethod: "pix", paymentStatus: "pending",
+    transactionId: id, qrCodeText: "000201-mock-pix",
+  });
+  expect(createMercadoPagoPixCharge).toHaveBeenCalledWith(expect.objectContaining({
+    amount: 1.64,
+    externalReference: payment.externalReference,
+    idempotencyKey: payment.externalReference,
+  }));
+  expect(transactionQuery.mock.calls.some(([sql]) =>
+    String(sql).includes("INSERT INTO public.ia_vendas_credit_balances"),
+  )).toBe(false);
+
+  // A repeated click with the same request ID must reuse the provider payment.
+  (query as jest.Mock).mockResolvedValueOnce({
+    rows: [{ ...row, provider_payment_id: payment.id }],
+  });
+  (getMercadoPagoPixPayment as jest.Mock).mockResolvedValue(pendingPix);
+  const second = await createCreditPurchasePayment(exactCheckout);
+  expect(second.transactionId).toBe(id);
+  expect(createMercadoPagoPixCharge).toHaveBeenCalledTimes(1);
+  expect(getMercadoPagoPixPayment).toHaveBeenCalledWith({ id: payment.id });
+});
+
+test("outdated client price is rejected before inserting a purchase or contacting Pix", async () => {
+  const baseTransactionQuery = transactionQuery.getMockImplementation()!;
+  transactionQuery.mockImplementation(async (sql: string, values?: unknown[]) => {
+    if (sql.includes("pg_advisory_xact_lock")) return { rows: [] };
+    if (sql.startsWith("SELECT * FROM public.ia_vendas_credit_purchases WHERE restaurant_id=")) {
+      return { rows: [] };
+    }
+    if (sql.includes("INSERT INTO public.ia_vendas_credit_purchases")) {
+      throw new Error("Should not insert when the quote changes");
+    }
+    return baseTransactionQuery(sql, values);
+  });
+  (query as jest.Mock).mockResolvedValue({ rows: [] });
+  (quoteCreditPurchase as jest.Mock).mockResolvedValue({
+    quote: { inputTokens: 1_000_000, outputTokens: 60_000, images: 0 },
+    priceCents: 164,
+    rate: 5,
+  });
+  await expect(createCreditPurchasePayment({ ...checkout, images: 0, priceCents: 163 }))
+    .rejects.toMatchObject({ status: 409 });
+  expect(createMercadoPagoPixCharge).not.toHaveBeenCalled();
 });
