@@ -235,9 +235,17 @@ export async function GET(request: Request) {
             discountPercent: 1,
             adjustToOnePercent: true,
         });
-        const skippedRestaurantCount = plan.payables.length - plan.sendable.length + plan.validationErrors.length;
+        const verifiedRestaurantIds = new Set(plan.payables.map((row) => row.restaurant_id));
+        const skippedRestaurantCount = plan.payables.length - plan.sendable.length +
+            new Set(plan.validationErrors.filter((error) => !verifiedRestaurantIds.has(error.restaurantId))
+                .map((error) => error.restaurantId)).size;
+        const skippedOrderCount = plan.validationErrors.length;
+        const restaurantCount = new Set([
+            ...verifiedRestaurantIds,
+            ...plan.validationErrors.map((error) => error.restaurantId),
+        ]).size;
         const validationSummary = plan.validationErrors
-            .map((error) => `${error.restaurantName}: ${error.message}`)
+            .map((error) => `${error.restaurantName} (pedido ${error.orderId}): ${error.message}`)
             .join(" | ").slice(0, 1900);
 
         if (plan.sendable.length === 0) {
@@ -287,7 +295,7 @@ export async function GET(request: Request) {
                 plan.payzuFeeCents,
                 plan.discountCents,
                 plan.totalNetCents,
-                plan.payables.length + plan.validationErrors.length,
+                restaurantCount,
                 validationSummary || null,
             ]
         );
@@ -406,7 +414,7 @@ export async function GET(request: Request) {
                   ? "partial"
                   : payoutResult.failedCount > 0
                     ? "failed"
-                    : skippedRestaurantCount > 0
+                    : skippedRestaurantCount > 0 || skippedOrderCount > 0
                       ? "partial"
                       : "completed";
         const payoutStepStatus =
@@ -440,7 +448,7 @@ export async function GET(request: Request) {
         );
 
         if (status !== "completed" && status !== "processing") {
-            const message = `Execução terminou com status ${status}. Pagos: ${payoutResult.paidCount}; em processamento: ${payoutResult.processingCount}; falhas: ${payoutResult.failedCount}; restaurantes ignorados: ${skippedRestaurantCount}. ${validationSummary}`;
+            const message = `Execução terminou com status ${status}. Pagos: ${payoutResult.paidCount}; em processamento: ${payoutResult.processingCount}; falhas: ${payoutResult.failedCount}; restaurantes ignorados: ${skippedRestaurantCount}; pedidos excluídos: ${skippedOrderCount}. ${validationSummary}`;
             await notifyPayoutAlarm({
                 runId,
                 runDate,
@@ -458,6 +466,7 @@ export async function GET(request: Request) {
             differenceCents,
             asaasBalanceCents,
             skippedRestaurantCount,
+            skippedOrderCount,
             ...payoutResult,
         });
     } catch (error) {

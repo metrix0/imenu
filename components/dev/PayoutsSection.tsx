@@ -16,7 +16,7 @@ import { formatCurrencyFromCents as money, formatDateTime } from "@/lib/dev/dash
 import { calculateOnePercentPayout, summarizeOnePercentPayouts } from "@/lib/services/payoutSafety";
 
 type Payable = { restaurantId: string; restaurantName: string; grossCents: number; payzuFeeCents: number; waitingGrossCents: number; canSend: boolean; pixKey: string | null; pixKeyType: string | null; nextEligibleAt: string | null };
-type PayoutRestaurantError = { restaurantId: string; restaurantName: string; grossCents: number; message: string };
+type PayoutRestaurantError = { restaurantId: string; restaurantName: string; orderId: string; paymentRef: string; grossCents: number; message: string };
 type Dashboard = { asaasBalanceCents: number | null; asaasConfigured: boolean; asaasError: string | null; cutoffAt: string; payables: Payable[]; validationErrors: PayoutRestaurantError[]; ownerPhones:Record<string,string> };
 type History = {
     id: string; restaurant_name: string; created_at: string; amount_cents: number; status: string; failure_reason: string | null;
@@ -109,7 +109,7 @@ export default function PayoutsSection() {
         setSending(true); setError(""); setMessage("");
         try {
             const result = await devJson<{ paidCount?: number; processingCount?: number; failedCount?: number; validationErrors?: PayoutRestaurantError[] }>("/api/dev/payout", { method: "POST", body: JSON.stringify(confirmation.fund ? { action: "fund_asaas" } : confirmation.retry ? { retryPayoutId: confirmation.retry } : { discountPercent: 1, adjustToOnePercent: true, restaurantIds: selected.map(row => row.restaurantId), cutoffAt: data.cutoffAt }) });
-            setMessage(confirmation.fund ? "Transferência para o Asaas solicitada." : `${result.paidCount || 0} pagos · ${result.processingCount || 0} processando · ${result.failedCount || 0} com falha · ${result.validationErrors?.length || 0} bloqueados por validação.`);
+            setMessage(confirmation.fund ? "Transferência para o Asaas solicitada." : `${result.paidCount || 0} pagos · ${result.processingCount || 0} processando · ${result.failedCount || 0} com falha · ${result.validationErrors?.length || 0} pedidos excluídos por validação.`);
             setConfirmation(null); setRevision(r => r + 1);
         } catch (e) { setError((e as Error).message); } finally { setSending(false); }
     }
@@ -119,10 +119,11 @@ export default function PayoutsSection() {
         {!data ? <Loader /> : <>
             <dl className={styles.metricStrip}><div><dt>Saldo Asaas</dt><dd>{data.asaasBalanceCents === null ? "—" : money(data.asaasBalanceCents)}</dd>{data.asaasError ? <p className="mt-2 text-sm text-red-700">{data.asaasError}</p> : !data.asaasConfigured && <p>Asaas não configurado.</p>}</div><div><dt>Total a repassar (líquido)</dt><dd>{money(totals.netCents)}</dd><p>{money(totals.grossCents)} bruto · Gateway {money(totals.payzuFeeCents)} · Desconto {money(totals.discountCents)} · 1% total</p></div></dl>
             {data.validationErrors?.length > 0 && <section className={`${styles.section} ${styles.scrollTable}`}>
-                <div className={styles.sectionHeader}><h2>Restaurantes bloqueados por validação</h2><Badge variant="danger">{data.validationErrors.length} restaurante(s)</Badge></div>
-                <DataTable rows={data.validationErrors} rowKey={row => row.restaurantId} columns={[
+                <div className={styles.sectionHeader}><h2>Pedidos excluídos por validação</h2><Badge variant="danger">{data.validationErrors.length} pedido(s)</Badge></div>
+                <DataTable rows={data.validationErrors} rowKey={row => row.orderId} columns={[
                     { key: "restaurant", label: "Restaurante", render: row => row.restaurantName },
-                    { key: "gross", label: "Bruto bloqueado", className: styles.numericCell, render: row => money(row.grossCents) },
+                    { key: "payment", label: "Pagamento", render: row => <p className="max-w-36 break-all text-xs">{row.paymentRef}</p> },
+                    { key: "gross", label: "Bruto excluído", className: styles.numericCell, render: row => money(row.grossCents) },
                     { key: "error", label: "Motivo", render: row => <p className="max-w-xl break-words text-xs text-red-700">{row.message}</p> },
                 ]} />
             </section>}

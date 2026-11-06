@@ -29,6 +29,8 @@ type PayableRestaurant = {
 export type PayoutRestaurantError = {
     restaurantId: string;
     restaurantName: string;
+    orderId: string;
+    paymentRef: string;
     grossCents: number;
     message: string;
 };
@@ -257,47 +259,66 @@ async function getPayables(cutoffAt: Date): Promise<VerifiedPayables> {
         [cutoffAt.toISOString()]
     );
 
-    // Keep an unverified payment from blocking or contaminating other restaurants.
+    // Exclude unverified orders, not all of a restaurant's verified sales.
     const payables: PayableRestaurant[] = [];
     const validationErrors: PayoutRestaurantError[] = [];
     for (const row of rows) {
-        row.provider_fee_cents = 0;
-        try {
-            for (let offset = 0; offset < row.payments.length; offset += 5) {
-                const fees = await Promise.all(row.payments.slice(offset, offset + 5).map(async order => {
-                    if (/^(PAYZU|PIX)/i.test(order.payment_ref)) return 10;
-                    if (!/^\d+$/.test(order.payment_ref)) {
-                        throw new Error(`Provedor desconhecido no pagamento ${order.payment_ref}.`);
-                    }
-                    let payment;
-                    try {
-                        payment = await getMercadoPagoPixPayment({ id: order.payment_ref });
-                    } catch (error) {
-                        throw new Error(`Consulta Mercado Pago ${order.payment_ref}: ${error instanceof Error ? error.message : "erro desconhecido"}`);
-                    }
-                    if (!payment || payment.id !== order.payment_ref ||
-                        payment.externalReference !== order.id ||
-                        payment.paymentMethodId !== "pix" ||
-                        Math.round(payment.amount * 100) !== Number(order.total_cents)) {
-                        throw new Error(`Pagamento Mercado Pago ${order.payment_ref} não corresponde ao pedido.`);
-                    }
-                    if (payment.status !== "approved") {
-                        throw new Error(`Pagamento Mercado Pago ${order.payment_ref} não aprovado (${payment.status}).`);
-                    }
-                    if (payment.feeCents === null) {
-                        throw new Error(`Não foi possível confirmar a taxa do pagamento Mercado Pago ${order.payment_ref}.`);
-                    }
-                    return payment.feeCents;
-                }));
-                row.provider_fee_cents += fees.reduce((sum, fee) => sum + fee, 0);
+        const verifiedPayments: PayableRestaurant["payments"] = [];
+        let grossCents = 0;
+        let feeCents = 0;
+        for (let offset = 0; offset < row.payments.length; offset += 5) {
+            const orders = row.payments.slice(offset, offset + 5);
+            const fees = await Promise.allSettled(orders.map(async order => {
+                if (/^(PAYZU|PIX)/i.test(order.payment_ref)) return 10;
+                if (!/^\d+$/.test(order.payment_ref)) {
+                    throw new Error(`Provedor desconhecido no pagamento ${order.payment_ref}.`);
+                }
+                let payment;
+                try {
+                    payment = await getMercadoPagoPixPayment({ id: order.payment_ref });
+                } catch (error) {
+                    throw new Error(`Consulta Mercado Pago ${order.payment_ref}: ${error instanceof Error ? error.message : "erro desconhecido"}`);
+                }
+                if (!payment || payment.id !== order.payment_ref ||
+                    payment.externalReference !== order.id ||
+                    payment.paymentMethodId !== "pix" ||
+                    Math.round(payment.amount * 100) !== Number(order.total_cents)) {
+                    throw new Error(`Pagamento Mercado Pago ${order.payment_ref} não corresponde ao pedido.`);
+                }
+                if (payment.status !== "approved") {
+                    throw new Error(`Pagamento Mercado Pago ${order.payment_ref} não aprovado (${payment.status}).`);
+                }
+                if (payment.feeCents === null) {
+                    throw new Error(`Não foi possível confirmar a taxa do pagamento Mercado Pago ${order.payment_ref}.`);
+                }
+                return payment.feeCents;
+            }));
+            for (let index = 0; index < orders.length; index += 1) {
+                const order = orders[index];
+                const fee = fees[index];
+                if (fee.status === "fulfilled") {
+                    verifiedPayments.push(order);
+                    grossCents += Number(order.total_cents);
+                    feeCents += fee.value;
+                } else {
+                    validationErrors.push({
+                        restaurantId: row.restaurant_id,
+                        restaurantName: row.restaurant_name,
+                        orderId: order.id,
+                        paymentRef: order.payment_ref,
+                        grossCents: Number(order.total_cents) || 0,
+                        message: fee.reason instanceof Error ? fee.reason.message : "Não foi possível validar o pagamento.",
+                    });
+                }
             }
-            payables.push(row);
-        } catch (error) {
-            validationErrors.push({
-                restaurantId: row.restaurant_id,
-                restaurantName: row.restaurant_name,
-                grossCents: Number(row.gross_cents) || 0,
-                message: error instanceof Error ? error.message : "Não foi possível validar os pagamentos.",
+        }
+        if (grossCents > 0) {
+            payables.push({
+                ...row,
+                gross_cents: grossCents,
+                pix_order_count: verifiedPayments.length,
+                provider_fee_cents: feeCents,
+                payments: verifiedPayments,
             });
         }
     }
@@ -404,6 +425,7 @@ async function syncAutomationRuns(): Promise<void> {
                 WHEN counts.processing_count > 0 THEN 'processing'
                 WHEN counts.failed_count > 0 AND counts.paid_count > 0 THEN 'partial'
                 WHEN counts.failed_count > 0 THEN 'failed'
+                WHEN run.error_message IS NOT NULL THEN 'partial'
                 WHEN counts.paid_count < run.restaurant_count THEN 'partial'
                 ELSE 'completed'
             END,
@@ -574,7 +596,11 @@ export async function createPayoutPlan(input: {
     const validationErrors = verified.validationErrors.filter(
         (error) => !restaurantIds || restaurantIds.has(error.restaurantId)
     );
-    if (restaurantIds && payables.length + validationErrors.length !== restaurantIds.size) {
+    const knownRestaurantIds = new Set([
+        ...payables.map((row) => row.restaurant_id),
+        ...validationErrors.map((error) => error.restaurantId),
+    ]);
+    if (restaurantIds && [...restaurantIds].some((id) => !knownRestaurantIds.has(id))) {
         throw new PayoutValidationError(
             "Um ou mais restaurantes ainda não têm pedidos elegíveis após a margem de 1h30. Atualize a lista.",
             409
