@@ -261,8 +261,8 @@ export default function SalesPage() {
   const actionById = new Map(sales.actions.map((action) => [action.id, action]));
   const freeLimitReached = !isAnalysis && sales.access && !sales.access.plus && !sales.access.chat_limit_reached && (sales.upgradeRequired || Number(sales.access.tokens_remaining) <= 0);
   const quotaReset = formatAiResetAt(sales.access?.tokens_reset_at);
-  const lastMessage = threadMessages[threadMessages.length - 1];
-  const lastMessageHasQuota = lastMessage?.role === "assistant" && lastMessage.cards.some((card) => card.type === "quota_notice");
+  const lastThreadMessage = threadMessages[threadMessages.length - 1];
+  const lastMessageHasQuota = lastThreadMessage?.role === "assistant" && lastThreadMessage.cards.some((card) => card.type === "quota_notice");
   const openLockedApply = (ids: string[] = []) => {
     const actionIds = [...new Set(ids.filter(Boolean))];
     if (restaurant && actionIds.length) {
