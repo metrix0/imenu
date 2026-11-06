@@ -86,7 +86,7 @@ export default function FinanceiroPage() {
                         Acompanhe os valores a receber e o histórico de repasses da sua loja.
                     </p>
                 </div>
-                <div className="w-full lg:w-[360px]">
+                <div className="w-full lg:w-[240px]">
                     <DateFilterBar
                         startDate={startDate}
                         endDate={endDate}
