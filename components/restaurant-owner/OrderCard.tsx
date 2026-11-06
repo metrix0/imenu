@@ -286,9 +286,11 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
     const updateStatus = async (newStatus: OrderStatus) => {
         setLoading(true);
         try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.access_token) throw new Error("Sessão expirada.");
             const res = await fetch(`/api/orders/${order.id}/status-order`, {
                 method: "PATCH",
-                headers: { "Content-Type": "application/json" },
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
                 body: JSON.stringify({ status: newStatus })
             });
 

@@ -205,11 +205,13 @@ export default function GarcomPage() {
         setError(null);
 
         try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.access_token) throw new Error("Sessão expirada.");
             await Promise.all(
                 tableOrders.map(async (order) => {
                     const response = await fetch(`/api/orders/${order.id}/status-order`, {
                         method: "PATCH",
-                        headers: { "Content-Type": "application/json" },
+                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
                         body: JSON.stringify({ status: "done" }),
                     });
 

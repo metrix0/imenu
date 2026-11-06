@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { MercadoPagoConfig, PaymentRefund } from "mercadopago";
 
 import { withTransaction } from "@/lib/database/sql";
+import { getAuthenticatedUser, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
 import {
     isPayZuPaymentRef,
     refundPayZuPixCharge,
@@ -80,6 +81,7 @@ export async function PATCH(
 ) {
     try {
         const { id } = await context.params;
+        const user = await getAuthenticatedUser(request);
         const body = await request.json();
         const status = String(body?.status || "");
 
@@ -117,6 +119,14 @@ export async function PATCH(
 
             if (!order) {
                 throw new OrderStatusError("Order not found", 404);
+            }
+
+            const ownerResult = await client.query(
+                "SELECT id FROM public.restaurants WHERE id = $1 AND user_id = $2 LIMIT 1",
+                [order.restaurant_id, user.id]
+            );
+            if (!ownerResult.rows[0]) {
+                throw new OrderStatusError("Acesso negado.", 403);
             }
 
             if (
@@ -464,7 +474,7 @@ export async function PATCH(
     } catch (error) {
         console.error("[ORDERS] Erro ao atualizar status:", error);
 
-        if (error instanceof OrderStatusError) {
+        if (error instanceof OrderStatusError || error instanceof RestaurantOwnerAuthError) {
             return NextResponse.json(
                 { error: error.message },
                 { status: error.status }

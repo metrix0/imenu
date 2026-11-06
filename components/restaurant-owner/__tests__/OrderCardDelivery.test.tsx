@@ -9,7 +9,9 @@ jest.mock("react", () => ({
     useState: (initial: unknown) => [typeof initial === "function" ? initial() : initial, jest.fn()],
 }));
 jest.mock("next/navigation", () => ({ useParams: () => ({}), usePathname: () => "/motoboy" }));
-jest.mock("@/lib/database/supabaseClient", () => ({ supabase: {} }));
+jest.mock("@/lib/database/supabaseClient", () => ({
+    supabase: { auth: { getSession: jest.fn().mockResolvedValue({ data: { session: { access_token: "owner-token" } } }) } },
+}));
 jest.mock("@/components/ui/Tooltip", () => ({ __esModule: true, default: ({ children }: { children: ReactNode }) => children }));
 
 const order = (status: OrderStatus): OrderData => ({
@@ -55,7 +57,7 @@ test("Entregue uses the existing status API and refreshes after success", async 
     const tree = OrderCard({ order: order("delivering"), deliveryOnly: true, onStatusChange: refresh });
     await findButton(tree, "Entregue")!.props.onClick();
     expect(fetchMock).toHaveBeenCalledWith("/api/orders/test-order/status-order", {
-        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "done" }),
+        method: "PATCH", headers: { "Content-Type": "application/json", Authorization: "Bearer owner-token" }, body: JSON.stringify({ status: "done" }),
     });
     expect(refresh).toHaveBeenCalledTimes(1);
 });
