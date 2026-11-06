@@ -23,3 +23,42 @@ it("only reports no charge after a valid empty search", async () => {
     jest.spyOn(global, "fetch").mockResolvedValue(new Response(JSON.stringify({ results: [] })));
     expect(await findMercadoPagoPixPaymentByReference("order1")).toBeNull();
 });
+
+
+it("creates an exact R$1.64 Pix payment and returns its QR code without rounding", async () => {
+    const reference = "ia-credits:c7f1e4a1-1111-4111-8111-122222222222:v1";
+    const request = jest.spyOn(global, "fetch").mockResolvedValue(new Response(JSON.stringify({
+        id: 987654,
+        status: "pending",
+        transaction_amount: 1.64,
+        external_reference: reference,
+        payment_method_id: "pix",
+        point_of_interaction: { transaction_data: {
+            qr_code: "000201-mock-pix", qr_code_base64: "base64-qr"
+        } },
+    }), { status: 201 }));
+
+    const result = await createMercadoPagoPixCharge({
+        amount: 1.64,
+        externalReference: reference,
+        idempotencyKey: reference,
+        notificationUrl: "https://imenu.example/api/webhooks/mercadopago",
+        payerEmail: "owner@example.test",
+    });
+    expect(result).toMatchObject({
+        id: "987654",
+        amount: 1.64,
+        status: "pending",
+        qrCodeText: "000201-mock-pix",
+        qrCodeBase64: "base64-qr",
+    });
+    expect(request).toHaveBeenCalledTimes(1);
+    const [url, init] = request.mock.calls[0];
+    expect(url).toBe("https://api.mercadopago.com/v1/payments");
+    expect(init?.method).toBe("POST");
+    expect((init?.headers as Record<string, string>)["X-Idempotency-Key"]).toBe(reference);
+    const payload = JSON.parse(String(init?.body));
+    expect(payload.transaction_amount).toBe(1.64);
+    expect(payload.payment_method_id).toBe("pix");
+    expect(payload.external_reference).toBe(reference);
+});
