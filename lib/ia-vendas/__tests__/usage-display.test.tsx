@@ -76,7 +76,7 @@ test('monthly quota explains when a partial token balance cannot cover the next 
  expect(html).toContain("Recarregar créditos");
 });
 
-test('shared usage bars appear in quota messages on mobile without duplicate actions or reset text', () => {
+test('quota message keeps the existing usage rows with only two inline bars', () => {
  const value = access(true, 98, 100);
  value.chat_limit_reached = true;
  const html = renderToStaticMarkup(
@@ -87,22 +87,16 @@ test('shared usage bars appear in quota messages on mobile without duplicate act
    />,
  );
  expect(html.match(/role="progressbar"/g)).toHaveLength(2);
- expect(html).toContain('98%');
- expect(html).toContain('100%');
- expect(html).toContain('aria-label="Informações de uso de Limite"');
- expect(html).toContain('aria-label="Informações de uso de Imagens"');
+ expect(html).toContain('aria-label="Uso de tokens de entrada"');
+ expect(html).toContain('aria-label="Uso de imagens"');
+ expect(html).toContain('aria-valuenow="98"');
+ expect(html).toContain('aria-valuenow="100"');
+ expect(html.indexOf('Tokens de entrada')).toBeLessThan(html.indexOf('aria-label="Uso de tokens de entrada"'));
+ expect(html.indexOf('aria-label="Uso de tokens de entrada"')).toBeLessThan(html.indexOf('Tokens de saída'));
+ expect(html.indexOf('<dt>Imagens</dt>')).toBeLessThan(html.indexOf('aria-label="Uso de imagens"'));
+ expect(html).not.toContain('aria-label="Informações de uso');
  expect(html.match(/Recarregar créditos/g)).toHaveLength(1);
  expect(html.match(/Limites serão reiniciados em/g)).toHaveLength(1);
- expect(html).not.toContain('lg:flex');
-});
-
-test('bars-only usage renders both shared bars below the sidebar threshold', () => {
- const value = access(false, 20, 0);
- const html = renderToStaticMarkup(<AiUsage access={value} barsOnly onBuyTokens={() => {}} />);
- expect(html.match(/role="progressbar"/g)).toHaveLength(2);
- expect(html).not.toContain('Recarregar créditos');
- expect(html).not.toContain('Limites serão reiniciados em');
- expect(renderToStaticMarkup(<AiUsage access={value} />)).toBe('');
 });
 
 test('monthly quota notice explains the exact plan limits and current usage', () => {

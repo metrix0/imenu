@@ -1,7 +1,7 @@
 "use client";
 
 import Button from "@/components/ui/Button";
-import AiUsage from "@/components/restaurant-owner/ia-vendas/AiUsage";
+import LoadingBar from "@/components/ui/LoadingBar";
 import type { aiAccess } from "@/lib/ia-vendas/access";
 import { SupportWhatsappBadge } from "@/components/common/SupportButton";
 
@@ -31,22 +31,39 @@ export function AssistantQuotaReply({ message, onBuyCredits, onSubscribe, access
       {monthly && access?.chat_limit_reached && monthlyUsage && monthlyUsage.tokens.percent < 100 && (
         <p className="mt-1 text-sm text-[var(--panel-muted,#626973)]">O saldo restante não é suficiente para iniciar outra mensagem.</p>
       )}
-      {access && <div className="mt-3"><AiUsage access={access} barsOnly /></div>}
-      {monthlyUsage && (
+       {monthlyUsage && (
         <div className="mt-3 text-sm text-[var(--panel-muted,#626973)]">
           <p>Seu plano inclui estes limites mensais. Uso atual:</p>
-          <dl className="mt-2 space-y-1.5">
-            <div className="flex justify-between gap-3">
-              <dt>Tokens de entrada</dt>
-              <dd className="tabular-nums text-[var(--panel-text,#1d1d1d)]">{formatCount(monthlyUsage.tokens.input)} / {formatCount(monthlyUsage.tokens.input_limit)}</dd>
+          <dl className="mt-2 space-y-2.5">
+            <div>
+              <div className="flex justify-between gap-3">
+                <dt>Tokens de entrada</dt>
+                <dd className="tabular-nums text-[var(--panel-text,#1d1d1d)]">{formatCount(monthlyUsage.tokens.input)} / {formatCount(monthlyUsage.tokens.input_limit)}</dd>
+              </div>
+              <LoadingBar
+                progress={monthlyUsage.tokens.input / monthlyUsage.tokens.input_limit * 100}
+                size="sm"
+                className="mt-1.5"
+                label="Uso de tokens de entrada"
+                colorClass={monthlyUsage.tokens.input >= monthlyUsage.tokens.input_limit ? "bg-red-500" : "bg-brand"}
+              />
             </div>
             <div className="flex justify-between gap-3">
               <dt>Tokens de saída</dt>
               <dd className="tabular-nums text-[var(--panel-text,#1d1d1d)]">{formatCount(monthlyUsage.tokens.output)} / {formatCount(monthlyUsage.tokens.output_limit)}</dd>
             </div>
-            <div className="flex justify-between gap-3">
-              <dt>Imagens</dt>
-              <dd className="tabular-nums text-[var(--panel-text,#1d1d1d)]">{formatCount(monthlyUsage.images.used)} / {formatCount(monthlyUsage.images.limit)}</dd>
+            <div>
+              <div className="flex justify-between gap-3">
+                <dt>Imagens</dt>
+                <dd className="tabular-nums text-[var(--panel-text,#1d1d1d)]">{formatCount(monthlyUsage.images.used)} / {formatCount(monthlyUsage.images.limit)}</dd>
+              </div>
+              <LoadingBar
+                progress={monthlyUsage.images.percent}
+                size="sm"
+                className="mt-1.5"
+                label="Uso de imagens"
+                colorClass={monthlyUsage.images.percent >= 100 ? "bg-red-500" : "bg-brand"}
+              />
             </div>
           </dl>
         </div>
