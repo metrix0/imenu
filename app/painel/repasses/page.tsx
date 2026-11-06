@@ -79,21 +79,24 @@ export default function FinanceiroPage() {
 
     return (
         <div className="mx-auto max-w-7xl space-y-8 px-4 pb-20 pt-8 2xl:max-w-[90rem]">
-            <div>
-                <h1>Repasses</h1>
-                <p className="mt-1 text-sm text-gray-500">
-                    Acompanhe os valores a receber e o histórico de repasses da sua loja.
-                </p>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                    <h1>Repasses</h1>
+                    <p className="mt-1 text-sm text-gray-500">
+                        Acompanhe os valores a receber e o histórico de repasses da sua loja.
+                    </p>
+                </div>
+                <div className="w-full lg:w-[360px]">
+                    <DateFilterBar
+                        startDate={startDate}
+                        endDate={endDate}
+                        onStartDateChange={setStartDate}
+                        onEndDateChange={setEndDate}
+                        showPresets
+                        presets={FINANCEIRO_PRESETS}
+                    />
+                </div>
             </div>
-
-            <DateFilterBar
-                startDate={startDate}
-                endDate={endDate}
-                onStartDateChange={setStartDate}
-                onEndDateChange={setEndDate}
-                showPresets
-                presets={FINANCEIRO_PRESETS}
-            />
 
             <section>
                 <PayoutsDashboard

@@ -58,6 +58,12 @@ export default function DateRangePicker({ value, onChange, presets = DATE_FILTER
     const previewEnd = selectingEnd && hoverDate ? hoverDate : draft.endDate;
     const rangeStart = draft.startDate < previewEnd ? draft.startDate : previewEnd;
     const rangeEnd = draft.startDate > previewEnd ? draft.startDate : previewEnd;
+    const selectedPreset = value.startDate && value.endDate
+        ? presets.find(preset => {
+            const range = preset.getRange();
+            return range.startDate === value.startDate && range.endDate === value.endDate;
+        })?.label
+        : null;
     return <div data-ui="field" className={iconOnly ? "flex shrink-0" : "flex min-w-0 flex-col gap-1.5"}>
         <span data-ui="field-label" className={iconOnly ? "sr-only" : "block text-xs font-medium leading-[18px] text-[#1d1d1d]"}>{label}</span>
         <button ref={trigger} type="button" data-ui="dropdown-trigger" aria-label={`Selecionar ${label.toLowerCase()}`} aria-haspopup="dialog" aria-expanded={open}
@@ -67,7 +73,7 @@ export default function DateRangePicker({ value, onChange, presets = DATE_FILTER
                 : "flex h-11 w-full cursor-pointer items-center gap-3 rounded-[8px] border border-[#e2e5e9] bg-white px-3 text-left text-sm font-normal text-[#1d1d1d] outline-none transition-[border-color,background-color] duration-150 focus-visible:!outline-none"} onClick={toggle}>
             <CalendarDays size={14} className={iconOnly ? "shrink-0" : "shrink-0 text-gray-500"} />
             {!iconOnly && <>
-                <span className="min-w-0 flex-1 truncate">{value.startDate && value.endDate ? `${formatRangeDate(value.startDate)} — ${formatRangeDate(value.endDate)}` : allowOpenEnd && value.startDate ? `A partir de ${formatRangeDate(value.startDate)}` : emptyLabel}</span>
+                <span className="min-w-0 flex-1 truncate">{value.startDate && value.endDate ? selectedPreset || `${formatRangeDate(value.startDate)} — ${formatRangeDate(value.endDate)}` : allowOpenEnd && value.startDate ? `A partir de ${formatRangeDate(value.startDate)}` : emptyLabel}</span>
                 <ChevronDown size={14} className={`transition-transform duration-150 ${open ? "rotate-180" : ""}`} />
             </>}
         </button>
