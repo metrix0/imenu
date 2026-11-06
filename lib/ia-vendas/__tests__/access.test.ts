@@ -156,25 +156,6 @@ test('Plus usage follows the enforced monthly input/output budgets and reports b
  expect((await aiAccess('restaurant')).usage).toBeNull();
 });
 
-test("chat access reports when the next reserved request cannot fit, even below 100% usage", async () => {
-  addon = { status: "active" };
-  usage = { monthly_input: 1_900_000, monthly_output: 25_000, monthly_images: 0 };
-  expect((await aiAccess("restaurant")).chat_limit_reached).toBe(false);
-  usage.monthly_input = 1_969_153;
-  expect((await aiAccess("restaurant")).chat_limit_reached).toBe(true);
-  credits = { input_tokens: 70_000, output_tokens: 0, images: 0 };
-  expect((await aiAccess("restaurant")).chat_limit_reached).toBe(false);
-  usage.monthly_output = 119_000;
-  expect((await aiAccess("restaurant")).chat_limit_reached).toBe(true);
-});
-
-test("free allowance exhaustion also shows the chat limit until reset or recharge", async () => {
-  usage = { tokens: 150_000, monthly_input: 0, monthly_output: 0, monthly_images: 0 };
-  expect((await aiAccess("restaurant")).chat_limit_reached).toBe(true);
-  credits = { input_tokens: 100_000, output_tokens: 6_000, images: 0 };
-  expect((await aiAccess("restaurant")).chat_limit_reached).toBe(false);
-});
-
 test("image limit text includes reset, continued chat and support phone", async () => {
   const { imageLimitMessage } = await import("../access");
   expect(imageLimitMessage({ plus: false, images_reset_at: "2026-11-10T14:30:00Z" })).toContain("10/11 às 11:30");

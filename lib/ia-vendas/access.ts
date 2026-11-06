@@ -73,17 +73,6 @@ export async function aiAccess(restaurant: string, client?: Pick<PoolClient, "qu
     images: { used: Number(usage?.monthly_images || 0), limit: LIMITS.images, percent: Number(usage?.monthly_images || 0) / LIMITS.images * 100 },
   } : null;
   const freeTokensUsed = Number(usage?.tokens || 0);
-  // beginRun reserves the next message's full capacity before calling the model.
-  const freeExhausted = !plus && freeTokensUsed >= FREE_AI_TOKENS;
-  const includedInput = plus
-    ? Math.max(0, Math.min(LIMITS.runInput, LIMITS.monthlyChatInput - input))
-    : !freeExhausted && input + LIMITS.runInput <= LIMITS.monthlyChatInput ? LIMITS.runInput : 0;
-  const includedOutput = plus
-    ? Math.max(0, Math.min(LIMITS.chatOutput, LIMITS.monthlyChatOutput - output))
-    : !freeExhausted && output + LIMITS.chatOutput <= LIMITS.monthlyChatOutput ? LIMITS.chatOutput : 0;
-  const chatLimitReached =
-    purchased.input < LIMITS.runInput - includedInput ||
-    purchased.output < LIMITS.chatOutput - includedOutput;
   const freeImagesUsed = Number(usage?.images || 0);
   let freeTokensResetAt: string | null = null;
   let freeImagesResetAt: string | null = null;
@@ -115,7 +104,7 @@ export async function aiAccess(restaurant: string, client?: Pick<PoolClient, "qu
     ? new Date(usage.monthly_reset_at).toISOString()
     : null;
   return {
-    plus, usage: monthlyUsage, chat_limit_reached: chatLimitReached,
+    plus, usage: monthlyUsage,
     free_applications_remaining: plus ? null : usedApplication ? 0 : 1,
     reserved_tokens: Number(usage?.reserved || 0),
     tokens_remaining: plus ? null : Math.max(0, FREE_AI_TOKENS - freeTokensUsed) +
