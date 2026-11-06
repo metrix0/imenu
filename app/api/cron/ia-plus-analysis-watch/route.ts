@@ -180,6 +180,7 @@ export async function GET(request: Request) {
 
         try {
             await sendNtfyNotification({
+            source: "cron/ia-plus-analysis-watch",
                 title: `ALARM TRIGGER - iMenu Plus sem análise recente (${delayHours}h)`,
                 message: buildMessage(candidate, delayHours),
             });

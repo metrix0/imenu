@@ -54,3 +54,5 @@
     .cadence { border-left: 0; border-top: 1px solid #e2e5e9; padding: 20px 0 0; }
     .paidCustomers :global([data-ui="table"]), .payoutFailures :global([data-ui="table"]) { max-height: 320px; }
 }
+
+.content :global([style*="imenu-loader-spin"]){margin-inline:auto;align-self:center;justify-self:center}.externalSection{min-width:0}.externalSection>h2{font-size:15px;font-weight:600;margin-bottom:14px}.headingWithActions{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px}.headingWithActions>div:first-child{min-width:0}

@@ -454,6 +454,7 @@ async function notifyReconciledUnsuccessfulRun(run: {
 
     try {
         await sendNtfyNotification({
+            source: "payouts",
             title: "ALARM TRIGGER - iMenu payout automático",
             message: [
                 "Pagamento automático não foi concluído.",

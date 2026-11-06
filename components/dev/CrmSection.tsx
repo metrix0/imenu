@@ -11,7 +11,7 @@ import { Search } from "lucide-react";
 import { formatPhone, getWhatsappUrl } from "@/lib/dev/supportView";
 import Tabs from "@/components/ui/Tabs";
 import Tooltip from "@/components/ui/Tooltip";
-import Loader from "@/components/ui/Loader";
+import DevLoading from "./DevLoading";
 import PagedTable, { type PageData } from "./PagedTable";
 import IaAssistantConversationsSection from "./IaAssistantConversationsSection";
 import { calculateOnePercentPayout } from "@/lib/services/payoutSafety";
@@ -105,7 +105,7 @@ function RestaurantDetails({ restaurant }: { restaurant: Restaurant }) {
         <div className="flex flex-wrap items-center justify-between gap-4 pr-8"><div><p className="text-sm text-gray-500">{restaurant.email || "Sem e-mail"}</p>{restaurant.phone && <a className="mt-1 block text-sm text-[#c43700]" href={getWhatsappUrl(restaurant.phone)||undefined} target="_blank" rel="noopener noreferrer">{formatPhone(restaurant.phone)}</a>}<div className="mt-2"><CustomerBadge restaurant={restaurant} /></div></div><Button loading={entering} onClick={() => void enter()}>Entrar no restaurante</Button></div>
         <Tabs tabs={["Visão geral", "Pagamentos", "Repasses", "Assistente IA"]} active={tab} onChange={setTab} />
         {error && <p role="alert" className="text-red-700">{error}</p>}
-        {tab === "Visão geral" && (!data ? <Loader /> : <>
+        {tab === "Visão geral" && (!data ? <DevLoading /> : <>
             <dl className={styles.detailMetrics}>
                 {[["GMV", formatCurrencyFromCents(data.metrics.gmv_cents)], ["GMV online", formatCurrencyFromCents(data.metrics.online_cents)], ["Pedidos", data.metrics.orders], ["Cliente desde", new Date(restaurant.created_at).toLocaleDateString("pt-BR")]].map(([label, value]) => <div key={label}><dt className="text-xs text-gray-500">{label}</dt><dd className="mt-2 font-semibold tabular-nums">{value}</dd></div>)}
             </dl>

@@ -84,6 +84,7 @@ async function notifyPayoutAlarm({
 
     try {
         await sendNtfyNotification({
+            source: "cron/daily-payout",
             title: "ALARM TRIGGER - iMenu payout automático",
             message: [
                 "Pagamento automático não foi concluído.",

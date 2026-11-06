@@ -13,7 +13,7 @@ import OrderDetailsModal from "@/components/restaurant-owner/pedidos/OrderDetail
 import CreatePanelOrderModal from "@/components/restaurant-owner/CreatePanelOrderModal";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Toast from "@/components/ui/Toast";
-import DateRangePicker from "@/components/ui/DateRangePicker";
+import ShortcutDatePicker from "@/components/ui/ShortcutDatePicker";
 import CashRegister, { type CashOrder } from "@/components/restaurant-owner/pedidos/CashRegister";
 
 
@@ -68,9 +68,9 @@ function DailyCashClosing({ restaurantId, refreshKey }: {
     restaurantId: string | null;
     refreshKey: number;
 }) {
-    const [dayOffset, setDayOffset] = useState(0);
+
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
-    const date = selectedDate ?? cashDateOffset(dayOffset);
+    const date = selectedDate ?? cashDateOffset(0);
     const [orders, setOrders] = useState<CashOrder[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -130,30 +130,9 @@ function DailyCashClosing({ restaurantId, refreshKey }: {
                     reportLoading={loading}
                     reportError={error}
                     dateControls={
-                <div className="inline-flex items-center gap-1 rounded-lg border border-[#e2e5e9] bg-white p-1">
-                    {([{ value: 0, label: "Hoje" }, { value: 1, label: "Ontem" }] as const).map(day => (
-                        <button
-                            key={day.value}
-                            type="button"
-                            onClick={() => { setSelectedDate(null); setDayOffset(day.value); }}
-                            aria-pressed={selectedDate === null && dayOffset === day.value}
-                            className={selectedDate === null && dayOffset === day.value
-                                ? "cursor-pointer rounded-md bg-[#f1f3f5] px-3 py-2 text-xs font-semibold text-gray-900"
-                                : "cursor-pointer rounded-md px-3 py-2 text-xs font-medium text-gray-500 hover:bg-gray-50"}
-                        >
-                            {day.label}
-                        </button>
-                    ))}
-                    <DateRangePicker
-                        label="Data"
-                        value={{ startDate: date, endDate: date }}
-                        onChange={range => { if (range.startDate) setSelectedDate(range.startDate); }}
-                        presets={[]}
-                        singleDate
-                        iconOnly
-                        active={selectedDate !== null}
-                    />
-                </div>
+                <ShortcutDatePicker value={{startDate:date,endDate:date}} singleDate
+                    presets={[{label:"Hoje",getRange:()=>({startDate:cashDateOffset(0),endDate:cashDateOffset(0)})},{label:"Ontem",getRange:()=>({startDate:cashDateOffset(1),endDate:cashDateOffset(1)})}]}
+                    onChange={range=>{if(range.startDate)setSelectedDate(range.startDate);}} />
                     }
                 />
             )}

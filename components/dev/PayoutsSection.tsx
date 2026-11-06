@@ -9,7 +9,7 @@ import Button from "@/components/ui/Button";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import DataTable, { type TableColumn } from "@/components/ui/DataTable";
 import DevDialog from "./DevDialog";
-import Loader from "@/components/ui/Loader";
+import DevLoading from "./DevLoading";
 import PagedTable, { type PageData } from "./PagedTable";
 import { devJson } from "@/lib/dev/client";
 import { formatCurrencyFromCents as money, formatDateTime } from "@/lib/dev/dashboardFormat";
@@ -116,7 +116,7 @@ export default function PayoutsSection() {
     return <>
         {error && <p role="alert" className="text-red-700">{error}</p>}{message && <p role="status" className="text-green-700">{message}</p>}
         <HistoryTable section="failed" revision={revision} canRetry={Boolean(data?.asaasConfigured)} onRetry={id => setConfirmation({ retry: id })} />
-        {!data ? <Loader /> : <>
+        {!data ? <DevLoading /> : <>
             <dl className={styles.metricStrip}><div><dt>Saldo Asaas</dt><dd>{data.asaasBalanceCents === null ? "—" : money(data.asaasBalanceCents)}</dd>{data.asaasError ? <p className="mt-2 text-sm text-red-700">{data.asaasError}</p> : !data.asaasConfigured && <p>Asaas não configurado.</p>}</div><div><dt>Total a repassar (líquido)</dt><dd>{money(totals.netCents)}</dd><p>{money(totals.grossCents)} bruto · Gateway {money(totals.payzuFeeCents)} · Desconto {money(totals.discountCents)} · 1% total</p></div></dl>
             {data.validationErrors?.length > 0 && <section className={`${styles.section} ${styles.scrollTable}`}>
                 <div className={styles.sectionHeader}><h2>Pedidos excluídos por validação</h2><Badge variant="danger">{data.validationErrors.length} pedido(s)</Badge></div>

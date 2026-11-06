@@ -132,35 +132,22 @@ def scheduled_jobs():
     return issues
 
 
-def ntfy_topic(root):
-    # Use the already-configured production topic; never print it or store it in state.
-    path = root / "secrets/app-production.env"
-    for line in path.read_text().splitlines():
-        if line.startswith("NTFY_TOPIC="):
-            return line.split("=", 1)[1].strip().strip("\"'")
-    raise RuntimeError("Existing NTFY_TOPIC was not found")
-
-
 def notify(root, title, message):
-    topic = ntfy_topic(root)
-    if not topic:
-        raise RuntimeError("Existing NTFY_TOPIC is empty")
-    request = urllib.request.Request(
-        "https://ntfy.sh/" + urllib.parse.quote(topic, safe=""),
-        data=message.encode("utf-8"),
-        headers={"Title": title, "Priority": "4", "Content-Type": "text/plain; charset=utf-8"},
-        method="POST",
-    )
-    with urllib.request.urlopen(request, timeout=6) as response:
+    secret = None
+    for line in (root / "secrets/app-production.env").read_text().splitlines():
+        if line.startswith("CRON_SECRET="):
+            secret = line.split("=", 1)[1].strip().strip("\"'")
+    if not secret:
+        raise RuntimeError("Existing CRON_SECRET was not found")
+    alarm = "TRIGGER ALARM" in title or "ALARM TRIGGER" in title
+    payload = {"source": "vps-monitor", "title": title, "message": message,
+               "severity": "critical" if alarm else "info" if "recovered" in title else "warning"}
+    request = urllib.request.Request("https://www.imenuapp.com.br/api/notify",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Authorization": "Bearer " + secret, "Content-Type": "application/json"}, method="POST")
+    with urllib.request.urlopen(request, timeout=12) as response:
         if response.status < 200 or response.status >= 300:
-            raise RuntimeError("ntfy notification failed")
-    # Store the exact phone notification using the existing local database connection.
-    try:
-        escape=lambda value: value.replace("'", "''")
-        statement="INSERT INTO public.dev_alerts(source,title,message,severity) VALUES('phone','"+escape(title[:200])+"','"+escape(message[:4000])+"','notification');"
-        subprocess.run(["docker","exec","-i","supabase-db","psql","-U","supabase_admin","-d","postgres","-Xq","-v","ON_ERROR_STOP=1"],input=statement,text=True,capture_output=True,check=True,timeout=5)
-    except Exception as error:
-        print("ALERT_HISTORY_WRITE_FAILED",type(error).__name__)
+            raise RuntimeError("Central alert delivery failed")
 
 
 

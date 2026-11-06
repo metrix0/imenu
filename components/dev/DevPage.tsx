@@ -1,4 +1,4 @@
 import type { ReactNode } from "react";
 import styles from "./dashboard.module.css";
 const descriptions: Record<string,string> = { Dashboard: "Alertas e acompanhamento da operação.", Health: "Infraestrutura, integrações e histórico de alertas.", CRM: "Restaurantes, relacionamento e histórico financeiro.", Blast: "Campanhas e notificações automáticas do WhatsApp.", Support: "Atendimento humano e revisão das respostas IA.", Payouts: "Pendências, valores a repassar e pagamentos realizados.", Analytics: "Ativação, assinaturas e volume de vendas." };
-export default function DevPage({title,children}:{title:string;children:ReactNode}) { return <main className={styles.page}><header className={styles.heading}><h1>{title}</h1><p>{descriptions[title]}</p></header><div className={styles.content}>{children}</div></main>; }
+export default function DevPage({title,children,actions}:{title:string;children:ReactNode;actions?:ReactNode}) { return <main className={styles.page}><header className={`${styles.heading} ${styles.headingWithActions}`}><div><h1>{title}</h1><p>{descriptions[title]}</p></div>{actions}</header><div className={styles.content}>{children}</div></main>; }

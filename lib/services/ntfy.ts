@@ -1,38 +1,6 @@
 import { recordDevAlert } from "@/lib/dev/health";
-const NTFY_BASE_URL = "https://ntfy.sh";
-
-export async function sendNtfyNotification(input: {
-    message: string;
-    title?: string;
-}): Promise<void> {
-    const topic = process.env.NTFY_TOPIC?.trim();
-    if (!topic) {
-        throw new Error("NTFY_TOPIC não configurado.");
-    }
-
-    const message = input.message.trim();
-    const title = input.title?.trim();
-
-    if (!message) {
-        throw new Error("Mensagem de notificação vazia.");
-    }
-
-    const response = await fetch(
-        `${NTFY_BASE_URL}/${encodeURIComponent(topic)}`,
-        {
-            method: "POST",
-            headers: {
-                "Content-Type": "text/plain; charset=utf-8",
-                ...(title ? { Title: title.slice(0, 200) } : {}),
-            },
-            body: message.slice(0, 4000),
-            cache: "no-store",
-        }
-    );
-
-    await recordDevAlert({ source: "phone", title: title || "iMenu", message, severity: response.ok ? "notification" : "error", notification: true });
-
-    if (!response.ok) {
-        throw new Error(`ntfy HTTP ${response.status}`);
-    }
+export async function sendNtfyNotification(input:{source:string;message:string;title?:string;severity?:string}):Promise<void>{
+ if(!input.message.trim())throw new Error("Mensagem de notificação vazia.");
+ const result=await recordDevAlert({...input,title:input.title?.trim()||"iMenu",message:input.message.trim(),severity:input.severity||(/ALARM TRIGGER|TRIGGER ALARM/.test(input.title||"")?"critical":"notification"),notification:true});
+ if(result?.deliveryError)throw new Error(result.deliveryError);
 }
