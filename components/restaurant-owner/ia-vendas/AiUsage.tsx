@@ -9,10 +9,11 @@ import { formatAiResetAt } from "@/lib/ia-vendas/usageReset";
 type Access = Awaited<ReturnType<typeof aiAccess>>;
 type UsageRow = { label: string; short: string; percent: number; values: string[]; resetAt: string | null };
 
-export default function AiUsage({ access, compact = false, onBuyTokens }: {
+export default function AiUsage({ access, compact = false, onBuyTokens, barsOnly = false }: {
   access?: Access | null;
   compact?: boolean;
   onBuyTokens?: () => void;
+  barsOnly?: boolean;
 }) {
   if (!access) return null;
   const format = (n: number) => n.toLocaleString("pt-BR");
@@ -40,14 +41,14 @@ export default function AiUsage({ access, compact = false, onBuyTokens }: {
         values: [`${format(imagesUsed)} / ${format(access.free_images_limit)} imagens em 7 dias`] },
     ];
   }
-  if (Math.max(...rows.map((row) => row.percent)) < 70) return null;
+  if (!barsOnly && Math.max(...rows.map((row) => row.percent)) < 70) return null;
   const reached = rows.some((row) => row.percent >= 100);
   const resetDates = rows
     .filter((row) => row.percent >= 100 && row.resetAt && formatAiResetAt(row.resetAt))
     .map((row) => new Date(row.resetAt!).getTime());
   const reset = resetDates.length ? formatAiResetAt(new Date(Math.max(...resetDates)).toISOString()) : null;
-  return <div aria-label={access.plus ? "Uso mensal de IA" : "Uso gratuito de IA"} className={`space-y-3 ${compact ? "px-2 py-3" : "px-1 pb-2 pt-2"}`}>
-    {reset && <p className="text-[11px] leading-4 text-gray-600">Limites serão reiniciados em {reset}.</p>}
+  return <div aria-label={access.plus ? "Uso mensal de IA" : "Uso gratuito de IA"} className={`space-y-3 ${barsOnly ? "" : compact ? "px-2 py-3" : "px-1 pb-2 pt-2"}`}>
+    {!barsOnly && reset && <p className="text-[11px] leading-4 text-gray-600">Limites serão reiniciados em {reset}.</p>}
     {rows.map(row => <div key={row.label}>
       <div className={`mb-1 flex items-center gap-1 text-gray-600 ${compact ? "text-[10px]" : "text-xs"}`}>
         <span aria-label={row.label}>{compact ? row.short : row.label}</span>
@@ -60,6 +61,6 @@ export default function AiUsage({ access, compact = false, onBuyTokens }: {
       </div>
       <LoadingBar progress={row.percent} size="sm" label={`${row.label}: ${row.values.join(". ")}`} colorClass={row.percent >= 100 ? "bg-red-500" : "bg-brand"} />
     </div>)}
-    {reached && onBuyTokens && <Button variant="secondary" className="w-full !min-h-9 !px-2 !py-1.5" onClick={onBuyTokens}>Recarregar créditos</Button>}
+    {!barsOnly && reached && onBuyTokens && <Button variant="secondary" className="w-full !min-h-9 !px-2 !py-1.5" onClick={onBuyTokens}>Recarregar créditos</Button>}
   </div>;
 }

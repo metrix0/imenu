@@ -1,6 +1,7 @@
 "use client";
 
 import Button from "@/components/ui/Button";
+import AiUsage from "@/components/restaurant-owner/ia-vendas/AiUsage";
 import type { aiAccess } from "@/lib/ia-vendas/access";
 import { SupportWhatsappBadge } from "@/components/common/SupportButton";
 
@@ -30,6 +31,7 @@ export function AssistantQuotaReply({ message, onBuyCredits, onSubscribe, access
       {monthly && access?.chat_limit_reached && monthlyUsage && monthlyUsage.tokens.percent < 100 && (
         <p className="mt-1 text-sm text-[var(--panel-muted,#626973)]">O saldo restante não é suficiente para iniciar outra mensagem.</p>
       )}
+      {access && <div className="mt-3"><AiUsage access={access} barsOnly /></div>}
       {monthlyUsage && (
         <div className="mt-3 text-sm text-[var(--panel-muted,#626973)]">
           <p>Seu plano inclui estes limites mensais. Uso atual:</p>
