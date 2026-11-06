@@ -63,6 +63,9 @@ export default async function RootLayout({
 
     return (
         <html lang="pt-BR">
+            <head>
+                <meta name="color-scheme" content="light" />
+            </head>
             <body
                 className="min-h-screen bg-white text-gray-900"
                 suppressHydrationWarning

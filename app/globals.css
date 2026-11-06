@@ -60,6 +60,7 @@
 
 /* Apply globally */
 html, body {
+    color-scheme: light;
     font-family: 'iFoodRCTextos', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
     color: #1d1d1d;
     background-color: #fff;
@@ -322,6 +323,10 @@ html, body {
     color-scheme: dark;
     background-color: var(--im-menu-bg);
     color: var(--im-menu-text);
+}
+
+html:has(body[data-imenu-menu-theme="dark"]) {
+    color-scheme: dark;
 }
 
 /* Preserve keyboard focus without the light-mode ring offset. */
