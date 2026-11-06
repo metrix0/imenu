@@ -5,15 +5,26 @@ import { useParams, usePathname } from "next/navigation";
 type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
     variant?: "primary" | "secondary";
     loading?: boolean;
+    leftIcon?: React.ReactNode;
+    rightIcon?: React.ReactNode;
 };
 
 export default function Button({
                                    children,
                                    variant = "primary",
                                    loading = false,
+                                   leftIcon,
+                                   rightIcon,
                                    className = "",
                                    ...props
                                }: ButtonProps) {
+    const content = leftIcon || rightIcon ? (
+        <span className="inline-flex items-center justify-center gap-2">
+            {leftIcon && <span className="inline-flex shrink-0 items-center justify-center text-base leading-none">{leftIcon}</span>}
+            {children}
+            {rightIcon && <span className="inline-flex shrink-0 items-center justify-center text-base leading-none">{rightIcon}</span>}
+        </span>
+    ) : children;
     const params = useParams<{ slug?: string | string[] }>();
     const pathname = usePathname();
     const routeSlug = params?.slug;
@@ -48,7 +59,7 @@ export default function Button({
                 disabled={loading || props.disabled}
                 {...props}
             >
-                {loading ? "Carregando..." : children}
+                {loading ? "Carregando..." : content}
             </button>
         );
     }
@@ -107,7 +118,7 @@ export default function Button({
             disabled={loading || props.disabled}
             {...props}
         >
-            {loading ? "Carregando..." : children}
+            {loading ? "Carregando..." : content}
         </button>
     );
 }
