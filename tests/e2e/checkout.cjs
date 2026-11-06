@@ -297,9 +297,24 @@ async function panelOrders(browser) {
             await page.waitForSelector(".panel-create-order");
             await page.waitForSelector('button[aria-label="Adicionar uma unidade de Hambúrguer E2E"]');
             await page.click('button[aria-label="Adicionar uma unidade de Hambúrguer E2E"]');
-            await page.waitForFunction(() => document.body.textContent.includes("Configurar item"));
-            await click(page, "Adicionar");
-            await page.waitForSelector(".panel-create-order");
+            await page.waitForFunction(() => document.querySelector('[role="dialog"]')?.textContent.includes("Configurar item"));
+            const addItem = await page.waitForFunction(() =>
+                [...document.querySelectorAll('[role="dialog"] button')]
+                    .find(button => button.textContent.trim().startsWith("Adicionar") &&
+                        !button.textContent.includes("Pedido") && !button.disabled && button.offsetWidth > 0) || false);
+            try {
+                const element = addItem.asElement();
+                assert.ok(element, "Item configurator must have an add button");
+                await element.click();
+            } finally {
+                await addItem.dispose();
+            }
+            await page.waitForFunction(() => {
+                const panel = document.querySelector('[role="dialog"] .panel-create-order');
+                const create = [...(panel?.querySelectorAll("button") || [])]
+                    .find(button => button.textContent.trim() === "Criar pedido");
+                return Boolean(panel && create && !create.disabled);
+            }, { timeout: 15000 });
             await page.type('input[placeholder="Nome do cliente *"]', "Cliente painel E2E");
             await page.select('select:has(option[value="pix-entrega"])', method);
             await page.waitForFunction(value =>
@@ -323,6 +338,12 @@ async function panelOrders(browser) {
             console.log("PASS painel → Adicionar Pedido → item → Balcão → " + method + " (order API simulated)");
         }
     } catch (error) {
+        console.error("PANEL_ORDER_FIXTURE", page.url(), await page.evaluate(() => ({
+            text: document.body.innerText.slice(-1800),
+            buttons: [...document.querySelectorAll('[role="dialog"] button')].map(button => ({
+                text: button.textContent.trim().slice(0, 70), disabled: button.disabled
+            }))
+        })), "requests:", submitted.length);
         if (screenshotDir) await page.screenshot({ path: path.join(screenshotDir, "panel-order-failure.png") });
         throw error;
     } finally {
