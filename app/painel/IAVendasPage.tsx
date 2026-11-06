@@ -44,6 +44,7 @@ import { isPanelTabKey, type PanelTabKey } from "@/lib/ia-vendas/panelTabs";
 import ErrorNoticeContent, { AssistantQuotaReply } from "@/components/restaurant-owner/ia-vendas/ErrorNoticeContent";
 import { SupportWhatsappBadge } from "@/components/common/SupportButton";
 import { capturePosthogLightweight } from "@/lib/api/instrumentation-client";
+import { formatAiResetAt } from "@/lib/ia-vendas/usageReset";
 
 type MessagePart =
   | { type: "text"; content: string }
@@ -191,6 +192,10 @@ export default function SalesPage() {
     };
   }, [sales.messages.length, sales.conversation_id]);
   useEffect(() => {
+    if (!isAnalysisRoute && sales.access?.chat_limit_reached && !sales.loading)
+      end.current?.scrollIntoView({ block: "end" });
+  }, [isAnalysisRoute, sales.access?.chat_limit_reached, sales.loading, sales.messages.length, sales.conversation_id]);
+  useEffect(() => {
     emptyThreadStart.current = Date.now();
     setText("");
     setAttachments([]);
@@ -254,7 +259,10 @@ export default function SalesPage() {
   const freeApply = !isAnalysis && locked && sales.access?.free_applications_remaining === 1;
   const applyLocked = locked && !freeApply;
   const actionById = new Map(sales.actions.map((action) => [action.id, action]));
-  const freeLimitReached = !isAnalysis && sales.access && !sales.access.plus && (sales.upgradeRequired || Number(sales.access.tokens_remaining) <= 0);
+  const freeLimitReached = !isAnalysis && sales.access && !sales.access.plus && !sales.access.chat_limit_reached && (sales.upgradeRequired || Number(sales.access.tokens_remaining) <= 0);
+  const quotaReset = formatAiResetAt(sales.access?.tokens_reset_at);
+  const lastMessage = threadMessages[threadMessages.length - 1];
+  const lastMessageHasQuota = lastMessage?.role === "assistant" && lastMessage.cards.some((card) => card.type === "quota_notice");
   const openLockedApply = (ids: string[] = []) => {
     const actionIds = [...new Set(ids.filter(Boolean))];
     if (restaurant && actionIds.length) {
@@ -638,6 +646,16 @@ export default function SalesPage() {
                   <Sparkles size={16} className="animate-pulse" />
                   {sales.status || "Processamento em andamento…"}
                 </p>
+              )}
+              {!isAnalysis && sales.access?.chat_limit_reached && !lastMessageHasQuota && (
+                <div className="max-w-lg">
+                  <AssistantQuotaReply
+                    message={`${sales.access.plus ? "Limite mensal de IA atingido." : "Seu limite gratuito foi atingido."}${quotaReset ? ` Limites serão reiniciados em ${quotaReset}.` : ""}`}
+                    access={sales.access}
+                    onBuyCredits={() => setModal("buy_tokens")}
+                    onSubscribe={sales.access.plus ? undefined : () => setPlusModal("checkout")}
+                  />
+                </div>
               )}
               <div ref={end} />
     </>

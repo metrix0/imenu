@@ -27,6 +27,9 @@ export function AssistantQuotaReply({ message, onBuyCredits, onSubscribe, access
     <section aria-label={title} className="max-w-lg rounded-[10px] border border-[var(--panel-border)] bg-[var(--panel-surface)] p-4">
       <p className="text-sm font-semibold text-[var(--panel-text,#1d1d1d)]">{title}</p>
       {detail && <p className="mt-1 text-sm leading-5 text-[var(--panel-muted,#626973)]">{detail}</p>}
+      {monthly && access?.chat_limit_reached && monthlyUsage && monthlyUsage.tokens.percent < 100 && (
+        <p className="mt-1 text-sm text-[var(--panel-muted,#626973)]">O saldo restante não é suficiente para iniciar outra mensagem.</p>
+      )}
       {monthlyUsage && (
         <div className="mt-3 text-sm text-[var(--panel-muted,#626973)]">
           <p>Seu plano inclui estes limites mensais. Uso atual:</p>
