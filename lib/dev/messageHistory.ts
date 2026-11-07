@@ -20,7 +20,7 @@ export const MESSAGE_ROWS_SQL = `
     SELECT 'followup:' || m.id::text AS id, 'followup'::text AS category,
            NULL::text AS subtype, m.created_at, NULL::timestamptz AS sent_at,
            c.phone, COALESCE(r.name, c.customer_name) AS restaurant,
-           m.body AS message, COALESCE(m.send_status, 'pending') AS status, m.error
+           m.body AS message, COALESCE(m.send_status, 'pending') AS status, m.error, c.restaurant_id
     FROM support_messages m
     JOIN support_conversations c ON c.id = m.conversation_id
     LEFT JOIN restaurants r ON r.id = c.restaurant_id
@@ -29,7 +29,7 @@ export const MESSAGE_ROWS_SQL = `
     SELECT 'congratulations:' || o.dedupe_key, 'congratulations'::text,
            NULL::text, o.created_at, o.sent_at,
            split_part(o.chat_id, '@', 1), r.name,
-           NULLIF(o.context->>'message', ''), o.status, o.last_error
+           NULLIF(o.context->>'message', ''), o.status, o.last_error, o.restaurant_id
     FROM whatsapp_outbound_messages o
     LEFT JOIN restaurants r ON r.id = o.restaurant_id
     WHERE o.dedupe_key LIKE 'support:addon-purchase:%'
@@ -37,7 +37,7 @@ export const MESSAGE_ROWS_SQL = `
     SELECT 'automation:' || o.dedupe_key, 'automation'::text,
            o.automation_type, o.created_at, o.sent_at,
            COALESCE(NULLIF(o.customer_phone, ''), split_part(o.chat_id, '@', 1)),
-           r.name, NULLIF(o.context->>'message', ''), o.status, o.last_error
+           r.name, NULLIF(o.context->>'message', ''), o.status, o.last_error, o.restaurant_id
     FROM whatsapp_outbound_messages o
     LEFT JOIN restaurants r ON r.id = o.restaurant_id
     WHERE o.automation_type IN ('cart', 'reactivation', 'habit')

@@ -30,6 +30,7 @@ export async function notifyOpenAiLimit(error: unknown, source: string): Promise
         : limit === "analysis_budget" ? "Limite interno de tokens da análise atingido"
         : "Limite de tokens/contexto da OpenAI atingido";
     sending = sendNtfyNotification({
+        source,
         title: "ALARM TRIGGER - iMenu OpenAI",
         message: `ALARM TRIGGER\n${reason}\nOrigem: ${source}`,
     }).catch((failure: unknown) => {

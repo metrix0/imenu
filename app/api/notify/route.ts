@@ -15,7 +15,7 @@ function isAuthorized(request: Request): boolean {
 
 async function notify(
     request: Request,
-    input: { title?: unknown; message?: unknown }
+    input: { title?: unknown; message?: unknown; source?: unknown; severity?:unknown }
 ) {
     if (!isAuthorized(request)) {
         return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
@@ -42,6 +42,8 @@ async function notify(
 
     try {
         await sendNtfyNotification({
+            source: typeof input.source === "string" && input.source.trim() ? input.source.trim().slice(0,100) : "api/notify",
+            severity: typeof input.severity === "string" && ["info","warning","error","critical"].includes(input.severity) ? input.severity : undefined,
             title: title || "iMenu",
             message,
         });
@@ -65,6 +67,8 @@ export async function GET(request: Request) {
     return notify(request, {
         title: url.searchParams.get("title"),
         message: url.searchParams.get("message"),
+        source: url.searchParams.get("source"),
+        severity: url.searchParams.get("severity"),
     });
 }
 
@@ -82,7 +86,7 @@ export async function POST(request: Request) {
 
     const input =
         body && typeof body === "object"
-            ? (body as { title?: unknown; message?: unknown })
+            ? (body as { title?: unknown; message?: unknown; source?: unknown; severity?:unknown })
             : {};
 
     return notify(request, input);

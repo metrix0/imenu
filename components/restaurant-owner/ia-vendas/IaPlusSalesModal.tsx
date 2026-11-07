@@ -43,9 +43,8 @@ export function IaPlusDetails() {
     <p className="mt-2 text-xs text-gray-500">Cartão com renovação mensal; Pix libera um mês de acesso. Cancele quando quiser. Você revisa cada mudança antes de aplicar.</p>
   </>;
 }
-export function IaPlusLimitMessage({ onCheckout, onBuyTokens, resetAt }: {
+export function IaPlusLimitMessage({ onCheckout, resetAt }: {
   onCheckout: () => void;
-  onBuyTokens: () => void;
   resetAt: string | null | undefined;
 }) {
   const reset = formatAiResetAt(resetAt);
@@ -57,7 +56,6 @@ export function IaPlusLimitMessage({ onCheckout, onBuyTokens, resetAt }: {
     <IaPlusDetails />
     <div className="mt-5 flex flex-wrap gap-2">
       <Button onClick={onCheckout}>Assinar iMenu Plus</Button>
-      <Button variant="secondary" onClick={onBuyTokens}>Recarregar créditos</Button>
     </div>
   </article>;
 }

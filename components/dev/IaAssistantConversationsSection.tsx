@@ -375,7 +375,7 @@ export default function IaAssistantConversationsSection({ restaurant }: { restau
                 )}
             </div>}
             {!restaurant && restaurantTotal > 25 && <Pagination page={restaurantPage} pageCount={Math.ceil(restaurantTotal / 25)} onChange={page => void loadRestaurants(page)} />}
-            {restaurant && <Button variant="secondary" onClick={() => void openRestaurant({ ...restaurant, slug: null, conversationCount: 0, messageCount: 0, lastMessageAt: new Date().toISOString() })}>Abrir conversas do Assistente IA</Button>}
+            {restaurant && <Button variant="secondary" onClick={() => void openRestaurant({ ...restaurant, slug: null, conversationCount: 0, messageCount: 0, lastMessageAt: new Date().toISOString() })}>Ver conversas assistente de IA</Button>}
 
             <DevDialog title="Assistente IA"
                 open={Boolean(selectedRestaurant)}

@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import AiUsage from '@/components/restaurant-owner/ia-vendas/AiUsage';
+import { IaPlusLimitMessage } from '@/components/restaurant-owner/ia-vendas/IaPlusSalesModal';
 import { AssistantQuotaReply } from '@/components/restaurant-owner/ia-vendas/ErrorNoticeContent';
 import { formatAiResetAt } from '../usageReset';
 import type { aiAccess } from '../access';
@@ -54,12 +55,55 @@ test('free usage only appears near its cap and shows the rolling reset', () => {
  const html=renderToStaticMarkup(<AiUsage access={access(false,100,0)} onBuyTokens={() => {}} />);
  expect(html).toContain('Uso gratuito de IA');
  expect(html).toContain('Limites serão reiniciados em');
- expect(html).toContain('Recarregar créditos');
+ expect(html).not.toContain('Recarregar créditos');
+});
+test('free limit keeps the iMenu Plus paywall without credit recharge', () => {
+ const html = renderToStaticMarkup(<IaPlusLimitMessage resetAt={resetAt} onCheckout={() => {}} />);
+ expect(html).toContain('Limite gratuito do Assistente IA');
+ expect(html).toContain('Assinar iMenu Plus');
+ expect(html).not.toContain('Recarregar créditos');
 });
 test('reset formatting is timezone-aware and invalid dates are omitted', () => {
  expect(formatAiResetAt(resetAt)).toBe('30/11 às 21:00');
  expect(formatAiResetAt(null)).toBeNull();
  expect(formatAiResetAt('not-a-date')).toBeNull();
+});
+
+test('monthly quota explains when a partial token balance cannot cover the next request', () => {
+ const value = access(true, 98, 10);
+ const html = renderToStaticMarkup(
+   <AssistantQuotaReply
+     message="Limite mensal de IA atingido. Limites serão reiniciados em 30/11 às 21:00."
+     access={value}
+     onBuyCredits={() => {}}
+   />,
+ );
+ expect(html).toContain("O saldo restante não é suficiente");
+ expect(html).toContain("Recarregar créditos");
+});
+
+test('quota message keeps the existing usage rows with only two inline bars', () => {
+ const value = access(true, 98, 100);
+ const html = renderToStaticMarkup(
+   <AssistantQuotaReply
+     message="Limite mensal de IA atingido. Limites serão reiniciados em 30/11 às 21:00."
+     access={value}
+     onBuyCredits={() => {}}
+   />,
+ );
+ expect(html.match(/role="progressbar"/g)).toHaveLength(2);
+ expect(html).toContain('aria-label="Uso de tokens de entrada"');
+ expect(html).toContain('aria-label="Uso de imagens"');
+ expect(html).not.toContain('Tokens de saída');
+ expect(html).toContain('aria-valuenow="98"');
+ expect(html).toContain('aria-valuenow="100"');
+ expect(html.indexOf('Tokens de entrada')).toBeLessThan(html.indexOf('aria-label="Uso de tokens de entrada"'));
+ expect(html).toContain('<dt>Imagens</dt>');
+ expect(html.indexOf('aria-label="Uso de tokens de entrada"')).toBeLessThan(html.indexOf('<dt>Imagens</dt>'));
+ expect(html.indexOf('<dt>Imagens</dt>')).toBeLessThan(html.indexOf('aria-label="Uso de imagens"'));
+ expect(html).not.toContain('aria-label="Informações de uso');
+ expect(html.match(/Recarregar créditos/g)).toHaveLength(1);
+ expect(html.match(/Limites serão reiniciados em/g)).toHaveLength(1);
 });
 
 test('monthly quota notice explains the exact plan limits and current usage', () => {
@@ -74,7 +118,8 @@ test('monthly quota notice explains the exact plan limits and current usage', ()
  );
  expect(html).toContain("Seu plano inclui estes limites mensais.");
  expect(html).toContain("2.000.000 / 2.000.000");
- expect(html).toContain("29 / 120.000");
+ expect(html).not.toContain("29 / 120.000");
+ expect(html).not.toContain("Tokens de saída");
  expect(html).toContain("70 / 75");
  expect(html).toContain("30/11 às 21:00");
  expect(html).toContain("Recarregar créditos");

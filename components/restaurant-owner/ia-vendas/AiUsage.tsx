@@ -2,7 +2,7 @@
 import LoadingBar from "@/components/ui/LoadingBar";
 import Tooltip from "@/components/ui/Tooltip";
 import Button from "@/components/ui/Button";
-import { Info } from "lucide-react";
+import { Coins, Info } from "lucide-react";
 import type { aiAccess } from "@/lib/ia-vendas/access";
 import { formatAiResetAt } from "@/lib/ia-vendas/usageReset";
 
@@ -60,6 +60,6 @@ export default function AiUsage({ access, compact = false, onBuyTokens }: {
       </div>
       <LoadingBar progress={row.percent} size="sm" label={`${row.label}: ${row.values.join(". ")}`} colorClass={row.percent >= 100 ? "bg-red-500" : "bg-brand"} />
     </div>)}
-    {reached && onBuyTokens && <Button variant="secondary" className="w-full !min-h-9 !px-2 !py-1.5" onClick={onBuyTokens}>Recarregar créditos</Button>}
+    {reached && access.plus && onBuyTokens && <Button variant="secondary" leftIcon={<Coins size={16} aria-hidden="true" />} className="w-full !min-h-9 !px-2 !py-1.5" onClick={onBuyTokens}>Recarregar créditos</Button>}
   </div>;
 }

@@ -1424,7 +1424,9 @@ export default function CartModal({
                                                     custom
                                                     aria-label="Dia do agendamento"
                                                     value={scheduleDate}
-                                                    options={scheduleDateOptions}
+                                                    options={scheduleDateOptions.filter(({ value }) =>
+                                                        !preorderOnly || (restaurant?.preorder_availability_json?.[dateFromInput(value).getDay()]?.length ?? 0) > 0
+                                                    )}
                                                     onChange={(event) => {
                                                         setShowOptionalSchedule(true);
                                                         setScheduleDate(event.target.value || todayInput);

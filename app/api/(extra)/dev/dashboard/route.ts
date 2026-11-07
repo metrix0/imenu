@@ -311,7 +311,11 @@ export async function GET(request: Request) {
         const authError = await authorize(request);
         if (authError) return authError;
 
-        const range = parseRange(new URL(request.url).searchParams.get("range"));
+        const params=new URL(request.url).searchParams;
+        const range = parseRange(params.get("range"));
+        const startDate=params.get("startDate"),endDate=params.get("endDate");
+        const valid=(value:string|null)=>Boolean(value&&/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value))&&new Date(value+"T12:00:00Z").toISOString().slice(0,10)===value);
+        if((startDate||endDate)&&(!valid(startDate)||!valid(endDate)||startDate!>endDate!))return NextResponse.json({error:"Período inválido."},{status:400});
         const boundsResult = await query<BoundsRow>(
             `
                 WITH clock AS (
@@ -345,8 +349,8 @@ export async function GET(request: Request) {
         const bounds = boundsResult.rows[0];
         if (!bounds) throw new Error("Não foi possível calcular o período.");
 
-        const startAt = toTimestamp(bounds.start_at);
-        const endAt = toTimestamp(bounds.end_at);
+        const startAt = startDate ? Date.parse(startDate+"T00:00:00-03:00") : toTimestamp(bounds.start_at);
+        const endAt = endDate ? Math.min(Date.now(),Date.parse(endDate+"T23:59:59.999-03:00")+1) : toTimestamp(bounds.end_at);
         const previousStartAt = startAt - (endAt - startAt);
         const startIso = new Date(startAt).toISOString();
         const endIso = new Date(endAt).toISOString();

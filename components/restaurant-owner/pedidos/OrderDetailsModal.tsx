@@ -196,10 +196,11 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
         if (!details) return;
         setIsUpdating(true);
         try {
-            // CORREÇÃO: Usando API Route
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.access_token) throw new Error("Sessão expirada.");
             const response = await fetch(`/api/orders/${details.id}/status-order`, {
                 method: "PATCH",
-                headers: { "Content-Type": "application/json" },
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
                 body: JSON.stringify({ status: newStatus }),
             });
 

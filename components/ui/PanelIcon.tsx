@@ -6,7 +6,7 @@ import {
 } from "@fortawesome/react-fontawesome";
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import {
-    ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Armchair, Banknote,
+    HeartPulse, Headset, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Armchair, Banknote,
     Bell, BellOff, Bike, Trash2, CalendarDays, Camera, ChartNoAxesCombined,
     Megaphone,
     Check, Circle, CircleCheck, CircleHelp, Clock, CloudDownload, Copy,
@@ -50,7 +50,7 @@ const panelIcons: Record<string, LucideIcon> = {
     "pen-to-square": Pencil, envelope: Mail, "triangle-exclamation": TriangleAlert,
     "up-right-from-square": ExternalLink, eye: Eye, gear: Settings, gift: Gift,
     globe: Globe, "grip-lines": GripHorizontal, "grip-vertical": GripVertical,
-    house: House, image: Image, crown: Crown, "layer-group": Layers, link: Link,
+    "heart-pulse": HeartPulse, headset: Headset, house: House, image: Image, crown: Crown, "layer-group": Layers, link: Link,
     "location-crosshairs": Crosshair, "location-dot": MapPin, lock: Lock,
     "magnifying-glass": Search, minus: Minus, "mobile-screen-button": Smartphone,
     "money-bill": Banknote, "money-bill-wave": Banknote, motorcycle: Bike,

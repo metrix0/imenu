@@ -292,11 +292,19 @@ export async function POST(request: Request) {
             throw new OrderRequestError("Informe seu nome.");
         }
 
-        if (panel_order === true) {
+        if (panel_order === true || isCounterOrder) {
             await requireRestaurantOwner(request, restaurantId);
-            if (!["entrega", "retirada", "balcao", "mesa"].includes(is_delivery)) {
-                throw new OrderRequestError("Selecione um destino válido para o pedido.");
+        }
+        if (isCounterOrder) {
+            if (panel_order !== true) {
+                throw new OrderRequestError("Pedidos de balcão devem ser feitos pelo painel.");
             }
+            if (!["dinheiro", "trazer-maquininha", "pix-entrega"].includes(paymentMethod)) {
+                throw new OrderRequestError("No balcão, use dinheiro, maquininha ou Pix na entrega.");
+            }
+        }
+        if (panel_order === true && !["entrega", "retirada", "balcao", "mesa"].includes(is_delivery)) {
+            throw new OrderRequestError("Selecione um destino válido para o pedido.");
         }
 
         if (stockCheckOnly) {

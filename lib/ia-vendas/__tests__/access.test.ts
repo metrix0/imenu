@@ -13,9 +13,10 @@ import { query, withTransaction } from "@/lib/database/sql";
 
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn(), withTransaction: jest.fn() }));
 const sql = query as jest.Mock;
-let addon: any, usage: any, used: boolean, kind: string;
+let addon: any, usage: any, used: boolean, kind: string, credits: any;
 beforeEach(() => {
   addon = null;
+  credits = null;
   used = false;
   kind = "chat";
   usage = { tokens: 0, reserved: 0, images: 0, monthly_images: 0 };
@@ -24,6 +25,7 @@ beforeEach(() => {
       : statement.startsWith("SELECT kind") ? [{ kind }]
       : statement.includes("restaurant_addons") ? (addon ? [addon] : [])
       : statement.includes("sum(input_tokens + output_tokens)") ? [usage]
+      : statement.includes("FROM public.ia_vendas_credit_balances") ? (credits ? [credits] : [])
       : statement.includes("WITH counted AS") ? [{ tokens_reset_at: new Date("2026-11-09T14:30:00Z"), images_reset_at: new Date("2026-11-10T14:30:00Z") }]
       : statement.includes("sum(greatest") ? [{ input: 0, output: 0, recent: 0 }]
       : statement.includes("sum(image_count),0) n") ? [{ n: usage.monthly_images }] : [],
