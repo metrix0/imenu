@@ -1,5 +1,5 @@
 import { query } from "@/lib/database/sql";
-import { recordDevAlert, recordIntegrationProbe, resolveDevIncident } from "../health";
+import { recordDevAlert, recordGeminiMenuFallback, recordIntegrationProbe, resolveDevIncident } from "../health";
 
 jest.mock("@/lib/database/sql", () => ({
     query: jest.fn().mockResolvedValue({rows:[{id:"unit-alert"}],rowCount:1}),
@@ -70,4 +70,30 @@ test("second failed probe opens a deduplicated incident, recovery closes it",asy
 test("monitoring storage failure does not throw into business operations",async()=>{
     mockQuery.mockRejectedValueOnce(new Error("Database unavailable"));
     await expect(recordDevAlert({source:"app",title:"Failed",message:"safe"})).resolves.toMatchObject({phoneNotified:true});
+});
+
+test("each Gemini fallback is recorded without a notification below threshold", async () => {
+    mockQuery.mockImplementation(async (sql: string) => sql.includes("COUNT(*)::int AS total")
+        ? { rows: [{ total: 1 }] }
+        : { rows: [{ id: "unit-alert" }] });
+    await recordGeminiMenuFallback("Gemini HTTP 429");
+    expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO public.dev_alerts"),
+        expect.arrayContaining(["gemini", "none", "Importação de cardápio: fallback OpenAI"]));
+    expect(global.fetch).not.toHaveBeenCalled();
+});
+
+test("repeated Gemini fallbacks raise a deduplicated Health notification", async () => {
+    mockQuery.mockImplementation(async (sql: string) => sql.includes("COUNT(*)::int AS total")
+        ? { rows: [{ total: 3 }] }
+        : { rows: [{ id: "unit-alert" }] });
+    await recordGeminiMenuFallback("Gemini não identificou produtos");
+    expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO public.dev_alerts"),
+        expect.arrayContaining(["gemini", "notification", "integration:gemini:menu-fallback"]));
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect((global.fetch as jest.Mock).mock.calls[0][1].headers.Priority).toBe("4");
+});
+
+test("failure to record a Gemini fallback does not block imports", async () => {
+    mockQuery.mockRejectedValue(new Error("DB unavailable"));
+    await expect(recordGeminiMenuFallback("GEMINI_API_KEY ausente")).resolves.toBeUndefined();
 });

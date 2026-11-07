@@ -4,6 +4,7 @@ import { openAiAlertFetch } from "@/lib/services/openAiAlerts";
 import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
 import { readPublicMenuLink, MenuLinkError } from "@/lib/menu/readPublicMenuLink";
 import { query } from "@/lib/database/sql";
+import { recordGeminiMenuFallback } from "@/lib/dev/health";
 
 export const runtime = "nodejs";
 
@@ -794,6 +795,15 @@ Regras:
     return parseMenuJson(outputText);
 }
 
+function geminiFallbackReason(error: unknown): string {
+    if (error instanceof GeminiHttpError) return `Gemini HTTP ${error.status}`;
+    if (error instanceof MenuJsonParseError) return "Resposta Gemini com JSON inválido";
+    const message = error instanceof Error ? error.message.toLowerCase() : "";
+    if (/quota|rate limit|resource_exhausted/.test(message)) return "Limite de uso do Gemini";
+    if (/high demand|temporarily unavailable|overloaded/.test(message)) return "Gemini temporariamente indisponível";
+    return "Falha de leitura com Gemini";
+}
+
 function shouldUseOpenAIFallback(error: unknown): boolean {
     if (error instanceof MenuJsonParseError) return true;
 
@@ -923,15 +933,18 @@ export async function POST(req: Request) {
                 );
 
                 usedOpenAiFallback = true;
+                await recordGeminiMenuFallback(geminiFallbackReason(geminiError));
                 parsed = await scanWithOpenAI(openAiApiKey, urls, pageText, existingMenuContext);
             }
             // A syntactically valid empty Gemini response is not success when
             // importing a public menu. Give OpenAI a chance to read the same page.
             if (!usedOpenAiFallback && parsed.items.length === 0 && openAiApiKey) {
                 console.warn("[SCAN_MENU] Gemini found zero products; trying OpenAI fallback");
+                await recordGeminiMenuFallback("Gemini não identificou produtos");
                 parsed = await scanWithOpenAI(openAiApiKey, urls, pageText, existingMenuContext);
             }
         } else {
+            await recordGeminiMenuFallback("GEMINI_API_KEY ausente");
             parsed = await scanWithOpenAI(openAiApiKey!, urls, pageText, existingMenuContext);
         }
 
