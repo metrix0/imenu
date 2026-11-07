@@ -81,3 +81,5 @@
 @media(max-width:639px){.crmTable :global(th:first-child){width:calc(46% - 48px)}.crmTable :global(th:last-child){width:48px}}
 
 .payoutPayables :global(th:first-child){width:40px}.payoutPayables :global(th:nth-child(2)){width:22%}
+
+.supportHandoffs :global(th:last-child){width:136px}.supportHandoffs :global(th:first-child){width:26%}

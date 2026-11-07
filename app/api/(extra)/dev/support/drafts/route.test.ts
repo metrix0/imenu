@@ -73,3 +73,24 @@ it("lists the latest draft per contact with a matching distinct count",async()=>
  expect((query as jest.Mock).mock.calls[0][0]).toContain("WHERE d.review_status=$1");
  expect((query as jest.Mock).mock.calls[0][1]).toEqual(["pending",25,25]);
 });
+
+it("loads a human handoff conversation without requiring an AI draft",async()=>{
+ const response=await GET(new Request(`https://example.com/api/dev/support/drafts?conversation_id=${id}`));
+ expect(response.status).toBe(200);
+ expect(query).toHaveBeenCalledWith(expect.stringContaining("m.conversation_id=$1"),[id]);
+ const sql=(query as jest.Mock).mock.calls[0][0];
+ expect(sql).toContain("FROM support_messages m");
+ expect(sql).not.toContain("JOIN support_ai_reply_drafts");
+ expect(sql).toContain("m.direction='inbound' OR m.send_status='sent'");
+});
+it("rejects invalid conversation IDs without querying messages",async()=>{
+ const response=await GET(new Request("https://example.com/api/dev/support/drafts?conversation_id=invalid"));
+ expect(response.status).toBe(400);
+ expect(query).not.toHaveBeenCalled();
+});
+it("requires admin authorization before exposing conversation context",async()=>{
+ (authorize as jest.Mock).mockResolvedValue(new Response(null,{status:403}));
+ const response=await GET(new Request(`https://example.com/api/dev/support/drafts?conversation_id=${id}`));
+ expect(response.status).toBe(403);
+ expect(query).not.toHaveBeenCalled();
+});

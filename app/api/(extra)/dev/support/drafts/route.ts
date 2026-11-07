@@ -18,15 +18,18 @@ export async function GET(request: Request) {
 
     const params = new URL(request.url).searchParams;
     const id = params.get("id");
-    if (id) {
-        if (!UUID.test(id)) return NextResponse.json({error:"Resposta inválida."},{status:400});
+    const conversationId = params.get("conversation_id");
+    if (id || conversationId) {
+        const contextId = conversationId || id!;
+        if (!UUID.test(contextId)) return NextResponse.json({error:"Resposta inválida."},{status:400});
         try {
+            const source = conversationId ? "support_messages m" : `support_ai_reply_drafts d ${CONVERSATION_JOIN} JOIN support_messages m ON m.conversation_id=c.id`;
+            const condition = conversationId ? "m.conversation_id=$1" : "d.id=$1";
             const messages = await query(`SELECT * FROM (
-                SELECT m.id,m.direction,m.body,m.model,m.dedupe_key,m.created_at FROM support_ai_reply_drafts d
-                ${CONVERSATION_JOIN} JOIN support_messages m ON m.conversation_id=c.id
-                WHERE d.id=$1 AND (m.direction='inbound' OR m.send_status='sent')
+                SELECT m.id,m.direction,m.body,m.model,m.dedupe_key,m.created_at FROM ${source}
+                WHERE ${condition} AND (m.direction='inbound' OR m.send_status='sent')
                 ORDER BY m.created_at DESC,m.id DESC LIMIT 40
-            ) messages ORDER BY created_at,id`,[id]);
+            ) messages ORDER BY created_at,id`,[contextId]);
             return NextResponse.json({messages:messages.rows},{headers:{"Cache-Control":"no-store"}});
         } catch(error) {
             console.error("[SUPPORT_DRAFTS] context failed:",error);

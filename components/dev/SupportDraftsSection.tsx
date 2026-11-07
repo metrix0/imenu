@@ -1,7 +1,7 @@
 "use client";
 
 import { Eye, Send } from "lucide-react";
-import DevLoading from "./DevLoading";
+import SupportConversation from "./SupportConversation";
 import { useDevProfile } from "./DevProfileProvider";
 import { useCallback, useEffect, useState } from "react";
 import Badge from "@/components/ui/Badge";
@@ -23,7 +23,6 @@ type Draft = {
     session_name: string; created_at: string; customer_name: string | null;
     phone: string | null; restaurant_name: string | null; inbound_message: string | null;
 };
-type Message = {id:string;direction:string;body:string;model:string|null;dedupe_key:string|null;created_at:string};
 type DraftPage = PageData<Draft> & { pending: number };
 
 const statusByTab: Record<Tab, Draft["review_status"]> = {
@@ -32,9 +31,6 @@ const statusByTab: Record<Tab, Draft["review_status"]> = {
 
 export default function SupportDraftsSection() {
     const {openProfile} = useDevProfile();
-    const [messages,setMessages] = useState<Message[]>([]);
-    const [contextLoading,setContextLoading] = useState(false);
-    const [contextError,setContextError] = useState("");
     const [tab, setTab] = useState<Tab>("Pendentes");
     const [page, setPage] = useState(0);
     const [revision, setRevision] = useState(0);
@@ -63,14 +59,6 @@ export default function SupportDraftsSection() {
     }, [tab, page, revision]);
 
     const selectedId = selected?.id || null;
-    useEffect(()=>{
-        if(!selectedId) return;
-        const controller=new AbortController();setContextLoading(true);setMessages([]);setContextError("");
-        void devJson<{messages:Message[]}>("/api/dev/support/drafts?id="+selectedId,{signal:controller.signal})
-            .then(result=>setMessages(result.messages)).catch(error=>{if(!controller.signal.aborted)setContextError(error.message);})
-            .finally(()=>{if(!controller.signal.aborted)setContextLoading(false);});
-        return ()=>controller.abort();
-    },[selectedId]);
     const save = useCallback(async (text: string) => {
         if (!selectedId) return;
         await devJson("/api/dev/support/drafts", {
@@ -148,7 +136,7 @@ export default function SupportDraftsSection() {
                 </div>
                 <section className="space-y-3" aria-label="Conversa">
                     <h3 className="text-sm font-medium">Conversa</h3>
-                    {contextLoading ? <DevLoading/> : contextError ? <p role="alert" className="text-sm text-red-700">{contextError}</p> : messages.length ? messages.map(message=><div key={message.id} className={`rounded-lg p-3 ${message.direction === "inbound" ? "bg-gray-50" : "bg-orange-50"}`}><p className="mb-1 text-xs text-gray-500">{message.direction === "inbound" ? "Cliente" : message.model || (message.dedupe_key && !message.dedupe_key.startsWith("support:draft:")) ? "Bot" : "Equipe"}{" · "}{formatDateTime(message.created_at)}</p><p className="whitespace-pre-wrap break-words text-sm">{message.body}</p></div>) : <p className="whitespace-pre-wrap text-sm">{selected.inbound_message || "Nenhuma mensagem registrada."}</p>}
+                    <SupportConversation url={"/api/dev/support/drafts?id="+selected.id} fallback={selected.inbound_message}/>
                 </section>
                 <div>
                     <label htmlFor="support-draft-reply" className="mb-2 block text-sm font-medium">Resposta</label>
