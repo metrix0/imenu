@@ -20,12 +20,51 @@ type CostPage = {
 type CostPayload = {
     status: "ok";
     period: { start: string; end: string; days: number };
-    averageDailyUsd: number;
+    averageDaily7dUsd: number;
     totalUsd: number;
     daily: { date: string; usd: number }[];
-    breakdown: { label: string; usd: number; share: number }[];
+    breakdown: { label: string; usd: number; share: number; usage: string }[];
 };
 let cached: { until: number; value: CostPayload } | null = null;
+
+function lineItemMatchesModel(lineItem: string, model: string): boolean {
+    if (!model) return false;
+    const line = lineItem.toLowerCase();
+    const name = model.toLowerCase();
+    let index = line.indexOf(name);
+    while (index !== -1) {
+        const before = index === 0 ? "" : line[index - 1];
+        const after = line[index + name.length] || "";
+        // Don't confuse gpt-4o-mini with gpt-4o-mini-transcribe.
+        if ((!before || !/[a-z0-9_-]/.test(before)) &&
+            (!after || !/[a-z0-9_-]/.test(after))) return true;
+        index = line.indexOf(name, index + 1);
+    }
+    return false;
+}
+
+function usageForLineItem(lineItem: string): string {
+    if (lineItem === "Outros itens") return "Itens menores agregados; origem individual não identificada.";
+
+    // Each model may be shared by more than one feature, so this is a
+    // code-based usage mapping, never a claim of per-feature billed cost.
+    const uses: Array<{ model: string; feature: string }> = [
+        { model: process.env.IA_VENDAS_CHAT_MODEL?.trim() || "gpt-5.6-luna", feature: "Vendas IA: chat com o assistente" },
+        { model: process.env.IA_VENDAS_ANALYSIS_MODEL?.trim() || "gpt-5.6-terra", feature: "Vendas IA: análise aprofundada via API" },
+        { model: process.env.IA_VENDAS_IMAGE_MODEL?.trim() || "gpt-image-2", feature: "Vendas IA: geração e edição de imagens" },
+        { model: process.env.OPENAI_WHATSAPP_BOT_MODEL?.trim() || "gpt-4o-mini", feature: "Robô WhatsApp: respostas a clientes" },
+        { model: process.env.OPENAI_SUPPORT_MODEL?.trim() || "gpt-5.6-luna", feature: "Suporte IA: respostas e leitura de imagens" },
+        { model: process.env.OPENAI_SUPPORT_FOLLOWUP_MODEL?.trim() || "gpt-4o-mini", feature: "Suporte IA: triagem e acompanhamento" },
+        { model: "gpt-4o-mini-transcribe", feature: "Suporte IA: transcrição de áudios" },
+    ];
+    const matched = uses
+        .filter(({ model }) => lineItemMatchesModel(lineItem, model))
+        .map(({ feature }) => feature);
+    return matched.length
+        ? Array.from(new Set(matched)).join("; ")
+        : "Sem uso específico identificável no código iMenu.";
+}
+
 
 async function loadCosts(adminKey: string): Promise<CostPayload> {
     // Complete UTC days, excluding the current (possibly incomplete) billing day.
@@ -99,11 +138,12 @@ async function loadCosts(adminKey: string): Promise<CostPayload> {
             end: new Date((end - 86400) * 1000).toISOString().slice(0, 10),
             days: DAYS,
         },
-        averageDailyUsd: totalUsd / DAYS,
+        averageDaily7dUsd: series.slice(-7).reduce((sum, day) => sum + day.usd, 0) / 7,
         totalUsd,
         daily: series,
         breakdown: top.map(item => ({
             ...item, share: totalUsd === 0 ? 0 : (item.usd / totalUsd) * 100,
+            usage: usageForLineItem(item.label),
         })),
     };
 }

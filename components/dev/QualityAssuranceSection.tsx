@@ -39,10 +39,10 @@ type OpenAiCosts =
     | {
         status: "ok";
         period: { start: string; end: string; days: number };
-        averageDailyUsd: number;
+        averageDaily7dUsd: number;
         totalUsd: number;
         daily: { date: string; usd: number }[];
-        breakdown: { label: string; usd: number; share: number }[];
+        breakdown: { label: string; usd: number; share: number; usage: string }[];
     };
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip);
@@ -132,8 +132,8 @@ export default function QualityAssuranceSection() {
                 </div>
                 <div>
                     <dt>Gasto médio diário OpenAI</dt>
-                    <dd>{costs?.status === "ok" ? formatUsd(costs.averageDailyUsd) : "—"}</dd>
-                    <p>30 dias completos · USD · organização OpenAI</p>
+                    <dd>{costs?.status === "ok" ? formatUsd(costs.averageDaily7dUsd) : "—"}</dd>
+                    <p>7 dias completos · USD · organização OpenAI</p>
                 </div>
             </dl>
             <section className={styles.tableSection}>
@@ -226,6 +226,7 @@ export default function QualityAssuranceSection() {
                         </div>
                         <div className="mt-5">
                             <h3 className="mb-3 text-sm font-semibold">Principais fontes de custo</h3>
+                            <p className="mb-3 text-xs text-gray-500">Usos associados aos modelos configurados no iMenu; modelos compartilhados não permitem atribuir custos a uma única função.</p>
                             <div className={styles.section}>
                                 <DataTable
                                     rows={costs.breakdown}
@@ -233,6 +234,7 @@ export default function QualityAssuranceSection() {
                                     emptyMessage="Nenhum gasto registrado no período."
                                     columns={[
                                         { key: "item", label: "Item cobrado pela OpenAI", render: row => <span className="break-words">{row.label}</span> },
+                                        { key: "usage", label: "Uso no iMenu", render: row => <span title={row.usage}>{row.usage}</span> },
                                         { key: "cost", label: "Gasto (USD)", className: "whitespace-nowrap", render: row => formatUsd(row.usd) },
                                         { key: "share", label: "% do total", className: "whitespace-nowrap", render: row => percentageFormatter.format(row.share) + "%" },
                                     ]}
