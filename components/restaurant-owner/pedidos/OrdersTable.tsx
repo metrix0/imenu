@@ -1,7 +1,7 @@
 "use client";
 
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import { faChair, faEye, faTrash, faStore, faBagShopping } from "@fortawesome/free-solid-svg-icons";
+import { faChair, faEye, faTrash, faStore, faBagShopping, faBicycle } from "@fortawesome/free-solid-svg-icons";
 import DataTable from "@/components/ui/DataTable";
 import Card from "@/components/ui/Card";
 import ListLoader from "@/components/ui/ListLoader";
@@ -158,7 +158,7 @@ export default function OrdersTable({ orders, isLoading, onViewOrder, onDeleteOr
                     emptyMessage="Nenhum pedido encontrado com estes filtros." columns={[
                         { key: "number", label: "Pedido", render: order => <span className="font-semibold">#{order.display_id || order.id.slice(0, 4)}</span> },
                         { key: "customer", label: "Cliente", render: order => <div className="max-w-xs"><div className="font-medium">{order.customer_name}</div>{order.customer_address && <div className="mt-1 truncate text-xs text-gray-500" title={order.customer_address}>{order.customer_address}</div>}</div> },
-                        { key: "type", label: "Tipo", render: order => <span className="inline-flex items-center gap-1 whitespace-nowrap text-gray-500">{order.is_delivery === "balcao" ? <><FontAwesomeIcon icon={faStore} />Balcão</> : order.is_delivery === "retirada" ? <><FontAwesomeIcon icon={faBagShopping} />Retirada</> : order.is_delivery === "mesa" ? <><FontAwesomeIcon icon={faChair} />{order.table_name_snapshot || "Mesa"}</> : order.is_delivery === "entrega" ? "Entrega" : "—"}</span> },
+                        { key: "type", label: "Tipo", render: order => <span className="inline-flex items-center gap-1 whitespace-nowrap text-gray-500">{order.is_delivery === "balcao" ? <><FontAwesomeIcon icon={faStore} />Balcão</> : order.is_delivery === "retirada" ? <><FontAwesomeIcon icon={faBagShopping} />Retirada</> : order.is_delivery === "mesa" ? <><FontAwesomeIcon icon={faChair} />{order.table_name_snapshot || "Mesa"}</> : order.is_delivery === "entrega" ? <><FontAwesomeIcon icon={faBicycle} />Entrega</> : "—"}</span> },
                         { key: "date", label: "Data", render: order => <span className="whitespace-nowrap text-gray-500">{fmtDate(order.created_at)}</span> },
                         { key: "total", label: "Valor", render: order => <span className="whitespace-nowrap font-medium">{fmtMoney(order.total_cents)}</span> },
                         { key: "status", label: "Situação", render: order => getStatusBadge(order.status, order.is_delivery === "mesa" || order.is_delivery === "retirada" || order.is_delivery === "balcao") },
