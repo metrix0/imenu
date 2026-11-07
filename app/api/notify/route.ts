@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { sendNtfyNotification } from "@/lib/services/ntfy";
+import type { AlertTrigger } from "@/lib/dev/health";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,7 +16,7 @@ function isAuthorized(request: Request): boolean {
 
 async function notify(
     request: Request,
-    input: { title?: unknown; message?: unknown; source?: unknown; severity?:unknown }
+    input: { title?: unknown; message?: unknown; source?: unknown; severity?:unknown; trigger?: unknown; operation?: unknown; httpStatus?: unknown; incidentKey?: unknown }
 ) {
     if (!isAuthorized(request)) {
         return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
@@ -45,6 +46,10 @@ async function notify(
             source: typeof input.source === "string" && input.source.trim() ? input.source.trim().slice(0,100) : "api/notify",
             severity: typeof input.severity === "string" && ["info","warning","error","critical"].includes(input.severity) ? input.severity : undefined,
             title: title || "iMenu",
+            trigger: ["notification","alarm","blast","none"].includes(String(input.trigger)) ? input.trigger as AlertTrigger : undefined,
+            operation: typeof input.operation === "string" ? input.operation.trim().slice(0,150) : undefined,
+            httpStatus: typeof input.httpStatus === "number" && Number.isInteger(input.httpStatus) ? input.httpStatus : undefined,
+            incidentKey: typeof input.incidentKey === "string" && input.incidentKey.trim() ? input.incidentKey.trim().slice(0,200) : undefined,
             message,
         });
         return NextResponse.json({ success: true });
@@ -69,6 +74,8 @@ export async function GET(request: Request) {
         message: url.searchParams.get("message"),
         source: url.searchParams.get("source"),
         severity: url.searchParams.get("severity"),
+        trigger: url.searchParams.get("trigger"),
+        operation: url.searchParams.get("operation"),
     });
 }
 
@@ -86,7 +93,7 @@ export async function POST(request: Request) {
 
     const input =
         body && typeof body === "object"
-            ? (body as { title?: unknown; message?: unknown; source?: unknown; severity?:unknown })
+            ? (body as { title?: unknown; message?: unknown; source?: unknown; severity?:unknown; trigger?: unknown; operation?: unknown; httpStatus?: unknown; incidentKey?: unknown })
             : {};
 
     return notify(request, input);

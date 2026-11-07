@@ -1,5 +1,4 @@
 import { notifyPayoutProblem } from "@/lib/services/payoutNotifications";
-import { observeIntegration } from "@/lib/dev/health";
 import { sendNtfyNotification } from "@/lib/services/ntfy";
 import { getMercadoPagoPixPayment } from "@/lib/payments/mercadoPagoPix";
 import * as https from "node:https";
@@ -164,8 +163,6 @@ async function asaasRequest<T>(
                         Buffer.concat(chunks).toString("utf8")
                     );
 
-                    if (status >= 500 || [401,402,403,429].includes(status)) observeIntegration("asaas", false, status);
-                    else if (status >= 200 && status < 300) observeIntegration("asaas", true, status);
                     if (status < 200 || status >= 300) {
                         const message =
                             payload?.errors?.[0]?.description ||
@@ -183,7 +180,7 @@ async function asaasRequest<T>(
         request.on("timeout", () => {
             request.destroy(new Error("Tempo limite excedido ao chamar Asaas."));
         });
-        request.on("error", (error) => { observeIntegration("asaas", false, null); reject(error); });
+        request.on("error", reject);
         if (init.body) request.write(init.body);
         request.end();
     });

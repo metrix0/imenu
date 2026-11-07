@@ -71,3 +71,14 @@
 .payoutTable{min-width:0}.payoutTable :global([data-ui="table"]){max-width:100%;overflow-x:hidden}.payoutTable :global(table){width:100%;table-layout:fixed}.payoutTable :global(th),.payoutTable :global(td){overflow:hidden;text-overflow:ellipsis;overflow-wrap:anywhere;padding-inline:10px}.payoutTable :global(th){white-space:nowrap}.payoutTable :global(th:first-child){width:18%}.payoutTable :global(td) :global(button){max-width:100%}.payoutTable .profileLink{display:block;overflow:hidden;text-overflow:ellipsis}.payoutTable :global([data-ui="badge"]){max-width:100%;white-space:normal}
 
 .supportTable{min-width:0}.supportTable :global([data-ui="table"]){max-width:100%;overflow-x:hidden}.supportTable :global(table){width:100%;table-layout:fixed}.supportTable :global(th),.supportTable :global(td){padding:8px 12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.supportTable :global(th:first-child){width:28%}.supportTable :global(th:last-child){width:90px}.supportTable .profileLink{overflow:hidden;text-overflow:ellipsis;max-width:100%}.supportIcon{display:inline-flex;align-items:center;justify-content:center;padding:8px;border-radius:6px;color:#626973;cursor:pointer}.supportIcon:hover{background:#f1f3f5;color:#c43700}.supportIcon:disabled{opacity:.4;cursor:default}
+
+/* Single-line Health alerts; full details remain available on row click. */
+.alertsTable :global([data-ui="table"]){max-width:100%;overflow-x:auto}
+.alertsTable :global(table){width:100%;min-width:820px;table-layout:fixed}
+.alertsTable :global(th),.alertsTable :global(td){white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-block:8px}
+.alertsTable :global(th:nth-child(1)){width:17%}
+.alertsTable :global(th:nth-child(2)){width:15%}
+.alertsTable :global(th:nth-child(3)){width:16%}
+.alertsTable :global(th:nth-child(4)){width:13%}
+.alertsTable :global(th:nth-child(5)){width:11%}
+.alertsTable :global(th:nth-child(6)){width:28%}
