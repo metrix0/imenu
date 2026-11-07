@@ -163,6 +163,7 @@ export default function ClientesPage() {
           {error}
         </p>
       ) : null}
+      <div className="[&_table]:whitespace-nowrap [&_th]:px-2.5 [&_td]:px-2.5">
       <DataTable
         loading={loading}
         sortKey={sortKey}
@@ -189,8 +190,8 @@ export default function ClientesPage() {
             render: (r) => (
               <div className="flex items-center gap-3">
                 <InitialsAvatar name={r.name} colorKey={r.phone} />
-                <div className="min-w-0">
-                  <p className="font-medium text-gray-900">
+                <div className="min-w-0 max-w-[160px]">
+                  <p className="truncate font-medium text-gray-900" title={r.name || "Sem nome"}>
                     {r.name || "Sem nome"}
                   </p>
                   <p className="mt-1 text-gray-500">{formatPhone(r.phone)}</p>
@@ -264,6 +265,7 @@ export default function ClientesPage() {
           },
         ]}
       />
+      </div>
       <div className="text-center text-sm text-gray-500">
         {total} cliente{total === 1 ? "" : "s"}
         {(total > 0 || page > 1) && (
