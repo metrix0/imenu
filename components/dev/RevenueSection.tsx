@@ -16,10 +16,13 @@ type Purchase = {
     amountCents: number;
     method: string;
     provider: string | null;
+    isRenewal: boolean;
 };
 type RevenueData = {
     summary: {
         purchases30: number;
+        new30: number;
+        renewals30: number;
         gross30: number;
         pix30: number;
         pixGross30: number;
@@ -56,16 +59,16 @@ export default function RevenueSection() {
     return <div className="space-y-6">
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
         {data && <>
-            <dl className={styles.metricStrip} aria-label="Receita de novas compras iMenu Plus nos últimos 30 dias">
+            <dl className={styles.metricStrip} aria-label="Receita iMenu Plus nos últimos 30 dias">
                 <div>
-                    <dt>Novas compras</dt>
+                    <dt>Pagamentos Plus</dt>
                     <dd className="tabular-nums">{formatCount(data.summary.purchases30)}</dd>
-                    <p>Últimos 30 dias</p>
+                    <p>{formatCount(data.summary.new30)} novas · {formatCount(data.summary.renewals30)} renovações · 30 dias</p>
                 </div>
                 <div>
                     <dt>Receita bruta</dt>
                     <dd className="tabular-nums">{formatCurrencyFromCents(data.summary.gross30)}</dd>
-                    <p>Primeiros pagamentos · 30 dias</p>
+                    <p>Todos os pagamentos confirmados · 30 dias</p>
                 </div>
                 <div>
                     <dt>Pix</dt>
@@ -79,12 +82,12 @@ export default function RevenueSection() {
                 </div>
             </dl>
             <section className={styles.tableSection}>
-                <h2>Novas compras iMenu Plus <span className="font-normal text-gray-500">({formatCount(data.purchases.total)})</span></h2>
-                <p className="mb-4 text-xs text-gray-500">Primeiro pagamento confirmado por assinatura · sem renovações</p>
+                <h2>Compras iMenu Plus <span className="font-normal text-gray-500">({formatCount(data.purchases.total)})</span></h2>
                 <PagedTable data={data.purchases} loading={loading} onPage={setPage} rowKey={row => row.id}
                     onRowClick={row => openProfile({ id: row.restaurantId, name: row.restaurantName })}
                     columns={[
                         { key: "restaurant", label: "Restaurante", render: row => <button type="button" className={styles.profileLink} onClick={event => { event.stopPropagation(); openProfile({ id: row.restaurantId, name: row.restaurantName }); }} title={row.restaurantName}><span className="block max-w-72 truncate">{row.restaurantName}</span></button> },
+                        { key: "type", label: "Tipo", className: "whitespace-nowrap", render: row => row.isRenewal ? "Renovação" : "Nova" },
                         { key: "paidAt", label: "Pagamento", className: styles.dateCell, render: row => formatDateTime(row.paidAt) },
                         { key: "method", label: "Método", className: "whitespace-nowrap", render: row => row.method },
                         { key: "amount", label: "Valor", className: styles.numericCell, render: row => formatCurrencyFromCents(row.amountCents) },

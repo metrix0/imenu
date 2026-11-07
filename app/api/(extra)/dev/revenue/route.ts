@@ -7,8 +7,8 @@ export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 10;
 
-// First confirmed payment for each Plus subscription; renewals are excluded.
-const firstPurchases = `
+// Every confirmed Plus payment, with its sequence within the subscription.
+const confirmedPurchases = `
     WITH paid AS (
         SELECT payment.id::text AS id,
             addon.restaurant_id::text AS restaurant_id,
@@ -30,13 +30,13 @@ const firstPurchases = `
         WHERE payment.paid_at IS NOT NULL
           AND payment.amount_cents > 0
           AND UPPER(payment.status) IN ('CONFIRMED', 'RECEIVED', 'RECEIVED_IN_CASH', 'PAID', 'COMPLETED', 'APPROVED')
-    ), first_purchases AS (
-        SELECT * FROM paid WHERE purchase_rank = 1
     )
 `;
 
 type SummaryRow = {
     purchases30: number | string;
+    new30: number | string;
+    renewals30: number | string;
     gross30: number | string;
     pix30: number | string;
     pix_gross30: number | string;
@@ -53,6 +53,7 @@ type PurchaseRow = {
     method: string;
     payment_provider: string | null;
     total: number | string;
+    purchase_rank: number | string;
 };
 
 export async function GET(request: Request) {
@@ -66,21 +67,23 @@ export async function GET(request: Request) {
         }
         const page = Number(pageParam);
         const [summaryResult, purchasesResult] = await Promise.all([
-            query<SummaryRow>(`${firstPurchases}
+            query<SummaryRow>(`${confirmedPurchases}
                 SELECT
                     COUNT(*) FILTER (WHERE paid_at >= NOW() - INTERVAL '30 days')::int AS purchases30,
+                    COUNT(*) FILTER (WHERE paid_at >= NOW() - INTERVAL '30 days' AND purchase_rank = 1)::int AS new30,
+                    COUNT(*) FILTER (WHERE paid_at >= NOW() - INTERVAL '30 days' AND purchase_rank > 1)::int AS renewals30,
                     COALESCE(SUM(amount_cents) FILTER (WHERE paid_at >= NOW() - INTERVAL '30 days'), 0)::bigint AS gross30,
                     COUNT(*) FILTER (WHERE paid_at >= NOW() - INTERVAL '30 days' AND method = 'Pix')::int AS pix30,
                     COALESCE(SUM(amount_cents) FILTER (WHERE paid_at >= NOW() - INTERVAL '30 days' AND method = 'Pix'), 0)::bigint AS pix_gross30,
                     COUNT(*) FILTER (WHERE paid_at >= NOW() - INTERVAL '30 days' AND method = 'Cartão')::int AS card30,
                     COALESCE(SUM(amount_cents) FILTER (WHERE paid_at >= NOW() - INTERVAL '30 days' AND method = 'Cartão'), 0)::bigint AS card_gross30,
                     COUNT(*) FILTER (WHERE paid_at >= NOW() - INTERVAL '30 days' AND method = 'Outro')::int AS other30
-                FROM first_purchases
+                FROM paid
             `),
-            query<PurchaseRow>(`${firstPurchases}
+            query<PurchaseRow>(`${confirmedPurchases}
                 SELECT id, restaurant_id, restaurant_name, paid_at, amount_cents,
-                    method, payment_provider, COUNT(*) OVER()::int AS total
-                FROM first_purchases
+                    method, payment_provider, purchase_rank, COUNT(*) OVER()::int AS total
+                FROM paid
                 ORDER BY paid_at DESC, id DESC
                 LIMIT $1 OFFSET $2
             `, [PAGE_SIZE, page * PAGE_SIZE]),
@@ -90,6 +93,8 @@ export async function GET(request: Request) {
         return NextResponse.json({
             summary: {
                 purchases30: Number(summary?.purchases30 || 0),
+                new30: Number(summary?.new30 || 0),
+                renewals30: Number(summary?.renewals30 || 0),
                 gross30: Number(summary?.gross30 || 0),
                 pix30: Number(summary?.pix30 || 0),
                 pixGross30: Number(summary?.pix_gross30 || 0),
@@ -106,6 +111,7 @@ export async function GET(request: Request) {
                     amountCents: Number(row.amount_cents),
                     method: row.method,
                     provider: row.payment_provider,
+                    isRenewal: Number(row.purchase_rank) > 1,
                 })),
                 total, page, pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)),
             },
