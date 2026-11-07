@@ -398,7 +398,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
 
                                 {/* Itens */}
                                 <div>
-                                    <h4 className="text-sm 2xl:text-base font-bold text-gray-900 uppercase tracking-wider border-b border-gray-100 pb-2 mb-3 flex items-center gap-2">
+                                    <h4 className="text-sm 2xl:text-base font-bold text-gray-900 uppercase tracking-wider pb-2 mb-3 flex items-center gap-2">
                                         <FontAwesomeIcon icon={faReceipt} className="text-gray-400" /> Resumo do Pedido
                                     </h4>
                                     <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
