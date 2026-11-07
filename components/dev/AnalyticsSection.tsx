@@ -15,6 +15,7 @@ type Point = { label: string; value: number };
 type Analytics = {
     productOverview: ProductOverview;
     previousProductOverview?: ProductOverview;
+    previousCards?: Analytics["cards"];
     range: { startAt: string; endAt: string };
     cards: { activatedUsers: number; activeUsers: number; activeCustomerUsers: number; moneyHandledCents: number; onlineMoneyHandledCents: number };
     series: { activatedUsersPerDay: Point[]; activeUsers: Point[]; activeCustomerUsers: Point[]; moneyHandledCents: Point[]; onlineMoneyHandledCents: Point[] };
@@ -22,7 +23,11 @@ type Analytics = {
     cardChanges: Record<string,number|null>;
 };
 
-const change=(current:number,previous:number)=>previous===0?(current===0?0:null):(current-previous)/previous*100;
+const change = (current: number, previous: number | null | undefined) => {
+    if (previous == null) return {};
+    if (previous === 0) return current === 0 ? { change: 0 } : { change: current, changeLabel: `+${formatCount(current)}` };
+    return { change: (current - previous) / previous * 100 };
+};
 
 export default function AnalyticsSection({range}:{range:DateRange}) {
     const [data, setData] = useState<Analytics | null>(null);
@@ -41,32 +46,32 @@ export default function AnalyticsSection({range}:{range:DateRange}) {
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                     <MetricCard inlineChange truncateTitle title="Usuários ativados / dia"
                         value={formatAverage(data.cards.activatedUsers / days)}
-                        change={data.cardChanges.activatedUsers}
+                        {...change(data.cards.activatedUsers, data.previousCards?.activatedUsers)}
                         description={formatCount(data.cards.activatedUsers) + " usuários ativados no período"}
                         info="Contas que registraram o primeiro pedido no iMenu durante o período selecionado. A média divide esse total pelos dias do período." />
                     <MetricCard inlineChange truncateTitle title="Assinaturas iMenu Plus"
                         value={formatCount(data.productOverview.ia_plus.buyers)}
-                        change={change(data.productOverview.ia_plus.buyers, data.acquisitions.previous.subscriptions)}
+                        {...change(data.productOverview.ia_plus.buyers, data.acquisitions.previous.subscriptions)}
                         info="Contas com a primeira compra confirmada de iMenu Plus neste período. Renovações não entram." />
                     <MetricCard inlineChange truncateTitle title="Registros"
                         value={formatCount(data.acquisitions.registrations.reduce((sum, point) => sum + point.value, 0))}
-                        change={change(data.acquisitions.registrations.reduce((sum, point) => sum + point.value, 0), data.acquisitions.previous.registrations)}
+                        {...change(data.acquisitions.registrations.reduce((sum, point) => sum + point.value, 0), data.acquisitions.previous.registrations)}
                         info="Novas contas cadastradas no iMenu durante o período selecionado." />
                     <MetricCard inlineChange truncateTitle title="Usuários ativos"
                         value={formatCount(data.cards.activeUsers)}
-                        change={data.cardChanges.activeUsers}
+                        {...change(data.cards.activeUsers, data.previousCards?.activeUsers)}
                         info="Contas com pedidos concluídos em pelo menos 2 dias dos últimos 30 dias e em pelo menos 1 dia dos últimos 14 dias." />
                     <MetricCard inlineChange truncateTitle title="Usuários com clientes ativos"
                         value={formatCount(data.cards.activeCustomerUsers)}
-                        change={data.cardChanges.activeCustomerUsers}
+                        {...change(data.cards.activeCustomerUsers, data.previousCards?.activeCustomerUsers)}
                         info="Contas com pelo menos 4 pedidos concluídos para 4 clientes distintos nos últimos 30 dias." />
                     <MetricCard inlineChange truncateTitle title="Dinheiro movimentado"
                         value={formatCurrencyFromCents(data.cards.moneyHandledCents)}
-                        change={data.cardChanges.moneyHandledCents}
+                        {...change(data.cards.moneyHandledCents, data.previousCards?.moneyHandledCents)}
                         info="Soma dos pedidos movimentados no iMenu durante o período, excluindo cancelados e pagamentos online pendentes." />
                     <MetricCard inlineChange truncateTitle title="Dinheiro movimentado online"
                         value={formatCurrencyFromCents(data.cards.onlineMoneyHandledCents)}
-                        change={data.cardChanges.onlineMoneyHandledCents}
+                        {...change(data.cards.onlineMoneyHandledCents, data.previousCards?.onlineMoneyHandledCents)}
                         info="Valor movimentado em pedidos pagos por Pix online no período selecionado." />
                 </div>
             </section>
