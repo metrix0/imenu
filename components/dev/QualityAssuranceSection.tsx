@@ -143,8 +143,8 @@ export default function QualityAssuranceSection() {
                 <div>
                     <dt>Gasto médio diário OpenAI</dt>
                     <dd>{costs?.status === "ok" ? formatBrl(costs.averageDaily7dUsd * costs.usdBrlRate) : "—"}</dd>
-                    <p title={costs?.status === "ok" ? `Total dos 7 dias pela cotação atual (US$ 1,00 = ${formatBrl(costs.usdBrlRate)})` : undefined}>
-                        7 dias completos · {costs?.status === "ok" ? formatBrl(costs.averageDaily7dUsd * 7 * costs.usdBrlRate) : "—"}
+                    <p>
+                        7 dias completos ({costs?.status === "ok" ? formatBrl(costs.averageDaily7dUsd * 7 * costs.usdBrlRate) : "—"}) · 1 USD = {costs?.status === "ok" ? formatBrl(costs.usdBrlRate) : "—"}
                     </p>
                 </div>
             </dl>
