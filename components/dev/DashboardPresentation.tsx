@@ -173,24 +173,21 @@ export function ProductOverviewSections({ metrics, previousMetrics, productsOnly
                     : "PostHog · evento panel_tab_opened · total de aberturas da aba no período. Não é uma contagem de pessoas únicas.";
                 const buyerLabel = product.key === "imenu" ? "Usuários ativados" : "Compradores";
                 return <section key={product.key} aria-label={product.name} className="space-y-3">
-                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                        <h2 className="text-base font-semibold text-gray-900">{product.name}</h2>
-                        <span className="text-xs text-gray-500">{product.price === "-" ? "Gratuito" : product.price}</span>
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                        <MetricCard title="Tráfego"
+                    <h2 className="text-base font-semibold text-gray-900">{product.name}</h2>
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                        <MetricCard inlineChange truncateTitle title="Tráfego"
                             value={metric.pageViews === null ? "—" : formatCount(metric.pageViews)}
                             description={trafficUnit}
                             info={trafficInfo}
                             change={sameTrafficSource ? difference(metric.pageViews, previous?.pageViews ?? null) : null} />
-                        <MetricCard title="Conversão"
+                        <MetricCard inlineChange truncateTitle title="Conversão"
                             value={metric.conversion === null ? "—" : formatRatio(metric.conversion)}
                             description={`${formatCount(metric.buyers)} ${buyerLabel.toLowerCase()} · ${trafficUnit}`}
                             change={sameTrafficSource ? difference(metric.conversion, previous?.conversion ?? null) : null}
                             info={product.key === "imenu"
                                 ? `${formatCount(metric.buyers)} contas que registraram o primeiro pedido no período ÷ ${metric.pageViews === null ? "—" : formatCount(metric.pageViews)} ${trafficUnit.toLowerCase()} × 100. Pedidos + PostHog.`
                                 : `${formatCount(metric.buyers)} contas com primeira compra confirmada no período ÷ ${metric.pageViews === null ? "—" : formatCount(metric.pageViews)} ${trafficUnit.toLowerCase()} × 100. Pagamentos + PostHog.`} />
-                        <MetricCard title="Churn"
+                        <MetricCard inlineChange truncateTitle title="Churn"
                             value={metric.churn === null ? "—" : formatRatio(metric.churn)}
                             description={`${formatCount(Math.max(0, metric.churnBase - metric.churnedUsers))} ativos · ${formatCount(metric.churnedUsers)} abandonados`}
                             change={difference(metric.churn, previous?.churn ?? null)}
@@ -198,6 +195,9 @@ export function ProductOverviewSections({ metrics, previousMetrics, productsOnly
                             info={product.key === "imenu"
                                 ? `Pedidos · ${formatCount(metric.churnedUsers)} abandonados de ${formatCount(metric.churnBase)} contas elegíveis. Base: ao menos 2 dias com pedidos concluídos nos últimos 30 dias; abandono: nenhum pedido concluído nos últimos 14 dias.`
                                 : `Pagamentos/add-ons · ${formatCount(metric.churnedUsers)} pagantes perdidos de ${formatCount(metric.churnBase)} pagantes no início. Cartão: cancelamento/vencimento; Pix pré-pago: fim da validade.`} />
+                        <MetricCard inlineChange truncateTitle title="Mensalidade"
+                            value={product.price === "-" ? "Gratuito" : product.price}
+                            info={product.priceInfo} />
                     </div>
                 </section>;
             })}
@@ -255,6 +255,8 @@ export function MetricCard({
     children,
     danger = false,
     reverseChangeColors = false,
+    inlineChange = false,
+    truncateTitle = false,
 }: {
     title: string;
     value: string;
@@ -264,7 +266,14 @@ export function MetricCard({
     children?: ReactNode;
     danger?: boolean;
     reverseChangeColors?: boolean;
+    inlineChange?: boolean;
+    truncateTitle?: boolean;
 }) {
+    const changeColor = change === null
+        ? "text-gray-500"
+        : (reverseChangeColors ? (change ?? 0) <= 0 : (change ?? 0) >= 0)
+            ? "text-green-600"
+            : "text-red-600";
     return (
         <article
             className={`rounded-2xl border bg-white p-5 shadow-sm ${
@@ -272,8 +281,8 @@ export function MetricCard({
             }`}
         >
             {info ? (
-                <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-medium text-gray-600">{title}</p>
+                <div className="flex min-w-0 items-center justify-between gap-2">
+                    <p className={`text-sm font-medium text-gray-600 ${truncateTitle ? "min-w-0 flex-1 truncate whitespace-nowrap" : ""}`} title={truncateTitle ? title : undefined}>{title}</p>
                     <InfoTooltip text={info} size="medium" showOnClick>
                         <button type="button" aria-label={`Informações sobre ${title}`} className="inline-flex h-6 w-6 items-center justify-center text-gray-400 hover:text-brand">
                             <PanelIcon icon={faCircleInfo} className="h-3.5 w-3.5" />
@@ -281,8 +290,14 @@ export function MetricCard({
                     </InfoTooltip>
                 </div>
             ) : (
-                <p className="text-sm font-medium text-gray-600">{title}</p>
+                <p className={`text-sm font-medium text-gray-600 ${truncateTitle ? "truncate whitespace-nowrap" : ""}`} title={truncateTitle ? title : undefined}>{title}</p>
             )}
+            {inlineChange ? <div className="mt-2 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
+                <p className={`min-w-0 text-3xl font-bold tracking-tight tabular-nums ${danger ? "text-red-700" : "text-gray-950"}`}>{value}</p>
+                {change !== undefined && <span className={`shrink-0 whitespace-nowrap text-sm font-semibold tabular-nums ${changeColor}`}>
+                    {change === null ? "—" : `${change >= 0 ? "+" : ""}${formatRatio(change)}`}
+                </span>}
+            </div> : <>
             <p
                 className={`mt-2 text-3xl font-bold tracking-tight ${
                     danger ? "text-red-700" : "text-gray-950"
@@ -306,6 +321,7 @@ export function MetricCard({
                     <span className="font-normal text-gray-500">vs. período anterior</span>
                 </p>
             )}
+            </>}
             {description && <p className="mt-3 text-xs leading-5 text-gray-500">{description}</p>}
             {children}
         </article>

@@ -39,39 +39,39 @@ export default function AnalyticsSection({range}:{range:DateRange}) {
         {loading ? <DevLoading /> : data && <>
             <section aria-label="Indicadores-chave" className="space-y-5">
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    <MetricCard title="Usuários ativados / dia"
+                    <MetricCard inlineChange truncateTitle title="Usuários ativados / dia"
                         value={formatAverage(data.cards.activatedUsers / days)}
                         change={data.cardChanges.activatedUsers}
                         description={formatCount(data.cards.activatedUsers) + " usuários ativados no período"}
                         info="Contas que registraram o primeiro pedido no iMenu durante o período selecionado. A média divide esse total pelos dias do período." />
-                    <MetricCard title="Assinaturas iMenu Plus"
+                    <MetricCard inlineChange truncateTitle title="Assinaturas iMenu Plus"
                         value={formatCount(data.productOverview.ia_plus.buyers)}
                         change={change(data.productOverview.ia_plus.buyers, data.acquisitions.previous.subscriptions)}
                         info="Contas com a primeira compra confirmada de iMenu Plus neste período. Renovações não entram." />
-                    <MetricCard title="Registros"
+                    <MetricCard inlineChange truncateTitle title="Registros"
                         value={formatCount(data.acquisitions.registrations.reduce((sum, point) => sum + point.value, 0))}
                         change={change(data.acquisitions.registrations.reduce((sum, point) => sum + point.value, 0), data.acquisitions.previous.registrations)}
                         info="Novas contas cadastradas no iMenu durante o período selecionado." />
-                    <MetricCard title="Usuários ativos"
+                    <MetricCard inlineChange truncateTitle title="Usuários ativos"
                         value={formatCount(data.cards.activeUsers)}
                         change={data.cardChanges.activeUsers}
                         info="Contas com pedidos concluídos em pelo menos 2 dias dos últimos 30 dias e em pelo menos 1 dia dos últimos 14 dias." />
-                    <MetricCard title="Usuários com clientes ativos"
+                    <MetricCard inlineChange truncateTitle title="Usuários com clientes ativos"
                         value={formatCount(data.cards.activeCustomerUsers)}
                         change={data.cardChanges.activeCustomerUsers}
                         info="Contas com pelo menos 4 pedidos concluídos para 4 clientes distintos nos últimos 30 dias." />
-                    <MetricCard title="Dinheiro movimentado"
+                    <MetricCard inlineChange truncateTitle title="Dinheiro movimentado"
                         value={formatCurrencyFromCents(data.cards.moneyHandledCents)}
                         change={data.cardChanges.moneyHandledCents}
                         info="Soma dos pedidos movimentados no iMenu durante o período, excluindo cancelados e pagamentos online pendentes." />
-                    <MetricCard title="Dinheiro movimentado online"
+                    <MetricCard inlineChange truncateTitle title="Dinheiro movimentado online"
                         value={formatCurrencyFromCents(data.cards.onlineMoneyHandledCents)}
                         change={data.cardChanges.onlineMoneyHandledCents}
                         info="Valor movimentado em pedidos pagos por Pix online no período selecionado." />
                 </div>
-                <ProductOverviewSections metrics={data.productOverview} previousMetrics={data.previousProductOverview}
-                    productsOnly={["imenu", "ia_plus"]} compact />
             </section>
+            <ProductOverviewSections metrics={data.productOverview} previousMetrics={data.previousProductOverview}
+                productsOnly={["imenu", "ia_plus"]} compact />
             <div className={`${styles.section} ${styles.chartGrid} ${styles.analyticsCharts}`}>
                 <MetricChart embedded title="Usuários ativados / dia" series={data.series.activatedUsersPerDay} color="#d93d00" decimal />
                 <MetricChart embedded title="Assinaturas iMenu Plus" series={data.acquisitions.subscriptions} color="#d93d00" />
