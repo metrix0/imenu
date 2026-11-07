@@ -49,17 +49,18 @@ function lineItemMatchesModel(lineItem: string, model: string): boolean {
 }
 
 function usageForLineItem(lineItem: string): string {
+    if (lineItem === "Outros itens") return "Demais itens agrupados";
     // Model usage can span features; this is a code association, not exact
     // attribution of organization-wide OpenAI costs to individual features.
     const uses: Array<{ model: string; feature: string }> = [
-        { model: process.env.IA_VENDAS_CHAT_MODEL?.trim() || "gpt-5.6-luna", feature: "Vendas IA (Chat)" },
-        { model: process.env.IA_VENDAS_ANALYSIS_MODEL?.trim() || "gpt-5.6-terra", feature: "Vendas IA (Análise via API)" },
-        { model: process.env.IA_VENDAS_IMAGE_MODEL?.trim() || "gpt-image-2", feature: "Vendas IA (Imagens)" },
-        { model: process.env.OPENAI_WHATSAPP_BOT_MODEL?.trim() || "gpt-4o-mini", feature: "Robô WhatsApp IA (Chat)" },
-        { model: process.env.OPENAI_SUPPORT_MODEL?.trim() || "gpt-5.6-luna", feature: "Suporte Chatbot IA (Chat/Imagens)" },
-        { model: process.env.OPENAI_SUPPORT_FOLLOWUP_MODEL?.trim() || "gpt-4o-mini", feature: "Suporte Chatbot IA (Acompanhamento)" },
-        { model: "gpt-4o-mini-transcribe", feature: "Suporte Chatbot IA (Áudios)" },
-        { model: process.env.OPENAI_MENU_SCAN_MODEL?.trim() || "gpt-4.1", feature: "Importação de Cardápio (Leitura IA)" },
+        { model: process.env.IA_VENDAS_CHAT_MODEL?.trim() || "gpt-5.6-luna", feature: "Assistente IA — Chat; Vendas IA — Chat da análise" },
+        { model: process.env.IA_VENDAS_ANALYSIS_MODEL?.trim() || "gpt-5.6-terra", feature: "Vendas IA — Análise via API" },
+        { model: process.env.IA_VENDAS_IMAGE_MODEL?.trim() || "gpt-image-2", feature: "Assistente IA — Gerar imagens" },
+        { model: process.env.OPENAI_WHATSAPP_BOT_MODEL?.trim() || "gpt-4o-mini", feature: "Robô WhatsApp IA — Chat" },
+        { model: process.env.OPENAI_SUPPORT_MODEL?.trim() || "gpt-5.6-luna", feature: "Suporte Chatbot IA — Chat e visão de imagens" },
+        { model: process.env.OPENAI_SUPPORT_FOLLOWUP_MODEL?.trim() || "gpt-4o-mini", feature: "Suporte Chatbot IA — Acompanhamento" },
+        { model: "gpt-4o-mini-transcribe", feature: "Suporte Chatbot IA — Transcrever áudios" },
+        { model: process.env.OPENAI_MENU_SCAN_MODEL?.trim() || "gpt-4.1", feature: "Importação de Cardápio — Leitura IA" },
     ];
     const matched = uses
         .filter(({ model }) => lineItemMatchesModel(lineItem, model))
@@ -129,6 +130,10 @@ async function loadCosts(adminKey: string): Promise<CostPayload> {
     const totalUsd = series.reduce((sum, day) => sum + day.usd, 0);
     const sorted = Array.from(categories, ([label, usd]) => ({ label, usd }))
         .filter(item => item.usd !== 0).sort((a, b) => b.usd - a.usd);
+    const top = sorted.slice(0, 9);
+    if (sorted.length > 9) {
+        top.push({ label: "Outros itens", usd: sorted.slice(9).reduce((sum, item) => sum + item.usd, 0) });
+    }
     const usdBrlRate = await getUsdBrlRate();
 
     return {
@@ -142,7 +147,7 @@ async function loadCosts(adminKey: string): Promise<CostPayload> {
         averageDaily7dUsd: series.slice(-7).reduce((sum, day) => sum + day.usd, 0) / 7,
         totalUsd,
         daily: series,
-        breakdown: sorted.map(item => ({
+        breakdown: top.map(item => ({
             ...item, share: totalUsd === 0 ? 0 : (item.usd / totalUsd) * 100,
             usage: usageForLineItem(item.label),
         })),
