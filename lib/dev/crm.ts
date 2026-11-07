@@ -31,6 +31,8 @@ export async function getCrm(params: URLSearchParams) {
         const [restaurant, metrics, analysis] = await Promise.all([
             query(`SELECT r.id,r.name,r.url_slug,r.created_at,COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),r.phone) phone,r.store_whatsapp AS store_phone,
                 COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),NULLIF(TRIM(r.phone),'')) AS owner_phone,(${PLUS_SINCE}) AS plus_since,r.payment_info,r.payment_info_type,u.email,
+                r.creation_step,r.first_time,r.onboarding_completed_at,r.address->>'city' AS city,r.address->>'state' AS state,
+                r.pickup_enabled,r.delivery_disabled,r.preorder_only,
                 (${PAID}) AS has_paid,(${PLUS}) AS plus FROM restaurants r LEFT JOIN auth.users u ON u.id=r.user_id WHERE r.id=$1`, [id]),
             query(`SELECT COUNT(*)::int orders,COALESCE(SUM(total_cents),0)::bigint gmv_cents,
                 COALESCE(SUM(total_cents) FILTER(WHERE payment_method IN ('pix','cartao')),0)::bigint online_cents,

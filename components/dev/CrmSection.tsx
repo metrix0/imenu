@@ -32,7 +32,7 @@ function CrmList({ paid, search, plan, age, onOpen }: { paid: boolean; search: s
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
         <div className={styles.crmTable}>
             <PagedTable pageSize={10} data={data} loading={loading} rowKey={r => r.id} onPage={setPage} onRowClick={onOpen} columns={[
-                { key: "name", label: "Restaurante", render: r => <span className="block min-w-36 whitespace-nowrap font-medium">{r.name}</span> },
+                { key: "name", label: "Restaurante", render: r => <span className="block min-w-0 truncate whitespace-nowrap font-medium" title={r.name}>{r.name}</span> },
                 { key: "status", label: "Cliente", render: r => <CustomerBadge restaurant={r} /> },
                 { key: "store", label: "Celular loja", render: r => <PhoneLink phone={r.store_phone} /> },
                 { key: "owner", label: "Celular dono", render: r => <PhoneLink phone={r.owner_phone || r.phone} /> },

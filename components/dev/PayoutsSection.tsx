@@ -100,18 +100,22 @@ export default function PayoutsSection() {
     const [error, setError] = useState("");
     const [message, setMessage] = useState("");
     const [sending, setSending] = useState(false);
+    const [selectedRestaurantIds,setSelectedRestaurantIds] = useState<string[]>([]);
     const [confirmation, setConfirmation] = useState<{ ids?: string[]; retry?: string } | null>(null);
     useEffect(() => {
         const controller = new AbortController();
-        void devJson<Dashboard>("/api/dev/payout", { signal: controller.signal }).then(setData).catch(e => { if (!controller.signal.aborted) setError(e.message); });
+        void devJson<Dashboard>("/api/dev/payout", { signal: controller.signal }).then(result => {setData(result);setSelectedRestaurantIds(result.payables.filter(row=>row.canSend && row.grossCents > 0).map(row=>row.restaurantId));}).catch(e => { if (!controller.signal.aborted) setError(e.message); });
         return () => controller.abort();
     }, [revision]);
     const payables = [...(data?.payables || [])].sort((a,b)=>Number(!b.pixKey)-Number(!a.pixKey)||b.grossCents-a.grossCents);
     const net = (row: Payable) => calculateOnePercentPayout(row.grossCents, row.payzuFeeCents).netCents;
     const totals = summarizeOnePercentPayouts(payables);
-    const selected = payables.filter(row => row.canSend && row.grossCents > 0 && (!confirmation?.ids || confirmation.ids.includes(row.restaurantId)));
+    const eligible = payables.filter(row=>row.canSend && row.grossCents > 0);
+    const selectedForBatch = eligible.filter(row=>selectedRestaurantIds.includes(row.restaurantId));
+    const selected = eligible.filter(row=>confirmation?.ids?.includes(row.restaurantId));
+    const selectedTotal = summarizeOnePercentPayouts(selectedForBatch).netCents;
     async function send() {
-        if (!confirmation || !data) return;
+        if (!confirmation || !data || (!confirmation.retry && !selected.length)) return;
         setSending(true); setError(""); setMessage("");
         try {
             const result = await devJson<{ paidCount?: number; processingCount?: number; failedCount?: number; validationErrors?: PayoutRestaurantError[] }>("/api/dev/payout", { method: "POST", body: JSON.stringify(confirmation.retry ? { retryPayoutId: confirmation.retry } : { discountPercent: 1, adjustToOnePercent: true, restaurantIds: selected.map(row => row.restaurantId), cutoffAt: data.cutoffAt }) });
@@ -133,8 +137,9 @@ export default function PayoutsSection() {
                     { key: "error", label: "Motivo", render: row => <p className="max-w-xl break-words text-xs text-red-700">{row.message}</p> },
                 ]} />
             </section>}
-            <section className={`${styles.tableSection} ${styles.payoutTable}`}><div className="mb-3.5 flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-semibold">Valores por restaurante</h2><div className="flex flex-wrap gap-2"><Button leftIcon={<Send size={16} aria-hidden="true" />} disabled={sending || !data.asaasConfigured || !payables.some(row => row.canSend && row.grossCents > 0)} onClick={() => setConfirmation({})}>Enviar repasses</Button></div></div>
+            <section className={`${styles.tableSection} ${styles.payoutTable} ${styles.payoutPayables}`}><div className="mb-3.5 flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-semibold">Valores por restaurante</h2><div className="flex flex-wrap gap-2"><Button leftIcon={<Send size={16} aria-hidden="true" />} disabled={sending || !data.asaasConfigured || !selectedForBatch.length} onClick={() => setConfirmation({ids:selectedForBatch.map(row=>row.restaurantId)})}>Enviar selecionados — {money(selectedTotal)}</Button></div></div>
                 <PagedTable pageSize={10} data={{ rows: payables.slice(page * 10, (page + 1) * 10), total: payables.length, page, pageCount: Math.ceil(payables.length / 10) }} onPage={setPage} rowKey={r => r.restaurantId} columns={[
+                    {key:"select",label:"Selecionar",header:<input type="checkbox" aria-label="Selecionar todos os restaurantes elegíveis" checked={eligible.length > 0 && selectedForBatch.length === eligible.length} ref={element=>{if(element)element.indeterminate=selectedForBatch.length > 0 && selectedForBatch.length < eligible.length;}} disabled={sending || !eligible.length} onChange={event=>setSelectedRestaurantIds(event.target.checked ? eligible.map(row=>row.restaurantId) : [])} className="h-4 w-4 cursor-pointer accent-brand disabled:cursor-not-allowed disabled:opacity-40" />,render:r=><input type="checkbox" aria-label={`Selecionar ${r.restaurantName}`} checked={selectedRestaurantIds.includes(r.restaurantId)} disabled={sending || !r.canSend || r.grossCents <= 0} onChange={event=>setSelectedRestaurantIds(current=>event.target.checked ? [...current.filter(id=>id!==r.restaurantId),r.restaurantId] : current.filter(id=>id!==r.restaurantId))} className="h-4 w-4 cursor-pointer accent-brand disabled:cursor-not-allowed disabled:opacity-40" />},
                     { key: "name", label: "Restaurante", render: r => <div className="min-w-0"><button type="button" className={styles.profileLink} onClick={event => {event.stopPropagation();openProfile({id:r.restaurantId,name:r.restaurantName});}}>{r.restaurantName}</button>{data.ownerPhones[r.restaurantId] && <a className="text-xs text-[#c43700]" href={getWhatsappUrl(data.ownerPhones[r.restaurantId])||undefined} target="_blank" rel="noopener noreferrer">{formatPhone(data.ownerPhones[r.restaurantId])}</a>}</div> },
                     { key: "pix", label: "PIX", render: r => <p className="min-w-0 max-w-40 break-all text-xs">{r.pixKey ? <>{r.pixKeyType && <span className="text-gray-500">{r.pixKeyType} · </span>}{r.pixKey}</> : <span className="text-red-700">Não cadastrado</span>}</p> },
                     { key: "gross", label: "Bruto elegível", className: styles.numericCell, render: r => money(r.grossCents) },

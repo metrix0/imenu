@@ -51,7 +51,7 @@
 @media(max-width:767px){.crmDetails{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:420px){.crmDetails{grid-template-columns:1fr}}
 
-.blastTable :global(td){padding-block:8px}.blastTable :global(th){padding-block:11px}.blastMessage{max-width:440px;overflow-wrap:anywhere;white-space:pre-wrap}.blastPreview{max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.profileLink{display:inline-flex;align-items:center;gap:4px;min-width:0;max-width:100%;white-space:nowrap;color:#c43700;text-align:left;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.blastTable :global(td){padding-block:8px}.blastTable :global(th){padding-block:11px}.blastMessage{max-width:440px;overflow-wrap:anywhere;white-space:pre-wrap}.blastPreview{max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.profileLink{display:inline-flex;align-items:center;gap:4px;min-width:0;max-width:100%;white-space:nowrap;color:inherit;text-align:left;text-decoration:none;text-underline-offset:3px;cursor:pointer}
 
 .compactHeading{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 16px}.compactHeading>div:first-child{display:contents}.compactHeading h1{grid-column:1;grid-row:1}.compactHeading p{grid-column:1/-1;grid-row:2;margin-top:0}.compactHeading>button{grid-column:2;grid-row:1}
 
@@ -71,3 +71,13 @@
 .payoutTable{min-width:0}.payoutTable :global([data-ui="table"]){max-width:100%;overflow-x:hidden}.payoutTable :global(table){width:100%;table-layout:fixed}.payoutTable :global(th),.payoutTable :global(td){overflow:hidden;text-overflow:ellipsis;overflow-wrap:anywhere;padding-inline:10px}.payoutTable :global(th){white-space:nowrap}.payoutTable :global(th:first-child){width:18%}.payoutTable :global(td) :global(button){max-width:100%}.payoutTable .profileLink{display:block;overflow:hidden;text-overflow:ellipsis}.payoutTable :global([data-ui="badge"]){max-width:100%;white-space:normal}
 
 .supportTable{min-width:0}.supportTable :global([data-ui="table"]){max-width:100%;overflow-x:hidden}.supportTable :global(table){width:100%;table-layout:fixed}.supportTable :global(th),.supportTable :global(td){padding:8px 12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.supportTable :global(th:first-child){width:28%}.supportTable :global(th:last-child){width:90px}.supportTable .profileLink{overflow:hidden;text-overflow:ellipsis;max-width:100%}.supportIcon{display:inline-flex;align-items:center;justify-content:center;padding:8px;border-radius:6px;color:#626973;cursor:pointer}.supportIcon:hover{background:#f1f3f5;color:#c43700}.supportIcon:disabled{opacity:.4;cursor:default}
+.profileLink:hover,.profileLink:focus-visible{font-weight:600}
+.crmTable :global(td){white-space:nowrap}
+.crmTable :global(th:first-child){width:calc(32% - 56px)}
+.crmTable :global(th:last-child){width:56px}
+.crmTable :global(td:last-child){padding-inline:8px;text-overflow:clip}
+.crmDetails dd{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal}
+.crmDetails dd .profileLink{display:block;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:639px){.crmTable :global(th:first-child){width:calc(46% - 48px)}.crmTable :global(th:last-child){width:48px}}
+
+.payoutPayables :global(th:first-child){width:40px}.payoutPayables :global(th:nth-child(2)){width:22%}
