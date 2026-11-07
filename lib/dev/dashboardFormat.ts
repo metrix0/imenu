@@ -165,3 +165,9 @@ export function accountAge(value?: string | null, now = new Date()): string {
     const weeks = Math.max(1, Math.ceil((now.getTime() - start.getTime()) / (7 * 86400000)));
     return `${weeks} ${weeks === 1 ? "semana" : "semanas"}`;
 }
+
+export function formatResponseTime(seconds: number | null | undefined): string {
+    if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return "—";
+    const total = Math.round(seconds);
+    return total >= 3600 ? `${Math.floor(total / 3600)}h ${Math.floor(total % 3600 / 60)}m` : `${Math.floor(total / 60)}m ${total % 60}s`;
+}

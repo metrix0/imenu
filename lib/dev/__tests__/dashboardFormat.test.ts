@@ -1,4 +1,4 @@
-import { conversion, formatCount, formatRatio, firstPhone, normalizeWhatsappNumber, accountAge, monthsSince } from "../dashboardFormat";
+import { conversion, formatCount, formatRatio, firstPhone, normalizeWhatsappNumber, accountAge, monthsSince, formatResponseTime } from "../dashboardFormat";
 
 describe("developer dashboard formatters", () => {
     it("preserves numeric and conversion formatting", () => {
@@ -31,4 +31,9 @@ test("Plus tenure rounds up months and handles short months",()=>{
  expect(monthsSince("2026-01-31T12:00:00Z",new Date("2026-02-28T12:00:01Z"))).toBe("2 meses");
  expect(accountAge("invalid",ageNow)).toBe("—");
  expect(accountAge("2027-01-01",ageNow)).toBe("—");
+});
+
+
+test.each([[170,"2m 50s"],[18240,"5h 4m"],[3599.8,"1h 0m"],[0,"0m 0s"],[null,"—"],[NaN,"—"]])("formats response duration %s",(value,expected)=>{
+ expect(formatResponseTime(value as number|null)).toBe(expected);
 });

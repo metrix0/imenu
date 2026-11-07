@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { authorize } from "@/lib/dev/authorize";
-import { query } from "@/lib/database/sql";
+import { query, withTransaction } from "@/lib/database/sql";
+import { sendTrackedSupportText } from "@/lib/services/supportWhatsApp";
 import { devPage, DEV_PAGE_SIZE, paged } from "@/lib/dev/pagination";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const CONVERSATION_JOIN = `LEFT JOIN support_conversations c ON c.id=d.conversation_id
+    OR (d.conversation_id IS NULL AND c.chat_id=CASE WHEN d.session_name='imenu-blast'
+    THEN 'imenu-blast:' || d.chat_id ELSE d.chat_id END)`;
 const UUID = /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i;
 
 export async function GET(request: Request) {
@@ -13,6 +17,22 @@ export async function GET(request: Request) {
     if (denied) return denied;
 
     const params = new URL(request.url).searchParams;
+    const id = params.get("id");
+    if (id) {
+        if (!UUID.test(id)) return NextResponse.json({error:"Resposta inválida."},{status:400});
+        try {
+            const messages = await query(`SELECT * FROM (
+                SELECT m.id,m.direction,m.body,m.model,m.dedupe_key,m.created_at FROM support_ai_reply_drafts d
+                ${CONVERSATION_JOIN} JOIN support_messages m ON m.conversation_id=c.id
+                WHERE d.id=$1 AND (m.direction='inbound' OR m.send_status='sent')
+                ORDER BY m.created_at DESC,m.id DESC LIMIT 40
+            ) messages ORDER BY created_at,id`,[id]);
+            return NextResponse.json({messages:messages.rows},{headers:{"Cache-Control":"no-store"}});
+        } catch(error) {
+            console.error("[SUPPORT_DRAFTS] context failed:",error);
+            return NextResponse.json({error:"Não foi possível carregar a conversa."},{status:500});
+        }
+    }
     const state = params.get("status") || "pending";
     if (!["pending", "approved", "rejected"].includes(state)) {
         return NextResponse.json({ error: "Filtro inválido." }, { status: 400 });
@@ -21,28 +41,17 @@ export async function GET(request: Request) {
     const page = devPage(params);
     try {
         const [rows, count, pending] = await Promise.all([
-            query<{
-                id: string; reply_text: string; review_status: string; session_name: string;
-                created_at: string; customer_name: string | null; phone: string | null;
-                restaurant_name: string | null; inbound_message: string | null;
-            }>(
-                "SELECT d.id, d.reply_text, d.review_status, d.session_name, d.created_at, " +
-                "c.customer_name, c.phone, r.name AS restaurant_name, m.body AS inbound_message " +
-                "FROM support_ai_reply_drafts d " +
-                "LEFT JOIN support_conversations c ON c.id=d.conversation_id " +
-                "OR (d.conversation_id IS NULL AND c.chat_id=CASE WHEN d.session_name='imenu-blast' " +
-                "THEN 'imenu-blast:' || d.chat_id ELSE d.chat_id END) " +
-                "LEFT JOIN restaurants r ON r.id=c.restaurant_id " +
-                "LEFT JOIN support_messages m ON m.id=d.trigger_message_id AND m.direction='inbound' " +
-                "WHERE d.review_status=$1 ORDER BY d.created_at DESC,d.id DESC LIMIT $2 OFFSET $3",
-                [state, DEV_PAGE_SIZE, page * DEV_PAGE_SIZE]
-            ),
-            query<{ total: number }>(
-                "SELECT COUNT(*)::int AS total FROM support_ai_reply_drafts WHERE review_status=$1", [state]
-            ),
-            query<{ total: number }>(
-                "SELECT COUNT(*)::int AS total FROM support_ai_reply_drafts WHERE review_status='pending'"
-            ),
+            query(`WITH latest AS (
+                SELECT DISTINCT ON (session_name,chat_id) * FROM support_ai_reply_drafts
+                ORDER BY session_name,chat_id,created_at DESC,id DESC
+            ) SELECT d.id,d.reply_text,d.review_status,d.session_name,d.created_at,c.customer_name,c.phone,
+                c.restaurant_id,r.name restaurant_name,m.body inbound_message
+                FROM latest d ${CONVERSATION_JOIN}
+                LEFT JOIN restaurants r ON r.id=c.restaurant_id
+                LEFT JOIN support_messages m ON m.id=d.trigger_message_id AND m.direction='inbound'
+                WHERE d.review_status=$1 ORDER BY d.created_at DESC,d.id DESC LIMIT $2 OFFSET $3`,[state,DEV_PAGE_SIZE,page*DEV_PAGE_SIZE]),
+            query<{total:number}>("SELECT COUNT(*)::int total FROM (SELECT DISTINCT ON(session_name,chat_id) review_status FROM support_ai_reply_drafts ORDER BY session_name,chat_id,created_at DESC,id DESC) latest WHERE review_status=$1",[state]),
+            query<{total:number}>("SELECT COUNT(*)::int total FROM (SELECT DISTINCT ON(session_name,chat_id) review_status FROM support_ai_reply_drafts ORDER BY session_name,chat_id,created_at DESC,id DESC) latest WHERE review_status='pending'"),
         ]);
         return NextResponse.json({
             ...paged(rows.rows, count.rows[0]?.total ?? 0, page),
@@ -80,11 +89,29 @@ export async function POST(request: Request) {
                 "WHERE id=$1 AND review_status='pending' RETURNING id",
                 [body.id, text]
             );
-        } else if (body.action === "approve" || body.action === "reject") {
+        } else if (body.action === "approve") {
+            const sent = await withTransaction(async client => {
+                const result = await client.query(`SELECT d.id,d.reply_text,d.review_status,d.session_name,d.chat_id,
+                    c.id conversation_id FROM support_ai_reply_drafts d ${CONVERSATION_JOIN}
+                    WHERE d.id=$1 FOR UPDATE OF d`,[body.id]);
+                const draft = result.rows[0];
+                if (!draft || draft.review_status !== "pending") return false;
+                if (!draft.conversation_id || !draft.reply_text?.trim()) throw new Error("Conversa ou resposta indisponível.");
+                const delivered = await sendTrackedSupportText({
+                    conversationId:draft.conversation_id,sessionName:draft.session_name,chatId:draft.chat_id,
+                    text:draft.reply_text,dedupeKey:`support:draft:${draft.id}`,replaceUnsentText:true,
+                });
+                if (!delivered) throw new Error("O contato está bloqueado para envios.");
+                await client.query("UPDATE support_ai_reply_drafts SET review_status='approved',updated_at=NOW() WHERE id=$1",[draft.id]);
+                return true;
+            });
+            if (!sent) return NextResponse.json({error:"A resposta não está mais pendente."},{status:409});
+            return NextResponse.json({ok:true,sent:true});
+        } else if (body.action === "reject") {
             changed = await query(
                 "UPDATE support_ai_reply_drafts SET review_status=$2, updated_at=NOW() " +
                 "WHERE id=$1 AND review_status='pending' RETURNING id",
-                [body.id, body.action === "approve" ? "approved" : "rejected"]
+                [body.id, "rejected"]
             );
         } else {
             return NextResponse.json({ error: "Ação inválida." }, { status: 400 });
@@ -93,10 +120,9 @@ export async function POST(request: Request) {
         if (!changed.rowCount) {
             return NextResponse.json({ error: "A resposta não está mais pendente." }, { status: 409 });
         }
-        // Approval is a review flag only. This route never sends WhatsApp messages.
         return NextResponse.json({ ok: true });
     } catch (error) {
         console.error("[SUPPORT_DRAFTS] update failed:", error);
-        return NextResponse.json({ error: "Não foi possível atualizar a resposta." }, { status: 500 });
+        return NextResponse.json({ error: body.action === "approve" ? "Não foi possível enviar pelo WhatsApp. A resposta continua pendente." : "Não foi possível atualizar a resposta." }, { status: 500 });
     }
 }

@@ -12,7 +12,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 
-import {Send} from "lucide-react";
+import {Send, Bot, MessageCircle} from "lucide-react";
 import BlastHistorySection from "@/components/dev/BlastHistorySection";
 import SupportDraftsSection from "@/components/dev/SupportDraftsSection";
 import Pagination from "@/components/ui/Pagination";
@@ -39,9 +39,13 @@ import { parseBulkPhones, parseBulkRecipients, renderBulkMessage, type BulkInput
 import type { AccessState, BlastCampaign, BlastRecipient, Connection, Stats, KnowledgeEntry, Conversation, DashboardData } from "@/lib/dev/supportTypes";
 import { formatPhone, getWhatsappUrl, statusPresentation } from "@/lib/dev/supportView";
 
+import { useDevProfile, PhoneLink } from "./DevProfileProvider";
+import { formatResponseTime } from "@/lib/dev/dashboardFormat";
+
 const ALLOWED_DEV_EMAIL = "joaovralmeida@hotmail.com";
 export default function SupportSection({ section = "support" }: { section?: "support" | "blast" | "legacy" }) {
     const router = useRouter();
+    const { openProfile } = useDevProfile();
     const [accessState, setAccessState] =
         useState<AccessState>("checking");
     const [supportPage, setSupportPage] = useState(0);
@@ -535,17 +539,18 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                 )}
 
                 {section !== "blast" && <>
-                <section className={`${styles.section} ${styles.scrollTable} ${styles.handoffs}`}>
-                    <div className={styles.sectionHeader}><div><h2>Atendimento humano</h2><p>Conversas encaminhadas para a equipe.</p></div>{Boolean(data?.stats.human_conversations) && <Badge variant="neutral">{data?.stats.human_conversations} conversa(s)</Badge>}</div>
+                <section className={`${styles.tableSection} ${styles.supportTable}`}>
+                    <h2>Atendimento humano</h2>
                     <DataTable rows={data?.handedOff || []} rowKey={conversation => conversation.id} emptyMessage="Nenhuma conversa em atendimento humano." columns={[
-                        { key: "restaurant", label: "Restaurante", render: conversation => <div className="min-w-48"><p className="font-medium">{conversation.restaurant_name || "Restaurante não identificado"}</p>{conversation.plus && <Badge variant="brand" className="mt-2">iMenu Plus</Badge>}</div> },
-                        { key: "contact", label: "Contato", render: conversation => <div className="min-w-40"><p className="text-gray-600">{conversation.customer_name || "—"}</p><p className="mt-1 text-xs text-gray-500">{formatPhone(conversation.phone)}</p></div> },
-                        { key: "actions", label: "", render: conversation => <div className="flex justify-end gap-2"><Button variant="secondary" loading={action === "set_conversation_mode"} onClick={() => void runAction("set_conversation_mode", { id: conversation.id, mode: "ai" })}>Reativar bot</Button><Button variant="secondary" disabled={!getWhatsappUrl(conversation.phone)} onClick={() => { const url = getWhatsappUrl(conversation.phone); if (url) window.open(url, "_blank", "noopener,noreferrer"); }}><FontAwesomeIcon icon={faWhatsapp} className="mr-2" />Abrir WhatsApp</Button></div> },
+                        { key: "restaurant", label: "Restaurante", render: conversation => <div className="flex min-w-0 items-center gap-2">{conversation.restaurant_id ? <button type="button" className={styles.profileLink} onClick={() => openProfile({id:conversation.restaurant_id!,name:conversation.restaurant_name || "Restaurante"})}>{conversation.restaurant_name || "Restaurante"}</button> : <span>Restaurante não identificado</span>}{conversation.plus && <Badge variant="brand" className="shrink-0 whitespace-nowrap">iMenu Plus</Badge>}</div> },
+                        { key: "owner", label: "Celular dono", render: conversation => <PhoneLink phone={conversation.owner_phone} /> },
+                        { key: "store", label: "Celular restaurante", render: conversation => <PhoneLink phone={conversation.store_phone} /> },
+                        { key: "actions", label: "", render: conversation => <div className="flex justify-end gap-1"><button type="button" title="Reativar bot" aria-label="Reativar bot" disabled={action === "set_conversation_mode"} className={styles.supportIcon} onClick={() => void runAction("set_conversation_mode", { id: conversation.id, mode: "ai" })}><Bot size={16} aria-hidden="true" /></button><button type="button" title="Abrir WhatsApp" aria-label="Abrir WhatsApp" className={styles.supportIcon} disabled={!getWhatsappUrl(conversation.phone)} onClick={() => { const url = getWhatsappUrl(conversation.phone); if (url) window.open(url, "_blank", "noopener,noreferrer"); }}><MessageCircle size={16} aria-hidden="true" /></button></div> },
                     ]} />
-                    {(data?.stats.human_conversations || 0) > 25 && <div className={styles.tableFooter}><span>{data?.stats.human_conversations} conversa(s)</span><Pagination page={handoffPage} pageCount={Math.ceil((data?.stats.human_conversations || 0) / 25)} onChange={setHandoffPage} /></div>}
+                    {(data?.stats.human_conversations || 0) > 25 && <div className={styles.tableFooter}><Pagination page={handoffPage} pageCount={Math.ceil((data?.stats.human_conversations || 0) / 25)} onChange={setHandoffPage} /></div>}
                 </section>
 
-                <dl className={styles.metricStrip}><div><dt>Resposta média · Bot</dt><dd>{data?.responseTimes?.bot_seconds == null ? "—" : `${Math.round(data.responseTimes.bot_seconds)} s`}</dd><p>Últimos 30 dias</p></div><div><dt>Resposta média · Humano</dt><dd>{data?.responseTimes?.human_seconds == null ? "—" : `${Math.round(data.responseTimes.human_seconds/60)} min`}</dd><p>Últimos 30 dias</p></div></dl>
+                <dl className={styles.metricStrip}><div><dt>Resposta média · Bot</dt><dd>{formatResponseTime(data?.responseTimes?.bot_seconds)}</dd><p>Últimos 30 dias</p></div><div><dt>Resposta média · Humano</dt><dd>{formatResponseTime(data?.responseTimes?.human_seconds)}</dd><p>Últimos 30 dias</p></div></dl>
                {section === "support" && <SupportDraftsSection/>}
                {section === "legacy" && <>
                 <Card>
