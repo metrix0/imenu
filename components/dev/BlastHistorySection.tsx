@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {Eye} from "lucide-react";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import Tabs from "@/components/ui/Tabs";
@@ -26,17 +27,16 @@ function groupLabel(row: Group) {
     return row.id === "automation:recovery" ? "Recuperação e ativação" : row.id.startsWith("congratulations:") ? "Boas-vindas iMenu Plus" : row.id.startsWith("followup:") ? "Follow-up" : row.id.startsWith("customer:") ? "Automação de clientes" : row.id.startsWith("payout:") ? "Problemas com repasse" : row.id.startsWith("expiry:") ? "Vencimento iMenu Plus" : null;
 }
 function SendProgress({ row }: { row: Group }) {
-    return <span className="whitespace-nowrap tabular-nums">{row.sent} / {row.total}{row.failed > 0 && <span className="ml-2 text-xs text-red-700">{row.failed} falha(s)</span>}</span>;
+    return <span className="whitespace-nowrap tabular-nums">{row.sent} / {row.total}</span>;
 }
-function Sender({ sender, connections,showPhone=true }: { sender: string; connections: Connections;showPhone?:boolean }) {
-    if (sender === "restaurant") return <span title="Número de cada restaurante">Loja</span>;
-    const connection = sender === "blast" ? connections.blast : connections.support;
-    const status = statusPresentation(connection);
-    const healthy = connection?.desired_state === "connected" && connection.status === "WORKING";
-    return <span className={`inline-flex items-center gap-2 ${showPhone?"flex-wrap":"flex-nowrap whitespace-nowrap"}`}><span role="img" aria-label={status.label} title={connection?.last_error || status.label} className={`h-2 w-2 shrink-0 rounded-full ${healthy ? "bg-green-600" : connection?.status === "UNKNOWN" || !connection ? "bg-gray-400" : "bg-red-600"}`} /><span className="whitespace-nowrap">{sender === "blast" ? "Blast (remetente)" : "Suporte"}</span>{showPhone && connection?.phone && <span className="whitespace-nowrap text-xs text-gray-500">{formatPhone(connection.phone)}</span>}</span>;
+function Sender({ sender, connections }: { sender:string;connections:Connections }) {
+ const connection=sender==="blast"?connections.blast:connections.support;
+ const status=statusPresentation(connection);
+ const healthy=connection?.desired_state==="connected"&&connection.status==="WORKING";
+ return <span className="inline-flex max-w-full items-center gap-2 whitespace-nowrap" title={connection?.last_error||status.label}><span role="img" aria-label={status.label} className={`h-2 w-2 shrink-0 rounded-full ${healthy?"bg-green-600":connection?.status==="UNKNOWN"||!connection?"bg-gray-400":"bg-red-600"}`}/><span className="truncate">{sender==="blast"?"Blast":"Suporte"}</span></span>;
 }
 
-export default function BlastHistorySection({ refreshKey = 0, connections, onManageSender }: { refreshKey?: number; connections: Connections; onManageSender: () => void }) {
+export default function BlastHistorySection({ refreshKey = 0, connections }: { refreshKey?: number; connections: Connections }) {
     const { openProfile } = useDevProfile();
     const [page, setPage] = useState(0);
     const [automationPage, setAutomationPage] = useState(0);
@@ -69,35 +69,28 @@ export default function BlastHistorySection({ refreshKey = 0, connections, onMan
         catch (e) { setError((e as Error).message); } finally { setAction(""); }
     }
     const campaignActions = (row: Group) => <div className="flex gap-2" onClick={e => e.stopPropagation()}>{row.status === "running" && <Button variant="secondary" className={compactButton} loading={action === row.id} onClick={() => void changeStatus(row, "pause")}>Pausar</Button>}{row.status === "paused" && <Button variant="secondary" className={compactButton} loading={action === row.id} onClick={() => void changeStatus(row, "resume")}>Retomar</Button>}{["running", "paused"].includes(row.status || "") && <Button variant="secondary" className={compactButton} loading={action === row.id} onClick={() => void changeStatus(row, "cancel")}>Parar</Button>}</div>;
-    const destination = (row: Destination, group?: Group) => row.profiles?.length ? <div className="flex flex-wrap gap-x-3 gap-y-1">{row.profiles.map(target => <button key={target.restaurant_id} className={styles.profileLink} title={target.name} onClick={event => { event.stopPropagation(); setSelected(null); openProfile({ id: target.restaurant_id, name: target.name }); }}><span className="max-w-40 truncate">{target.name}</span><span className="shrink-0 whitespace-nowrap text-xs text-gray-500">· {target.kind}</span></button>)}</div> : row.phone ? <span className="whitespace-nowrap">{formatPhone(row.phone)}</span> : group ? <button className={styles.profileLink} onClick={() => openDetails(group)}>{group.total} destinatário(s)</button> : "—";
+    const destination = (row: Destination, group?: Group) => row.profiles?.length ? <div className="flex flex-wrap gap-x-3 gap-y-1">{row.profiles.map(target => <button key={target.restaurant_id} className={styles.profileLink} title={target.name} onClick={event => { event.stopPropagation(); setSelected(null); openProfile({ id: target.restaurant_id, name: target.name }); }}><span className="max-w-40 truncate">{target.name}</span><Badge variant="neutral" className="shrink-0 whitespace-nowrap">{target.kind === "Dono e loja" ? "Dono/loja" : target.kind}</Badge></button>)}</div> : row.phone ? <span className="whitespace-nowrap">{formatPhone(row.phone)}</span> : group ? <button className={styles.profileLink} onClick={event=>{event.stopPropagation();openDetails(group);}}>{group.total} destinatário(s)</button> : "—";
     return <>
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-        <section className={`${styles.externalSection} ${styles.blastTable}`}><h2>Blasts</h2>
-            <PagedTable data={data} loading={loading} onPage={setPage} rowKey={r => r.id} columns={[
+        <section className={`${styles.tableSection} ${styles.blastTable} ${styles.blastMain}`} aria-label="Blasts">
+            <PagedTable data={data} loading={loading} onPage={setPage} rowKey={r => r.id} onRowClick={openDetails} columns={[
                 { key: "date", label: "Data", className: styles.dateCell, render: r => formatDateTime(r.created_at) },
                 { key: "message", label: "Blast", render: r => groupLabel(r) ? <Badge variant="neutral">{groupLabel(r)}</Badge> : <p className={styles.blastPreview}>{r.message}</p> },
                 { key: "destination", label: "Destino", render: r => destination(r, r) },
                 { key: "progress", label: "Envios", render: r => <SendProgress row={r} /> },
-                { key: "sender", label: "Remetente", render: r => <Sender sender={r.sender} connections={connections} showPhone={false} /> },
-                { key: "details", label: "", render: r => <Button variant="secondary" className={compactButton} onClick={() => openDetails(r)}>Ver detalhes</Button> },
+                { key: "sender", label: "Remetente", render: r => <Sender sender={r.sender} connections={connections} /> },
+                { key: "details", label: "", render: r => <button type="button" title="Ver detalhes" aria-label="Ver detalhes do blast" className="cursor-pointer rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-brand" onClick={event=>{event.stopPropagation();openDetails(r);}}><Eye size={16} aria-hidden="true"/></button> },
             ]} />
         </section>
-        <section className={`${styles.externalSection} ${styles.blastTable}`}><h2>Blasts automáticos</h2>
+        <section className={`${styles.tableSection} ${styles.blastTable} ${styles.blastAutomations}`}><h2>Blasts automáticos</h2>
             <PagedTable data={{ rows: data.automations.slice(automationPage * 25, (automationPage + 1) * 25), total: data.automations.length, page: automationPage, pageCount: Math.max(1, Math.ceil(data.automations.length / 25)) }} loading={loading} onPage={setAutomationPage} rowKey={r => r.id} columns={[
                 { key: "name", label: "Título", render: r => <span className="font-medium">{r.name}</span> },
-                { key: "message", label: "Mensagem", render: r => <p className={styles.blastMessage}>{r.message || "Nenhuma mensagem registrada."}</p> },
+                { key: "message", label: "Mensagem", render: r => <p className={styles.blastMessage}>{r.message || "—"}</p> },
                 { key: "sender", label: "Remetente", render: r => <Sender sender={r.sender} connections={connections} /> },
             ]} />
         </section>
-        <section className={`${styles.externalSection} ${styles.blastTable}`}><h2>Remetentes</h2>
-            <PagedTable data={{ rows: [{ id: "support" }, { id: "blast" }], total: 2, page: 0, pageCount: 1 }} onPage={() => {}} rowKey={r => r.id} columns={[
-                { key: "sender", label: "Número", render: r => <Sender sender={r.id} connections={connections} /> },
-                { key: "status", label: "Saúde", render: r => statusPresentation(r.id === "blast" ? connections.blast : connections.support).label },
-                { key: "manage", label: "", render: r => r.id === "blast" ? <Button variant="secondary" className={compactButton} onClick={onManageSender}>Gerenciar</Button> : null },
-            ]} />
-        </section>
         <DevDialog title={selected ? groupLabel(selected) || "Detalhes do blast" : "Detalhes do blast"} open={Boolean(selected)} onClose={() => setSelected(null)}>
-            <div className="space-y-5">
+            <div className={`space-y-5 ${styles.blastTable}`}>
                 {selected && selected.id !== "automation:recovery" && <p className="whitespace-pre-wrap break-words text-sm leading-6">{selected.message}</p>}
                 {selected && campaignActions(selected)}
                 {selected?.id === "automation:recovery" && <Tabs tabs={["Destinatários", "Campanhas"]} active={view} onChange={value => { setView(value); setRecipientPage(0); }} />}
@@ -105,7 +98,7 @@ export default function BlastHistorySection({ refreshKey = 0, connections, onMan
                     { key: "date", label: "Data", render: r => formatDateTime(r.created_at) },
                     { key: "message", label: "Campanha", render: r => <p className={styles.blastPreview}>{r.message}</p> },
                     { key: "progress", label: "Envios", render: r => <SendProgress row={r} /> },
-                    { key: "details", label: "", render: r => <Button variant="secondary" className={compactButton} onClick={() => openDetails(r)}>Ver detalhes</Button> },
+                    { key: "details", label: "", render: r => <button type="button" title="Ver detalhes" aria-label="Ver detalhes do blast" className="cursor-pointer rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-brand" onClick={event=>{event.stopPropagation();openDetails(r);}}><Eye size={16} aria-hidden="true"/></button> },
                     { key: "actions", label: "", render: campaignActions },
                 ]} /> : <PagedTable data={recipients} loading={detailsLoading} rowKey={r => r.id} onPage={setRecipientPage} columns={[
                     { key: "destination", label: "Destino", render: r => destination(r) },

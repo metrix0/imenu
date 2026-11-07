@@ -6,10 +6,14 @@ import DevDialog from "./DevDialog";
 import PagedTable, { type PageData } from "./PagedTable";
 import { devJson } from "@/lib/dev/client";
 import { formatDateTime } from "@/lib/dev/dashboardFormat";
+import Badge from "@/components/ui/Badge";
 
 import type {DateRange} from "@/lib/utils/dateRange";
 
-type Alert = { id: string; source: string; title: string; message: string; severity: string; phone_notified: boolean|null; alarm_triggered: boolean|null; delivery_error:string|null; created_at: string };
+type Alert = { id: string; source: string; title: string; message: string; severity: string;
+    phone_notified: boolean|null; alarm_triggered: boolean|null; delivery_error:string|null;
+    trigger_type:"notification"|"alarm"|"blast"|"none"|null; operation:string|null; http_status:number|null;
+    occurrences:number; last_seen_at:string|null; resolved_at:string|null; created_at: string };
 
 export default function AlertsSection({range}:{range?:DateRange}) {
     const [page, setPage] = useState(0);
@@ -27,13 +31,31 @@ export default function AlertsSection({range}:{range?:DateRange}) {
     return <section className={styles.externalSection}>
         <h2>Alertas</h2>
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-        <PagedTable onRowClick={setSelected} data={data} onPage={setPage} rowKey={row => String(row.id)} loading={loading} columns={[
-            { key: "date", label: "Data", render: row => formatDateTime(row.created_at), className: "whitespace-nowrap" },
-            { key: "source", label: "Origem", render: row => row.source === "phone" ? "Origem não registrada" : row.source },
-            {key:"phone",label:"Notificado no celular",render:row=>row.phone_notified==null?"Não registrado":row.phone_notified?"Sim":"Não"},
-            {key:"alarm",label:"TRIGGER ALARM",render:row=>row.alarm_triggered==null?"Não registrado":row.alarm_triggered?"Sim":"Não"},
-            { key: "title", label: "Alerta", render: row => <div className="max-w-2xl"><p className="font-medium">{row.title}</p><p className="mt-1 line-clamp-2 break-words text-xs text-gray-500">{row.message}</p></div> },
+        <PagedTable pageSize={10} onRowClick={setSelected} data={data} onPage={setPage} rowKey={row => String(row.id)} loading={loading} columns={[
+            { key: "date", label: "Data", render: row => formatDateTime(row.last_seen_at||row.created_at), className: "whitespace-nowrap" },
+            { key: "source", label: "Origem", render: row => row.source === "phone" || row.source === "unknown" ? "Origem não registrada" : row.source, className: "whitespace-nowrap" },
+            { key: "operation", label: "Operação", render: row => row.operation||"—", className: "whitespace-nowrap" },
+            { key: "trigger", label: "Trigger", render: row => {
+                const t=row.trigger_type;
+                if(!t)return "Não registrado";
+                const labels={notification:"Notification",alarm:"Alarm",blast:"Blast",none:"None"} as const;
+                const variants={notification:"info",alarm:"danger",blast:"brand",none:"neutral"} as const;
+                return <Badge variant={variants[t]}>{labels[t]}</Badge>;
+            }, className: "whitespace-nowrap" },
+            { key: "count", label: "Ocorrências", render: row => row.occurrences>1?row.occurrences:"—", className: "whitespace-nowrap" },
+            { key: "title", label: "Alerta", render: row => <span className="block max-w-md truncate font-medium" title={`${row.title} · ${row.message}`}>{row.title}{row.http_status ? ` · HTTP ${row.http_status}` : ""}</span> },
         ]} />
-        <DevDialog open={Boolean(selected)} onClose={()=>setSelected(null)} title={selected?.title || "Alerta"}><><p className="whitespace-pre-wrap text-sm leading-7">{selected?.message}</p>{selected?.delivery_error&&<p role="alert" className="text-red-700">{selected.delivery_error}</p>}</></DevDialog>
+        <DevDialog open={Boolean(selected)} onClose={()=>setSelected(null)} title={selected?.title || "Alerta"}><>
+            <div className="mb-3 space-y-1 text-sm text-gray-600">
+                <p>Origem: {selected?.source || "—"} · Operação: {selected?.operation||"—"}</p>
+                <p>HTTP: {selected?.http_status??"—"} · Ocorrências: {selected?.occurrences??1}</p>
+                <p>Primeira ocorrência: {formatDateTime(selected?.created_at||null)}</p>
+                <p>Última ocorrência: {formatDateTime(selected?.last_seen_at||selected?.created_at||null)}</p>
+                <p>Status: {selected?.resolved_at?"Resolvido":selected?.trigger_type?"Em aberto":"Histórico"}</p>
+                <p>Notificado no celular: {selected?.phone_notified==null?"Não registrado":selected.phone_notified?"Sim":"Não"}</p>
+            </div>
+            <p className="whitespace-pre-wrap text-sm leading-7">{selected?.message}</p>
+            {selected?.delivery_error&&<p role="alert" className="text-red-700">{selected.delivery_error}</p>}
+        </></DevDialog>
     </section>;
 }

@@ -64,12 +64,14 @@ async function notifyPayoutAlarm({
     status,
     step,
     message,
+    trigger,
 }: {
     runId?: string;
     runDate: string;
     status: string;
     step: AutomationStep;
     message: string;
+    trigger?: "notification" | "alarm" | "none";
 }): Promise<void> {
     const topic = process.env.NTFY_TOPIC?.trim();
     if (!topic) {
@@ -85,7 +87,9 @@ async function notifyPayoutAlarm({
     try {
         await sendNtfyNotification({
             source: "cron/daily-payout",
-            title: "ALARM TRIGGER - iMenu payout automático",
+            operation: step,
+            trigger: trigger ?? (status === "blocked" ? "notification" : "alarm"),
+            title: (trigger === "none" || status === "blocked") ? "iMenu: repasse automático bloqueado" : "ALARM TRIGGER - iMenu payout automático",
             message: [
                 "Pagamento automático não foi concluído.",
                 `Data: ${runDate}`,
@@ -132,24 +136,19 @@ async function markRunFailed(
 export async function GET(request: Request) {
     const preflightRunDate = getBusinessDate(new Date());
 
+    if (!isAuthorized(request)) {
+        return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+    }
+
     if (process.env.PAYOUT_CRON_ENABLED !== "true") {
         await notifyPayoutAlarm({
             runDate: preflightRunDate,
             status: "blocked",
             step: "preflight",
+            trigger: "none",
             message: "Cron desativado: PAYOUT_CRON_ENABLED não está definido como true.",
         });
         return NextResponse.json({ error: "Cron desativado." }, { status: 403 });
-    }
-
-    if (!isAuthorized(request)) {
-        await notifyPayoutAlarm({
-            runDate: preflightRunDate,
-            status: "failed",
-            step: "preflight",
-            message: "Falha de autorização do cron.",
-        });
-        return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
     }
 
     const startedAt = new Date();
@@ -271,6 +270,7 @@ export async function GET(request: Request) {
                 runDate,
                 status: "blocked",
                 step: currentStep,
+                trigger: "none",
                 message,
             });
             return NextResponse.json({ success: false, blocked: true, error: message });

@@ -1,3 +1,4 @@
+import { isAuthRetryableFetchError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/database/supabaseClient";
 
 export const DEV_EMAIL = "joaovralmeida@hotmail.com";
@@ -14,11 +15,12 @@ export function watchDevAccess(update: (access: DevAccess) => void) {
         try {
             const { data, error } = await supabase.auth.getUser();
             if (!active || current !== revision) return;
+            if (verifiedUserId && isAuthRetryableFetchError(error)) return;
             const access: DevAccess = error || !data.user ? "signed-out" : data.user.email?.trim().toLowerCase() === DEV_EMAIL ? "allowed" : "forbidden";
             verifiedUserId = access === "allowed" ? data.user?.id || null : null;
             update(access);
-        } catch {
-            if (active && current === revision) { verifiedUserId = null; update("error"); }
+        } catch (error) {
+            if (active && current === revision && !(verifiedUserId && isAuthRetryableFetchError(error))) { verifiedUserId = null; update("error"); }
         }
     };
 

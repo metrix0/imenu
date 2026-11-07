@@ -5,6 +5,7 @@ import {
     createPayoutPlan,
     getAsaasBalance,
     getPayoutDashboardData,
+    sendPayouts,
 } from "@/lib/services/payouts";
 import {
     assertMercadoPagoPayoutConfigured,
@@ -172,5 +173,19 @@ it("blocks non-admin users from payout reads and transfers", async () => {
     expect(read.status).toBe(403);
     expect(transfer.status).toBe(403);
     expect(createPayoutPlan).not.toHaveBeenCalled();
+    expect(transferMercadoPagoToAsaas).not.toHaveBeenCalled();
+});
+
+it("sends only the selected restaurants with the reviewed cutoff and fee", async () => {
+    const restaurantIds = ["30000000-0000-4000-8000-000000000001","30000000-0000-4000-8000-000000000002"];
+    (sendPayouts as jest.Mock).mockResolvedValue({paidCount:2,processingCount:0,failedCount:0});
+    const response = await POST(new Request("https://example.com/api/dev/payout", {
+        method:"POST",headers:{authorization:"Bearer token","content-type":"application/json"},
+        body:JSON.stringify({restaurantIds,cutoffAt:"2026-10-23T00:00:00.000Z",discountPercent:1,adjustToOnePercent:true}),
+    }));
+    expect(response.status).toBe(200);
+    expect(sendPayouts).toHaveBeenCalledWith(expect.objectContaining({
+        restaurantIds,cutoffAt:new Date("2026-10-23T00:00:00.000Z"),discountPercent:1,adjustToOnePercent:true,
+    }));
     expect(transferMercadoPagoToAsaas).not.toHaveBeenCalled();
 });

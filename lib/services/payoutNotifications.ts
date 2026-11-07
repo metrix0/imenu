@@ -1,4 +1,5 @@
 import { query } from "@/lib/database/sql";
+import { recordDevAlert } from "@/lib/dev/health";
 import { normalizeBlastPhone } from "@/lib/services/supportBlast";
 import { checkWahaPhoneExists, sendWahaText } from "@/lib/services/wahaClient";
 
@@ -31,6 +32,12 @@ export async function notifyPayoutProblem(restaurantId: string, missingKey: bool
             const chatId = contact.chatId || phone + "@c.us";
             await sendWahaText(row.session_name, chatId, message);
             await query("UPDATE whatsapp_outbound_messages SET status='sent',sent_at=NOW(),updated_at=NOW(),chat_id=$2 WHERE dedupe_key=$1", [key, chatId]);
+            await recordDevAlert({
+                source: "payouts", operation: "Aviso via WhatsApp",
+                title: missingKey ? "Aviso de chave PIX enviado" : "Aviso de repasse enviado",
+                message: "Mensagem de repasse enviada ao restaurante.",
+                severity: "info", trigger: "blast",
+            });
         } catch (error) {
             await query("UPDATE whatsapp_outbound_messages SET status='failed',last_error=$2,updated_at=NOW() WHERE dedupe_key=$1", [key, error instanceof Error ? error.message.slice(0, 500) : "Falha no envio."]);
         }

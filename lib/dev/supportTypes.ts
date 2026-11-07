@@ -60,10 +60,13 @@ export type Conversation = {
     customer_name: string | null;
     restaurant_id: string | null;
     restaurant_name: string | null;
+    owner_phone?: string | null;
+    store_phone?: string | null;
     mode: "ai" | "human";
     updated_at: string;
     human_started_at?: string | null;
     last_human_reply_at?: string | null;
+    attended?: boolean;
     last_message: string | null;
     plus?: boolean;
 };

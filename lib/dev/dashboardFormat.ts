@@ -138,3 +138,38 @@ export function formatRestaurantNameForMessage(value: string): string {
         )
         .join(" ");
 }
+
+function monthAnniversary(start: Date, months: number): Date {
+    const date = new Date(start);
+    date.setUTCDate(1);
+    date.setUTCMonth(start.getUTCMonth() + months);
+    const lastDay = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
+    date.setUTCDate(Math.min(start.getUTCDate(), lastDay));
+    return date;
+}
+export function monthsSince(value?: string | null, now = new Date()): string {
+    if (!value) return "—";
+    const start = new Date(value);
+    if (!Number.isFinite(start.getTime()) || start > now) return "—";
+    let months = (now.getUTCFullYear() - start.getUTCFullYear()) * 12 + now.getUTCMonth() - start.getUTCMonth();
+    if (monthAnniversary(start, months) > now) months--;
+    if (monthAnniversary(start, months).getTime() < now.getTime()) months++;
+    months = Math.max(1, months);
+    return `${months} ${months === 1 ? "mês" : "meses"}`;
+}
+export function accountAge(value?: string | null, now = new Date()): string {
+    if (!value) return "—";
+    const start = new Date(value);
+    if (!Number.isFinite(start.getTime()) || start > now) return "—";
+    if (now >= monthAnniversary(start, 1)) return monthsSince(value, now);
+    const weeks = Math.max(1, Math.ceil((now.getTime() - start.getTime()) / (7 * 86400000)));
+    return `${weeks} ${weeks === 1 ? "semana" : "semanas"}`;
+}
+
+export function formatResponseTime(seconds: number | null | undefined): string {
+    if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return "—";
+    const total = Math.round(seconds);
+    if (total >= 3600) return `${Math.floor(total / 3600)}h ${Math.floor(total % 3600 / 60)}m`;
+    if (total >= 60) return `${Math.floor(total / 60)}m ${total % 60}s`;
+    return `${total}s`;
+}

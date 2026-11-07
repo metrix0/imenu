@@ -867,12 +867,13 @@ function getPersonName(value: string | null): string | null {
         .join(" ");
 }
 
-async function sendTrackedSupportText(input: {
+export async function sendTrackedSupportText(input: {
     conversationId: string;
     sessionName: string;
     chatId: string;
     text: string;
     dedupeKey: string;
+    replaceUnsentText?: boolean;
     model?: string | null;
     inputTokens?: number | null;
     outputTokens?: number | null;
@@ -888,7 +889,7 @@ async function sendTrackedSupportText(input: {
     );
 
     let messageId = existing.rows[0]?.id;
-    const body = existing.rows[0]?.body || input.text;
+    const body = input.replaceUnsentText && existing.rows[0]?.send_status !== "sent" ? input.text : existing.rows[0]?.body || input.text;
 
     if (!messageId) {
         const inserted = await query<{ id: string }>(
@@ -907,6 +908,9 @@ async function sendTrackedSupportText(input: {
         return true;
     }
 
+    if (input.replaceUnsentText && existing.rows[0] && existing.rows[0].send_status !== "sent") {
+        await query("UPDATE support_messages SET body=$2 WHERE id=$1 AND send_status <> 'sent'",[messageId,body]);
+    }
     try {
         // Close the window where this contact could be blacklisted mid-reply.
         if (await isSupportConversationBlacklisted(input.conversationId)) {

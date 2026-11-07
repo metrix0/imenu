@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import ListLoader from "./ListLoader";
 import { ArrowDown, ArrowUp, ArrowUpDown, Inbox } from "lucide-react";
 
-export type TableColumn<T> = { key: string; label: string; render: (row: T) => ReactNode; className?: string; sortable?: boolean };
+export type TableColumn<T> = { key: string; label: string; header?: ReactNode; render: (row: T) => ReactNode; className?: string; sortable?: boolean };
 
 export default function DataTable<T>({ columns, rows, rowKey, onRowClick, loading, emptyMessage = "Nenhum resultado encontrado.", sortKey, sortDirection = "desc", onSort }: {
     columns: TableColumn<T>[]; rows: T[]; rowKey: (row: T) => string;
@@ -25,7 +25,7 @@ export default function DataTable<T>({ columns, rows, rowKey, onRowClick, loadin
                             ? sortDirection === "asc" ? <ArrowUp size={13} aria-hidden="true" /> : <ArrowDown size={13} aria-hidden="true" />
                             : <ArrowUpDown size={13} aria-hidden="true" className="opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" />}
                     </button>
-                ) : column.label}
+                ) : column.header ?? column.label}
             </th>
         ))}</tr></thead>
             <tbody>{loading ? <tr><td colSpan={columns.length} className="border-b border-[#e2e5e9] px-4 py-3.5"><ListLoader lines={6} /></td></tr> : rows.length === 0

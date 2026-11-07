@@ -2,7 +2,7 @@ import { buildProductOverview } from "../productOverview";
 
 describe("product overview", () => {
     const views = { imenu: 100, ia_plus: 40, qr_code_mesa: 20 };
-    it("uses total pageviews, with separate activation and paid acquisition numerators", () => {
+    it("uses supplied unique view counts with separate activation and paid acquisition numerators", () => {
         const result = buildProductOverview(views, 5, { count: 2, base: 10 }, [
             { product_key: "ia_plus", buyers: "2", churn_base: "4", churned_users: "1" },
             { product_key: "qr_code_mesa", buyers: 3, churn_base: 2, churned_users: 0 },

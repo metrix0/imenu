@@ -1,5 +1,4 @@
 import { notifyPayoutProblem } from "@/lib/services/payoutNotifications";
-import { observeIntegration } from "@/lib/dev/health";
 import { sendNtfyNotification } from "@/lib/services/ntfy";
 import { getMercadoPagoPixPayment } from "@/lib/payments/mercadoPagoPix";
 import * as https from "node:https";
@@ -164,8 +163,6 @@ async function asaasRequest<T>(
                         Buffer.concat(chunks).toString("utf8")
                     );
 
-                    if (status >= 500 || [401,402,403,429].includes(status)) observeIntegration("asaas", false, status);
-                    else if (status >= 200 && status < 300) observeIntegration("asaas", true, status);
                     if (status < 200 || status >= 300) {
                         const message =
                             payload?.errors?.[0]?.description ||
@@ -183,7 +180,7 @@ async function asaasRequest<T>(
         request.on("timeout", () => {
             request.destroy(new Error("Tempo limite excedido ao chamar Asaas."));
         });
-        request.on("error", (error) => { observeIntegration("asaas", false, null); reject(error); });
+        request.on("error", reject);
         if (init.body) request.write(init.body);
         request.end();
     });
@@ -227,12 +224,16 @@ function resolvePixKeyType(
     return row.payment_info_type || inferPixKeyType(row.payment_info);
 }
 
-async function getPayables(cutoffAt: Date): Promise<VerifiedPayables> {
+async function getPayables(
+    cutoffAt: Date,
+    options: { retryPayoutId?: string; restaurantId?: string } = {}
+): Promise<VerifiedPayables> {
     const { rows } = await query<PayableRestaurant>(
         `
         WITH last_payout AS (
             SELECT restaurant_id, MAX(created_at) AS last_created_at
             FROM public.payouts
+            WHERE ($2::uuid IS NULL OR (id <> $2::uuid AND created_at < $1::timestamptz))
             GROUP BY restaurant_id
         )
         SELECT
@@ -247,6 +248,7 @@ async function getPayables(cutoffAt: Date): Promise<VerifiedPayables> {
         LEFT JOIN last_payout lp ON lp.restaurant_id = r.id
         JOIN public.orders o
           ON o.restaurant_id = r.id
+         AND ($3::uuid IS NULL OR o.restaurant_id = $3::uuid)
          AND o.payment_method = 'pix'
          AND o.payment_ref IS NOT NULL
          AND o.status IN ('paid', 'preparing', 'delivering', 'done')
@@ -256,7 +258,7 @@ async function getPayables(cutoffAt: Date): Promise<VerifiedPayables> {
         HAVING COALESCE(SUM(o.total_cents), 0) > 0
         ORDER BY gross_cents DESC, restaurant_name ASC
         `,
-        [cutoffAt.toISOString()]
+        [cutoffAt.toISOString(), options.retryPayoutId || null, options.restaurantId || null]
     );
 
     // Exclude unverified orders, not all of a restaurant's verified sales.
@@ -269,9 +271,8 @@ async function getPayables(cutoffAt: Date): Promise<VerifiedPayables> {
         for (let offset = 0; offset < row.payments.length; offset += 5) {
             const orders = row.payments.slice(offset, offset + 5);
             const fees = await Promise.allSettled(orders.map(async order => {
-                if (/^(PAYZU|PIX)/i.test(order.payment_ref)) return 10;
                 if (!/^\d+$/.test(order.payment_ref)) {
-                    throw new Error(`Provedor desconhecido no pagamento ${order.payment_ref}.`);
+                    throw new Error(`Pagamento ${order.payment_ref} não pertence ao Mercado Pago.`);
                 }
                 let payment;
                 try {
@@ -943,6 +944,11 @@ export async function retryFailedPayout(
         restaurant_id: string;
         restaurant_name: string;
         amount_cents: number | string;
+        gross_cents: number | string | null;
+        payzu_fee_cents: number | string | null;
+        order_count: number | string | null;
+        created_at: string | Date;
+        has_later_payout: boolean;
         automation_run_id: string | null;
         asaas_transfer_id: string | null;
         payment_info: string | null;
@@ -954,6 +960,16 @@ export async function retryFailedPayout(
             p.restaurant_id,
             COALESCE(r.name, 'Restaurante') AS restaurant_name,
             p.amount_cents,
+            p.gross_cents,
+            p.payzu_fee_cents,
+            p.order_count,
+            p.created_at,
+            EXISTS (
+                SELECT 1 FROM public.payouts newer
+                WHERE newer.restaurant_id = p.restaurant_id
+                  AND newer.id <> p.id
+                  AND newer.created_at >= p.created_at
+            ) AS has_later_payout,
             p.automation_run_id,
             p.asaas_transfer_id,
             r.payment_info,
@@ -992,6 +1008,50 @@ export async function retryFailedPayout(
     const amountCents = Number(payout.amount_cents) || 0;
     if (amountCents <= 0) {
         throw new PayoutValidationError("Valor de repasse inválido.", 400);
+    }
+
+    if (payout.has_later_payout) {
+        throw new PayoutValidationError(
+            "Há outro repasse posterior para este restaurante. Confira o histórico antes de reenviar.",
+            409
+        );
+    }
+    if (
+        payout.gross_cents == null ||
+        payout.payzu_fee_cents == null ||
+        payout.order_count == null ||
+        !Number.isSafeInteger(Number(payout.gross_cents)) ||
+        !Number.isSafeInteger(Number(payout.payzu_fee_cents)) ||
+        !Number.isSafeInteger(Number(payout.order_count)) ||
+        Number(payout.gross_cents) <= 0 ||
+        Number(payout.order_count) <= 0
+    ) {
+        throw new PayoutValidationError(
+            "Este repasse não possui os dados originais necessários para revalidar os pagamentos.",
+            409
+        );
+    }
+
+    // Reconstruct the original batch, excluding the failed payout from the cutoff.
+    const verified = await getPayables(new Date(payout.created_at), {
+        retryPayoutId: payout.id,
+        restaurantId: payout.restaurant_id,
+    });
+    const payable = verified.payables.find(
+        (row) => row.restaurant_id === payout.restaurant_id
+    );
+    if (
+        verified.validationErrors.length > 0 ||
+        !payable ||
+        Number(payable.gross_cents) !== Number(payout.gross_cents) ||
+        Number(payable.pix_order_count) !== Number(payout.order_count) ||
+        payable.provider_fee_cents !== Number(payout.payzu_fee_cents)
+    ) {
+        throw new PayoutValidationError(
+            "Reenvio bloqueado: os pagamentos originais não estão todos aprovados no Mercado Pago ou os valores mudaram.",
+            409,
+            { validationErrors: verified.validationErrors }
+        );
     }
 
     const balanceCents = await getAsaasBalance();

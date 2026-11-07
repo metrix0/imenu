@@ -10,7 +10,8 @@ export async function GET(request: Request) {
   )
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   try {
-    return NextResponse.json(await processCustomerAutomations(), {
+    const result = await processCustomerAutomations();
+    return NextResponse.json(result, {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {

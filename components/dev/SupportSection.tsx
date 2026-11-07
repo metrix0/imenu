@@ -12,8 +12,9 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 
-import {Send} from "lucide-react";
+import {Send, Bot, MessageCircle, SquareArrowOutUpRight} from "lucide-react";
 import BlastHistorySection from "@/components/dev/BlastHistorySection";
+import SupportConversation from "@/components/dev/SupportConversation";
 import SupportDraftsSection from "@/components/dev/SupportDraftsSection";
 import Pagination from "@/components/ui/Pagination";
 import Button from "@/components/ui/Button";
@@ -39,20 +40,17 @@ import { parseBulkPhones, parseBulkRecipients, renderBulkMessage, type BulkInput
 import type { AccessState, BlastCampaign, BlastRecipient, Connection, Stats, KnowledgeEntry, Conversation, DashboardData } from "@/lib/dev/supportTypes";
 import { formatPhone, getWhatsappUrl, statusPresentation } from "@/lib/dev/supportView";
 
-function formatElapsedSeconds(seconds: number | null): string {
-    if (seconds == null || !Number.isFinite(seconds)) return "—";
-    if (seconds < 60) return `${Math.round(seconds)}s`;
-    const minutes = Math.round(seconds / 60);
-    if (minutes < 60) return `${minutes}min`;
-    const hours = Math.floor(minutes / 60);
-    return `${hours}h${minutes % 60 ? ` ${minutes % 60}min` : ""}`;
-}
+import { useDevProfile, PhoneLink } from "./DevProfileProvider";
+import { formatResponseTime } from "@/lib/dev/dashboardFormat";
+
 const ALLOWED_DEV_EMAIL = "joaovralmeida@hotmail.com";
 export default function SupportSection({ section = "support" }: { section?: "support" | "blast" | "legacy" }) {
     const router = useRouter();
+    const { openProfile } = useDevProfile();
     const [accessState, setAccessState] =
         useState<AccessState>("checking");
     const [supportPage, setSupportPage] = useState(0);
+    const [selectedConversation,setSelectedConversation] = useState<Conversation|null>(null);
     const [handoffPage, setHandoffPage] = useState(0);
     const [knowledgePage, setKnowledgePage] = useState(0);
     const [data, setData] = useState<DashboardData | null>(null);
@@ -63,7 +61,6 @@ export default function SupportSection({ section = "support" }: { section?: "sup
     const [knowledgeEditorOpen, setKnowledgeEditorOpen] = useState(false);
     const [knowledgeTitle, setKnowledgeTitle] = useState("");
     const [knowledgeContent, setKnowledgeContent] = useState("");
-    const [senderOpen,setSenderOpen] = useState(false);
     const [composeOpen,setComposeOpen] = useState(false);
     const [bulkPhones, setBulkPhones] = useState("");
     const [bulkMessage, setBulkMessage] = useState("");
@@ -530,13 +527,9 @@ export default function SupportSection({ section = "support" }: { section?: "sup
     const connection = data?.connection || null;
     const blastConnection = data?.blastConnection || null;
     const status = statusPresentation(connection);
-    const blastStatus = statusPresentation(blastConnection);
     const showQr =
         connection?.desired_state === "connected" &&
         connection.status === "SCAN_QR_CODE";
-    const showBlastQr =
-        blastConnection?.desired_state === "connected" &&
-        blastConnection.status === "SCAN_QR_CODE";
     const selectedBulkConnection =
         bulkSender === "blast" ? blastConnection : connection;
 
@@ -548,34 +541,37 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                 )}
 
                 {section !== "blast" && <>
-                <section className={`${styles.section} ${styles.scrollTable} ${styles.handoffs}`}>
-                    <div className={styles.sectionHeader}><div><h2>Atendimento humano</h2><p>Conversas encaminhadas para a equipe.</p></div>{Boolean(data?.stats.human_conversations) && <Badge variant="neutral">{data?.stats.human_conversations} conversa(s)</Badge>}</div>
-                    <DataTable rows={data?.handedOff || []} rowKey={conversation => conversation.id} emptyMessage="Nenhuma conversa em atendimento humano." columns={[
-                        { key: "restaurant", label: "Restaurante", render: conversation => <div className="min-w-48"><p className="font-medium">{conversation.restaurant_name || "Restaurante não identificado"}</p>{conversation.plus && <Badge variant="brand" className="mt-2">iMenu Plus</Badge>}</div> },
-                        { key: "contact", label: "Contato", render: conversation => <div className="min-w-40"><p className="text-gray-600">{conversation.customer_name || "—"}</p><p className="mt-1 text-xs text-gray-500">{formatPhone(conversation.phone)}</p></div> },
-                        { key: "actions", label: "", render: conversation => <div className="flex justify-end gap-2"><Button variant="secondary" loading={action === "set_conversation_mode"} onClick={() => void runAction("set_conversation_mode", { id: conversation.id, mode: "ai" })}>Reativar bot</Button><Button variant="secondary" disabled={!getWhatsappUrl(conversation.phone)} onClick={() => { const url = getWhatsappUrl(conversation.phone); if (url) window.open(url, "_blank", "noopener,noreferrer"); }}><FontAwesomeIcon icon={faWhatsapp} className="mr-2" />Abrir WhatsApp</Button></div> },
-                    ]} />
-                    {(data?.stats.human_conversations || 0) > 25 && <div className={styles.tableFooter}><span>{data?.stats.human_conversations} conversa(s)</span><Pagination page={handoffPage} pageCount={Math.ceil((data?.stats.human_conversations || 0) / 25)} onChange={setHandoffPage} /></div>}
-                </section>
-
-                <dl className={styles.metricStrip}>
+                <dl className={styles.metricStrip} aria-label="Indicadores de atendimento">
                     <div>
                         <dt>Resposta média · Bot</dt>
-                        <dd>{data?.responseTimes?.bot_seconds == null ? "—" : `${Math.round(data.responseTimes.bot_seconds)} s`}</dd>
-                        <p>Últimos 30 dias</p>
-                        {data?.responseTimes && data.responseTimes.excluded_responses > 0 && (
-                            <p className="mt-2" title="A média ignora registros históricos importados e respostas acima de 2 minutos.">
-                                {data.responseTimes.excluded_conversations} conversa(s) com {data.responseTimes.excluded_responses} resposta(s) excluída(s) · média {formatElapsedSeconds(data.responseTimes.excluded_avg_seconds)}
-                                <span className="block">Critério: importações históricas ou tempo acima de 2min.</span>
-                            </p>
-                        )}
+                        <dd className="tabular-nums">{formatResponseTime(data?.responseTimes?.bot_seconds)}</dd>
+                        <p>Últimos 30 dias{data?.responseTimes && data.responseTimes.excluded_responses > 0 && (
+                            <span> · {data.responseTimes.excluded_responses} excluídos · média {formatResponseTime(data.responseTimes.excluded_avg_seconds)}</span>
+                        )}</p>
                     </div>
                     <div>
                         <dt>Resposta média · Humano</dt>
-                        <dd>{data?.responseTimes?.human_seconds == null ? "—" : `${Math.round(data.responseTimes.human_seconds / 60)} min`}</dd>
+                        <dd className="tabular-nums">{formatResponseTime(data?.responseTimes?.human_seconds)}</dd>
                         <p>Últimos 30 dias</p>
                     </div>
                 </dl>
+                <section className={`${styles.tableSection} ${styles.supportTable} ${styles.supportHandoffs}`}>
+                    <h2>Atendimento humano</h2>
+                    <DataTable rows={data?.handedOff || []} rowKey={conversation => conversation.id} emptyMessage="Nenhuma conversa em atendimento humano." columns={[
+                        { key: "restaurant", label: "Restaurante", render: conversation => <div className="flex min-w-0 items-center gap-2">{conversation.restaurant_id ? <button type="button" className={styles.profileLink} onClick={() => openProfile({id:conversation.restaurant_id!,name:conversation.restaurant_name || "Restaurante"})}>{conversation.restaurant_name || "Restaurante"}</button> : <span>Restaurante não identificado</span>}{conversation.plus && <Badge variant="brand" className="shrink-0 whitespace-nowrap">iMenu Plus</Badge>}</div> },
+                        { key: "attended", label: "Situação", render: conversation => <Badge variant={conversation.attended ? "success" : "danger"}>{conversation.attended ? "Atendido" : "Aguardando"}</Badge> },
+                        { key: "owner", label: "Celular dono", render: conversation => <PhoneLink phone={conversation.owner_phone} /> },
+                        { key: "store", label: "Celular restaurante", render: conversation => <PhoneLink phone={conversation.store_phone} /> },
+                        {key:"context",label:"Última mensagem",render:conversation=><p className="truncate" title={conversation.last_message || undefined}>{conversation.last_message || "—"}</p>},
+                        { key: "actions", label: "", render: conversation => <div className="flex justify-end gap-1"><button type="button" title="Reativar IA" aria-label="Reativar IA" disabled={action === "set_conversation_mode"} className={styles.supportIcon} onClick={() => void runAction("set_conversation_mode", { id: conversation.id, mode: "ai" })}><Bot size={16} aria-hidden="true" /></button><button type="button" title="Ver mensagens" aria-label="Ver mensagens" className={styles.supportIcon} onClick={()=>setSelectedConversation(conversation)}><MessageCircle size={16} aria-hidden="true"/></button><button type="button" title="Abrir WhatsApp" aria-label="Abrir WhatsApp" className={styles.supportIcon} disabled={!getWhatsappUrl(conversation.phone)} onClick={() => { const url = getWhatsappUrl(conversation.phone); if (url) window.open(url, "_blank", "noopener,noreferrer"); }}><SquareArrowOutUpRight size={16} aria-hidden="true" /></button></div> },
+                    ]} />
+                    {(data?.stats.human_conversations || 0) > 25 && <div className={styles.tableFooter}><Pagination page={handoffPage} pageCount={Math.ceil((data?.stats.human_conversations || 0) / 25)} onChange={setHandoffPage} /></div>}
+                </section>
+
+                <DevDialog title="Conversa" description={selectedConversation?.restaurant_name || selectedConversation?.customer_name || undefined} open={Boolean(selectedConversation)} onClose={()=>setSelectedConversation(null)}>
+                    {selectedConversation && <SupportConversation url={"/api/dev/support/drafts?conversation_id="+selectedConversation.id}/>}
+                </DevDialog>
+
                {section === "support" && <SupportDraftsSection/>}
                {section === "legacy" && <>
                 <Card>
@@ -739,162 +735,7 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                 </>}
                 </>}
                 {section !== "support" && <>
-                <BlastHistorySection refreshKey={blastRevision} connections={{support:connection,blast:blastConnection}} onManageSender={()=>setSenderOpen(true)}/>
-                <DevDialog title="Blast (remetente)" open={senderOpen} onClose={()=>setSenderOpen(false)}>                <Card>
-                    <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="flex items-start gap-4">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-50 text-xl text-green-600">
-                                <FontAwesomeIcon icon={faWhatsapp} />
-                            </div>
-                            <div>
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <h2 className="text-lg font-semibold text-gray-900">
-                                        Blast (remetente)
-                                    </h2>
-                                    <span
-                                        className={
-                                            "rounded-full px-2.5 py-1 text-xs font-medium " +
-                                            blastStatus.className
-                                        }
-                                    >
-                                        {blastStatus.label}
-                                    </span>
-                                </div>
-                                <p className="mt-1 text-sm text-gray-500">
-                                    Sessão: {blastConnection?.session_name || "imenu-blast"}
-                                </p>
-                                {blastConnection?.phone && (
-                                    <p className="mt-1 text-sm font-medium text-gray-800">
-                                        {blastConnection.push_name || "Blast iMenu"} ·{" "}
-                                        {formatPhone(blastConnection.phone)}
-                                    </p>
-                                )}
-                                {blastConnection?.last_error && (
-                                    <p className="mt-2 text-sm text-red-600">
-                                        {blastConnection.last_error}
-                                    </p>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="flex flex-wrap gap-2">
-                            {!blastConnection ||
-                            blastConnection.desired_state === "disconnected" ? (
-                                <Button
-                                    onClick={() =>
-                                        void runAction("connect", {
-                                            connection: "blast",
-                                        })
-                                    }
-                                    loading={action === "connect:blast"}
-                                >
-                                    <FontAwesomeIcon
-                                        icon={faQrcode}
-                                        className="mr-2"
-                                    />
-                                    Conectar WhatsApp
-                                </Button>
-                            ) : (
-                                <>
-                                    {blastConnection.status !== "WORKING" && (
-                                        <Button
-                                            onClick={() =>
-                                                void runAction("reconnect", {
-                                                    connection: "blast",
-                                                })
-                                            }
-                                            loading={action === "reconnect:blast"}
-                                        >
-                                            <FontAwesomeIcon
-                                                icon={faRotate}
-                                                className="mr-2"
-                                            />
-                                            Reconectar
-                                        </Button>
-                                    )}
-                                    {blastConnection.status !== "WORKING" && (
-                                        <Button
-                                            variant="secondary"
-                                            onClick={() =>
-                                                void runAction("refresh_qr", {
-                                                    connection: "blast",
-                                                })
-                                            }
-                                            loading={action === "refresh_qr:blast"}
-                                        >
-                                            Novo QR
-                                        </Button>
-                                    )}
-                                    <Button
-                                        variant="secondary"
-                                        onClick={() =>
-                                            void runAction("disconnect", {
-                                                connection: "blast",
-                                            })
-                                        }
-                                        loading={action === "disconnect:blast"}
-                                    >
-                                        <FontAwesomeIcon
-                                            icon={faPowerOff}
-                                            className="mr-2"
-                                        />
-                                        Desconectar
-                                    </Button>
-                                </>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="mt-6 flex items-center justify-between gap-4 rounded-xl border border-gray-200 p-4">
-                        <div>
-                            <p className="font-medium text-gray-900">
-                                Respostas por IA
-                            </p>
-                            <p className="text-sm text-gray-500">
-                                Responde automaticamente pessoas que receberam disparos por este número.
-                            </p>
-                        </div>
-                        <Switch
-                            checked={blastConnection?.bot_enabled ?? true}
-                            disabled={action === "set_bot_enabled:blast"}
-                            aria-label="Ativar respostas por IA no Blast (remetente)"
-                            onClick={() =>
-                                void runAction("set_bot_enabled", {
-                                    connection: "blast",
-                                    enabled: !(blastConnection?.bot_enabled ?? true),
-                                })
-                            }
-                        />
-                    </div>
-
-                    {showBlastQr && (
-                        <div className="mt-6 grid gap-5 rounded-xl border border-blue-100 bg-blue-50/40 p-5 sm:grid-cols-[220px_1fr] sm:items-center">
-                            <div className="flex min-h-[210px] items-center justify-center rounded-xl border border-gray-200 bg-white p-3">
-                                {blastConnection?.qr_code_data ? (
-                                    <img
-                                        src={blastConnection.qr_code_data}
-                                        alt="QR Code do Blast (remetente)"
-                                        className="h-48 w-48"
-                                    />
-                                ) : (
-                                    <p className="text-sm text-gray-500">
-                                        Preparando QR…
-                                    </p>
-                                )}
-                            </div>
-                            <div>
-                                <h3 className="font-semibold text-gray-900">
-                                    Escaneie com o número secundário
-                                </h3>
-                                <p className="mt-2 text-sm text-gray-600">
-                                    WhatsApp → Aparelhos conectados → Conectar um aparelho.
-                                </p>
-                            </div>
-                        </div>
-                    )}
-                </Card>
-                </DevDialog>
-
+                <BlastHistorySection refreshKey={blastRevision} connections={{support:connection,blast:blastConnection}}/>
                 <DevDialog title="Envio em massa" open={composeOpen && bulkPreview === null} onClose={()=>{if(!bulkSending)setComposeOpen(false);}}>                <Card className={styles.composer}>
                     <p className="mt-1 text-sm text-gray-500">
                         Prepare os destinatários e a mensagem. Você poderá conferir tudo antes de enviar.
@@ -916,7 +757,7 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                                 {
                                     value: "blast",
                                     label:
-                                        "Blast (remetente)" +
+                                        "Blast" +
                                         (blastConnection?.phone
                                             ? " · " + formatPhone(blastConnection.phone)
                                             : " · não conectado"),

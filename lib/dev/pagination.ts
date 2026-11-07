@@ -5,6 +5,6 @@ export function devPage(params: URLSearchParams, key = "page"): number {
     return Number.isSafeInteger(value) && value >= 0 ? Math.min(value, 100000) : 0;
 }
 
-export function paged<T>(rows: T[], total: number, page: number) {
-    return { rows, total, page, pageCount: Math.max(1, Math.ceil(total / DEV_PAGE_SIZE)) };
+export function paged<T>(rows: T[], total: number, page: number, pageSize = DEV_PAGE_SIZE) {
+    return { rows, total, page, pageCount: Math.max(1, Math.ceil(total / pageSize)) };
 }

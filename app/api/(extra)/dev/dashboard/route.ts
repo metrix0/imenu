@@ -312,6 +312,7 @@ export async function GET(request: Request) {
         if (authError) return authError;
 
         const params=new URL(request.url).searchParams;
+        const compact = params.get("compact") === "1";
         const range = parseRange(params.get("range"));
         const startDate=params.get("startDate"),endDate=params.get("endDate");
         const valid=(value:string|null)=>Boolean(value&&/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value))&&new Date(value+"T12:00:00Z").toISOString().slice(0,10)===value);
@@ -589,6 +590,23 @@ export async function GET(request: Request) {
             ),
         };
 
+        const previousProductOverview = compact ? await (async () => {
+            const previousStartIso = new Date(previousStartAt).toISOString();
+            const [previousPostHog, previousPanelTabs, previousAddons] = await Promise.all([
+                loadPostHogMetrics(previousStartAt, startAt),
+                loadPostHogPanelTabUsage(previousStartAt, startAt),
+                query<AddonProductMetricsRow>(ADDON_PRODUCT_METRICS_SQL, [previousStartIso, startIso]),
+            ]);
+            const previousChurn = churnAccountSets(history, startAt);
+            return buildProductOverview(
+                previousPostHog.productPageViews,
+                previousCards.activatedUsers,
+                { count: previousChurn.abandonedActiveUsers.size, base: previousChurn.eligibleActiveUsers.size },
+                previousAddons.rows,
+                previousPanelTabs
+            );
+        })() : undefined;
+
         const accountNamesResult = await query<{
             account_id: string;
             restaurant_name: string;
@@ -834,7 +852,7 @@ export async function GET(request: Request) {
                     endAt: new Date(endAt).toISOString(),
                     bucket: range === "90d" ? "week" : "day",
                 },
-                ...(new URL(request.url).searchParams.get("compact") === "1" ? { acquisitions: await loadAcquisitionSeries(buckets) } : {}),
+                ...(compact ? { acquisitions: await loadAcquisitionSeries(buckets), previousProductOverview } : {}),
                 cards,
                 productOverview: buildProductOverview(
                     postHog.productPageViews,

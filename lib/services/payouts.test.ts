@@ -1,29 +1,41 @@
 import { query } from "@/lib/database/sql";
 import { getMercadoPagoPixPayment } from "@/lib/payments/mercadoPagoPix";
-import { createPayoutPlan } from "./payouts";
+import { createPayoutPlan, retryFailedPayout } from "./payouts";
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn() }));
 jest.mock("@/lib/payments/mercadoPagoPix", () => ({ getMercadoPagoPixPayment: jest.fn() }));
 beforeEach(() => {
     jest.clearAllMocks();
     (query as jest.Mock).mockResolvedValue({ rows: [{ restaurant_id: "r", restaurant_name: "R", payment_info: "pix@example.com", payment_info_type: "EMAIL", gross_cents: 10000, pix_order_count: 2,
-        payments: [{ id: "legacy", payment_ref: "PIX1", total_cents: 5000 }, { id: "new", payment_ref: "123", total_cents: 5000 }] }] });
-    (getMercadoPagoPixPayment as jest.Mock).mockResolvedValue({ id: "123", externalReference: "new", status: "approved", paymentMethodId: "pix", amount: 50, feeCents: 50 });
+        payments: [{ id: "first", payment_ref: "123", total_cents: 5000 }, { id: "second", payment_ref: "456", total_cents: 5000 }] }] });
+    (getMercadoPagoPixPayment as jest.Mock).mockImplementation(async ({ id }: { id: string }) => ({
+        id, externalReference: id === "123" ? "first" : "second", status: "approved",
+        paymentMethodId: "pix", amount: 50, feeCents: id === "123" ? 10 : 50,
+    }));
 });
-it("combines historical PayZu and actual Mercado Pago fees without changing the restaurant's 1% total deduction", async () => {
+it("combines verified Mercado Pago fees without changing the 1% total deduction", async () => {
     const plan = await createPayoutPlan({ cutoffAt: new Date(), adjustToOnePercent: true });
     expect(plan).toMatchObject({ grossCents: 10000, payzuFeeCents: 60, discountCents: 40, totalNetCents: 9900 });
-    expect(getMercadoPagoPixPayment).toHaveBeenCalledTimes(1);
+    expect(getMercadoPagoPixPayment).toHaveBeenCalledTimes(2);
 });
-it("excludes only an unverified payment while retaining a verified PayZu order", async () => {
-    (getMercadoPagoPixPayment as jest.Mock).mockResolvedValue({
-        id: "123", externalReference: "new", status: "approved", paymentMethodId: "pix", amount: 50, feeCents: null,
-    });
+it("excludes only a Mercado Pago charge with an unconfirmed fee", async () => {
+    (getMercadoPagoPixPayment as jest.Mock).mockImplementation(async ({ id }: { id: string }) => ({
+        id, externalReference: id === "123" ? "first" : "second", status: "approved",
+        paymentMethodId: "pix", amount: 50, feeCents: id === "123" ? null : 50,
+    }));
     const plan = await createPayoutPlan({ cutoffAt: new Date(), adjustToOnePercent: true });
-    expect(plan).toMatchObject({ grossCents: 5000, payzuFeeCents: 10, totalNetCents: 4950 });
-    expect(plan.sendable).toHaveLength(1);
-    expect(plan.sendable[0].row.payments).toMatchObject([{ id: "legacy" }]);
-    expect(plan.sendable[0].orderCount).toBe(1);
-    expect(plan.validationErrors).toMatchObject([{ restaurantId: "r", orderId: "new", paymentRef: "123", grossCents: 5000, message: expect.stringContaining("confirmar a taxa") }]);
+    expect(plan).toMatchObject({ grossCents: 5000, payzuFeeCents: 50, totalNetCents: 4950 });
+    expect(plan.sendable[0].row.payments).toMatchObject([{ id: "second" }]);
+    expect(plan.validationErrors).toMatchObject([{ orderId: "first", paymentRef: "123", message: expect.stringContaining("confirmar a taxa") }]);
+});
+it("excludes legacy PayZu orders rather than assuming they were paid", async () => {
+    (query as jest.Mock).mockResolvedValue({ rows: [{
+        restaurant_id: "r", restaurant_name: "R", payment_info: "pix@example.com", payment_info_type: "EMAIL",
+        payments: [{ id: "legacy", payment_ref: "PIX1", total_cents: 5000 }],
+    }] });
+    const plan = await createPayoutPlan({ cutoffAt: new Date(), adjustToOnePercent: true });
+    expect(plan.sendable).toHaveLength(0);
+    expect(plan.validationErrors).toMatchObject([{ orderId: "legacy", message: expect.stringContaining("não pertence ao Mercado Pago") }]);
+    expect(getMercadoPagoPixPayment).not.toHaveBeenCalled();
 });
 
 it("keeps verified Mercado Pago orders from the SAME restaurant when one is pending", async () => {
@@ -87,4 +99,56 @@ it("keeps another restaurant payable when one Mercado Pago payment is pending", 
     expect(plan.sendable).toHaveLength(1);
     expect(plan.sendable[0].row.restaurant_id).toBe("good");
     expect(plan.totalNetCents).toBe(4950);
+});
+
+describe("retry failed payouts", () => {
+    const originalAsaasKey = process.env.ASAAS_API_KEY;
+    const payout = {
+        id: "payout-id", restaurant_id: "r", restaurant_name: "R",
+        amount_cents: 4950, gross_cents: 5000, payzu_fee_cents: 50,
+        order_count: 1, created_at: "2026-11-01T12:00:00Z",
+        has_later_payout: false, automation_run_id: null,
+        asaas_transfer_id: null, payment_info: "pix@example.com", payment_info_type: "EMAIL",
+    };
+    beforeEach(() => {
+        process.env.ASAAS_API_KEY = "test-key";
+        (query as jest.Mock).mockImplementation(async (sql: string) => {
+            if (sql.includes("WHERE p.id = $1") && sql.includes("p.gross_cents")) {
+                return { rows: [payout] };
+            }
+            if (sql.includes("jsonb_agg")) {
+                return { rows: [{
+                    restaurant_id: "r", restaurant_name: "R",
+                    payment_info: "pix@example.com", payment_info_type: "EMAIL",
+                    payments: [{ id: "order-1", payment_ref: "123", total_cents: 5000 }],
+                }] };
+            }
+            return { rows: [] };
+        });
+    });
+    afterAll(() => {
+        if (originalAsaasKey === undefined) delete process.env.ASAAS_API_KEY;
+        else process.env.ASAAS_API_KEY = originalAsaasKey;
+    });
+    it("blocks retry when Mercado Pago has refunded the original charge", async () => {
+        (getMercadoPagoPixPayment as jest.Mock).mockResolvedValue({
+            id: "123", externalReference: "order-1", status: "refunded",
+            paymentMethodId: "pix", amount: 50, feeCents: 50,
+        });
+        await expect(retryFailedPayout("payout-id")).rejects.toMatchObject({
+            status: 409,
+            details: { validationErrors: [expect.objectContaining({ orderId: "order-1" })] },
+        });
+        expect(getMercadoPagoPixPayment).toHaveBeenCalledWith({ id: "123" });
+    });
+    it("blocks retry if the original totals no longer match", async () => {
+        (getMercadoPagoPixPayment as jest.Mock).mockResolvedValue({
+            id: "123", externalReference: "order-1", status: "approved",
+            paymentMethodId: "pix", amount: 50, feeCents: 10,
+        });
+        await expect(retryFailedPayout("payout-id")).rejects.toMatchObject({
+            status: 409, message: expect.stringContaining("valores mudaram"),
+        });
+        expect(getMercadoPagoPixPayment).toHaveBeenCalledWith({ id: "123" });
+    });
 });

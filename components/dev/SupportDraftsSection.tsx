@@ -1,5 +1,8 @@
 "use client";
 
+import { Eye, Send } from "lucide-react";
+import SupportConversation from "./SupportConversation";
+import { useDevProfile } from "./DevProfileProvider";
 import { useCallback, useEffect, useState } from "react";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -16,9 +19,10 @@ import { useAutoSave } from "@/lib/utils/useAutoSave";
 
 type Tab = "Pendentes" | "Aprovadas" | "Rejeitadas";
 type Draft = {
-    id: string; reply_text: string; review_status: "pending" | "approved" | "rejected";
+    restaurant_id: string | null; id: string; reply_text: string; review_status: "pending" | "approved" | "rejected";
     session_name: string; created_at: string; customer_name: string | null;
     phone: string | null; restaurant_name: string | null; inbound_message: string | null;
+    attended: boolean;
 };
 type DraftPage = PageData<Draft> & { pending: number };
 
@@ -27,6 +31,7 @@ const statusByTab: Record<Tab, Draft["review_status"]> = {
 };
 
 export default function SupportDraftsSection() {
+    const {openProfile} = useDevProfile();
     const [tab, setTab] = useState<Tab>("Pendentes");
     const [page, setPage] = useState(0);
     const [revision, setRevision] = useState(0);
@@ -37,6 +42,7 @@ export default function SupportDraftsSection() {
     const [reply, setReply] = useState("");
     const [modalError, setModalError] = useState("");
     const [action, setAction] = useState("");
+    const [rejectingId, setRejectingId] = useState<string | null>(null);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -93,38 +99,47 @@ export default function SupportDraftsSection() {
         } finally { setAction(""); }
     };
 
+    const rejectFromTable = async (draft: Draft) => {
+        if (rejectingId || action || draft.review_status !== "pending") return;
+        setRejectingId(draft.id);
+        setError("");
+        try {
+            await devJson("/api/dev/support/drafts", {
+                method: "POST", body: JSON.stringify({ id: draft.id, action: "reject" }),
+            });
+            if (data.rows.length === 1 && page > 0) setPage(page - 1);
+            else setRevision((value) => value + 1);
+        } catch (caught) {
+            setError(caught instanceof Error ? caught.message : "Falha ao rejeitar resposta.");
+        } finally {
+            setRejectingId(null);
+        }
+    };
+
     const whatsappUrl = getWhatsappUrl(selected?.phone || null);
 
     return <>
-        <section className={`${styles.section} ${styles.scrollTable}`}>
-            <div className={styles.sectionHeader}>
-                <div>
-                    <div className="flex items-center gap-3">
-                        <h2>Respostas IA para revisão</h2>
-                        {data.pending > 0 && <Badge variant="warning">{data.pending} pendente(s)</Badge>}
-                    </div>
-                    <p className="mt-1 text-sm text-gray-500">Respostas sugeridas após solicitação de atendimento humano.</p>
-                </div>
-
-            </div>
-            <div className="px-5">
-                <Tabs<Tab> tabs={["Pendentes", "Aprovadas", "Rejeitadas"]} active={tab}
-                    onChange={(value) => { setTab(value); setPage(0); }} />
-            </div>
+        <section className={`${styles.tableSection} ${styles.supportTable}`}>
+            <h2>Respostas IA para revisão</h2>
+            <Tabs<Tab> tabs={["Pendentes", "Aprovadas", "Rejeitadas"]} active={tab}
+                onChange={(value) => { setTab(value); setPage(0); }} />
             {error && <p role="alert" className="mt-4 text-sm text-red-700">{error}</p>}
             <div>
                 <PagedTable data={data} loading={loading} onPage={setPage}
                     rowKey={(draft) => draft.id} onRowClick={open} columns={[
-                    { key: "contact", label: "Contato", render: (draft) => <div className="min-w-36">
-                        <p className="font-medium text-gray-900">{draft.customer_name || draft.restaurant_name || "Contato sem nome"}</p>
-                        <p className="text-xs text-gray-500">{draft.phone ? formatPhone(draft.phone) : draft.session_name === "imenu-blast" ? "WhatsApp Blast" : "WhatsApp Suporte"}</p>
-                    </div> },
-                    { key: "reply", label: "Resposta sugerida", render: (draft) =>
-                        <p className="max-w-xl line-clamp-3 whitespace-pre-wrap break-words">{draft.reply_text}</p> },
+                    { key: "contact", label: "Pessoa", render: draft => <div className="min-w-0"><p className="truncate font-medium">{draft.customer_name || "—"}</p><span className="text-xs text-gray-500">{formatPhone(draft.phone)}</span></div> },
+                    { key: "restaurant", label: "Restaurante", render: draft => draft.restaurant_id ? <button type="button" className={styles.profileLink} onClick={event=>{event.stopPropagation();setSelected(null);openProfile({id:draft.restaurant_id!,name:draft.restaurant_name || "Restaurante"});}}>{draft.restaurant_name || "Restaurante"}</button> : "—" },
+                    { key: "attended", label: "Situação", render: draft => <Badge variant={draft.attended ? "success" : "danger"}>{draft.attended ? "Atendido" : "Aguardando"}</Badge> },
+                    { key: "reply", label: "Resposta sugerida", render: draft => <p className="truncate" title={draft.reply_text}>{draft.reply_text}</p> },
                     { key: "date", label: "Criada", render: (draft) =>
                         <span className="whitespace-nowrap">{formatDateTime(draft.created_at)}</span> },
-                    { key: "action", label: "", render: (draft) =>
-                        <Button variant="secondary" onClick={(event) => { event.stopPropagation(); open(draft); }}>Revisar</Button> },
+                    { key: "action", label: "", render: (draft) => <div className="flex items-center justify-end gap-2">
+                        {draft.review_status === "pending" && <Button variant="secondary" loading={rejectingId === draft.id}
+                            disabled={Boolean(rejectingId) || Boolean(action)}
+                            onClick={event => { event.stopPropagation(); void rejectFromTable(draft); }}>Rejeitar</Button>}
+                        <button type="button" className={styles.supportIcon} title="Revisar resposta" aria-label="Revisar resposta"
+                            onClick={event => { event.stopPropagation(); open(draft); }}><Eye size={16} aria-hidden="true" /></button>
+                    </div> },
                 ]} />
             </div>
         </section>
@@ -144,10 +159,10 @@ export default function SupportDraftsSection() {
                             {selected.review_status === "approved" ? "Aprovada" : "Rejeitada"}
                         </Badge>}
                 </div>
-                {selected.inbound_message && <div className="rounded-lg border border-[#e2e5e9] bg-[#f7f8fa] p-4">
-                    <p className="text-xs font-medium text-gray-600">Mensagem do cliente</p>
-                    <p className="mt-2 whitespace-pre-wrap break-words text-sm">{selected.inbound_message}</p>
-                </div>}
+                <section className="space-y-3" aria-label="Conversa">
+                    <h3 className="text-sm font-medium">Conversa</h3>
+                    <SupportConversation url={"/api/dev/support/drafts?id="+selected.id} fallback={selected.inbound_message}/>
+                </section>
                 <div>
                     <label htmlFor="support-draft-reply" className="mb-2 block text-sm font-medium">Resposta</label>
                     <Textarea id="support-draft-reply" value={reply} maxLength={8000} rows={7}
@@ -159,14 +174,13 @@ export default function SupportDraftsSection() {
                 {modalError && <p role="alert" className="text-sm text-red-700">{modalError}</p>}
                 <div className="flex flex-wrap items-center gap-2">
                     {selected.review_status === "pending" && <>
-                        <Button loading={action === "approve"} disabled={Boolean(action) || saveStatus === "saving" || saveStatus === "error" || !reply.trim()}
-                            onClick={() => void review("approve")}>Aprovar</Button>
+                        <Button leftIcon={<Send size={16} aria-hidden="true" />} loading={action === "approve"} disabled={Boolean(action) || saveStatus === "saving" || saveStatus === "error" || !reply.trim()}
+                            onClick={() => void review("approve")}>Aprovar e enviar</Button>
                         <Button variant="secondary" loading={action === "reject"} disabled={Boolean(action) || saveStatus === "saving" || saveStatus === "error"}
                             onClick={() => void review("reject")}>Rejeitar</Button>
                     </>}
                     {whatsappUrl && <Button variant="secondary" onClick={() => window.open(whatsappUrl, "_blank", "noopener,noreferrer")}>Abrir WhatsApp</Button>}
                 </div>
-                <p className="text-xs text-gray-500">A aprovação não envia mensagens automaticamente.</p>
             </div>}
         </DevDialog>
     </>;

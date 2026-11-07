@@ -7,6 +7,12 @@
 - For bug fixes, reproduce or verify the failure before editing. Fix the underlying cause, not just the symptom. Never implement speculative fixes.
 - Keep answers brief and direct unless details are requested. Do not unnecessarily ask for information already available.
 
+## Live configuration and high-risk operational changes
+- **Ask for the user's explicit permission before changing live/runtime configurations or high-risk operational rules**, including changes made indirectly by code, API calls, dashboards, status checks, scripts, tests, AI agents, or staging environments connected to shared production services. Do not assume a merge, deployment, or an explicit production action is necessary for a live effect; never silently reconfigure external services.
+- Examples include webhook destinations, WhatsApp/provider session configuration, production environment variables or secrets, DNS/infrastructure settings, authentication and security policies, payment routing, alert/notification destinations, and critical automation or scheduling rules. Clearly identify the target service/environment, intended change, risk, and rollback before requesting approval.
+- **Warn proactively during implementation discussions**, as soon as it is reasonably foreseeable that a proposed solution may require or trigger one of these live/high-risk changes, even if the user has not yet asked to implement it. Distinguish a code change from its possible live side effects. If uncertain, investigate read-only and ask before acting.
+- Routine database entries and ordinary application-data CRUD do **not** require extra approval under this rule; existing scope safeguards still apply. Configuration or high-risk rules stored in a database are **not** exempt.
+
 ## Access and source of truth
 - Before changing plans, benefits, pricing, access gates or billing, read `docs/imenu-plus.md` and update its feature/surface map with the implementation. `lib/addons/products.ts` owns the iMenu Plus name, price, benefits and bonuses; retain documented legacy payment identifiers.
 - iMenu repository: `metrix0/imenu`; **default working branch: `preview`**; `main` is production. Preview: https://preview.imenuapp.com.br.

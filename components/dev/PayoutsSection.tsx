@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Eye, Send } from "lucide-react";
+import { useDevProfile } from "./DevProfileProvider";
 import styles from "./dashboard.module.css";
 import Badge from "@/components/ui/Badge";
 import Tabs from "@/components/ui/Tabs";
@@ -19,7 +21,7 @@ type Payable = { restaurantId: string; restaurantName: string; grossCents: numbe
 type PayoutRestaurantError = { restaurantId: string; restaurantName: string; orderId: string; paymentRef: string; grossCents: number; message: string };
 type Dashboard = { asaasBalanceCents: number | null; asaasConfigured: boolean; asaasError: string | null; cutoffAt: string; payables: Payable[]; validationErrors: PayoutRestaurantError[]; ownerPhones:Record<string,string> };
 type History = {
-    id: string; restaurant_name: string; created_at: string; amount_cents: number; status: string; failure_reason: string | null;
+    id: string; restaurant_id: string; alert_status?: string | null; alert_message?: string | null; alert_error?: string | null; restaurant_name: string; created_at: string; amount_cents: number; status: string; failure_reason: string | null;
     run_date?: string; payout_cents?: number; restaurant_count?: number; failed_count?: number; paid_count?: number; processing_count?: number;
     pix_key?: string | null; pix_key_type?: string | null; pix_address_key?: string | null; owner_phone?: string | null; asaas_transfer_id?: string | null;
     gross_cents?: number | null; payzu_fee_cents?: number | null; discount_cents?: number | null; paid_profit_cents?: number | null;
@@ -34,6 +36,7 @@ function PayoutStatus({ status }: { status?: string }) {
 }
 
 function HistoryTable({ section, revision, onRetry, canRetry = false }: { section: "failed" | "history" | "runs"; revision: number; onRetry: (id: string) => void; canRetry?: boolean }) {
+    const { openProfile } = useDevProfile();
     const [page, setPage] = useState(0);
     const [data, setData] = useState<PageData<History>>({ rows: [], total: 0, page: 0, pageCount: 1 });
     const [selectedRun, setSelectedRun] = useState<History | null>(null);
@@ -48,26 +51,27 @@ function HistoryTable({ section, revision, onRetry, canRetry = false }: { sectio
     const columns: TableColumn<History>[] = section === "runs" ? [
         { key: "date", label: "Dia", className: styles.dateCell, render: r => runDate(r.run_date) },
         { key: "amount", label: "Planejado", className: styles.numericCell, render: r => nullableMoney(r.payout_cents) },
-        { key: "sent", label: "Envios", render: r => <div className="min-w-48"><p>{r.restaurant_count} restaurante(s)</p><p className="mt-1 text-xs text-gray-500">{r.paid_count || 0} pagos · {r.processing_count || 0} processando · {r.failed_count || 0} falhas</p></div> },
+        { key: "sent", label: "Envios", render: r => <div className="min-w-0"><p>{r.restaurant_count} restaurante(s)</p><p className="mt-1 text-xs text-gray-500">{r.paid_count || 0} pagos · {r.processing_count || 0} processando · {r.failed_count || 0} falhas</p></div> },
         { key: "status", label: "Status", render: r => <PayoutStatus status={r.status} /> },
-        { key: "error", label: "Erro", render: r => <p className="min-w-32 max-w-64 break-words text-xs text-red-700">{r.error_message || "—"}</p> },
-        { key: "details", label: "", render: r => <Button variant="secondary" onClick={event => { event.stopPropagation(); setSelectedRun(r); }}>Ver detalhes</Button> },
+        { key: "error", label: "Erro", render: r => <p className="min-w-0 max-w-64 break-words text-xs text-red-700">{r.error_message || "—"}</p> },
+        { key: "details", label: "", render: r => <button type="button" title="Ver detalhes" aria-label="Ver detalhes da execução" className="cursor-pointer rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-brand" onClick={event => { event.stopPropagation(); setSelectedRun(r); }}><Eye size={16} aria-hidden="true" /></button> },
     ] : [
-        { key: "name", label: "Restaurante", render: r => <div className="min-w-40"><p className="font-medium">{r.restaurant_name}</p>{r.owner_phone && <a className="text-xs text-[#c43700]" href={getWhatsappUrl(r.owner_phone)||undefined} target="_blank" rel="noopener noreferrer">{formatPhone(r.owner_phone)}</a>}</div> },
+        { key: "name", label: "Restaurante", render: r => <div className="min-w-0"><button type="button" className={styles.profileLink} onClick={event => {event.stopPropagation();openProfile({id:r.restaurant_id,name:r.restaurant_name});}}>{r.restaurant_name}</button>{r.owner_phone && <a className="text-xs text-[#c43700]" href={getWhatsappUrl(r.owner_phone)||undefined} target="_blank" rel="noopener noreferrer">{formatPhone(r.owner_phone)}</a>}</div> },
         { key: "date", label: "Data", className: styles.dateCell, render: r => formatDateTime(r.created_at) },
-        { key: "pix", label: section === "failed" ? "PIX atual" : "PIX", render: r => <p className="min-w-24 max-w-40 break-all text-xs">{(section === "history" && r.pix_address_key) || r.pix_key || "Não cadastrado"}</p> },
+        { key: "pix", label: section === "failed" ? "PIX atual" : "PIX", render: r => <p className="min-w-0 max-w-40 break-all text-xs">{(section === "history" && r.pix_address_key) || r.pix_key || "Não cadastrado"}</p> },
         { key: "gross", label: "Bruto", className: styles.numericCell, render: r => nullableMoney(r.gross_cents) },
         { key: "gateway", label: "Gateway", className: styles.numericCell, render: r => nullableMoney(r.payzu_fee_cents) },
         { key: "discount", label: "Desconto", className: styles.numericCell, render: r => nullableMoney(r.discount_cents) },
         { key: "amount", label: section === "history" ? "Valor do repasse" : "Valor", className: styles.numericCell, render: r => money(r.amount_cents) },
-        { key: "status", label: "Status", render: r => <div><PayoutStatus status={r.status}/>{section === "failed" && <p className="mt-2 min-w-40 max-w-64 text-xs text-gray-500">{r.failure_reason || "Motivo não registrado."}</p>}</div> },
+        { key: "status", label: "Status", render: r => <div><PayoutStatus status={r.status}/>{section === "failed" && <p className="mt-2 min-w-0 max-w-64 text-xs text-gray-500">{r.failure_reason || "Motivo não registrado."}</p>}</div> },
+        ...(section === "failed" ? [{ key: "alert", label: "Alerta", render: (r: History) => <div className="flex flex-wrap gap-1" title={r.alert_error || undefined}><Badge variant={r.alert_status === "sent" ? "success" : r.alert_status === "failed" ? "danger" : "neutral"}>{r.alert_status === "sent" ? "Enviado" : r.alert_status === "failed" ? "Falhou" : r.alert_status === "sending" ? "Enviando" : "Não enviado"}</Badge>{(!r.pix_key || r.alert_message?.includes("não tem uma chave PIX")) ? <Badge variant="warning">Pix não cadastrado</Badge> : (r.alert_message?.includes("incorretamente") || /pix.*(invalid|incorret)|invalid.*pix/i.test(r.failure_reason || "")) ? <Badge variant="warning">Pix incorreto</Badge> : null}</div> }] : []),
         ...(section === "failed" ? [{ key: "retry", label: "", render: (r: History) => <Button variant="secondary" disabled={!canRetry || r.status !== "failed" || !r.pix_key || Boolean(r.asaas_transfer_id)} onClick={() => onRetry(r.id)}>Tentar novamente</Button> }] : []),
     ];
     return <>
-        <section className={`${styles.section} ${styles.scrollTable} ${section === "failed" ? styles.payoutFailures : ""}`}>
-            <div className={styles.sectionHeader}><h2>{section === "failed" ? "Repasses com falha" : section === "runs" ? "Histórico diário" : "Histórico de repasses"}</h2>{section === "failed" && data.total > 0 && <Badge variant="danger">{data.total} registro(s)</Badge>}</div>
+        <section className={`${styles.tableSection} ${styles.payoutTable}`} aria-label={section === "failed" ? "Repasses com falha" : section === "runs" ? "Histórico" : "Histórico por restaurante"}>
+            {section === "failed" && <div className="mb-3.5 flex items-center gap-3"><h2 className="text-lg font-semibold">Repasses com falha</h2>{data.total > 0 && <Badge variant="danger">{data.total} registro(s)</Badge>}</div>}
             {error && <p role="alert" className="text-red-700">{error}</p>}
-            <PagedTable data={data} loading={loading} rowKey={r => r.id} onPage={setPage} columns={columns} onRowClick={section === "runs" ? setSelectedRun : undefined}/>
+            <PagedTable pageSize={10} data={data} loading={loading} rowKey={r => r.id} onPage={setPage} columns={columns} onRowClick={section === "runs" ? setSelectedRun : undefined}/>
         </section>
         <DevDialog title={`Execução de ${runDate(selectedRun?.run_date)}`} open={Boolean(selectedRun)} onClose={() => setSelectedRun(null)}>
             {selectedRun && <div className="space-y-5">
@@ -87,29 +91,35 @@ function HistoryTable({ section, revision, onRetry, canRetry = false }: { sectio
 }
 
 export default function PayoutsSection() {
-    const [historyTab,setHistoryTab] = useState("Histórico diário");
+    const { openProfile } = useDevProfile();
+    const [validationPage,setValidationPage] = useState(0);
+    const [historyTab,setHistoryTab] = useState("Histórico");
     const [data, setData] = useState<Dashboard | null>(null);
     const [revision, setRevision] = useState(0);
     const [page, setPage] = useState(0);
     const [error, setError] = useState("");
     const [message, setMessage] = useState("");
     const [sending, setSending] = useState(false);
-    const [confirmation, setConfirmation] = useState<{ ids?: string[]; retry?: string; fund?: boolean } | null>(null);
+    const [selectedRestaurantIds,setSelectedRestaurantIds] = useState<string[]>([]);
+    const [confirmation, setConfirmation] = useState<{ ids?: string[]; retry?: string } | null>(null);
     useEffect(() => {
         const controller = new AbortController();
-        void devJson<Dashboard>("/api/dev/payout", { signal: controller.signal }).then(setData).catch(e => { if (!controller.signal.aborted) setError(e.message); });
+        void devJson<Dashboard>("/api/dev/payout", { signal: controller.signal }).then(result => {setData(result);setSelectedRestaurantIds(result.payables.filter(row=>row.canSend && row.grossCents > 0).map(row=>row.restaurantId));}).catch(e => { if (!controller.signal.aborted) setError(e.message); });
         return () => controller.abort();
     }, [revision]);
     const payables = [...(data?.payables || [])].sort((a,b)=>Number(!b.pixKey)-Number(!a.pixKey)||b.grossCents-a.grossCents);
     const net = (row: Payable) => calculateOnePercentPayout(row.grossCents, row.payzuFeeCents).netCents;
     const totals = summarizeOnePercentPayouts(payables);
-    const selected = payables.filter(row => row.canSend && row.grossCents > 0 && (!confirmation?.ids || confirmation.ids.includes(row.restaurantId)));
+    const eligible = payables.filter(row=>row.canSend && row.grossCents > 0);
+    const selectedForBatch = eligible.filter(row=>selectedRestaurantIds.includes(row.restaurantId));
+    const selected = eligible.filter(row=>confirmation?.ids?.includes(row.restaurantId));
+    const selectedTotal = summarizeOnePercentPayouts(selectedForBatch).netCents;
     async function send() {
-        if (!confirmation || !data) return;
+        if (!confirmation || !data || (!confirmation.retry && !selected.length)) return;
         setSending(true); setError(""); setMessage("");
         try {
-            const result = await devJson<{ paidCount?: number; processingCount?: number; failedCount?: number; validationErrors?: PayoutRestaurantError[] }>("/api/dev/payout", { method: "POST", body: JSON.stringify(confirmation.fund ? { action: "fund_asaas" } : confirmation.retry ? { retryPayoutId: confirmation.retry } : { discountPercent: 1, adjustToOnePercent: true, restaurantIds: selected.map(row => row.restaurantId), cutoffAt: data.cutoffAt }) });
-            setMessage(confirmation.fund ? "Transferência para o Asaas solicitada." : `${result.paidCount || 0} pagos · ${result.processingCount || 0} processando · ${result.failedCount || 0} com falha · ${result.validationErrors?.length || 0} pedidos excluídos por validação.`);
+            const result = await devJson<{ paidCount?: number; processingCount?: number; failedCount?: number; validationErrors?: PayoutRestaurantError[] }>("/api/dev/payout", { method: "POST", body: JSON.stringify(confirmation.retry ? { retryPayoutId: confirmation.retry } : { discountPercent: 1, adjustToOnePercent: true, restaurantIds: selected.map(row => row.restaurantId), cutoffAt: data.cutoffAt }) });
+            setMessage(`${result.paidCount || 0} pagos · ${result.processingCount || 0} processando · ${result.failedCount || 0} com falha · ${result.validationErrors?.length || 0} pedidos excluídos por validação.`);
             setConfirmation(null); setRevision(r => r + 1);
         } catch (e) { setError((e as Error).message); } finally { setSending(false); }
     }
@@ -118,19 +128,20 @@ export default function PayoutsSection() {
         <HistoryTable section="failed" revision={revision} canRetry={Boolean(data?.asaasConfigured)} onRetry={id => setConfirmation({ retry: id })} />
         {!data ? <DevLoading /> : <>
             <dl className={styles.metricStrip}><div><dt>Saldo Asaas</dt><dd>{data.asaasBalanceCents === null ? "—" : money(data.asaasBalanceCents)}</dd>{data.asaasError ? <p className="mt-2 text-sm text-red-700">{data.asaasError}</p> : !data.asaasConfigured && <p>Asaas não configurado.</p>}</div><div><dt>Total a repassar (líquido)</dt><dd>{money(totals.netCents)}</dd><p>{money(totals.grossCents)} bruto · Gateway {money(totals.payzuFeeCents)} · Desconto {money(totals.discountCents)} · 1% total</p></div></dl>
-            {data.validationErrors?.length > 0 && <section className={`${styles.section} ${styles.scrollTable}`}>
-                <div className={styles.sectionHeader}><h2>Pedidos excluídos por validação</h2><Badge variant="danger">{data.validationErrors.length} pedido(s)</Badge></div>
-                <DataTable rows={data.validationErrors} rowKey={row => row.orderId} columns={[
+            {data.validationErrors?.length > 0 && <section className={`${styles.tableSection} ${styles.payoutTable}`}>
+                <h2>Pedidos excluídos por validação <Badge variant="danger">{data.validationErrors.length} pedido(s)</Badge></h2>
+                <PagedTable pageSize={10} data={{rows:data.validationErrors.slice(validationPage*10,(validationPage+1)*10),total:data.validationErrors.length,page:validationPage,pageCount:Math.ceil(data.validationErrors.length/10)}} onPage={setValidationPage} rowKey={row => row.orderId} columns={[
                     { key: "restaurant", label: "Restaurante", render: row => row.restaurantName },
                     { key: "payment", label: "Pagamento", render: row => <p className="max-w-36 break-all text-xs">{row.paymentRef}</p> },
                     { key: "gross", label: "Bruto excluído", className: styles.numericCell, render: row => money(row.grossCents) },
                     { key: "error", label: "Motivo", render: row => <p className="max-w-xl break-words text-xs text-red-700">{row.message}</p> },
                 ]} />
             </section>}
-            <section className={`${styles.section} ${styles.scrollTable}`}><div className={styles.sectionHeader}><h2>Valores por restaurante</h2><div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={sending || !data.asaasConfigured} onClick={() => setConfirmation({ fund: true })}>Abastecer Asaas</Button><Button disabled={sending || !data.asaasConfigured || !payables.some(row => row.canSend && row.grossCents > 0)} onClick={() => setConfirmation({})}>Enviar repasses</Button></div></div>
-                <PagedTable data={{ rows: payables.slice(page * 25, (page + 1) * 25), total: payables.length, page, pageCount: Math.ceil(payables.length / 25) }} onPage={setPage} rowKey={r => r.restaurantId} columns={[
-                    { key: "name", label: "Restaurante", render: r => <div className="min-w-40"><p className="font-medium">{r.restaurantName}</p>{data.ownerPhones[r.restaurantId] && <a className="text-xs text-[#c43700]" href={getWhatsappUrl(data.ownerPhones[r.restaurantId])||undefined} target="_blank" rel="noopener noreferrer">{formatPhone(data.ownerPhones[r.restaurantId])}</a>}</div> },
-                    { key: "pix", label: "PIX", render: r => <p className="min-w-24 max-w-40 break-all text-xs">{r.pixKey ? <>{r.pixKeyType && <span className="text-gray-500">{r.pixKeyType} · </span>}{r.pixKey}</> : <span className="text-red-700">Não cadastrado</span>}</p> },
+            <section className={`${styles.tableSection} ${styles.payoutTable} ${styles.payoutPayables}`}><div className="mb-3.5 flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-semibold">Valores por restaurante</h2><div className="flex flex-wrap gap-2"><Button leftIcon={<Send size={16} aria-hidden="true" />} disabled={sending || !data.asaasConfigured || !selectedForBatch.length} onClick={() => setConfirmation({ids:selectedForBatch.map(row=>row.restaurantId)})}>Enviar selecionados — {money(selectedTotal)}</Button></div></div>
+                <PagedTable pageSize={10} data={{ rows: payables.slice(page * 10, (page + 1) * 10), total: payables.length, page, pageCount: Math.ceil(payables.length / 10) }} onPage={setPage} rowKey={r => r.restaurantId} columns={[
+                    {key:"select",label:"Selecionar",header:<input type="checkbox" aria-label="Selecionar todos os restaurantes elegíveis" checked={eligible.length > 0 && selectedForBatch.length === eligible.length} ref={element=>{if(element)element.indeterminate=selectedForBatch.length > 0 && selectedForBatch.length < eligible.length;}} disabled={sending || !eligible.length} onChange={event=>setSelectedRestaurantIds(event.target.checked ? eligible.map(row=>row.restaurantId) : [])} className="h-4 w-4 cursor-pointer accent-brand disabled:cursor-not-allowed disabled:opacity-40" />,render:r=><input type="checkbox" aria-label={`Selecionar ${r.restaurantName}`} checked={selectedRestaurantIds.includes(r.restaurantId)} disabled={sending || !r.canSend || r.grossCents <= 0} onChange={event=>setSelectedRestaurantIds(current=>event.target.checked ? [...current.filter(id=>id!==r.restaurantId),r.restaurantId] : current.filter(id=>id!==r.restaurantId))} className="h-4 w-4 cursor-pointer accent-brand disabled:cursor-not-allowed disabled:opacity-40" />},
+                    { key: "name", label: "Restaurante", render: r => <div className="min-w-0"><button type="button" className={styles.profileLink} onClick={event => {event.stopPropagation();openProfile({id:r.restaurantId,name:r.restaurantName});}}>{r.restaurantName}</button>{data.ownerPhones[r.restaurantId] && <a className="text-xs text-[#c43700]" href={getWhatsappUrl(data.ownerPhones[r.restaurantId])||undefined} target="_blank" rel="noopener noreferrer">{formatPhone(data.ownerPhones[r.restaurantId])}</a>}</div> },
+                    { key: "pix", label: "PIX", render: r => <p className="min-w-0 max-w-40 break-all text-xs">{r.pixKey ? <>{r.pixKeyType && <span className="text-gray-500">{r.pixKeyType} · </span>}{r.pixKey}</> : <span className="text-red-700">Não cadastrado</span>}</p> },
                     { key: "gross", label: "Bruto elegível", className: styles.numericCell, render: r => money(r.grossCents) },
                     { key: "gateway", label: "Gateway", className: styles.numericCell, render: r => money(r.payzuFeeCents) },
                     { key: "discount", label: "Desconto", className: styles.numericCell, render: r => money(calculateOnePercentPayout(r.grossCents,r.payzuFeeCents).discountCents) },
@@ -140,7 +151,7 @@ export default function PayoutsSection() {
                 ]} />
             </section>
         </>}
-        <Tabs tabs={["Histórico diário","Histórico de repasses"]} active={historyTab} onChange={setHistoryTab}/><HistoryTable key={historyTab} section={historyTab==="Histórico diário"?"runs":"history"} revision={revision} onRetry={()=>undefined}/>
-        <ConfirmModal open={Boolean(confirmation)} onClose={() => { if (!sending) setConfirmation(null); }} onConfirm={() => void send()} isLoading={sending} variant="primary" title={confirmation?.fund ? "Abastecer Asaas" : "Confirmar repasse"} description={confirmation?.fund ? "Transferir apenas o valor necessário do Mercado Pago para cobrir os repasses elegíveis." : confirmation?.retry ? "Tentar novamente este repasse usando os valores registrados e os dados PIX atuais da loja." : `Enviar ${money(selected.reduce((sum, row) => sum + net(row), 0))} para ${selected.length} restaurante(s), com desconto total de 1% do bruto.`} confirmLabel="Confirmar e enviar" />
+        <Tabs tabs={["Histórico","Histórico por restaurante"]} active={historyTab} onChange={setHistoryTab}/><HistoryTable key={historyTab} section={historyTab==="Histórico"?"runs":"history"} revision={revision} onRetry={()=>undefined}/>
+        <ConfirmModal open={Boolean(confirmation)} onClose={() => { if (!sending) setConfirmation(null); }} onConfirm={() => void send()} isLoading={sending} variant="primary" title="Confirmar repasse" description={confirmation?.retry ? "Tentar novamente este repasse usando os valores registrados e os dados PIX atuais da loja." : `Enviar ${money(selected.reduce((sum, row) => sum + net(row), 0))} para ${selected.length} restaurante(s), com desconto total de 1% do bruto.`} confirmLabel="Confirmar e enviar" />
     </>;
 }
