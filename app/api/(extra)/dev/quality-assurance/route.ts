@@ -5,7 +5,7 @@ import { query } from "@/lib/database/sql";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 10;
 
 type AnalysisRow = {
     id: string;

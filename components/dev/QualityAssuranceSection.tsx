@@ -139,7 +139,7 @@ export default function QualityAssuranceSection() {
             <section className={styles.tableSection}>
                 <h2>Análises Vendas IA <span className="font-normal text-gray-500">({data.analyses.total})</span></h2>
                 <p className="mb-4 text-xs text-gray-500">Últimos 90 dias · GMV registrado no relatório, sem frete. Uma linha por análise concluída.</p>
-                <div className={styles.section}>
+                <div>
                     <PagedTable data={data.analyses} loading={loading} onPage={setPage}
                         rowKey={row => row.id}
                         onRowClick={row => openRestaurant(row.restaurantId, row.restaurantName)}
@@ -156,9 +156,8 @@ export default function QualityAssuranceSection() {
             </section>
             <section className={styles.tableSection}>
                 <h2>Restaurantes sem análise <span className="font-normal text-gray-500">({data.missing.length})</span></h2>
-                <p className="mb-4 text-xs text-gray-500">Plus ativo sem análise concluída desde a ativação. Alarmes registrados por assinatura.</p>
-                <div className={styles.section}>
-                    <PagedTable data={{ rows: data.missing.slice(missingPage * 25, (missingPage + 1) * 25), total: data.missing.length, page: missingPage, pageCount: Math.max(1, Math.ceil(data.missing.length / 25)) }}
+                <div>
+                    <PagedTable data={{ rows: data.missing.slice(missingPage * 10, (missingPage + 1) * 10), total: data.missing.length, page: missingPage, pageCount: Math.max(1, Math.ceil(data.missing.length / 10)) }}
                         rowKey={row => row.addonId}
                         onPage={setMissingPage}
                         onRowClick={row => openRestaurant(row.restaurantId, row.restaurantName)}
@@ -176,7 +175,6 @@ export default function QualityAssuranceSection() {
             </section>
             <section className={styles.tableSection}>
                 <h2>Gastos OpenAI</h2>
-                <p className="mb-4 text-xs text-gray-500">Custos faturados pela OpenAI · últimos 30 dias completos (UTC) · USD · toda a organização.</p>
                 {costs === null ? <div className={styles.section}><div className="p-6"><DevLoading /></div></div>
                     : costs.status !== "ok" ? <div className={styles.section}>
                         <p className="p-6 text-sm text-gray-500">{costs.status === "unconfigured"

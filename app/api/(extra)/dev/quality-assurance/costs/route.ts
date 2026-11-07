@@ -87,9 +87,9 @@ async function loadCosts(adminKey: string): Promise<CostPayload> {
     const totalUsd = series.reduce((sum, day) => sum + day.usd, 0);
     const sorted = Array.from(categories, ([label, usd]) => ({ label, usd }))
         .filter(item => item.usd !== 0).sort((a, b) => b.usd - a.usd);
-    const top = sorted.slice(0, 10);
-    if (sorted.length > 10) {
-        top.push({ label: "Outros itens", usd: sorted.slice(10).reduce((sum, item) => sum + item.usd, 0) });
+    const top = sorted.slice(0, 9);
+    if (sorted.length > 9) {
+        top.push({ label: "Outros itens", usd: sorted.slice(9).reduce((sum, item) => sum + item.usd, 0) });
     }
 
     return {
