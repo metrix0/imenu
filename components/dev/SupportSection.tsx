@@ -541,6 +541,7 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                 )}
 
                 {section !== "blast" && <>
+                <Card aria-label="Indicadores de atendimento"><dl className="grid grid-cols-1 gap-6 sm:grid-cols-2"><div><dt className="text-xs text-gray-500">Resposta média · Bot</dt><dd className="mt-2 text-2xl font-semibold tabular-nums">{formatResponseTime(data?.responseTimes?.bot_seconds)}</dd><p className="mt-1 text-xs text-gray-500">Últimos 30 dias</p></div><div><dt className="text-xs text-gray-500">Resposta média · Humano</dt><dd className="mt-2 text-2xl font-semibold tabular-nums">{formatResponseTime(data?.responseTimes?.human_seconds)}</dd><p className="mt-1 text-xs text-gray-500">Últimos 30 dias</p></div></dl></Card>
                 <section className={`${styles.tableSection} ${styles.supportTable} ${styles.supportHandoffs}`}>
                     <h2>Atendimento humano</h2>
                     <DataTable rows={data?.handedOff || []} rowKey={conversation => conversation.id} emptyMessage="Nenhuma conversa em atendimento humano." columns={[
@@ -557,7 +558,6 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                     {selectedConversation && <SupportConversation url={"/api/dev/support/drafts?conversation_id="+selectedConversation.id}/>}
                 </DevDialog>
 
-                <dl className={styles.metricStrip}><div><dt>Resposta média · Bot</dt><dd>{formatResponseTime(data?.responseTimes?.bot_seconds)}</dd><p>Últimos 30 dias</p></div><div><dt>Resposta média · Humano</dt><dd>{formatResponseTime(data?.responseTimes?.human_seconds)}</dd><p>Últimos 30 dias</p></div></dl>
                {section === "support" && <SupportDraftsSection/>}
                {section === "legacy" && <>
                 <Card>
