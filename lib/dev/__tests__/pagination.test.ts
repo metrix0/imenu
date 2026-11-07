@@ -1,5 +1,6 @@
 import { devPage, paged } from "../pagination";
 import { getCrm } from "../crm";
+import { payoutHistory } from "../payoutHistory";
 import { query } from "@/lib/database/sql";
 
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn() }));
@@ -27,4 +28,21 @@ test.each(["1","0"])("both CRM lists use 10-row pages: paid=%s",async(paid)=>{
  const data=await getCrm(new URLSearchParams({paid,page:"2"}));
  expect(data).toMatchObject({page:2,pageCount:3,total:21});
  expect(query).toHaveBeenCalledWith(expect.stringContaining("LIMIT $2 OFFSET $3"),["",10,20]);
+});
+
+
+test.each(["failed", "history", "runs"])("payout %s history uses 10-row pages", async section => {
+    (query as jest.Mock).mockImplementation(async (sql: string) => ({ rows: sql.includes("COUNT(*)::int total") ? [{ total: 21 }] : [] }));
+    const result = await payoutHistory(new URLSearchParams({ section, page: "2" }));
+    expect(result).toMatchObject({ page: 2, pageCount: 3, total: 21 });
+    expect(query).toHaveBeenCalledWith(expect.stringContaining("LIMIT $1 OFFSET $2"), [10, 20]);
+    const sql = (query as jest.Mock).mock.calls[0][0];
+    if (section === "failed") {
+        expect(sql).toContain("LEFT JOIN whatsapp_outbound_messages alert");
+        expect(sql).toContain("alert.status alert_status");
+        expect(sql).toContain("p.created_at AT TIME ZONE 'America/Sao_Paulo'");
+        expect(sql).toContain("WHERE p.status='failed'");
+    } else {
+        expect(sql).not.toContain("JOIN whatsapp_outbound_messages");
+    }
 });
