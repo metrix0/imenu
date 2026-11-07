@@ -200,8 +200,9 @@ async function getDashboardData(params = new URLSearchParams()) {
         ),
     ]);
 
+    // Ignore imported history and unusually long waits, but keep their impact visible to the dashboard.
     const responseTimes = await query(`WITH replies AS (
-        SELECT reply.model,reply.dedupe_key,EXTRACT(EPOCH FROM reply.created_at-inbound.created_at) seconds
+        SELECT reply.conversation_id,reply.model,reply.dedupe_key,EXTRACT(EPOCH FROM reply.created_at-inbound.created_at) seconds
         FROM support_messages reply JOIN support_conversations c ON c.id=reply.conversation_id
         JOIN LATERAL(SELECT m.created_at FROM support_messages m WHERE m.conversation_id=reply.conversation_id
             AND m.direction='inbound' AND m.created_at<reply.created_at ORDER BY m.created_at DESC LIMIT 1) inbound ON TRUE
@@ -210,8 +211,16 @@ async function getDashboardData(params = new URLSearchParams()) {
           AND COALESCE(reply.dedupe_key,'') NOT LIKE 'support:blast%'
           AND NOT EXISTS(SELECT 1 FROM support_messages previous WHERE previous.conversation_id=reply.conversation_id
               AND previous.direction='outbound' AND previous.send_status='sent' AND previous.created_at>inbound.created_at AND previous.created_at<reply.created_at)
-    ) SELECT AVG(seconds) FILTER(WHERE model IS NOT NULL OR dedupe_key IS NOT NULL)::float8 bot_seconds,
-        AVG(seconds) FILTER(WHERE model IS NULL AND dedupe_key IS NULL)::float8 human_seconds FROM replies`);
+    ), classified AS (
+        SELECT conversation_id, seconds,
+            (model IS NOT NULL OR dedupe_key IS NOT NULL) AS is_bot,
+            (COALESCE(dedupe_key,'') LIKE 'support:backfill:%' OR seconds > 120) AS is_outlier
+        FROM replies
+    ) SELECT AVG(seconds) FILTER(WHERE is_bot AND NOT is_outlier)::float8 bot_seconds,
+        AVG(seconds) FILTER(WHERE NOT is_bot)::float8 human_seconds,
+        COUNT(DISTINCT conversation_id) FILTER(WHERE is_bot AND is_outlier)::int excluded_conversations,
+        COUNT(*) FILTER(WHERE is_bot AND is_outlier)::int excluded_responses,
+        AVG(seconds) FILTER(WHERE is_bot AND is_outlier)::float8 excluded_avg_seconds FROM classified`);
     return {
         responseTimes: responseTimes.rows[0],
         connection,

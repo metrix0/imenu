@@ -72,7 +72,13 @@ export type Conversation = {
 };
 
 export type DashboardData = {
-    responseTimes?: { bot_seconds: number | null; human_seconds: number | null };
+    responseTimes?: {
+        bot_seconds: number | null;
+        human_seconds: number | null;
+        excluded_conversations: number;
+        excluded_responses: number;
+        excluded_avg_seconds: number | null;
+    };
     connection: Connection;
     blastConnection: Connection;
     stats: Stats;
