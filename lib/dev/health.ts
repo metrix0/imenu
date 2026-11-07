@@ -6,6 +6,7 @@ export const INTEGRATIONS = [
     { id: "mercadopago", name: "Mercado Pago", priority: 1 },
     { id: "supabase", name: "Supabase / Auth / Storage", priority: 1 },
     { id: "waha", name: "WhatsApp / WAHA", priority: 2 },
+    { id: "waha_webhooks", name: "WAHA / Entrega de webhooks", priority: 2 },
     { id: "openai", name: "OpenAI", priority: 2 },
     { id: "posthog", name: "PostHog", priority: 3 },
     { id: "google", name: "Google Geocoding", priority: 3 },

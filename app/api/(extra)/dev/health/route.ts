@@ -34,7 +34,19 @@ export async function GET(request: Request) {
                 WHERE reported_at >= COALESCE($3::timestamptz,NOW()-($1*INTERVAL '1 day')) AND ($4::timestamptz IS NULL OR reported_at <= $4) GROUP BY 1 ORDER BY 1`, [days, start===end ? "minute" : "hour",...bounds]),
             query<{source:string;ok:boolean;http_status:number|null;checked_at:string;check_kind:string;state:string|null;operation:string|null;detail:string|null}>("SELECT source,ok,http_status,checked_at,check_kind,state,operation,detail FROM public.dev_integration_status"),
         ]);
+        const delivery = latest.rows[0]?.data?.operations?.webhook_delivery;
         return NextResponse.json({ latest: latest.rows[0] || null, history: history.rows, connections: INTEGRATIONS.map(item=>{
+            if(item.id==="waha_webhooks"){
+                if(!delivery)return {id:item.id,name:item.name,priority:item.priority,observation:null};
+                const checkedAt=typeof delivery.checked_at==="string" ? delivery.checked_at : null;
+                const stale=!checkedAt || !Number.isFinite(Date.parse(checkedAt)) || Date.now()-Date.parse(checkedAt)>45*60_000;
+                const state=["connected","degraded","failed","unverified"].includes(delivery.state) ? delivery.state : "unverified";
+                return {id:item.id,name:item.name,priority:item.priority,observation:{
+                    state:stale?"unverified":state,status:delivery.http_status??null,
+                    checkedAt,operation:"Entrega de webhook",
+                    detail:stale?"Verificação desatualizada.":delivery.detail||"Sem dados de entrega."
+                }};
+            }
             const found=connections.rows.find(row=>row.source===item.id && row.check_kind==="probe");
             if(!found)return {id:item.id,name:item.name,priority:item.priority,observation:null};
             const stale=Date.now()-Date.parse(found.checked_at)>45*60_000;

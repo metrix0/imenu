@@ -4,10 +4,12 @@
 Called by the existing five-minute host monitor. Aggregate SQL and cron checks
 run no more than once every 15 minutes; no customer data is exported.
 """
+import collections
 import datetime
 import json
 import os
 import pathlib
+import re
 import subprocess
 import time
 import urllib.parse
@@ -20,6 +22,7 @@ METRICS = {
     "printer_recent_failures": (3, "recent failed print jobs"),
     "wa_webhooks_stuck": (3, "WhatsApp webhooks stalled"),
     "wa_webhooks_failed": (3, "recent failed WhatsApp webhooks"),
+    "wa_delivery_failures": (2, "repeated WAHA webhook delivery failures"),
     "wa_outbound_failed": (3, "recent failed WhatsApp messages"),
     "billing_webhooks_stuck": (1, "unprocessed billing webhooks"),
     "payout_failed_today": (1, "failed payout automation runs"),
@@ -96,6 +99,51 @@ SELECT json_build_object(
 """
 
 
+
+def summarize_webhook_delivery(log_text):
+    """Use WAHA sender responses, not inbound webhook processing or WAHA uptime."""
+    results = {}
+    for line in log_text.splitlines():
+        if "WebhookSender/" not in line:
+            continue
+        code = re.search(r"POST request was sent with status code:\s*(\d{3})", line)
+        delivery_id = re.search(r'"id"\s*:\s*"([^"]+)"', line)
+        destination = re.search(r'"url"\s*:\s*"([^"]+)"', line)
+        if code and delivery_id and destination:
+            # A successful retry supersedes a failed attempt for that delivery.
+            results[(destination.group(1), delivery_id.group(1))] = int(code.group(1))
+
+    delivered = sum(200 <= code < 300 for code in results.values())
+    failures = {}
+    for (destination, _), code in results.items():
+        if code < 200 or code >= 300:
+            failures.setdefault(destination, []).append(code)
+    worst = max(failures.values(), key=len, default=[])
+    failed = sum(map(len, failures.values()))
+    status = collections.Counter(worst).most_common(1)[0][0] if worst else (200 if delivered else None)
+    state = "failed" if len(worst) >= 2 else "degraded" if failed else "connected" if delivered else "unverified"
+    detail = (f"HTTP {status}: {len(worst)} falhas no mesmo destino; {delivered} entregas OK (15 min)."
+              if worst else f"{delivered} entregas OK, sem falhas (15 min)."
+              if delivered else "Nenhuma resposta de webhook observada nos últimos 15 min.")
+    return {"state": state, "http_status": status, "detail": detail,
+            "failures": failed, "delivered": delivered, "worst_failures": len(worst)}
+
+
+def check_waha_webhook_delivery():
+    try:
+        # Existing 15-minute deep check; no new timer, webhook request or session change.
+        output = subprocess.run(["docker", "logs", "--since", "15m", "--tail", "15000",
+                                 "imenu-kinghost-waha"], capture_output=True, text=True,
+                                check=True, timeout=12)
+        result = summarize_webhook_delivery(output.stdout + output.stderr)
+    except (OSError, subprocess.SubprocessError):
+        result = {"state": "unverified", "http_status": None,
+                  "detail": "Não foi possível consultar as respostas do WAHA.",
+                  "failures": 0, "delivered": 0, "worst_failures": 0}
+    result["checked_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    return result
+
+
 def read_state(path):
     try:
         data = json.loads(path.read_text())
@@ -132,7 +180,7 @@ def scheduled_jobs():
     return issues
 
 
-def notify(root, title, message):
+def notify(root, title, message, *, source="vps-monitor", operation=None, http_status=None):
     secret = None
     for line in (root / "secrets/app-production.env").read_text().splitlines():
         if line.startswith("CRON_SECRET="):
@@ -140,8 +188,12 @@ def notify(root, title, message):
     if not secret:
         raise RuntimeError("Existing CRON_SECRET was not found")
     alarm = "TRIGGER ALARM" in title or "ALARM TRIGGER" in title
-    payload = {"source": "vps-monitor", "title": title, "message": message,
+    payload = {"source": source, "title": title, "message": message,
                "severity": "critical" if alarm else "info" if "recovered" in title else "warning"}
+    if operation:
+        payload["operation"] = operation
+    if http_status is not None:
+        payload["httpStatus"] = http_status
     request = urllib.request.Request("https://www.imenuapp.com.br/api/notify",
         data=json.dumps(payload).encode("utf-8"),
         headers={"Authorization": "Bearer " + secret, "Content-Type": "application/json"}, method="POST")
@@ -174,6 +226,9 @@ def inspect(root, host_alerts, dry_run=False):
     if deep_due:
         try:
             metrics = aggregate_metrics()
+            delivery = check_waha_webhook_delivery()
+            state["webhook_delivery"] = delivery
+            metrics["wa_delivery_failures"] = delivery["worst_failures"]
             for name, (threshold, _) in METRICS.items():
                 if metrics.get(name, 0) >= threshold:
                     sampled["operation:" + name] = metrics[name]
@@ -207,7 +262,20 @@ def inspect(root, host_alerts, dry_run=False):
     notification_error = None
     if not dry_run:
         critical_alarms = [key for key in new_alarms if is_critical(key)]
-        normal_alarms = [key for key in new_alarms if not is_critical(key)]
+        webhook_key = "operation:wa_delivery_failures"
+        normal_alarms = [key for key in new_alarms if not is_critical(key) and key != webhook_key]
+        if webhook_key in new_alarms:
+            delivery = state.get("webhook_delivery", {})
+            code = delivery.get("http_status")
+            try:
+                notify(root, f"iMenu: falha de entrega WAHA (HTTP {code or 'erro'})",
+                       f"{entries[webhook_key]['value']} entregas com falha para o mesmo destino.",
+                       source="waha-webhook-delivery", operation="Entrega de webhook",
+                       http_status=code)
+                entries[webhook_key]["notified"] = True
+            except (OSError, RuntimeError) as error:
+                notification_error = type(error).__name__
+                print("IMENU_NTFY_FAILED", notification_error)
         for title, items, acknowledged, critical in [
             ("TRIGGER ALARM · iMenu: critical alert", critical_alarms, True, True),
             ("iMenu: operational alert", normal_alarms, True, False),
@@ -240,6 +308,7 @@ def inspect(root, host_alerts, dry_run=False):
         "ok": not active,
         "alerts": active,
         "metrics": metrics,
+        "webhook_delivery": state.get("webhook_delivery"),
         "notification_error": notification_error,
     }
 
