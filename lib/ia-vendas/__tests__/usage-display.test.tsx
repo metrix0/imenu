@@ -98,7 +98,8 @@ test('quota message keeps the existing usage rows with only two inline bars', ()
  expect(html).toContain('aria-valuenow="98"');
  expect(html).toContain('aria-valuenow="100"');
  expect(html.indexOf('Tokens de entrada')).toBeLessThan(html.indexOf('aria-label="Uso de tokens de entrada"'));
- expect(html.indexOf('aria-label="Uso de tokens de entrada"')).toBeLessThan(html.indexOf('Tokens de saída'));
+ expect(html).toContain('<dt>Imagens</dt>');
+ expect(html.indexOf('aria-label="Uso de tokens de entrada"')).toBeLessThan(html.indexOf('<dt>Imagens</dt>'));
  expect(html.indexOf('<dt>Imagens</dt>')).toBeLessThan(html.indexOf('aria-label="Uso de imagens"'));
  expect(html).not.toContain('aria-label="Informações de uso');
  expect(html.match(/Recarregar créditos/g)).toHaveLength(1);
