@@ -31,20 +31,20 @@ export default function AlertsSection({range}:{range?:DateRange}) {
     return <section className={styles.externalSection}>
         <h2>Alertas</h2>
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-        <div className={styles.alertsTable}><PagedTable pageSize={10} onRowClick={setSelected} data={data} onPage={setPage} rowKey={row => String(row.id)} loading={loading} columns={[
+        <PagedTable pageSize={10} onRowClick={setSelected} data={data} onPage={setPage} rowKey={row => String(row.id)} loading={loading} columns={[
             { key: "date", label: "Data", render: row => formatDateTime(row.last_seen_at||row.created_at), className: "whitespace-nowrap" },
-            { key: "source", label: "Origem", render: row => row.source === "phone" || row.source === "unknown" ? "Origem não registrada" : row.source },
-            { key: "operation", label: "Operação", render: row => row.operation||"—" },
+            { key: "source", label: "Origem", render: row => row.source === "phone" || row.source === "unknown" ? "Origem não registrada" : row.source, className: "whitespace-nowrap" },
+            { key: "operation", label: "Operação", render: row => row.operation||"—", className: "whitespace-nowrap" },
             { key: "trigger", label: "Trigger", render: row => {
                 const t=row.trigger_type;
                 if(!t)return "Não registrado";
                 const labels={notification:"Notification",alarm:"Alarm",blast:"Blast",none:"None"} as const;
                 const variants={notification:"info",alarm:"danger",blast:"brand",none:"neutral"} as const;
                 return <Badge variant={variants[t]}>{labels[t]}</Badge>;
-            } },
-            { key: "count", label: "Ocorrências", render: row => row.occurrences>1?row.occurrences:"—" },
-            { key: "title", label: "Alerta", render: row => <span className="block max-w-full truncate font-medium" title={`${row.title} · ${row.message}`}>{row.title}{row.http_status ? ` · HTTP ${row.http_status}` : ""}</span> },
-        ]} /></div>
+            }, className: "whitespace-nowrap" },
+            { key: "count", label: "Ocorrências", render: row => row.occurrences>1?row.occurrences:"—", className: "whitespace-nowrap" },
+            { key: "title", label: "Alerta", render: row => <span className="block max-w-md truncate font-medium" title={`${row.title} · ${row.message}`}>{row.title}{row.http_status ? ` · HTTP ${row.http_status}` : ""}</span> },
+        ]} />
         <DevDialog open={Boolean(selected)} onClose={()=>setSelected(null)} title={selected?.title || "Alerta"}><>
             <div className="mb-3 space-y-1 text-sm text-gray-600">
                 <p>Origem: {selected?.source || "—"} · Operação: {selected?.operation||"—"}</p>
