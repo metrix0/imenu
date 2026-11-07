@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { faChartLine, faBullhorn, faHeadset, faHeartPulse, faShieldHalved, faHouse, faMoneyBillWave, faRightFromBracket, faUsers } from "@fortawesome/free-solid-svg-icons";
+import { faChartLine, faBullhorn, faCoins, faHeadset, faHeartPulse, faShieldHalved, faHouse, faMoneyBillWave, faRightFromBracket, faUsers } from "@fortawesome/free-solid-svg-icons";
 import PanelNavigation, { type PanelMenuItem } from "@/components/common/PanelNavigation";
 import { supabase } from "@/lib/database/supabaseClient";
 
@@ -10,6 +10,7 @@ const sections: PanelMenuItem[] = [
     { label: "Health", href: "/dev/health", icon: faHeartPulse },
     { label: "CRM", href: "/dev/crm", icon: faUsers },
     { label: "Blast", href: "/dev/blast", icon: faBullhorn },
+    { label: "Receita", href: "/dev/revenue", icon: faCoins },
     { label: "Payouts", href: "/dev/payouts", icon: faMoneyBillWave },
     { label: "Support", href: "/dev/support", icon: faHeadset },
     { label: "Analytics", href: "/dev/analytics", icon: faChartLine },
