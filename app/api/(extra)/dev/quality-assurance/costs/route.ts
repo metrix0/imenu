@@ -36,37 +36,38 @@ function lineItemMatchesModel(lineItem: string, model: string): boolean {
     let index = line.indexOf(name);
     while (index !== -1) {
         const before = index === 0 ? "" : line[index - 1];
-        const after = line[index + name.length] || "";
-        // Don't confuse gpt-4o-mini with gpt-4o-mini-transcribe.
-        if ((!before || !/[a-z0-9_-]/.test(before)) &&
-            (!after || !/[a-z0-9_-]/.test(after))) return true;
+        const suffix = line.slice(index + name.length);
+        // Billing uses dated model IDs, e.g. gpt-4.1-2025-04-14.
+        // Non-date suffixes (e.g. "-transcribe") identify different models.
+        const date = suffix.match(/^-[0-9]{4}-[0-9]{2}-[0-9]{2}(?=$|[^a-z0-9_.-])/);
+        const after = date ? suffix[date[0].length] || "" : suffix[0] || "";
+        if ((!before || !/[a-z0-9_.-]/.test(before)) &&
+            (!after || !/[a-z0-9_.-]/.test(after))) return true;
         index = line.indexOf(name, index + 1);
     }
     return false;
 }
 
 function usageForLineItem(lineItem: string): string {
-    if (lineItem === "Outros itens") return "Itens menores agregados; origem individual não identificada.";
-
-    // Each model may be shared by more than one feature, so this is a
-    // code-based usage mapping, never a claim of per-feature billed cost.
+    // Model usage can span features; this is a code association, not exact
+    // attribution of organization-wide OpenAI costs to individual features.
     const uses: Array<{ model: string; feature: string }> = [
-        { model: process.env.IA_VENDAS_CHAT_MODEL?.trim() || "gpt-5.6-luna", feature: "Vendas IA: chat com o assistente" },
-        { model: process.env.IA_VENDAS_ANALYSIS_MODEL?.trim() || "gpt-5.6-terra", feature: "Vendas IA: análise aprofundada via API" },
-        { model: process.env.IA_VENDAS_IMAGE_MODEL?.trim() || "gpt-image-2", feature: "Vendas IA: geração e edição de imagens" },
-        { model: process.env.OPENAI_WHATSAPP_BOT_MODEL?.trim() || "gpt-4o-mini", feature: "Robô WhatsApp: respostas a clientes" },
-        { model: process.env.OPENAI_SUPPORT_MODEL?.trim() || "gpt-5.6-luna", feature: "Suporte IA: respostas e leitura de imagens" },
-        { model: process.env.OPENAI_SUPPORT_FOLLOWUP_MODEL?.trim() || "gpt-4o-mini", feature: "Suporte IA: triagem e acompanhamento" },
-        { model: "gpt-4o-mini-transcribe", feature: "Suporte IA: transcrição de áudios" },
+        { model: process.env.IA_VENDAS_CHAT_MODEL?.trim() || "gpt-5.6-luna", feature: "Vendas IA (Chat)" },
+        { model: process.env.IA_VENDAS_ANALYSIS_MODEL?.trim() || "gpt-5.6-terra", feature: "Vendas IA (Análise via API)" },
+        { model: process.env.IA_VENDAS_IMAGE_MODEL?.trim() || "gpt-image-2", feature: "Vendas IA (Imagens)" },
+        { model: process.env.OPENAI_WHATSAPP_BOT_MODEL?.trim() || "gpt-4o-mini", feature: "Robô WhatsApp IA (Chat)" },
+        { model: process.env.OPENAI_SUPPORT_MODEL?.trim() || "gpt-5.6-luna", feature: "Suporte Chatbot IA (Chat/Imagens)" },
+        { model: process.env.OPENAI_SUPPORT_FOLLOWUP_MODEL?.trim() || "gpt-4o-mini", feature: "Suporte Chatbot IA (Acompanhamento)" },
+        { model: "gpt-4o-mini-transcribe", feature: "Suporte Chatbot IA (Áudios)" },
+        { model: process.env.OPENAI_MENU_SCAN_MODEL?.trim() || "gpt-4.1", feature: "Importação de Cardápio (Leitura IA)" },
     ];
     const matched = uses
         .filter(({ model }) => lineItemMatchesModel(lineItem, model))
         .map(({ feature }) => feature);
     return matched.length
         ? Array.from(new Set(matched)).join("; ")
-        : "Sem uso específico identificável no código iMenu.";
+        : "Origem não identificada no iMenu.";
 }
-
 
 async function loadCosts(adminKey: string): Promise<CostPayload> {
     // Complete UTC days, excluding the current (possibly incomplete) billing day.
@@ -128,11 +129,6 @@ async function loadCosts(adminKey: string): Promise<CostPayload> {
     const totalUsd = series.reduce((sum, day) => sum + day.usd, 0);
     const sorted = Array.from(categories, ([label, usd]) => ({ label, usd }))
         .filter(item => item.usd !== 0).sort((a, b) => b.usd - a.usd);
-    const top = sorted.slice(0, 9);
-    if (sorted.length > 9) {
-        top.push({ label: "Outros itens", usd: sorted.slice(9).reduce((sum, item) => sum + item.usd, 0) });
-    }
-
     const usdBrlRate = await getUsdBrlRate();
 
     return {
@@ -146,7 +142,7 @@ async function loadCosts(adminKey: string): Promise<CostPayload> {
         averageDaily7dUsd: series.slice(-7).reduce((sum, day) => sum + day.usd, 0) / 7,
         totalUsd,
         daily: series,
-        breakdown: top.map(item => ({
+        breakdown: sorted.map(item => ({
             ...item, share: totalUsd === 0 ? 0 : (item.usd / totalUsd) * 100,
             usage: usageForLineItem(item.label),
         })),

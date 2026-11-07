@@ -228,7 +228,7 @@ export default function QualityAssuranceSection() {
                             </div>
                         </div>
                         <div className="mt-5">
-                            <h3 className="mb-3 text-sm font-semibold">Principais fontes de custo</h3>
+                            <h3 className="mb-3 text-sm font-semibold">Fontes de custo</h3>
                             <p className="mb-3 text-xs text-gray-500">Usos associados aos modelos configurados no iMenu; modelos compartilhados não permitem atribuir custos a uma única função.</p>
                             <div className={styles.section}>
                                 <DataTable
