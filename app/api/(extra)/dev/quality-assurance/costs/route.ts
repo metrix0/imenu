@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { authorize } from "@/lib/dev/authorize";
+import { getUsdBrlRate } from "@/lib/ia-vendas/creditPricing";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +22,7 @@ type CostPayload = {
     status: "ok";
     period: { start: string; end: string; days: number };
     averageDaily7dUsd: number;
+    usdBrlRate: number;
     totalUsd: number;
     daily: { date: string; usd: number }[];
     breakdown: { label: string; usd: number; share: number; usage: string }[];
@@ -131,8 +133,11 @@ async function loadCosts(adminKey: string): Promise<CostPayload> {
         top.push({ label: "Outros itens", usd: sorted.slice(9).reduce((sum, item) => sum + item.usd, 0) });
     }
 
+    const usdBrlRate = await getUsdBrlRate();
+
     return {
         status: "ok",
+        usdBrlRate,
         period: {
             start: new Date(start * 1000).toISOString().slice(0, 10),
             end: new Date((end - 86400) * 1000).toISOString().slice(0, 10),

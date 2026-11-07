@@ -40,6 +40,7 @@ type OpenAiCosts =
         status: "ok";
         period: { start: string; end: string; days: number };
         averageDaily7dUsd: number;
+        usdBrlRate: number;
         totalUsd: number;
         daily: { date: string; usd: number }[];
         breakdown: { label: string; usd: number; share: number; usage: string }[];
@@ -47,12 +48,12 @@ type OpenAiCosts =
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip);
 
-const usdFormatter = new Intl.NumberFormat("pt-BR", {
-    style: "currency", currency: "USD", currencyDisplay: "code",
-    minimumFractionDigits: 2, maximumFractionDigits: 4,
+const brlFormatter = new Intl.NumberFormat("pt-BR", {
+    style: "currency", currency: "BRL",
+    minimumFractionDigits: 2, maximumFractionDigits: 2,
 });
-function formatUsd(value: number) {
-    return value > 0 && value < 0.0001 ? "USD < 0,0001" : usdFormatter.format(value);
+function formatBrl(value: number) {
+    return brlFormatter.format(value);
 }
 const percentageFormatter = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
 const dayLabel = (day: string) =>
@@ -132,8 +133,10 @@ export default function QualityAssuranceSection() {
                 </div>
                 <div>
                     <dt>Gasto médio diário OpenAI</dt>
-                    <dd>{costs?.status === "ok" ? formatUsd(costs.averageDaily7dUsd) : "—"}</dd>
-                    <p>7 dias completos · USD · organização OpenAI</p>
+                    <dd>{costs?.status === "ok" ? formatBrl(costs.averageDaily7dUsd * costs.usdBrlRate) : "—"}</dd>
+                    <p title={costs?.status === "ok" ? `Total dos 7 dias pela cotação atual (US$ 1,00 = ${formatBrl(costs.usdBrlRate)})` : undefined}>
+                        7 dias completos · {costs?.status === "ok" ? formatBrl(costs.averageDaily7dUsd * 7 * costs.usdBrlRate) : "—"}
+                    </p>
                 </div>
             </dl>
             <section className={styles.tableSection}>
@@ -184,15 +187,15 @@ export default function QualityAssuranceSection() {
                         <div className={styles.chart}>
                             <div className="flex flex-wrap items-baseline justify-between gap-2">
                                 <h3 className="text-sm font-semibold text-[#1d1d1d]">Gasto por dia</h3>
-                                <span className="text-sm font-medium tabular-nums">{formatUsd(costs.totalUsd)} no período</span>
+                                <span className="text-sm font-medium tabular-nums">{formatBrl(costs.totalUsd * costs.usdBrlRate)} no período</span>
                             </div>
                             <div className="mt-5 h-[240px] min-w-0 sm:h-[300px]">
                                 <Line
                                     data={{
                                         labels: costs.daily.map(point => dayLabel(point.date)),
                                         datasets: [{
-                                            label: "Gasto (USD)",
-                                            data: costs.daily.map(point => point.usd),
+                                            label: "Gasto (R$)",
+                                            data: costs.daily.map(point => point.usd * costs.usdBrlRate),
                                             borderColor: CHART_BRAND,
                                             backgroundColor: createBrandAreaGradient,
                                             fill: true, tension: 0.25, pointRadius: 2, pointHoverRadius: 5,
@@ -206,7 +209,7 @@ export default function QualityAssuranceSection() {
                                             tooltip: {
                                                 ...STANDARD_CHART_TOOLTIP,
                                                 callbacks: {
-                                                    label: context => formatUsd(Number(context.parsed.y) || 0),
+                                                    label: context => formatBrl(Number(context.parsed.y) || 0),
                                                 },
                                             },
                                         },
@@ -216,7 +219,7 @@ export default function QualityAssuranceSection() {
                                                 ...CHART_VALUE_AXIS,
                                                 ticks: {
                                                     ...CHART_VALUE_AXIS.ticks, maxTicksLimit: 5,
-                                                    callback: value => formatUsd(Number(value) || 0),
+                                                    callback: value => formatBrl(Number(value) || 0),
                                                 },
                                             },
                                         },
@@ -235,7 +238,8 @@ export default function QualityAssuranceSection() {
                                     columns={[
                                         { key: "item", label: "Item cobrado pela OpenAI", render: row => <span className="break-words">{row.label}</span> },
                                         { key: "usage", label: "Uso no iMenu", render: row => <span title={row.usage}>{row.usage}</span> },
-                                        { key: "cost", label: "Gasto (USD)", className: "whitespace-nowrap", render: row => formatUsd(row.usd) },
+                                        { key: "cost", label: "Gasto (R$)", className: "whitespace-nowrap", render: row => formatBrl(row.usd * costs.usdBrlRate) },
+                                        { key: "daily", label: "Média diária (R$)", className: "whitespace-nowrap", render: row => formatBrl(row.usd * costs.usdBrlRate / costs.period.days) },
                                         { key: "share", label: "% do total", className: "whitespace-nowrap", render: row => percentageFormatter.format(row.share) + "%" },
                                     ]}
                                 />
