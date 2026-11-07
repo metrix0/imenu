@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip } from "chart.js";
+import { Line } from "react-chartjs-2";
+import DataTable from "@/components/ui/DataTable";
+import { CHART_BRAND, CHART_CATEGORY_AXIS, CHART_VALUE_AXIS, STANDARD_CHART_TOOLTIP, createBrandAreaGradient } from "@/components/restaurant-owner/exibicoes/chartStyles";
 import Badge from "@/components/ui/Badge";
 import PagedTable, { type PageData } from "./PagedTable";
 import DevLoading from "./DevLoading";
@@ -30,6 +34,30 @@ type Missing = {
     alertCount: number;
     latestAlarmAt: string | null;
 };
+type OpenAiCosts =
+    | { status: "unconfigured" | "unavailable" }
+    | {
+        status: "ok";
+        period: { start: string; end: string; days: number };
+        averageDailyUsd: number;
+        totalUsd: number;
+        daily: { date: string; usd: number }[];
+        breakdown: { label: string; usd: number; share: number }[];
+    };
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip);
+
+const usdFormatter = new Intl.NumberFormat("pt-BR", {
+    style: "currency", currency: "USD", currencyDisplay: "code",
+    minimumFractionDigits: 2, maximumFractionDigits: 4,
+});
+function formatUsd(value: number) {
+    return value > 0 && value < 0.0001 ? "USD < 0,0001" : usdFormatter.format(value);
+}
+const percentageFormatter = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
+const dayLabel = (day: string) =>
+    new Date(day + "T12:00:00Z").toLocaleDateString("pt-BR", { timeZone: "UTC", day: "2-digit", month: "2-digit" });
+
 type QualityAssurance = {
     summary: {
         averagePotentialCents: number | null;
@@ -60,6 +88,7 @@ export default function QualityAssuranceSection() {
     const [data, setData] = useState<QualityAssurance | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [costs, setCosts] = useState<OpenAiCosts | null>(null);
     const { openProfile } = useDevProfile();
 
     useEffect(() => {
@@ -71,6 +100,16 @@ export default function QualityAssuranceSection() {
             .finally(() => { if (!controller.signal.aborted) setLoading(false); });
         return () => controller.abort();
     }, [page]);
+
+    useEffect(() => {
+        const controller = new AbortController();
+        void devJson<OpenAiCosts>("/api/dev/quality-assurance/costs", { signal: controller.signal })
+            .then(setCosts)
+            .catch(() => {
+                if (!controller.signal.aborted) setCosts({ status: "unavailable" });
+            });
+        return () => controller.abort();
+    }, []);
 
     const openRestaurant = (restaurantId: string, restaurantName: string) =>
         openProfile({ id: restaurantId, name: restaurantName });
@@ -90,6 +129,11 @@ export default function QualityAssuranceSection() {
                     <dt>Tempo médio até a primeira análise após o Plus</dt>
                     <dd>{duration(data.summary.averageFirstAnalysisMinutes)}</dd>
                     <p>{formatCount(data.summary.measuredActivations)} ativações com análise concluída</p>
+                </div>
+                <div>
+                    <dt>Gasto médio diário OpenAI</dt>
+                    <dd>{costs?.status === "ok" ? formatUsd(costs.averageDailyUsd) : "—"}</dd>
+                    <p>30 dias completos · USD · organização OpenAI</p>
                 </div>
             </dl>
             <section className={styles.tableSection}>
@@ -129,6 +173,75 @@ export default function QualityAssuranceSection() {
                             { key: "lastAlarm", label: "Último alarme", className: "whitespace-nowrap", render: row => formatDateTime(row.latestAlarmAt) },
                         ]} />
                 </div>
+            </section>
+            <section className={styles.tableSection}>
+                <h2>Gastos OpenAI</h2>
+                <p className="mb-4 text-xs text-gray-500">Custos faturados pela OpenAI · últimos 30 dias completos (UTC) · USD · toda a organização.</p>
+                {costs === null ? <div className={styles.section}><div className="p-6"><DevLoading /></div></div>
+                    : costs.status !== "ok" ? <div className={styles.section}>
+                        <p className="p-6 text-sm text-gray-500">{costs.status === "unconfigured"
+                            ? "Consulta de custos OpenAI não configurada."
+                            : "Não foi possível consultar os gastos OpenAI."}</p>
+                    </div> : <>
+                        <div className={styles.chart}>
+                            <div className="flex flex-wrap items-baseline justify-between gap-2">
+                                <h3 className="text-sm font-semibold text-[#1d1d1d]">Gasto por dia</h3>
+                                <span className="text-sm font-medium tabular-nums">{formatUsd(costs.totalUsd)} no período</span>
+                            </div>
+                            <div className="mt-5 h-[240px] min-w-0 sm:h-[300px]">
+                                <Line
+                                    data={{
+                                        labels: costs.daily.map(point => dayLabel(point.date)),
+                                        datasets: [{
+                                            label: "Gasto (USD)",
+                                            data: costs.daily.map(point => point.usd),
+                                            borderColor: CHART_BRAND,
+                                            backgroundColor: createBrandAreaGradient,
+                                            fill: true, tension: 0.25, pointRadius: 2, pointHoverRadius: 5,
+                                        }],
+                                    }}
+                                    options={{
+                                        responsive: true, maintainAspectRatio: false, animation: false,
+                                        interaction: { mode: "index", intersect: false },
+                                        plugins: {
+                                            legend: { display: false },
+                                            tooltip: {
+                                                ...STANDARD_CHART_TOOLTIP,
+                                                callbacks: {
+                                                    label: context => formatUsd(Number(context.parsed.y) || 0),
+                                                },
+                                            },
+                                        },
+                                        scales: {
+                                            x: { ...CHART_CATEGORY_AXIS, ticks: { ...CHART_CATEGORY_AXIS.ticks, maxTicksLimit: 8 } },
+                                            y: {
+                                                ...CHART_VALUE_AXIS,
+                                                ticks: {
+                                                    ...CHART_VALUE_AXIS.ticks, maxTicksLimit: 5,
+                                                    callback: value => formatUsd(Number(value) || 0),
+                                                },
+                                            },
+                                        },
+                                    }}
+                                />
+                            </div>
+                        </div>
+                        <div className="mt-5">
+                            <h3 className="mb-3 text-sm font-semibold">Principais fontes de custo</h3>
+                            <div className={styles.section}>
+                                <DataTable
+                                    rows={costs.breakdown}
+                                    rowKey={row => row.label}
+                                    emptyMessage="Nenhum gasto registrado no período."
+                                    columns={[
+                                        { key: "item", label: "Item cobrado pela OpenAI", render: row => <span className="break-words">{row.label}</span> },
+                                        { key: "cost", label: "Gasto (USD)", className: "whitespace-nowrap", render: row => formatUsd(row.usd) },
+                                        { key: "share", label: "% do total", className: "whitespace-nowrap", render: row => percentageFormatter.format(row.share) + "%" },
+                                    ]}
+                                />
+                            </div>
+                        </div>
+                    </>}
             </section>
         </>}
     </div>;
