@@ -39,6 +39,14 @@ import { parseBulkPhones, parseBulkRecipients, renderBulkMessage, type BulkInput
 import type { AccessState, BlastCampaign, BlastRecipient, Connection, Stats, KnowledgeEntry, Conversation, DashboardData } from "@/lib/dev/supportTypes";
 import { formatPhone, getWhatsappUrl, statusPresentation } from "@/lib/dev/supportView";
 
+function formatElapsedSeconds(seconds: number | null): string {
+    if (seconds == null || !Number.isFinite(seconds)) return "—";
+    if (seconds < 60) return `${Math.round(seconds)}s`;
+    const minutes = Math.round(seconds / 60);
+    if (minutes < 60) return `${minutes}min`;
+    const hours = Math.floor(minutes / 60);
+    return `${hours}h${minutes % 60 ? ` ${minutes % 60}min` : ""}`;
+}
 const ALLOWED_DEV_EMAIL = "joaovralmeida@hotmail.com";
 export default function SupportSection({ section = "support" }: { section?: "support" | "blast" | "legacy" }) {
     const router = useRouter();
@@ -550,7 +558,24 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                     {(data?.stats.human_conversations || 0) > 25 && <div className={styles.tableFooter}><span>{data?.stats.human_conversations} conversa(s)</span><Pagination page={handoffPage} pageCount={Math.ceil((data?.stats.human_conversations || 0) / 25)} onChange={setHandoffPage} /></div>}
                 </section>
 
-                <dl className={styles.metricStrip}><div><dt>Resposta média · Bot</dt><dd>{data?.responseTimes?.bot_seconds == null ? "—" : `${Math.round(data.responseTimes.bot_seconds)} s`}</dd><p>Últimos 30 dias</p></div><div><dt>Resposta média · Humano</dt><dd>{data?.responseTimes?.human_seconds == null ? "—" : `${Math.round(data.responseTimes.human_seconds/60)} min`}</dd><p>Últimos 30 dias</p></div></dl>
+                <dl className={styles.metricStrip}>
+                    <div>
+                        <dt>Resposta média · Bot</dt>
+                        <dd>{data?.responseTimes?.bot_seconds == null ? "—" : `${Math.round(data.responseTimes.bot_seconds)} s`}</dd>
+                        <p>Últimos 30 dias</p>
+                        {data?.responseTimes && data.responseTimes.excluded_responses > 0 && (
+                            <p className="mt-2" title="A média ignora registros históricos importados e respostas acima de 2 minutos.">
+                                {data.responseTimes.excluded_conversations} conversa(s) com {data.responseTimes.excluded_responses} resposta(s) excluída(s) · média {formatElapsedSeconds(data.responseTimes.excluded_avg_seconds)}
+                                <span className="block">Critério: importações históricas ou tempo acima de 2min.</span>
+                            </p>
+                        )}
+                    </div>
+                    <div>
+                        <dt>Resposta média · Humano</dt>
+                        <dd>{data?.responseTimes?.human_seconds == null ? "—" : `${Math.round(data.responseTimes.human_seconds / 60)} min`}</dd>
+                        <p>Últimos 30 dias</p>
+                    </div>
+                </dl>
                {section === "support" && <SupportDraftsSection/>}
                {section === "legacy" && <>
                 <Card>
