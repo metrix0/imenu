@@ -230,22 +230,22 @@ export default function SalesRankingSection({ range }: { range: RangeKey }) {
                             <table className="w-full min-w-[760px] text-left text-sm">
                                 <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                                     <tr>
-                                        <th className="w-16 px-5 py-4 text-center font-semibold">
+                                        <th className="w-16 px-5 py-3.5 text-center font-semibold">
                                             #
                                         </th>
-                                        <th className="px-5 py-4 font-semibold">
+                                        <th className="px-5 py-3.5 font-semibold">
                                             Restaurante
                                         </th>
-                                        <th className="px-5 py-4 text-right font-semibold">
+                                        <th className="px-5 py-3.5 text-right font-semibold">
                                             GMV
                                         </th>
-                                        <th className="px-5 py-4 text-right font-semibold">
+                                        <th className="px-5 py-3.5 text-right font-semibold">
                                             Pedidos
                                         </th>
-                                        <th className="px-5 py-4 text-right font-semibold">
+                                        <th className="px-5 py-3.5 text-right font-semibold">
                                             Ticket médio
                                         </th>
-                                        <th className="px-5 py-4 text-right font-semibold">
+                                        <th className="px-5 py-3.5 text-right font-semibold">
                                             % do GMV
                                         </th>
                                     </tr>
@@ -258,26 +258,26 @@ export default function SalesRankingSection({ range }: { range: RangeKey }) {
                                                 key={restaurant.id}
                                                 className="hover:bg-gray-50/70"
                                             >
-                                                <td className="px-5 py-4 text-center font-semibold tabular-nums text-gray-500">
+                                                <td className="px-5 py-3.5 text-center font-semibold tabular-nums text-gray-500">
                                                     {index + 1}
                                                 </td>
-                                                <td className="px-5 py-4 font-medium text-gray-900">
+                                                <td className="px-5 py-3.5 font-medium text-gray-900">
                                                     {restaurant.name}
                                                 </td>
-                                                <td className="px-5 py-4 text-right font-semibold tabular-nums text-gray-900">
+                                                <td className="px-5 py-3.5 text-right font-semibold tabular-nums text-gray-900">
                                                     {formatCurrencyFromCents(
                                                         restaurant.gmvCents
                                                     )}
                                                 </td>
-                                                <td className="px-5 py-4 text-right tabular-nums text-gray-700">
+                                                <td className="px-5 py-3.5 text-right tabular-nums text-gray-700">
                                                     {formatCount(restaurant.orders)}
                                                 </td>
-                                                <td className="px-5 py-4 text-right tabular-nums text-gray-700">
+                                                <td className="px-5 py-3.5 text-right tabular-nums text-gray-700">
                                                     {formatCurrencyFromCents(
                                                         restaurant.averageTicketCents
                                                     )}
                                                 </td>
-                                                <td className="px-5 py-4 text-right">
+                                                <td className="px-5 py-3.5 text-right">
                                                     <span className="inline-flex min-w-16 justify-center rounded-full bg-brand/10 px-3 py-1 font-semibold tabular-nums text-brand">
                                                         {formatPercent(
                                                             restaurant.sharePercent

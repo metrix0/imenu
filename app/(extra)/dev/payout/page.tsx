@@ -721,16 +721,16 @@ export default function DevPayoutPage() {
                     <table className="w-full min-w-[1450px] text-left text-sm">
                         <thead className="border-b border-gray-100 text-xs uppercase text-gray-400">
                             <tr>
-                                <th className="px-3 py-3">Data</th>
-                                <th className="px-3 py-3">Transferir saldo</th>
-                                <th className="px-3 py-3">Ajustar p/ 1% líquido</th>
-                                <th className="px-3 py-3">Comparação</th>
-                                <th className="px-3 py-3">Enviar p/ todos</th>
-                                <th className="px-3 py-3 text-right">Bruto</th>
-                                <th className="px-3 py-3 text-right">Gateway</th>
-                                <th className="px-3 py-3 text-right">Desconto</th>
-                                <th className="px-3 py-3 text-right">Lucro líquido</th>
-                                <th className="px-3 py-3">Erro</th>
+                                <th className="px-3 py-3.5">Data</th>
+                                <th className="px-3 py-3.5">Transferir saldo</th>
+                                <th className="px-3 py-3.5">Ajustar p/ 1% líquido</th>
+                                <th className="px-3 py-3.5">Comparação</th>
+                                <th className="px-3 py-3.5">Enviar p/ todos</th>
+                                <th className="px-3 py-3.5 text-right">Bruto</th>
+                                <th className="px-3 py-3.5 text-right">Gateway</th>
+                                <th className="px-3 py-3.5 text-right">Desconto</th>
+                                <th className="px-3 py-3.5 text-right">Lucro líquido</th>
+                                <th className="px-3 py-3.5">Erro</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -754,11 +754,11 @@ export default function DevPayoutPage() {
 
                                 return (
                                     <tr key={run.id}>
-                                        <td className="whitespace-nowrap px-3 py-4 align-top">
+                                        <td className="whitespace-nowrap px-3 py-3.5 align-top">
                                             <div className="font-semibold text-gray-900">{runDate(run.run_date)}</div>
                                             <div className="mt-2"><StatusBadge status={run.status} /></div>
                                         </td>
-                                        <td className="px-3 py-4 align-top">
+                                        <td className="px-3 py-3.5 align-top">
                                             <StatusBadge status={run.payzu_step_status} />
                                             <div className="mt-2 font-semibold text-gray-900">
                                                 {run.transferred_cents == null ? "—" : money(run.transferred_cents)}
@@ -772,13 +772,13 @@ export default function DevPayoutPage() {
                                                 <div className="mt-1 text-xs text-gray-500">Gateway: {run.payzu_transaction_status}</div>
                                             )}
                                         </td>
-                                        <td className="px-3 py-4 align-top">
+                                        <td className="px-3 py-3.5 align-top">
                                             <StatusBadge status={run.adjustment_step_status} />
                                             <div className="mt-2 font-semibold text-gray-900">
                                                 {run.payout_cents == null ? "—" : money(run.payout_cents)} para enviar
                                             </div>
                                         </td>
-                                        <td className="px-3 py-4 align-top">
+                                        <td className="px-3 py-3.5 align-top">
                                             <StatusBadge status={run.comparison_step_status} />
                                             {asaasDifferenceCents == null ? (
                                                 <>
@@ -803,7 +803,7 @@ export default function DevPayoutPage() {
                                                 </>
                                             )}
                                         </td>
-                                        <td className="px-3 py-4 align-top">
+                                        <td className="px-3 py-3.5 align-top">
                                             <StatusBadge status={run.payout_step_status} />
                                             <div className="mt-2 font-semibold text-gray-900">
                                                 {run.payout_cents == null ? "—" : money(run.payout_cents)} · {run.restaurant_count} restaurante(s)
@@ -817,21 +817,21 @@ export default function DevPayoutPage() {
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="whitespace-nowrap px-3 py-4 text-right align-top">
+                                        <td className="whitespace-nowrap px-3 py-3.5 text-right align-top">
                                             {run.gross_cents == null ? "—" : money(run.gross_cents)}
                                         </td>
-                                        <td className="whitespace-nowrap px-3 py-4 text-right align-top text-gray-500">
+                                        <td className="whitespace-nowrap px-3 py-3.5 text-right align-top text-gray-500">
                                             {run.payzu_fee_cents == null ? "—" : money(run.payzu_fee_cents)}
                                         </td>
-                                        <td className="whitespace-nowrap px-3 py-4 text-right align-top text-gray-500">
+                                        <td className="whitespace-nowrap px-3 py-3.5 text-right align-top text-gray-500">
                                             {run.discount_cents == null ? "—" : money(run.discount_cents)}
                                         </td>
-                                        <td className={`whitespace-nowrap px-3 py-4 text-right align-top font-bold ${
+                                        <td className={`whitespace-nowrap px-3 py-3.5 text-right align-top font-bold ${
                                             (finalProfitCents || 0) >= 0 ? "text-green-700" : "text-red-700"
                                         }`}>
                                             {finalProfitCents == null ? "—" : money(finalProfitCents)}
                                         </td>
-                                        <td className="max-w-72 px-3 py-4 align-top text-xs text-red-700">
+                                        <td className="max-w-72 px-3 py-3.5 align-top text-xs text-red-700">
                                             {run.error_message || "—"}
                                         </td>
                                     </tr>
@@ -1042,7 +1042,7 @@ export default function DevPayoutPage() {
                     <table className="w-full min-w-[1060px] text-left text-sm">
                         <thead className="border-b border-gray-100 text-xs uppercase text-gray-400">
                             <tr>
-                                <th className="px-3 py-3">
+                                <th className="px-3 py-3.5">
                                     <input
                                         type="checkbox"
                                         aria-label="Selecionar todos os restaurantes elegíveis"
@@ -1052,14 +1052,14 @@ export default function DevPayoutPage() {
                                         className="h-4 w-4 cursor-pointer accent-brand disabled:cursor-not-allowed disabled:opacity-40"
                                     />
                                 </th>
-                                <th className="px-3 py-3">Restaurante</th>
-                                <th className="px-3 py-3">Telefone</th>
-                                <th className="px-3 py-3">PIX</th>
-                                <th className="px-3 py-3 text-right">Bruto</th>
-                                <th className="px-3 py-3 text-right">Gateway</th>
-                                <th className="px-3 py-3 text-right">Desconto</th>
-                                <th className="px-3 py-3 text-right">Enviar</th>
-                                <th className="px-3 py-3 text-right">Ação</th>
+                                <th className="px-3 py-3.5">Restaurante</th>
+                                <th className="px-3 py-3.5">Telefone</th>
+                                <th className="px-3 py-3.5">PIX</th>
+                                <th className="px-3 py-3.5 text-right">Bruto</th>
+                                <th className="px-3 py-3.5 text-right">Gateway</th>
+                                <th className="px-3 py-3.5 text-right">Desconto</th>
+                                <th className="px-3 py-3.5 text-right">Enviar</th>
+                                <th className="px-3 py-3.5 text-right">Ação</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -1078,7 +1078,7 @@ export default function DevPayoutPage() {
                                     <Fragment key={item.restaurantId}>
                                         {item.grossCents > 0 && (
                                     <tr>
-                                        <td className="px-3 py-4">
+                                        <td className="px-3 py-3.5">
                                             <input
                                                 type="checkbox"
                                                 aria-label={`Selecionar ${item.restaurantName}`}
@@ -1092,13 +1092,13 @@ export default function DevPayoutPage() {
                                                 className="h-4 w-4 cursor-pointer accent-brand disabled:cursor-not-allowed disabled:opacity-40"
                                             />
                                         </td>
-                                        <td className="px-3 py-4 font-semibold text-gray-900">
+                                        <td className="px-3 py-3.5 font-semibold text-gray-900">
                                             {item.restaurantName}
                                         </td>
-                                        <td className="px-3 py-4 text-gray-500">
+                                        <td className="px-3 py-3.5 text-gray-500">
                                             {formatPhone(restaurantPhones[item.restaurantId]) || "—"}
                                         </td>
-                                        <td className="px-3 py-4 text-gray-500">
+                                        <td className="px-3 py-3.5 text-gray-500">
                                             {item.pixKey ? (
                                                 item.pixKeyType ? (
                                                     <span>
@@ -1128,12 +1128,12 @@ export default function DevPayoutPage() {
                                                 <span className="text-amber-700">Não cadastrado</span>
                                             )}
                                         </td>
-                                        <td className="px-3 py-4 text-right">{money(item.grossCents)}</td>
-                                        <td className="px-3 py-4 text-right text-gray-500">{money(item.payzuFeeCents)}</td>
-                                        <td className="px-3 py-4 text-right text-gray-500">
+                                        <td className="px-3 py-3.5 text-right">{money(item.grossCents)}</td>
+                                        <td className="px-3 py-3.5 text-right text-gray-500">{money(item.payzuFeeCents)}</td>
+                                        <td className="px-3 py-3.5 text-right text-gray-500">
                                             {money(discountCents)}
                                         </td>
-                                        <td className="px-3 py-4 text-right font-bold">
+                                        <td className="px-3 py-3.5 text-right font-bold">
                                             {item.canSend ? (
                                                 <div className="ml-auto flex w-32 items-center rounded-lg border border-gray-200 bg-white px-2 focus-within:border-brand">
                                                     <span className="mr-1 text-xs font-medium text-gray-400">R$</span>
@@ -1158,7 +1158,7 @@ export default function DevPayoutPage() {
                                                 "—"
                                             )}
                                         </td>
-                                        <td className="px-3 py-4 text-right">
+                                        <td className="px-3 py-3.5 text-right">
                                             {item.canSend ? (
                                                 <Button
                                                     variant="secondary"
@@ -1187,7 +1187,7 @@ export default function DevPayoutPage() {
                                         )}
                                         {item.waitingGrossCents > 0 && (
                                             <tr className="bg-amber-50/40">
-                                                <td className="px-3 py-4">
+                                                <td className="px-3 py-3.5">
                                                     <input
                                                         type="checkbox"
                                                         aria-label={`Aguardando margem de 1h30: ${item.restaurantName}`}
@@ -1196,26 +1196,26 @@ export default function DevPayoutPage() {
                                                         className="h-4 w-4 accent-brand opacity-40"
                                                     />
                                                 </td>
-                                                <td className="px-3 py-4 font-semibold text-gray-900">
+                                                <td className="px-3 py-3.5 font-semibold text-gray-900">
                                                     {item.restaurantName}
                                                     <p className="mt-1 text-xs font-normal text-amber-700">
                                                         Aguardando 1h30
                                                         {item.nextEligibleAt && ` · até ${new Date(item.nextEligibleAt).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" })}`}
                                                     </p>
                                                 </td>
-                                                <td className="px-3 py-4 text-gray-500">
+                                                <td className="px-3 py-3.5 text-gray-500">
                                                     {formatPhone(restaurantPhones[item.restaurantId]) || "—"}
                                                 </td>
-                                                <td className="px-3 py-4 text-gray-500">
+                                                <td className="px-3 py-3.5 text-gray-500">
                                                     {item.pixKey
                                                         ? `${item.pixKeyType ? `${item.pixKeyType} · ` : ""}${item.pixKey}`
                                                         : "Não cadastrado"}
                                                 </td>
-                                                <td className="px-3 py-4 text-right">{money(item.waitingGrossCents)}</td>
-                                                <td className="px-3 py-4 text-right text-gray-500">—</td>
-                                                <td className="px-3 py-4 text-right text-gray-500">—</td>
-                                                <td className="px-3 py-4 text-right font-bold">—</td>
-                                                <td className="px-3 py-4 text-right">—</td>
+                                                <td className="px-3 py-3.5 text-right">{money(item.waitingGrossCents)}</td>
+                                                <td className="px-3 py-3.5 text-right text-gray-500">—</td>
+                                                <td className="px-3 py-3.5 text-right text-gray-500">—</td>
+                                                <td className="px-3 py-3.5 text-right font-bold">—</td>
+                                                <td className="px-3 py-3.5 text-right">—</td>
                                             </tr>
                                         )}
                                     </Fragment>
@@ -1239,15 +1239,15 @@ export default function DevPayoutPage() {
                     <table className="w-full min-w-[1150px] table-fixed text-left text-sm">
                         <thead className="border-b border-gray-100 text-xs uppercase text-gray-400">
                             <tr>
-                                <th className="w-48 px-3 py-3">Restaurante</th>
-                                <th className="w-40 px-3 py-3">Data</th>
-                                <th className="w-36 px-3 py-3">Telefone</th>
-                                <th className="w-56 px-3 py-3">PIX atual</th>
-                                <th className="w-28 px-3 py-3 text-right">Bruto</th>
-                                <th className="w-28 px-3 py-3 text-right">Gateway</th>
-                                <th className="w-28 px-3 py-3 text-right">Desconto</th>
-                                <th className="w-28 px-3 py-3 text-right">Valor</th>
-                                <th className="w-36 px-3 py-3 text-right">Ação</th>
+                                <th className="w-48 px-3 py-3.5">Restaurante</th>
+                                <th className="w-40 px-3 py-3.5">Data</th>
+                                <th className="w-36 px-3 py-3.5">Telefone</th>
+                                <th className="w-56 px-3 py-3.5">PIX atual</th>
+                                <th className="w-28 px-3 py-3.5 text-right">Bruto</th>
+                                <th className="w-28 px-3 py-3.5 text-right">Gateway</th>
+                                <th className="w-28 px-3 py-3.5 text-right">Desconto</th>
+                                <th className="w-28 px-3 py-3.5 text-right">Valor</th>
+                                <th className="w-36 px-3 py-3.5 text-right">Ação</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -1267,40 +1267,40 @@ export default function DevPayoutPage() {
                                 return (
                                     <tr key={item.id}>
                                         <td
-                                            className="truncate whitespace-nowrap px-3 py-4 font-semibold text-gray-900"
+                                            className="truncate whitespace-nowrap px-3 py-3.5 font-semibold text-gray-900"
                                             title={item.restaurant_name}
                                         >
                                             {item.restaurant_name}
                                         </td>
-                                        <td className="whitespace-nowrap px-3 py-4 text-gray-500">
+                                        <td className="whitespace-nowrap px-3 py-3.5 text-gray-500">
                                             {dateTime(item.created_at)}
                                         </td>
-                                        <td className="whitespace-nowrap px-3 py-4 text-gray-500">
+                                        <td className="whitespace-nowrap px-3 py-3.5 text-gray-500">
                                             {formatPhone(phone) || "—"}
                                         </td>
                                         <td
-                                            className="truncate whitespace-nowrap px-3 py-4 text-gray-500"
+                                            className="truncate whitespace-nowrap px-3 py-3.5 text-gray-500"
                                             title={pixLabel}
                                         >
                                             {pixLabel}
                                         </td>
-                                        <td className="whitespace-nowrap px-3 py-4 text-right">
+                                        <td className="whitespace-nowrap px-3 py-3.5 text-right">
                                             {item.gross_cents == null ? "—" : money(item.gross_cents)}
                                         </td>
-                                        <td className="whitespace-nowrap px-3 py-4 text-right text-gray-500">
+                                        <td className="whitespace-nowrap px-3 py-3.5 text-right text-gray-500">
                                             {item.payzu_fee_cents == null
                                                 ? "—"
                                                 : money(item.payzu_fee_cents)}
                                         </td>
-                                        <td className="whitespace-nowrap px-3 py-4 text-right text-gray-500">
+                                        <td className="whitespace-nowrap px-3 py-3.5 text-right text-gray-500">
                                             {effectiveDiscountCents == null
                                                 ? "—"
                                                 : money(effectiveDiscountCents)}
                                         </td>
-                                        <td className="whitespace-nowrap px-3 py-4 text-right font-bold text-gray-900">
+                                        <td className="whitespace-nowrap px-3 py-3.5 text-right font-bold text-gray-900">
                                             {money(item.amount_cents)}
                                         </td>
-                                        <td className="whitespace-nowrap px-3 py-4 text-right">
+                                        <td className="whitespace-nowrap px-3 py-3.5 text-right">
                                             <Button
                                                 variant="secondary"
                                                 loading={retryingPayoutId === item.id}
@@ -1337,16 +1337,16 @@ export default function DevPayoutPage() {
                     <table className="w-full min-w-[1250px] table-fixed text-left text-sm">
                         <thead className="border-b border-gray-100 text-xs uppercase text-gray-400">
                             <tr>
-                                <th className="w-48 px-3 py-3">Restaurante</th>
-                                <th className="w-40 px-3 py-3">Data</th>
-                                <th className="w-36 px-3 py-3">Telefone</th>
-                                <th className="w-56 px-3 py-3">PIX</th>
-                                <th className="w-28 px-3 py-3 text-right">Bruto</th>
-                                <th className="w-28 px-3 py-3 text-right">Gateway</th>
-                                <th className="w-28 px-3 py-3 text-right">Desconto</th>
-                                <th className="w-28 px-3 py-3 text-right">Enviado</th>
-                                <th className="w-28 px-3 py-3">Status</th>
-                                <th className="w-28 px-3 py-3 text-right">Ação</th>
+                                <th className="w-48 px-3 py-3.5">Restaurante</th>
+                                <th className="w-40 px-3 py-3.5">Data</th>
+                                <th className="w-36 px-3 py-3.5">Telefone</th>
+                                <th className="w-56 px-3 py-3.5">PIX</th>
+                                <th className="w-28 px-3 py-3.5 text-right">Bruto</th>
+                                <th className="w-28 px-3 py-3.5 text-right">Gateway</th>
+                                <th className="w-28 px-3 py-3.5 text-right">Desconto</th>
+                                <th className="w-28 px-3 py-3.5 text-right">Enviado</th>
+                                <th className="w-28 px-3 py-3.5">Status</th>
+                                <th className="w-28 px-3 py-3.5 text-right">Ação</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -1367,41 +1367,41 @@ export default function DevPayoutPage() {
                                 return (
                                     <tr key={item.id}>
                                         <td
-                                            className="truncate whitespace-nowrap px-3 py-4 font-semibold text-gray-900"
+                                            className="truncate whitespace-nowrap px-3 py-3.5 font-semibold text-gray-900"
                                             title={item.restaurant_name}
                                         >
                                             {item.restaurant_name}
                                         </td>
-                                        <td className="truncate whitespace-nowrap px-3 py-4 text-gray-500">
+                                        <td className="truncate whitespace-nowrap px-3 py-3.5 text-gray-500">
                                             {dateTime(item.created_at)}
                                         </td>
                                         <td
-                                            className="truncate whitespace-nowrap px-3 py-4 text-gray-500"
+                                            className="truncate whitespace-nowrap px-3 py-3.5 text-gray-500"
                                             title={formatPhone(phone) || "—"}
                                         >
                                             {formatPhone(phone) || "—"}
                                         </td>
                                         <td
-                                            className="truncate whitespace-nowrap px-3 py-4 text-gray-500"
+                                            className="truncate whitespace-nowrap px-3 py-3.5 text-gray-500"
                                             title={pixLabel}
                                         >
                                             {pixLabel}
                                         </td>
-                                        <td className="whitespace-nowrap px-3 py-4 text-right">
+                                        <td className="whitespace-nowrap px-3 py-3.5 text-right">
                                             {item.gross_cents == null ? "—" : money(item.gross_cents)}
                                         </td>
-                                        <td className="whitespace-nowrap px-3 py-4 text-right text-gray-500">
+                                        <td className="whitespace-nowrap px-3 py-3.5 text-right text-gray-500">
                                             {item.payzu_fee_cents == null ? "—" : money(item.payzu_fee_cents)}
                                         </td>
-                                        <td className="whitespace-nowrap px-3 py-4 text-right text-gray-500">
+                                        <td className="whitespace-nowrap px-3 py-3.5 text-right text-gray-500">
                                             {effectiveDiscountCents == null
                                                 ? "—"
                                                 : money(effectiveDiscountCents)}
                                         </td>
-                                        <td className="whitespace-nowrap px-3 py-4 text-right font-bold text-gray-900">
+                                        <td className="whitespace-nowrap px-3 py-3.5 text-right font-bold text-gray-900">
                                             {money(item.amount_cents)}
                                         </td>
-                                        <td className="whitespace-nowrap px-3 py-4">
+                                        <td className="whitespace-nowrap px-3 py-3.5">
                                             {item.status === "processing" ? (
                                                 <span className="rounded-full bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">
                                                     Processando
@@ -1416,7 +1416,7 @@ export default function DevPayoutPage() {
                                                 </span>
                                             )}
                                         </td>
-                                        <td className="whitespace-nowrap px-3 py-4 text-right">
+                                        <td className="whitespace-nowrap px-3 py-3.5 text-right">
                                             <Button
                                                 variant="secondary"
                                                 disabled={!whatsappNumber}
