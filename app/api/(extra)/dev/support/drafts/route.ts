@@ -48,11 +48,12 @@ export async function GET(request: Request) {
                 SELECT DISTINCT ON (session_name,chat_id) * FROM support_ai_reply_drafts
                 ORDER BY session_name,chat_id,created_at DESC,id DESC
             ) SELECT d.id,d.reply_text,d.review_status,d.session_name,d.created_at,c.customer_name,c.phone,
-                c.restaurant_id,r.name restaurant_name,m.body inbound_message
+                c.restaurant_id,r.name restaurant_name,m.body inbound_message,
+                EXISTS (SELECT 1 FROM support_messages sm WHERE sm.conversation_id = c.id AND sm.direction = 'outbound' AND sm.send_status = 'sent' AND sm.model IS NULL AND sm.dedupe_key IS NULL AND sm.created_at > d.created_at) AS attended
                 FROM latest d ${CONVERSATION_JOIN}
                 LEFT JOIN restaurants r ON r.id=c.restaurant_id
                 LEFT JOIN support_messages m ON m.id=d.trigger_message_id AND m.direction='inbound'
-                WHERE d.review_status=$1 ORDER BY d.created_at DESC,d.id DESC LIMIT $2 OFFSET $3`,[state,DEV_PAGE_SIZE,page*DEV_PAGE_SIZE]),
+                WHERE d.review_status=$1 ORDER BY attended ASC,d.created_at DESC,d.id DESC LIMIT $2 OFFSET $3`,[state,DEV_PAGE_SIZE,page*DEV_PAGE_SIZE]),
             query<{total:number}>("SELECT COUNT(*)::int total FROM (SELECT DISTINCT ON(session_name,chat_id) review_status FROM support_ai_reply_drafts ORDER BY session_name,chat_id,created_at DESC,id DESC) latest WHERE review_status=$1",[state]),
             query<{total:number}>("SELECT COUNT(*)::int total FROM (SELECT DISTINCT ON(session_name,chat_id) review_status FROM support_ai_reply_drafts ORDER BY session_name,chat_id,created_at DESC,id DESC) latest WHERE review_status='pending'"),
         ]);

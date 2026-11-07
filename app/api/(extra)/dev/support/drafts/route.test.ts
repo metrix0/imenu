@@ -71,6 +71,10 @@ it("lists the latest draft per contact with a matching distinct count",async()=>
  expect((query as jest.Mock).mock.calls[1][0]).toContain("DISTINCT ON(session_name,chat_id) review_status");
  expect((query as jest.Mock).mock.calls[0][0]).not.toContain("FROM support_ai_reply_drafts WHERE review_status");
  expect((query as jest.Mock).mock.calls[0][0]).toContain("WHERE d.review_status=$1");
+ expect((query as jest.Mock).mock.calls[0][0]).toContain("sm.created_at > d.created_at");
+ expect((query as jest.Mock).mock.calls[0][0]).toContain("sm.model IS NULL AND sm.dedupe_key IS NULL");
+ expect((query as jest.Mock).mock.calls[0][0]).toContain("sm.send_status = 'sent'");
+ expect((query as jest.Mock).mock.calls[0][0]).toContain("ORDER BY attended ASC,d.created_at DESC");
  expect((query as jest.Mock).mock.calls[0][1]).toEqual(["pending",25,25]);
 });
 

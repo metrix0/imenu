@@ -66,6 +66,7 @@ export type Conversation = {
     updated_at: string;
     human_started_at?: string | null;
     last_human_reply_at?: string | null;
+    attended?: boolean;
     last_message: string | null;
     plus?: boolean;
 };
