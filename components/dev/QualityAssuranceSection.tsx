@@ -53,7 +53,7 @@ const brlFormatter = new Intl.NumberFormat("pt-BR", {
     minimumFractionDigits: 2, maximumFractionDigits: 2,
 });
 function formatBrl(value: number) {
-    return brlFormatter.format(value);
+    return Number.isFinite(value) ? brlFormatter.format(value) : "—";
 }
 const percentageFormatter = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
 const dayLabel = (day: string) =>
@@ -105,7 +105,16 @@ export default function QualityAssuranceSection() {
     useEffect(() => {
         const controller = new AbortController();
         void devJson<OpenAiCosts>("/api/dev/quality-assurance/costs", { signal: controller.signal })
-            .then(setCosts)
+            .then(result => {
+                // A partial/stale API response must not display R$ NaN.
+                if (result.status === "ok" &&
+                    (!Number.isFinite(result.usdBrlRate) || result.usdBrlRate <= 0 ||
+                     !Number.isFinite(result.averageDaily7dUsd) || !Number.isFinite(result.totalUsd))) {
+                    setCosts({ status: "unavailable" });
+                    return;
+                }
+                setCosts(result);
+            })
             .catch(() => {
                 if (!controller.signal.aborted) setCosts({ status: "unavailable" });
             });
@@ -124,7 +133,7 @@ export default function QualityAssuranceSection() {
                 <div>
                     <dt>Potencial médio (não zero)</dt>
                     <dd>{data.summary.averagePotentialCents === null ? "—" : formatCurrencyFromCents(data.summary.averagePotentialCents)}</dd>
-                    <p>Último relatório de {formatCount(data.summary.restaurantsWithPotential)} restaurantes · 90 dias</p>
+                    <p>Último relatório de {formatCount(data.summary.restaurantsWithPotential)} restaurantes · 30 dias</p>
                 </div>
                 <div>
                     <dt>Tempo médio até a primeira análise após o Plus</dt>
@@ -229,7 +238,6 @@ export default function QualityAssuranceSection() {
                         </div>
                         <div className="mt-5">
                             <h3 className="mb-3 text-sm font-semibold">Fontes de custo</h3>
-                            <p className="mb-3 text-xs text-gray-500">Usos associados aos modelos configurados no iMenu; modelos compartilhados não permitem atribuir custos a uma única função.</p>
                             <div className={styles.section}>
                                 <DataTable
                                     rows={costs.breakdown}

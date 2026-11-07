@@ -113,7 +113,7 @@ const summarySql = `
         WHERE run.kind = 'analysis' AND run.status = 'completed'
             AND run.result->'report'->>'status' = 'complete'
             AND run.result->>'detached_at' IS NULL
-            AND run.finished_at >= NOW() - INTERVAL '90 days'
+            AND run.finished_at >= NOW() - INTERVAL '30 days'
         ORDER BY run.restaurant_id, run.finished_at DESC
     ), potential_values AS (
         SELECT CASE WHEN potential->>'available' = 'true'
