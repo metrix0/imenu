@@ -138,7 +138,7 @@ export async function customerDetails(restaurantId: string, phone: string, order
       [restaurantId, phone],
     ),
     query(
-      `SELECT oi.item_id, max(oi.name) name,sum(oi.quantity)::int quantity FROM order_items oi JOIN orders o ON o.id=oi.order_id WHERE o.restaurant_id=$1 AND public.crm_phone(o.customer_phone)=$2 AND o.${PURCHASE_SQL} GROUP BY oi.item_id ORDER BY quantity DESC LIMIT 5`,
+      `SELECT oi.item_id, max(oi.name) name,sum(oi.quantity)::int quantity FROM order_items oi JOIN orders o ON o.id=oi.order_id WHERE o.restaurant_id=$1 AND public.crm_phone(o.customer_phone)=$2 AND o.${PURCHASE_SQL} GROUP BY oi.item_id ORDER BY quantity DESC, name ASC, oi.item_id`,
       [restaurantId, phone],
     ),
     query<{ created_at: string }>(

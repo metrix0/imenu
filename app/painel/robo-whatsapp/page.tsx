@@ -24,6 +24,7 @@ import Input from "@/components/ui/Input";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import DataTable from "@/components/ui/DataTable";
+import Pagination from "@/components/ui/Pagination";
 import Loader from "@/components/ui/Loader";
 import Toast from "@/components/ui/Toast";
 import WarningBox from "@/components/ui/WarningBox";
@@ -78,6 +79,8 @@ type HandoffConversation = {
     handoff_requested_at: string;
     last_owner_message_at: string | null;
 };
+
+const HANDOFFS_PAGE_SIZE = 10;
 
 type TemplateField = {
     key: WhatsAppTemplateKey;
@@ -250,6 +253,7 @@ export default function RoboWhatsAppPage() {
     const [templates, setTemplates] = useState<WhatsAppMessageTemplates | null>(null);
     const [variables, setVariables] = useState<TemplateVariable[]>([]);
     const [handoffs, setHandoffs] = useState<HandoffConversation[]>([]);
+    const [handoffPage, setHandoffPage] = useState(0);
     const [openTemplate, setOpenTemplate] = useState<WhatsAppTemplateKey | null>(null);
     const [openVariables, setOpenVariables] = useState<WhatsAppTemplateKey | null>(null);
     const [showToast, setShowToast] = useState(false);
@@ -399,6 +403,14 @@ export default function RoboWhatsAppPage() {
             void supabase.removeChannel(channel);
         };
     }, [restaurantId]);
+
+    useEffect(() => {
+        setHandoffPage(0);
+    }, [restaurantId]);
+
+    useEffect(() => {
+        setHandoffPage((current) => Math.min(current, Math.max(0, Math.ceil(handoffs.length / HANDOFFS_PAGE_SIZE) - 1)));
+    }, [handoffs.length]);
 
     useEffect(() => {
         if (!restaurantId) return;
@@ -849,7 +861,7 @@ export default function RoboWhatsAppPage() {
                             )}
                         </div>
                         <DataTable
-                            rows={handoffs}
+                            rows={handoffs.slice(handoffPage * HANDOFFS_PAGE_SIZE, (handoffPage + 1) * HANDOFFS_PAGE_SIZE)}
                             emptyMessage="As conversas encaminhadas para atendimento humano ficam aqui. Você também receberá uma notificação!"
                             rowKey={(handoff) => handoff.chat_id}
                             columns={[
@@ -924,6 +936,13 @@ export default function RoboWhatsAppPage() {
                                 },
                             ]}
                         />
+                        {handoffs.length > HANDOFFS_PAGE_SIZE && (
+                            <Pagination
+                                page={handoffPage}
+                                pageCount={Math.ceil(handoffs.length / HANDOFFS_PAGE_SIZE)}
+                                onChange={setHandoffPage}
+                            />
+                        )}
                     </div>
                 </section>
 

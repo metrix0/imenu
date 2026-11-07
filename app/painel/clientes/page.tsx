@@ -30,6 +30,7 @@ type Details = {
     created_at: string;
   }[];
 };
+const FAVORITES_PAGE_SIZE = 5;
 const date = (value: string | null) =>
   value ? new Date(value).toLocaleDateString("pt-BR") : "—";
 const weekdays: Record<string, string> = {
@@ -58,6 +59,7 @@ export default function ClientesPage() {
     [page, setPage] = useState(1),
     [total, setTotal] = useState(0);
   const [selected, setSelected] = useState<CustomerRow | null>(null),
+    [favoritePage, setFavoritePage] = useState(0),
     [orderPage, setOrderPage] = useState(0),
     [details, setDetails] = useState<Details | null>(null),
     [detailsLoading, setDetailsLoading] = useState(false),
@@ -170,6 +172,7 @@ export default function ClientesPage() {
         rowKey={(r) => r.phone}
         onRowClick={(customer) => {
           setDetails(null);
+          setFavoritePage(0);
           setOrderPage(0);
           setSelected(customer);
         }}
@@ -356,7 +359,7 @@ export default function ClientesPage() {
               <div>
                 <h3 className="mb-3 font-semibold">Produtos favoritos</h3>
                 <DataTable
-                  rows={details.favorites}
+                  rows={details.favorites.slice(favoritePage * FAVORITES_PAGE_SIZE, (favoritePage + 1) * FAVORITES_PAGE_SIZE)}
                   rowKey={(r) => r.item_id || r.name}
                   emptyMessage="Ainda sem produtos comprados."
                   columns={[
@@ -368,6 +371,13 @@ export default function ClientesPage() {
                     },
                   ]}
                 />
+                {details.favorites.length > FAVORITES_PAGE_SIZE && (
+                  <Pagination
+                    page={favoritePage}
+                    pageCount={Math.ceil(details.favorites.length / FAVORITES_PAGE_SIZE)}
+                    onChange={setFavoritePage}
+                  />
+                )}
               </div>
               <div>
                 <h3 className="mb-3 font-semibold">Últimos pedidos</h3>
