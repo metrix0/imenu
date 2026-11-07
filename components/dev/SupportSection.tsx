@@ -55,7 +55,6 @@ export default function SupportSection({ section = "support" }: { section?: "sup
     const [knowledgeEditorOpen, setKnowledgeEditorOpen] = useState(false);
     const [knowledgeTitle, setKnowledgeTitle] = useState("");
     const [knowledgeContent, setKnowledgeContent] = useState("");
-    const [senderOpen,setSenderOpen] = useState(false);
     const [composeOpen,setComposeOpen] = useState(false);
     const [bulkPhones, setBulkPhones] = useState("");
     const [bulkMessage, setBulkMessage] = useState("");
@@ -522,13 +521,9 @@ export default function SupportSection({ section = "support" }: { section?: "sup
     const connection = data?.connection || null;
     const blastConnection = data?.blastConnection || null;
     const status = statusPresentation(connection);
-    const blastStatus = statusPresentation(blastConnection);
     const showQr =
         connection?.desired_state === "connected" &&
         connection.status === "SCAN_QR_CODE";
-    const showBlastQr =
-        blastConnection?.desired_state === "connected" &&
-        blastConnection.status === "SCAN_QR_CODE";
     const selectedBulkConnection =
         bulkSender === "blast" ? blastConnection : connection;
 
@@ -714,162 +709,7 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                 </>}
                 </>}
                 {section !== "support" && <>
-                <BlastHistorySection refreshKey={blastRevision} connections={{support:connection,blast:blastConnection}} onManageSender={()=>setSenderOpen(true)}/>
-                <DevDialog title="Blast (remetente)" open={senderOpen} onClose={()=>setSenderOpen(false)}>                <Card>
-                    <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="flex items-start gap-4">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-50 text-xl text-green-600">
-                                <FontAwesomeIcon icon={faWhatsapp} />
-                            </div>
-                            <div>
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <h2 className="text-lg font-semibold text-gray-900">
-                                        Blast (remetente)
-                                    </h2>
-                                    <span
-                                        className={
-                                            "rounded-full px-2.5 py-1 text-xs font-medium " +
-                                            blastStatus.className
-                                        }
-                                    >
-                                        {blastStatus.label}
-                                    </span>
-                                </div>
-                                <p className="mt-1 text-sm text-gray-500">
-                                    Sessão: {blastConnection?.session_name || "imenu-blast"}
-                                </p>
-                                {blastConnection?.phone && (
-                                    <p className="mt-1 text-sm font-medium text-gray-800">
-                                        {blastConnection.push_name || "Blast iMenu"} ·{" "}
-                                        {formatPhone(blastConnection.phone)}
-                                    </p>
-                                )}
-                                {blastConnection?.last_error && (
-                                    <p className="mt-2 text-sm text-red-600">
-                                        {blastConnection.last_error}
-                                    </p>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="flex flex-wrap gap-2">
-                            {!blastConnection ||
-                            blastConnection.desired_state === "disconnected" ? (
-                                <Button
-                                    onClick={() =>
-                                        void runAction("connect", {
-                                            connection: "blast",
-                                        })
-                                    }
-                                    loading={action === "connect:blast"}
-                                >
-                                    <FontAwesomeIcon
-                                        icon={faQrcode}
-                                        className="mr-2"
-                                    />
-                                    Conectar WhatsApp
-                                </Button>
-                            ) : (
-                                <>
-                                    {blastConnection.status !== "WORKING" && (
-                                        <Button
-                                            onClick={() =>
-                                                void runAction("reconnect", {
-                                                    connection: "blast",
-                                                })
-                                            }
-                                            loading={action === "reconnect:blast"}
-                                        >
-                                            <FontAwesomeIcon
-                                                icon={faRotate}
-                                                className="mr-2"
-                                            />
-                                            Reconectar
-                                        </Button>
-                                    )}
-                                    {blastConnection.status !== "WORKING" && (
-                                        <Button
-                                            variant="secondary"
-                                            onClick={() =>
-                                                void runAction("refresh_qr", {
-                                                    connection: "blast",
-                                                })
-                                            }
-                                            loading={action === "refresh_qr:blast"}
-                                        >
-                                            Novo QR
-                                        </Button>
-                                    )}
-                                    <Button
-                                        variant="secondary"
-                                        onClick={() =>
-                                            void runAction("disconnect", {
-                                                connection: "blast",
-                                            })
-                                        }
-                                        loading={action === "disconnect:blast"}
-                                    >
-                                        <FontAwesomeIcon
-                                            icon={faPowerOff}
-                                            className="mr-2"
-                                        />
-                                        Desconectar
-                                    </Button>
-                                </>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="mt-6 flex items-center justify-between gap-4 rounded-xl border border-gray-200 p-4">
-                        <div>
-                            <p className="font-medium text-gray-900">
-                                Respostas por IA
-                            </p>
-                            <p className="text-sm text-gray-500">
-                                Responde automaticamente pessoas que receberam disparos por este número.
-                            </p>
-                        </div>
-                        <Switch
-                            checked={blastConnection?.bot_enabled ?? true}
-                            disabled={action === "set_bot_enabled:blast"}
-                            aria-label="Ativar respostas por IA no Blast (remetente)"
-                            onClick={() =>
-                                void runAction("set_bot_enabled", {
-                                    connection: "blast",
-                                    enabled: !(blastConnection?.bot_enabled ?? true),
-                                })
-                            }
-                        />
-                    </div>
-
-                    {showBlastQr && (
-                        <div className="mt-6 grid gap-5 rounded-xl border border-blue-100 bg-blue-50/40 p-5 sm:grid-cols-[220px_1fr] sm:items-center">
-                            <div className="flex min-h-[210px] items-center justify-center rounded-xl border border-gray-200 bg-white p-3">
-                                {blastConnection?.qr_code_data ? (
-                                    <img
-                                        src={blastConnection.qr_code_data}
-                                        alt="QR Code do Blast (remetente)"
-                                        className="h-48 w-48"
-                                    />
-                                ) : (
-                                    <p className="text-sm text-gray-500">
-                                        Preparando QR…
-                                    </p>
-                                )}
-                            </div>
-                            <div>
-                                <h3 className="font-semibold text-gray-900">
-                                    Escaneie com o número secundário
-                                </h3>
-                                <p className="mt-2 text-sm text-gray-600">
-                                    WhatsApp → Aparelhos conectados → Conectar um aparelho.
-                                </p>
-                            </div>
-                        </div>
-                    )}
-                </Card>
-                </DevDialog>
-
+                <BlastHistorySection refreshKey={blastRevision} connections={{support:connection,blast:blastConnection}}/>
                 <DevDialog title="Envio em massa" open={composeOpen && bulkPreview === null} onClose={()=>{if(!bulkSending)setComposeOpen(false);}}>                <Card className={styles.composer}>
                     <p className="mt-1 text-sm text-gray-500">
                         Prepare os destinatários e a mensagem. Você poderá conferir tudo antes de enviar.
@@ -891,7 +731,7 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                                 {
                                     value: "blast",
                                     label:
-                                        "Blast (remetente)" +
+                                        "Blast" +
                                         (blastConnection?.phone
                                             ? " · " + formatPhone(blastConnection.phone)
                                             : " · não conectado"),

@@ -1,3 +1,5 @@
+import {buildExpiryMessage} from "@/lib/services/addonExpiryMessage";
+import {payoutNotice} from "@/lib/services/payoutNotifications";
 import { ABANDONED_BLAST_MESSAGE,SINGLE_ORDER_DAY_RECOVERY_MESSAGE,NO_FIRST_ORDER_RECOVERY_MESSAGE } from "./abandonedBlast";
 import { DID_NOT_ACTIVATE_BLAST_MESSAGE } from "./didNotActivateBlast";
 import { MESSAGE_ROWS_SQL } from "./messageHistory";
@@ -9,11 +11,12 @@ export const AUTOMATED_BLASTS = [
     {id:"recovery",name:"Recuperação de abandonados",sender:"blast",message:ABANDONED_BLAST_MESSAGE},
     {id:"single-order",name:"Um único dia de pedidos",sender:"blast",message:SINGLE_ORDER_DAY_RECOVERY_MESSAGE},
     {id:"first-order",name:"Sem primeiro pedido",sender:"blast",message:NO_FIRST_ORDER_RECOVERY_MESSAGE},
-    {id:"expiry",name:"Vencimento iMenu Plus",sender:"support",message:null},
-    {id:"payout",name:"Problemas com repasse",sender:"blast",message:null},
+    {id:"expiry",name:"Vencimento iMenu Plus · Pix",sender:"support",message:buildExpiryMessage({pix:["ia_plus"],card:[]})},
+    {id:"expiry-card",name:"Cancelamento iMenu Plus · Cartão",sender:"support",message:buildExpiryMessage({pix:[],card:["ia_plus"]})},
+    {id:"payout",name:"Problemas com repasse",sender:"blast",message:payoutNotice(false)},
+    {id:"payout-key",name:"Repasse sem chave PIX",sender:"blast",message:payoutNotice(true)},
     {id:"followup",name:"Follow-ups",sender:"support",message:null},
     {id:"congratulations",name:"Boas-vindas iMenu Plus",sender:"support",message:null},
-    {id:"customer",name:"Automações de clientes",sender:"restaurant",message:null},
 ] as const;
 const patterns = [ABANDONED_BLAST_MESSAGE,SINGLE_ORDER_DAY_RECOVERY_MESSAGE,NO_FIRST_ORDER_RECOVERY_MESSAGE,DID_NOT_ACTIVATE_BLAST_MESSAGE].map(message=>"^"+message.replace(/\s+/g," ").trim().split("{{Nome Restaurante}}").map(part=>part.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join(".{1,200}")+"$");
 const campaignGroup = `CASE WHEN regexp_replace(trim(c.message),'\\s+',' ','g') ~ANY($1::text[]) THEN 'automation:recovery' ELSE 'campaign:'||c.id::text END`;
@@ -40,7 +43,7 @@ const EVENTS = `WITH notifications AS (${MESSAGE_ROWS_SQL}),events AS (
       AND NOT EXISTS(SELECT 1 FROM support_blast_recipients r WHERE r.phone=c.phone AND r.message=m.body AND ABS(EXTRACT(EPOCH FROM r.sent_at-m.created_at))<300)
       AND NOT EXISTS(SELECT 1 FROM whatsapp_outbound_messages o WHERE o.context->>'message'=m.body AND (split_part(o.chat_id,'@',1)=c.phone OR o.restaurant_id=c.restaurant_id) AND ABS(EXTRACT(EPOCH FROM o.updated_at-m.created_at))<300)
     UNION ALL SELECT CASE WHEN n.category='automation' THEN 'customer:'||n.subtype||':'||(n.created_at AT TIME ZONE 'America/Sao_Paulo')::date::text ELSE n.id END,
-    COALESCE(n.sent_at,n.created_at),COALESCE(n.message,'Texto não registrado no histórico antigo.'),CASE WHEN n.category='automation' THEN 'restaurant' ELSE 'support' END,n.status,n.phone,n.error,NULL,n.restaurant_id FROM notifications n
+    COALESCE(n.sent_at,n.created_at),COALESCE(n.message,'Texto não registrado no histórico antigo.'),CASE WHEN n.category='automation' THEN 'restaurant' ELSE 'support' END,n.status,n.phone,n.error,NULL,n.restaurant_id FROM notifications n WHERE n.category <> 'automation'
 )`;
 
 
@@ -58,7 +61,7 @@ async function withDestinations<T extends {id?:string;phone?:string|null;restaur
 }
 async function automatedMessages(){
  const messages=await query<{kind:string;message:string;sender:string}>(`${EVENTS} SELECT DISTINCT ON(kind) kind,message,sender FROM (SELECT *,CASE WHEN group_id LIKE 'expiry:%' THEN 'expiry' WHEN group_id LIKE 'payout:%' THEN 'payout' WHEN group_id LIKE 'followup:%' THEN 'followup' WHEN group_id LIKE 'congratulations:%' THEN 'congratulations' WHEN group_id LIKE 'customer:%' THEN 'customer' END kind FROM events) e WHERE kind IS NOT NULL ORDER BY kind,created_at DESC`,[patterns]);
- return AUTOMATED_BLASTS.map(row=>{const actual=messages.rows.find(m=>m.kind===row.id);return {...row,message:row.message||actual?.message||null,sender:actual?.sender||row.sender};});
+ return AUTOMATED_BLASTS.map(row=>{const actual=messages.rows.find(m=>m.kind===row.id);return {...row,message:row.message||actual?.message||null,sender:actual?.sender||row.sender};}).filter(row=>Boolean(row.message));
 }
 
 export async function getBlastHistory(params:URLSearchParams) {
