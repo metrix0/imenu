@@ -150,21 +150,65 @@ export function qrTableStatusLabel(status: string): string {
     return status;
 }
 
-export function ProductOverviewSections({ metrics, productsOnly, compact = false }: { metrics: ProductOverview; productsOnly?: (keyof ProductOverview)[]; compact?: boolean }) {
+export function ProductOverviewSections({ metrics, previousMetrics, productsOnly, compact = false }: { metrics: ProductOverview; previousMetrics?: ProductOverview; productsOnly?: (keyof ProductOverview)[]; compact?: boolean }) {
     const products = [
         { key: "imenu", name: "iMenu", paths: "/", price: "-", priceInfo: "Referência do dashboard: sem mensalidade.", },
         { key: "ia_plus", name: "iMenu Plus", paths: "/painel/marketing + /painel/vendas-ia + /painel/assistente-ia", price: "R$ 49,99/m", priceInfo: "Marketing, Assistente IA e Vendas IA.", },
         { key: "qr_code_mesa", name: "iMenu QR", paths: "/painel/mesas", price: "Grátis", priceInfo: "QR Code Mesa gratuito; pagamentos antigos são apenas históricos.", },
     ] as const;
-    if (compact) return <section className={styles.section}><div className={styles.sectionHeader}><h2>Produtos</h2></div><DataTable rows={products.filter(p=>!productsOnly || productsOnly.includes(p.key))} rowKey={p=>p.key} columns={[
-        {key:"product",label:"Produto",render:p=>p.name},{key:"traffic",label:"Tráfego",render:p=><div>{metrics[p.key].pageViews == null ? "—" : formatCount(metrics[p.key].pageViews!)}<p className="mt-1 text-xs text-gray-500">Page views</p></div>},{key:"conversion",label:"Conversão",render:p=><div>{metrics[p.key].conversion == null ? "—" : formatRatio(metrics[p.key].conversion!)}<p className="mt-1 text-xs text-gray-500">{p.key==="imenu"?"Usuários ativados":"Compradores"}</p></div>},{key:"price",label:"Mensalidade",render:p=>p.price},{key:"churn",label:"Churn",render:p=><div>{metrics[p.key].churn == null ? "—" : formatRatio(metrics[p.key].churn!)}<p className="mt-1 text-xs text-gray-500">{p.key==="imenu"?"Ativos abandonados":"Pagantes perdidos"}</p></div>}
-    ]}/></section>;
+    const difference = (current: number | null, previous: number | null): number | null => (
+        current === null || previous === null || previous <= 0
+            ? null
+            : ((current - previous) / previous) * 100
+    );
+    if (compact) return (
+        <div className="grid gap-5">
+            {products.filter(p => !productsOnly || productsOnly.includes(p.key)).map(product => {
+                const metric = metrics[product.key];
+                const previous = previousMetrics?.[product.key];
+                const sameTrafficSource = previous?.trafficSource === metric.trafficSource;
+                const trafficUnit = metric.trafficSource === "pageviews" ? "Views (Unique)" : "Aberturas da aba";
+                const trafficInfo = metric.trafficSource === "pageviews"
+                    ? `PostHog · evento $pageview · visitantes distintos (distinct_id) das páginas ${product.paths} durante o período. Uma pessoa conta uma vez, mesmo que volte várias vezes.`
+                    : "PostHog · evento panel_tab_opened · total de aberturas da aba no período. Não é uma contagem de pessoas únicas.";
+                const buyerLabel = product.key === "imenu" ? "Usuários ativados" : "Compradores";
+                return <section key={product.key} aria-label={product.name} className="space-y-3">
+                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                        <h2 className="text-base font-semibold text-gray-900">{product.name}</h2>
+                        <span className="text-xs text-gray-500">{product.price === "-" ? "Gratuito" : product.price}</span>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                        <MetricCard title="Tráfego"
+                            value={metric.pageViews === null ? "—" : formatCount(metric.pageViews)}
+                            description={trafficUnit}
+                            info={trafficInfo}
+                            change={sameTrafficSource ? difference(metric.pageViews, previous?.pageViews ?? null) : null} />
+                        <MetricCard title="Conversão"
+                            value={metric.conversion === null ? "—" : formatRatio(metric.conversion)}
+                            description={`${formatCount(metric.buyers)} ${buyerLabel.toLowerCase()} · ${trafficUnit}`}
+                            change={sameTrafficSource ? difference(metric.conversion, previous?.conversion ?? null) : null}
+                            info={product.key === "imenu"
+                                ? `${formatCount(metric.buyers)} contas que registraram o primeiro pedido no período ÷ ${metric.pageViews === null ? "—" : formatCount(metric.pageViews)} ${trafficUnit.toLowerCase()} × 100. Pedidos + PostHog.`
+                                : `${formatCount(metric.buyers)} contas com primeira compra confirmada no período ÷ ${metric.pageViews === null ? "—" : formatCount(metric.pageViews)} ${trafficUnit.toLowerCase()} × 100. Pagamentos + PostHog.`} />
+                        <MetricCard title="Churn"
+                            value={metric.churn === null ? "—" : formatRatio(metric.churn)}
+                            description={`${formatCount(Math.max(0, metric.churnBase - metric.churnedUsers))} ativos · ${formatCount(metric.churnedUsers)} abandonados`}
+                            change={difference(metric.churn, previous?.churn ?? null)}
+                            reverseChangeColors
+                            info={product.key === "imenu"
+                                ? `Pedidos · ${formatCount(metric.churnedUsers)} abandonados de ${formatCount(metric.churnBase)} contas elegíveis. Base: ao menos 2 dias com pedidos concluídos nos últimos 30 dias; abandono: nenhum pedido concluído nos últimos 14 dias.`
+                                : `Pagamentos/add-ons · ${formatCount(metric.churnedUsers)} pagantes perdidos de ${formatCount(metric.churnBase)} pagantes no início. Cartão: cancelamento/vencimento; Pix pré-pago: fim da validade.`} />
+                    </div>
+                </section>;
+            })}
+        </div>
+    );
     return (
         <>
             {(productsOnly ? productsOnly.map(key => products.find(product => product.key === key)!) : products).map((product) => {
                 const metric = metrics[product.key];
                 const views = metric.pageViews === null ? "—" : formatCount(metric.pageViews);
-                const trafficUnit = metric.trafficSource === "tab_opens" ? "aberturas da aba" : "page views";
+                const trafficUnit = metric.trafficSource === "tab_opens" ? "aberturas da aba" : "visitas únicas";
                 const buyers = formatCount(metric.buyers);
                 const churned = formatCount(metric.churnedUsers);
                 const base = formatCount(metric.churnBase);
@@ -176,8 +220,8 @@ export function ProductOverviewSections({ metrics, productsOnly, compact = false
                                 title={`Traffic (${trafficUnit})`}
                                 value={views}
                                 info={metric.trafficSource === "tab_opens"
-                                    ? `PostHog · panel_tab_opened · ${views} aberturas no período; sem page views registradas.`
-                                    : `PostHog · ${product.paths} · ${views} pageviews no período.`}
+                                    ? `PostHog · panel_tab_opened · ${views} aberturas no período; sem visitas de página registradas.`
+                                    : `PostHog · ${product.paths} · ${views} visitantes únicos (distinct_id) no período.`}
                             />
                             <MetricCard
                                 title={product.key === "imenu" ? "Conversion (usuários ativados)" : "Conversion (compradores)"}
@@ -210,6 +254,7 @@ export function MetricCard({
     info,
     children,
     danger = false,
+    reverseChangeColors = false,
 }: {
     title: string;
     value: string;
@@ -218,6 +263,7 @@ export function MetricCard({
     info?: string;
     children?: ReactNode;
     danger?: boolean;
+    reverseChangeColors?: boolean;
 }) {
     return (
         <article
@@ -249,7 +295,7 @@ export function MetricCard({
                     className={`mt-1 text-sm font-semibold ${
                         change === null
                             ? "text-gray-500"
-                            : change >= 0
+                            : (reverseChangeColors ? change <= 0 : change >= 0)
                               ? "text-green-600"
                               : "text-red-600"
                     }`}

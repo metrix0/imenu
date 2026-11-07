@@ -30,7 +30,7 @@
 .cadence :global(p:first-child) { font-size: 13px; }
 .cadence :global(p + p) { margin-top: 4px; font-size: 12px; line-height: 1.6; }
 .composer :global(textarea) { min-height: 160px; }
-.analyticsCharts > .chartEmbedded:last-child:nth-child(odd) { grid-column: 1 / -1; border-left: 0; }
+.analyticsCharts > .chartEmbedded:last-child:nth-child(odd) { grid-column: auto; border-left: 0; }
 @media (max-width: 767px) {
     .detailMetrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .composerSettings { grid-template-columns: 1fr; gap: 20px; }
