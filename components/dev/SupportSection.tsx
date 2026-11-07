@@ -541,7 +541,20 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                 )}
 
                 {section !== "blast" && <>
-                <div aria-label="Indicadores de atendimento" className="grid grid-cols-1 gap-5 sm:grid-cols-2"><Card aria-label="Resposta média · Bot"><dl><div><dt className="text-xs text-gray-500">Resposta média · Bot</dt><dd className="mt-2 text-2xl font-semibold tabular-nums">{formatResponseTime(data?.responseTimes?.bot_seconds)}</dd><p className="mt-1 text-xs text-gray-500">Últimos 30 dias</p>{data?.responseTimes && data.responseTimes.excluded_responses > 0 && (<p className="mt-2 text-xs text-gray-500" title="A média ignora registros históricos importados e respostas acima de 2 minutos.">{data.responseTimes.excluded_conversations} conversa(s) com {data.responseTimes.excluded_responses} resposta(s) excluída(s) · média {formatResponseTime(data.responseTimes.excluded_avg_seconds)}<span className="block">Critério: importações históricas ou tempo acima de 2min.</span></p>)}</div></dl></Card><Card aria-label="Resposta média · Humano"><dl><div><dt className="text-xs text-gray-500">Resposta média · Humano</dt><dd className="mt-2 text-2xl font-semibold tabular-nums">{formatResponseTime(data?.responseTimes?.human_seconds)}</dd><p className="mt-1 text-xs text-gray-500">Últimos 30 dias</p></div></dl></Card></div>
+                <dl className={styles.metricStrip} aria-label="Indicadores de atendimento">
+                    <div>
+                        <dt>Resposta média · Bot</dt>
+                        <dd className="tabular-nums">{formatResponseTime(data?.responseTimes?.bot_seconds)}</dd>
+                        <p>Últimos 30 dias{data?.responseTimes && data.responseTimes.excluded_responses > 0 && (
+                            <span> · {data.responseTimes.excluded_responses} excluídos · média {formatResponseTime(data.responseTimes.excluded_avg_seconds)}</span>
+                        )}</p>
+                    </div>
+                    <div>
+                        <dt>Resposta média · Humano</dt>
+                        <dd className="tabular-nums">{formatResponseTime(data?.responseTimes?.human_seconds)}</dd>
+                        <p>Últimos 30 dias</p>
+                    </div>
+                </dl>
                 <section className={`${styles.tableSection} ${styles.supportTable} ${styles.supportHandoffs}`}>
                     <h2>Atendimento humano</h2>
                     <DataTable rows={data?.handedOff || []} rowKey={conversation => conversation.id} emptyMessage="Nenhuma conversa em atendimento humano." columns={[

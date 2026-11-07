@@ -169,5 +169,7 @@ export function accountAge(value?: string | null, now = new Date()): string {
 export function formatResponseTime(seconds: number | null | undefined): string {
     if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return "—";
     const total = Math.round(seconds);
-    return total >= 3600 ? `${Math.floor(total / 3600)}h ${Math.floor(total % 3600 / 60)}m` : `${Math.floor(total / 60)}m ${total % 60}s`;
+    if (total >= 3600) return `${Math.floor(total / 3600)}h ${Math.floor(total % 3600 / 60)}m`;
+    if (total >= 60) return `${Math.floor(total / 60)}m ${total % 60}s`;
+    return `${total}s`;
 }
