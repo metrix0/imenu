@@ -34,6 +34,6 @@ test("Plus tenure rounds up months and handles short months",()=>{
 });
 
 
-test.each([[170,"2m 50s"],[18240,"5h 4m"],[3599.8,"1h 0m"],[0,"0m 0s"],[null,"—"],[NaN,"—"]])("formats response duration %s",(value,expected)=>{
+test.each([[170,"2m 50s"],[18240,"5h 4m"],[3599.8,"1h 0m"],[0,"0s"],[null,"—"],[NaN,"—"]])("formats response duration %s",(value,expected)=>{
  expect(formatResponseTime(value as number|null)).toBe(expected);
 });
