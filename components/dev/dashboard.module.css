@@ -75,7 +75,7 @@
 /* Single-line Health alerts; full details remain available on row click. */
 .alertsTable :global([data-ui="table"]){max-width:100%;overflow-x:auto}
 .alertsTable :global(table){width:100%;min-width:820px;table-layout:fixed}
-.alertsTable :global(th),.alertsTable :global(td){white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-block:8px}
+.alertsTable :global(th),.alertsTable :global(td){white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .alertsTable :global(th:nth-child(1)){width:17%}
 .alertsTable :global(th:nth-child(2)){width:15%}
 .alertsTable :global(th:nth-child(3)){width:16%}
