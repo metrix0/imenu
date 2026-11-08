@@ -86,13 +86,15 @@ export default function CreatePanelOrderModal({
     const [configuringSubcategories, setConfiguringSubcategories] = useState<Subcategory[]>([]);
     const [isLoadingItemConfigurator, setIsLoadingItemConfigurator] = useState(false);
 
-    // Reset before rendering a new session, including closes initiated by the parent.
+    // Reset on reopening so closing keeps the current screen through its transition.
     if (wasOpen !== isOpen) {
         setWasOpen(isOpen);
-        setConfiguringItem(null);
-        setHasNavigatedToConfigurator(false);
-        setConfiguringSubcategories([]);
-        setIsLoadingItemConfigurator(false);
+        if (isOpen) {
+            setConfiguringItem(null);
+            setHasNavigatedToConfigurator(false);
+            setConfiguringSubcategories([]);
+            setIsLoadingItemConfigurator(false);
+        }
     }
 
     const [customerName, setCustomerName] = useState("");
@@ -262,12 +264,7 @@ export default function CreatePanelOrderModal({
     }, [isOpen, editingOrder?.id, restaurantId, fixedTableId]);
 
     useEffect(() => {
-        if (!isOpen) {
-            setHasNavigatedToConfigurator(false);
-            setMobileView("menu");
-            setMenuSearch("");
-            return;
-        }
+        if (!isOpen) return;
         setMobileView("menu");
         setMenuSearch("");
     }, [isOpen]);
@@ -384,8 +381,6 @@ export default function CreatePanelOrderModal({
     };
 
     const handleModalClose = () => {
-        closeItemConfigurator();
-        setHasNavigatedToConfigurator(false);
         onClose();
     };
 
