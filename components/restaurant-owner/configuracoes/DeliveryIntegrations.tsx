@@ -54,6 +54,11 @@ export default function DeliveryIntegrations({ restaurantId, onSaveState }: Prop
         setConfig(next);
         autosave.schedule(next);
     }
+    const complete = {
+        ifood: Boolean(config?.ifood.merchantId.trim() && config.ifood.clientId.trim() && (config.ifood.clientSecret || configured.ifood)),
+        machine: Boolean(config?.machine.username.trim() && config.machine.companyId.trim() && config.machine.payment &&
+            (config.machine.apiKey || configured.machine) && (config.machine.password || configured.machine)),
+    };
     async function retry(id: string) {
         setRetrying(id);
         setError("");
@@ -68,7 +73,6 @@ export default function DeliveryIntegrations({ restaurantId, onSaveState }: Prop
     return <Card className="mb-6 space-y-6 !p-5 sm:!p-7">
         <h2 className="text-xl font-semibold text-gray-900">Delivery e Parceiros</h2>
         {error && <div role="alert" className="space-y-2 text-sm text-red-600"><p>{error}</p>{!config && <Button variant="secondary" onClick={() => setLoadVersion(value => value + 1)}>Tentar novamente</Button>}</div>}
-        {autosave.error && <p role="alert" className="text-sm text-red-600">{autosave.error}</p>}
         {!config && !error && <div className="flex justify-center py-6"><Loader /></div>}
         {config && <>
             <section aria-labelledby="ifood-title">
@@ -87,6 +91,7 @@ export default function DeliveryIntegrations({ restaurantId, onSaveState }: Prop
                         </span>
                     </button>
                     <div className="flex h-9 shrink-0 items-center gap-2 sm:gap-3">
+                        {!complete.ifood && <span className="text-xs text-gray-500">Não configurado</span>}
                         <Switch aria-label="Ativar integração iFood" checked={config.ifood.enabled} disabled={!available} onClick={() => change("ifood", "enabled", !config.ifood.enabled)} />
                         <button
                             type="button"
@@ -134,6 +139,7 @@ export default function DeliveryIntegrations({ restaurantId, onSaveState }: Prop
                         </span>
                     </button>
                     <div className="flex h-9 shrink-0 items-center gap-2 sm:gap-3">
+                        {!complete.machine && <span className="text-xs text-gray-500">Não configurado</span>}
                         <Switch aria-label="Ativar integração Machine" checked={config.machine.enabled} disabled={!available} onClick={() => change("machine", "enabled", !config.machine.enabled)} />
                         <button
                             type="button"

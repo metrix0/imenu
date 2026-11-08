@@ -44,3 +44,20 @@ test("autosave retains masked credentials and saves both providers atomically",a
     expect(stored.ifood).toMatchObject({clientSecret:"ifood-secret",clientId:"new-client"});
     expect(stored.machine).toMatchObject({password:"machine-secret",apiKey:"key",username:"new-user"});
 });
+
+test.each([false,true])("incomplete credentials and toggles persist independently of provider availability (enabled=%s)",async enabled=>{
+    const client={query:jest.fn().mockResolvedValue({rows:[]})};
+    (withTransaction as jest.Mock).mockImplementation(callback=>callback(client));
+    const config=structuredClone(emptyDeliveryConfig);
+    config.ifood.enabled=enabled;config.machine.enabled=enabled;
+    config.ifood.merchantId="unfinished";
+    global.fetch=jest.fn().mockRejectedValue(new Error("Provider offline"));
+    const response=await PATCH(new Request("https://local/api/integrations/delivery",{method:"PATCH",body:JSON.stringify({restaurantId:"restaurant",config})}));
+    expect(response.status).toBe(200);
+    const params=client.query.mock.calls.at(-1)?.[1];
+    const saved=unseal(params[1]);
+    expect(saved.ifood).toMatchObject({enabled,merchantId:"unfinished",clientId:"",clientSecret:""});
+    expect(saved.machine.enabled).toBe(enabled);
+    expect(params[2]).toBeNull();
+    expect(fetch).not.toHaveBeenCalled();
+});

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
 import { query, withTransaction } from "@/lib/database/sql";
 import { loadDeliveryConfig } from "@/lib/delivery/integrations";
-import { ifoodRequest, seal, unseal, emptyDeliveryConfig, type DeliveryConfig } from "@/lib/delivery/providers";
+import { seal, unseal, emptyDeliveryConfig, type DeliveryConfig } from "@/lib/delivery/providers";
 
 export async function GET(request: Request) {
     try {
@@ -39,21 +39,10 @@ export async function PATCH(request: Request) {
                     fields[key] = value;
                 }
             }
-            if (next.ifood.enabled) {
-                if (!/^[a-f0-9-]{36}$/i.test(next.ifood.merchantId) || !next.ifood.clientId || !next.ifood.clientSecret) throw new RestaurantOwnerAuthError("Preencha os dados do iFood.",400);
-                if (!old.ifood.enabled || JSON.stringify(old.ifood) !== JSON.stringify(next.ifood)) {
-                    await ifoodRequest(next.ifood, `/merchant/v1.0/merchants/${encodeURIComponent(next.ifood.merchantId)}`);
-                }
-            }
-            if (next.machine.enabled && (!next.machine.username || !next.machine.password || !next.machine.apiKey ||
-                !/^[1-9][0-9]*$/.test(next.machine.companyId) || !["D","B","C","X","P","H","F","R"].includes(next.machine.payment) ||
-                (next.machine.categoryId && !/^[1-9][0-9]*$/.test(next.machine.categoryId)))) {
-                throw new RestaurantOwnerAuthError("Preencha os dados da Machine e a forma de pagamento da entrega.",400);
-            }
             await client.query(`INSERT INTO delivery_integrations(restaurant_id,credentials,ifood_merchant_id,ifood_enabled)
                 VALUES($1,$2,$3,$4) ON CONFLICT(restaurant_id) DO UPDATE SET credentials=EXCLUDED.credentials,
                 ifood_merchant_id=EXCLUDED.ifood_merchant_id,ifood_enabled=EXCLUDED.ifood_enabled,updated_at=now()`,
-                [restaurantId,seal(next),next.ifood.merchantId || null,next.ifood.enabled]);
+                [restaurantId,seal(next),/^[a-f0-9-]{36}$/i.test(next.ifood.merchantId) ? next.ifood.merchantId : null,next.ifood.enabled]);
         });
         return NextResponse.json({ ok: true });
     } catch (error) { return failure(error); }
