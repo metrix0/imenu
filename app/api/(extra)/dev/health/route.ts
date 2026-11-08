@@ -49,7 +49,8 @@ export async function GET(request: Request) {
             }
             const found=connections.rows.find(row=>row.source===item.id && row.check_kind==="probe");
             if(!found)return {id:item.id,name:item.name,priority:item.priority,observation:null};
-            const stale=Date.now()-Date.parse(found.checked_at)>45*60_000;
+            const freshnessMs = item.id === "tomtom" || item.id === "arcgis" ? 26*60*60_000 : 45*60_000;
+            const stale=Date.now()-Date.parse(found.checked_at)>freshnessMs;
             return {id:item.id,name:item.name,priority:item.priority,observation:{
                 state:stale?"unverified":found.state||"unverified",
                 status:found.http_status,checkedAt:found.checked_at,
