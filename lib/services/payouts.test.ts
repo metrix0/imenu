@@ -1,6 +1,6 @@
 import { query } from "@/lib/database/sql";
 import { getMercadoPagoPixPayment } from "@/lib/payments/mercadoPagoPix";
-import { createPayoutPlan, retryFailedPayout } from "./payouts";
+import { createPayoutPlan, isAsaasTransferSafeToRetry, retryFailedPayout } from "./payouts";
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn() }));
 jest.mock("@/lib/payments/mercadoPagoPix", () => ({ getMercadoPagoPixPayment: jest.fn() }));
 beforeEach(() => {
@@ -150,5 +150,23 @@ describe("retry failed payouts", () => {
             status: 409, message: expect.stringContaining("valores mudaram"),
         });
         expect(getMercadoPagoPixPayment).toHaveBeenCalledWith({ id: "123" });
+    });
+});
+ 
+describe("retrying transfers already recorded in Asaas", () => {
+    it("allows only confirmed terminal failures for the original transfer", () => {
+        const id = "old-transfer";
+        const payoutId = "payout-id";
+        for (const status of ["CANCELLED", "FAILED", "REFUSED"]) {
+            expect(isAsaasTransferSafeToRetry({ id, status, externalReference: "imenu-payout-payout-id" }, id, payoutId)).toBe(true);
+        }
+        for (const status of ["DONE", "PENDING", "BANK_PROCESSING", "BLOCKED", "SCHEDULED"]) {
+            expect(isAsaasTransferSafeToRetry({ id, status }, id, payoutId)).toBe(false);
+        }
+    });
+    it("never retries a different transfer or mismatched reference", () => {
+        expect(isAsaasTransferSafeToRetry({ id: "another", status: "CANCELLED" }, "old", "payout-id")).toBe(false);
+        expect(isAsaasTransferSafeToRetry({ id: "old", status: "CANCELLED", externalReference: "different" }, "old", "payout-id")).toBe(false);
+        expect(isAsaasTransferSafeToRetry({ id: "old", status: undefined }, "old", "payout-id")).toBe(false);
     });
 });
