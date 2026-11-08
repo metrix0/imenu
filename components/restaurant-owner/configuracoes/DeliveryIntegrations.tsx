@@ -66,7 +66,7 @@ export default function DeliveryIntegrations({ restaurantId, onSaveState }: Prop
         finally { setRetrying(""); }
     }
     return <Card className="mb-6 space-y-6 !p-5 sm:!p-7">
-        <h2 className="text-xl font-semibold text-gray-900">Integrações Delivery</h2>
+        <h2 className="text-xl font-semibold text-gray-900">Delivery e Parceiros</h2>
         {error && <div role="alert" className="space-y-2 text-sm text-red-600"><p>{error}</p>{!config && <Button variant="secondary" onClick={() => setLoadVersion(value => value + 1)}>Tentar novamente</Button>}</div>}
         {autosave.error && <p role="alert" className="text-sm text-red-600">{autosave.error}</p>}
         {!config && !error && <div className="flex justify-center py-6"><Loader /></div>}
