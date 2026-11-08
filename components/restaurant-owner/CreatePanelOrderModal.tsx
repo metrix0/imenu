@@ -53,6 +53,7 @@ export default function CreatePanelOrderModal({
                                                   onCreated,
                                                   editingOrder,
                                                   fixedTableId,
+                                                  fixedTable,
                                               }: {
     isOpen: boolean;
     onClose: () => void;
@@ -60,6 +61,7 @@ export default function CreatePanelOrderModal({
     onCreated: () => Promise<void> | void;
     editingOrder?: { id: string } | null;
     fixedTableId?: string;
+    fixedTable?: RestaurantTable;
 }) {
     const [categories, setCategories] = useState<Category[]>([]);
     const [itemsByCategory, setItemsByCategory] = useState<Record<string, Item[]>>({});
@@ -529,8 +531,9 @@ export default function CreatePanelOrderModal({
     }, [deliveryFeeInput]);
 
     const selectedTable = useMemo(
-        () => tables.find((table) => table.id === selectedTableId) || null,
-        [selectedTableId, tables]
+        () => tables.find((table) => table.id === selectedTableId)
+            || (fixedTable?.id === selectedTableId ? fixedTable : null),
+        [selectedTableId, tables, fixedTable]
     );
     const isCounterOrder = selectedTableId === "balcao";
 
@@ -597,7 +600,7 @@ export default function CreatePanelOrderModal({
 
     const handleSubmit = async () => {
         if (!restaurantId || promotionLoadError || isLoadingMenu || isLoadingExisting || editBlockReason) return;
-        if (fixedTableId && selectedTable?.id !== fixedTableId) {
+        if (fixedTableId && !tables.some(table => table.id === fixedTableId)) {
             setToast({ message: "Esta mesa não está mais disponível.", type: "error" });
             return;
         }
