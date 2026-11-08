@@ -1,3 +1,11 @@
+export const RECOVERY_DAILY_LIMIT = 15;
+
+export const PLUS_ABANDONED_BLAST_MESSAGE = `Oi! Tudo bem? Sou o João, do iMenu 🍔
+
+Percebi que o {{Nome Restaurante}} não tem recebido novos pedidos pelo iMenu há alguns dias.
+
+Como tem sido sua experiência com o iMenu Plus? Se algo estiver dificultando o uso, posso te ajudar por aqui.`;
+
 export const ABANDONED_BLAST_MESSAGE = `Oi! Tudo bem? Sou o João, do iMenu 🍔
 
 Vi que você criou o cardápio da {{Nome Restaurante}} no iMenu e chegou a fazer alguns testes por lá.

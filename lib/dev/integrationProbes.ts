@@ -171,46 +171,190 @@ async function gemini(): Promise<ProbeResult> {
 
 async function posthog(): Promise<ProbeResult> {
     const config = getPostHogConfig();
-    if (!config) return missing("posthog", "Projeto", "Sem chave de API pessoal para verificação autenticada.");
-    return remote("posthog", "Projeto",
-        `${postHogApiHost(config.rawHost)}/api/projects/${encodeURIComponent(config.projectId)}/`,
-        { Authorization: `Bearer ${config.personalApiKey}` });
+    const operation = "Consulta de dados";
+    if (!config) return missing("posthog", operation, "Sem chave de API pessoal para verificação autenticada.");
+
+    // Test the query API used by dashboards; project settings requires project:read
+    // even when query:read is sufficient for analytics.
+    try {
+        const response = await fetch(
+            postHogApiHost(config.rawHost) + "/api/projects/" + encodeURIComponent(config.projectId) + "/query/",
+            {
+                method: "POST",
+                headers: {
+                    Authorization: "Bearer " + config.personalApiKey,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ query: { kind: "HogQLQuery", query: "SELECT 1" } }),
+                cache: "no-store",
+                signal: AbortSignal.timeout(12000),
+            }
+        );
+        if (!response.ok) {
+            await response.body?.cancel();
+            return {
+                id: "posthog", operation, state: "failed", status: response.status,
+                detail: response.status === 403
+                    ? "Consulta HTTP 403: verifique query:read e acesso ao projeto."
+                    : "Consulta HTTP " + response.status,
+            };
+        }
+        const body = await response.json() as { results?: unknown[][] };
+        const ok = Array.isArray(body.results);
+        return { id: "posthog", operation, state: ok ? "connected" : "failed",
+            status: response.status,
+            detail: ok ? "Consulta de dados: OK" : "Resposta de consulta inválida." };
+    } catch {
+        return { id: "posthog", operation, state: "failed", status: null,
+            detail: "Falha de conexão ou tempo limite na consulta." };
+    }
 }
 
 async function ntfy(): Promise<ProbeResult> {
     if (!configured("NTFY_TOPIC")) return missing("ntfy", "Servidor de notificações");
-    // Read-only reachability; never send a test notification.
-    const result = await remote("ntfy", "Servidor de notificações", "https://ntfy.sh/");
-    return result.state === "connected"
-        ? { ...result, state: "degraded", detail: "Servidor acessível; entrega ao celular não testada." }
-        : result;
+    const operation = "Servidor de notificações";
+    // Official health endpoint; no synthetic push or phone notification.
+    try {
+        const response = await fetch("https://ntfy.sh/v1/health", {
+            cache: "no-store", signal: AbortSignal.timeout(TIMEOUT_MS),
+        });
+        if (!response.ok) {
+            await response.body?.cancel();
+            return { id: "ntfy", operation, state: "failed", status: response.status,
+                detail: "Servidor de notificações: HTTP " + response.status };
+        }
+        const payload = await response.json() as { healthy?: boolean };
+        if (payload.healthy !== true)
+            return { id: "ntfy", operation, state: "failed", status: response.status,
+                detail: "Servidor de notificações indisponível." };
+
+        const latest = await query<{ phone_notified: boolean | null; delivery_error: string | null }>(
+            "SELECT phone_notified,delivery_error FROM public.dev_alerts " +
+            "WHERE trigger_type IN ('notification','alarm') AND source <> 'ntfy' " +
+            "ORDER BY id DESC LIMIT 1"
+        ).catch(() => ({ rows: [] as { phone_notified: boolean | null; delivery_error: string | null }[] }));
+        const last = latest.rows[0];
+        return {
+            id: "ntfy", operation, status: response.status,
+            state: last?.delivery_error ? "degraded" : "connected",
+            detail: last?.delivery_error
+                ? "Servidor saudável; último envio à API falhou."
+                : last?.phone_notified
+                    ? "Servidor saudável; último envio aceito pela API. Entrega ao aparelho não confirmada."
+                    : "Servidor saudável; entrega ao aparelho não confirmada.",
+        };
+    } catch {
+        return { id: "ntfy", operation, state: "failed", status: null,
+            detail: "Servidor de notificações indisponível ou verificação expirou." };
+    }
+}
+
+const DAILY_PROBE_MS = 24 * 60 * 60 * 1000;
+const DAILY_GEOCODE_OPERATION = "Geocodificação autenticada diária";
+
+// The cron can still run hourly without spending a geocoding request hourly.
+// Legacy metadata/unverified checks are replaced on the first new run.
+async function dailyGeocodeDue(id: "tomtom" | "arcgis"): Promise<boolean> {
+    try {
+        const previous = await query<{ checked_at: string; operation: string | null }>(
+            "SELECT checked_at,operation FROM public.dev_integration_status WHERE source=$1 AND check_kind='probe'",
+            [id]
+        );
+        const row = previous.rows[0];
+        if (!row || row.operation !== DAILY_GEOCODE_OPERATION) return true;
+        const checkedAt = new Date(row.checked_at).getTime();
+        return !Number.isFinite(checkedAt) || Date.now() - checkedAt >= DAILY_PROBE_MS;
+    } catch {
+        // Fail closed to avoid quota consumption if the DB cannot enforce cadence.
+        return false;
+    }
+}
+
+async function tomtom(): Promise<ProbeResult | null> {
+    if (!(await dailyGeocodeDue("tomtom"))) return null;
+    const key = configured("NEXT_PUBLIC_TOMTOM_API_KEY");
+    const operation = DAILY_GEOCODE_OPERATION;
+    if (!key) return missing("tomtom", operation, "Chave TomTom não configurada.");
+    const url = new URL("https://api.tomtom.com/search/2/geocode/" +
+        encodeURIComponent("Praça da Sé, São Paulo, SP") + ".json");
+    url.searchParams.set("key", key);
+    url.searchParams.set("countrySet", "BR");
+    url.searchParams.set("limit", "1");
+    try {
+        const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(8000) });
+        if (!response.ok) {
+            await response.body?.cancel();
+            return { id: "tomtom", operation, state: "failed", status: response.status,
+                detail: "Geocodificação TomTom: HTTP " + response.status };
+        }
+        const body = await response.json() as { results?: unknown[] };
+        const ok = Array.isArray(body.results) && body.results.length > 0;
+        return { id: "tomtom", operation, status: response.status,
+            state: ok ? "connected" : "failed",
+            detail: ok ? "Geocodificação OK · 1 consulta diária." : "Resposta TomTom sem resultados." };
+    } catch {
+        return { id: "tomtom", operation, state: "failed", status: null,
+            detail: "Geocodificação TomTom: falha de rede ou tempo limite." };
+    }
+}
+
+async function arcgis(): Promise<ProbeResult | null> {
+    if (!(await dailyGeocodeDue("arcgis"))) return null;
+    const key = configured("NEXT_PUBLIC_ARCGIS_API_KEY");
+    const operation = DAILY_GEOCODE_OPERATION;
+    const base = key ? "https://geocode-api.arcgis.com" : "https://geocode.arcgis.com";
+    const url = new URL(base + "/arcgis/rest/services/World/GeocodeServer/findAddressCandidates");
+    url.searchParams.set("SingleLine", "Praça da Sé, São Paulo, SP, Brasil");
+    url.searchParams.set("sourceCountry", "BRA");
+    url.searchParams.set("maxLocations", "1");
+    url.searchParams.set("forStorage", "false");
+    url.searchParams.set("f", "json");
+    if (key) url.searchParams.set("token", key);
+    try {
+        const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(8000) });
+        if (!response.ok) {
+            await response.body?.cancel();
+            return { id: "arcgis", operation, state: "failed", status: response.status,
+                detail: "Geocodificação ArcGIS: HTTP " + response.status };
+        }
+        const body = await response.json() as {
+            candidates?: unknown[]; error?: { code?: number };
+        };
+        if (body.error) return {
+            id: "arcgis", operation, state: "failed", status: body.error.code || response.status,
+            detail: "Geocodificação ArcGIS: erro " + (body.error.code || "da API") + ".",
+        };
+        const ok = Array.isArray(body.candidates) && body.candidates.length > 0;
+        return { id: "arcgis", operation, state: ok ? "connected" : "failed", status: response.status,
+            detail: ok ? "Geocodificação OK · 1 consulta diária " +
+                (key ? "com chave." : "pública.") : "Resposta ArcGIS sem resultados." };
+    } catch {
+        return { id: "arcgis", operation, state: "failed", status: null,
+            detail: "Geocodificação ArcGIS: falha de rede ou tempo limite." };
+    }
 }
 
 async function publicServices(): Promise<ProbeResult[]> {
-    const [nominatim, brasilapi, arcgis] = await Promise.all([
+    const [nominatim, brasilapi] = await Promise.all([
         remote("nominatim", "Status público", "https://nominatim.openstreetmap.org/status",
             { "User-Agent": "iMenu-health/1.0 (https://www.imenuapp.com.br)" }),
         remote("brasilapi", "Consulta CEP pública", "https://brasilapi.com.br/api/cep/v1/01001000"),
-        remote("arcgis", "Metadados públicos", "https://geocode-api.arcgis.com/arcgis/rest/services/World/GeocodeServer?f=json"),
     ]);
-    arcgis.state = arcgis.state === "connected" ? "degraded" : "unverified";
-    arcgis.detail = arcgis.state === "degraded" ? "API pública acessível; chave de geocodificação não testada." : "Metadados públicos indisponíveis; autenticação não testada.";
-    return [nominatim, brasilapi, arcgis,
-        missing("google", "Geocodificação", "Consulta de chave não executada para evitar cobrança."),
-        missing("tomtom", "Geocodificação", "Consulta de chave não executada para evitar cobrança.")];
+    return [nominatim, brasilapi,
+        missing("google", "Geocodificação", "Consulta de chave não executada para evitar cobrança.")];
 }
 
 export async function runIntegrationChecks(): Promise<ProbeResult[]> {
-    // Each read-only check is bounded; no provider writes, paid lookups or outgoing WhatsApp.
-    const tasks = [asaas(), mercadopago(), supabase(), waha(), openai(), gemini(), posthog(), ntfy(), publicServices()];
+    // All checks are bounded; TomTom/ArcGIS use at most one geocode request each per 24h.
+    const tasks = [asaas(), mercadopago(), supabase(), waha(), openai(), gemini(), posthog(), ntfy(), tomtom(), arcgis(), publicServices()];
     const completed = await Promise.allSettled(tasks);
     const results: ProbeResult[] = [];
     for (let index = 0; index < completed.length; index++) {
         const item = completed[index];
         if (item.status === "fulfilled") {
-            results.push(...(Array.isArray(item.value) ? item.value : [item.value]));
+            if (item.value) results.push(...(Array.isArray(item.value) ? item.value : [item.value]));
         } else {
-            const id = ["asaas", "mercadopago", "supabase", "waha", "openai", "gemini", "posthog", "ntfy", "public"][index];
+            const id = ["asaas", "mercadopago", "supabase", "waha", "openai", "gemini", "posthog", "ntfy", "tomtom", "arcgis", "public"][index];
             if (id !== "public") results.push({id,operation:"Verificação",state:"failed",status:null,detail:"Falha de rede ou tempo limite."});
         }
     }

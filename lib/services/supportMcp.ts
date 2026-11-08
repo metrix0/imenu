@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 import { query } from "@/lib/database/sql";
+import { calculateOnePercentPayout } from "@/lib/services/payoutSafety";
 import { getWahaWebhookHmacKey } from "@/lib/services/wahaClient";
 
 type SupportConversation = {
@@ -170,6 +171,16 @@ export const SUPPORT_MCP_TOOLS: SupportMcpToolDefinition[] = [
                 },
             },
             required: ["table"],
+            additionalProperties: false,
+        },
+    },
+    {
+        name: "get_pix_payout_expectation",
+        description:
+            "Read-only forecast for the selected restaurant's pending Pix Online payouts. Call for questions about when/what amount will be received, including when no payout record exists yet. Uses confirmed-order states, 90-minute eligibility margin, and the next daily 12:00 America/Sao_Paulo cycle. This is NOT a scheduled or completed transfer and final payment-provider verification/processing may change it. Returns Pix-key blocker and latest actual payout separately.",
+        inputSchema: {
+            type: "object",
+            properties: {},
             additionalProperties: false,
         },
     },
@@ -751,6 +762,129 @@ async function queryRestaurantData(
     };
 }
 
+
+type PixPayoutCycle = {
+    expected_at: string;
+    gross_cents: number | string;
+    order_count: number | string;
+};
+
+async function getPixPayoutExpectation(conversation: SupportConversation) {
+    if (!conversation.restaurant_id) {
+        return {
+            error: "No restaurant is selected. Use list_my_restaurants and select_restaurant first.",
+        };
+    }
+
+    const restaurantId = conversation.restaurant_id;
+    const [state, forecast] = await Promise.all([
+        query<{
+            as_of: string;
+            pix_key_configured: boolean;
+            latest_payout: {
+                status: string;
+                amount_cents: number;
+                created_at: string;
+                paid_at: string | null;
+            } | null;
+        }>(
+            `
+            SELECT
+                NOW() AS as_of,
+                NULLIF(BTRIM(r.payment_info), '') IS NOT NULL AS pix_key_configured,
+                (
+                    SELECT json_build_object(
+                        'status', p.status, 'amount_cents', p.amount_cents,
+                        'created_at', p.created_at, 'paid_at', p.paid_at
+                    )
+                    FROM public.payouts p
+                    WHERE p.restaurant_id = r.id
+                    ORDER BY p.created_at DESC
+                    LIMIT 1
+                ) AS latest_payout
+            FROM public.restaurants r
+            WHERE r.id = $1
+            `,
+            [restaurantId]
+        ),
+        query<PixPayoutCycle>(
+            `
+            WITH last_payout AS (
+                SELECT MAX(created_at) AS last_created_at
+                FROM public.payouts
+                WHERE restaurant_id = $1
+            ),
+            unpaid_orders AS (
+                SELECT
+                    o.total_cents,
+                    GREATEST(o.created_at, COALESCE(o.payment_paid_at, o.created_at))
+                        + INTERVAL '90 minutes' AS eligible_at
+                FROM public.orders o
+                CROSS JOIN last_payout lp
+                WHERE o.restaurant_id = $1
+                  AND o.payment_method = 'pix'
+                  AND o.payment_ref IS NOT NULL
+                  AND o.status IN ('paid', 'preparing', 'delivering', 'done')
+                  AND GREATEST(o.created_at, COALESCE(o.payment_paid_at, o.created_at))
+                      > COALESCE(lp.last_created_at, '-infinity'::timestamptz)
+            ),
+            local_cycles AS (
+                SELECT
+                    total_cents,
+                    GREATEST(eligible_at, NOW()) AS eligible_from,
+                    date_trunc(
+                        'day',
+                        GREATEST(eligible_at, NOW()) AT TIME ZONE 'America/Sao_Paulo'
+                    ) + INTERVAL '12 hours' AS local_noon
+                FROM unpaid_orders
+            ),
+            cycles AS (
+                SELECT total_cents,
+                    CASE
+                        WHEN (local_noon AT TIME ZONE 'America/Sao_Paulo') >= eligible_from
+                            THEN local_noon AT TIME ZONE 'America/Sao_Paulo'
+                        ELSE (local_noon + INTERVAL '1 day') AT TIME ZONE 'America/Sao_Paulo'
+                    END AS expected_at
+                FROM local_cycles
+            )
+            SELECT expected_at, SUM(total_cents)::bigint AS gross_cents,
+                   COUNT(*)::integer AS order_count
+            FROM cycles
+            GROUP BY expected_at
+            ORDER BY expected_at
+            LIMIT 50
+            `,
+            [restaurantId]
+        ),
+    ]);
+
+    const metadata = state.rows[0];
+    if (!metadata) return { error: "Restaurante selecionado não encontrado." };
+
+    const cycles = forecast.rows.map((row) => {
+        const grossCents = Number(row.gross_cents) || 0;
+        return {
+            expected_at: row.expected_at,
+            order_count: Number(row.order_count) || 0,
+            estimated_gross_cents: grossCents,
+            estimated_net_cents: calculateOnePercentPayout(grossCents, 0).netCents,
+        };
+    });
+
+    return {
+        restaurant_id: restaurantId,
+        as_of: metadata.as_of,
+        pix_key_configured: metadata.pix_key_configured,
+        blocked_reason: metadata.pix_key_configured ? null : "Chave Pix de repasse não cadastrada.",
+        latest_payout: metadata.latest_payout,
+        next_expected_cycle: metadata.pix_key_configured ? (cycles[0] || null) : null,
+        pending_cycles: cycles,
+        forecast_only: true,
+        explanation:
+            "As próximas janelas de 12h são estimativas para pedidos Pix Online com status confirmado no iMenu, após margem de 90 minutos. Não são repasses agendados ou concluídos. O processamento depende de validação no provedor e disponibilidade da automação; repasses já registrados como falhos/cancelados exigem tratamento separado. Ausência de registro em payouts não significa ausência de valor a receber.",
+    };
+}
+
 export function createSupportMcpToken(conversationId: string): string {
     return createHmac("sha256", getWahaWebhookHmacKey())
         .update("support-mcp:" + conversationId)
@@ -875,6 +1009,10 @@ export async function executeSupportMcpTool(
 
     if (name === "query_restaurant_data") {
         return queryRestaurantData(conversation, args);
+    }
+
+    if (name === "get_pix_payout_expectation") {
+        return getPixPayoutExpectation(conversation);
     }
 
     if (name === "request_human_handoff") {

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { ABANDONED_BLAST_MESSAGE, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE } from "@/lib/dev/abandonedBlast";
+import { ABANDONED_BLAST_MESSAGE, PLUS_ABANDONED_BLAST_MESSAGE, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE, RECOVERY_DAILY_LIMIT } from "@/lib/dev/abandonedBlast";
+import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGE, PLUS_FEEDBACK_DAILY_LIMIT } from "@/lib/dev/plusFeedbackBlast";
 import { query, withTransaction } from "@/lib/database/sql";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 import {
@@ -238,6 +239,29 @@ async function claimNextRecipient(): Promise<ClaimedRecipient | null> {
                     ) < c.daily_limit
                 )
               )
+              AND (
+                CASE
+                  WHEN c.message = ANY($1::text[]) THEN (
+                    SELECT COUNT(*)
+                    FROM support_blast_recipients today
+                    JOIN support_blast_campaigns counted ON counted.id = today.campaign_id
+                    WHERE counted.message = ANY($1::text[])
+                      AND today.attempted_at >= (
+                        (NOW() AT TIME ZONE 'America/Sao_Paulo')::date + TIME '00:00'
+                      ) AT TIME ZONE 'America/Sao_Paulo'
+                  ) < $2::int
+                  WHEN c.message = $3::text THEN (
+                    SELECT COUNT(*)
+                    FROM support_blast_recipients today
+                    JOIN support_blast_campaigns counted ON counted.id = today.campaign_id
+                    WHERE counted.message = $3::text
+                      AND today.attempted_at >= (
+                        (NOW() AT TIME ZONE 'America/Sao_Paulo')::date + TIME '00:00'
+                      ) AT TIME ZONE 'America/Sao_Paulo'
+                  ) < $4::int
+                  ELSE TRUE
+                END
+              )
             ORDER BY r.scheduled_at, r.id
             LIMIT 1
             FOR UPDATE OF r, c SKIP LOCKED
@@ -247,7 +271,10 @@ async function claimNextRecipient(): Promise<ClaimedRecipient | null> {
         FROM claimed, support_blast_campaigns c
         WHERE r.id = claimed.id AND c.id = r.campaign_id
         RETURNING r.id, r.campaign_id, r.phone, r.message, c.sender, c.skip_recent, c.message AS campaign_message, c.image_path AS campaign_image_path
-        `
+        `,
+        [[ABANDONED_BLAST_MESSAGE, PLUS_ABANDONED_BLAST_MESSAGE,
+            SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE],
+         RECOVERY_DAILY_LIMIT, PLUS_FIRST_MONTH_FEEDBACK_MESSAGE, PLUS_FEEDBACK_DAILY_LIMIT]
     );
     return result.rows[0] || null;
 }
@@ -296,7 +323,8 @@ async function sendRecipient(item: ClaimedRecipient): Promise<"sent" | "skipped"
     const restaurantId = restaurantIds[0] || null;
 
     // A restaurant that resumed ordering after scheduling must not be contacted.
-    if (item.campaign_message === ABANDONED_BLAST_MESSAGE) {
+    if (item.campaign_message === ABANDONED_BLAST_MESSAGE ||
+        item.campaign_message === PLUS_ABANDONED_BLAST_MESSAGE) {
         const reactivated = await query(
             `SELECT 1 FROM orders WHERE restaurant_id = ANY($1::uuid[])
               AND table_id IS NULL AND status = 'done'
@@ -339,8 +367,30 @@ LIMIT 1`, [accountIds]);
 
     const isAbandonedBlast =
         item.campaign_message === ABANDONED_BLAST_MESSAGE ||
+        item.campaign_message === PLUS_ABANDONED_BLAST_MESSAGE ||
         item.campaign_message === SINGLE_ORDER_DAY_RECOVERY_MESSAGE ||
         item.campaign_message === NO_FIRST_ORDER_RECOVERY_MESSAGE;
+    // Do not send a stale first-month check-in if the subscription has changed.
+    if (item.campaign_message === PLUS_FIRST_MONTH_FEEDBACK_MESSAGE) {
+        const stillFirstMonth = await query(
+            `SELECT 1 FROM public.restaurant_addons addon
+             WHERE addon.restaurant_id = ANY($1::uuid[])
+               AND addon.product_key = 'ia_plus'
+               AND addon.activated_at IS NOT NULL
+               AND addon.current_period_ends_at > NOW()
+               AND addon.current_period_ends_at <= addon.activated_at + INTERVAL '35 days'
+               AND (addon.current_period_ends_at AT TIME ZONE 'America/Sao_Paulo')::date =
+                   (NOW() AT TIME ZONE 'America/Sao_Paulo')::date + 7
+               AND (addon.status = 'active' OR
+                   (addon.status IN ('canceled', 'past_due') AND addon.current_period_ends_at > NOW()))
+             LIMIT 1`, [restaurantIds]
+        );
+        if (!stillFirstMonth.rowCount) {
+            await finishRecipient(item.id, "skipped_reactivated");
+            return "skipped";
+        }
+    }
+
     if (item.skip_recent || isAbandonedBlast) {
         const recent = await query(
             `
