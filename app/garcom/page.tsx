@@ -104,7 +104,6 @@ export default function GarcomPage() {
     const [tableToFinalize, setTableToFinalize] = useState<RestaurantTable | null>(null);
     const [finishingTable, setFinishingTable] = useState(false);
     const [orderTable, setOrderTable] = useState<RestaurantTable | null>(null);
-    const [orderModalKey, setOrderModalKey] = useState(0);
     const [editingOrder, setEditingOrder] = useState<{ id: string } | null>(null);
     const [orderToDelete, setOrderToDelete] = useState<{ id: string; display_id: number } | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -192,7 +191,6 @@ export default function GarcomPage() {
     }, [orders]);
 
     const addOrder = (table: RestaurantTable) => {
-        setOrderModalKey(current => current + 1);
         setEditingOrder(null);
         setOrderTable(table);
     };
@@ -509,7 +507,6 @@ export default function GarcomPage() {
                     const table = tables.find(table => table.id === selectedOrder?.table_id);
                     if (!table) return;
                     setOrderDetailsOpen(false);
-                    setOrderModalKey(current => current + 1);
                     setOrderTable(table);
                     setEditingOrder({ id: order.id });
                 }}
@@ -517,7 +514,6 @@ export default function GarcomPage() {
             />
 
             <CreatePanelOrderModal
-                key={orderModalKey}
                 isOpen={orderTable !== null}
                 onClose={() => { setOrderTable(null); setEditingOrder(null); }}
                 restaurantId={restaurant.id}
