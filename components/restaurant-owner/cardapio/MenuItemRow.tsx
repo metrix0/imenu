@@ -113,6 +113,7 @@ export default function MenuItemRow({
         item.is_available ?? false
     );
     const [settingsOpen, setSettingsOpen] = useState(false);
+    const [settingsMounted, setSettingsMounted] = useState(false);
     const [toast, setToast] = useState<{
         message: string;
         type?: "success" | "error" | "info";
@@ -124,6 +125,12 @@ export default function MenuItemRow({
     useEffect(() => {
         if (isNew && nameInputRef.current) nameInputRef.current.focus();
     }, [isNew]);
+
+    useEffect(() => {
+        if (settingsOpen || !settingsMounted) return;
+        const timer = window.setTimeout(() => setSettingsMounted(false), 250);
+        return () => window.clearTimeout(timer);
+    }, [settingsOpen, settingsMounted]);
 
     useEffect(() => {
         const nextPrice = item.price_cents ?? 0;
@@ -486,7 +493,7 @@ export default function MenuItemRow({
                                 <button
                                     type="button"
                                     aria-label={`Configurações de ${name}`}
-                                    onClick={(e) => { e.stopPropagation(); setSettingsOpen(true); }}
+                                    onClick={(e) => { e.stopPropagation(); setSettingsMounted(true); setSettingsOpen(true); }}
                                     className="cursor-pointer w-8 h-8 2xl:text-2xl flex items-center justify-center text-gray-400 hover:text-brand hover:bg-gray-50 rounded-full transition-colors"
                                     title="Configurações do item"
                                 >
@@ -521,7 +528,7 @@ export default function MenuItemRow({
                     </div>
                 </div>
 
-                {settingsOpen && <ItemSettingsModal
+                {settingsMounted && <ItemSettingsModal
                     item={item}
                     restaurantId={restaurantId || ""}
                     open={settingsOpen}
