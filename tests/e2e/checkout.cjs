@@ -321,7 +321,14 @@ async function panelOrders(browser) {
                 document.querySelector('select:has(option[value="pix-entrega"])')?.value === value, {}, method);
             await screenshot(page, "panel-add-order-" + method);
             await click(page, "Criar pedido");
-            await page.waitForFunction(() => !document.querySelector(".panel-create-order"), { timeout: 15000 });
+            // This dialog stays mounted when closed; wait until it is hidden and the fade completes.
+            await page.waitForFunction(() => {
+                const panel = document.querySelector(".panel-create-order");
+                if (!panel) return true;
+                const dialog = panel.closest('[role="dialog"]');
+                return Boolean(panel.closest('[aria-hidden="true"]') &&
+                    dialog && getComputedStyle(dialog).opacity === "0");
+            }, { timeout: 15000 });
             assert.equal(submitted.length, method === "dinheiro" ? 1 : 2, "One order request per form submission");
             const { payload, auth } = submitted.at(-1);
             assert.equal(auth, "Bearer " + token, "Panel requests must include the owner session");
