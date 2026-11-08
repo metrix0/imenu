@@ -83,6 +83,7 @@ export default function CreatePanelOrderModal({
     const [configuringItem, setConfiguringItem] = useState<Item | null>(null);
     const [hasNavigatedToConfigurator, setHasNavigatedToConfigurator] = useState(false);
     const [wasOpen, setWasOpen] = useState(isOpen);
+    const [selectedTableId, setSelectedTableId] = useState(fixedTableId || "balcao");
     const closingContent = useRef<ReactNode>(null);
     const [configuringSubcategories, setConfiguringSubcategories] = useState<Subcategory[]>([]);
     const [isLoadingItemConfigurator, setIsLoadingItemConfigurator] = useState(false);
@@ -91,6 +92,7 @@ export default function CreatePanelOrderModal({
     if (wasOpen !== isOpen) {
         setWasOpen(isOpen);
         if (isOpen) {
+            setSelectedTableId(fixedTableId || "balcao");
             setConfiguringItem(null);
             setHasNavigatedToConfigurator(false);
             setConfiguringSubcategories([]);
@@ -101,7 +103,6 @@ export default function CreatePanelOrderModal({
     const [customerName, setCustomerName] = useState("");
     const [customerPhone, setCustomerPhone] = useState("");
     const [customerAddress, setCustomerAddress] = useState("");
-    const [selectedTableId, setSelectedTableId] = useState("balcao");
     const [paymentMethod, setPaymentMethod] = useState<"dinheiro" | "trazer-maquininha" | "pix-entrega">("dinheiro");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoadingExisting, setIsLoadingExisting] = useState(false);
