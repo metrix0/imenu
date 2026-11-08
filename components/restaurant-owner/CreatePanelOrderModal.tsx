@@ -4,7 +4,7 @@ import { LegacyModalClose } from "@/components/ui/ModalCloseButton";
 import Textarea from "@/components/ui/Textarea";
 import Input from "@/components/ui/Input";
 import Dropdown from "@/components/ui/Dropdown";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import Button from "@/components/ui/Button";
 import HybridModal from "@/components/ui/HybridModal";
@@ -83,13 +83,14 @@ export default function CreatePanelOrderModal({
     const [configuringItem, setConfiguringItem] = useState<Item | null>(null);
     const [hasNavigatedToConfigurator, setHasNavigatedToConfigurator] = useState(false);
     const [wasOpen, setWasOpen] = useState(isOpen);
+    const closingWaiterContent = useRef<ReactNode>(null);
     const [configuringSubcategories, setConfiguringSubcategories] = useState<Subcategory[]>([]);
     const [isLoadingItemConfigurator, setIsLoadingItemConfigurator] = useState(false);
 
-    // Reset on reopening so closing keeps the current screen through its transition.
+    // Preserve the panel reset behavior; only Garçom keeps its closing screen.
     if (wasOpen !== isOpen) {
         setWasOpen(isOpen);
-        if (isOpen) {
+        if (isOpen || !fixedTableId) {
             setConfiguringItem(null);
             setHasNavigatedToConfigurator(false);
             setConfiguringSubcategories([]);
@@ -264,10 +265,17 @@ export default function CreatePanelOrderModal({
     }, [isOpen, editingOrder?.id, restaurantId, fixedTableId]);
 
     useEffect(() => {
-        if (!isOpen) return;
+        if (!isOpen) {
+            if (!fixedTableId) {
+                setHasNavigatedToConfigurator(false);
+                setMobileView("menu");
+                setMenuSearch("");
+            }
+            return;
+        }
         setMobileView("menu");
         setMenuSearch("");
-    }, [isOpen]);
+    }, [isOpen, fixedTableId]);
 
     useEffect(() => {
         if (configuringItem || !hasNavigatedToConfigurator) return;
@@ -378,6 +386,7 @@ export default function CreatePanelOrderModal({
     const handleConfiguredItemAdd = (configuredItem: SelectedItem) => {
         setSelectedItems((previous) => [...previous, configuredItem]);
         closeItemConfigurator();
+        if (!fixedTableId) setHasNavigatedToConfigurator(false);
     };
 
     const handleModalClose = () => {
@@ -695,15 +704,9 @@ export default function CreatePanelOrderModal({
         }
     };
 
-    return (
-        <HybridModal
-            open={isOpen}
-            onClose={handleModalClose}
-            height={0.96}
-            xPadding={false}
-            contentClassName="!overflow-hidden !pb-0"
-            className="md:!h-[88dvh] md:!max-h-[900px] md:!max-w-7xl md:!overflow-hidden"
-        >
+    const content = !isOpen && fixedTableId && closingWaiterContent.current
+        ? closingWaiterContent.current
+        : (<>
             <div className="h-full min-h-0 overflow-x-hidden">
             {configuringItem ? (
                 <ModalFlowStep key={`config-${configuringItem.id}`} animate>
@@ -1287,7 +1290,19 @@ export default function CreatePanelOrderModal({
                     onClose={() => setToast(null)}
                 />
             )}
-        </HybridModal>
+        </>);
+    if (isOpen && fixedTableId) closingWaiterContent.current = content;
 
+    return (
+        <HybridModal
+            open={isOpen}
+            onClose={handleModalClose}
+            height={0.96}
+            xPadding={false}
+            contentClassName="!overflow-hidden !pb-0"
+            className="md:!h-[88dvh] md:!max-h-[900px] md:!max-w-7xl md:!overflow-hidden"
+        >
+            {content}
+        </HybridModal>
     );
 }
