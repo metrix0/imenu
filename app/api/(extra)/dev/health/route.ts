@@ -19,9 +19,20 @@ export async function GET(request: Request) {
         if((start&&!validDate(start))||(end&&!validDate(end))||(start&&end&&start>end))return NextResponse.json({error:"Período inválido."},{status:400});
         const bounds=[start?`${start}T00:00:00-03:00`:null,end?`${end}T23:59:59.999-03:00`:null];
         if (params.get("section") === "alerts") {
+            const history = params.get("view") === "history";
+            // A newly repeated incident is unread again until acknowledged.
+            const unread = "(read_at IS NULL OR (resolved_at IS NULL AND last_seen_at > read_at))";
+            const filter = history
+                ? "(read_at IS NOT NULL AND (resolved_at IS NOT NULL OR last_seen_at IS NULL OR last_seen_at <= read_at))"
+                : unread;
+            const dates = history ? bounds : [null, null];
+            // History is dated by acknowledgement, so an older alert just marked
+            // as read appears immediately in the selected day's history.
+            const timestamp = history ? "read_at" : "COALESCE(last_seen_at,created_at)";
+            const where = `${filter} AND ($3::timestamptz IS NULL OR ${timestamp} >= $3) AND ($4::timestamptz IS NULL OR ${timestamp} <= $4)`;
             const [rows, count] = await Promise.all([
-                query("SELECT id,source,title,message,severity,created_at,phone_notified,alarm_triggered,delivery_error,trigger_type,operation,http_status,occurrences,last_seen_at,resolved_at FROM public.dev_alerts WHERE ($3::timestamptz IS NULL OR COALESCE(last_seen_at,created_at) >= $3) AND ($4::timestamptz IS NULL OR COALESCE(last_seen_at,created_at) <= $4) ORDER BY COALESCE(last_seen_at,created_at) DESC,id DESC LIMIT $1 OFFSET $2", [alertPageSize, page * alertPageSize,...bounds]),
-                query<{ total: number }>("SELECT COUNT(*)::int total FROM public.dev_alerts WHERE ($1::timestamptz IS NULL OR COALESCE(last_seen_at,created_at) >= $1) AND ($2::timestamptz IS NULL OR COALESCE(last_seen_at,created_at) <= $2)",bounds),
+                query(`SELECT id,source,title,message,severity,created_at,phone_notified,alarm_triggered,delivery_error,trigger_type,operation,http_status,occurrences,last_seen_at,resolved_at FROM public.dev_alerts WHERE ${where} ORDER BY ${timestamp} DESC,id DESC LIMIT $1 OFFSET $2`, [alertPageSize, page * alertPageSize,...dates]),
+                query<{ total: number }>(`SELECT COUNT(*)::int total FROM public.dev_alerts WHERE ${filter} AND ($1::timestamptz IS NULL OR ${timestamp} >= $1) AND ($2::timestamptz IS NULL OR ${timestamp} <= $2)`,dates),
             ]);
             return NextResponse.json(paged(rows.rows, count.rows[0].total, page, alertPageSize));
         }
@@ -59,5 +70,29 @@ export async function GET(request: Request) {
         }) });
     } catch {
         return NextResponse.json({ error: "Não foi possível carregar a saúde do sistema." }, { status: 500 });
+    }
+}
+
+export async function POST(request: Request) {
+    const denied = await authorize(request);
+    if (denied) return denied;
+    if (new URL(request.url).searchParams.get("section") !== "alerts") {
+        return NextResponse.json({ error: "Operação inválida." }, { status: 400 });
+    }
+    const body = await request.json().catch(() => null);
+    if (typeof body?.id !== "string" || !/^[1-9]\d{0,18}$/.test(body.id)) {
+        return NextResponse.json({ error: "Alerta inválido." }, { status: 400 });
+    }
+    try {
+        const updated = await query<{ id: string }>(
+            "UPDATE public.dev_alerts SET read_at = NOW() WHERE id = $1 RETURNING id",
+            [body.id]
+        );
+        if (!updated.rows.length) {
+            return NextResponse.json({ error: "Alerta não encontrado." }, { status: 404 });
+        }
+        return NextResponse.json({ ok: true });
+    } catch {
+        return NextResponse.json({ error: "Não foi possível marcar o alerta como lido." }, { status: 500 });
     }
 }

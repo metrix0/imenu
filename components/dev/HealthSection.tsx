@@ -23,6 +23,7 @@ type Health = {
 export default function HealthSection({range}:{range:DateRange}) {
     const [data, setData] = useState<Health | null>(null);
     const [error, setError] = useState("");
+    const [alertRefresh, setAlertRefresh] = useState(0);
     useEffect(() => {
         const controller = new AbortController();
         setData(null);
@@ -54,6 +55,7 @@ export default function HealthSection({range}:{range:DateRange}) {
             </section>
 
         </>}
-        <AlertsSection range={range} />
+        <AlertsSection mode="unread" refresh={alertRefresh} onMarkedRead={() => setAlertRefresh(value => value + 1)} />
+        <AlertsSection mode="history" range={range} refresh={alertRefresh} />
     </>;
 }
