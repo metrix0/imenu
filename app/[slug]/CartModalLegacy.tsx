@@ -1338,8 +1338,8 @@ export default function CartModal({
                         <div className="flex-1 2xl:mt-2 md:text-sm ">
                             <Input
                                 autoComplete="postal-code"
-                                label={smallCityMode ? "CEP (opcional)" : "CEP"}
-                                placeholder="12345-123"
+                                label="CEP"
+                                placeholder={smallCityMode ? "12345-123 (opcional)" : "12345-123"}
                                 value={formatCep(cep)}
                                 onChange={(e) => handleCepInput(formatCep(e.target.value))}
                                 className="mb-3 2xl:text-lg 2xl:mb-6"
