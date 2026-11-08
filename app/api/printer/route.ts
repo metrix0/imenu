@@ -148,7 +148,7 @@ export async function POST(request: Request) {
                 const orderId = uuid(body.order_id);
                 const matching = await query(
                     `SELECT id FROM public.print_jobs
-                     WHERE restaurant_id = $1 AND order_id = $2 AND status = 'printed'
+                     WHERE restaurant_id = $1 AND order_id = $2 AND status IN ('printed', 'failed')
                      LIMIT 1`,
                     [restaurantId, orderId]
                 );
