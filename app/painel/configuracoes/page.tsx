@@ -225,6 +225,7 @@ export default function ConfiguracoesPage() {
         useState(false);
     const [isSavingVitrine, setIsSavingVitrine] = useState(false);
     const [isSavingSmallCityMode, setIsSavingSmallCityMode] = useState(false);
+    const [confirmSmallCityModeOpen, setConfirmSmallCityModeOpen] = useState(false);
     const [isExportingMenu, setIsExportingMenu] = useState(false);
     const [pdfAccess, setPdfAccess] = useState(false);
     const [pdfSalesOpen, setPdfSalesOpen] = useState(false);
@@ -411,15 +412,16 @@ export default function ConfiguracoesPage() {
 
     const saveSmallCityMode = async (enabled: boolean) => {
         if (!restaurant || isSavingSmallCityMode) return;
-        if (enabled && restaurant.delivery_fee_mode !== "neighborhood") return;
 
         setIsSavingSmallCityMode(true);
         setSaveErrors(previous => ({ ...previous, smallCity: false }));
         const { data, error } = await supabase
             .from("restaurants")
-            .update({ small_city_mode_enabled: enabled })
+            .update(enabled
+                ? { small_city_mode_enabled: true, delivery_fee_mode: "neighborhood" }
+                : { small_city_mode_enabled: false })
             .eq("id", restaurant.id)
-            .select("id")
+            .select("id, delivery_fee_mode")
             .single();
         setIsSavingSmallCityMode(false);
 
@@ -430,8 +432,9 @@ export default function ConfiguracoesPage() {
         }
 
         setRestaurant(current => current
-            ? { ...current, small_city_mode_enabled: enabled }
+            ? { ...current, small_city_mode_enabled: enabled, delivery_fee_mode: data.delivery_fee_mode }
             : current);
+        setConfirmSmallCityModeOpen(false);
     };
 
     const saveOrderSchedulingMode = async (allowFuture: boolean) => {
@@ -762,6 +765,17 @@ export default function ConfiguracoesPage() {
 
     return (
         <>
+            <ConfirmModal
+                open={confirmSmallCityModeOpen}
+                onClose={() => setConfirmSmallCityModeOpen(false)}
+                onConfirm={() => void saveSmallCityMode(true)}
+                title="Ativar Modo Cidade Pequena?"
+                description="O modo de entrega será alterado automaticamente para Entrega por Bairro. Configure os bairros e suas taxas em Tempo e Taxa."
+                confirmLabel="Ativar modo"
+                isLoading={isSavingSmallCityMode}
+                variant="primary"
+            />
+
             <ConfirmModal
                 open={deleteModalOpen}
                 onClose={() => setDeleteModalOpen(false)}
@@ -1186,11 +1200,6 @@ export default function ConfiguracoesPage() {
                                     <p id="small-city-description" className="mt-2 text-sm text-gray-500">
                                         Permite pedidos sem CEP, calculando a entrega pelo bairro e oferecendo um campo de ponto de referência.
                                     </p>
-                                    {restaurant.delivery_fee_mode !== "neighborhood" && (
-                                        <p className="mt-2 text-sm text-gray-500">
-                                            Requer <a href="/painel/tempo-e-taxa" className="font-medium text-[var(--im-action)] underline">Entrega por Bairro</a> em Tempo e Taxa.
-                                        </p>
-                                    )}
                                 </div>
                                 <div className="flex shrink-0 items-start gap-3">
                                     <SaveStatus status={saveErrors.smallCity ? "error" : isSavingSmallCityMode ? "saving" : "saved"} />
@@ -1198,8 +1207,14 @@ export default function ConfiguracoesPage() {
                                         checked={restaurant.small_city_mode_enabled === true}
                                         aria-label="Modo Cidade Pequena (CEP opcional)"
                                         aria-describedby="small-city-description"
-                                        disabled={isSavingSmallCityMode || restaurant.delivery_fee_mode !== "neighborhood"}
-                                        onClick={() => void saveSmallCityMode(restaurant.small_city_mode_enabled !== true)}
+                                        disabled={isSavingSmallCityMode}
+                                        onClick={() => {
+                                            if (restaurant.small_city_mode_enabled) {
+                                                void saveSmallCityMode(false);
+                                            } else {
+                                                setConfirmSmallCityModeOpen(true);
+                                            }
+                                        }}
                                     />
                                 </div>
                             </div>
