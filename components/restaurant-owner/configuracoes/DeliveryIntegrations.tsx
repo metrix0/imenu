@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
+import { faChevronDown } from "@fortawesome/free-solid-svg-icons";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
@@ -22,6 +25,7 @@ export default function DeliveryIntegrations({ restaurantId, onSaveState }: Prop
     const [failures, setFailures] = useState<Failure[]>([]);
     const [retrying, setRetrying] = useState("");
     const [loadVersion, setLoadVersion] = useState(0);
+    const [expanded, setExpanded] = useState({ ifood: false, machine: false });
     const autosave = useAutoSave<DeliveryConfig>(restaurantId, async value => {
         const response = await qrTableAuthenticatedFetch("/api/integrations/delivery", {
             method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ restaurantId, config: value }),
@@ -68,40 +72,86 @@ export default function DeliveryIntegrations({ restaurantId, onSaveState }: Prop
         {!config && !error && <div className="flex justify-center py-6"><Loader /></div>}
         {config && <>
             {!available && <p className="text-sm text-gray-600">Contate o suporte para liberar as integrações Delivery.</p>}
-            <section className="space-y-4" aria-labelledby="ifood-title">
-                <div className="flex items-start justify-between gap-4">
-                    <div><h3 id="ifood-title" className="font-semibold text-gray-900">iFood</h3>
-                        <p className="mt-1 text-sm text-gray-600">Receba pedidos do iFood nos painéis do iMenu, com impressão automática quando habilitada.</p>
-                        <p className="mt-1 text-sm text-gray-500">Aceite e atualize os pedidos no iFood. Alterações no iMenu ficam apenas no iMenu.</p>
+            <section aria-labelledby="ifood-title">
+                <button
+                    type="button"
+                    aria-expanded={expanded.ifood}
+                    aria-controls="ifood-integration-settings"
+                    onClick={() => setExpanded(previous => ({ ...previous, ifood: !previous.ifood }))}
+                    className="flex min-h-12 w-full cursor-pointer items-start gap-3 text-left sm:gap-4"
+                >
+                    <Image src="/logos/ifood.svg" alt="" width={36} height={36} className="mt-0.5 h-9 w-9 shrink-0 object-contain" />
+                    <span className="min-w-0 flex-1">
+                        <span id="ifood-title" className="block text-sm font-medium text-gray-900">iFood</span>
+                        <span className="mt-1 block text-sm text-gray-500">Receba pedidos do iFood nos painéis do iMenu, com impressão automática quando habilitada.</span>
+                    </span>
+                    <FontAwesomeIcon icon={faChevronDown} className={`mt-1 shrink-0 text-gray-500 transition-transform duration-200 motion-reduce:transition-none ${expanded.ifood ? "rotate-180" : ""}`} />
+                </button>
+                <div
+                    id="ifood-integration-settings"
+                    aria-hidden={!expanded.ifood}
+                    inert={!expanded.ifood}
+                    className={`grid transition-[grid-template-rows,opacity] duration-200 ease-in-out motion-reduce:transition-none ${expanded.ifood ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+                >
+                    <div className="min-h-0 overflow-hidden">
+                        <div className="space-y-4 pt-4 sm:pl-[52px]">
+                            <div className="flex items-center justify-between gap-4">
+                                <span className="text-sm font-medium text-gray-900">Ativar integração iFood</span>
+                                <Switch aria-label="Ativar integração iFood" checked={config.ifood.enabled} disabled={!available} onClick={() => change("ifood", "enabled", !config.ifood.enabled)} />
+                            </div>
+                            <p className="text-sm text-gray-500">Aceite e atualize os pedidos no iFood. Alterações no iMenu ficam apenas no iMenu.</p>
+                            <Input disabled={!available} label="ID da loja no iFood" value={config.ifood.merchantId} onChange={event => change("ifood", "merchantId", event.target.value)} />
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <Input disabled={!available} label="Client ID iFood" autoComplete="off" value={config.ifood.clientId} onChange={event => change("ifood", "clientId", event.target.value)} />
+                                <Input disabled={!available} label="Client Secret iFood" type="password" autoComplete="new-password" placeholder={configured.ifood ? "Credencial salva" : "Informe a credencial"} value={config.ifood.clientSecret} onChange={event => change("ifood", "clientSecret", event.target.value)} />
+                            </div>
+                        </div>
                     </div>
-                    <Switch aria-label="Ativar integração iFood" checked={config.ifood.enabled} disabled={!available} onClick={() => change("ifood", "enabled", !config.ifood.enabled)} />
-                </div>
-                <Input disabled={!available} label="ID da loja no iFood" value={config.ifood.merchantId} onChange={event => change("ifood", "merchantId", event.target.value)} />
-                <div className="grid gap-4 sm:grid-cols-2">
-                    <Input disabled={!available} label="Client ID iFood" autoComplete="off" value={config.ifood.clientId} onChange={event => change("ifood", "clientId", event.target.value)} />
-                    <Input disabled={!available} label="Client Secret iFood" type="password" autoComplete="new-password" placeholder={configured.ifood ? "Credencial salva" : "Informe a credencial"} value={config.ifood.clientSecret} onChange={event => change("ifood", "clientSecret", event.target.value)} />
                 </div>
             </section>
-            <section className="space-y-4 border-t border-gray-200 pt-6" aria-labelledby="machine-title">
-                <div className="flex items-start justify-between gap-4">
-                    <div><h3 id="machine-title" className="font-semibold text-gray-900">Machine (Chama Delivery)</h3>
-                        <p className="mt-1 text-sm text-gray-600">Solicite um entregador automaticamente ao aceitar pedidos de entrega.</p>
-                        <p className="mt-1 text-sm text-gray-500">Retirada, consumo no local e pedidos importados do iFood não acionam entregadores.</p>
+            <section className="border-t border-gray-200 pt-6" aria-labelledby="machine-title">
+                <button
+                    type="button"
+                    aria-expanded={expanded.machine}
+                    aria-controls="machine-integration-settings"
+                    onClick={() => setExpanded(previous => ({ ...previous, machine: !previous.machine }))}
+                    className="flex min-h-12 w-full cursor-pointer items-start gap-3 text-left sm:gap-4"
+                >
+                    <Image src="/logos/machine.svg" alt="" width={36} height={36} className="mt-0.5 h-9 w-9 shrink-0 object-contain" />
+                    <span className="min-w-0 flex-1">
+                        <span id="machine-title" className="block text-sm font-medium text-gray-900">Machine (Chama Delivery)</span>
+                        <span className="mt-1 block text-sm text-gray-500">Solicite um entregador automaticamente ao aceitar pedidos de entrega.</span>
+                    </span>
+                    <FontAwesomeIcon icon={faChevronDown} className={`mt-1 shrink-0 text-gray-500 transition-transform duration-200 motion-reduce:transition-none ${expanded.machine ? "rotate-180" : ""}`} />
+                </button>
+                <div
+                    id="machine-integration-settings"
+                    aria-hidden={!expanded.machine}
+                    inert={!expanded.machine}
+                    className={`grid transition-[grid-template-rows,opacity] duration-200 ease-in-out motion-reduce:transition-none ${expanded.machine ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+                >
+                    <div className="min-h-0 overflow-hidden">
+                        <div className="space-y-4 pt-4 sm:pl-[52px]">
+                            <div className="flex items-center justify-between gap-4">
+                                <span className="text-sm font-medium text-gray-900">Ativar integração Machine</span>
+                                <Switch aria-label="Ativar integração Machine" checked={config.machine.enabled} disabled={!available} onClick={() => change("machine", "enabled", !config.machine.enabled)} />
+                            </div>
+                            <p className="text-sm text-gray-500">Retirada, consumo no local e pedidos importados do iFood não acionam entregadores.</p>
+                            <Input disabled={!available} label="Chave API Machine" type="password" autoComplete="new-password" placeholder={configured.machine ? "Credencial salva" : "Informe a chave"} value={config.machine.apiKey} onChange={event => change("machine", "apiKey", event.target.value)} />
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <Input disabled={!available} label="Usuário Machine" autoComplete="off" value={config.machine.username} onChange={event => change("machine", "username", event.target.value)} />
+                                <Input disabled={!available} label="Senha Machine" type="password" autoComplete="new-password" placeholder={configured.machine ? "Credencial salva" : "Informe a senha"} value={config.machine.password} onChange={event => change("machine", "password", event.target.value)} />
+                                <Input disabled={!available} label="ID da empresa na Machine" inputMode="numeric" value={config.machine.companyId} onChange={event => change("machine", "companyId", event.target.value)} />
+                                <Input disabled={!available} label="ID da categoria (opcional)" inputMode="numeric" value={config.machine.categoryId} onChange={event => change("machine", "categoryId", event.target.value)} />
+                            </div>
+                            <Dropdown disabled={!available} label="Pagamento do serviço de entrega" value={config.machine.payment} options={[
+                                { value: "", label: "Selecione" }, { value: "F", label: "Faturado" }, { value: "R", label: "Carteira de créditos" },
+                                { value: "D", label: "Dinheiro" }, { value: "B", label: "Débito" }, { value: "C", label: "Crédito" }, { value: "X", label: "Pix" },
+                            ]} onChange={event => change("machine", "payment", event.target.value)} />
+                        </div>
                     </div>
-                    <Switch aria-label="Ativar integração Machine" checked={config.machine.enabled} disabled={!available} onClick={() => change("machine", "enabled", !config.machine.enabled)} />
                 </div>
-                <Input disabled={!available} label="Chave API Machine" type="password" autoComplete="new-password" placeholder={configured.machine ? "Credencial salva" : "Informe a chave"} value={config.machine.apiKey} onChange={event => change("machine", "apiKey", event.target.value)} />
-                <div className="grid gap-4 sm:grid-cols-2">
-                    <Input disabled={!available} label="Usuário Machine" autoComplete="off" value={config.machine.username} onChange={event => change("machine", "username", event.target.value)} />
-                    <Input disabled={!available} label="Senha Machine" type="password" autoComplete="new-password" placeholder={configured.machine ? "Credencial salva" : "Informe a senha"} value={config.machine.password} onChange={event => change("machine", "password", event.target.value)} />
-                    <Input disabled={!available} label="ID da empresa na Machine" inputMode="numeric" value={config.machine.companyId} onChange={event => change("machine", "companyId", event.target.value)} />
-                    <Input disabled={!available} label="ID da categoria (opcional)" inputMode="numeric" value={config.machine.categoryId} onChange={event => change("machine", "categoryId", event.target.value)} />
-                </div>
-                <Dropdown disabled={!available} label="Pagamento do serviço de entrega" value={config.machine.payment} options={[
-                    { value: "", label: "Selecione" }, { value: "F", label: "Faturado" }, { value: "R", label: "Carteira de créditos" },
-                    { value: "D", label: "Dinheiro" }, { value: "B", label: "Débito" }, { value: "C", label: "Crédito" }, { value: "X", label: "Pix" },
-                ]} onChange={event => change("machine", "payment", event.target.value)} />
-                {failures.map(failure => <div key={failure.order_id} role="alert" className="flex flex-col gap-3 rounded-lg border border-red-200 p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                {failures.map(failure => <div key={failure.order_id} role="alert" className="mt-4 flex flex-col gap-3 rounded-lg border border-red-200 p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
                     <p>Pedido #{failure.display_id}: {failure.state === "failed" ? failure.error : "Confira a solicitação na Machine antes de solicitar outro entregador."}</p>
                     {failure.state === "failed" && <Button variant="secondary" loading={retrying === failure.order_id} disabled={Boolean(retrying)} onClick={() => void retry(failure.order_id)}>Tentar novamente</Button>}
                 </div>)}
