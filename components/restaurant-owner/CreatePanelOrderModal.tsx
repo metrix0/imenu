@@ -83,14 +83,14 @@ export default function CreatePanelOrderModal({
     const [configuringItem, setConfiguringItem] = useState<Item | null>(null);
     const [hasNavigatedToConfigurator, setHasNavigatedToConfigurator] = useState(false);
     const [wasOpen, setWasOpen] = useState(isOpen);
-    const closingWaiterContent = useRef<ReactNode>(null);
+    const closingContent = useRef<ReactNode>(null);
     const [configuringSubcategories, setConfiguringSubcategories] = useState<Subcategory[]>([]);
     const [isLoadingItemConfigurator, setIsLoadingItemConfigurator] = useState(false);
 
-    // Preserve the panel reset behavior; only Garçom keeps its closing screen.
+    // Reset on reopening so the visible form stays unchanged during the closing transition.
     if (wasOpen !== isOpen) {
         setWasOpen(isOpen);
-        if (isOpen || !fixedTableId) {
+        if (isOpen) {
             setConfiguringItem(null);
             setHasNavigatedToConfigurator(false);
             setConfiguringSubcategories([]);
@@ -265,17 +265,10 @@ export default function CreatePanelOrderModal({
     }, [isOpen, editingOrder?.id, restaurantId, fixedTableId]);
 
     useEffect(() => {
-        if (!isOpen) {
-            if (!fixedTableId) {
-                setHasNavigatedToConfigurator(false);
-                setMobileView("menu");
-                setMenuSearch("");
-            }
-            return;
-        }
+        if (!isOpen) return;
         setMobileView("menu");
         setMenuSearch("");
-    }, [isOpen, fixedTableId]);
+    }, [isOpen]);
 
     useEffect(() => {
         if (configuringItem || !hasNavigatedToConfigurator) return;
@@ -704,8 +697,8 @@ export default function CreatePanelOrderModal({
         }
     };
 
-    const content = !isOpen && fixedTableId && closingWaiterContent.current
-        ? closingWaiterContent.current
+    const content = !isOpen && closingContent.current
+        ? closingContent.current
         : (<>
             <div className="h-full min-h-0 overflow-x-hidden">
             {configuringItem ? (
@@ -1291,7 +1284,7 @@ export default function CreatePanelOrderModal({
                 />
             )}
         </>);
-    if (isOpen && fixedTableId) closingWaiterContent.current = content;
+    if (isOpen) closingContent.current = content;
 
     return (
         <HybridModal
