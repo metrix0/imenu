@@ -699,7 +699,6 @@ export default function CreatePanelOrderModal({
         <HybridModal
             open={isOpen}
             onClose={handleModalClose}
-            animateBeforeClose
             height={0.96}
             xPadding={false}
             contentClassName="!overflow-hidden !pb-0"

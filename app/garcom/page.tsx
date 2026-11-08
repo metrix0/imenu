@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
@@ -91,6 +91,46 @@ function statusClasses(status: string): string {
     return "bg-amber-50 text-amber-700";
 }
 
+type WaiterOrderModalHandle = {
+    open: (table: RestaurantTable, order?: { id: string }) => void;
+};
+
+const WaiterOrderModal = forwardRef<WaiterOrderModalHandle, {
+    restaurantId: string;
+    onCreated: () => Promise<void>;
+}>(function WaiterOrderModal({ restaurantId, onCreated }, ref) {
+    const [session, setSession] = useState<{ table: RestaurantTable; editingOrder: { id: string } | null } | null>(null);
+    const [open, setOpen] = useState(false);
+
+    useImperativeHandle(ref, () => ({
+        open: (table, order) => {
+            setSession({ table, editingOrder: order ?? null });
+            setOpen(true);
+        },
+    }), []);
+
+    useEffect(() => {
+        if (open || !session) return;
+        // Preserve the selected table while the standard modal completes its exit.
+        const timer = window.setTimeout(() => setSession(null), 250);
+        return () => window.clearTimeout(timer);
+    }, [open, session]);
+
+    return (
+        <CreatePanelOrderModal
+            isOpen={open}
+            onClose={() => setOpen(false)}
+            restaurantId={restaurantId}
+            editingOrder={session?.editingOrder ?? null}
+            fixedTableId={session?.table.id}
+            onCreated={async () => {
+                setOpen(false);
+                await onCreated();
+            }}
+        />
+    );
+});
+
 export default function GarcomPage() {
     const router = useRouter();
     const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
@@ -103,8 +143,7 @@ export default function GarcomPage() {
     const [orderDetailsOpen, setOrderDetailsOpen] = useState(false);
     const [tableToFinalize, setTableToFinalize] = useState<RestaurantTable | null>(null);
     const [finishingTable, setFinishingTable] = useState(false);
-    const [orderTable, setOrderTable] = useState<RestaurantTable | null>(null);
-    const [editingOrder, setEditingOrder] = useState<{ id: string } | null>(null);
+    const orderModalRef = useRef<WaiterOrderModalHandle>(null);
     const [orderToDelete, setOrderToDelete] = useState<{ id: string; display_id: number } | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
@@ -191,8 +230,7 @@ export default function GarcomPage() {
     }, [orders]);
 
     const addOrder = (table: RestaurantTable) => {
-        setEditingOrder(null);
-        setOrderTable(table);
+        orderModalRef.current?.open(table);
     };
 
     const deleteOrder = async () => {
@@ -507,23 +545,15 @@ export default function GarcomPage() {
                     const table = tables.find(table => table.id === selectedOrder?.table_id);
                     if (!table) return;
                     setOrderDetailsOpen(false);
-                    setOrderTable(table);
-                    setEditingOrder({ id: order.id });
+                    orderModalRef.current?.open(table, { id: order.id });
                 }}
                 onDeleteOrder={(order) => { setOrderDetailsOpen(false); setOrderToDelete(order); }}
             />
 
-            <CreatePanelOrderModal
-                isOpen={orderTable !== null}
-                onClose={() => { setOrderTable(null); setEditingOrder(null); }}
+            <WaiterOrderModal
+                ref={orderModalRef}
                 restaurantId={restaurant.id}
-                editingOrder={editingOrder}
-                fixedTableId={orderTable?.id}
-                onCreated={async () => {
-                    setOrderTable(null);
-                    setEditingOrder(null);
-                    await loadData(false);
-                }}
+                onCreated={() => loadData(false)}
             />
 
             <ConfirmModal
