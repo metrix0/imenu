@@ -123,6 +123,7 @@ const WaiterOrderModal = forwardRef<WaiterOrderModalHandle, {
             restaurantId={restaurantId}
             editingOrder={session?.editingOrder ?? null}
             fixedTableId={session?.table.id}
+            fixedTable={session?.table}
             onCreated={async () => {
                 setOpen(false);
                 await onCreated();

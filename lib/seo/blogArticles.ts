@@ -17,6 +17,20 @@ export type BlogArticleDefinition = {
 
 export const BLOG_ARTICLES: BlogArticleDefinition[] = [
     {
+        slug: "integracao-ifood-imenu",
+        title: "Integração iFood com iMenu: como receber e imprimir pedidos em um só painel",
+        shortTitle: "Integração iFood no iMenu",
+        metaTitle: "Integração iFood com iMenu: Pedidos e Impressão | iMenu",
+        metaDescription:
+            "Saiba como funciona a integração iFood com iMenu: homologação, configuração, pedidos recebidos, impressão automática e atualização de status.",
+        excerpt:
+            "Veja como integrar pedidos do iFood ao painel do iMenu, imprimir comandas e acompanhar o preparo com segurança e as permissões certas.",
+        category: "Delivery",
+        readingTime: "8 min de leitura",
+        publishedAt: "2026-11-08",
+        updatedAt: "2026-11-08",
+    },
+    {
         slug: "automacao-marketing-whatsapp-restaurantes",
         title: "Automação de marketing pelo WhatsApp para restaurantes: guia completo",
         shortTitle: "Marketing automático pelo WhatsApp",

@@ -10,6 +10,8 @@ type DraggableModalProps =  React.HTMLAttributes<HTMLDivElement> & {
     onClose: () => void;
     xPadding?: boolean;
     contentClassName?: string;
+    keepMounted?: boolean;
+    mobileBackdropDuration?: 250 | 300;
     children: React.ReactNode;
 };
 
@@ -20,6 +22,8 @@ export default function DraggableModal({
                                            onClose,
                                            xPadding = true,
                                            contentClassName,
+                                           keepMounted = false,
+                                           mobileBackdropDuration = 300,
                                            children,
                                             ...props
                                        }: DraggableModalProps) {
@@ -144,14 +148,14 @@ export default function DraggableModal({
 
     return (
         <>{isDesktop ?
-                    <Modal fixedHeight showCloseButton={handle} open={open} onClose={onClose} height={`${height * 100}dvh`} className={props.className}>
+                    <Modal fixedHeight showCloseButton={handle} keepMounted={keepMounted} open={open} onClose={onClose} height={`${height * 100}dvh`} className={props.className}>
                         {children}
                     </Modal>
             :
         <div
             className={`fixed inset-0 ${height <= 0.3 ? "z-[70]" : "z-[51]"} ${
                 panel ? "bg-[#1d1d1d]/40 backdrop-blur-[3px]" : ""
-            } transition-opacity duration-300 ${
+            } transition-opacity ${mobileBackdropDuration === 250 ? "duration-[250ms]" : "duration-300"} ${
                 open ? "opacity-100" : "opacity-0 pointer-events-none"
             }`}
             style={{

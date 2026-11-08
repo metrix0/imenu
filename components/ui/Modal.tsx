@@ -23,6 +23,8 @@ interface ModalProps {
     bodyClassName?: string;
     showCloseButton?: boolean;
     fixedHeight?: boolean;
+    /** Retain the hidden portal DOM for fast reopening. Default behavior is unchanged. */
+    keepMounted?: boolean;
     /** Required per usage. Do not add a shared/default modal height. */
     height: ModalHeight;
 }
@@ -35,6 +37,7 @@ export default function Modal({
     bodyClassName = "",
     showCloseButton = false,
     fixedHeight = false,
+    keepMounted = false,
     height,
 }: ModalProps) {
     const panel = usePanelAppearance();
@@ -99,17 +102,18 @@ export default function Modal({
         }
 
         setActive(false);
+        if (keepMounted) setMounted(true);
 
         const timer = window.setTimeout(() => {
-            setMounted(false);
+            if (!keepMounted) setMounted(false);
             restorePageScroll();
         }, 200);
 
         return () => window.clearTimeout(timer);
-    }, [open]);
+    }, [open, keepMounted]);
 
     useEffect(() => {
-        if (!open || !mounted) return;
+        if (keepMounted || !open || !mounted) return;
 
         setActive(false);
 
@@ -122,7 +126,7 @@ export default function Modal({
             cancelAnimationFrame(firstFrame);
             if (secondFrame) cancelAnimationFrame(secondFrame);
         };
-    }, [open, mounted]);
+    }, [open, mounted, keepMounted]);
 
     useEffect(() => {
         if (!open) return;
@@ -143,9 +147,10 @@ export default function Modal({
     );
 
     if (!mounted) return null;
+    const visible = keepMounted ? open : active;
 
     return createPortal(
-        <div className={`${panel ? "panel-essencial panel-modal" : ""} fixed inset-0 z-50 isolate flex min-h-[100dvh] w-screen items-center justify-center overflow-y-auto p-3 sm:p-6 ${panel ? "" : "2xl:p-8"}`}>
+        <div inert={keepMounted && !open} aria-hidden={keepMounted && !open} className={`${keepMounted && !open ? "pointer-events-none" : ""} ${panel ? "panel-essencial panel-modal" : ""} fixed inset-0 z-50 isolate flex min-h-[100dvh] w-screen items-center justify-center overflow-y-auto p-3 sm:p-6 ${panel ? "" : "2xl:p-8"}`}>
             {/* Backdrop blur disabled: causes major scroll FPS drops in Chrome without GPU acceleration. */}
             <button
                 type="button"
@@ -156,7 +161,7 @@ export default function Modal({
                         ? "bg-[#1d1d1d]/40"
                         : "bg-black/40"
                 } transition-opacity duration-200 ${
-                    active ? "opacity-100" : "opacity-0"
+                    visible ? "opacity-100" : "opacity-0"
                 }`}
             />
 
@@ -179,7 +184,7 @@ export default function Modal({
                         ? "rounded-[10px] border border-[#e2e5e9] shadow-[0_20px_60px_#1d1d1d26] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1 max-h-[min(var(--modal-requested-height),calc(100dvh-24px))] sm:max-h-[min(var(--modal-requested-height),calc(100dvh-48px))]"
                         : "max-h-[92dvh] rounded-xl shadow-2xl sm:max-h-[90dvh] sm:rounded-2xl 2xl:max-h-[88dvh]"
                 } ${
-                    active
+                    visible
                         ? "translate-y-0 scale-100 opacity-100"
                         : "translate-y-3 scale-95 opacity-0"
                 } ${className}`}

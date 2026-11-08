@@ -1,7 +1,7 @@
 // app/painel/page.tsx
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { supabase } from "@/lib/database/supabaseClient"; // Ajustado para o seu import padrão
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; // Ajustado para o seu import padrão
 import Loader from "@/components/ui/Loader";
@@ -27,6 +27,36 @@ import {
     useOrderSound,
 } from "@/components/restaurant-owner/OrderSoundProvider";
 
+type PanelOrderModalHandle = { open: (order?: { id: string }) => void };
+
+const PanelOrderModal = forwardRef<PanelOrderModalHandle, {
+    restaurantId: string;
+    onCreated: () => Promise<void>;
+}>(function PanelOrderModal({ restaurantId, onCreated }, ref) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [editingOrder, setEditingOrder] = useState<{ id: string } | null>(null);
+
+    useImperativeHandle(ref, () => ({
+        open: (order) => {
+            setEditingOrder(order ?? null);
+            setIsOpen(true);
+        },
+    }), []);
+
+    return (
+        <CreatePanelOrderModal
+            isOpen={isOpen}
+            onClose={() => setIsOpen(false)}
+            editingOrder={editingOrder}
+            restaurantId={restaurantId}
+            onCreated={async () => {
+                setIsOpen(false);
+                await onCreated();
+            }}
+        />
+    );
+});
+
 export default function PainelPedidosAtivosPage() {
     const [isLoading, setIsLoading] = useState(true);
 
@@ -47,8 +77,7 @@ export default function PainelPedidosAtivosPage() {
     const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
     const { soundEnabled, enableSound } = useOrderSound();
-    const [isCreateOrderOpen, setIsCreateOrderOpen] = useState(false);
-    const [editingOrder, setEditingOrder] = useState<{ id: string } | null>(null);
+    const orderModalRef = useRef<PanelOrderModalHandle>(null);
 
     // --- FETCH ORDERS ---
     const fetchOrders = useCallback(async (restId: string) => {
@@ -246,7 +275,7 @@ export default function PainelPedidosAtivosPage() {
                     </div>
 
                     <Button
-                        onClick={() => setIsCreateOrderOpen(true)}
+                        onClick={() => orderModalRef.current?.open()}
                         className=""
                         variant="primary"
                     >
@@ -338,22 +367,15 @@ export default function PainelPedidosAtivosPage() {
                     onOrderUpdate={() => void fetchOrders(restaurantId)}
                     onEditOrder={(order) => {
                         setIsDetailsOpen(false);
-                        setEditingOrder({ id: order.id });
-                        setIsCreateOrderOpen(true);
+                        orderModalRef.current?.open({ id: order.id });
                     }}
                 />
             )}
 
-            <CreatePanelOrderModal
-                isOpen={isCreateOrderOpen}
-                onClose={() => { setIsCreateOrderOpen(false); setEditingOrder(null); }}
-                editingOrder={editingOrder}
+            <PanelOrderModal
+                ref={orderModalRef}
                 restaurantId={restaurantId}
-                onCreated={async () => {
-                    await fetchOrders(restaurantId);
-                    setIsCreateOrderOpen(false);
-                    setEditingOrder(null);
-                }}
+                onCreated={() => fetchOrders(restaurantId)}
             />
 
             <TablesOrdersModal

@@ -4,7 +4,7 @@ import { LegacyModalClose } from "@/components/ui/ModalCloseButton";
 import Textarea from "@/components/ui/Textarea";
 import Input from "@/components/ui/Input";
 import Dropdown from "@/components/ui/Dropdown";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import Button from "@/components/ui/Button";
 import HybridModal from "@/components/ui/HybridModal";
@@ -53,6 +53,7 @@ export default function CreatePanelOrderModal({
                                                   onCreated,
                                                   editingOrder,
                                                   fixedTableId,
+                                                  fixedTable,
                                               }: {
     isOpen: boolean;
     onClose: () => void;
@@ -60,6 +61,7 @@ export default function CreatePanelOrderModal({
     onCreated: () => Promise<void> | void;
     editingOrder?: { id: string } | null;
     fixedTableId?: string;
+    fixedTable?: RestaurantTable;
 }) {
     const [categories, setCategories] = useState<Category[]>([]);
     const [itemsByCategory, setItemsByCategory] = useState<Record<string, Item[]>>({});
@@ -83,13 +85,16 @@ export default function CreatePanelOrderModal({
     const [configuringItem, setConfiguringItem] = useState<Item | null>(null);
     const [hasNavigatedToConfigurator, setHasNavigatedToConfigurator] = useState(false);
     const [wasOpen, setWasOpen] = useState(isOpen);
+    const [selectedTableId, setSelectedTableId] = useState(fixedTableId || "balcao");
+    const closingContent = useRef<ReactNode>(null);
     const [configuringSubcategories, setConfiguringSubcategories] = useState<Subcategory[]>([]);
     const [isLoadingItemConfigurator, setIsLoadingItemConfigurator] = useState(false);
 
-    // Reset on reopening so closing keeps the current screen through its transition.
+    // Reset on reopening so the visible form stays unchanged during the closing transition.
     if (wasOpen !== isOpen) {
         setWasOpen(isOpen);
         if (isOpen) {
+            setSelectedTableId(fixedTableId || "balcao");
             setConfiguringItem(null);
             setHasNavigatedToConfigurator(false);
             setConfiguringSubcategories([]);
@@ -100,7 +105,6 @@ export default function CreatePanelOrderModal({
     const [customerName, setCustomerName] = useState("");
     const [customerPhone, setCustomerPhone] = useState("");
     const [customerAddress, setCustomerAddress] = useState("");
-    const [selectedTableId, setSelectedTableId] = useState("balcao");
     const [paymentMethod, setPaymentMethod] = useState<"dinheiro" | "trazer-maquininha" | "pix-entrega">("dinheiro");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoadingExisting, setIsLoadingExisting] = useState(false);
@@ -378,6 +382,7 @@ export default function CreatePanelOrderModal({
     const handleConfiguredItemAdd = (configuredItem: SelectedItem) => {
         setSelectedItems((previous) => [...previous, configuredItem]);
         closeItemConfigurator();
+        if (!fixedTableId) setHasNavigatedToConfigurator(false);
     };
 
     const handleModalClose = () => {
@@ -526,8 +531,9 @@ export default function CreatePanelOrderModal({
     }, [deliveryFeeInput]);
 
     const selectedTable = useMemo(
-        () => tables.find((table) => table.id === selectedTableId) || null,
-        [selectedTableId, tables]
+        () => tables.find((table) => table.id === selectedTableId)
+            || (fixedTable?.id === selectedTableId ? fixedTable : null),
+        [selectedTableId, tables, fixedTable]
     );
     const isCounterOrder = selectedTableId === "balcao";
 
@@ -594,7 +600,7 @@ export default function CreatePanelOrderModal({
 
     const handleSubmit = async () => {
         if (!restaurantId || promotionLoadError || isLoadingMenu || isLoadingExisting || editBlockReason) return;
-        if (fixedTableId && selectedTable?.id !== fixedTableId) {
+        if (fixedTableId && !tables.some(table => table.id === fixedTableId)) {
             setToast({ message: "Esta mesa não está mais disponível.", type: "error" });
             return;
         }
@@ -695,15 +701,9 @@ export default function CreatePanelOrderModal({
         }
     };
 
-    return (
-        <HybridModal
-            open={isOpen}
-            onClose={handleModalClose}
-            height={0.96}
-            xPadding={false}
-            contentClassName="!overflow-hidden !pb-0"
-            className="md:!h-[88dvh] md:!max-h-[900px] md:!max-w-7xl md:!overflow-hidden"
-        >
+    const content = !isOpen && closingContent.current
+        ? closingContent.current
+        : (<>
             <div className="h-full min-h-0 overflow-x-hidden">
             {configuringItem ? (
                 <ModalFlowStep key={`config-${configuringItem.id}`} animate>
@@ -1287,7 +1287,21 @@ export default function CreatePanelOrderModal({
                     onClose={() => setToast(null)}
                 />
             )}
-        </HybridModal>
+        </>);
+    if (isOpen) closingContent.current = content;
 
+    return (
+        <HybridModal
+            open={isOpen}
+            keepMounted
+            mobileBackdropDuration={250}
+            onClose={handleModalClose}
+            height={0.96}
+            xPadding={false}
+            contentClassName="!overflow-hidden !pb-0"
+            className="md:!h-[88dvh] md:!max-h-[900px] md:!max-w-7xl md:!overflow-hidden"
+        >
+            {content}
+        </HybridModal>
     );
 }
