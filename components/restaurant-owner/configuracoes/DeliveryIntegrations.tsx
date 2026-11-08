@@ -5,6 +5,7 @@ import Image from "next/image";
 import { faChevronDown } from "@fortawesome/free-solid-svg-icons";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import Card from "@/components/ui/Card";
+import Badge from "@/components/ui/Badge";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import Dropdown from "@/components/ui/Dropdown";
@@ -91,7 +92,7 @@ export default function DeliveryIntegrations({ restaurantId, onSaveState }: Prop
                         </span>
                     </button>
                     <div className="flex h-9 shrink-0 items-center gap-2 sm:gap-3">
-                        {!complete.ifood && <span className="text-xs text-gray-500">Não configurado</span>}
+                        {config.ifood.enabled && !complete.ifood && <Badge variant="warning">Não configurado</Badge>}
                         <Switch aria-label="Ativar integração iFood" checked={config.ifood.enabled} disabled={!available} onClick={() => change("ifood", "enabled", !config.ifood.enabled)} />
                         <button
                             type="button"
@@ -139,7 +140,7 @@ export default function DeliveryIntegrations({ restaurantId, onSaveState }: Prop
                         </span>
                     </button>
                     <div className="flex h-9 shrink-0 items-center gap-2 sm:gap-3">
-                        {!complete.machine && <span className="text-xs text-gray-500">Não configurado</span>}
+                        {config.machine.enabled && !complete.machine && <Badge variant="warning">Não configurado</Badge>}
                         <Switch aria-label="Ativar integração Machine" checked={config.machine.enabled} disabled={!available} onClick={() => change("machine", "enabled", !config.machine.enabled)} />
                         <button
                             type="button"
