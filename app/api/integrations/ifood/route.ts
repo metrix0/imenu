@@ -1,3 +1,4 @@
+import { receiveIfoodStatus } from "@/lib/delivery/ifoodStatus";
 import { NextResponse } from "next/server";
 import { query } from "@/lib/database/sql";
 import { importIfoodOrder } from "@/lib/delivery/integrations";
@@ -30,7 +31,9 @@ export async function POST(request: Request) {
                 await importIfoodOrder(integration.restaurant_id,data);
             }
         }
-        // No menu/status writes or order acceptance are sent to iFood.
+        else {
+            await receiveIfoodStatus(integration.restaurant_id, event);
+        }
         return new NextResponse(null,{status:202});
     } catch { return NextResponse.json({error:"Falha ao receber pedido iFood."},{status:503}); }
 }

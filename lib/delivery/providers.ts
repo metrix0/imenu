@@ -29,7 +29,7 @@ export function validSignature(raw: string | Uint8Array, signature: string, secr
     if (!/^[a-f0-9]{64}$/i.test(signature)) return false;
     return timingSafeEqual(createHmac("sha256", secret).update(raw).digest(), Buffer.from(signature, "hex"));
 }
-export async function ifoodRequest(config: DeliveryConfig["ifood"], path: string) {
+export async function ifoodRequest(config: DeliveryConfig["ifood"], path: string, action?: "confirm" | "startPreparation" | "readyToPickup" | "dispatch") {
     const tokenResponse = await fetch("https://merchant-api.ifood.com.br/authentication/v1.0/oauth/token", {
         method: "POST", body: new URLSearchParams({ grantType: "client_credentials", clientId: config.clientId, clientSecret: config.clientSecret }),
         cache: "no-store", signal: AbortSignal.timeout(10000),
@@ -37,10 +37,12 @@ export async function ifoodRequest(config: DeliveryConfig["ifood"], path: string
     if (!tokenResponse.ok) throw new Error("Não foi possível autenticar no iFood.");
     const token = await tokenResponse.json();
     const response = await fetch(`https://merchant-api.ifood.com.br${path}`, {
-        headers: { Authorization: `Bearer ${token.accessToken}` }, cache: "no-store", signal: AbortSignal.timeout(10000),
+        method: action ? "POST" : "GET",
+        ...(action === "dispatch" ? { body: JSON.stringify({ deliveredBy: "MERCHANT" }) } : {}),
+        headers: { Authorization: `Bearer ${token.accessToken}`, ...(action ? { "Content-Type": "application/json" } : {}) }, cache: "no-store", signal: AbortSignal.timeout(10000),
     });
-    if (!response.ok) throw new Error("Não foi possível consultar o iFood. Confira as credenciais e a autorização da loja.");
-    return response.json();
+    if (!response.ok) throw new Error(action ? `O iFood recusou a atualização (${response.status}). O status anterior foi mantido.` : "Não foi possível consultar o iFood. Confira as credenciais e a autorização da loja.");
+    return action ? undefined : response.json();
 }
 export function machinePayload(order: any, config: DeliveryConfig["machine"]) {
     // Checkout stores a printable address: street, number - neighborhood - CEP (complement).

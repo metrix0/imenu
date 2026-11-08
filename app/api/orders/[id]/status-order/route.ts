@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { MercadoPagoConfig, PaymentRefund } from "mercadopago";
 
+import { requestIfoodStatus, IfoodStatusError } from "@/lib/delivery/ifoodStatus";
 import { dispatchCourier } from "@/lib/delivery/integrations";
 import { withTransaction } from "@/lib/database/sql";
 import { getAuthenticatedUser, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
@@ -129,6 +130,12 @@ export async function PATCH(
             );
             if (!ownerResult.rows[0]) {
                 throw new OrderStatusError("Acesso negado.", 403);
+            }
+
+            if (order.is_imported) {
+                await requestIfoodStatus(id, order.status, status);
+                return { isTableOrder: false, isCounterOrder: false, statusChanged: false,
+                    isImported: true, accepted: false, ifoodPending: status !== order.status, confirmedStatus: order.status };
             }
 
             if (
@@ -458,6 +465,8 @@ export async function PATCH(
                     String(order.is_delivery || "").toLowerCase() === "mesa",
                 isCounterOrder: order.is_delivery === "balcao",
                 statusChanged: order.status !== status,
+                ifoodPending: false,
+                confirmedStatus: status,
                 isImported: order.is_imported,
                 accepted: status === "preparing" && ["paid", "pending_physical_payment"].includes(order.status),
             };
@@ -479,13 +488,14 @@ export async function PATCH(
 
         return NextResponse.json({
             ok: true,
-            status,
+            status: updateResult.confirmedStatus,
+            ifoodPending: updateResult.ifoodPending,
             courierError,
         });
     } catch (error) {
         console.error("[ORDERS] Erro ao atualizar status:", error);
 
-        if (error instanceof OrderStatusError || error instanceof RestaurantOwnerAuthError) {
+        if (error instanceof OrderStatusError || error instanceof RestaurantOwnerAuthError || error instanceof IfoodStatusError) {
             return NextResponse.json(
                 { error: error.message },
                 { status: error.status }

@@ -300,11 +300,12 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
             }
             
             const result = await res.json();
+            if (result.ifoodPending) alert("Atualização enviada ao iFood. Aguardando confirmação.");
             if (result.courierError) alert(result.courierError);
             onStatusChange(); // Dispara refresh no pai
         } catch (err) {
             console.error(err);
-            alert("Erro ao atualizar status");
+            alert(err instanceof Error ? err.message : "Erro ao atualizar status");
         } finally {
             setLoading(false);
         }
@@ -384,7 +385,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
     const showBackButton = !deliveryOnly && ["preparing", "delivering", "done"].includes(order.status);
     const actionLabel = deliveryOnly
         ? order.status === "delivering" ? "Entregue" : null
-        : config.btn;
+        : order.payment_method === "ifood" && order.status === "preparing" ? "Pronto" : config.btn;
     const scheduledDate = order.scheduled_for ? new Date(order.scheduled_for) : null;
     const isScheduled = !isTableOrder && Boolean(scheduledDate && !Number.isNaN(scheduledDate.getTime()));
     const scheduledTime = scheduledDate

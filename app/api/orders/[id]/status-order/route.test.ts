@@ -1,9 +1,11 @@
+import { requestIfoodStatus } from "@/lib/delivery/ifoodStatus";
 import { PATCH } from "./route";
 import { withTransaction } from "@/lib/database/sql";
 import { getAuthenticatedUser, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
 import { refundPayZuPixCharge } from "@/lib/payments/payzu";
 import { notifyOrderStatusUpdate } from "@/lib/services/whatsappNotification";
 
+jest.mock("@/lib/delivery/ifoodStatus", () => ({ requestIfoodStatus: jest.fn(), IfoodStatusError: class extends Error {} }));
 jest.mock("@/lib/database/sql", () => ({ withTransaction: jest.fn() }));
 jest.mock("@/lib/auth/restaurantOwner", () => ({
     getAuthenticatedUser: jest.fn(),
@@ -115,4 +117,21 @@ it("does not let an unpaid online PIX order be marked completed even by its owne
     expect(await response.json()).toMatchObject({ error: "Pagamento PIX ainda não confirmado." });
     expect(client.query).toHaveBeenCalledTimes(2);
     expect(notifyOrderStatusUpdate).not.toHaveBeenCalled();
+});
+
+ it("imported orders wait for iFood confirmation instead of updating local status",async()=>{
+    client.query.mockImplementation(async(sql:string)=>({rows:sql.includes("FROM orders")?[{...order,is_imported:true}]:sql.includes("FROM public.restaurants")?[{id:"restaurant"}]:[]}));
+    const response=await send("preparing");
+    expect(requestIfoodStatus).toHaveBeenCalledWith("order","pending_physical_payment","preparing");
+    expect(await response.json()).toMatchObject({status:"pending_physical_payment",ifoodPending:true});
+    expect(client.query.mock.calls.every(([sql])=>!sql.includes("UPDATE orders"))).toBe(true);
+ });
+
+it("provider rejection leaves an imported order unchanged and returns its error",async()=>{
+    client.query.mockImplementation(async(sql:string)=>({rows:sql.includes("FROM orders")?[{...order,is_imported:true}]:sql.includes("FROM public.restaurants")?[{id:"restaurant"}]:[]}));
+    (requestIfoodStatus as jest.Mock).mockRejectedValueOnce(new Error("iFood recusou"));
+    const response=await send("preparing");
+    expect(response.status).toBe(500);
+    expect(await response.json()).toMatchObject({error:"iFood recusou"});
+    expect(client.query.mock.calls.every(([sql])=>!sql.includes("UPDATE orders"))).toBe(true);
 });

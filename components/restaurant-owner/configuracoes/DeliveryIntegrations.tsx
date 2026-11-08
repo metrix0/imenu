@@ -114,7 +114,7 @@ export default function DeliveryIntegrations({ restaurantId, onSaveState }: Prop
                 >
                     <div className="min-h-0 overflow-hidden">
                         <div className="space-y-4 pt-4 sm:pl-[52px]">
-                            <p className="text-sm text-gray-500">Aceite e atualize os pedidos no iFood. Alterações no iMenu ficam apenas no iMenu.</p>
+                            <p className="text-sm text-gray-500">Aceite e atualize o preparo dos pedidos pelo iMenu. Os status acompanham as confirmações do iFood.</p>
                             <Input disabled={!available} label="ID da loja no iFood" value={config.ifood.merchantId} onChange={event => change("ifood", "merchantId", event.target.value)} />
                             <div className="grid gap-4 sm:grid-cols-2">
                                 <Input disabled={!available} label="Client ID iFood" autoComplete="off" value={config.ifood.clientId} onChange={event => change("ifood", "clientId", event.target.value)} />

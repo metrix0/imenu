@@ -1,7 +1,7 @@
 import { createHmac } from "node:crypto";
 import { query, withTransaction } from "@/lib/database/sql";
 import { dispatchCourier, importIfoodOrder } from "./integrations";
-import { emptyDeliveryConfig, machinePayload, mapIfoodOrder, seal, unseal, validSignature } from "./providers";
+import { emptyDeliveryConfig, ifoodRequest, machinePayload, mapIfoodOrder, seal, unseal, validSignature } from "./providers";
 import { POST as webhook } from "@/app/api/integrations/ifood/route";
 
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn(), withTransaction: jest.fn() }));
@@ -118,10 +118,10 @@ test("webhook rejects a forged request before fetching or importing",async () =>
     expect(withTransaction).not.toHaveBeenCalled();
 });
 
-test("new order status events do not write to iFood or change local orders",async () => {
+test("unrelated iFood events do not write to iFood or change local orders",async () => {
     const c = config();c.ifood={enabled:true,merchantId:"merchant",clientId:"client",clientSecret:"secret"};
     sql.mockResolvedValue({rows:[{restaurant_id:"restaurant",credentials:seal(c)}]});
-    const raw = JSON.stringify({merchantId:"merchant",code:"CFM",fullCode:"CONFIRMED",orderId:ifoodOrder.id});
+    const raw = JSON.stringify({merchantId:"merchant",code:"ADR",fullCode:"ASSIGN_DRIVER",orderId:ifoodOrder.id});
     const signature = createHmac("sha256","secret").update(raw).digest("hex");
     const response = await webhook(new Request("https://local/api/integrations/ifood",{method:"POST",headers:{"x-ifood-signature":signature},body:raw}));
     expect(response.status).toBe(202);
@@ -140,4 +140,14 @@ test("duplicate provider reference leaves uncertain result, blocking automatic r
     (fetch as jest.Mock).mockResolvedValue({ok:false,status:400,json:async()=>({success:false,errors:[{code:8,message:"duplicate"}]})});
     await dispatchCourier(order.id);
     expect(sql.mock.calls.at(-1)?.[1][1]).toBe("uncertain");
+});
+
+test("iFood commands accept an empty 202 response and dispatch the required merchant body",async()=>{
+    (fetch as jest.Mock).mockResolvedValueOnce({ok:true,json:async()=>({accessToken:"token"})}).mockResolvedValueOnce({ok:true,status:202,json:jest.fn(()=>{throw new Error("empty body");})});
+    await ifoodRequest({enabled:true,merchantId:"merchant",clientId:"client",clientSecret:"secret"},"/order/v1.0/orders/id/dispatch","dispatch");
+    expect((fetch as jest.Mock).mock.calls[1][1]).toMatchObject({method:"POST",body:JSON.stringify({deliveredBy:"MERCHANT"})});
+});
+test("iFood command rejection is propagated without treating HTTP response as confirmation",async()=>{
+    (fetch as jest.Mock).mockResolvedValueOnce({ok:true,json:async()=>({accessToken:"token"})}).mockResolvedValueOnce({ok:false,status:409});
+    await expect(ifoodRequest({enabled:true,merchantId:"merchant",clientId:"client",clientSecret:"secret"},"/order/v1.0/orders/id/confirm","confirm")).rejects.toThrow("status anterior foi mantido");
 });
