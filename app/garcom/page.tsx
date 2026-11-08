@@ -338,7 +338,7 @@ export default function GarcomPage() {
                                     key={table.id}
                                     className="flex flex-col border border-gray-200 shadow-sm"
                                 >
-                                    <div className="flex items-center justify-between gap-3 border-b border-gray-100 pb-4">
+                                    <div className="flex items-center justify-between gap-3 pb-4">
                                         <div className="flex min-w-0 items-center gap-3">
                                             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand">
                                                 <FontAwesomeIcon icon={faChair} />
