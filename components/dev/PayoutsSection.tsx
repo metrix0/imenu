@@ -20,9 +20,10 @@ import { calculateOnePercentPayout, summarizeOnePercentPayouts } from "@/lib/ser
 type Payable = { restaurantId: string; restaurantName: string; grossCents: number; payzuFeeCents: number; waitingGrossCents: number; canSend: boolean; pixKey: string | null; pixKeyType: string | null; nextEligibleAt: string | null };
 type PayoutRestaurantError = { restaurantId: string; restaurantName: string; orderId: string; paymentRef: string; grossCents: number; message: string };
 type Dashboard = { asaasBalanceCents: number | null; asaasConfigured: boolean; asaasError: string | null; cutoffAt: string; payables: Payable[]; validationErrors: PayoutRestaurantError[]; ownerPhones:Record<string,string> };
+type TroubledPayout = { id: string; restaurant_name: string; amount_cents: number; status: string; failure_reason: string | null; alert_status: string | null };
 type History = {
     id: string; restaurant_id: string; alert_status?: string | null; alert_message?: string | null; alert_error?: string | null; restaurant_name: string; created_at: string; amount_cents: number; status: string; failure_reason: string | null;
-    run_date?: string; payout_cents?: number; restaurant_count?: number; failed_count?: number; paid_count?: number; processing_count?: number;
+    run_date?: string; payout_cents?: number; restaurant_count?: number; failed_count?: number; paid_count?: number; processing_count?: number; troubled_payouts?: TroubledPayout[];
     pix_key?: string | null; pix_key_type?: string | null; pix_address_key?: string | null; owner_phone?: string | null; asaas_transfer_id?: string | null;
     gross_cents?: number | null; payzu_fee_cents?: number | null; discount_cents?: number | null; paid_profit_cents?: number | null;
     transferred_cents?: number | null; asaas_balance_before_payout_cents?: number | null; difference_cents?: number | null;
@@ -32,7 +33,7 @@ const statusLabels: Record<string, string> = { failed: "Falhou", cancelled: "Can
 const nullableMoney = (value: number | null | undefined) => value == null ? "—" : money(value);
 const runDate = (value?: string) => value ? value.slice(0, 10).split("-").reverse().join("/") : "—";
 function PayoutStatus({ status }: { status?: string }) {
-    return <Badge variant={status === "failed" || status === "blocked" ? "danger" : status === "partial" ? "warning" : status === "paid" || status === "completed" ? "success" : status === "running" || status === "processing" ? "info" : "neutral"}>{status ? statusLabels[status] || status : "—"}</Badge>;
+    return <Badge variant={status === "failed" || status === "cancelled" || status === "canceled" || status === "blocked" ? "danger" : status === "partial" ? "warning" : status === "paid" || status === "completed" ? "success" : status === "running" || status === "processing" ? "info" : "neutral"}>{status ? statusLabels[status] || status : "—"}</Badge>;
 }
 
 function HistoryTable({ section, revision, onRetry, canRetry = false }: { section: "failed" | "history" | "runs"; revision: number; onRetry: (id: string) => void; canRetry?: boolean }) {
@@ -73,7 +74,7 @@ function HistoryTable({ section, revision, onRetry, canRetry = false }: { sectio
             {error && <p role="alert" className="text-red-700">{error}</p>}
             <PagedTable pageSize={10} data={data} loading={loading} rowKey={r => r.id} onPage={setPage} columns={columns} onRowClick={section === "runs" ? setSelectedRun : undefined}/>
         </section>
-        <DevDialog title={`Execução de ${runDate(selectedRun?.run_date)}`} open={Boolean(selectedRun)} onClose={() => setSelectedRun(null)}>
+        <DevDialog title={`Execução de ${runDate(selectedRun?.run_date)}`} open={Boolean(selectedRun)} onClose={() => setSelectedRun(null)} wide={section === "runs"}>
             {selectedRun && <div className="space-y-5">
                 <dl className={styles.detailMetrics}>{[
                     ["Bruto", selectedRun.gross_cents], ["Gateway", selectedRun.payzu_fee_cents], ["Desconto", selectedRun.discount_cents], ["Lucro líquido pago", selectedRun.paid_profit_cents],
@@ -84,6 +85,18 @@ function HistoryTable({ section, revision, onRetry, canRetry = false }: { sectio
                     { step: "Comparação de saldo", status: selectedRun.comparison_step_status }, { step: "Enviar aos restaurantes", status: selectedRun.payout_step_status },
                 ]} rowKey={r => r.step} columns={[{key:"step",label:"Etapa",render:r=>r.step},{key:"status",label:"Status",render:r=><PayoutStatus status={r.status}/>}]} />
                 <p className="text-sm">{selectedRun.paid_count || 0} pagos · {selectedRun.processing_count || 0} processando · {selectedRun.failed_count || 0} falhas</p>
+                <section className="space-y-3">
+                    <h3 className="text-base font-semibold">Repasses com problema</h3>
+                    {selectedRun.troubled_payouts?.length ? <div className="overflow-x-auto">
+                        <DataTable rows={selectedRun.troubled_payouts} rowKey={row => row.id} columns={[
+                            { key: "restaurant", label: "Restaurante", render: row => row.restaurant_name },
+                            { key: "amount", label: "Valor", render: row => money(row.amount_cents) },
+                            { key: "status", label: "Status", render: row => <PayoutStatus status={row.status} /> },
+                            { key: "reason", label: "Motivo", render: row => row.failure_reason || "Motivo não registrado." },
+                            { key: "notice", label: "Aviso automático", render: row => <Badge variant={row.alert_status === "sent" ? "success" : row.alert_status === "failed" ? "danger" : "neutral"}>{row.alert_status === "sent" ? "Enviado" : row.alert_status === "failed" ? "Falhou" : row.alert_status === "sending" ? "Enviando" : "Não enviado"}</Badge> },
+                        ]} />
+                    </div> : <p className="text-sm text-gray-500">Nenhum repasse individual com problema registrado.</p>}
+                </section>
                 {selectedRun.error_message && <p role="alert" className="text-sm text-red-700">{selectedRun.error_message}</p>}
             </div>}
         </DevDialog>
