@@ -10,6 +10,8 @@ type DraggableModalProps =  React.HTMLAttributes<HTMLDivElement> & {
     onClose: () => void;
     xPadding?: boolean;
     contentClassName?: string;
+    /** Animate the close before notifying the parent (for expensive parent screens). */
+    animateBeforeClose?: boolean;
     children: React.ReactNode;
 };
 
@@ -20,6 +22,7 @@ export default function DraggableModal({
                                            onClose,
                                            xPadding = true,
                                            contentClassName,
+                                           animateBeforeClose = false,
                                            children,
                                             ...props
                                        }: DraggableModalProps) {
@@ -27,7 +30,9 @@ export default function DraggableModal({
     const startY = useRef(0);
     const currentY = useRef(0);
     const closingRef = useRef(false);
+    const desktopCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+    const [closingDesktop, setClosingDesktop] = useState(false);
     const [translateY, setTranslateY] = useState(1000);
     const [animating, setAnimating] = useState(false);
     const [isDesktop, setIsDesktop] = useState(false);
@@ -35,6 +40,7 @@ export default function DraggableModal({
     useEffect(() => {
         if (open) {
             closingRef.current = false;
+            setClosingDesktop(false);
             requestAnimationFrame(() => {
                 setAnimating(true);
                 setTranslateY(0);
@@ -106,6 +112,22 @@ export default function DraggableModal({
         }
     };
 
+    const desktopClose = () => {
+        if (!animateBeforeClose) {
+            onClose();
+            return;
+        }
+        if (closingRef.current) return;
+        closingRef.current = true;
+        // Start the modal's exit without first rerendering the Garçom page.
+        setClosingDesktop(true);
+        desktopCloseTimer.current = window.setTimeout(onClose, 200);
+    };
+
+    useEffect(() => () => {
+        if (desktopCloseTimer.current) window.clearTimeout(desktopCloseTimer.current);
+    }, []);
+
     const backdropClose = () => {
         if (closingRef.current) return;
 
@@ -144,7 +166,7 @@ export default function DraggableModal({
 
     return (
         <>{isDesktop ?
-                    <Modal fixedHeight showCloseButton={handle} open={open} onClose={onClose} height={`${height * 100}dvh`} className={props.className}>
+                    <Modal fixedHeight showCloseButton={handle} open={open && !closingDesktop} onClose={desktopClose} height={`${height * 100}dvh`} className={props.className}>
                         {children}
                     </Modal>
             :
@@ -179,7 +201,7 @@ export default function DraggableModal({
                     ...(props.style ?? {}),
                 }}
             >
-                {panel && <ModalCloseButton onClose={onClose} />}
+                {panel && <ModalCloseButton onClose={animateBeforeClose ? backdropClose : onClose} />}
                 <div
                     onMouseDown={onMouseStart}
                     onTouchStart={(e) => {
