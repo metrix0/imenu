@@ -28,7 +28,7 @@ export async function GET(request: Request) {
     try {
         const params = new URL(request.url).searchParams;
         if (["history", "failed", "runs"].includes(params.get("section") || "")) return NextResponse.json(await payoutHistory(params));
-        const data = await getPayoutDashboardData({ readOnly: !(process.env.IMENU_SUPPORT_PUBLIC_URL?.trim().replace(/\/+$/, "") === "https://www.imenuapp.com.br") });
+        const data = await getPayoutDashboardData({ readOnly: true });
         const restaurantIds = Array.from(
             new Set([
                 ...data.payables.map((item) => item.restaurantId),

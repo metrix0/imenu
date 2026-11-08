@@ -156,11 +156,13 @@ export function ProductOverviewSections({ metrics, previousMetrics, productsOnly
         { key: "ia_plus", name: "iMenu Plus", paths: "/painel/marketing + /painel/vendas-ia + /painel/assistente-ia", price: "R$ 49,99/m", priceInfo: "Marketing, Assistente IA e Vendas IA.", },
         { key: "qr_code_mesa", name: "iMenu QR", paths: "/painel/mesas", price: "Grátis", priceInfo: "QR Code Mesa gratuito; pagamentos antigos são apenas históricos.", },
     ] as const;
-    const difference = (current: number | null, previous: number | null): number | null => (
-        current === null || previous === null || previous <= 0
-            ? null
-            : ((current - previous) / previous) * 100
-    );
+    const difference = (current: number | null | undefined, previous: number | null | undefined, rate = false) => {
+        if (current == null || previous == null) return {};
+        if (previous === 0) return current === 0
+            ? { change: 0 }
+            : { change: current, changeLabel: rate ? `+${formatRatio(current)} pp` : `+${formatCount(current)}` };
+        return { change: (current - previous) / previous * 100 };
+    };
     if (compact) return (
         <div className="grid gap-5">
             {products.filter(p => !productsOnly || productsOnly.includes(p.key)).map(product => {
@@ -169,8 +171,8 @@ export function ProductOverviewSections({ metrics, previousMetrics, productsOnly
                 const sameTrafficSource = previous?.trafficSource === metric.trafficSource;
                 const trafficUnit = metric.trafficSource === "pageviews" ? "Views (Unique)" : "Aberturas da aba";
                 const trafficInfo = metric.trafficSource === "pageviews"
-                    ? `PostHog · evento $pageview · visitantes distintos (distinct_id) das páginas ${product.paths} durante o período. Uma pessoa conta uma vez, mesmo que volte várias vezes.`
-                    : "PostHog · evento panel_tab_opened · total de aberturas da aba no período. Não é uma contagem de pessoas únicas.";
+                    ? `PostHog · ${product.key === "imenu" ? "Página inicial" : product.key === "ia_plus" ? "Marketing, Vendas IA e Assistente IA (sem modais)" : "Página Mesas"}. Uma visita por pessoa a cada 7 dias; após 7 dias, conta novamente.`
+                    : "PostHog · Aberturas de abas; não são visitantes únicos.";
                 const buyerLabel = product.key === "imenu" ? "Usuários ativados" : "Compradores";
                 return <section key={product.key} aria-label={product.name} className="space-y-3">
                     <h2 className="text-base font-semibold text-gray-900">{product.name}</h2>
@@ -179,25 +181,31 @@ export function ProductOverviewSections({ metrics, previousMetrics, productsOnly
                             value={metric.pageViews === null ? "—" : formatCount(metric.pageViews)}
                             description={trafficUnit}
                             info={trafficInfo}
-                            change={sameTrafficSource ? difference(metric.pageViews, previous?.pageViews ?? null) : null} />
+                            {...(sameTrafficSource ? difference(metric.pageViews, previous?.pageViews) : {})} />
                         <MetricCard inlineChange truncateTitle title="Conversão"
                             value={metric.conversion === null ? "—" : formatRatio(metric.conversion)}
                             description={`${formatCount(metric.buyers)} ${buyerLabel.toLowerCase()} · ${trafficUnit}`}
-                            change={sameTrafficSource ? difference(metric.conversion, previous?.conversion ?? null) : null}
+                            {...(sameTrafficSource
+                                ? previous?.conversion == null
+                                    ? difference(metric.buyers, previous?.buyers)
+                                    : difference(metric.conversion, previous.conversion, true)
+                                : {})}
                             info={product.key === "imenu"
-                                ? `${formatCount(metric.buyers)} contas que registraram o primeiro pedido no período ÷ ${metric.pageViews === null ? "—" : formatCount(metric.pageViews)} ${trafficUnit.toLowerCase()} × 100. Pedidos + PostHog.`
-                                : `${formatCount(metric.buyers)} contas com primeira compra confirmada no período ÷ ${metric.pageViews === null ? "—" : formatCount(metric.pageViews)} ${trafficUnit.toLowerCase()} × 100. Pagamentos + PostHog.`} />
-                        <MetricCard inlineChange truncateTitle title="Churn"
-                            value={metric.churn === null ? "—" : formatRatio(metric.churn)}
-                            description={`${formatCount(Math.max(0, metric.churnBase - metric.churnedUsers))} ativos · ${formatCount(metric.churnedUsers)} abandonados`}
-                            change={difference(metric.churn, previous?.churn ?? null)}
-                            reverseChangeColors
-                            info={product.key === "imenu"
-                                ? `Pedidos · ${formatCount(metric.churnedUsers)} abandonados de ${formatCount(metric.churnBase)} contas elegíveis. Base: ao menos 2 dias com pedidos concluídos nos últimos 30 dias; abandono: nenhum pedido concluído nos últimos 14 dias.`
-                                : `Pagamentos/add-ons · ${formatCount(metric.churnedUsers)} pagantes perdidos de ${formatCount(metric.churnBase)} pagantes no início. Cartão: cancelamento/vencimento; Pix pré-pago: fim da validade.`} />
+                                ? "Contas com primeiro pedido ÷ tráfego do período."
+                                : "Primeiras compras confirmadas do Plus ÷ tráfego do período."} />
                         <MetricCard inlineChange truncateTitle title="Mensalidade"
                             value={product.price === "-" ? "Gratuito" : product.price}
                             info={product.priceInfo} />
+                        <MetricCard inlineChange truncateTitle title="Churn"
+                            value={metric.churn === null ? "—" : formatRatio(metric.churn)}
+                            description={`${formatCount(Math.max(0, metric.churnBase - metric.churnedUsers))} ativos · ${formatCount(metric.churnedUsers)} abandonados`}
+                            {...(previous?.churn == null
+                                ? difference(metric.churnedUsers, previous?.churnedUsers)
+                                : difference(metric.churn, previous.churn, true))}
+                            reverseChangeColors
+                            info={product.key === "imenu"
+                                ? "Contas com pedidos em 2 dias do último mês, mas sem pedidos há 14 dias."
+                                : "Pagantes no início que perderam acesso ao Plus até o fim do período."} />
                     </div>
                 </section>;
             })}
@@ -250,6 +258,7 @@ export function MetricCard({
     title,
     value,
     change,
+    changeLabel,
     description,
     info,
     children,
@@ -261,6 +270,7 @@ export function MetricCard({
     title: string;
     value: string;
     change?: number | null;
+    changeLabel?: string;
     description?: string;
     info?: string;
     children?: ReactNode;
@@ -294,8 +304,8 @@ export function MetricCard({
             )}
             {inlineChange ? <div className="mt-2 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
                 <p className={`min-w-0 text-3xl font-bold tracking-tight tabular-nums ${danger ? "text-red-700" : "text-gray-950"}`}>{value}</p>
-                {change !== undefined && <span className={`shrink-0 whitespace-nowrap text-sm font-semibold tabular-nums ${changeColor}`}>
-                    {change === null ? "—" : `${change >= 0 ? "+" : ""}${formatRatio(change)}`}
+                {change != null && <span className={`shrink-0 whitespace-nowrap text-sm font-semibold tabular-nums ${changeColor}`}>
+                    {changeLabel ?? `${change >= 0 ? "+" : ""}${formatRatio(change)}`}
                 </span>}
             </div> : <>
             <p

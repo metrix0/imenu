@@ -1,13 +1,16 @@
 import { sendNtfyNotification } from "@/lib/services/ntfy";
+import { alarmUnnotifiedPayoutFailures, notifyPayoutProblem } from "@/lib/services/payoutNotifications";
 import { NextResponse } from "next/server";
 
 import { query } from "@/lib/database/sql";
+import { calculateOnePercentPayout } from "@/lib/services/payoutSafety";
 import {
     createPayoutPlan,
     failRecentPendingPayouts,
     getAsaasBalance,
     getPayoutCutoffAt,
     PayoutValidationError,
+    type SendPayoutResult,
     reconcileProcessingPayouts,
     sendPayouts,
 } from "@/lib/services/payouts";
@@ -71,7 +74,7 @@ async function notifyPayoutAlarm({
     status: string;
     step: AutomationStep;
     message: string;
-    trigger?: "notification" | "alarm" | "none";
+    trigger?: "notification" | "none";
 }): Promise<void> {
     const topic = process.env.NTFY_TOPIC?.trim();
     if (!topic) {
@@ -88,8 +91,8 @@ async function notifyPayoutAlarm({
         await sendNtfyNotification({
             source: "cron/daily-payout",
             operation: step,
-            trigger: trigger ?? (status === "blocked" ? "notification" : "alarm"),
-            title: (trigger === "none" || status === "blocked") ? "iMenu: repasse automático bloqueado" : "ALARM TRIGGER - iMenu payout automático",
+            trigger: trigger ?? "notification",
+            title: status === "blocked" ? "iMenu: repasse automático bloqueado" : "iMenu: repasse automático não concluído",
             message: [
                 "Pagamento automático não foi concluído.",
                 `Data: ${runDate}`,
@@ -211,6 +214,8 @@ export async function GET(request: Request) {
                 failedPendingPayouts.length - 10
             );
 
+            for (const payout of failedPendingPayouts) await notifyPayoutProblem(payout.restaurant_id, false);
+            await alarmUnnotifiedPayoutFailures();
             await notifyPayoutAlarm({
                 runId,
                 runDate,
@@ -235,8 +240,36 @@ export async function GET(request: Request) {
             discountPercent: 1,
             adjustToOnePercent: true,
         });
+        // Record unpaid verified amounts for restaurants without PIX, without transferring funds.
+        const missingPixFailures: SendPayoutResult["results"] = [];
+        for (const row of plan.payables) {
+            if (row.payment_info?.trim()) continue;
+            const grossCents = Number(row.gross_cents) || 0;
+            const orderCount = Number(row.pix_order_count) || 0;
+            const { netCents, payzuFeeCents, discountCents } = calculateOnePercentPayout(
+                grossCents, row.provider_fee_cents
+            );
+            await query(
+                `INSERT INTO public.payouts (
+                    restaurant_id, amount_cents, gross_cents, payzu_fee_cents, discount_cents,
+                    pix_address_key, status, created_at, order_count, automation_run_id, failure_reason
+                ) VALUES ($1, $2, $3, $4, $5, NULL, 'failed', $6, $7, $8, $9)
+                ON CONFLICT (automation_run_id, restaurant_id)
+                    WHERE automation_run_id IS NOT NULL DO NOTHING`,
+                [row.restaurant_id, netCents, grossCents, payzuFeeCents, discountCents,
+                    cutoffAt.toISOString(), orderCount, runId, "Chave PIX não cadastrada."]
+            );
+            missingPixFailures.push({
+                restaurantId: row.restaurant_id,
+                restaurantName: row.restaurant_name,
+                amountCents: netCents,
+                status: "failed",
+                message: "Chave PIX não cadastrada.",
+            });
+        }
+        const missingPixFailedCount = missingPixFailures.length;
         const verifiedRestaurantIds = new Set(plan.payables.map((row) => row.restaurant_id));
-        const skippedRestaurantCount = plan.payables.length - plan.sendable.length +
+        const skippedRestaurantCount = plan.payables.length - plan.sendable.length - missingPixFailedCount +
             new Set(plan.validationErrors.filter((error) => !verifiedRestaurantIds.has(error.restaurantId))
                 .map((error) => error.restaurantId)).size;
         const skippedOrderCount = plan.validationErrors.length;
@@ -249,31 +282,37 @@ export async function GET(request: Request) {
             .join(" | ").slice(0, 1900);
 
         if (plan.sendable.length === 0) {
-            const message = validationSummary || "Nenhum restaurante com valor e chave PIX válidos para pagar.";
+            const hasMissingPixFailures = missingPixFailedCount > 0;
+            const message = [
+                hasMissingPixFailures ? `${missingPixFailedCount} restaurante(s) sem chave PIX cadastrada.` : "",
+                validationSummary,
+            ].filter(Boolean).join(" | ") || "Nenhum restaurante com valor e chave PIX válidos para pagar.";
             await query(
                 `
                 UPDATE public.payout_automation_runs
                 SET
-                    status = 'blocked',
-                    adjustment_step_status = 'blocked',
+                    status = $3,
+                    adjustment_step_status = CASE WHEN $4::integer > 0 THEN 'failed' ELSE 'blocked' END,
                     comparison_step_status = 'skipped',
-                    payout_step_status = 'skipped',
+                    payout_step_status = CASE WHEN $4::integer > 0 THEN 'failed' ELSE 'skipped' END,
+                    failed_count = $4,
                     error_message = $2,
                     finished_at = NOW(),
                     updated_at = NOW()
                 WHERE id = $1
                 `,
-                [runId, message]
+                [runId, message, hasMissingPixFailures ? "failed" : "blocked", missingPixFailedCount]
             );
+            if (hasMissingPixFailures) await alarmUnnotifiedPayoutFailures();
             await notifyPayoutAlarm({
                 runId,
                 runDate,
-                status: "blocked",
+                status: hasMissingPixFailures ? "failed" : "blocked",
                 step: currentStep,
-                trigger: "none",
+                trigger: hasMissingPixFailures ? "notification" : "none",
                 message,
             });
-            return NextResponse.json({ success: false, blocked: true, error: message });
+            return NextResponse.json({ success: false, blocked: !hasMissingPixFailures, failedCount: missingPixFailedCount, error: message });
         }
 
         await query(
@@ -287,6 +326,7 @@ export async function GET(request: Request) {
                 payout_cents = $5,
                 restaurant_count = $6,
                 error_message = $7,
+                failed_count = $8,
                 updated_at = NOW()
             WHERE id = $1
             `,
@@ -298,6 +338,7 @@ export async function GET(request: Request) {
                 plan.totalNetCents,
                 restaurantCount,
                 validationSummary || null,
+                missingPixFailedCount,
             ]
         );
 
@@ -408,12 +449,13 @@ export async function GET(request: Request) {
             automationRunId: runId,
             expectedTotalCents: plan.totalNetCents,
         });
+        const failedCount = payoutResult.failedCount + missingPixFailedCount;
         const status =
             payoutResult.processingCount > 0
                 ? "processing"
-                : payoutResult.failedCount > 0 && payoutResult.paidCount > 0
+                : failedCount > 0 && payoutResult.paidCount > 0
                   ? "partial"
-                  : payoutResult.failedCount > 0
+                  : failedCount > 0
                     ? "failed"
                     : skippedRestaurantCount > 0 || skippedOrderCount > 0
                       ? "partial"
@@ -421,7 +463,7 @@ export async function GET(request: Request) {
         const payoutStepStatus =
             payoutResult.processingCount > 0
                 ? "processing"
-                : payoutResult.failedCount > 0
+                : failedCount > 0
                   ? "failed"
                   : "completed";
 
@@ -444,12 +486,13 @@ export async function GET(request: Request) {
                 payoutStepStatus,
                 payoutResult.paidCount,
                 payoutResult.processingCount,
-                payoutResult.failedCount,
+                failedCount,
             ]
         );
 
+        if (missingPixFailedCount > 0) await alarmUnnotifiedPayoutFailures();
         if (status !== "completed" && status !== "processing") {
-            const message = `Execução terminou com status ${status}. Pagos: ${payoutResult.paidCount}; em processamento: ${payoutResult.processingCount}; falhas: ${payoutResult.failedCount}; restaurantes ignorados: ${skippedRestaurantCount}; pedidos excluídos: ${skippedOrderCount}. ${validationSummary}`;
+            const message = `Execução terminou com status ${status}. Pagos: ${payoutResult.paidCount}; em processamento: ${payoutResult.processingCount}; falhas: ${failedCount} (sem PIX: ${missingPixFailedCount}); restaurantes ignorados: ${skippedRestaurantCount}; pedidos excluídos: ${skippedOrderCount}. ${validationSummary}`;
             await notifyPayoutAlarm({
                 runId,
                 runDate,
@@ -460,7 +503,7 @@ export async function GET(request: Request) {
         }
 
         return NextResponse.json({
-            success: payoutResult.failedCount === 0 && plan.validationErrors.length === 0,
+            success: failedCount === 0 && plan.validationErrors.length === 0,
             runId,
             transferredCents,
             payoutCents: plan.totalNetCents,
@@ -469,6 +512,8 @@ export async function GET(request: Request) {
             skippedRestaurantCount,
             skippedOrderCount,
             ...payoutResult,
+            failedCount,
+            results: [...payoutResult.results, ...missingPixFailures],
         });
     } catch (error) {
         const message = error instanceof Error ? error.message : "Erro interno.";

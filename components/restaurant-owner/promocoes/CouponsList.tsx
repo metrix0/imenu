@@ -36,6 +36,7 @@ export default function CouponsList({
             .from("coupons")
             .select("*")
             .eq("restaurant_id", restaurantId)
+            .is("deleted_at", null)
             .order("created_at", { ascending: false });
 
         setCoupons(data || []);
@@ -82,12 +83,16 @@ export default function CouponsList({
     };
 
     const deleteCoupon = async () => {
-        const { error } = await supabase
+        const { data, error } = await supabase
             .from("coupons")
-            .delete()
-            .eq("id", deleteTarget.id);
+            .update({ active: false, deleted_at: new Date().toISOString() })
+            .eq("id", deleteTarget.id)
+            .eq("restaurant_id", restaurantId)
+            .is("deleted_at", null)
+            .select("id")
+            .maybeSingle();
 
-        if (error) {
+        if (error || !data) {
             onToast("Erro ao excluir cupom", "error");
         } else {
             onToast("Cupom excluído com sucesso", "success");

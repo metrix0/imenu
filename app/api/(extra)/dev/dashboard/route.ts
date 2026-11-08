@@ -404,7 +404,7 @@ export async function GET(request: Request) {
                 `,
                     [startIso, endIso]
                 ),
-                loadPostHogMetrics(startAt, endAt),
+                loadPostHogMetrics(startAt, endAt, compact),
                 loadPostHogPanelTabUsage(startAt, endAt),
                 loadPostHogConsumerMetrics(startAt, endAt),
                 loadPostHogConsumerTimeline(buckets),
@@ -593,7 +593,7 @@ export async function GET(request: Request) {
         const previousProductOverview = compact ? await (async () => {
             const previousStartIso = new Date(previousStartAt).toISOString();
             const [previousPostHog, previousPanelTabs, previousAddons] = await Promise.all([
-                loadPostHogMetrics(previousStartAt, startAt),
+                loadPostHogMetrics(previousStartAt, startAt, true),
                 loadPostHogPanelTabUsage(previousStartAt, startAt),
                 query<AddonProductMetricsRow>(ADDON_PRODUCT_METRICS_SQL, [previousStartIso, startIso]),
             ]);
@@ -852,7 +852,7 @@ export async function GET(request: Request) {
                     endAt: new Date(endAt).toISOString(),
                     bucket: range === "90d" ? "week" : "day",
                 },
-                ...(compact ? { acquisitions: await loadAcquisitionSeries(buckets), previousProductOverview } : {}),
+                ...(compact ? { acquisitions: await loadAcquisitionSeries(buckets), previousProductOverview, previousCards } : {}),
                 cards,
                 productOverview: buildProductOverview(
                     postHog.productPageViews,

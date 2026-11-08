@@ -1,5 +1,4 @@
-import { notifyPayoutProblem } from "@/lib/services/payoutNotifications";
-import { sendNtfyNotification } from "@/lib/services/ntfy";
+import { alarmUnnotifiedPayoutFailures, notifyPayoutProblem } from "@/lib/services/payoutNotifications";
 import { getMercadoPagoPixPayment } from "@/lib/payments/mercadoPagoPix";
 import * as https from "node:https";
 
@@ -45,6 +44,17 @@ type AsaasTransfer = {
     externalReference?: string | null;
     failReason?: string | null;
 };
+
+// A previous transfer must be definitively unsuccessful before a second Pix is attempted.
+export function isAsaasTransferSafeToRetry(
+    transfer: AsaasTransfer,
+    expectedTransferId: string,
+    payoutId: string
+): boolean {
+    return transfer.id === expectedTransferId &&
+        ["CANCELLED", "FAILED", "REFUSED"].includes(transfer.status || "") &&
+        (!transfer.externalReference || transfer.externalReference === `imenu-payout-${payoutId}`);
+}
 
 export type PayoutPlanItem = {
     row: PayableRestaurant;
@@ -442,38 +452,6 @@ async function syncAutomationRuns(): Promise<void> {
     );
 }
 
-async function notifyReconciledUnsuccessfulRun(run: {
-    id: string;
-    run_date: string;
-    status: "partial" | "failed";
-    restaurant_count: number;
-    paid_count: number;
-    failed_count: number;
-}): Promise<void> {
-    const topic = process.env.NTFY_TOPIC?.trim();
-    if (!topic) return;
-
-    try {
-        await sendNtfyNotification({
-            source: "payouts",
-            title: "ALARM TRIGGER - iMenu payout automático",
-            message: [
-                "Pagamento automático não foi concluído.",
-                `Data: ${run.run_date}`,
-                `Status: ${run.status}`,
-                "Etapa: payout",
-                `Motivo: Execução reconciliada como ${run.status}. Pagos: ${run.paid_count}/${run.restaurant_count}; falhas: ${run.failed_count}.`,
-                `Run: ${run.id}`,
-            ].join("\n"),
-        });
-    } catch (error) {
-        console.error("[DAILY_PAYOUT] Falha ao enviar alerta ntfy de repasse parcial", {
-            runId: run.id,
-            error: error instanceof Error ? error.message : String(error),
-        });
-    }
-}
-
 export type FailedRecentPendingPayout = {
     id: string;
     restaurant_id: string;
@@ -508,12 +486,9 @@ export async function failRecentPendingPayouts(): Promise<
 export async function reconcileProcessingPayouts(): Promise<void> {
     if (!getAsaasApiKey()) return;
 
-    const processingRuns = await query<{ id: string }>(
-        `SELECT id FROM public.payout_automation_runs WHERE status = 'processing'`
-    );
-    const { rows } = await query<{ id: string; created_at: string | Date }>(
+    const { rows } = await query<{ id: string; created_at: string | Date; asaas_transfer_id: string | null }>(
         `
-        SELECT id, created_at
+        SELECT id, created_at, asaas_transfer_id
         FROM public.payouts
         WHERE status = 'processing'
         ORDER BY created_at ASC
@@ -526,14 +501,21 @@ export async function reconcileProcessingPayouts(): Promise<void> {
         oldest.setDate(oldest.getDate() - 1);
         const fromDate = oldest.toISOString().slice(0, 10);
         const transfers = await listRecentTransfers(fromDate);
-        const byReference = new Map(
-            transfers
-                .filter((transfer) => transfer.externalReference)
-                .map((transfer) => [transfer.externalReference as string, transfer])
-        );
+        const byReference = new Map<string, AsaasTransfer[]>();
+        for (const transfer of transfers) {
+            if (!transfer.externalReference) continue;
+            const existing = byReference.get(transfer.externalReference) || [];
+            existing.push(transfer);
+            byReference.set(transfer.externalReference, existing);
+        }
 
         for (const payout of rows) {
-            const transfer = byReference.get(`imenu-payout-${payout.id}`);
+            const matches = byReference.get(`imenu-payout-${payout.id}`) || [];
+            // A retried payout can have several Asaas transfers with the same externalReference.
+            // Prefer its recorded transfer ID, never an older cancelled attempt.
+            const transfer = matches.find((item) => payout.asaas_transfer_id && item.id === payout.asaas_transfer_id) ||
+                matches.find((item) => !["CANCELLED", "FAILED", "REFUSED"].includes(item.status || "")) ||
+                matches[0];
             if (!transfer?.status) continue;
 
             if (transfer.status === "DONE") {
@@ -554,29 +536,7 @@ export async function reconcileProcessingPayouts(): Promise<void> {
 
     await syncAutomationRuns();
 
-    if (processingRuns.rows.length > 0) {
-        const runIds = processingRuns.rows.map((row) => row.id);
-        const unsuccessfulRuns = await query<{
-            id: string;
-            run_date: string;
-            status: "partial" | "failed";
-            restaurant_count: number;
-            paid_count: number;
-            failed_count: number;
-        }>(
-            `
-            SELECT id, run_date, status, restaurant_count, paid_count, failed_count
-            FROM public.payout_automation_runs
-            WHERE id = ANY($1::uuid[])
-              AND status IN ('partial', 'failed')
-            `,
-            [runIds]
-        );
-
-        for (const run of unsuccessfulRuns.rows) {
-            await notifyReconciledUnsuccessfulRun(run);
-        }
-    }
+    await alarmUnnotifiedPayoutFailures();
 }
 
 export async function createPayoutPlan(input: {
@@ -917,6 +877,7 @@ export async function sendPayouts(input: {
     const failedCount = results.filter((item) => item.status === "failed").length;
 
     if (input.automationRunId) await syncAutomationRuns();
+    if (failedCount > 0) await alarmUnnotifiedPayoutFailures();
 
     return {
         cutoffAt: input.cutoffAt.toISOString(),
@@ -951,6 +912,7 @@ export async function retryFailedPayout(
         has_later_payout: boolean;
         automation_run_id: string | null;
         asaas_transfer_id: string | null;
+        status: "failed" | "cancelled";
         payment_info: string | null;
         payment_info_type: PixKeyType | null;
     }>(
@@ -972,12 +934,13 @@ export async function retryFailedPayout(
             ) AS has_later_payout,
             p.automation_run_id,
             p.asaas_transfer_id,
+            p.status,
             r.payment_info,
             r.payment_info_type
         FROM public.payouts p
         JOIN public.restaurants r ON r.id = p.restaurant_id
         WHERE p.id = $1
-          AND p.status = 'failed'
+          AND p.status IN ('failed', 'cancelled')
         LIMIT 1
         `,
         [payoutId]
@@ -989,11 +952,30 @@ export async function retryFailedPayout(
             404
         );
     }
-    if (payout.asaas_transfer_id) {
+    if (payout.status === "cancelled" && !payout.asaas_transfer_id) {
         throw new PayoutValidationError(
-            "Este repasse já possui uma transferência registrada no Asaas.",
+            "O repasse cancelado não tem ID da transferência original para conferência no Asaas.",
             409
         );
+    }
+    if (payout.asaas_transfer_id) {
+        let original: AsaasTransfer;
+        try {
+            original = await asaasRequest<AsaasTransfer>(
+                `/transfers/${encodeURIComponent(payout.asaas_transfer_id)}`
+            );
+        } catch {
+            throw new PayoutValidationError(
+                "Não foi possível conferir a transferência anterior no Asaas. Reenvio bloqueado.",
+                409
+            );
+        }
+        if (!isAsaasTransferSafeToRetry(original, payout.asaas_transfer_id, payout.id)) {
+            throw new PayoutValidationError(
+                "A transferência anterior não consta como cancelada ou definitivamente falha no Asaas. Reenvio bloqueado.",
+                409
+            );
+        }
     }
 
     const keyType = resolvePixKeyType(payout);
@@ -1077,10 +1059,11 @@ export async function retryFailedPayout(
             asaas_transfer_id = NULL,
             pix_address_key = $2
         WHERE id = $1
-          AND status = 'failed'
+          AND status IN ('failed','cancelled')
+          AND asaas_transfer_id IS NOT DISTINCT FROM $3
         RETURNING id
         `,
-        [payout.id, pixKey]
+        [payout.id, pixKey, payout.asaas_transfer_id]
     );
     if (!reset.rows[0]) {
         throw new PayoutValidationError(
@@ -1099,6 +1082,7 @@ export async function retryFailedPayout(
     });
 
     if (payout.automation_run_id) await syncAutomationRuns();
+    if (result.status === "failed") await alarmUnnotifiedPayoutFailures();
 
     return {
         cutoffAt: new Date().toISOString(),

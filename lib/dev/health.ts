@@ -8,6 +8,7 @@ export const INTEGRATIONS = [
     { id: "waha", name: "WhatsApp / WAHA", priority: 2 },
     { id: "waha_webhooks", name: "WAHA / Entrega de webhooks", priority: 2 },
     { id: "openai", name: "OpenAI", priority: 2 },
+    { id: "gemini", name: "Google Gemini (Importação de Cardápio)", priority: 2 },
     { id: "posthog", name: "PostHog", priority: 3 },
     { id: "google", name: "Google Geocoding", priority: 3 },
     { id: "tomtom", name: "TomTom", priority: 3 },
@@ -108,6 +109,43 @@ export async function resolveDevIncident(incidentKey: string) {
             [incidentKey]
         );
     } catch { /* Monitoring must be non-disruptive. */ }
+}
+
+export const GEMINI_FALLBACK_OPERATION = "Importação de cardápio: fallback OpenAI";
+export const GEMINI_FALLBACK_INCIDENT = "integration:gemini:menu-fallback";
+export const GEMINI_FALLBACK_THRESHOLD = 3;
+
+// Every actual fallback is recorded separately; only repeated use notifies.
+// Monitoring failures must never block a customer's menu import.
+export async function recordGeminiMenuFallback(reason: string): Promise<void> {
+    try {
+        await recordDevAlert({
+            source: "gemini",
+            title: "Importação de cardápio usou OpenAI",
+            message: reason,
+            severity: "info",
+            trigger: "none",
+            operation: GEMINI_FALLBACK_OPERATION,
+        });
+        const result = await query<{ total: number }>(
+            "SELECT COUNT(*)::int AS total FROM public.dev_alerts WHERE source='gemini' AND operation=$1 AND severity='info' AND created_at >= NOW() - INTERVAL '1 hour'",
+            [GEMINI_FALLBACK_OPERATION]
+        );
+        const total = Number(result.rows[0]?.total || 0);
+        if (total >= GEMINI_FALLBACK_THRESHOLD) {
+            await recordDevAlert({
+                source: "gemini",
+                title: "Fallback recorrente: importação de cardápio",
+                message: `${total} importações usaram OpenAI em vez do Gemini na última hora. Último motivo: ${reason}`,
+                severity: "warning",
+                trigger: "notification",
+                operation: "Importação de cardápio",
+                incidentKey: GEMINI_FALLBACK_INCIDENT,
+            });
+        }
+    } catch {
+        console.error("[GEMINI_FALLBACK_MONITOR] Não foi possível registrar o fallback.");
+    }
 }
 
 export type ProbeResult = {

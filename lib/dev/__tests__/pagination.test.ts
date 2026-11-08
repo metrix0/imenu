@@ -41,7 +41,10 @@ test.each(["failed", "history", "runs"])("payout %s history uses 10-row pages", 
         expect(sql).toContain("LEFT JOIN whatsapp_outbound_messages alert");
         expect(sql).toContain("alert.status alert_status");
         expect(sql).toContain("p.created_at AT TIME ZONE 'America/Sao_Paulo'");
-        expect(sql).toContain("WHERE p.status='failed'");
+        expect(sql).toContain("WHERE p.status IN ('failed','cancelled')");
+    } else if (section === "runs") {
+        expect(sql).toContain("trouble.troubled_payouts");
+        expect(sql).toContain("LEFT JOIN whatsapp_outbound_messages notice");
     } else {
         expect(sql).not.toContain("JOIN whatsapp_outbound_messages");
     }

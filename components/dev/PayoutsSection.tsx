@@ -20,9 +20,10 @@ import { calculateOnePercentPayout, summarizeOnePercentPayouts } from "@/lib/ser
 type Payable = { restaurantId: string; restaurantName: string; grossCents: number; payzuFeeCents: number; waitingGrossCents: number; canSend: boolean; pixKey: string | null; pixKeyType: string | null; nextEligibleAt: string | null };
 type PayoutRestaurantError = { restaurantId: string; restaurantName: string; orderId: string; paymentRef: string; grossCents: number; message: string };
 type Dashboard = { asaasBalanceCents: number | null; asaasConfigured: boolean; asaasError: string | null; cutoffAt: string; payables: Payable[]; validationErrors: PayoutRestaurantError[]; ownerPhones:Record<string,string> };
+type TroubledPayout = { id: string; restaurant_name: string; amount_cents: number; status: string; failure_reason: string | null; alert_status: string | null };
 type History = {
     id: string; restaurant_id: string; alert_status?: string | null; alert_message?: string | null; alert_error?: string | null; restaurant_name: string; created_at: string; amount_cents: number; status: string; failure_reason: string | null;
-    run_date?: string; payout_cents?: number; restaurant_count?: number; failed_count?: number; paid_count?: number; processing_count?: number;
+    run_date?: string; payout_cents?: number; restaurant_count?: number; failed_count?: number; paid_count?: number; processing_count?: number; troubled_payouts?: TroubledPayout[];
     pix_key?: string | null; pix_key_type?: string | null; pix_address_key?: string | null; owner_phone?: string | null; asaas_transfer_id?: string | null;
     gross_cents?: number | null; payzu_fee_cents?: number | null; discount_cents?: number | null; paid_profit_cents?: number | null;
     transferred_cents?: number | null; asaas_balance_before_payout_cents?: number | null; difference_cents?: number | null;
@@ -32,10 +33,10 @@ const statusLabels: Record<string, string> = { failed: "Falhou", cancelled: "Can
 const nullableMoney = (value: number | null | undefined) => value == null ? "—" : money(value);
 const runDate = (value?: string) => value ? value.slice(0, 10).split("-").reverse().join("/") : "—";
 function PayoutStatus({ status }: { status?: string }) {
-    return <Badge variant={status === "failed" || status === "blocked" ? "danger" : status === "partial" ? "warning" : status === "paid" || status === "completed" ? "success" : status === "running" || status === "processing" ? "info" : "neutral"}>{status ? statusLabels[status] || status : "—"}</Badge>;
+    return <Badge variant={status === "failed" || status === "cancelled" || status === "canceled" || status === "blocked" ? "danger" : status === "partial" ? "warning" : status === "paid" || status === "completed" ? "success" : status === "running" || status === "processing" ? "info" : "neutral"}>{status ? statusLabels[status] || status : "—"}</Badge>;
 }
 
-function HistoryTable({ section, revision, onRetry, canRetry = false }: { section: "failed" | "history" | "runs"; revision: number; onRetry: (id: string) => void; canRetry?: boolean }) {
+function HistoryTable({ section, revision, onRetry, canRetry = false }: { section: "failed" | "history" | "runs"; revision: number; onRetry: (payout: History) => void; canRetry?: boolean }) {
     const { openProfile } = useDevProfile();
     const [page, setPage] = useState(0);
     const [data, setData] = useState<PageData<History>>({ rows: [], total: 0, page: 0, pageCount: 1 });
@@ -65,7 +66,7 @@ function HistoryTable({ section, revision, onRetry, canRetry = false }: { sectio
         { key: "amount", label: section === "history" ? "Valor do repasse" : "Valor", className: styles.numericCell, render: r => money(r.amount_cents) },
         { key: "status", label: "Status", render: r => <div><PayoutStatus status={r.status}/>{section === "failed" && <p className="mt-2 min-w-0 max-w-64 text-xs text-gray-500">{r.failure_reason || "Motivo não registrado."}</p>}</div> },
         ...(section === "failed" ? [{ key: "alert", label: "Alerta", render: (r: History) => <div className="flex flex-wrap gap-1" title={r.alert_error || undefined}><Badge variant={r.alert_status === "sent" ? "success" : r.alert_status === "failed" ? "danger" : "neutral"}>{r.alert_status === "sent" ? "Enviado" : r.alert_status === "failed" ? "Falhou" : r.alert_status === "sending" ? "Enviando" : "Não enviado"}</Badge>{(!r.pix_key || r.alert_message?.includes("não tem uma chave PIX")) ? <Badge variant="warning">Pix não cadastrado</Badge> : (r.alert_message?.includes("incorretamente") || /pix.*(invalid|incorret)|invalid.*pix/i.test(r.failure_reason || "")) ? <Badge variant="warning">Pix incorreto</Badge> : null}</div> }] : []),
-        ...(section === "failed" ? [{ key: "retry", label: "", render: (r: History) => <Button variant="secondary" disabled={!canRetry || r.status !== "failed" || !r.pix_key || Boolean(r.asaas_transfer_id)} onClick={() => onRetry(r.id)}>Tentar novamente</Button> }] : []),
+        ...(section === "failed" ? [{ key: "retry", label: "", render: (r: History) => <Button variant="secondary" disabled={!canRetry} onClick={() => onRetry(r)}>Tentar novamente</Button> }] : []),
     ];
     return <>
         <section className={`${styles.tableSection} ${styles.payoutTable}`} aria-label={section === "failed" ? "Repasses com falha" : section === "runs" ? "Histórico" : "Histórico por restaurante"}>
@@ -73,7 +74,7 @@ function HistoryTable({ section, revision, onRetry, canRetry = false }: { sectio
             {error && <p role="alert" className="text-red-700">{error}</p>}
             <PagedTable pageSize={10} data={data} loading={loading} rowKey={r => r.id} onPage={setPage} columns={columns} onRowClick={section === "runs" ? setSelectedRun : undefined}/>
         </section>
-        <DevDialog title={`Execução de ${runDate(selectedRun?.run_date)}`} open={Boolean(selectedRun)} onClose={() => setSelectedRun(null)}>
+        <DevDialog title={`Execução de ${runDate(selectedRun?.run_date)}`} open={Boolean(selectedRun)} onClose={() => setSelectedRun(null)} wide={section === "runs"}>
             {selectedRun && <div className="space-y-5">
                 <dl className={styles.detailMetrics}>{[
                     ["Bruto", selectedRun.gross_cents], ["Gateway", selectedRun.payzu_fee_cents], ["Desconto", selectedRun.discount_cents], ["Lucro líquido pago", selectedRun.paid_profit_cents],
@@ -84,6 +85,18 @@ function HistoryTable({ section, revision, onRetry, canRetry = false }: { sectio
                     { step: "Comparação de saldo", status: selectedRun.comparison_step_status }, { step: "Enviar aos restaurantes", status: selectedRun.payout_step_status },
                 ]} rowKey={r => r.step} columns={[{key:"step",label:"Etapa",render:r=>r.step},{key:"status",label:"Status",render:r=><PayoutStatus status={r.status}/>}]} />
                 <p className="text-sm">{selectedRun.paid_count || 0} pagos · {selectedRun.processing_count || 0} processando · {selectedRun.failed_count || 0} falhas</p>
+                <section className="space-y-3">
+                    <h3 className="text-base font-semibold">Repasses com problema</h3>
+                    {selectedRun.troubled_payouts?.length ? <div className="overflow-x-auto">
+                        <DataTable rows={selectedRun.troubled_payouts} rowKey={row => row.id} columns={[
+                            { key: "restaurant", label: "Restaurante", render: row => row.restaurant_name },
+                            { key: "amount", label: "Valor", render: row => money(row.amount_cents) },
+                            { key: "status", label: "Status", render: row => <PayoutStatus status={row.status} /> },
+                            { key: "reason", label: "Motivo", render: row => row.failure_reason || "Motivo não registrado." },
+                            { key: "notice", label: "Aviso automático", render: row => <Badge variant={row.alert_status === "sent" ? "success" : row.alert_status === "failed" ? "danger" : "neutral"}>{row.alert_status === "sent" ? "Enviado" : row.alert_status === "failed" ? "Falhou" : row.alert_status === "sending" ? "Enviando" : "Não enviado"}</Badge> },
+                        ]} />
+                    </div> : <p className="text-sm text-gray-500">Nenhum repasse individual com problema registrado.</p>}
+                </section>
                 {selectedRun.error_message && <p role="alert" className="text-sm text-red-700">{selectedRun.error_message}</p>}
             </div>}
         </DevDialog>
@@ -101,7 +114,7 @@ export default function PayoutsSection() {
     const [message, setMessage] = useState("");
     const [sending, setSending] = useState(false);
     const [selectedRestaurantIds,setSelectedRestaurantIds] = useState<string[]>([]);
-    const [confirmation, setConfirmation] = useState<{ ids?: string[]; retry?: string } | null>(null);
+    const [confirmation, setConfirmation] = useState<{ ids?: string[]; retry?: History } | null>(null);
     useEffect(() => {
         const controller = new AbortController();
         void devJson<Dashboard>("/api/dev/payout", { signal: controller.signal }).then(result => {setData(result);setSelectedRestaurantIds(result.payables.filter(row=>row.canSend && row.grossCents > 0).map(row=>row.restaurantId));}).catch(e => { if (!controller.signal.aborted) setError(e.message); });
@@ -118,14 +131,14 @@ export default function PayoutsSection() {
         if (!confirmation || !data || (!confirmation.retry && !selected.length)) return;
         setSending(true); setError(""); setMessage("");
         try {
-            const result = await devJson<{ paidCount?: number; processingCount?: number; failedCount?: number; validationErrors?: PayoutRestaurantError[] }>("/api/dev/payout", { method: "POST", body: JSON.stringify(confirmation.retry ? { retryPayoutId: confirmation.retry } : { discountPercent: 1, adjustToOnePercent: true, restaurantIds: selected.map(row => row.restaurantId), cutoffAt: data.cutoffAt }) });
+            const result = await devJson<{ paidCount?: number; processingCount?: number; failedCount?: number; validationErrors?: PayoutRestaurantError[] }>("/api/dev/payout", { method: "POST", body: JSON.stringify(confirmation.retry ? { retryPayoutId: confirmation.retry.id } : { discountPercent: 1, adjustToOnePercent: true, restaurantIds: selected.map(row => row.restaurantId), cutoffAt: data.cutoffAt }) });
             setMessage(`${result.paidCount || 0} pagos · ${result.processingCount || 0} processando · ${result.failedCount || 0} com falha · ${result.validationErrors?.length || 0} pedidos excluídos por validação.`);
             setConfirmation(null); setRevision(r => r + 1);
         } catch (e) { setError((e as Error).message); } finally { setSending(false); }
     }
     return <>
         {error && <p role="alert" className="text-red-700">{error}</p>}{message && <p role="status" className="text-green-700">{message}</p>}
-        <HistoryTable section="failed" revision={revision} canRetry={Boolean(data?.asaasConfigured)} onRetry={id => setConfirmation({ retry: id })} />
+        <HistoryTable section="failed" revision={revision} canRetry={Boolean(data?.asaasConfigured)} onRetry={payout => setConfirmation({ retry: payout })} />
         {!data ? <DevLoading /> : <>
             <dl className={styles.metricStrip}><div><dt>Saldo Asaas</dt><dd>{data.asaasBalanceCents === null ? "—" : money(data.asaasBalanceCents)}</dd>{data.asaasError ? <p className="mt-2 text-sm text-red-700">{data.asaasError}</p> : !data.asaasConfigured && <p>Asaas não configurado.</p>}</div><div><dt>Total a repassar (líquido)</dt><dd>{money(totals.netCents)}</dd><p>{money(totals.grossCents)} bruto · Gateway {money(totals.payzuFeeCents)} · Desconto {money(totals.discountCents)} · 1% total</p></div></dl>
             {data.validationErrors?.length > 0 && <section className={`${styles.tableSection} ${styles.payoutTable}`}>
@@ -152,6 +165,6 @@ export default function PayoutsSection() {
             </section>
         </>}
         <Tabs tabs={["Histórico","Histórico por restaurante"]} active={historyTab} onChange={setHistoryTab}/><HistoryTable key={historyTab} section={historyTab==="Histórico"?"runs":"history"} revision={revision} onRetry={()=>undefined}/>
-        <ConfirmModal open={Boolean(confirmation)} onClose={() => { if (!sending) setConfirmation(null); }} onConfirm={() => void send()} isLoading={sending} variant="primary" title="Confirmar repasse" description={confirmation?.retry ? "Tentar novamente este repasse usando os valores registrados e os dados PIX atuais da loja." : `Enviar ${money(selected.reduce((sum, row) => sum + net(row), 0))} para ${selected.length} restaurante(s), com desconto total de 1% do bruto.`} confirmLabel="Confirmar e enviar" />
+        <ConfirmModal open={Boolean(confirmation)} onClose={() => { if (!sending) setConfirmation(null); }} onConfirm={() => void send()} isLoading={sending} variant="primary" title={confirmation?.retry ? "Confirmar reenvio do Pix" : "Confirmar repasse"} description={confirmation?.retry ? `Reenviar ${money(confirmation.retry.amount_cents)} para ${confirmation.retry.restaurant_name} usando os dados PIX atuais da loja? Antes do envio, o Asaas será consultado para confirmar que a transferência anterior não foi concluída.` : `Enviar ${money(selected.reduce((sum, row) => sum + net(row), 0))} para ${selected.length} restaurante(s), com desconto total de 1% do bruto.`} confirmLabel={confirmation?.retry ? "Confirmar reenvio" : "Confirmar e enviar"} />
     </>;
 }

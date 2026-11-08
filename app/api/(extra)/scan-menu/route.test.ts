@@ -2,6 +2,7 @@ import { GET, POST } from "./route";
 import { query } from "@/lib/database/sql";
 import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
 import { readPublicMenuLink } from "@/lib/menu/readPublicMenuLink";
+import { recordGeminiMenuFallback } from "@/lib/dev/health";
 
 const mockOpenAiCreate = jest.fn();
 jest.mock("openai", () => ({
@@ -18,6 +19,7 @@ jest.mock("@/lib/menu/readPublicMenuLink", () => ({
 }));
 
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn() }));
+jest.mock("@/lib/dev/health", () => ({ recordGeminiMenuFallback: jest.fn().mockResolvedValue(undefined) }));
 jest.mock("@/lib/auth/restaurantOwner", () => {
     class RestaurantOwnerAuthError extends Error {
         constructor(message: string, public status: number) { super(message); }
@@ -127,6 +129,50 @@ it("retries a hydrated public menu with OpenAI when Gemini returns no products",
         expect(readPublicMenuLink).toHaveBeenCalledTimes(1);
         expect(geminiFetch).toHaveBeenCalledTimes(1);
         expect(mockOpenAiCreate).toHaveBeenCalledTimes(1);
+        expect(recordGeminiMenuFallback).toHaveBeenCalledWith("Gemini não identificou produtos");
+    } finally {
+        global.fetch = previousFetch;
+    }
+});
+
+it("records missing Gemini key when an import uses OpenAI directly", async () => {
+    setExistingItems(0);
+    mockOpenAiCreate.mockResolvedValue({
+        output_text: JSON.stringify({
+            items: [{ name: "Suco", description: null, price_cents: 900,
+                image_path: null, category_name: "Bebidas", is_pizza_flavor: false,
+                pizza_sizes: [], pizza_crusts: [] }],
+            categories: [{ name: "Bebidas" }],
+        }),
+    });
+    const response = await POST(post());
+    expect(response.status).toBe(200);
+    expect(recordGeminiMenuFallback).toHaveBeenCalledWith("GEMINI_API_KEY ausente");
+});
+
+it("records a Gemini rate-limit fallback without exposing the response body", async () => {
+    setExistingItems(0);
+    process.env.GEMINI_API_KEY = "test-gemini-key";
+    (readPublicMenuLink as jest.Mock).mockResolvedValue("Suco R$ 9,00");
+    const previousFetch = global.fetch;
+    global.fetch = jest.fn().mockResolvedValue({
+        ok: false, status: 429, text: async () => "Too many requests",
+    }) as unknown as typeof fetch;
+    mockOpenAiCreate.mockResolvedValue({
+        output_text: JSON.stringify({
+            items: [{ name: "Suco", description: null, price_cents: 900,
+                image_path: null, category_name: "Bebidas", is_pizza_flavor: false,
+                pizza_sizes: [], pizza_crusts: [] }],
+            categories: [{ name: "Bebidas" }],
+        }),
+    });
+    try {
+        const response = await POST(new Request(url, {
+            method: "POST", headers: { Authorization: "Bearer test", "Content-Type": "application/json" },
+            body: JSON.stringify({ restaurantId, menuUrl: "https://example.test/menu", urls: [] }),
+        }));
+        expect(response.status).toBe(200);
+        expect(recordGeminiMenuFallback).toHaveBeenCalledWith("Gemini HTTP 429");
     } finally {
         global.fetch = previousFetch;
     }

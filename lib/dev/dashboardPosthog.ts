@@ -61,7 +61,8 @@ type PageViewTimeline = {
 
 export async function loadPostHogMetrics(
     startAt: number,
-    endAt: number
+    endAt: number,
+    repeatAfter7Days = false
 ): Promise<PostHogMetrics> {
     const config = getPostHogConfig();
     const personalApiKey = config?.personalApiKey;
@@ -100,7 +101,55 @@ export async function loadPostHogMetrics(
         .map((path) => `'${path.replace(/'/g, "\\'")}'`)
         .join(", ");
 
+    // Recount a visitor only seven full days after their last counted visit.
+    const rollingVisitors = repeatAfter7Days ? `
+        WITH rolling_visitors AS (
+            SELECT
+                sumIf(visits, product = 'imenu') AS imenu_views,
+                sumIf(visits, product = 'ia_plus') AS ia_plus_views,
+                sumIf(visits, product = 'qr_code_mesa') AS qr_views
+            FROM (
+                SELECT
+                    distinct_id,
+                    product,
+                    tupleElement(arrayFold(
+                        (state, second) -> if(
+                            second >= tupleElement(state, 2) + 604800,
+                            (tupleElement(state, 1) + 1, second),
+                            state
+                        ),
+                        arraySort(groupArray(toInt(toUnixTimestamp(timestamp)))),
+                        (toInt(0), toInt(-604800))
+                    ), 1) AS visits
+                FROM (
+                    SELECT
+                        distinct_id,
+                        timestamp,
+                        multiIf(
+                            properties.$pathname = '/', 'imenu',
+                            properties.$pathname IN (
+                                '/painel/vendas-ia', '/painel/assistente-ia', '/painel/marketing',
+                                '/painel/vendas-ia/', '/painel/assistente-ia/', '/painel/marketing/'
+                            ), 'ia_plus',
+                            properties.$pathname IN ('/painel/mesas', '/painel/mesas/'), 'qr_code_mesa',
+                            'other'
+                        ) AS product
+                    FROM events
+                    WHERE event = '$pageview'
+                      AND timestamp >= toDateTime('${start}', 'UTC')
+                      AND timestamp < toDateTime('${end}', 'UTC')
+                      AND properties.$pathname IN (
+                          '/', '/painel/vendas-ia', '/painel/assistente-ia', '/painel/marketing',
+                          '/painel/vendas-ia/', '/painel/assistente-ia/', '/painel/marketing/',
+                          '/painel/mesas', '/painel/mesas/'
+                      )
+                )
+                GROUP BY distinct_id, product
+            )
+        )
+    ` : '';
     const hogql = `
+        ${rollingVisitors}
         SELECT
             uniqIf(
                 distinct_id,
@@ -124,19 +173,20 @@ export async function loadPostHogMetrics(
                 )
             ) AS blog_views,
             countIf(event = '$pageview') AS total_pageviews,
-            uniqIf(distinct_id, event = '$pageview' AND properties.$pathname = '/') AS landing_pageviews,
-            uniqIf(distinct_id, event = '$pageview' AND properties.$pathname IN (
-                '/painel/vendas-ia', '/painel/assistente-ia',
-                '/painel/vendas-ia/', '/painel/assistente-ia/', '/painel/marketing', '/painel/marketing/'
-            )) AS ia_plus_pageviews,
-            uniqIf(distinct_id, event = '$pageview' AND properties.$pathname IN (
-                '/painel/mesas', '/painel/mesas/'
-            )) AS qr_pageviews,
+            ${repeatAfter7Days ? "ifNull(any(rv.imenu_views), 0)" : "uniqIf(distinct_id, event = '$pageview' AND properties.$pathname = '/')"} AS landing_pageviews,
+            ${repeatAfter7Days
+                ? "ifNull(any(rv.ia_plus_views), 0)"
+                : `uniqIf(distinct_id, event = '$pageview' AND properties.$pathname IN (
+                    '/painel/vendas-ia', '/painel/assistente-ia',
+                    '/painel/vendas-ia/', '/painel/assistente-ia/', '/painel/marketing', '/painel/marketing/'
+                ))`} AS ia_plus_pageviews,
+            ${repeatAfter7Days ? "ifNull(any(rv.qr_views), 0)" : "uniqIf(distinct_id, event = '$pageview' AND properties.$pathname IN ('/painel/mesas', '/painel/mesas/')"} AS qr_pageviews,
             countIf(
                 event = '$pageview'
                 AND properties.$pathname IN (${publicContentPathList})
             ) AS public_content_pageviews
         FROM events
+        ${repeatAfter7Days ? "CROSS JOIN rolling_visitors AS rv" : ""}
         WHERE timestamp >= toDateTime('${start}', 'UTC')
           AND timestamp < toDateTime('${end}', 'UTC')
     `;
