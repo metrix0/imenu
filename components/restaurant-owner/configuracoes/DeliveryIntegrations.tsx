@@ -71,22 +71,35 @@ export default function DeliveryIntegrations({ restaurantId, onSaveState }: Prop
         {autosave.error && <p role="alert" className="text-sm text-red-600">{autosave.error}</p>}
         {!config && !error && <div className="flex justify-center py-6"><Loader /></div>}
         {config && <>
-            {!available && <p className="text-sm text-gray-600">Contate o suporte para liberar as integrações Delivery.</p>}
             <section aria-labelledby="ifood-title">
-                <button
-                    type="button"
-                    aria-expanded={expanded.ifood}
-                    aria-controls="ifood-integration-settings"
-                    onClick={() => setExpanded(previous => ({ ...previous, ifood: !previous.ifood }))}
-                    className="flex min-h-12 w-full cursor-pointer items-start gap-3 text-left sm:gap-4"
-                >
-                    <Image src="/logos/ifood.svg" alt="" width={36} height={36} className="mt-0.5 h-9 w-9 shrink-0 object-contain" />
-                    <span className="min-w-0 flex-1">
-                        <span id="ifood-title" className="block text-sm font-medium text-gray-900">iFood</span>
-                        <span className="mt-1 block text-sm text-gray-500">Receba pedidos do iFood nos painéis do iMenu, com impressão automática quando habilitada.</span>
-                    </span>
-                    <FontAwesomeIcon icon={faChevronDown} className={`mt-1 shrink-0 text-gray-500 transition-transform duration-200 motion-reduce:transition-none ${expanded.ifood ? "rotate-180" : ""}`} />
-                </button>
+                <div className="flex items-start gap-3 sm:gap-4">
+                    <button
+                        type="button"
+                        aria-expanded={expanded.ifood}
+                        aria-controls="ifood-integration-settings"
+                        onClick={() => setExpanded(previous => ({ ...previous, ifood: !previous.ifood }))}
+                        className="flex min-h-12 min-w-0 flex-1 cursor-pointer items-start gap-3 text-left sm:gap-4"
+                    >
+                        <Image src="/logos/ifood.svg" alt="" width={36} height={36} className="mt-0.5 h-9 w-9 shrink-0 object-contain" />
+                        <span className="min-w-0 flex-1">
+                            <span id="ifood-title" className="block text-sm font-medium text-gray-900">iFood</span>
+                            <span className="mt-1 block text-sm text-gray-500">Receba pedidos do iFood nos painéis do iMenu, com impressão automática quando habilitada.</span>
+                        </span>
+                    </button>
+                    <div className="flex h-9 shrink-0 items-center gap-2 sm:gap-3">
+                        <Switch aria-label="Ativar integração iFood" checked={config.ifood.enabled} disabled={!available} onClick={() => change("ifood", "enabled", !config.ifood.enabled)} />
+                        <button
+                            type="button"
+                            aria-label={`${expanded.ifood ? "Recolher" : "Expandir"} integração iFood`}
+                            aria-expanded={expanded.ifood}
+                            aria-controls="ifood-integration-settings"
+                            onClick={() => setExpanded(previous => ({ ...previous, ifood: !previous.ifood }))}
+                            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-gray-500 hover:bg-gray-50"
+                        >
+                            <FontAwesomeIcon icon={faChevronDown} style={{ width: 24, height: 24 }} className={`shrink-0 transition-transform duration-200 motion-reduce:transition-none ${expanded.ifood ? "rotate-180" : ""}`} />
+                        </button>
+                    </div>
+                </div>
                 <div
                     id="ifood-integration-settings"
                     aria-hidden={!expanded.ifood}
@@ -95,10 +108,6 @@ export default function DeliveryIntegrations({ restaurantId, onSaveState }: Prop
                 >
                     <div className="min-h-0 overflow-hidden">
                         <div className="space-y-4 pt-4 sm:pl-[52px]">
-                            <div className="flex items-center justify-between gap-4">
-                                <span className="text-sm font-medium text-gray-900">Ativar integração iFood</span>
-                                <Switch aria-label="Ativar integração iFood" checked={config.ifood.enabled} disabled={!available} onClick={() => change("ifood", "enabled", !config.ifood.enabled)} />
-                            </div>
                             <p className="text-sm text-gray-500">Aceite e atualize os pedidos no iFood. Alterações no iMenu ficam apenas no iMenu.</p>
                             <Input disabled={!available} label="ID da loja no iFood" value={config.ifood.merchantId} onChange={event => change("ifood", "merchantId", event.target.value)} />
                             <div className="grid gap-4 sm:grid-cols-2">
@@ -110,20 +119,34 @@ export default function DeliveryIntegrations({ restaurantId, onSaveState }: Prop
                 </div>
             </section>
             <section className="border-t border-gray-200 pt-6" aria-labelledby="machine-title">
-                <button
-                    type="button"
-                    aria-expanded={expanded.machine}
-                    aria-controls="machine-integration-settings"
-                    onClick={() => setExpanded(previous => ({ ...previous, machine: !previous.machine }))}
-                    className="flex min-h-12 w-full cursor-pointer items-start gap-3 text-left sm:gap-4"
-                >
-                    <Image src="/logos/machine.svg" alt="" width={36} height={36} className="mt-0.5 h-9 w-9 shrink-0 object-contain" />
-                    <span className="min-w-0 flex-1">
-                        <span id="machine-title" className="block text-sm font-medium text-gray-900">Machine (Chama Delivery)</span>
-                        <span className="mt-1 block text-sm text-gray-500">Solicite um entregador automaticamente ao aceitar pedidos de entrega.</span>
-                    </span>
-                    <FontAwesomeIcon icon={faChevronDown} className={`mt-1 shrink-0 text-gray-500 transition-transform duration-200 motion-reduce:transition-none ${expanded.machine ? "rotate-180" : ""}`} />
-                </button>
+                <div className="flex items-start gap-3 sm:gap-4">
+                    <button
+                        type="button"
+                        aria-expanded={expanded.machine}
+                        aria-controls="machine-integration-settings"
+                        onClick={() => setExpanded(previous => ({ ...previous, machine: !previous.machine }))}
+                        className="flex min-h-12 min-w-0 flex-1 cursor-pointer items-start gap-3 text-left sm:gap-4"
+                    >
+                        <Image src="/logos/machine.svg" alt="" width={36} height={36} className="mt-0.5 h-9 w-9 shrink-0 object-contain" />
+                        <span className="min-w-0 flex-1">
+                            <span id="machine-title" className="block text-sm font-medium text-gray-900">Machine (Chama Delivery)</span>
+                            <span className="mt-1 block text-sm text-gray-500">Solicite um entregador automaticamente ao aceitar pedidos de entrega.</span>
+                        </span>
+                    </button>
+                    <div className="flex h-9 shrink-0 items-center gap-2 sm:gap-3">
+                        <Switch aria-label="Ativar integração Machine" checked={config.machine.enabled} disabled={!available} onClick={() => change("machine", "enabled", !config.machine.enabled)} />
+                        <button
+                            type="button"
+                            aria-label={`${expanded.machine ? "Recolher" : "Expandir"} integração Machine`}
+                            aria-expanded={expanded.machine}
+                            aria-controls="machine-integration-settings"
+                            onClick={() => setExpanded(previous => ({ ...previous, machine: !previous.machine }))}
+                            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-gray-500 hover:bg-gray-50"
+                        >
+                            <FontAwesomeIcon icon={faChevronDown} style={{ width: 24, height: 24 }} className={`shrink-0 transition-transform duration-200 motion-reduce:transition-none ${expanded.machine ? "rotate-180" : ""}`} />
+                        </button>
+                    </div>
+                </div>
                 <div
                     id="machine-integration-settings"
                     aria-hidden={!expanded.machine}
@@ -132,10 +155,6 @@ export default function DeliveryIntegrations({ restaurantId, onSaveState }: Prop
                 >
                     <div className="min-h-0 overflow-hidden">
                         <div className="space-y-4 pt-4 sm:pl-[52px]">
-                            <div className="flex items-center justify-between gap-4">
-                                <span className="text-sm font-medium text-gray-900">Ativar integração Machine</span>
-                                <Switch aria-label="Ativar integração Machine" checked={config.machine.enabled} disabled={!available} onClick={() => change("machine", "enabled", !config.machine.enabled)} />
-                            </div>
                             <p className="text-sm text-gray-500">Retirada, consumo no local e pedidos importados do iFood não acionam entregadores.</p>
                             <Input disabled={!available} label="Chave API Machine" type="password" autoComplete="new-password" placeholder={configured.machine ? "Credencial salva" : "Informe a chave"} value={config.machine.apiKey} onChange={event => change("machine", "apiKey", event.target.value)} />
                             <div className="grid gap-4 sm:grid-cols-2">
