@@ -299,6 +299,8 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
                 throw new Error(err.error || "Erro ao atualizar status");
             }
             
+            const result = await res.json();
+            if (result.courierError) alert(result.courierError);
             onStatusChange(); // Dispara refresh no pai
         } catch (err) {
             console.error(err);
@@ -363,6 +365,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
 
 
     const paymentLabels: Record<string, string> = {
+        ifood: "iFood",
         cartao: "Cartão",
         "trazer-maquininha": "Cartão",
         dinheiro: "Dinheiro",

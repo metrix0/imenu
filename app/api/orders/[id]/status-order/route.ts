@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { MercadoPagoConfig, PaymentRefund } from "mercadopago";
 
+import { dispatchCourier } from "@/lib/delivery/integrations";
 import { withTransaction } from "@/lib/database/sql";
 import { getAuthenticatedUser, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
 import {
@@ -107,7 +108,8 @@ export async function PATCH(
                             payment_method,
                             payment_ref,
                             created_at,
-                            is_delivery
+                            is_delivery,
+                            EXISTS (SELECT 1 FROM delivery_imported_orders i WHERE i.order_id=orders.id) AS is_imported
                         FROM orders
                         WHERE id = $1
                         FOR UPDATE
@@ -244,6 +246,7 @@ export async function PATCH(
             const pointsUsed = Number(order.loyalty_points_used) || 0;
 
             if (
+                !order.is_imported &&
                 status === "done" &&
                 order.status !== "done" &&
                 hasValidPhone &&
@@ -354,7 +357,7 @@ export async function PATCH(
                 }
             }
 
-            if (status === "canceled" && hasValidPhone) {
+            if (!order.is_imported && status === "canceled" && hasValidPhone) {
                 const storedPhone = await findBalancePhone(
                     client,
                     order.restaurant_id,
@@ -455,10 +458,17 @@ export async function PATCH(
                     String(order.is_delivery || "").toLowerCase() === "mesa",
                 isCounterOrder: order.is_delivery === "balcao",
                 statusChanged: order.status !== status,
+                isImported: order.is_imported,
+                accepted: status === "preparing" && ["paid", "pending_physical_payment"].includes(order.status),
             };
         });
 
-        if (!updateResult.isTableOrder && updateResult.statusChanged) {
+        let courierError: string | null = null;
+        if (updateResult.accepted) {
+            courierError = await dispatchCourier(id).catch(() => "Pedido aceito. Não foi possível confirmar a solicitação do entregador. Confira em Integrações Delivery.");
+        }
+
+        if (!updateResult.isImported && !updateResult.isTableOrder && updateResult.statusChanged) {
             await notifyOrderStatusUpdate(id, status).catch((error) => {
                 console.error(
                     "[ORDERS] Falha ao enviar atualização de status:",
@@ -470,6 +480,7 @@ export async function PATCH(
         return NextResponse.json({
             ok: true,
             status,
+            courierError,
         });
     } catch (error) {
         console.error("[ORDERS] Erro ao atualizar status:", error);
