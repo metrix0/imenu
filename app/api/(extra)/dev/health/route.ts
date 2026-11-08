@@ -7,6 +7,8 @@ import { INTEGRATIONS } from "@/lib/dev/health";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const UNREAD_ALERT_FILTER = "(read_at IS NULL OR (resolved_at IS NULL AND last_seen_at > read_at))";
+
 export async function GET(request: Request) {
     const denied = await authorize(request);
     if (denied) return denied;
@@ -21,10 +23,9 @@ export async function GET(request: Request) {
         if (params.get("section") === "alerts") {
             const history = params.get("view") === "history";
             // A newly repeated incident is unread again until acknowledged.
-            const unread = "(read_at IS NULL OR (resolved_at IS NULL AND last_seen_at > read_at))";
             const filter = history
                 ? "(read_at IS NOT NULL AND (resolved_at IS NOT NULL OR last_seen_at IS NULL OR last_seen_at <= read_at))"
-                : unread;
+                : UNREAD_ALERT_FILTER;
             const dates = history ? bounds : [null, null];
             // History is dated by acknowledgement, so an older alert just marked
             // as read appears immediately in the selected day's history.
@@ -80,6 +81,14 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Operação inválida." }, { status: 400 });
     }
     const body = await request.json().catch(() => null);
+    if (body?.all === true && body?.id === undefined) {
+        try {
+            await query(`UPDATE public.dev_alerts SET read_at = NOW() WHERE ${UNREAD_ALERT_FILTER}`);
+            return NextResponse.json({ ok: true });
+        } catch {
+            return NextResponse.json({ error: "Não foi possível marcar todos os alertas como lidos." }, { status: 500 });
+        }
+    }
     if (typeof body?.id !== "string" || !/^[1-9]\d{0,18}$/.test(body.id)) {
         return NextResponse.json({ error: "Alerta inválido." }, { status: 400 });
     }
