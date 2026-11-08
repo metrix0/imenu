@@ -9,6 +9,7 @@ jest.mock("@/lib/services/supportWhatsApp", () => ({sendTrackedSupportText:jest.
 const id="30000000-0000-4000-8000-000000000001";
 const originalUrl=process.env.IMENU_SUPPORT_PUBLIC_URL;
 const lockedQuery=jest.fn();
+const requestId="30000000-0000-4000-8000-000000000002";
 const draft={id,review_status:"pending",reply_text:"Resposta editada",conversation_id:"conversation",session_name:"imenu-blast",chat_id:"5511999999999@c.us"};
 function post(action:string){return POST(new Request("https://example.com/api/dev/support/drafts",{method:"POST",body:JSON.stringify({id,action})}));}
 beforeEach(()=>{
@@ -71,13 +72,40 @@ it("lists the latest draft per contact with a matching distinct count",async()=>
  expect((query as jest.Mock).mock.calls[1][0]).toContain("DISTINCT ON(session_name,chat_id) review_status");
  expect((query as jest.Mock).mock.calls[0][0]).not.toContain("FROM support_ai_reply_drafts WHERE review_status");
  expect((query as jest.Mock).mock.calls[0][0]).toContain("WHERE d.review_status=$1");
- expect((query as jest.Mock).mock.calls[0][0]).toContain("sm.created_at > d.created_at");
- expect((query as jest.Mock).mock.calls[0][0]).toContain("sm.model IS NULL AND sm.dedupe_key IS NULL");
- expect((query as jest.Mock).mock.calls[0][0]).toContain("sm.send_status = 'sent'");
+ expect((query as jest.Mock).mock.calls[0][0]).toContain("last_msg.created_at > d.created_at");
+ expect((query as jest.Mock).mock.calls[0][0]).toContain("last_msg.direction='outbound' AND last_msg.model IS NULL");
+ expect((query as jest.Mock).mock.calls[0][0]).toContain("ORDER BY sm.created_at DESC,sm.id DESC LIMIT 1");
+ expect((query as jest.Mock).mock.calls[0][0]).toContain("last_msg.dedupe_key LIKE 'support:human:%'");
+ expect((query as jest.Mock).mock.calls[0][0]).toMatch(/sm\.send_status\s*=\s*'sent'/);
  expect((query as jest.Mock).mock.calls[0][0]).toContain("ORDER BY attended ASC,d.created_at DESC");
  expect((query as jest.Mock).mock.calls[0][1]).toEqual(["pending",25,25]);
 });
 
+it("sends a human reply through the original WhatsApp session",async()=>{
+ (query as jest.Mock).mockResolvedValueOnce({rows:[{id,chat_id:"imenu-blast:5511999999999@lid",mode:"human"}]});
+ const response=await POST(new Request("https://example.com/api/dev/support/drafts",{method:"POST",
+  body:JSON.stringify({id,action:"send_human_message",text:"Resposta manual",requestId})}));
+ expect(response.status).toBe(200);
+ expect(await response.json()).toEqual({ok:true,sent:true});
+ expect(sendTrackedSupportText).toHaveBeenCalledWith({
+  conversationId:id,sessionName:"imenu-blast",chatId:"5511999999999@lid",
+  text:"Resposta manual",dedupeKey:`support:human:${id}:${requestId}`,
+ });
+});
+it("rejects replies if the conversation is not in human mode",async()=>{
+ (query as jest.Mock).mockResolvedValueOnce({rows:[{id,chat_id:"5511999999999@c.us",mode:"ai"}]});
+ const response=await POST(new Request("https://example.com/api/dev/support/drafts",{method:"POST",
+  body:JSON.stringify({id,action:"send_human_message",text:"Resposta",requestId})}));
+ expect(response.status).toBe(409);
+ expect(sendTrackedSupportText).not.toHaveBeenCalled();
+});
+it("rejects invalid message requests before sending",async()=>{
+ const response=await POST(new Request("https://example.com/api/dev/support/drafts",{method:"POST",
+  body:JSON.stringify({id,action:"send_human_message",text:"",requestId})}));
+ expect(response.status).toBe(400);
+ expect(query).not.toHaveBeenCalled();
+ expect(sendTrackedSupportText).not.toHaveBeenCalled();
+});
 it("loads a human handoff conversation without requiring an AI draft",async()=>{
  const response=await GET(new Request(`https://example.com/api/dev/support/drafts?conversation_id=${id}`));
  expect(response.status).toBe(200);

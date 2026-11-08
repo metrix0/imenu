@@ -49,10 +49,17 @@ export async function GET(request: Request) {
                 ORDER BY session_name,chat_id,created_at DESC,id DESC
             ) SELECT d.id,d.reply_text,d.review_status,d.session_name,d.created_at,c.customer_name,c.phone,
                 c.restaurant_id,r.name restaurant_name,m.body inbound_message,
-                EXISTS (SELECT 1 FROM support_messages sm WHERE sm.conversation_id = c.id AND sm.direction = 'outbound' AND sm.send_status = 'sent' AND sm.model IS NULL AND sm.dedupe_key IS NULL AND sm.created_at > d.created_at) AS attended
+                COALESCE(last_msg.direction='outbound' AND last_msg.model IS NULL
+                    AND (last_msg.dedupe_key IS NULL OR last_msg.dedupe_key LIKE 'support:human:%' OR last_msg.dedupe_key LIKE 'support:draft:%')
+                    AND last_msg.created_at > d.created_at,false) AS attended
                 FROM latest d ${CONVERSATION_JOIN}
                 LEFT JOIN restaurants r ON r.id=c.restaurant_id
                 LEFT JOIN support_messages m ON m.id=d.trigger_message_id AND m.direction='inbound'
+                LEFT JOIN LATERAL (
+                    SELECT direction,model,dedupe_key,created_at FROM support_messages sm
+                    WHERE sm.conversation_id=c.id AND (sm.direction='inbound' OR sm.send_status='sent')
+                    ORDER BY sm.created_at DESC,sm.id DESC LIMIT 1
+                ) last_msg ON TRUE
                 WHERE d.review_status=$1 ORDER BY attended ASC,d.created_at DESC,d.id DESC LIMIT $2 OFFSET $3`,[state,DEV_PAGE_SIZE,page*DEV_PAGE_SIZE]),
             query<{total:number}>("SELECT COUNT(*)::int total FROM (SELECT DISTINCT ON(session_name,chat_id) review_status FROM support_ai_reply_drafts ORDER BY session_name,chat_id,created_at DESC,id DESC) latest WHERE review_status=$1",[state]),
             query<{total:number}>("SELECT COUNT(*)::int total FROM (SELECT DISTINCT ON(session_name,chat_id) review_status FROM support_ai_reply_drafts ORDER BY session_name,chat_id,created_at DESC,id DESC) latest WHERE review_status='pending'"),
@@ -74,7 +81,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Revisões de suporte disponíveis apenas na produção." }, { status: 403 });
     }
 
-    let body: { id?: unknown; action?: unknown; text?: unknown };
+    let body: { id?: unknown; action?: unknown; text?: unknown; requestId?: unknown };
     try { body = await request.json(); }
     catch { return NextResponse.json({ error: "Requisição inválida." }, { status: 400 }); }
     if (typeof body?.id !== "string" || !UUID.test(body.id)) {
@@ -82,6 +89,35 @@ export async function POST(request: Request) {
     }
 
     try {
+        if (body.action === "send_human_message") {
+            const text = typeof body.text === "string" ? body.text.trim() : "";
+            if (!text || text.length > 8000 || typeof body.requestId !== "string" || !UUID.test(body.requestId)) {
+                return NextResponse.json({ error: "Informe uma mensagem válida." }, { status: 400 });
+            }
+            const result = await query<{ id: string; chat_id: string; mode: string }>(
+                "SELECT id,chat_id,mode FROM support_conversations WHERE id=$1 LIMIT 1",
+                [body.id]
+            );
+            const conversation = result.rows[0];
+            if (!conversation || conversation.mode !== "human") {
+                return NextResponse.json({ error: "Conversa não está em atendimento humano." }, { status: 409 });
+            }
+            const isBlast = conversation.chat_id.startsWith("imenu-blast:");
+            const sessionName = isBlast ? "imenu-blast" : "imenu-support";
+            const chatId = isBlast ? conversation.chat_id.slice("imenu-blast:".length) : conversation.chat_id;
+            if (!chatId || !/@(?:c\.us|lid)$/.test(chatId)) {
+                return NextResponse.json({ error: "Contato WhatsApp inválido." }, { status: 400 });
+            }
+            const sent = await sendTrackedSupportText({
+                conversationId: conversation.id,
+                sessionName,
+                chatId,
+                text,
+                dedupeKey: `support:human:${conversation.id}:${body.requestId}`,
+            });
+            if (!sent) return NextResponse.json({ error: "O contato está bloqueado para envios." }, { status: 409 });
+            return NextResponse.json({ ok: true, sent: true });
+        }
         let changed;
         if (body.action === "edit") {
             const text = typeof body.text === "string" ? body.text.trim() : "";
@@ -127,6 +163,6 @@ export async function POST(request: Request) {
         return NextResponse.json({ ok: true });
     } catch (error) {
         console.error("[SUPPORT_DRAFTS] update failed:", error);
-        return NextResponse.json({ error: body.action === "approve" ? "Não foi possível enviar pelo WhatsApp. A resposta continua pendente." : "Não foi possível atualizar a resposta." }, { status: 500 });
+        return NextResponse.json({ error: body.action === "approve" ? "Não foi possível enviar pelo WhatsApp. A resposta continua pendente." : body.action === "send_human_message" ? "Não foi possível enviar a mensagem pelo WhatsApp." : "Não foi possível atualizar a resposta." }, { status: 500 });
     }
 }

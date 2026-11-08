@@ -295,8 +295,8 @@ async function panelOrders(browser) {
         for (const method of ["dinheiro", "pix-entrega"]) {
             await click(page, "Adicionar Pedido");
             await page.waitForSelector(".panel-create-order");
-            await page.waitForSelector('button[aria-label="Adicionar uma unidade de Hambúrguer E2E"]');
-            await page.click('button[aria-label="Adicionar uma unidade de Hambúrguer E2E"]');
+            // Locator re-resolves the button if React replaces it while loading.
+            await page.locator('button[aria-label="Adicionar uma unidade de Hambúrguer E2E"]').click();
             await page.waitForFunction(() => document.querySelector('[role="dialog"]')?.textContent.includes("Configurar item"));
             const addItem = await page.waitForFunction(() =>
                 [...document.querySelectorAll('[role="dialog"] button')]

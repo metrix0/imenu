@@ -42,6 +42,167 @@ import { formatPhone, getWhatsappUrl, statusPresentation } from "@/lib/dev/suppo
 
 import { useDevProfile, PhoneLink } from "./DevProfileProvider";
 import { formatResponseTime } from "@/lib/dev/dashboardFormat";
+import { devJson } from "@/lib/dev/client";
+
+type WhatsAppConnectionKind = "support" | "blast";
+
+function WhatsAppConnectionCard({
+    kind,
+    connection,
+    action,
+    onAction,
+}: {
+    kind: WhatsAppConnectionKind;
+    connection: Connection | null;
+    action: string;
+    onAction: (nextAction: string, extra?: Record<string, unknown>) => Promise<void>;
+}) {
+    const isBlast = kind === "blast";
+    const currentStatus = statusPresentation(connection);
+    const showQrCode =
+        connection?.desired_state === "connected" &&
+        connection.status === "SCAN_QR_CODE";
+    const actionPending = action.endsWith(":" + kind);
+
+    return (
+        <Card>
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-50 text-xl text-green-600">
+                        <FontAwesomeIcon icon={faWhatsapp} />
+                    </div>
+                    <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h2 className="text-lg font-semibold text-gray-900">
+                                {isBlast ? "Blast (remetente)" : "Suporte"}
+                            </h2>
+                            <span className={"rounded-full px-2.5 py-1 text-xs font-medium " + currentStatus.className}>
+                                {currentStatus.label}
+                            </span>
+                        </div>
+                        <p className="mt-1 text-sm text-gray-500">
+                            Sessão: {connection?.session_name || (isBlast ? "imenu-blast" : "imenu-support")}
+                        </p>
+                        {connection?.phone && (
+                            <p className="mt-1 text-sm font-medium text-gray-800">
+                                {connection.push_name || (isBlast ? "Blast iMenu" : "Suporte iMenu")} · {formatPhone(connection.phone)}
+                            </p>
+                        )}
+                        {connection?.last_error && (
+                            <p className="mt-2 text-sm text-red-600">{connection.last_error}</p>
+                        )}
+                    </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                    {!connection || connection.desired_state === "disconnected" ? (
+                        <Button
+                            onClick={() => void onAction("connect", { connection: kind })}
+                            loading={action === "connect:" + kind}
+                            disabled={actionPending}
+                        >
+                            <FontAwesomeIcon icon={faQrcode} className="mr-2" />
+                            Conectar WhatsApp
+                        </Button>
+                    ) : (
+                        <>
+                            {connection.status !== "WORKING" && (
+                                <>
+                                    <Button
+                                        onClick={() => void onAction("reconnect", { connection: kind })}
+                                        loading={action === "reconnect:" + kind}
+                                        disabled={actionPending}
+                                    >
+                                        <FontAwesomeIcon icon={faRotate} className="mr-2" />
+                                        Reconectar
+                                    </Button>
+                                    <Button
+                                        variant="secondary"
+                                        onClick={() => void onAction("refresh_qr", { connection: kind })}
+                                        loading={action === "refresh_qr:" + kind}
+                                        disabled={actionPending}
+                                    >
+                                        Novo QR
+                                    </Button>
+                                </>
+                            )}
+                            <Button
+                                variant="secondary"
+                                onClick={() => void onAction("disconnect", { connection: kind })}
+                                loading={action === "disconnect:" + kind}
+                                disabled={actionPending}
+                            >
+                                <FontAwesomeIcon icon={faPowerOff} className="mr-2" />
+                                Desconectar
+                            </Button>
+                        </>
+                    )}
+                </div>
+            </div>
+
+            <div className="mt-6 flex items-center justify-between gap-4 rounded-xl border border-gray-200 p-4">
+                <div>
+                    <p className="font-medium text-gray-900">Respostas por IA</p>
+                    <p className="text-sm text-gray-500">
+                        {isBlast
+                            ? "Responde automaticamente pessoas que receberam disparos por este número."
+                            : "Notificações automáticas continuam indo direto pelo WAHA."}
+                    </p>
+                </div>
+                {isBlast ? (
+                    <Switch
+                        checked={connection?.bot_enabled ?? true}
+                        disabled={action === "set_bot_enabled:blast"}
+                        aria-label="Ativar respostas por IA no Blast (remetente)"
+                        onClick={() => void onAction("set_bot_enabled", {
+                            connection: kind,
+                            enabled: !(connection?.bot_enabled ?? true),
+                        })}
+                    />
+                ) : (
+                    <Button
+                        variant={connection?.bot_enabled ? "secondary" : "primary"}
+                        loading={action === "set_bot_enabled:support"}
+                        onClick={() => void onAction("set_bot_enabled", {
+                            connection: kind,
+                            enabled: !connection?.bot_enabled,
+                        })}
+                    >
+                        <FontAwesomeIcon
+                            icon={connection?.bot_enabled ? faCircleCheck : faRobot}
+                            className="mr-2"
+                        />
+                        {connection?.bot_enabled ? "IA ativa" : "Ativar IA"}
+                    </Button>
+                )}
+            </div>
+
+            {showQrCode && (
+                <div className="mt-6 grid gap-5 rounded-xl border border-blue-100 bg-blue-50/40 p-5 sm:grid-cols-[220px_1fr] sm:items-center">
+                    <div className="flex min-h-[210px] items-center justify-center rounded-xl border border-gray-200 bg-white p-3">
+                        {connection?.qr_code_data ? (
+                            <img
+                                src={connection.qr_code_data}
+                                alt={isBlast ? "QR Code do WhatsApp Blast" : "QR Code do WhatsApp de suporte"}
+                                className="h-48 w-48"
+                            />
+                        ) : (
+                            <p className="text-sm text-gray-500">Preparando QR…</p>
+                        )}
+                    </div>
+                    <div>
+                        <h3 className="font-semibold text-gray-900">
+                            {isBlast ? "Escaneie com o número secundário" : "Escaneie com o número do suporte iMenu"}
+                        </h3>
+                        <p className="mt-2 text-sm text-gray-600">
+                            WhatsApp → Aparelhos conectados → Conectar um aparelho.
+                        </p>
+                    </div>
+                </div>
+            )}
+        </Card>
+    );
+}
 
 const ALLOWED_DEV_EMAIL = "joaovralmeida@hotmail.com";
 export default function SupportSection({ section = "support" }: { section?: "support" | "blast" | "legacy" }) {
@@ -51,6 +212,11 @@ export default function SupportSection({ section = "support" }: { section?: "sup
         useState<AccessState>("checking");
     const [supportPage, setSupportPage] = useState(0);
     const [selectedConversation,setSelectedConversation] = useState<Conversation|null>(null);
+    const [humanReply, setHumanReply] = useState("");
+    const [humanSending, setHumanSending] = useState(false);
+    const [humanError, setHumanError] = useState("");
+    const [humanRequestId, setHumanRequestId] = useState<string | null>(null);
+    const [chatRevision, setChatRevision] = useState(0);
     const [handoffPage, setHandoffPage] = useState(0);
     const [knowledgePage, setKnowledgePage] = useState(0);
     const [data, setData] = useState<DashboardData | null>(null);
@@ -277,6 +443,42 @@ export default function SupportSection({ section = "support" }: { section?: "sup
             );
         } finally {
             setAction("");
+        }
+    };
+
+    const openHumanConversation = (conversation: Conversation) => {
+        setSelectedConversation(conversation);
+        setHumanReply("");
+        setHumanError("");
+        setHumanRequestId(null);
+    };
+
+    const sendHumanReply = async () => {
+        if (!selectedConversation || !humanReply.trim() || humanSending) return;
+        const requestId = humanRequestId || window.crypto.randomUUID();
+        setHumanRequestId(requestId);
+        setHumanError("");
+        setHumanSending(true);
+        try {
+            await devJson("/api/dev/support/drafts", {
+                method: "POST",
+                body: JSON.stringify({
+                    id: selectedConversation.id,
+                    action: "send_human_message",
+                    text: humanReply.trim(),
+                    requestId,
+                }),
+            });
+            setHumanReply("");
+            setHumanRequestId(null);
+            setChatRevision(value => value + 1);
+            void loadDashboard().catch(caught => {
+                setError(caught instanceof Error ? caught.message : "Não foi possível atualizar a lista.");
+            });
+        } catch (caught) {
+            setHumanError(caught instanceof Error ? caught.message : "Não foi possível enviar a mensagem.");
+        } finally {
+            setHumanSending(false);
         }
     };
 
@@ -558,18 +760,36 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                 <section className={`${styles.tableSection} ${styles.supportTable} ${styles.supportHandoffs}`}>
                     <h2>Atendimento humano</h2>
                     <DataTable rows={data?.handedOff || []} rowKey={conversation => conversation.id} emptyMessage="Nenhuma conversa em atendimento humano." columns={[
-                        { key: "restaurant", label: "Restaurante", render: conversation => <div className="flex min-w-0 items-center gap-2">{conversation.restaurant_id ? <button type="button" className={styles.profileLink} onClick={() => openProfile({id:conversation.restaurant_id!,name:conversation.restaurant_name || "Restaurante"})}>{conversation.restaurant_name || "Restaurante"}</button> : <span>Restaurante não identificado</span>}{conversation.plus && <Badge variant="brand" className="shrink-0 whitespace-nowrap">iMenu Plus</Badge>}</div> },
+                        { key: "restaurant", label: "Restaurante", render: conversation => <div className="flex min-w-0 items-center gap-2">{conversation.restaurant_id ? <button type="button" className={`${styles.profileLink} underline decoration-gray-400 hover:text-brand`} title="Abrir perfil do restaurante" onClick={() => openProfile({id:conversation.restaurant_id!,name:conversation.restaurant_name || "Restaurante"})}>{conversation.restaurant_name || "Restaurante"}</button> : <span>Restaurante não identificado</span>}{conversation.plus && <Badge variant="brand" className="shrink-0 whitespace-nowrap">iMenu Plus</Badge>}</div> },
                         { key: "attended", label: "Situação", render: conversation => <Badge variant={conversation.attended ? "success" : "danger"}>{conversation.attended ? "Atendido" : "Aguardando"}</Badge> },
                         { key: "owner", label: "Celular dono", render: conversation => <PhoneLink phone={conversation.owner_phone} /> },
                         { key: "store", label: "Celular restaurante", render: conversation => <PhoneLink phone={conversation.store_phone} /> },
                         {key:"context",label:"Última mensagem",render:conversation=><p className="truncate" title={conversation.last_message || undefined}>{conversation.last_message || "—"}</p>},
-                        { key: "actions", label: "", render: conversation => <div className="flex justify-end gap-1"><button type="button" title="Reativar IA" aria-label="Reativar IA" disabled={action === "set_conversation_mode"} className={styles.supportIcon} onClick={() => void runAction("set_conversation_mode", { id: conversation.id, mode: "ai" })}><Bot size={16} aria-hidden="true" /></button><button type="button" title="Ver mensagens" aria-label="Ver mensagens" className={styles.supportIcon} onClick={()=>setSelectedConversation(conversation)}><MessageCircle size={16} aria-hidden="true"/></button><button type="button" title="Abrir WhatsApp" aria-label="Abrir WhatsApp" className={styles.supportIcon} disabled={!getWhatsappUrl(conversation.phone)} onClick={() => { const url = getWhatsappUrl(conversation.phone); if (url) window.open(url, "_blank", "noopener,noreferrer"); }}><SquareArrowOutUpRight size={16} aria-hidden="true" /></button></div> },
+                        { key: "actions", label: "", render: conversation => <div className="flex justify-end gap-1"><button type="button" title="Reativar IA" aria-label="Reativar IA" disabled={action === "set_conversation_mode"} className={styles.supportIcon} onClick={() => void runAction("set_conversation_mode", { id: conversation.id, mode: "ai" })}><Bot size={16} aria-hidden="true" /></button><button type="button" title="Ver mensagens" aria-label="Ver mensagens" className={styles.supportIcon} onClick={()=>openHumanConversation(conversation)}><MessageCircle size={16} aria-hidden="true"/></button><button type="button" title="Abrir WhatsApp" aria-label="Abrir WhatsApp" className={styles.supportIcon} disabled={!getWhatsappUrl(conversation.phone)} onClick={() => { const url = getWhatsappUrl(conversation.phone); if (url) window.open(url, "_blank", "noopener,noreferrer"); }}><SquareArrowOutUpRight size={16} aria-hidden="true" /></button></div> },
                     ]} />
                     {(data?.stats.human_conversations || 0) > 25 && <div className={styles.tableFooter}><Pagination page={handoffPage} pageCount={Math.ceil((data?.stats.human_conversations || 0) / 25)} onChange={setHandoffPage} /></div>}
                 </section>
 
-                <DevDialog title="Conversa" description={selectedConversation?.restaurant_name || selectedConversation?.customer_name || undefined} open={Boolean(selectedConversation)} onClose={()=>setSelectedConversation(null)}>
-                    {selectedConversation && <SupportConversation url={"/api/dev/support/drafts?conversation_id="+selectedConversation.id}/>}
+                <DevDialog title="Conversa" description={selectedConversation?.restaurant_name || selectedConversation?.customer_name || undefined} open={Boolean(selectedConversation)} onClose={() => { if (!humanSending) setSelectedConversation(null); }}>
+                    {selectedConversation && <div className="space-y-5 p-5 sm:p-6">
+                        <SupportConversation key={selectedConversation.id + ":" + chatRevision} url={"/api/dev/support/drafts?conversation_id=" + selectedConversation.id} />
+                        <div>
+                            <label htmlFor="support-human-reply" className="mb-2 block text-sm font-medium">Resposta</label>
+                            <Textarea
+                                id="support-human-reply"
+                                value={humanReply}
+                                maxLength={8000}
+                                rows={4}
+                                disabled={humanSending}
+                                placeholder="Digite sua resposta..."
+                                className="w-full resize-y rounded-lg border border-[#e2e5e9] bg-white p-3 text-sm focus:border-[#d93d00] focus:outline-none"
+                                onChange={event => { setHumanReply(event.target.value); setHumanRequestId(null); }}
+                            />
+                        </div>
+                        {humanError && <p role="alert" className="text-sm text-red-700">{humanError}</p>}
+                        <Button leftIcon={<Send size={16} aria-hidden="true" />} loading={humanSending} disabled={!humanReply.trim() || humanSending}
+                            onClick={() => void sendHumanReply()}>Enviar mensagem</Button>
+                    </div>}
                 </DevDialog>
 
                {section === "support" && <SupportDraftsSection/>}
@@ -1143,6 +1363,15 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                     <Pagination page={supportPage} pageCount={Math.ceil((data?.stats.total_conversations || 0) / 25)} onChange={setSupportPage} />
                 </Card>
                 </>}
+
+                {section !== "legacy" && (
+                    <WhatsAppConnectionCard
+                        kind={section === "blast" ? "blast" : "support"}
+                        connection={section === "blast" ? blastConnection : connection}
+                        action={action}
+                        onAction={runAction}
+                    />
+                )}
         </DevPage>
     );
 }
