@@ -1,10 +1,12 @@
 import { query } from "@/lib/database/sql";
 import { checkWahaPhoneExists, sendWahaText } from "@/lib/services/wahaClient";
-import { notifyPayoutProblem, payoutNotice } from "./payoutNotifications";
+import { alarmUnnotifiedPayoutFailures, notifyPayoutProblem, payoutNotice } from "./payoutNotifications";
+import { sendNtfyNotification } from "@/lib/services/ntfy";
 
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn() }));
 jest.mock("@/lib/services/supportBlast", () => ({ normalizeBlastPhone: (phone: string) => phone ? "5511999999999" : null }));
 jest.mock("@/lib/services/wahaClient", () => ({ checkWahaPhoneExists: jest.fn(), sendWahaText: jest.fn() }));
+jest.mock("@/lib/services/ntfy", () => ({ sendNtfyNotification: jest.fn() }));
 
 beforeEach(() => {
     jest.clearAllMocks();
@@ -47,4 +49,38 @@ test("messages require the owner to edit Loja for safety and contain no actual P
         expect(payoutNotice(missing)).toContain("Por segurança");
         expect(payoutNotice(missing)).toContain("somente você");
     }
+});
+
+test('does not alarm when there are no failed payouts lacking a confirmed notice', async () => {
+    (query as jest.Mock).mockResolvedValueOnce({ rows: [] });
+    await alarmUnnotifiedPayoutFailures();
+    expect(sendNtfyNotification).not.toHaveBeenCalled();
+});
+
+test('alarms once per failed batch when the automatic restaurant notice was not confirmed', async () => {
+    (query as jest.Mock).mockResolvedValueOnce({ rows: [
+        { id: 'p1', automation_run_id: 'run1', restaurant_name: 'CN Burger', amount_cents: 198, failure_reason: 'Falha Asaas', notice_status: null },
+        { id: 'p2', automation_run_id: 'run1', restaurant_name: 'Restaurante 2', amount_cents: 500, failure_reason: null, notice_status: 'failed' },
+    ] });
+    await alarmUnnotifiedPayoutFailures();
+    expect(sendNtfyNotification).toHaveBeenCalledTimes(1);
+    expect(sendNtfyNotification).toHaveBeenCalledWith(expect.objectContaining({
+        trigger: 'alarm',
+        incidentKey: 'payout:unnotified:run1',
+        message: expect.stringContaining('CN Burger: R$ 1.98'),
+    }));
+    const sql = (query as jest.Mock).mock.calls[0][0] as string;
+    expect(sql).toContain("p.status IN ('failed','cancelled')");
+    expect(sql).toContain("notice.status IS DISTINCT FROM 'sent'");
+    expect(sql).toContain("notice.status IS DISTINCT FROM 'sending'");
+    expect((query as jest.Mock).mock.calls[0][1]).toEqual([payoutNotice(false)]);
+});
+
+test('does not block reconciliation when phone alarm delivery fails', async () => {
+    (query as jest.Mock).mockResolvedValueOnce({ rows: [
+        { id: 'p3', automation_run_id: null, restaurant_name: 'R', amount_cents: 99, failure_reason: null, notice_status: 'failed' },
+    ] });
+    (sendNtfyNotification as jest.Mock).mockRejectedValueOnce(new Error('ntfy down'));
+    await expect(alarmUnnotifiedPayoutFailures()).resolves.toBeUndefined();
+    expect(sendNtfyNotification).toHaveBeenCalledWith(expect.objectContaining({ incidentKey: 'payout:unnotified:p3' }));
 });

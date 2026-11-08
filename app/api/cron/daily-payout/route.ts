@@ -1,4 +1,5 @@
 import { sendNtfyNotification } from "@/lib/services/ntfy";
+import { alarmUnnotifiedPayoutFailures, notifyPayoutProblem } from "@/lib/services/payoutNotifications";
 import { NextResponse } from "next/server";
 
 import { query } from "@/lib/database/sql";
@@ -71,7 +72,7 @@ async function notifyPayoutAlarm({
     status: string;
     step: AutomationStep;
     message: string;
-    trigger?: "notification" | "alarm" | "none";
+    trigger?: "notification" | "none";
 }): Promise<void> {
     const topic = process.env.NTFY_TOPIC?.trim();
     if (!topic) {
@@ -88,8 +89,8 @@ async function notifyPayoutAlarm({
         await sendNtfyNotification({
             source: "cron/daily-payout",
             operation: step,
-            trigger: trigger ?? (status === "blocked" ? "notification" : "alarm"),
-            title: (trigger === "none" || status === "blocked") ? "iMenu: repasse automático bloqueado" : "ALARM TRIGGER - iMenu payout automático",
+            trigger: trigger ?? "notification",
+            title: status === "blocked" ? "iMenu: repasse automático bloqueado" : "iMenu: repasse automático não concluído",
             message: [
                 "Pagamento automático não foi concluído.",
                 `Data: ${runDate}`,
@@ -211,6 +212,8 @@ export async function GET(request: Request) {
                 failedPendingPayouts.length - 10
             );
 
+            for (const payout of failedPendingPayouts) await notifyPayoutProblem(payout.restaurant_id, false);
+            await alarmUnnotifiedPayoutFailures();
             await notifyPayoutAlarm({
                 runId,
                 runDate,

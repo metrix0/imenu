@@ -1,5 +1,4 @@
-import { notifyPayoutProblem } from "@/lib/services/payoutNotifications";
-import { sendNtfyNotification } from "@/lib/services/ntfy";
+import { alarmUnnotifiedPayoutFailures, notifyPayoutProblem } from "@/lib/services/payoutNotifications";
 import { getMercadoPagoPixPayment } from "@/lib/payments/mercadoPagoPix";
 import * as https from "node:https";
 
@@ -442,38 +441,6 @@ async function syncAutomationRuns(): Promise<void> {
     );
 }
 
-async function notifyReconciledUnsuccessfulRun(run: {
-    id: string;
-    run_date: string;
-    status: "partial" | "failed";
-    restaurant_count: number;
-    paid_count: number;
-    failed_count: number;
-}): Promise<void> {
-    const topic = process.env.NTFY_TOPIC?.trim();
-    if (!topic) return;
-
-    try {
-        await sendNtfyNotification({
-            source: "payouts",
-            title: "ALARM TRIGGER - iMenu payout automático",
-            message: [
-                "Pagamento automático não foi concluído.",
-                `Data: ${run.run_date}`,
-                `Status: ${run.status}`,
-                "Etapa: payout",
-                `Motivo: Execução reconciliada como ${run.status}. Pagos: ${run.paid_count}/${run.restaurant_count}; falhas: ${run.failed_count}.`,
-                `Run: ${run.id}`,
-            ].join("\n"),
-        });
-    } catch (error) {
-        console.error("[DAILY_PAYOUT] Falha ao enviar alerta ntfy de repasse parcial", {
-            runId: run.id,
-            error: error instanceof Error ? error.message : String(error),
-        });
-    }
-}
-
 export type FailedRecentPendingPayout = {
     id: string;
     restaurant_id: string;
@@ -508,9 +475,6 @@ export async function failRecentPendingPayouts(): Promise<
 export async function reconcileProcessingPayouts(): Promise<void> {
     if (!getAsaasApiKey()) return;
 
-    const processingRuns = await query<{ id: string }>(
-        `SELECT id FROM public.payout_automation_runs WHERE status = 'processing'`
-    );
     const { rows } = await query<{ id: string; created_at: string | Date }>(
         `
         SELECT id, created_at
@@ -554,29 +518,7 @@ export async function reconcileProcessingPayouts(): Promise<void> {
 
     await syncAutomationRuns();
 
-    if (processingRuns.rows.length > 0) {
-        const runIds = processingRuns.rows.map((row) => row.id);
-        const unsuccessfulRuns = await query<{
-            id: string;
-            run_date: string;
-            status: "partial" | "failed";
-            restaurant_count: number;
-            paid_count: number;
-            failed_count: number;
-        }>(
-            `
-            SELECT id, run_date, status, restaurant_count, paid_count, failed_count
-            FROM public.payout_automation_runs
-            WHERE id = ANY($1::uuid[])
-              AND status IN ('partial', 'failed')
-            `,
-            [runIds]
-        );
-
-        for (const run of unsuccessfulRuns.rows) {
-            await notifyReconciledUnsuccessfulRun(run);
-        }
-    }
+    await alarmUnnotifiedPayoutFailures();
 }
 
 export async function createPayoutPlan(input: {
@@ -917,6 +859,7 @@ export async function sendPayouts(input: {
     const failedCount = results.filter((item) => item.status === "failed").length;
 
     if (input.automationRunId) await syncAutomationRuns();
+    if (failedCount > 0) await alarmUnnotifiedPayoutFailures();
 
     return {
         cutoffAt: input.cutoffAt.toISOString(),
@@ -1099,6 +1042,7 @@ export async function retryFailedPayout(
     });
 
     if (payout.automation_run_id) await syncAutomationRuns();
+    if (result.status === "failed") await alarmUnnotifiedPayoutFailures();
 
     return {
         cutoffAt: new Date().toISOString(),

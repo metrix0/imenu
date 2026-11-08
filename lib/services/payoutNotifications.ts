@@ -1,5 +1,6 @@
 import { query } from "@/lib/database/sql";
 import { recordDevAlert } from "@/lib/dev/health";
+import { sendNtfyNotification } from "@/lib/services/ntfy";
 import { normalizeBlastPhone } from "@/lib/services/supportBlast";
 import { checkWahaPhoneExists, sendWahaText } from "@/lib/services/wahaClient";
 
@@ -44,5 +45,60 @@ export async function notifyPayoutProblem(restaurantId: string, missingKey: bool
     } catch {
         // Sending a reminder must never alter the outcome or retry behavior of a payout.
         console.warn("[PAYOUT_NOTICE] Não foi possível registrar/enviar aviso.");
+    }
+}
+
+// Alarm only when a payout failed and its failure notice has not been confirmed as sent.
+// A stable incident key prevents repeated alarms from the periodic reconciliation job.
+export async function alarmUnnotifiedPayoutFailures(): Promise<void> {
+    type UnnotifiedFailure = {
+        id: string; automation_run_id: string | null; restaurant_name: string;
+        amount_cents: number; failure_reason: string | null; notice_status: string | null;
+    };
+    try {
+        const { rows } = await query<UnnotifiedFailure>(`
+            SELECT p.id, p.automation_run_id, COALESCE(r.name, 'Restaurante') AS restaurant_name,
+                p.amount_cents, p.failure_reason, notice.status AS notice_status
+            FROM public.payouts p
+            JOIN public.restaurants r ON r.id = p.restaurant_id
+            LEFT JOIN public.whatsapp_outbound_messages notice ON notice.dedupe_key =
+                'support:payout:'||to_char(p.created_at AT TIME ZONE 'America/Sao_Paulo','YYYY-MM-DD')||':'||p.restaurant_id::text
+            WHERE p.status IN ('failed','cancelled')
+              AND p.created_at >= NOW() - INTERVAL '3 days'
+              AND (notice.status IS DISTINCT FROM 'sent' OR notice.context->>'message' IS DISTINCT FROM $1)
+              AND (notice.status IS DISTINCT FROM 'sending' OR notice.updated_at < NOW() - INTERVAL '2 minutes')
+            ORDER BY p.created_at DESC
+            LIMIT 100
+        `, [payoutNotice(false)]);
+        const grouped = new Map<string, UnnotifiedFailure[]>();
+        for (const row of rows) {
+            const key = row.automation_run_id || row.id;
+            grouped.set(key, [...(grouped.get(key) || []), row]);
+        }
+        for (const [key, failures] of grouped) {
+            const detail = failures.slice(0, 10).map(row =>
+                row.restaurant_name + ': R$ ' + (Number(row.amount_cents) / 100).toFixed(2) +
+                ' · aviso ' + (row.notice_status || 'não enviado') +
+                (row.failure_reason ? ' · ' + row.failure_reason : '')
+            ).join('\n');
+            try {
+                await sendNtfyNotification({
+                    source: 'payouts',
+                    operation: 'Aviso de falha no repasse',
+                    title: 'ALARM TRIGGER - iMenu repasse sem aviso',
+                    trigger: 'alarm',
+                    incidentKey: 'payout:unnotified:' + key,
+                    message: failures.length + ' repasse(s) com falha sem aviso automático confirmado.\n' +
+                        detail + (failures.length > 10 ? '\n+' + (failures.length - 10) + ' outros' : '') +
+                        '\nExecução/repasse: ' + key,
+                });
+            } catch (error) {
+                console.error('[PAYOUT_NOTICE] Falha ao enviar alarme de aviso ausente:',
+                    error instanceof Error ? error.message : String(error));
+            }
+        }
+    } catch (error) {
+        console.error('[PAYOUT_NOTICE] Não foi possível verificar avisos de repasses com falha:',
+            error instanceof Error ? error.message : String(error));
     }
 }
