@@ -65,11 +65,12 @@ export async function alarmUnnotifiedPayoutFailures(): Promise<void> {
                 'support:payout:'||to_char(p.created_at AT TIME ZONE 'America/Sao_Paulo','YYYY-MM-DD')||':'||p.restaurant_id::text
             WHERE p.status IN ('failed','cancelled')
               AND p.created_at >= NOW() - INTERVAL '3 days'
-              AND (notice.status IS DISTINCT FROM 'sent' OR notice.context->>'message' IS DISTINCT FROM $1)
+              AND (notice.status IS DISTINCT FROM 'sent' OR notice.context->>'message' IS DISTINCT FROM
+                   CASE WHEN p.failure_reason = 'Chave PIX não cadastrada.' THEN $2 ELSE $1 END)
               AND (notice.status IS DISTINCT FROM 'sending' OR notice.updated_at < NOW() - INTERVAL '2 minutes')
             ORDER BY p.created_at DESC
             LIMIT 100
-        `, [payoutNotice(false)]);
+        `, [payoutNotice(false), payoutNotice(true)]);
         const grouped = new Map<string, UnnotifiedFailure[]>();
         for (const row of rows) {
             const key = row.automation_run_id || row.id;

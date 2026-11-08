@@ -73,7 +73,8 @@ test('alarms once per failed batch when the automatic restaurant notice was not 
     expect(sql).toContain("p.status IN ('failed','cancelled')");
     expect(sql).toContain("notice.status IS DISTINCT FROM 'sent'");
     expect(sql).toContain("notice.status IS DISTINCT FROM 'sending'");
-    expect((query as jest.Mock).mock.calls[0][1]).toEqual([payoutNotice(false)]);
+    expect(sql).toContain("CASE WHEN p.failure_reason = 'Chave PIX não cadastrada.' THEN $2 ELSE $1 END");
+    expect((query as jest.Mock).mock.calls[0][1]).toEqual([payoutNotice(false), payoutNotice(true)]);
 });
 
 test('does not block reconciliation when phone alarm delivery fails', async () => {
