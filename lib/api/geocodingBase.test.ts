@@ -47,6 +47,18 @@ describe.each(cases)("reported address: $street", c => {
     });
 });
 
+it("uses public ArcGIS without a token even when an API key is set", async () => {
+    process.env.NEXT_PUBLIC_ARCGIS_API_KEY = "invalid-key";
+    arcgisOnly([candidate(cases[0])]);
+    expect(await fetchCoordinates(cases[0].input)).toEqual({ latitude: cases[0].lat, longitude: cases[0].lon });
+    const urls = (global.fetch as jest.Mock).mock.calls
+        .map(([url]) => new URL(String(url)))
+        .filter((url: URL) => url.pathname.endsWith("/findAddressCandidates"));
+    expect(urls).toHaveLength(1);
+    expect(urls[0].hostname).toBe("geocode.arcgis.com");
+    expect(urls[0].searchParams.has("token")).toBe(false);
+});
+
 it("tries another exact provider before accepting an ArcGIS street approximation", async () => {
     process.env.NEXT_PUBLIC_TOMTOM_API_KEY = "test";
     const c = cases[0];

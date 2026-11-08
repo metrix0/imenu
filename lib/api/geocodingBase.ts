@@ -69,7 +69,6 @@ export async function fetchAddressByCEP(cep: string): Promise<GeoAddress | null>
  */
 export async function fetchCoordinates(fullAddress: string): Promise<{ latitude: number; longitude: number }> {
     const TOMTOM_API_KEY = process.env.NEXT_PUBLIC_TOMTOM_API_KEY;
-    const ARCGIS_API_KEY = process.env.NEXT_PUBLIC_ARCGIS_API_KEY;
 
     const parts = fullAddress.split(",").map((part) => part.trim());
     const cepIndex = parts.findIndex((part) => /^\d{5}-?\d{3}$/.test(part));
@@ -166,8 +165,7 @@ export async function fetchCoordinates(fullAddress: string): Promise<{ latitude:
                     maxLocations: "5",
                     forStorage: "false",
                 });
-                if (ARCGIS_API_KEY) params.set("token", ARCGIS_API_KEY);
-                const host = ARCGIS_API_KEY ? "https://geocode-api.arcgis.com" : "https://geocode.arcgis.com";
+                const host = "https://geocode.arcgis.com";
                 const json = await requestJson(
                     host + "/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?" + params.toString()
                 );
