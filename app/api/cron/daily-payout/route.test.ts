@@ -1,6 +1,7 @@
 import { GET } from "./route";
 import { query } from "@/lib/database/sql";
 import { sendNtfyNotification } from "@/lib/services/ntfy";
+import { alarmUnnotifiedPayoutFailures } from "@/lib/services/payoutNotifications";
 import { createPayoutPlan, getAsaasBalance, sendPayouts } from "@/lib/services/payouts";
 import { transferMercadoPagoToAsaas } from "@/lib/services/mercadoPagoPayout";
 
@@ -78,7 +79,7 @@ afterAll(() => {
     delete process.env.NTFY_TOPIC;
 });
 
-test("records missing PIX as a failed, retryable payout and raises an alarm even when none can be sent", async () => {
+test("records missing PIX as a failed, retryable payout and checks unnotified failures even when none can be sent", async () => {
     (createPayoutPlan as jest.Mock).mockResolvedValue({
         payables: [missing], sendable: [], validationErrors: [],
         grossCents: 0, payzuFeeCents: 0, discountCents: 0, totalNetCents: 0,
@@ -95,8 +96,9 @@ test("records missing PIX as a failed, retryable payout and raises an alarm even
     expect(record?.[0]).toContain("ON CONFLICT (automation_run_id, restaurant_id)");
     expect(record?.[0]).toContain("'failed'");
     expect(record?.[1]).toEqual(["missing", 8979, 9070, 54, 37, cutoff, 1, "run-1", "Chave PIX não cadastrada."]);
+    expect(alarmUnnotifiedPayoutFailures).toHaveBeenCalledTimes(1);
     expect(sendNtfyNotification).toHaveBeenCalledWith(expect.objectContaining({
-        trigger: "alarm", title: "ALARM TRIGGER - iMenu payout automático",
+        trigger: "notification", title: "iMenu: repasse automático não concluído",
     }));
     expect(sendPayouts).not.toHaveBeenCalled();
     expect(transferMercadoPagoToAsaas).not.toHaveBeenCalled();
@@ -122,7 +124,8 @@ test("counts missing PIX alongside successful transfers without skipping or fund
     expect(sendPayouts).toHaveBeenCalledWith(expect.objectContaining({
         automationRunId: "run-1", expectedTotalCents: 9900,
     }));
+    expect(alarmUnnotifiedPayoutFailures).toHaveBeenCalledTimes(1);
     expect(sendNtfyNotification).toHaveBeenCalledWith(expect.objectContaining({
-        trigger: "alarm", title: "ALARM TRIGGER - iMenu payout automático",
+        trigger: "notification", title: "iMenu: repasse automático não concluído",
     }));
 });

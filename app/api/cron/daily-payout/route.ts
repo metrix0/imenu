@@ -303,12 +303,13 @@ export async function GET(request: Request) {
                 `,
                 [runId, message, hasMissingPixFailures ? "failed" : "blocked", missingPixFailedCount]
             );
+            if (hasMissingPixFailures) await alarmUnnotifiedPayoutFailures();
             await notifyPayoutAlarm({
                 runId,
                 runDate,
                 status: hasMissingPixFailures ? "failed" : "blocked",
                 step: currentStep,
-                trigger: hasMissingPixFailures ? "alarm" : "none",
+                trigger: hasMissingPixFailures ? "notification" : "none",
                 message,
             });
             return NextResponse.json({ success: false, blocked: !hasMissingPixFailures, failedCount: missingPixFailedCount, error: message });
@@ -489,6 +490,7 @@ export async function GET(request: Request) {
             ]
         );
 
+        if (missingPixFailedCount > 0) await alarmUnnotifiedPayoutFailures();
         if (status !== "completed" && status !== "processing") {
             const message = `Execução terminou com status ${status}. Pagos: ${payoutResult.paidCount}; em processamento: ${payoutResult.processingCount}; falhas: ${failedCount} (sem PIX: ${missingPixFailedCount}); restaurantes ignorados: ${skippedRestaurantCount}; pedidos excluídos: ${skippedOrderCount}. ${validationSummary}`;
             await notifyPayoutAlarm({
