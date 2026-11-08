@@ -23,6 +23,8 @@ interface ModalProps {
     bodyClassName?: string;
     showCloseButton?: boolean;
     fixedHeight?: boolean;
+    /** Retain the hidden portal DOM for fast reopening. Default behavior is unchanged. */
+    keepMounted?: boolean;
     /** Required per usage. Do not add a shared/default modal height. */
     height: ModalHeight;
 }
@@ -35,6 +37,7 @@ export default function Modal({
     bodyClassName = "",
     showCloseButton = false,
     fixedHeight = false,
+    keepMounted = false,
     height,
 }: ModalProps) {
     const panel = usePanelAppearance();
@@ -99,14 +102,15 @@ export default function Modal({
         }
 
         setActive(false);
+        if (keepMounted) setMounted(true);
 
         const timer = window.setTimeout(() => {
-            setMounted(false);
+            if (!keepMounted) setMounted(false);
             restorePageScroll();
         }, 200);
 
         return () => window.clearTimeout(timer);
-    }, [open]);
+    }, [open, keepMounted]);
 
     useEffect(() => {
         if (!open || !mounted) return;
@@ -145,7 +149,7 @@ export default function Modal({
     if (!mounted) return null;
 
     return createPortal(
-        <div className={`${panel ? "panel-essencial panel-modal" : ""} fixed inset-0 z-50 isolate flex min-h-[100dvh] w-screen items-center justify-center overflow-y-auto p-3 sm:p-6 ${panel ? "" : "2xl:p-8"}`}>
+        <div inert={keepMounted && !open} aria-hidden={keepMounted && !open} className={`${keepMounted && !open ? "pointer-events-none" : ""} ${panel ? "panel-essencial panel-modal" : ""} fixed inset-0 z-50 isolate flex min-h-[100dvh] w-screen items-center justify-center overflow-y-auto p-3 sm:p-6 ${panel ? "" : "2xl:p-8"}`}>
             {/* Backdrop blur disabled: causes major scroll FPS drops in Chrome without GPU acceleration. */}
             <button
                 type="button"

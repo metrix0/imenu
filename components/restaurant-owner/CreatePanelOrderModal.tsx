@@ -1289,6 +1289,8 @@ export default function CreatePanelOrderModal({
     return (
         <HybridModal
             open={isOpen}
+            keepMounted
+            mobileBackdropDuration={250}
             onClose={handleModalClose}
             height={0.96}
             xPadding={false}
