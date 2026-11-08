@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import styles from "./dashboard.module.css";
 import DevDialog from "./DevDialog";
 import PagedTable, { type PageData } from "./PagedTable";
@@ -27,6 +27,8 @@ export default function AlertsSection({range, mode = "unread", refresh = 0, onMa
     const [revision, setRevision] = useState(0);
     const [markingId, setMarkingId] = useState<string | null>(null);
     const [markingAll, setMarkingAll] = useState(false);
+    const lastQueryKey = useRef<string | null>(null);
+    const skipNextLoader = useRef(false);
     const startDate = mode === "history" ? range?.startDate || "" : "";
     const endDate = mode === "history" ? range?.endDate || "" : "";
 
@@ -40,8 +42,21 @@ export default function AlertsSection({range, mode = "unread", refresh = 0, onMa
                 body: JSON.stringify({ id: String(alert.id) }),
             });
             setSelected(null);
-            if (data.rows.length === 1 && page > 0) setPage(page - 1);
-            else setRevision(value => value + 1);
+            setData(current => {
+                const total = Math.max(0, current.total - 1);
+                return {
+                    ...current,
+                    rows: current.rows.filter(row => row.id !== alert.id),
+                    total,
+                    pageCount: Math.max(1, Math.ceil(total / 10)),
+                };
+            });
+            if (data.rows.length === 1 && page > 0) {
+                skipNextLoader.current = true;
+                setPage(page - 1);
+            } else {
+                setRevision(value => value + 1);
+            }
             onMarkedRead?.();
         } catch (caught) {
             setError(caught instanceof Error ? caught.message : "Não foi possível marcar o alerta como lido.");
@@ -60,8 +75,13 @@ export default function AlertsSection({range, mode = "unread", refresh = 0, onMa
                 body: JSON.stringify({ all: true }),
             });
             setSelected(null);
-            setPage(0);
-            setRevision(value => value + 1);
+            setData(current => ({ ...current, rows: [], total: 0, page: 0, pageCount: 1 }));
+            if (page > 0) {
+                skipNextLoader.current = true;
+                setPage(0);
+            } else {
+                setRevision(value => value + 1);
+            }
             onMarkedRead?.();
         } catch (caught) {
             setError(caught instanceof Error ? caught.message : "Não foi possível marcar todos os alertas como lidos.");
@@ -71,7 +91,12 @@ export default function AlertsSection({range, mode = "unread", refresh = 0, onMa
     }
 
     useEffect(() => {
-        const controller = new AbortController(); setLoading(true);
+        const queryKey = JSON.stringify([mode, page, startDate, endDate]);
+        const showLoader = lastQueryKey.current !== queryKey && !skipNextLoader.current;
+        lastQueryKey.current = queryKey;
+        skipNextLoader.current = false;
+        const controller = new AbortController();
+        if (showLoader) setLoading(true);
         void devJson<PageData<Alert>>(`/api/dev/health?section=alerts&view=${mode}&page=${page}&startDate=${startDate}&endDate=${endDate}`, { signal: controller.signal })
             .then(result => { setData(result); setError(""); }).catch(e => { if (!controller.signal.aborted) setError(e.message); }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
         return () => controller.abort();
