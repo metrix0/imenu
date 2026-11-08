@@ -251,6 +251,7 @@ async function ntfy(): Promise<ProbeResult> {
 
 const DAILY_PROBE_MS = 24 * 60 * 60 * 1000;
 const DAILY_GEOCODE_OPERATION = "Geocodificação autenticada diária";
+const DAILY_ARCGIS_OPERATION = "Geocodificação pública diária";
 
 // The cron can still run hourly without spending a geocoding request hourly.
 // Legacy metadata/unverified checks are replaced on the first new run.
@@ -261,7 +262,8 @@ async function dailyGeocodeDue(id: "tomtom" | "arcgis"): Promise<boolean> {
             [id]
         );
         const row = previous.rows[0];
-        if (!row || row.operation !== DAILY_GEOCODE_OPERATION) return true;
+        const operation = id === "arcgis" ? DAILY_ARCGIS_OPERATION : DAILY_GEOCODE_OPERATION;
+        if (!row || row.operation !== operation) return true;
         const checkedAt = new Date(row.checked_at).getTime();
         return !Number.isFinite(checkedAt) || Date.now() - checkedAt >= DAILY_PROBE_MS;
     } catch {
@@ -300,16 +302,13 @@ async function tomtom(): Promise<ProbeResult | null> {
 
 async function arcgis(): Promise<ProbeResult | null> {
     if (!(await dailyGeocodeDue("arcgis"))) return null;
-    const key = configured("NEXT_PUBLIC_ARCGIS_API_KEY");
-    const operation = DAILY_GEOCODE_OPERATION;
-    const base = key ? "https://geocode-api.arcgis.com" : "https://geocode.arcgis.com";
-    const url = new URL(base + "/arcgis/rest/services/World/GeocodeServer/findAddressCandidates");
+    const operation = DAILY_ARCGIS_OPERATION;
+    const url = new URL("https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates");
     url.searchParams.set("SingleLine", "Praça da Sé, São Paulo, SP, Brasil");
     url.searchParams.set("sourceCountry", "BRA");
     url.searchParams.set("maxLocations", "1");
     url.searchParams.set("forStorage", "false");
     url.searchParams.set("f", "json");
-    if (key) url.searchParams.set("token", key);
     try {
         const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(8000) });
         if (!response.ok) {
@@ -326,8 +325,7 @@ async function arcgis(): Promise<ProbeResult | null> {
         };
         const ok = Array.isArray(body.candidates) && body.candidates.length > 0;
         return { id: "arcgis", operation, state: ok ? "connected" : "failed", status: response.status,
-            detail: ok ? "Geocodificação OK · 1 consulta diária " +
-                (key ? "com chave." : "pública.") : "Resposta ArcGIS sem resultados." };
+            detail: ok ? "Geocodificação pública OK · 1 consulta diária." : "Resposta ArcGIS sem resultados." };
     } catch {
         return { id: "arcgis", operation, state: "failed", status: null,
             detail: "Geocodificação ArcGIS: falha de rede ou tempo limite." };

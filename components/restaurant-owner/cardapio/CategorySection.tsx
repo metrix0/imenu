@@ -227,6 +227,8 @@ export default function CategorySection({
             category_id: category.id,
             restaurant_id: restaurantId,
             is_available: false,
+            available_for_delivery: originalItem.available_for_delivery !== false,
+            available_for_salao: originalItem.available_for_salao !== false,
             position: items.length
         });
 
@@ -294,6 +296,15 @@ export default function CategorySection({
                         <MenuItemRow
                             item={item}
                             onSave={handleUpdateItem}
+                            onSettingsUpdated={(updatedItem) => {
+                                const nextItems = localItemsRef.current.map(current => current.id === updatedItem.id
+                                    ? { ...current, available_for_delivery: updatedItem.available_for_delivery, available_for_salao: updatedItem.available_for_salao }
+                                    : current);
+                                localItemsRef.current = nextItems;
+                                setLocalItems(nextItems);
+                                const updated = nextItems.find(current => current.id === updatedItem.id);
+                                if (updated) onItemUpdated(updated);
+                            }}
                             onDelete={handleDeleteItem}
                             onOpenDetails={() => onOpenItemDetails(item)}
                             onDuplicate={handleDuplicateItem}

@@ -79,7 +79,7 @@ export default function CartModal({
                                        restaurant,
     catalogItemsByCategory,
     selectedCouponCode, onSelectItem, tableOrder, selectedTableId,
-    selectedTableName, onTableChange, promotionResult, neighborhoodDeliveryRules
+    selectedTableName, onTableChange, promotionResult, neighborhoodDeliveryRules, smallCityMode = false
                                    }: {
     promotionResult?: PromotionResult;
     onClose: () => void;
@@ -94,6 +94,7 @@ export default function CartModal({
     selectedTableName?: string | null;
     onTableChange?: (tableId: string) => void;
     neighborhoodDeliveryRules?: NeighborhoodDeliveryRule[];
+    smallCityMode?: boolean;
 
 }) {
     const { items, changeQty, removeItem, clear } = useCartStore();
@@ -106,6 +107,7 @@ export default function CartModal({
         bairro,
         numero,
         complemento,
+        referencia,
         nome,
         celular,
         pagamento,
@@ -436,6 +438,30 @@ export default function CartModal({
             return;
         }
 
+        if (smallCityMode) {
+            if (!String(st.rua || "").trim() || !String(st.bairro || "").trim() || !String(st.numero || "").trim()) {
+                setDeliveryFeeCents(null);
+                setField("delivery_fee_cents", false);
+                setField("delivery_time_minutes", null);
+                return;
+            }
+            const targetNeighborhood = normalizeNeighborhoodName(st.bairro);
+            const matchedRule = neighborhoodDeliveryRules?.find(rule =>
+                [rule.neighborhood, ...(rule.aliases || [])]
+                    .some(name => normalizeNeighborhoodName(name) === targetNeighborhood)
+            );
+            if (!matchedRule) {
+                setDeliveryFeeCents(null);
+                setField("delivery_fee_cents", null);
+                setField("delivery_time_minutes", null);
+                return;
+            }
+            setDeliveryFeeCents(matchedRule.fee_cents);
+            setField("delivery_fee_cents", String(matchedRule.fee_cents));
+            setField("delivery_time_minutes", String(matchedRule.time_minutes));
+            return;
+        }
+
         if (
             !st.cep ||
             !st.rua ||
@@ -515,9 +541,17 @@ export default function CartModal({
         setContinueBlocked(true)
 
         const cleanCep = value.replace(/\D/g, "");
-        setField("cep", cleanCep);
-
-        if (cleanCep.length !== 8) return;
+        if (smallCityMode) {
+            // Typing or clearing an optional CEP must not erase the manual address.
+            useCheckoutStore.setState({ cep: cleanCep } as any);
+            if (cleanCep.length !== 8) {
+                setContinueBlocked(false);
+                return;
+            }
+        } else {
+            setField("cep", cleanCep);
+            if (cleanCep.length !== 8) return;
+        }
 
         if (cepDebounceTimer) clearTimeout(cepDebounceTimer);
 
@@ -527,7 +561,7 @@ export default function CartModal({
                 const addr = await fetchAddressByCEP(cleanCep);
                 if (!addr) {
                     setCepLocationError(true);
-                    setField("delivery_fee_cents", null);
+                    if (!smallCityMode) setField("delivery_fee_cents", null);
                     return;
                 }
 
@@ -552,7 +586,7 @@ export default function CartModal({
             } catch (error) {
                 console.error("CEP lookup failed:", error);
                 setCepLocationError(true);
-                setField("delivery_fee_cents", null);
+                if (!smallCityMode) setField("delivery_fee_cents", null);
             } finally {
                 setLoadingCepLookup(false);
                 setContinueBlocked(false)
@@ -563,16 +597,14 @@ export default function CartModal({
     }
 
     useEffect(() => {
-        if (
-            isTableOrder ||
-            isPickup ||
-            cep.replace(/\D/g, "").length !== 8 ||
-            !rua ||
-            !bairro ||
-            !numero
-        ) {
+        if (isTableOrder || isPickup) return;
+        if (smallCityMode && (!rua || !bairro || !numero)) {
+            setDeliveryFeeCents(null);
+            setField("delivery_fee_cents", false);
+            setField("delivery_time_minutes", null);
             return;
         }
+        if (!smallCityMode && (cep.replace(/\D/g, "").length !== 8 || !rua || !bairro || !numero)) return;
 
         setDeliveryFeeCents(null);
         setField("delivery_fee_cents", false);
@@ -583,7 +615,7 @@ export default function CartModal({
         }, 400);
 
         return () => window.clearTimeout(timer);
-    }, [cep, rua, bairro, numero, isPickup, isTableOrder]);
+    }, [cep, rua, bairro, numero, isPickup, isTableOrder, smallCityMode, neighborhoodDeliveryRules]);
 
     async function handleUseMyLocation() {
         if (isPickup || isTableOrder) return;
@@ -618,16 +650,20 @@ export default function CartModal({
                         if (addr.state) setField("estado", addr.state);
                     }
 
-                    const restLat = Number(restaurant.latitude);
-                    const restLon = Number(restaurant.longitude);
+                    if (smallCityMode) {
+                        await recalcDeliveryFeeFromAddress();
+                    } else {
+                        const restLat = Number(restaurant.latitude);
+                        const restLon = Number(restaurant.longitude);
 
-                    if (!Number.isNaN(restLat) && !Number.isNaN(restLon)) {
+                        if (!Number.isNaN(restLat) && !Number.isNaN(restLon)) {
                         const distKm = calculateDistanceKm(restLat, restLon, lat, lon);
                         const fee = computeFeeFromTiers(distKm, getDeliveryTiers());
 
                         if (fee !== null) {
                             setDeliveryFeeCents(fee);
                             setField("delivery_fee_cents", String(fee));
+                        }
                         }
                     }
                 } catch (err) {
@@ -667,7 +703,7 @@ export default function CartModal({
         setDeliveryFeeCents(null);
         setField("delivery_fee_cents", null);
         setField("delivery_time_minutes", null);
-        if (cep.replace(/\D/g, "").length === 8) {
+        if (smallCityMode || cep.replace(/\D/g, "").length === 8) {
             window.setTimeout(() => recalcDeliveryFeeFromAddress(), 0);
         }
     };
@@ -836,10 +872,10 @@ export default function CartModal({
     useEffect(() => {
         if (!cepTrigger || isPickup) return;
 
-        handleCepInput(cep);
+        if (!smallCityMode) handleCepInput(cep);
 
         useCheckoutStore.setState({ cepTrigger: false });
-    }, [cepTrigger, isPickup]);
+    }, [cepTrigger, isPickup, smallCityMode]);
 
     useEffect(() => {
         if (isTableOrder) {
@@ -1302,8 +1338,8 @@ export default function CartModal({
                         <div className="flex-1 2xl:mt-2 md:text-sm ">
                             <Input
                                 autoComplete="postal-code"
-                                label={"CEP"}
-                                placeholder="12345-123"
+                                label="CEP"
+                                placeholder={smallCityMode ? "12345-123 (opcional)" : "12345-123"}
                                 value={formatCep(cep)}
                                 onChange={(e) => handleCepInput(formatCep(e.target.value))}
                                 className="mb-3 2xl:text-lg 2xl:mb-6"
@@ -1359,6 +1395,17 @@ export default function CartModal({
                                 }
                             />
                         </div>
+                        {smallCityMode && (
+                            <div className="mt-3 md:text-sm">
+                                <Input
+                                    autoComplete="off"
+                                    label="Ponto de referência do endereço"
+                                    placeholder="Ex: Próximo à praça (opcional)"
+                                    value={referencia}
+                                    onChange={(event) => setField("referencia", event.target.value)}
+                                />
+                            </div>
+                        )}
                     </fieldset>
                     )}
 

@@ -51,7 +51,7 @@ test.each([["paid", "Aceitar"], ["preparing", "Enviado"], ["delivering", "Conclu
 });
 
 test("Entregue uses the existing status API and refreshes after success", async () => {
-    const fetchMock = jest.fn().mockResolvedValue({ ok: true });
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
     global.fetch = fetchMock;
     const refresh = jest.fn();
     const tree = OrderCard({ order: order("delivering"), deliveryOnly: true, onStatusChange: refresh });

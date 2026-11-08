@@ -19,12 +19,13 @@ import {
 
 type LegacyProps = Omit<
     ComponentProps<typeof LegacyCartModal>,
-    "neighborhoodDeliveryRules"
+    "neighborhoodDeliveryRules" | "smallCityMode"
 >;
 
 type DeliveryConfig = {
     mode: "radius" | "neighborhood";
     rules: NeighborhoodDeliveryRule[];
+    smallCityModeEnabled: boolean;
 };
 
 type NeighborhoodValidationResult =
@@ -37,6 +38,7 @@ export default function CartModal(props: LegacyProps) {
     const [deliveryConfig, setDeliveryConfig] = useState<DeliveryConfig>({
         mode: props.restaurant.delivery_fee_mode === "neighborhood" ? "neighborhood" : "radius",
         rules: parseNeighborhoodDeliveryRules(props.restaurant.delivery_neighborhood_fee_json),
+        smallCityModeEnabled: props.restaurant.small_city_mode_enabled === true,
     });
 
     useEffect(() => {
@@ -60,6 +62,7 @@ export default function CartModal(props: LegacyProps) {
                             ? "neighborhood"
                             : "radius",
                     rules: parseNeighborhoodDeliveryRules(data.rules),
+                    smallCityModeEnabled: data.smallCityModeEnabled === true,
                 });
             })
             .catch(() => undefined);
@@ -190,6 +193,7 @@ export default function CartModal(props: LegacyProps) {
             neighborhoodDeliveryRules={
                 neighborhoodMode ? deliveryConfig.rules : undefined
             }
+            smallCityMode={neighborhoodMode && deliveryConfig.smallCityModeEnabled}
         />
     );
 }

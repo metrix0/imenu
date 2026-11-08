@@ -2,6 +2,8 @@
 
 import { useEffect, useState, type ChangeEvent } from "react";
 import Image from "next/image";
+import DeliveryIntegrations from "@/components/restaurant-owner/configuracoes/DeliveryIntegrations";
+import SaveStatus, { PageSaveHeader, type SaveState } from "@/components/ui/SaveStatus";
 
 import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
 import Button from "@/components/ui/Button";
@@ -32,6 +34,7 @@ const cleanMetaPixelId = (value: string) =>
 
 export default function IntegracoesPage() {
     const { restaurantId, setRestaurantId } = useCreationStore();
+    const [deliverySaveState, setDeliverySaveState] = useState<SaveState>("idle");
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [iaPlusOpen, setIaPlusOpen] = useState(false);
@@ -172,7 +175,12 @@ export default function IntegracoesPage() {
 
     return (
         <div className="mx-auto max-w-4xl px-4 pb-24 pt-8 sm:px-6">
-            <h1 className="mb-2 text-3xl font-bold text-gray-900">Integrações</h1>
+            <PageSaveHeader>
+                <div className="flex items-start justify-between gap-4">
+                    <h1 className="mb-2 text-3xl font-bold text-gray-900">Integrações</h1>
+                    <SaveStatus status={deliverySaveState} />
+                </div>
+            </PageSaveHeader>
             <p className="mb-6 text-gray-600">
                 Configure o rastreamento dos seus anúncios e solicite novas integrações.
             </p>
@@ -193,6 +201,8 @@ export default function IntegracoesPage() {
                     </Button>
                 </div>
             </Card>
+
+            {restaurantId && <DeliveryIntegrations key={restaurantId} restaurantId={restaurantId} onSaveState={setDeliverySaveState} />}
 
             <Card className="space-y-8 !p-5 sm:!p-7">
                 <h2 className="mb-2 text-xl font-semibold text-gray-900">

@@ -39,7 +39,8 @@ beforeEach(() => {
     mockQuery.mockImplementation(async (sql: string, params?: unknown[]) => {
         if (sql.includes("FROM public.dev_integration_status")) return {
             rows: previousCheck ? [{
-                checked_at: previousCheck, operation: "Geocodificação autenticada diária",
+                checked_at: previousCheck, operation: params?.[0] === "arcgis"
+                    ? "Geocodificação pública diária" : "Geocodificação autenticada diária",
             }] : [{ checked_at: new Date().toISOString(), operation: "Metadados públicos" }],
         };
         if (sql.includes("FROM public.dev_alerts") && sql.includes("phone_notified")) {
@@ -60,7 +61,7 @@ beforeEach(() => {
             return new Response(JSON.stringify({ healthy: true }), { status: 200 });
         if (address.includes("api.tomtom.com/search/2/geocode/"))
             return new Response(JSON.stringify({ results: [{ position: { lat: -23, lon: -46 } }] }), { status: 200 });
-        if (address.includes("geocode-api.arcgis.com") && address.includes("findAddressCandidates"))
+        if (address.includes("geocode.arcgis.com") && address.includes("findAddressCandidates"))
             return new Response(JSON.stringify({ candidates: [{ score: 99 }] }), { status: 200 });
         return new Response(JSON.stringify({}), { status: 200 });
     }) as unknown as typeof fetch;
@@ -81,12 +82,19 @@ const observed = (source: string): any => mockProbe.mock.calls
 test("checks TomTom and ArcGIS actual geocoding once and validates PostHog queries and ntfy health", async () => {
     await runIntegrationChecks();
     expect(observed("tomtom")).toMatchObject({ state: "connected", status: 200 });
-    expect(observed("arcgis")).toMatchObject({ state: "connected", status: 200 });
+    expect(observed("arcgis")).toMatchObject({
+        state: "connected", status: 200, operation: "Geocodificação pública diária",
+        detail: "Geocodificação pública OK · 1 consulta diária.",
+    });
     expect(observed("posthog")).toMatchObject({ state: "connected", status: 200 });
     expect(observed("ntfy")).toMatchObject({ state: "connected", status: 200 });
     const calls = (global.fetch as jest.Mock).mock.calls;
     expect(calls.filter(([url]) => String(url).includes("api.tomtom.com"))).toHaveLength(1);
-    expect(calls.filter(([url]) => String(url).includes("findAddressCandidates"))).toHaveLength(1);
+    const arcgisCalls = calls.filter(([url]) => String(url).includes("findAddressCandidates"));
+    expect(arcgisCalls).toHaveLength(1);
+    const arcgisUrl = new URL(String(arcgisCalls[0][0]));
+    expect(arcgisUrl.hostname).toBe("geocode.arcgis.com");
+    expect(arcgisUrl.searchParams.has("token")).toBe(false);
     expect(calls.filter(([url]) => String(url).includes("ntfy.sh"))).toHaveLength(1);
     expect(calls.some(([, init]) => init?.body?.includes("SELECT 1"))).toBe(true);
 });

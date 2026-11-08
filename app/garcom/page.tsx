@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
@@ -17,7 +17,9 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Loader from "@/components/ui/Loader";
+import Toast from "@/components/ui/Toast";
 import OrderDetailsModal from "@/components/restaurant-owner/pedidos/OrderDetailsModal";
+import CreatePanelOrderModal from "@/components/restaurant-owner/CreatePanelOrderModal";
 import { supabase } from "@/lib/database/supabaseClient";
 
 type Restaurant = {
@@ -89,6 +91,46 @@ function statusClasses(status: string): string {
     return "bg-amber-50 text-amber-700";
 }
 
+type WaiterOrderModalHandle = {
+    open: (table: RestaurantTable, order?: { id: string }) => void;
+};
+
+const WaiterOrderModal = forwardRef<WaiterOrderModalHandle, {
+    restaurantId: string;
+    onCreated: () => Promise<void>;
+}>(function WaiterOrderModal({ restaurantId, onCreated }, ref) {
+    const [session, setSession] = useState<{ table: RestaurantTable; editingOrder: { id: string } | null } | null>(null);
+    const [open, setOpen] = useState(false);
+
+    useImperativeHandle(ref, () => ({
+        open: (table, order) => {
+            setSession({ table, editingOrder: order ?? null });
+            setOpen(true);
+        },
+    }), []);
+
+    useEffect(() => {
+        if (open || !session) return;
+        // Preserve the selected table while the standard modal completes its exit.
+        const timer = window.setTimeout(() => setSession(null), 250);
+        return () => window.clearTimeout(timer);
+    }, [open, session]);
+
+    return (
+        <CreatePanelOrderModal
+            isOpen={open}
+            onClose={() => setOpen(false)}
+            restaurantId={restaurantId}
+            editingOrder={session?.editingOrder ?? null}
+            fixedTableId={session?.table.id}
+            onCreated={async () => {
+                setOpen(false);
+                await onCreated();
+            }}
+        />
+    );
+});
+
 export default function GarcomPage() {
     const router = useRouter();
     const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
@@ -101,6 +143,10 @@ export default function GarcomPage() {
     const [orderDetailsOpen, setOrderDetailsOpen] = useState(false);
     const [tableToFinalize, setTableToFinalize] = useState<RestaurantTable | null>(null);
     const [finishingTable, setFinishingTable] = useState(false);
+    const orderModalRef = useRef<WaiterOrderModalHandle>(null);
+    const [orderToDelete, setOrderToDelete] = useState<{ id: string; display_id: number } | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
     const loadData = useCallback(async (showLoader = true) => {
         if (showLoader) setLoading(true);
@@ -184,12 +230,31 @@ export default function GarcomPage() {
     }, [orders]);
 
     const addOrder = (table: RestaurantTable) => {
-        if (!restaurant?.url_slug) return;
-        router.push(
-            `/mesa/${encodeURIComponent(restaurant.url_slug)}/${encodeURIComponent(
-                table.public_token
-            )}?source=garcom`
-        );
+        orderModalRef.current?.open(table);
+    };
+
+    const deleteOrder = async () => {
+        if (!restaurant || !orderToDelete || isDeleting) return;
+        setIsDeleting(true);
+        setError(null);
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.access_token) throw new Error("Sessão inválida ou expirada.");
+            const response = await fetch(`/api/orders/${orderToDelete.id}`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ restaurant_id: restaurant.id }),
+            });
+            const result = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(result?.error || "Não foi possível excluir o pedido.");
+            setOrderToDelete(null);
+            setToast({ message: "Pedido excluído.", type: "success" });
+            await loadData(false);
+        } catch (caught) {
+            setToast({ message: caught instanceof Error ? caught.message : "Não foi possível excluir o pedido.", type: "error" });
+        } finally {
+            setIsDeleting(false);
+        }
     };
 
     const finalizeTable = async () => {
@@ -338,7 +403,7 @@ export default function GarcomPage() {
                                     key={table.id}
                                     className="flex flex-col border border-gray-200 shadow-sm"
                                 >
-                                    <div className="flex items-center justify-between gap-3 border-b border-gray-100 pb-4">
+                                    <div className="flex items-center justify-between gap-3 pb-4">
                                         <div className="flex min-w-0 items-center gap-3">
                                             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand">
                                                 <FontAwesomeIcon icon={faChair} />
@@ -469,11 +534,37 @@ export default function GarcomPage() {
                 )}
             </div>
 
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
             <OrderDetailsModal
                 isOpen={orderDetailsOpen}
                 onClose={() => setOrderDetailsOpen(false)}
                 order={selectedOrder}
                 onOrderUpdate={() => void loadData(false)}
+                onEditOrder={(order) => {
+                    const table = tables.find(table => table.id === selectedOrder?.table_id);
+                    if (!table) return;
+                    setOrderDetailsOpen(false);
+                    orderModalRef.current?.open(table, { id: order.id });
+                }}
+                onDeleteOrder={(order) => { setOrderDetailsOpen(false); setOrderToDelete(order); }}
+            />
+
+            <WaiterOrderModal
+                ref={orderModalRef}
+                restaurantId={restaurant.id}
+                onCreated={() => loadData(false)}
+            />
+
+            <ConfirmModal
+                open={orderToDelete !== null}
+                onClose={() => { if (!isDeleting) setOrderToDelete(null); }}
+                onConfirm={() => void deleteOrder()}
+                title="Excluir pedido?"
+                description={`O pedido #${orderToDelete?.display_id || orderToDelete?.id.slice(0, 4) || ""} será removido permanentemente do histórico e das métricas. A exclusão não reembolsa pagamentos.`}
+                confirmLabel="Excluir pedido"
+                isLoading={isDeleting}
+                variant="danger"
             />
 
             <ConfirmModal

@@ -5,6 +5,7 @@ import Input from "@/components/ui/Input";
 import { useState, useRef, useEffect, ReactNode } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
+    faGear,
     faImage,
     faLayerGroup,
     faSpinner,
@@ -14,7 +15,7 @@ import { uploadMenuImage } from "@/lib/database/uploadMenuImage";
 import { supabase } from "@/lib/database/supabaseClient";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Button from "@/components/ui/Button";
-import Tooltip from "@/components/ui/Tooltip";
+import ItemSettingsModal from "./ItemSettingsModal";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import Toast from "@/components/ui/Toast";
 
@@ -26,6 +27,8 @@ export type MenuItemType = {
     image_url?: string | null;
     image_path?: string | null;
     is_available: boolean;
+    available_for_delivery?: boolean;
+    available_for_salao?: boolean;
     category_id: string;
     position?: number;
     stock_enabled?: boolean | null;
@@ -40,6 +43,7 @@ interface MenuItemRowProps {
     onDuplicate?: (item: MenuItemType) => void;
     onCancel?: () => void;
     onOpenDetails?: () => void;
+    onSettingsUpdated?: (item: MenuItemType) => void;
     onEditingChange?: (isEditing: boolean) => void;
     dragHandle?: ReactNode;
 }
@@ -84,13 +88,10 @@ export default function MenuItemRow({
     onDuplicate,
     onCancel,
     onOpenDetails,
+    onSettingsUpdated,
     onEditingChange,
     dragHandle,
 }: MenuItemRowProps) {
-    const restaurantSlug = useCreationStore((state) => state.restaurantSlug);
-    const setRestaurantSlug = useCreationStore(
-        (state) => state.setRestaurantSlug
-    );
     const restaurantId = useCreationStore((state) => state.restaurantId);
 
     const [isEditing, setIsEditing] = useState(isNew);
@@ -111,7 +112,8 @@ export default function MenuItemRow({
     const [isAvailable, setIsAvailable] = useState(
         item.is_available ?? false
     );
-    const [copied, setCopied] = useState(false);
+    const [settingsOpen, setSettingsOpen] = useState(false);
+    const [settingsMounted, setSettingsMounted] = useState(false);
     const [toast, setToast] = useState<{
         message: string;
         type?: "success" | "error" | "info";
@@ -120,37 +122,15 @@ export default function MenuItemRow({
     const nameInputRef = useRef<HTMLInputElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const handleCopy = async () => {
-        let slug = restaurantSlug;
-
-        if (!slug) {
-            const { data, error } = await supabase
-                .from("restaurants")
-                .select("url_slug")
-                .eq("id", restaurantId)
-                .single();
-
-            if (error || !data) {
-                console.error("Failed to fetch restaurant slug", error);
-                return;
-            }
-
-            if (setRestaurantSlug) {
-                setRestaurantSlug(data.url_slug);
-            }
-
-            slug = data.url_slug;
-        }
-
-        const couponLink = `imenuapp.com.br/${slug}/?p=${item.id}`;
-        await navigator.clipboard.writeText(couponLink);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-    };
-
     useEffect(() => {
         if (isNew && nameInputRef.current) nameInputRef.current.focus();
     }, [isNew]);
+
+    useEffect(() => {
+        if (settingsOpen || !settingsMounted) return;
+        const timer = window.setTimeout(() => setSettingsMounted(false), 250);
+        return () => window.clearTimeout(timer);
+    }, [settingsOpen, settingsMounted]);
 
     useEffect(() => {
         const nextPrice = item.price_cents ?? 0;
@@ -510,27 +490,15 @@ export default function MenuItemRow({
                                     </span>
                                 </Button>
 
-                                <Tooltip
-                                    text="Copiar link que leva direto para o Item"
-                                    position="top"
+                                <button
+                                    type="button"
+                                    aria-label={`Configurações de ${name}`}
+                                    onClick={(e) => { e.stopPropagation(); setSettingsMounted(true); setSettingsOpen(true); }}
+                                    className="cursor-pointer w-8 h-8 2xl:text-2xl flex items-center justify-center text-gray-400 hover:text-brand hover:bg-gray-50 rounded-full transition-colors"
+                                    title="Configurações do item"
                                 >
-                                    <button
-                                        aria-label={`Copiar link de ${name}`}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleCopy();
-                                        }}
-                                        className="cursor-pointer w-8 h-8 2xl:text-2xl flex items-center justify-center text-gray-400 hover:text-brand hover:bg-gray-50 rounded-full transition-colors"
-                                    >
-                                        <FontAwesomeIcon
-                                            icon={
-                                                copied
-                                                    ? icons.faCheck
-                                                    : icons.faLink
-                                            }
-                                        />
-                                    </button>
-                                </Tooltip>
+                                    <FontAwesomeIcon icon={faGear} />
+                                </button>
 
                                 <button
                                     onClick={(e) => {
@@ -559,6 +527,15 @@ export default function MenuItemRow({
                         </button>
                     </div>
                 </div>
+
+                {settingsMounted && <ItemSettingsModal
+                    item={item}
+                    restaurantId={restaurantId || ""}
+                    open={settingsOpen}
+                    onClose={() => setSettingsOpen(false)}
+                    onUpdated={(updatedItem) => onSettingsUpdated?.(updatedItem)}
+                    onOpenComplements={onOpenDetails}
+                />}
 
                 <ConfirmModal
                     open={isDeleteModalOpen}

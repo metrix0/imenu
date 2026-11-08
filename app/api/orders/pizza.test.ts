@@ -15,8 +15,9 @@ const payload = { restaurantId: restaurant, customer_name: "Teste", customer_pho
 let writes: Array<{ sql: string; values: any[] }>;
 let rollback: boolean;
 let secondaryStock: number;
+let secondaryAvailability: { available_for_delivery?: boolean; available_for_salao?: boolean };
 beforeEach(() => {
-    writes = []; rollback = false; secondaryStock = 5;
+    writes = []; rollback = false; secondaryStock = 5; secondaryAvailability = {};
     jest.spyOn(console, "error").mockImplementation(() => undefined);
     (query as jest.Mock).mockResolvedValue({ rows: [] });
     (createMercadoPagoPixCharge as jest.Mock).mockResolvedValue({ id: "test", qrCodeText: "test" });
@@ -24,7 +25,7 @@ beforeEach(() => {
         if (/INSERT|UPDATE/.test(sql) && !sql.includes("FOR UPDATE")) writes.push({ sql, values });
         if (sql.includes("SELECT url_slug")) return { rows: [{ url_slug: "test", automatic_promotions: [], pizza_settings: settings }] };
         if (sql.includes("FROM items i JOIN categories")) return { rows: [a, b].map((id, index) => ({ id, name: index ? "Calabresa" : "Portuguesa", price_cents: 5000 + index * 1000, category_id: "pizza", is_available: true, subcategories: [] })) };
-        if (/FROM items\s+WHERE id/.test(sql)) return { rows: [{ id: values[0], restaurant_id: restaurant, name: "Pizza", stock_enabled: true, stock_quantity: values[0] === b ? secondaryStock : 5, is_available: true }] };
+        if (/FROM items\s+WHERE id/.test(sql)) return { rows: [{ id: values[0], restaurant_id: restaurant, name: "Pizza", stock_enabled: true, stock_quantity: values[0] === b ? secondaryStock : 5, is_available: true, ...(values[0] === b ? secondaryAvailability : {}) }] };
         if (sql.includes("FROM public.restaurant_tables AS table_entry")) return { rows: [{ id: table, name: "Mesa 1" }] };
         if (sql.includes("INSERT INTO orders")) return { rows: [{ id: "order-test" }] };
         if (sql.includes("INSERT INTO order_items")) return { rows: [{ id: "line-test" }] };
@@ -63,4 +64,29 @@ it("charges the calculated amount and restores both flavors if PIX fails", async
     await send({ paymentMethod: "pix" });
     expect(createMercadoPagoPixCharge).toHaveBeenCalledWith(expect.objectContaining({ amount: 118 }));
     expect(writes.filter(w => w.sql.includes("stock_quantity + $1")).map(w => w.values)).toEqual([[2, a], [2, b]]);
+});
+
+it.each([
+    ["entrega", { available_for_delivery: false }],
+    ["retirada", { available_for_delivery: false }],
+    ["mesa", { available_for_salao: false }],
+] as const)("rejects an unavailable second pizza flavor for %s before writes", async (channel, availability) => {
+    secondaryAvailability = availability;
+    const response = await send({ is_delivery: channel, ...(channel === "mesa" ? { table_token: table, table_id: table } : {}) });
+    expect(response.status).toBe(409);
+    expect(rollback).toBe(true);
+    expect(writes).toHaveLength(0);
+});
+
+it("checks channel availability during the stock preflight too", async () => {
+    (withTransaction as jest.Mock).mockClear();
+    (query as jest.Mock).mockImplementation(async (_sql, values) => ({ rows: [{
+        id: values[0], restaurant_id: restaurant, name: "Pizza", is_available: true,
+        stock_enabled: false, available_for_delivery: values[0] !== b,
+    }] }));
+    const response = await POST(new Request("https://preview.imenuapp.com.br/api/orders?stock_check=1", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+    }));
+    expect(response.status).toBe(409);
+    expect(withTransaction).not.toHaveBeenCalled();
 });

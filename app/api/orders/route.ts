@@ -1,3 +1,4 @@
+import { isItemAvailableForChannel } from "@/lib/menu/itemAvailability";
 import { readCookie, checkoutCookie, structuredAddress, trustCustomer, trustedPhone } from "@/lib/services/checkoutCustomer";
 import { normalizeCustomerPhone } from "@/lib/services/crmRules";
 // app/api/orders/route.ts
@@ -348,7 +349,9 @@ export async function POST(request: Request) {
                             name,
                             stock_enabled,
                             stock_quantity,
-                            is_available
+                            is_available,
+                            available_for_delivery,
+                            available_for_salao
                         FROM items
                         WHERE id = $1
                         LIMIT 1
@@ -384,6 +387,10 @@ export async function POST(request: Request) {
                             requested_quantity: requestedQuantity,
                         }
                     );
+                }
+
+                if (!isItemAvailableForChannel(databaseItem, is_delivery)) {
+                    throw new OrderRequestError(`${databaseItem.name} não está disponível para este destino.`, 409);
                 }
 
                 if (databaseItem.is_available === false) {
@@ -832,7 +839,9 @@ export async function POST(request: Request) {
                                         name,
                                         stock_enabled,
                                         stock_quantity,
-                                        is_available
+                                        is_available,
+                                        available_for_delivery,
+                                        available_for_salao
                                     FROM items
                                     WHERE id = $1
                                     FOR UPDATE
@@ -855,6 +864,10 @@ export async function POST(request: Request) {
                             throw new OrderRequestError(
                                 "Um item não pertence a este restaurante."
                             );
+                        }
+
+                        if (!isItemAvailableForChannel(databaseItem, is_delivery)) {
+                            throw new OrderRequestError(`${databaseItem.name} não está disponível para este destino.`, 409);
                         }
 
                         const availableStock =

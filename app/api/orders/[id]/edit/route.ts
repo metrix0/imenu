@@ -1,3 +1,4 @@
+import { isItemAvailableForChannel } from "@/lib/menu/itemAvailability";
 import { NextResponse } from "next/server";
 import { withTransaction } from "@/lib/database/sql";
 import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
@@ -176,11 +177,14 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
             const allStockIds = [...new Set([...previousStock.keys(), ...neededStock.keys()])].sort();
             for (const stockId of allStockIds) {
                 const stock = (await client.query(
-                    "SELECT stock_enabled, stock_quantity, is_available, name FROM items WHERE id = $1 AND restaurant_id = $2 FOR UPDATE",
+                    "SELECT stock_enabled, stock_quantity, is_available, name, available_for_delivery, available_for_salao FROM items WHERE id = $1 AND restaurant_id = $2 FOR UPDATE",
                     [stockId, restaurantId]
                 )).rows[0];
                 if (!stock) throw new EditOrderError("Um produto não está mais disponível.", 409);
                 const delta = (neededStock.get(stockId) || 0) - (previousStock.get(stockId) || 0);
+                if ((neededStock.get(stockId) || 0) > 0 && !isItemAvailableForChannel(stock, destination)) {
+                    throw new EditOrderError("Produto indisponível para este destino: " + stock.name, 409);
+                }
                 if (delta > 0 && !stock.is_available) throw new EditOrderError("Produto indisponível: " + stock.name, 409);
                 if (stock.stock_enabled && delta > Number(stock.stock_quantity)) {
                     throw new EditOrderError("Estoque insuficiente para " + stock.name, 409);

@@ -105,6 +105,7 @@ export function structuredAddress(
     "cidade",
     "estado",
     "complemento",
+    "referencia",
   ])
     result[key] = String((value as Record<string, unknown>)[key] || "")
       .trim()

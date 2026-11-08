@@ -1,3 +1,4 @@
+import { isItemAvailableForChannel } from "@/lib/menu/itemAvailability";
 import type { PoolClient } from "pg";
 import {
   evaluateAutomaticPromotions,
@@ -60,13 +61,15 @@ export async function automaticOrderPricing(
     ),
   ];
   const productRows = await client.query(
-    `SELECT i.id, i.name, i.price_cents, i.is_available, i.category_id,
+    `SELECT i.id, i.name, i.price_cents, i.is_available, i.available_for_delivery, i.available_for_salao, i.category_id,
         CASE WHEN p.id IS NOT NULL THEN jsonb_build_object('type', p.type, 'value', p.value) ELSE NULL END AS promotion
         FROM items i LEFT JOIN promotions p ON p.item_id = i.id AND p.starts_at <= $3 AND (p.ends_at >= $3 OR p.ends_at IS NULL)
         WHERE i.restaurant_id = $1 AND i.id = ANY($2::uuid[])`,
     [input.restaurantId, productIds, new Date()],
   );
-  const products = productRows.rows as PromotionProduct[];
+  const products = productRows.rows.map(product => ({
+    ...product, is_available: product.is_available && isItemAvailableForChannel(product, input.channel === "mesa" ? "mesa" : "entrega"),
+  })) as PromotionProduct[];
   const subitemsResult = subitemIds.length
     ? await client.query(
         `SELECT s.id, s.name, s.price_cents, s.is_available, g.item_id

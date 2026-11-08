@@ -13,6 +13,7 @@ import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
 import { formatPrice, promotionPrice } from "@/lib/utils/formatPrice";
 import { promotionCartSubtotal } from "@/lib/promotions/automatic";
+import { isItemAvailableForChannel } from "@/lib/menu/itemAvailability";
 import { isCategoryAvailable, type CategorySchedule } from "@/lib/menu/categorySchedule";
 import PromotionSummary from "@/components/costumer/PromotionSummary";
 import { evaluateAutomaticPromotions, parseAutomaticPromotions, type AutomaticPromotion } from "@/lib/promotions/automatic";
@@ -51,12 +52,14 @@ export default function CreatePanelOrderModal({
                                                   restaurantId,
                                                   onCreated,
                                                   editingOrder,
+                                                  fixedTableId,
                                               }: {
     isOpen: boolean;
     onClose: () => void;
     restaurantId: string;
     onCreated: () => Promise<void> | void;
     editingOrder?: { id: string } | null;
+    fixedTableId?: string;
 }) {
     const [categories, setCategories] = useState<Category[]>([]);
     const [itemsByCategory, setItemsByCategory] = useState<Record<string, Item[]>>({});
@@ -83,13 +86,15 @@ export default function CreatePanelOrderModal({
     const [configuringSubcategories, setConfiguringSubcategories] = useState<Subcategory[]>([]);
     const [isLoadingItemConfigurator, setIsLoadingItemConfigurator] = useState(false);
 
-    // Reset before rendering a new session, including closes initiated by the parent.
+    // Reset on reopening so closing keeps the current screen through its transition.
     if (wasOpen !== isOpen) {
         setWasOpen(isOpen);
-        setConfiguringItem(null);
-        setHasNavigatedToConfigurator(false);
-        setConfiguringSubcategories([]);
-        setIsLoadingItemConfigurator(false);
+        if (isOpen) {
+            setConfiguringItem(null);
+            setHasNavigatedToConfigurator(false);
+            setConfiguringSubcategories([]);
+            setIsLoadingItemConfigurator(false);
+        }
     }
 
     const [customerName, setCustomerName] = useState("");
@@ -131,7 +136,7 @@ export default function CreatePanelOrderModal({
                     .order("position", { ascending: true }),
                 supabase
                     .from("items")
-                    .select("id, category_id, name, description, price_cents, image_path, is_available, position, stock_enabled, stock_quantity")
+                    .select("id, category_id, name, description, price_cents, image_path, is_available, available_for_delivery, available_for_salao, position, stock_enabled, stock_quantity")
                     .eq("restaurant_id", restaurantId)
                     .eq("is_available", true)
                     .order("position", { ascending: true }),
@@ -198,7 +203,7 @@ export default function CreatePanelOrderModal({
             setCustomerPhone("");
             setCustomerAddress("");
             setDeliveryFeeInput("");
-            setSelectedTableId("balcao");
+            setSelectedTableId(fixedTableId || "balcao");
             setPaymentMethod("dinheiro");
             setOriginalDeliveryType(null);
             setIsOnlinePayment(false);
@@ -256,15 +261,10 @@ export default function CreatePanelOrderModal({
         };
         void loadExisting();
         return () => { active = false; };
-    }, [isOpen, editingOrder?.id, restaurantId]);
+    }, [isOpen, editingOrder?.id, restaurantId, fixedTableId]);
 
     useEffect(() => {
-        if (!isOpen) {
-            setHasNavigatedToConfigurator(false);
-            setMobileView("menu");
-            setMenuSearch("");
-            return;
-        }
+        if (!isOpen) return;
         setMobileView("menu");
         setMenuSearch("");
     }, [isOpen]);
@@ -381,8 +381,6 @@ export default function CreatePanelOrderModal({
     };
 
     const handleModalClose = () => {
-        closeItemConfigurator();
-        setHasNavigatedToConfigurator(false);
         onClose();
     };
 
@@ -534,7 +532,7 @@ export default function CreatePanelOrderModal({
     const isCounterOrder = selectedTableId === "balcao";
 
     const promotionInput = {
-        products: menuItems,
+        products: menuItems.filter(item => isItemAvailableForChannel(item, selectedTableId ? "mesa" : "entrega")),
         subtotal_cents: itemsTotalCents,
         delivery_cents: selectedTable || isCounterOrder ? 0 : deliveryFeeCents,
         coupon_discount_cents: 0,
@@ -547,7 +545,7 @@ export default function CreatePanelOrderModal({
         : undefined;
     // Gifts are real, zero-priced order lines, like in the customer checkout.
     const giftItems: OrderItem[] = (initialPromotion?.free_products || []).flatMap((gift, index) => {
-        const product = menuItems.find(item => item.id === gift.item_id && item.is_available);
+        const product = menuItems.find(item => item.id === gift.item_id && item.is_available && isItemAvailableForChannel(item, selectedTableId ? "mesa" : "entrega"));
         if (!product || !initialPromotion?.promotion) return [];
         return [{
             id: `gift-${initialPromotion.promotion.id}-${product.id}-${index}`,
@@ -584,6 +582,7 @@ export default function CreatePanelOrderModal({
             .map((category) => ({
                 category,
                 items: (itemsByCategory[category.id] || []).filter((item) => {
+                    if (!isItemAvailableForChannel(item, selectedTableId ? "mesa" : "entrega")) return false;
                     if (!query) return true;
                     return `${item.name} ${item.description || ""}`
                         .toLocaleLowerCase("pt-BR")
@@ -591,10 +590,14 @@ export default function CreatePanelOrderModal({
                 }),
             }))
             .filter(({ items }) => items.length > 0);
-    }, [categories, itemsByCategory, menuSearch, promotionNow]);
+    }, [categories, itemsByCategory, menuSearch, promotionNow, selectedTableId]);
 
     const handleSubmit = async () => {
         if (!restaurantId || promotionLoadError || isLoadingMenu || isLoadingExisting || editBlockReason) return;
+        if (fixedTableId && selectedTable?.id !== fixedTableId) {
+            setToast({ message: "Esta mesa não está mais disponível.", type: "error" });
+            return;
+        }
 
         if (!customerName.trim()) {
             setToast({
@@ -706,6 +709,7 @@ export default function CreatePanelOrderModal({
                 <ModalFlowStep key={`config-${configuringItem.id}`} animate>
                     <PanelItemConfiguratorModal
                     restaurantId={restaurantId}
+                    destination={selectedTableId ? "mesa" : "entrega"}
                     item={configuringItem}
                     subcategories={configuringSubcategories}
                     loading={isLoadingItemConfigurator}
@@ -950,7 +954,7 @@ export default function CreatePanelOrderModal({
                                                     <Dropdown
                                                         label="Destino do pedido" value={selectedTableId}
                                                         onChange={(e) => setSelectedTableId(e.target.value)}
-                                                        disabled={isOnlinePayment}
+                                                        disabled={isOnlinePayment || Boolean(fixedTableId)}
                                                         className="w-full appearance-none rounded-xl border border-gray-200 bg-white px-4 py-3 pr-10 text-gray-700 outline-none transition hover:border-gray-300 focus:border-brand focus:ring-2 focus:ring-brand/10"
                                                     >
                                                         <option value="balcao">Balcão</option>

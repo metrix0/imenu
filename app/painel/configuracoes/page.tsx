@@ -47,6 +47,8 @@ type Restaurant = {
     preorder_only?: boolean | null;
     vitrine_enabled?: boolean;
     dark_menu_enabled?: boolean;
+    delivery_fee_mode?: "radius" | "neighborhood" | null;
+    small_city_mode_enabled?: boolean | null;
 };
 
 type OrderDingleDuration = "short" | "medium" | "long";
@@ -222,6 +224,8 @@ export default function ConfiguracoesPage() {
     const [isSavingOrderScheduling, setIsSavingOrderScheduling] =
         useState(false);
     const [isSavingVitrine, setIsSavingVitrine] = useState(false);
+    const [isSavingSmallCityMode, setIsSavingSmallCityMode] = useState(false);
+    const [confirmSmallCityModeOpen, setConfirmSmallCityModeOpen] = useState(false);
     const [isExportingMenu, setIsExportingMenu] = useState(false);
     const [pdfAccess, setPdfAccess] = useState(false);
     const [pdfSalesOpen, setPdfSalesOpen] = useState(false);
@@ -297,7 +301,7 @@ export default function ConfiguracoesPage() {
                     const { data: restData } = await supabase
                         .from("restaurants")
                         .select(
-                            "id, name, url_slug, user_id, phone, force_whatsapp_order_confirmation, allow_future_order_scheduling, preorder_only, vitrine_enabled, dark_menu_enabled",
+                            "id, name, url_slug, user_id, phone, force_whatsapp_order_confirmation, allow_future_order_scheduling, preorder_only, vitrine_enabled, dark_menu_enabled, delivery_fee_mode, small_city_mode_enabled",
                         )
                         .eq("id", targetId)
                         .single();
@@ -404,6 +408,33 @@ export default function ConfiguracoesPage() {
                 : "Notificação por WhatsApp desativada.",
             type: "success",
         });
+    };
+
+    const saveSmallCityMode = async (enabled: boolean) => {
+        if (!restaurant || isSavingSmallCityMode) return;
+
+        setIsSavingSmallCityMode(true);
+        setSaveErrors(previous => ({ ...previous, smallCity: false }));
+        const { data, error } = await supabase
+            .from("restaurants")
+            .update(enabled
+                ? { small_city_mode_enabled: true, delivery_fee_mode: "neighborhood" }
+                : { small_city_mode_enabled: false })
+            .eq("id", restaurant.id)
+            .select("id, delivery_fee_mode")
+            .single();
+        setIsSavingSmallCityMode(false);
+
+        if (error || !data) {
+            setSaveErrors(previous => ({ ...previous, smallCity: true }));
+            setToast({ message: "Erro ao salvar o Modo Cidade Pequena.", type: "error" });
+            return;
+        }
+
+        setRestaurant(current => current
+            ? { ...current, small_city_mode_enabled: enabled, delivery_fee_mode: data.delivery_fee_mode }
+            : current);
+        setConfirmSmallCityModeOpen(false);
     };
 
     const saveOrderSchedulingMode = async (allowFuture: boolean) => {
@@ -734,6 +765,17 @@ export default function ConfiguracoesPage() {
 
     return (
         <>
+            <ConfirmModal
+                open={confirmSmallCityModeOpen}
+                onClose={() => setConfirmSmallCityModeOpen(false)}
+                onConfirm={() => void saveSmallCityMode(true)}
+                title="Ativar Modo Cidade Pequena?"
+                description="O modo de entrega será alterado automaticamente para Entrega por Bairro. Configure os bairros e suas taxas em Tempo e Taxa."
+                confirmLabel="Ativar modo"
+                isLoading={isSavingSmallCityMode}
+                variant="primary"
+            />
+
             <ConfirmModal
                 open={deleteModalOpen}
                 onClose={() => setDeleteModalOpen(false)}
@@ -1143,6 +1185,37 @@ export default function ConfiguracoesPage() {
                                             </Button>
                                         </Tooltip>
                                     )}
+                                </div>
+                            </div>
+                        </Card>
+                    )}
+
+                    {restaurant && (
+                        <Card className="border border-gray-200 shadow-sm">
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                <div className="min-w-0">
+                                    <h2 className="text-xl font-medium text-gray-900">
+                                        Modo Cidade Pequena (CEP opcional)
+                                    </h2>
+                                    <p id="small-city-description" className="mt-2 text-sm text-gray-500">
+                                        Permite pedidos sem CEP, calculando a entrega pelo bairro e oferecendo um campo de ponto de referência.
+                                    </p>
+                                </div>
+                                <div className="flex shrink-0 items-start gap-3">
+                                    <SaveStatus status={saveErrors.smallCity ? "error" : isSavingSmallCityMode ? "saving" : "saved"} />
+                                    <Switch
+                                        checked={restaurant.small_city_mode_enabled === true}
+                                        aria-label="Modo Cidade Pequena (CEP opcional)"
+                                        aria-describedby="small-city-description"
+                                        disabled={isSavingSmallCityMode}
+                                        onClick={() => {
+                                            if (restaurant.small_city_mode_enabled) {
+                                                void saveSmallCityMode(false);
+                                            } else {
+                                                setConfirmSmallCityModeOpen(true);
+                                            }
+                                        }}
+                                    />
                                 </div>
                             </div>
                         </Card>

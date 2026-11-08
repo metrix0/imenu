@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import styles from "./dashboard.module.css";
 import DevDialog from "./DevDialog";
 import PagedTable, { type PageData } from "./PagedTable";
@@ -26,11 +26,14 @@ export default function AlertsSection({range, mode = "unread", refresh = 0, onMa
     const [error, setError] = useState("");
     const [revision, setRevision] = useState(0);
     const [markingId, setMarkingId] = useState<string | null>(null);
+    const [markingAll, setMarkingAll] = useState(false);
+    const lastQueryKey = useRef<string | null>(null);
+    const skipNextLoader = useRef(false);
     const startDate = mode === "history" ? range?.startDate || "" : "";
     const endDate = mode === "history" ? range?.endDate || "" : "";
 
     async function markAsRead(alert: Alert) {
-        if (markingId) return;
+        if (markingId || markingAll) return;
         setMarkingId(alert.id);
         setError("");
         try {
@@ -39,8 +42,21 @@ export default function AlertsSection({range, mode = "unread", refresh = 0, onMa
                 body: JSON.stringify({ id: String(alert.id) }),
             });
             setSelected(null);
-            if (data.rows.length === 1 && page > 0) setPage(page - 1);
-            else setRevision(value => value + 1);
+            setData(current => {
+                const total = Math.max(0, current.total - 1);
+                return {
+                    ...current,
+                    rows: current.rows.filter(row => row.id !== alert.id),
+                    total,
+                    pageCount: Math.max(1, Math.ceil(total / 10)),
+                };
+            });
+            if (data.rows.length === 1 && page > 0) {
+                skipNextLoader.current = true;
+                setPage(page - 1);
+            } else {
+                setRevision(value => value + 1);
+            }
             onMarkedRead?.();
         } catch (caught) {
             setError(caught instanceof Error ? caught.message : "Não foi possível marcar o alerta como lido.");
@@ -49,16 +65,54 @@ export default function AlertsSection({range, mode = "unread", refresh = 0, onMa
         }
     }
 
+    async function markAllAsRead() {
+        if (markingId || markingAll || !data.total) return;
+        setMarkingAll(true);
+        setError("");
+        try {
+            await devJson("/api/dev/health?section=alerts", {
+                method: "POST",
+                body: JSON.stringify({ all: true }),
+            });
+            setSelected(null);
+            setData(current => ({ ...current, rows: [], total: 0, page: 0, pageCount: 1 }));
+            if (page > 0) {
+                skipNextLoader.current = true;
+                setPage(0);
+            } else {
+                setRevision(value => value + 1);
+            }
+            onMarkedRead?.();
+        } catch (caught) {
+            setError(caught instanceof Error ? caught.message : "Não foi possível marcar todos os alertas como lidos.");
+        } finally {
+            setMarkingAll(false);
+        }
+    }
+
     useEffect(() => {
-        const controller = new AbortController(); setLoading(true);
+        const queryKey = JSON.stringify([mode, page, startDate, endDate]);
+        const showLoader = lastQueryKey.current !== queryKey && !skipNextLoader.current;
+        lastQueryKey.current = queryKey;
+        skipNextLoader.current = false;
+        const controller = new AbortController();
+        if (showLoader) setLoading(true);
         void devJson<PageData<Alert>>(`/api/dev/health?section=alerts&view=${mode}&page=${page}&startDate=${startDate}&endDate=${endDate}`, { signal: controller.signal })
             .then(result => { setData(result); setError(""); }).catch(e => { if (!controller.signal.aborted) setError(e.message); }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
         return () => controller.abort();
     }, [page, mode, startDate, endDate, revision, refresh]);
     useEffect(()=>setPage(0),[mode, startDate, endDate]);
     return <section className={styles.externalSection}>
-        <h2>{mode === "unread" ? "Novos Alertas" : "Histórico de Alertas"}</h2>
+        <div className={styles.alertsHeading}>
+            <h2>{mode === "unread" ? "Novos Alertas" : "Histórico de Alertas"}</h2>
+            {mode === "unread" && <Button type="button" variant="secondary"
+                loading={markingAll} disabled={loading || Boolean(markingId) || data.total === 0}
+                onClick={() => void markAllAsRead()}>
+                Marcar todos como lidos
+            </Button>}
+        </div>
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+        <div className={`${styles.alertsTable} ${mode === "unread" ? styles.alertsUnread : styles.alertsHistory}`}>
         <PagedTable pageSize={10} onRowClick={setSelected} data={data} onPage={setPage} rowKey={row => String(row.id)} loading={loading} columns={[
             { key: "date", label: "Data", render: row => formatDateTime(row.last_seen_at||row.created_at), className: "whitespace-nowrap" },
             { key: "source", label: "Origem", render: row => row.source === "phone" || row.source === "unknown" ? "Origem não registrada" : row.source, className: "whitespace-nowrap" },
@@ -73,14 +127,15 @@ export default function AlertsSection({range, mode = "unread", refresh = 0, onMa
             { key: "count", label: "Ocorrências", render: row => row.occurrences>1?row.occurrences:"—", className: "whitespace-nowrap" },
             { key: "title", label: "Alerta", render: row => <span className="block max-w-md truncate font-medium" title={`${row.title} · ${row.message}`}>{row.title}{row.http_status ? ` · HTTP ${row.http_status}` : ""}</span> },
             ...(mode === "unread" ? [{ key: "action", label: "Ação", className: "whitespace-nowrap", render: (row: Alert) =>
-                <Button variant="secondary" loading={markingId === row.id} disabled={Boolean(markingId)}
+                <Button variant="secondary" loading={markingId === row.id} disabled={Boolean(markingId) || markingAll}
                     onClick={event => { event.stopPropagation(); void markAsRead(row); }}>
                     Marcar como lido
                 </Button> }] : []),
         ]} />
+        </div>
         <DevDialog open={Boolean(selected)} onClose={()=>{ if (!markingId) setSelected(null); }} title={selected?.title || "Alerta"}
             footer={mode === "unread" && selected ? <Button loading={markingId === selected.id}
-                disabled={Boolean(markingId)} onClick={() => void markAsRead(selected)}>Marcar como lido</Button> : undefined}><>
+                disabled={Boolean(markingId) || markingAll} onClick={() => void markAsRead(selected)}>Marcar como lido</Button> : undefined}><>
             <div className="mb-3 space-y-1 text-sm text-gray-600">
                 <p>Origem: {selected?.source || "—"} · Operação: {selected?.operation||"—"}</p>
                 <p>HTTP: {selected?.http_status??"—"} · Ocorrências: {selected?.occurrences??1}</p>
