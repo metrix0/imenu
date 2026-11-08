@@ -90,7 +90,8 @@ export default function CouponForm({
             .from("coupons")
             .select("id")
             .eq("restaurant_id", restaurantId)
-            .eq("code", form.code);
+            .eq("code", form.code)
+            .is("deleted_at", null);
 
         if (initialData?.id) {
             existing_query = existing_query.neq("id", initialData.id);
