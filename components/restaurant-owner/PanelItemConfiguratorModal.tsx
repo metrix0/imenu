@@ -29,6 +29,8 @@ export type PanelOrderMenuItem = {
     price_cents: number;
     image_path?: string | null;
     is_available: boolean;
+    available_for_delivery?: boolean;
+    available_for_salao?: boolean;
     position?: number | null;
     stock_enabled?: boolean | null;
     stock_quantity?: number | null;
@@ -77,6 +79,7 @@ export type PanelOrderConfiguredItem = {
 
 type Props = {
     restaurantId: string;
+    destination?: string;
     item: PanelOrderMenuItem;
     subcategories: PanelOrderSubcategory[];
     loading: boolean;
@@ -113,6 +116,7 @@ function normalizeSubcategories(
 
 export default function PanelItemConfiguratorModal({
     restaurantId,
+    destination = "entrega",
     item,
     subcategories,
     loading,
@@ -348,7 +352,7 @@ export default function PanelItemConfiguratorModal({
             setLoadingFlavors(true);
             try {
                 const response = await fetch(
-                    `/api/restaurants/${restaurantId}/pizza/catalog`,
+                    `/api/restaurants/${restaurantId}/pizza/catalog?channel=${destination === "mesa" || destination === "balcao" ? "mesa" : "delivery"}`,
                     { cache: "no-store" }
                 );
                 const data = (await response.json()) as {

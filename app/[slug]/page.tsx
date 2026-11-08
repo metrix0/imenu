@@ -1,3 +1,4 @@
+import { isItemAvailableForChannel } from "@/lib/menu/itemAvailability";
 // app/[slug]/page.tsx
 
 import { notFound } from "next/navigation";
@@ -258,7 +259,7 @@ export default async function Page({
     supabase
       .from("items")
       .select(
-        "id, name, description, price_cents, image_path, is_available, position, category_id, category:category_id(id, name, position)",
+        "id, name, description, price_cents, image_path, is_available, available_for_delivery, available_for_salao, position, category_id, category:category_id(id, name, position)",
       )
       .eq("restaurant_id", restaurant.id)
       .order("position", { ascending: true }),
@@ -348,7 +349,7 @@ export default async function Page({
   }
 
   let allItems: Item[] = itemsRaw
-    .filter((item: any) => item.is_available === true)
+    .filter((item: any) => item.is_available === true && (readOnly || isItemAvailableForChannel(item, tableOrder ? "mesa" : "entrega")))
     .map((item: any) => ({
       ...item,
       image_public_url: getPublicUrl(supabase, "menu-images", item.image_path),

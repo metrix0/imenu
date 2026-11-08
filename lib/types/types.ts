@@ -68,6 +68,8 @@ export type Item = {
     price_cents: number;
     image_path: string | null;
     is_available: boolean;
+    available_for_delivery?: boolean;
+    available_for_salao?: boolean;
     position: number;
     category?: Category | null;
     image_public_url?: string | null;

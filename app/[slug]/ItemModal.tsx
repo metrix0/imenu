@@ -20,6 +20,7 @@ import { isPizzaItem, parsePizzaSettings, pricePizza } from "@/lib/pizza/pricing
 
 type Props = {
     readOnly?: boolean;
+    channel?: "delivery" | "mesa";
     restaurant: Restaurant;
     item: Item;
     subcategories: Subcategory[];
@@ -42,7 +43,7 @@ export default function ItemModal({
                                       onClose,
                                         deliveryTax,
                                       deliveryTime,
-    onAdd, trackMeta, slug, error, onRetry, readOnly = false
+    onAdd, trackMeta, slug, error, onRetry, readOnly = false, channel = "delivery"
                                   }: Props) {
     const [qty, setQty] = useState(1);
     const [observation, setObservation] = useState("");
@@ -315,7 +316,7 @@ export default function ItemModal({
         if (catalog.length) { setFlavorSearch(true); return; }
         setLoadingFlavors(true);
         try {
-            const response = await fetch(`/api/restaurants/${restaurant.id}/pizza/catalog`);
+            const response = await fetch(`/api/restaurants/${restaurant.id}/pizza/catalog?channel=${channel}`);
             const data = await response.json();
             if (!response.ok) throw new Error(data.error);
             setCatalog(data.items);

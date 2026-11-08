@@ -1252,6 +1252,7 @@ export default function MenuClientPage({
 
             {openedItem && (
                 <ItemModal
+                    channel={isTableOrder ? "mesa" : "delivery"}
                     key={openedItem.item.id}
                     readOnly={readOnly}
                     restaurant={restaurant}
