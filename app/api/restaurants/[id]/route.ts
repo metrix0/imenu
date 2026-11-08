@@ -67,6 +67,18 @@ export async function PATCH(
                 { status: 400 }
             );
         }
+        if (mode === "radius") {
+            const { rows } = await query<{ small_city_mode_enabled: boolean }>(
+                "SELECT small_city_mode_enabled FROM public.restaurants WHERE id = $1 LIMIT 1",
+                [id]
+            );
+            if (rows[0]?.small_city_mode_enabled) {
+                return NextResponse.json(
+                    { error: "Desative o Modo Cidade Pequena em Configurações antes de mudar para Entrega por Raio." },
+                    { status: 409 }
+                );
+            }
+        }
         values.push(mode);
         fields.push(`delivery_fee_mode = $${values.length}`);
     }

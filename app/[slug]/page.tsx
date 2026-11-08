@@ -211,6 +211,7 @@ export default async function Page({
     delivery_fee_json: restaurantData.delivery_fee_json,
     delivery_fee_mode: restaurantData.delivery_fee_mode,
     delivery_neighborhood_fee_json: restaurantData.delivery_neighborhood_fee_json,
+    small_city_mode_enabled: restaurantData.small_city_mode_enabled === true,
     latitude: restaurantData.latitude,
     longitude: restaurantData.longitude,
     is_closed: restaurantData.is_closed,

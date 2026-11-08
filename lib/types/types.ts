@@ -27,6 +27,7 @@ export type Restaurant = {
     delivery_fee_json: any;
     delivery_fee_mode?: "radius" | "neighborhood" | null;
     delivery_neighborhood_fee_json?: unknown;
+    small_city_mode_enabled?: boolean;
     latitude: number;
     longitude: number;
     is_closed: any;

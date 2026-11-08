@@ -19,9 +19,10 @@ export async function GET(request: Request) {
     const { rows } = await query<{
         delivery_fee_mode: string | null;
         delivery_neighborhood_fee_json: unknown;
+        small_city_mode_enabled: boolean;
     }>(
         `
-        SELECT delivery_fee_mode, delivery_neighborhood_fee_json
+        SELECT delivery_fee_mode, delivery_neighborhood_fee_json, small_city_mode_enabled
         FROM public.restaurants
         WHERE id = $1
         LIMIT 1
@@ -47,6 +48,7 @@ export async function GET(request: Request) {
             rules: parseNeighborhoodDeliveryRules(
                 row.delivery_neighborhood_fee_json
             ),
+            smallCityModeEnabled: row.small_city_mode_enabled === true,
         },
         {
             headers: {

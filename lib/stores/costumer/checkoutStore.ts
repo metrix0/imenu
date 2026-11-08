@@ -16,6 +16,7 @@ interface CheckoutState {
     cidade: string;
     estado: string;
     complemento: string;
+    referencia: string;
 
     nome: string;
     celular: string;
@@ -66,6 +67,7 @@ export const useCheckoutStore = create<CheckoutState>()(
             cidade: "",
             estado: "",
             complemento: "",
+            referencia: "",
             nome: "",
             celular: "",
             marketingConsent: false,
@@ -138,6 +140,7 @@ export const useCheckoutStore = create<CheckoutState>()(
                 cidade: state.cidade,
                 estado: state.estado,
                 complemento: state.complemento,
+                referencia: state.referencia,
                 nome: state.nome,
                 celular: state.celular,
                 pagamento: state.pagamento,

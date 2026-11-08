@@ -55,6 +55,7 @@ export default function CartBar({
     const isTableOrder = Boolean(tableOrder);
     useCheckoutSession(String(restaurant?.id || ""), !isTableOrder);
     const isPickup = !isTableOrder && (restaurant?.delivery_disabled === true || Boolean((checkoutState as any).is_pickup));
+    const smallCityMode = restaurant?.delivery_fee_mode === "neighborhood" && restaurant?.small_city_mode_enabled === true;
     const missingDeliveryRanges = !isTableOrder && !isPickup && restaurant?.delivery_fee_mode !== "neighborhood" && (() => {
         let configured = restaurant?.delivery_fee_json;
         if (typeof configured === "string") {
@@ -154,7 +155,7 @@ export default function CartBar({
               checkoutState.nome &&
                   checkoutState.celular &&
                   (isPickup ||
-                      (checkoutState.cep?.length >= 8 &&
+                      ((checkoutState.cep?.length >= 8 || (smallCityMode && !checkoutState.cep)) &&
                           checkoutState.rua &&
                           checkoutState.bairro &&
                           checkoutState.numero))
@@ -166,7 +167,7 @@ export default function CartBar({
     if (isTableOrder) {
         if (!selectedTableId) missingFields.push("Mesa");
     } else if (!isPickup) {
-        if (!checkoutState.cep || checkoutState.cep.length < 8) {
+        if ((!smallCityMode || checkoutState.cep) && (!checkoutState.cep || checkoutState.cep.length < 8)) {
             missingFields.push("CEP");
         }
         if (!checkoutState.rua) missingFields.push("Rua");
@@ -262,7 +263,11 @@ export default function CartBar({
         const fee = useCheckoutStore.getState().delivery_fee_cents;
 
         if (!isTableOrder && !isPickup && cartOpen && step === "info" && fee === false) {
-            useCheckoutStore.setState({ cepTrigger: true });
+            if (smallCityMode) {
+                setShowAddressWarning(true);
+            } else {
+                useCheckoutStore.setState({ cepTrigger: true });
+            }
             return;
         }
 
@@ -401,12 +406,12 @@ export default function CartBar({
             restaurantId: restaurant.id,
             expected_promotion: { id: currentPromotion?.promotion?.id || null, total_cents },
             customer_name: checkout.nome,
-            customer_address_details: pickup || isTableOrder ? null : {cep:checkout.cep,rua:checkout.rua,bairro:checkout.bairro,numero:checkout.numero,cidade:checkout.cidade,estado:checkout.estado,complemento:checkout.complemento},
+            customer_address_details: pickup || isTableOrder ? null : {cep:checkout.cep,rua:checkout.rua,bairro:checkout.bairro,numero:checkout.numero,cidade:checkout.cidade,estado:checkout.estado,complemento:checkout.complemento,referencia:checkout.referencia},
             marketing_consent: !isTableOrder && checkout.marketingConsent,
             customer_phone: isTableOrder ? null : checkout.celular,
             customer_address: pickup || isTableOrder
                 ? null
-                : `${checkout.rua}, ${checkout.numero} - ${checkout.bairro} - ${checkout.cep}${checkout.complemento ? ` (${checkout.complemento})` : ""}`,
+                : `${checkout.rua}, ${checkout.numero} - ${checkout.bairro}${checkout.cep ? ` - ${checkout.cep}` : ""}${checkout.complemento ? ` (${checkout.complemento})` : ""}${checkout.referencia ? ` - Referência: ${checkout.referencia}` : ""}`,
             delivery_fee_cents,
             is_delivery: isTableOrder ? "mesa" : pickup ? "retirada" : "entrega",
             paymentMethod: isTableOrder ? null : checkout.pagamento,
