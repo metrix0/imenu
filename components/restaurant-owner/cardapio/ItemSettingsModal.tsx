@@ -68,22 +68,22 @@ export default function ItemSettingsModal({ item, restaurantId, open, onClose, o
                     <h2 className="text-xl font-semibold text-gray-900">Configurações do item</h2>
                     <p className="mt-1 text-sm text-gray-500">{item.name}</p>
                 </div>
-                <div className="divide-y divide-gray-100 rounded-lg border border-gray-200">
-                    <div className="flex items-center justify-between gap-4 p-4">
-                        <span id={`delivery-${item.id}`} className="text-sm font-medium text-gray-900">Disponível para delivery</span>
-                        <Switch checked={availability.available_for_delivery} onClick={() => update("available_for_delivery")} aria-labelledby={`delivery-${item.id}`} />
-                    </div>
-                    <div className="flex items-center justify-between gap-4 p-4">
-                        <span id={`salao-${item.id}`} className="text-sm font-medium text-gray-900">Disponível para salão</span>
-                        <Switch checked={availability.available_for_salao} onClick={() => update("available_for_salao")} aria-labelledby={`salao-${item.id}`} />
-                    </div>
-                </div>
-                {save.error && <p role="alert" className="text-sm text-red-600">{save.error}</p>}
                 <Button variant="secondary" onClick={() => void copyLink()} className="gap-2">
                     <FontAwesomeIcon icon={copied ? icons.faCheck : icons.faLink} />
                     {copied ? "Link copiado" : "Copiar link do item"}
                 </Button>
                 {copyError && <p role="alert" className="text-sm text-red-600">{copyError}</p>}
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between gap-4">
+                        <span id={`delivery-${item.id}`} className="text-sm font-medium text-gray-900">Disponível para delivery</span>
+                        <Switch checked={availability.available_for_delivery} onClick={() => update("available_for_delivery")} aria-labelledby={`delivery-${item.id}`} />
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
+                        <span id={`salao-${item.id}`} className="text-sm font-medium text-gray-900">Disponível para salão</span>
+                        <Switch checked={availability.available_for_salao} onClick={() => update("available_for_salao")} aria-labelledby={`salao-${item.id}`} />
+                    </div>
+                </div>
+                {save.error && <p role="alert" className="text-sm text-red-600">{save.error}</p>}
                 <p className="text-sm text-gray-500">
                     Quer adicionar opções ao produto?{" "}
                     <button type="button" disabled={save.status === "saving"} onClick={() => { onClose(); onOpenComplements?.(); }} className="cursor-pointer font-medium text-brand hover:underline disabled:opacity-50">Acesse Complementos.</button>
