@@ -21,6 +21,7 @@ import RadiusDeliveryRules, {
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import WarningBox from "@/components/ui/WarningBox";
+import Toast from "@/components/ui/Toast";
 import { supabase } from "@/lib/database/supabaseClient";
 import {
     parseNeighborhoodDeliveryRules,
@@ -75,6 +76,8 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
     ({ restaurantId, isNew, initialRules, initialMinOrder }, ref) => {
         const radiusRef = useRef<RadiusDeliveryRulesRef>(null);
         const [mode, setMode] = useState<DeliveryFeeMode>("radius");
+        const [smallCityModeEnabled, setSmallCityModeEnabled] = useState(false);
+        const [modeToast, setModeToast] = useState<string | null>(null);
         const [rules, setRules] = useState<EditableNeighborhoodRule[]>([]);
         const [defaultCity, setDefaultCity] = useState("");
         const [defaultState, setDefaultState] = useState("");
@@ -95,7 +98,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                 const { data, error: loadError } = await supabase
                     .from("restaurants")
                     .select(
-                        "delivery_fee_mode, delivery_neighborhood_fee_json, address"
+                        "delivery_fee_mode, delivery_neighborhood_fee_json, address, small_city_mode_enabled"
                     )
                     .eq("id", restaurantId)
                     .single();
@@ -125,6 +128,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                         ? "neighborhood"
                         : "radius";
 
+                setSmallCityModeEnabled(data.small_city_mode_enabled === true);
                 setDefaultCity(city);
                 setDefaultState(state);
                 setMode(storedMode);
@@ -232,6 +236,10 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         }));
 
         const changeMode = (nextMode: DeliveryFeeMode) => {
+            if (nextMode === "radius" && smallCityModeEnabled) {
+                setModeToast("É necessário desativar o Modo Cidade Pequena em Configurações para usar Entrega por KM.");
+                return;
+            }
             if (nextMode === mode) return;
             setEditRevision((revision) => revision + 1);
             setError(null);
@@ -282,6 +290,9 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
 
         return (
             <div className="mx-auto max-w-2xl 2xl:max-w-3xl">
+                {modeToast && (
+                    <Toast message={modeToast} type="error" onClose={() => setModeToast(null)} />
+                )}
                 <div className="mb-4">
                     <p className="mb-3 text-sm text-gray-500">Escolha um método. Apenas a opção selecionada será utilizada.</p>
                     <ChoiceCardGroup
