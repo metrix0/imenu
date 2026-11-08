@@ -1,6 +1,7 @@
 import {buildExpiryMessage} from "@/lib/services/addonExpiryMessage";
 import {payoutNotice} from "@/lib/services/payoutNotifications";
-import { ABANDONED_BLAST_MESSAGE,SINGLE_ORDER_DAY_RECOVERY_MESSAGE,NO_FIRST_ORDER_RECOVERY_MESSAGE } from "./abandonedBlast";
+import { ABANDONED_BLAST_MESSAGE, PLUS_ABANDONED_BLAST_MESSAGE, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE, RECOVERY_DAILY_LIMIT } from "./abandonedBlast";
+import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGE, PLUS_FEEDBACK_DAILY_LIMIT } from "./plusFeedbackBlast";
 import { DID_NOT_ACTIVATE_BLAST_MESSAGE } from "./didNotActivateBlast";
 import { MESSAGE_ROWS_SQL } from "./messageHistory";
 import { query } from "@/lib/database/sql";
@@ -8,18 +9,20 @@ import { DEV_PAGE_SIZE, devPage, paged } from "./pagination";
 
 // Existing campaign and send logs are the source of truth; no additional registry/table.
 export const AUTOMATED_BLASTS = [
-    {id:"recovery",name:"Recuperação de abandonados",sender:"blast",message:ABANDONED_BLAST_MESSAGE},
-    {id:"single-order",name:"Um único dia de pedidos",sender:"blast",message:SINGLE_ORDER_DAY_RECOVERY_MESSAGE},
-    {id:"first-order",name:"Sem primeiro pedido",sender:"blast",message:NO_FIRST_ORDER_RECOVERY_MESSAGE},
-    {id:"expiry",name:"Vencimento iMenu Plus · Pix",sender:"support",message:buildExpiryMessage({pix:["ia_plus"],card:[]})},
-    {id:"expiry-card",name:"Cancelamento iMenu Plus · Cartão",sender:"support",message:buildExpiryMessage({pix:[],card:["ia_plus"]})},
-    {id:"payout",name:"Problemas com repasse",sender:"blast",message:payoutNotice(false)},
-    {id:"payout-key",name:"Repasse sem chave PIX",sender:"blast",message:payoutNotice(true)},
-    {id:"followup",name:"Follow-ups",sender:"support",message:null},
-    {id:"congratulations",name:"Boas-vindas iMenu Plus",sender:"support",message:null},
+    {id:"recovery-plus",name:"Abandonados Plus",sender:"blast",message:PLUS_ABANDONED_BLAST_MESSAGE,criteria:"Plus ativo · pedidos em 2+ dias no último mês · 14 dias sem pedidos · maior GMV primeiro",limit:RECOVERY_DAILY_LIMIT},
+    {id:"recovery",name:"Abandonados iMenu",sender:"blast",message:ABANDONED_BLAST_MESSAGE,criteria:"iMenu sem Plus · pedidos em 2+ dias no último mês · 14 dias sem pedidos · maior GMV primeiro",limit:RECOVERY_DAILY_LIMIT},
+    {id:"single-order",name:"Um único dia de pedidos",sender:"blast",message:SINGLE_ORDER_DAY_RECOVERY_MESSAGE,criteria:"Cadastro completo · pedidos em apenas 1 dia nos últimos 14 dias",limit:RECOVERY_DAILY_LIMIT},
+    {id:"first-order",name:"Não ativados",sender:"blast",message:NO_FIRST_ORDER_RECOVERY_MESSAGE,criteria:"Cadastro completo há 24–48h · ainda sem primeiro pedido",limit:RECOVERY_DAILY_LIMIT},
+    {id:"plus-feedback",name:"Feedback · 1º mês Plus",sender:"support",message:PLUS_FIRST_MONTH_FEEDBACK_MESSAGE,criteria:"7 dias antes da 1ª renovação/vencimento · Pix primeiro",limit:PLUS_FEEDBACK_DAILY_LIMIT},
+    {id:"expiry",name:"Vencimento iMenu Plus · Pix",sender:"support",message:buildExpiryMessage({pix:["ia_plus"],card:[]}),criteria:"Plus Pix · 1 dia antes do fim do período pago",limit:null},
+    {id:"expiry-card",name:"Cancelamento iMenu Plus · Cartão",sender:"support",message:buildExpiryMessage({pix:[],card:["ia_plus"]}),criteria:"Cartão cancelado · 1 dia antes do fim do período pago",limit:null},
+    {id:"payout",name:"Problemas com repasse",sender:"blast",message:payoutNotice(false),criteria:"Repasse com falha",limit:null},
+    {id:"payout-key",name:"Repasse sem chave PIX",sender:"blast",message:payoutNotice(true),criteria:"Repasse sem chave Pix cadastrada",limit:null},
+    {id:"followup",name:"Follow-ups",sender:"support",message:null,criteria:"Suporte aguardando resposta há 1h ou mais",limit:null},
+    {id:"congratulations",name:"Boas-vindas iMenu Plus",sender:"support",message:null,criteria:"Compra iMenu Plus confirmada",limit:null},
 ] as const;
-const patterns = [ABANDONED_BLAST_MESSAGE,SINGLE_ORDER_DAY_RECOVERY_MESSAGE,NO_FIRST_ORDER_RECOVERY_MESSAGE,DID_NOT_ACTIVATE_BLAST_MESSAGE].map(message=>"^"+message.replace(/\s+/g," ").trim().split("{{Nome Restaurante}}").map(part=>part.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join(".{1,200}")+"$");
-const campaignGroup = `CASE WHEN regexp_replace(trim(c.message),'\\s+',' ','g') ~ANY($1::text[]) THEN 'automation:recovery' ELSE 'campaign:'||c.id::text END`;
+const patterns = [ABANDONED_BLAST_MESSAGE,PLUS_ABANDONED_BLAST_MESSAGE,SINGLE_ORDER_DAY_RECOVERY_MESSAGE,NO_FIRST_ORDER_RECOVERY_MESSAGE,DID_NOT_ACTIVATE_BLAST_MESSAGE].map(message=>"^"+message.replace(/\s+/g," ").trim().split("{{Nome Restaurante}}").map(part=>part.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join(".{1,200}")+"$");
+const campaignGroup = `CASE WHEN c.message = '${PLUS_FIRST_MONTH_FEEDBACK_MESSAGE.replaceAll("'", "''")}' THEN 'automation:plus-feedback' WHEN regexp_replace(trim(c.message),'\\s+',' ','g') ~ANY($1::text[]) THEN 'automation:recovery' ELSE 'campaign:'||c.id::text END`;
 
 
 const EVENTS = `WITH notifications AS (${MESSAGE_ROWS_SQL}),events AS (
@@ -67,7 +70,7 @@ async function automatedMessages(){
 export async function getBlastHistory(params:URLSearchParams) {
  const page=devPage(params), id=params.get("group");
  if(id && params.get("view")==="campaigns") {
-  const where = id==="automation:recovery" ? `(${campaignGroup})=$2` : `'campaign:'||c.id::text=$2`;
+  const where = id.startsWith("automation:") ? `(${campaignGroup})=$2` : `'campaign:'||c.id::text=$2`;
   const [rows,count]=await Promise.all([
    query(`SELECT 'campaign:'||c.id::text id,c.id::text campaign_id,c.created_at,c.message,c.sender,c.status,c.total,COUNT(r.id) FILTER(WHERE r.status='sent')::int sent,COUNT(r.id) FILTER(WHERE r.status='failed')::int failed FROM support_blast_campaigns c LEFT JOIN support_blast_recipients r ON r.campaign_id=c.id WHERE ${where} GROUP BY c.id ORDER BY c.created_at DESC,c.id LIMIT $3 OFFSET $4`,[patterns,id,DEV_PAGE_SIZE,page*DEV_PAGE_SIZE]),
    query<{total:number}>(`SELECT COUNT(*)::int total FROM support_blast_campaigns c WHERE ${where}`,[patterns,id])]);return paged(rows.rows,count.rows[0].total,page);

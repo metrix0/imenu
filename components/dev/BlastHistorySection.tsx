@@ -18,13 +18,13 @@ type Target = { restaurant_id: string; name: string; kind: string };
 type Destination = { phone?: string | null; profiles?: Target[] };
 type Group = Destination & { id: string; created_at: string; message: string; sender: string; campaign_id: string | null; status?: string; total: number; sent: number; failed: number };
 type Recipient = Destination & { id: string; message: string; status: string; error: string | null; sent_at: string | null; scheduled_at?: string };
-type Automation = { id: string; name: string; message: string | null; sender: string };
+type Automation = { id: string; name: string; message: string | null; sender: string; criteria: string; limit: number | null };
 type Data = PageData<Group> & { automations: Automation[] };
 type Connections = { support: Connection | null; blast: Connection | null };
 const empty = <T,>(): PageData<T> => ({ rows: [], total: 0, page: 0, pageCount: 1 });
 const compactButton = "!min-h-8 !px-3 !py-1.5 whitespace-nowrap";
 function groupLabel(row: Group) {
-    return row.id === "automation:recovery" ? "Recuperação e ativação" : row.id.startsWith("congratulations:") ? "Boas-vindas iMenu Plus" : row.id.startsWith("followup:") ? "Follow-up" : row.id.startsWith("customer:") ? "Automação de clientes" : row.id.startsWith("payout:") ? "Problemas com repasse" : row.id.startsWith("expiry:") ? "Vencimento iMenu Plus" : null;
+    return row.id === "automation:recovery" ? "Recuperação e ativação" : row.id === "automation:plus-feedback" ? "Feedback · 1º mês Plus" : row.id.startsWith("congratulations:") ? "Boas-vindas iMenu Plus" : row.id.startsWith("followup:") ? "Follow-up" : row.id.startsWith("customer:") ? "Automação de clientes" : row.id.startsWith("payout:") ? "Problemas com repasse" : row.id.startsWith("expiry:") ? "Vencimento iMenu Plus" : null;
 }
 function SendProgress({ row }: { row: Group }) {
     return <span className="whitespace-nowrap tabular-nums">{row.sent} / {row.total}</span>;
@@ -85,15 +85,17 @@ export default function BlastHistorySection({ refreshKey = 0, connections }: { r
         <section className={`${styles.tableSection} ${styles.blastTable} ${styles.blastAutomations}`}><h2>Blasts automáticos</h2>
             <PagedTable data={{ rows: data.automations.slice(automationPage * 25, (automationPage + 1) * 25), total: data.automations.length, page: automationPage, pageCount: Math.max(1, Math.ceil(data.automations.length / 25)) }} loading={loading} onPage={setAutomationPage} rowKey={r => r.id} columns={[
                 { key: "name", label: "Título", render: r => <span className="font-medium">{r.name}</span> },
+                { key: "criteria", label: "Critérios", render: r => <p className="max-w-80 text-xs leading-5 text-gray-600">{r.criteria}</p> },
+                { key: "limit", label: "Limite/dia", className: "whitespace-nowrap", render: r => r.limit === null ? "Sem limite" : `${r.limit} envios${["recovery-plus","recovery","single-order","first-order"].includes(r.id) ? " (compart.)" : ""}` },
                 { key: "message", label: "Mensagem", render: r => <p className={styles.blastMessage}>{r.message || "—"}</p> },
                 { key: "sender", label: "Remetente", render: r => <Sender sender={r.sender} connections={connections} /> },
             ]} />
         </section>
         <DevDialog title={selected ? groupLabel(selected) || "Detalhes do blast" : "Detalhes do blast"} open={Boolean(selected)} onClose={() => setSelected(null)}>
             <div className={`space-y-5 ${styles.blastTable}`}>
-                {selected && selected.id !== "automation:recovery" && <p className="whitespace-pre-wrap break-words text-sm leading-6">{selected.message}</p>}
+                {selected && !selected.id.startsWith("automation:") && <p className="whitespace-pre-wrap break-words text-sm leading-6">{selected.message}</p>}
                 {selected && campaignActions(selected)}
-                {selected?.id === "automation:recovery" && <Tabs tabs={["Destinatários", "Campanhas"]} active={view} onChange={value => { setView(value); setRecipientPage(0); }} />}
+                {selected?.id?.startsWith("automation:") && <Tabs tabs={["Destinatários", "Campanhas"]} active={view} onChange={value => { setView(value); setRecipientPage(0); }} />}
                 {view === "Campanhas" ? <PagedTable data={campaigns} loading={detailsLoading} rowKey={r => r.id} onPage={setRecipientPage} columns={[
                     { key: "date", label: "Data", render: r => formatDateTime(r.created_at) },
                     { key: "message", label: "Campanha", render: r => <p className={styles.blastPreview}>{r.message}</p> },
