@@ -4,7 +4,7 @@ import { getCrmReply } from "@/lib/services/crmAutomations";
 import { sendWahaText, sendWahaList, startWahaTyping, stopWahaTyping, resolveWahaChatPhone } from "@/lib/services/wahaClient";
 import { DEFAULT_WHATSAPP_MESSAGE_TEMPLATES } from "@/lib/services/whatsappMessageTemplates";
 import { sendOwnerPush } from "@/lib/push/server";
-import { processIncomingWhatsAppMessage } from "./whatsappAutomation";
+import { isRecentWahaMessage, processIncomingWhatsAppMessage } from "./whatsappAutomation";
 
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn(), withAdvisoryLock: jest.fn(), withTransaction: jest.fn() }));
 jest.mock("@/lib/services/whatsappAi", () => ({ getWhatsAppAiReply: jest.fn() }));
@@ -81,4 +81,39 @@ test("does not answer if the owner takes over during inference", async () => {
     await processIncomingWhatsAppMessage(input);
     expect(sendWahaText).not.toHaveBeenCalled();
     expect(stopWahaTyping).toHaveBeenCalled();
+});
+
+
+test("ignores historical WAHA messages delivered after reconnection", () => {
+    const now = Date.parse("2026-11-09T06:13:00Z");
+    expect(isRecentWahaMessage(1794181313, now)).toBe(false); // Sent hours before the 03:13 replay.
+    expect(isRecentWahaMessage(Math.floor(now / 1000), now)).toBe(true);
+    expect(isRecentWahaMessage(now - 60_000, now)).toBe(true); // Millisecond timestamps.
+    expect(isRecentWahaMessage(Math.floor((now + 3 * 60_000) / 1000), now)).toBe(false);
+    expect(isRecentWahaMessage(undefined, now)).toBe(false);
+});
+
+test("serializes concurrent messages from the same WhatsApp chat", async () => {
+    const tails = new Map<string, Promise<unknown>>();
+    (withAdvisoryLock as jest.Mock).mockImplementation((key: string, fn: () => Promise<unknown>) => {
+        const previous = tails.get(key) ?? Promise.resolve();
+        const current = previous.catch(() => undefined).then(fn);
+        tails.set(key, current.catch(() => undefined));
+        return current;
+    });
+    let active = 0;
+    let maxActive = 0;
+    (sendWahaText as jest.Mock).mockImplementation(async () => {
+        active++;
+        maxActive = Math.max(active, maxActive);
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        active--;
+        return { id: "provider" };
+    });
+    await Promise.all([
+        processIncomingWhatsAppMessage({ ...input, messageId: "first" }),
+        processIncomingWhatsAppMessage({ ...input, messageId: "second" }),
+    ]);
+    expect(sendWahaText).toHaveBeenCalledTimes(2);
+    expect(maxActive).toBe(1);
 });

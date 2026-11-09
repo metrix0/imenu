@@ -12,6 +12,7 @@ import {
     SUPPORT_WAHA_SESSION_NAME,
 } from "@/lib/services/wahaClient";
 import {
+    isRecentWahaMessage,
     markOwnerTookOverConversation,
     processIncomingWhatsAppMessage,
 } from "@/lib/services/whatsappAutomation";
@@ -423,6 +424,19 @@ export async function POST(request: NextRequest) {
         const sessionName = String(event.session || "");
         const eventName = String(event.event || "");
         const payload = event.payload || {};
+
+        // Reconnecting WAHA sessions can replay old messages as fresh webhooks.
+        // Use the original message timestamp, never the webhook delivery time.
+        if (
+            (eventName === "message" && payload.fromMe !== true) ||
+            (eventName === "message.any" && payload.fromMe === true && payload.source !== "api")
+        ) {
+            const sentAt = payload.timestamp ?? payload._data?.Info?.Timestamp ?? payload._data?.info?.timestamp;
+            if (!isRecentWahaMessage(sentAt)) {
+                console.warn("[WAHA_WEBHOOK] stale_message_ignored", { sessionName, eventName });
+                return NextResponse.json({ ok: true, ignored: "stale_message" });
+            }
+        }
 
         if (!sessionName || !eventName) {
             return NextResponse.json({ ok: true });

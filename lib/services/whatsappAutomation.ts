@@ -60,6 +60,16 @@ const FALLBACK_COOLDOWN_SECONDS = 30;
 const FALLBACK_SUSPEND_COUNT_5_MINUTES = 3;
 const LIST_FAILURE_LIMIT_5_MINUTES = 3;
 const STORM_QUIET_SECONDS = 60;
+const INBOUND_MAX_AGE_MS = 5 * 60_000;
+const INBOUND_FUTURE_SKEW_MS = 2 * 60_000;
+
+export function isRecentWahaMessage(timestamp: unknown, now = Date.now()): boolean {
+    if (typeof timestamp !== "number" && (typeof timestamp !== "string" || !timestamp.trim())) return false;
+    const numeric = Number(timestamp);
+    if (!Number.isFinite(numeric) || numeric <= 0) return false;
+    const millis = numeric < 10_000_000_000 ? numeric * 1000 : numeric;
+    return millis >= now - INBOUND_MAX_AGE_MS && millis <= now + INBOUND_FUTURE_SKEW_MS;
+}
 const ORDER_PHONE_REQUEST_TEXT = "Não encontrei um pedido pelo número deste WhatsApp. Envie o telefone com DDD usado no pedido (ex.: 11999999999).";
 const ORDER_PHONE_RETRY_TEXT = "Não encontrei um pedido recente para esse telefone. Envie outro telefone com DDD ou escolha *Falar com atendente*.";
 // WAHA can accept a send after our HTTP request times out. Check its history
@@ -862,7 +872,7 @@ export async function markOwnerTookOverConversation({
     console.info("[WHATSAPP_AUTOMATION] human_takeover", { restaurantId });
 }
 
-export async function processIncomingWhatsAppMessage({
+async function processIncomingWhatsAppMessageUnlocked({
     restaurantId,
     sessionName,
     chatId,
@@ -883,9 +893,7 @@ export async function processIncomingWhatsAppMessage({
     if (phone === "5519997235394" || phone === "19997235394") return;
 
     const crmReply = await getCrmReply(restaurantId, phone, body);
-    const prepared = await withAdvisoryLock(`${restaurantId}:${chatId}`, () =>
-        prepareConversation(restaurantId, chatId, customerName)
-    );
+    const prepared = await prepareConversation(restaurantId, chatId, customerName);
 
     if (await handleOrderNotificationReply(restaurantId, sessionName, chatId, body, phone)) return;
 
@@ -1067,6 +1075,15 @@ export async function processIncomingWhatsAppMessage({
             });
         }
     }
+}
+
+// Keep the entire reply sequence serialized, not only the conversation-state update.
+export async function processIncomingWhatsAppMessage(
+    input: Parameters<typeof processIncomingWhatsAppMessageUnlocked>[0]
+): Promise<void> {
+    return withAdvisoryLock(`${input.restaurantId}:${input.chatId}`, () =>
+        processIncomingWhatsAppMessageUnlocked(input)
+    );
 }
 
 export async function processWhatsAppMenuSelection({
