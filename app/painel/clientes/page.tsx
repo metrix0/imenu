@@ -163,7 +163,7 @@ export default function ClientesPage() {
           {error}
         </p>
       ) : null}
-      <div className="[&_table]:whitespace-nowrap [&_th]:px-2.5 [&_td]:px-2.5">
+      <div className="[&_th]:px-2.5 [&_td]:px-2.5">
       <DataTable
         loading={loading}
         sortKey={sortKey}
