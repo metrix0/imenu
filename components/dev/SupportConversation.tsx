@@ -1,17 +1,18 @@
 "use client";
 
 import { Sparkles } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import DevLoading from "./DevLoading";
 import { devJson } from "@/lib/dev/client";
 import { formatDateTime } from "@/lib/dev/dashboardFormat";
 
 type Message = { id:string; direction:string; body:string; model:string|null; dedupe_key?:string|null; created_at:string };
 
-export default function SupportConversation({url,fallback}:{url:string;fallback?:string|null}) {
+export default function SupportConversation({url,fallback,scrollToBottomOnLoad=false}:{url:string;fallback?:string|null;scrollToBottomOnLoad?:boolean}) {
     const [messages,setMessages] = useState<Message[]>([]);
     const [loading,setLoading] = useState(true);
     const [error,setError] = useState("");
+    const conversationRef = useRef<HTMLDivElement>(null);
     useEffect(()=>{
         const controller = new AbortController();
         setLoading(true);setMessages([]);setError("");
@@ -21,10 +22,19 @@ export default function SupportConversation({url,fallback}:{url:string;fallback?
             .finally(()=>{if(!controller.signal.aborted)setLoading(false);});
         return ()=>controller.abort();
     },[url]);
+    useLayoutEffect(() => {
+        if (!scrollToBottomOnLoad || loading || error) return;
+        for (let parent = conversationRef.current?.parentElement; parent; parent = parent.parentElement) {
+            if (parent.scrollHeight > parent.clientHeight && /auto|scroll/.test(getComputedStyle(parent).overflowY)) {
+                parent.scrollTop = parent.scrollHeight;
+                break;
+            }
+        }
+    }, [scrollToBottomOnLoad, loading, error, messages]);
     if(loading)return <div className="flex min-h-32 items-center justify-center"><DevLoading/></div>;
     if(error)return <p role="alert" className="text-sm text-red-700">{error}</p>;
     const visible = messages.length ? messages : fallback ? [{id:"fallback",direction:"inbound",body:fallback,model:null,created_at:""}] : [];
-    return <div aria-label="Conversa" className="space-y-5">
+    return <div ref={conversationRef} aria-label="Conversa" className="space-y-5">
         {visible.length ? visible.map(message=>{
             const incoming = message.direction === "inbound";
             return <div key={message.id} data-direction={message.direction} className={`flex ${incoming ? "justify-start" : "justify-end"}`}>
