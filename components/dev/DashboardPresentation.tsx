@@ -180,7 +180,7 @@ export function ProductOverviewSections({ metrics, previousMetrics, productsOnly
                 const sameTrafficSource = previous?.trafficSource === metric.trafficSource;
                 const trafficUnit = metric.trafficSource === "plus_exposures" ? "Usuários únicos (7 dias)" : metric.trafficSource === "pageviews" ? "Views (Unique)" : "Aberturas da aba";
                 const trafficInfo = metric.trafficSource === "plus_exposures"
-                    ? "PostHog · Exposição visível em: modal de venda do iMenu Plus, cartão do Plus em Planos, aviso de limite gratuito do Assistente IA, seção Vendas IA e página Marketing. Cada usuário autenticado conta uma vez entre os cinco pontos a cada 7 dias; após 7 dias, pode contar novamente. Histórico disponível a partir da implantação."
+                    ? "PostHog · Desde 10/11/2026: exposições visíveis no modal de venda, Planos, aviso de limite gratuito do Assistente IA, Vendas IA e Marketing. Antes disso: histórico aproximado por pageviews de Assistente IA, Vendas IA e Marketing; modais, Planos e avisos antigos não eram medidos. Deduplicação por ID a cada 7 dias; na transição, IDs antigos e novos podem diferir."
                     : metric.trafficSource === "pageviews"
                         ? `PostHog · ${product.key === "imenu" ? "Página inicial" : "Página Mesas"}. Uma visita por pessoa a cada 7 dias; após 7 dias, conta novamente.`
                         : "PostHog · Aberturas de abas; não são visitantes únicos.";
