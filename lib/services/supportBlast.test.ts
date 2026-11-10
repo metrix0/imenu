@@ -1,10 +1,13 @@
+import { isSupportContactExcluded } from "@/lib/services/supportExclusions";
 import { processSupportBlastQueue } from "./supportBlast";
 import { query } from "@/lib/database/sql";
 import { checkWahaPhoneExists, sendWahaImage, sendWahaText } from "@/lib/services/wahaClient";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 import { SINGLE_ORDER_DAY_RECOVERY_MESSAGE } from "@/lib/dev/abandonedBlast";
 
+jest.mock("@/lib/services/supportExclusions", () => ({ isSupportContactExcluded: jest.fn() }));
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn(), withTransaction: jest.fn() }));
+beforeEach(() => (isSupportContactExcluded as jest.Mock).mockResolvedValue(false));
 jest.mock("@/lib/database/supabaseServerClient", () => ({ createSupabaseServerClient: jest.fn() }));
 jest.mock("@/lib/services/wahaClient", () => ({
     sendWahaText: jest.fn(),

@@ -1,3 +1,4 @@
+import { isSupportContactExcluded } from "@/lib/services/supportExclusions";
 type WahaSessionStatus =
     | "STOPPED"
     | "STARTING"
@@ -625,11 +626,24 @@ export async function checkWahaPhoneExists(
     };
 }
 
+async function assertWahaRecipientAllowed(sessionName: string, chatId: string): Promise<void> {
+    if (await isSupportContactExcluded({ chatId })) {
+        throw new Error("Contato excluído de envios pelo WhatsApp.");
+    }
+    if (chatId.endsWith("@lid")) {
+        const phone = await resolveWahaChatPhone(sessionName, chatId);
+        if (phone && await isSupportContactExcluded({ phone })) {
+            throw new Error("Contato excluído de envios pelo WhatsApp.");
+        }
+    }
+}
+
 export async function sendWahaText(
     sessionName: string,
     chatId: string,
     text: string
 ): Promise<unknown> {
+    await assertWahaRecipientAllowed(sessionName, chatId);
     return wahaRequest<unknown>(
         "/api/sendText",
         {
@@ -645,12 +659,13 @@ export async function sendWahaText(
     );
 }
 
-function sendWahaListRequest(
+async function sendWahaListRequest(
     sessionName: string,
     chatId: string,
     rows: WahaListRow[],
     options?: { button?: string; title?: string; description?: string; footer?: string; sectionTitle?: string }
 ): Promise<unknown> {
+    await assertWahaRecipientAllowed(sessionName, chatId);
     return wahaRequest<unknown>(
         "/api/sendList",
         {
@@ -745,6 +760,7 @@ export function extractWahaPhone(meId: unknown): string | null {
 }
 
 export async function sendWahaImage(sessionName: string, chatId: string, url: string, caption: string): Promise<unknown> {
+    await assertWahaRecipientAllowed(sessionName, chatId);
     const response = await fetch(url, {cache:"no-store",signal:AbortSignal.timeout(10_000)});
     if (!response.ok || !response.body) throw new Error("Não foi possível carregar a imagem do produto.");
     const reader = response.body.getReader(), chunks: Uint8Array[] = [];

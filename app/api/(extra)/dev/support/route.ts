@@ -1,3 +1,4 @@
+import { SUPPORT_CONVERSATION_VISIBLE_SQL } from "@/lib/services/supportExclusions";
 import { devPage } from "@/lib/dev/pagination";
 import { getBlastHistory } from "@/lib/dev/blastHistory";
 import { NextResponse } from "next/server";
@@ -161,7 +162,7 @@ async function getDashboardData(params = new URLSearchParams()) {
             knowledge_entries: number;
             total_conversations: number;
         }>(
-            "SELECT (SELECT COUNT(*)::int FROM support_conversations WHERE created_at >= CURRENT_DATE) AS conversations_today, (SELECT COUNT(*)::int FROM support_messages WHERE direction = 'outbound' AND model IS NOT NULL AND created_at >= CURRENT_DATE) AS ai_replies_today, (SELECT COUNT(*)::int FROM support_conversations WHERE mode = 'human') AS human_conversations, (SELECT COUNT(*)::int FROM support_knowledge WHERE enabled = true) AS knowledge_entries, (SELECT COUNT(*)::int FROM support_knowledge) AS total_knowledge, (SELECT COUNT(*)::int FROM support_conversations) AS total_conversations"
+            `SELECT (SELECT COUNT(*)::int FROM support_conversations c WHERE c.created_at >= CURRENT_DATE AND ${SUPPORT_CONVERSATION_VISIBLE_SQL}) AS conversations_today, (SELECT COUNT(*)::int FROM support_messages m JOIN support_conversations c ON c.id=m.conversation_id WHERE m.direction = 'outbound' AND m.model IS NOT NULL AND m.created_at >= CURRENT_DATE AND ${SUPPORT_CONVERSATION_VISIBLE_SQL}) AS ai_replies_today, (SELECT COUNT(*)::int FROM support_conversations c WHERE c.mode = 'human' AND ${SUPPORT_CONVERSATION_VISIBLE_SQL}) AS human_conversations, (SELECT COUNT(*)::int FROM support_knowledge WHERE enabled = true) AS knowledge_entries, (SELECT COUNT(*)::int FROM support_knowledge) AS total_knowledge, (SELECT COUNT(*)::int FROM support_conversations c WHERE ${SUPPORT_CONVERSATION_VISIBLE_SQL}) AS total_conversations`
         ),
         query<{
             id: string;
@@ -182,7 +183,7 @@ async function getDashboardData(params = new URLSearchParams()) {
             updated_at: string;
             last_message: string | null;
         }>(
-            `SELECT c.id, c.phone, c.customer_name, c.restaurant_id, r.name AS restaurant_name, EXISTS(SELECT 1 FROM restaurant_addons a WHERE a.restaurant_id=r.id AND a.product_key='ia_plus' AND (a.status='active' OR (a.status IN ('canceled','past_due') AND a.current_period_ends_at>NOW()))) AS plus, c.mode, c.updated_at, (SELECT sm.body FROM support_messages sm WHERE sm.conversation_id = c.id ORDER BY sm.created_at DESC LIMIT 1) AS last_message FROM support_conversations c LEFT JOIN restaurants r ON r.id = c.restaurant_id ORDER BY c.updated_at DESC LIMIT 25 OFFSET ${supportPage * 25}`
+            `SELECT c.id, c.phone, c.customer_name, c.restaurant_id, r.name AS restaurant_name, EXISTS(SELECT 1 FROM restaurant_addons a WHERE a.restaurant_id=r.id AND a.product_key='ia_plus' AND (a.status='active' OR (a.status IN ('canceled','past_due') AND a.current_period_ends_at>NOW()))) AS plus, c.mode, c.updated_at, (SELECT sm.body FROM support_messages sm WHERE sm.conversation_id = c.id ORDER BY sm.created_at DESC LIMIT 1) AS last_message FROM support_conversations c LEFT JOIN restaurants r ON r.id = c.restaurant_id WHERE ${SUPPORT_CONVERSATION_VISIBLE_SQL} ORDER BY c.updated_at DESC LIMIT 25 OFFSET ${supportPage * 25}`
         ),
         query<{
             id: string;
@@ -196,7 +197,7 @@ async function getDashboardData(params = new URLSearchParams()) {
             last_human_reply_at: string | null;
             last_message: string | null;
         }>(
-            `SELECT c.id, c.phone, c.customer_name, c.restaurant_id, r.name AS restaurant_name, COALESCE(NULLIF(u.raw_user_meta_data->>'phone',''),r.phone) AS owner_phone, r.store_whatsapp AS store_phone, EXISTS(SELECT 1 FROM restaurant_addons a WHERE a.restaurant_id=r.id AND a.product_key='ia_plus' AND (a.status='active' OR (a.status IN ('canceled','past_due') AND a.current_period_ends_at>NOW()))) AS plus, c.mode, c.updated_at, c.human_started_at, c.last_human_reply_at, COALESCE(last_msg.direction='outbound' AND last_msg.model IS NULL AND (last_msg.dedupe_key IS NULL OR last_msg.dedupe_key LIKE 'support:human:%' OR last_msg.dedupe_key LIKE 'support:draft:%'),false) AS attended, last_msg.body AS last_message FROM support_conversations c LEFT JOIN restaurants r ON r.id = c.restaurant_id LEFT JOIN auth.users u ON u.id=r.user_id LEFT JOIN LATERAL (SELECT body,direction,model,dedupe_key FROM support_messages sm WHERE sm.conversation_id=c.id AND (sm.direction='inbound' OR sm.send_status='sent') ORDER BY sm.created_at DESC,sm.id DESC LIMIT 1) last_msg ON TRUE WHERE c.mode = 'human' ORDER BY attended ASC, COALESCE(c.last_human_reply_at, c.human_started_at, c.updated_at) DESC, c.id DESC LIMIT 25 OFFSET ${handoffPage * 25}`
+            `SELECT c.id, c.phone, c.customer_name, c.restaurant_id, r.name AS restaurant_name, COALESCE(NULLIF(u.raw_user_meta_data->>'phone',''),r.phone) AS owner_phone, r.store_whatsapp AS store_phone, EXISTS(SELECT 1 FROM restaurant_addons a WHERE a.restaurant_id=r.id AND a.product_key='ia_plus' AND (a.status='active' OR (a.status IN ('canceled','past_due') AND a.current_period_ends_at>NOW()))) AS plus, c.mode, c.updated_at, c.human_started_at, c.last_human_reply_at, COALESCE(last_msg.direction='outbound' AND last_msg.model IS NULL AND (last_msg.dedupe_key IS NULL OR last_msg.dedupe_key LIKE 'support:human:%' OR last_msg.dedupe_key LIKE 'support:draft:%'),false) AS attended, last_msg.body AS last_message FROM support_conversations c LEFT JOIN restaurants r ON r.id = c.restaurant_id LEFT JOIN auth.users u ON u.id=r.user_id LEFT JOIN LATERAL (SELECT body,direction,model,dedupe_key FROM support_messages sm WHERE sm.conversation_id=c.id AND (sm.direction='inbound' OR sm.send_status='sent') ORDER BY sm.created_at DESC,sm.id DESC LIMIT 1) last_msg ON TRUE WHERE c.mode = 'human' AND ${SUPPORT_CONVERSATION_VISIBLE_SQL} ORDER BY attended ASC, COALESCE(c.last_human_reply_at, c.human_started_at, c.updated_at) DESC, c.id DESC LIMIT 25 OFFSET ${handoffPage * 25}`
         ),
     ]);
 
@@ -208,6 +209,7 @@ async function getDashboardData(params = new URLSearchParams()) {
             AND m.direction='inbound' AND m.created_at<reply.created_at ORDER BY m.created_at DESC LIMIT 1) inbound ON TRUE
         WHERE reply.direction='outbound' AND reply.send_status='sent' AND reply.created_at>NOW()-INTERVAL '30 days'
           AND c.chat_id NOT LIKE 'imenu-blast:%'
+          AND ${SUPPORT_CONVERSATION_VISIBLE_SQL}
           AND COALESCE(reply.dedupe_key,'') NOT LIKE 'support:blast%'
           AND NOT EXISTS(SELECT 1 FROM support_messages previous WHERE previous.conversation_id=reply.conversation_id
               AND previous.direction='outbound' AND previous.send_status='sent' AND previous.created_at>inbound.created_at AND previous.created_at<reply.created_at)
