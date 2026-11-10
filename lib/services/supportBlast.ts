@@ -1,7 +1,7 @@
 import { isSupportContactExcluded } from "@/lib/services/supportExclusions";
 import { randomUUID } from "node:crypto";
 import { ABANDONED_BLAST_MESSAGE, PLUS_ABANDONED_BLAST_MESSAGE, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE, RECOVERY_DAILY_LIMIT } from "@/lib/dev/abandonedBlast";
-import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGE, PLUS_FEEDBACK_DAILY_LIMIT } from "@/lib/dev/plusFeedbackBlast";
+import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGES, PLUS_FEEDBACK_DAILY_LIMIT } from "@/lib/dev/plusFeedbackBlast";
 import { query, withTransaction } from "@/lib/database/sql";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 import {
@@ -251,11 +251,11 @@ async function claimNextRecipient(): Promise<ClaimedRecipient | null> {
                         (NOW() AT TIME ZONE 'America/Sao_Paulo')::date + TIME '00:00'
                       ) AT TIME ZONE 'America/Sao_Paulo'
                   ) < $2::int
-                  WHEN c.message = $3::text THEN (
+                  WHEN c.message = ANY($3::text[]) THEN (
                     SELECT COUNT(*)
                     FROM support_blast_recipients today
                     JOIN support_blast_campaigns counted ON counted.id = today.campaign_id
-                    WHERE counted.message = $3::text
+                    WHERE counted.message = ANY($3::text[])
                       AND today.attempted_at >= (
                         (NOW() AT TIME ZONE 'America/Sao_Paulo')::date + TIME '00:00'
                       ) AT TIME ZONE 'America/Sao_Paulo'
@@ -275,7 +275,7 @@ async function claimNextRecipient(): Promise<ClaimedRecipient | null> {
         `,
         [[ABANDONED_BLAST_MESSAGE, PLUS_ABANDONED_BLAST_MESSAGE,
             SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE],
-         RECOVERY_DAILY_LIMIT, PLUS_FIRST_MONTH_FEEDBACK_MESSAGE, PLUS_FEEDBACK_DAILY_LIMIT]
+         RECOVERY_DAILY_LIMIT, PLUS_FIRST_MONTH_FEEDBACK_MESSAGES, PLUS_FEEDBACK_DAILY_LIMIT]
     );
     return result.rows[0] || null;
 }
@@ -376,7 +376,7 @@ LIMIT 1`, [accountIds]);
         item.campaign_message === SINGLE_ORDER_DAY_RECOVERY_MESSAGE ||
         item.campaign_message === NO_FIRST_ORDER_RECOVERY_MESSAGE;
     // Do not send a stale first-month check-in if the subscription has changed.
-    if (item.campaign_message === PLUS_FIRST_MONTH_FEEDBACK_MESSAGE) {
+    if (PLUS_FIRST_MONTH_FEEDBACK_MESSAGES.includes(item.campaign_message)) {
         const stillFirstMonth = await query(
             `SELECT 1 FROM public.restaurant_addons addon
              WHERE addon.restaurant_id = ANY($1::uuid[])

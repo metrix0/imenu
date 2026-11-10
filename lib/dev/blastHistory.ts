@@ -1,7 +1,7 @@
 import {buildExpiryMessage} from "@/lib/services/addonExpiryMessage";
 import {payoutNotice} from "@/lib/services/payoutNotifications";
 import { ABANDONED_BLAST_MESSAGE, PLUS_ABANDONED_BLAST_MESSAGE, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE, RECOVERY_DAILY_LIMIT } from "./abandonedBlast";
-import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGE, PLUS_FEEDBACK_DAILY_LIMIT } from "./plusFeedbackBlast";
+import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGE, PLUS_FIRST_MONTH_FEEDBACK_MESSAGES, PLUS_FEEDBACK_DAILY_LIMIT } from "./plusFeedbackBlast";
 import { DID_NOT_ACTIVATE_BLAST_MESSAGE } from "./didNotActivateBlast";
 import { MESSAGE_ROWS_SQL } from "./messageHistory";
 import { query } from "@/lib/database/sql";
@@ -22,7 +22,8 @@ export const AUTOMATED_BLASTS = [
     {id:"congratulations",name:"Boas-vindas iMenu Plus",sender:"support",message:null,criteria:"Compra iMenu Plus confirmada",limit:null},
 ] as const;
 const patterns = [ABANDONED_BLAST_MESSAGE,PLUS_ABANDONED_BLAST_MESSAGE,SINGLE_ORDER_DAY_RECOVERY_MESSAGE,NO_FIRST_ORDER_RECOVERY_MESSAGE,DID_NOT_ACTIVATE_BLAST_MESSAGE].map(message=>"^"+message.replace(/\s+/g," ").trim().split("{{Nome Restaurante}}").map(part=>part.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join(".{1,200}")+"$");
-const campaignGroup = `CASE WHEN c.message = '${PLUS_FIRST_MONTH_FEEDBACK_MESSAGE.replaceAll("'", "''")}' THEN 'automation:plus-feedback' WHEN regexp_replace(trim(c.message),'\\s+',' ','g') ~ANY($1::text[]) THEN 'automation:recovery' ELSE 'campaign:'||c.id::text END`;
+const feedbackMessagesSql = PLUS_FIRST_MONTH_FEEDBACK_MESSAGES.map(message => "'" + message.replaceAll("'", "''") + "'").join(",");
+const campaignGroup = `CASE WHEN c.message IN (${feedbackMessagesSql}) THEN 'automation:plus-feedback' WHEN regexp_replace(trim(c.message),'\\s+',' ','g') ~ANY($1::text[]) THEN 'automation:recovery' ELSE 'campaign:'||c.id::text END`;
 
 
 const visiblePhoneSql = (alias: string) => `NOT EXISTS (
