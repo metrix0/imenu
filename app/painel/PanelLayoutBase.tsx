@@ -373,13 +373,12 @@ export default function PainelLayout({
         { label: "Robô WhatsApp", icon: faRobot, href: `${base}/robo-whatsapp` },
         { label: "Impressora", icon: faPrint, href: `${base}/impressora` },
         { label: "Integrações", icon: faPuzzlePiece, href: `${base}/integracoes` },
+        { label: "iMenu Plus", icon: faCrown, href: `${base}/planos`, isNew: true },
         {
             label: "Configurações",
             icon: faGear,
             href: `${base}/configuracoes`,
         },
-        { type: "divider" },
-        { label: "iMenu Plus", icon: faCrown, href: `${base}/planos`, isNew: true },
     ];
 
     const trackPanelTabOpen = (item: { label: string; href: string }) => {
