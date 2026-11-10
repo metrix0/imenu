@@ -56,3 +56,4 @@ export default function LandingPathsSection({ range }: { range: DateRange }) {
                 visitors={row.visitors} previousVisitors={row.previousVisitors} maxVisitors={maxVisitors} />)}
         </div>}
     </section>;
+}
