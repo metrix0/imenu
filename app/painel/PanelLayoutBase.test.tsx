@@ -33,6 +33,10 @@ jest.mock("@/components/common/SupportButton", () => ({
 jest.mock("@/components/restaurant-owner/OrderSoundProvider", () => ({
     OrderSoundProvider: ({ children }: React.PropsWithChildren) => <>{children}</>,
 }));
+jest.mock("@/components/restaurant-owner/OrderMilestonePlusPopup", () => ({
+    __esModule: true,
+    default: () => null,
+}));
 jest.mock("@/components/ui/ConfirmModal", () => ({
     __esModule: true,
     default: () => null,

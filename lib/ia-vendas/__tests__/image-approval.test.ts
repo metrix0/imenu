@@ -143,7 +143,7 @@ test("image proposal attempts after exhausting credits keep backend image genera
   imageCount = 3;
   await expect(proposeImages(restaurant, conversation, run, { jobs: [
     { target: "item", item_id: item.id, prompt: "Mais uma foto" },
-  ] })).rejects.toThrow("limite semanal de geração de imagens");
+  ] })).rejects.toThrow("Seu limite gratuito de imagens foi atingido");
   expect(statements.some(sql => sql.startsWith("INSERT INTO public.ia_vendas_actions"))).toBe(false);
 });
 

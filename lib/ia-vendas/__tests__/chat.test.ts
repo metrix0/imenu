@@ -253,7 +253,10 @@ test.each([
   [false, 3],
   [true, LIMITS.imageBatch],
 ])("Plus=%s image proposal tool allows %i images per batch", async (plus, maxJobs) => {
-  (aiAccess as jest.Mock).mockResolvedValueOnce({ plus });
+  // Image requests check access before the run and again when selecting tools.
+  (aiAccess as jest.Mock)
+    .mockResolvedValueOnce({ plus, images_remaining: 3 })
+    .mockResolvedValueOnce({ plus, images_remaining: 3 });
   (query as jest.Mock).mockImplementation(async (sql: string) => ({
     rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
       ? [{ kind: "chat", summary: "" }]
