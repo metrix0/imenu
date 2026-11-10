@@ -181,12 +181,18 @@ export default function PayoutsSection() {
                     {key:"select",label:"Selecionar",header:<input type="checkbox" aria-label="Selecionar todos os restaurantes elegíveis" checked={eligible.length > 0 && selectedForBatch.length === eligible.length} ref={element=>{if(element)element.indeterminate=selectedForBatch.length > 0 && selectedForBatch.length < eligible.length;}} disabled={sending || !eligible.length} onChange={event=>setSelectedRestaurantIds(event.target.checked ? eligible.map(row=>row.restaurantId) : [])} className="h-4 w-4 cursor-pointer accent-brand disabled:cursor-not-allowed disabled:opacity-40" />,render:r=><input type="checkbox" aria-label={`Selecionar ${r.restaurantName}`} checked={selectedRestaurantIds.includes(r.restaurantId)} disabled={sending || !r.canSend || r.grossCents <= 0} onChange={event=>setSelectedRestaurantIds(current=>event.target.checked ? [...current.filter(id=>id!==r.restaurantId),r.restaurantId] : current.filter(id=>id!==r.restaurantId))} className="h-4 w-4 cursor-pointer accent-brand disabled:cursor-not-allowed disabled:opacity-40" />},
                     { key: "name", label: "Restaurante", render: r => <div className="min-w-0"><button type="button" className={styles.profileLink} onClick={event => {event.stopPropagation();openProfile({id:r.restaurantId,name:r.restaurantName});}}>{r.restaurantName}</button>{data.ownerPhones[r.restaurantId] && <a className="text-xs text-[#c43700]" href={getWhatsappUrl(data.ownerPhones[r.restaurantId])||undefined} target="_blank" rel="noopener noreferrer">{formatPhone(data.ownerPhones[r.restaurantId])}</a>}</div> },
                     { key: "pix", label: "PIX", render: r => <p className="min-w-0 max-w-40 break-all text-xs">{r.pixKey ? <>{r.pixKeyType && <span className="text-gray-500">{r.pixKeyType} · </span>}{r.pixKey}</> : <span className="text-red-700">Não cadastrado</span>}</p> },
-                    { key: "gross", label: "Bruto elegível", className: styles.numericCell, render: r => money(r.grossCents) },
-                    { key: "gateway", label: "Gateway", className: styles.numericCell, render: r => money(r.payzuFeeCents) },
-                    { key: "discount", label: "Desconto", className: styles.numericCell, render: r => money(calculateOnePercentPayout(r.grossCents,r.payzuFeeCents).discountCents) },
+                    { key: "breakdown", label: "Bruto / Gateway / Desconto / Lucro", render: r => {
+                        const payout = calculateOnePercentPayout(r.grossCents, r.payzuFeeCents);
+                        return <dl className={styles.payoutBreakdown}>
+                            <div><dt>Bruto</dt><dd>{money(r.grossCents)}</dd></div>
+                            <div><dt>Gateway</dt><dd>{money(r.payzuFeeCents)}</dd></div>
+                            <div><dt>Desconto</dt><dd>{money(r.grossCents - payout.netCents)}</dd></div>
+                            <div><dt>Lucro</dt><dd>{money(payout.discountCents)}</dd></div>
+                        </dl>;
+                    } },
                     { key: "net", label: "Repasse líquido", className: styles.numericCell, render: r => <span className="font-semibold">{money(net(r))}</span> },
                     { key: "waiting", label: "A liberar", className: styles.numericCell, render: r => <div><span>{money(r.waitingGrossCents)}</span>{r.waitingGrossCents > 0 && r.nextEligibleAt && <p className="mt-1 text-xs text-gray-500">Até {formatDateTime(r.nextEligibleAt)}</p>}</div> },
-                    { key: "send", label: "", render: r => <div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={sending || !data.asaasConfigured || !r.canSend || r.grossCents <= 0} onClick={() => setConfirmation({ ids: [r.restaurantId] })}>Enviar repasse</Button><Button variant="secondary" disabled={sending || r.grossCents <= 0} onClick={() => setManualPayment({ payable: r })}>Marcar como pago</Button></div> },
+                    { key: "send", label: "", render: r => <div className={styles.payoutRowActions}><Button variant="secondary" disabled={sending || !data.asaasConfigured || !r.canSend || r.grossCents <= 0} onClick={() => setConfirmation({ ids: [r.restaurantId] })}>Enviar repasse</Button><Button variant="secondary" aria-label={`Marcar repasse de ${r.restaurantName} como pago`} disabled={sending || r.grossCents <= 0} onClick={() => setManualPayment({ payable: r })}>Marcar pago</Button></div> },
                 ]} />
             </section>
         </>}

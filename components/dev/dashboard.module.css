@@ -80,6 +80,14 @@
 @media(max-width:639px){.crmTable :global(th:first-child){width:calc(46% - 48px)}.crmTable :global(th:last-child){width:48px}}
 
 .payoutPayables :global(th:first-child){width:40px}.payoutPayables :global(th:nth-child(2)){width:22%}
+.payoutPayables :global(th:nth-child(4)){width:25%;white-space:normal}
+.payoutPayables :global(th:last-child){width:224px}
+.payoutBreakdown{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 12px;text-align:left;white-space:normal}
+.payoutBreakdown dt{font-size:11px;color:#626973}
+.payoutBreakdown dd{font-size:13px;font-weight:500;white-space:nowrap;font-variant-numeric:tabular-nums}
+.payoutRowActions{display:flex;flex-wrap:nowrap;align-items:center;justify-content:flex-end;gap:6px}
+.payoutRowActions :global(button){flex:0 0 auto;padding-inline:9px;white-space:nowrap}
+
 
 .supportHandoffs :global(th:last-child){width:136px}.supportHandoffs :global(th:first-child){width:26%}
 
@@ -142,4 +150,9 @@
     .payoutTable :global(tbody td[colspan]) { display: block; width: 100%; }
     .payoutTable :global(tbody td) :global(button) { max-width: 100%; white-space: normal; }
     .payoutTable .profileLink { white-space: normal; overflow-wrap: anywhere; }
+    .payoutPayables :global(tbody td:nth-child(4):not([colspan]))::before { display: none; }
+    .payoutPayables :global(tbody td:nth-child(4):not([colspan])) > .payoutBreakdown { width: 100%; }
+    .payoutPayables :global(tbody td:last-child:not([colspan])) { justify-content: stretch; }
+    .payoutRowActions { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .payoutRowActions :global(button) { min-width: 0; width: 100%; white-space:normal; }
 }
