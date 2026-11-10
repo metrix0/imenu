@@ -62,23 +62,23 @@ export default function PlusFunnelSection({ range, onDataLoaded }: { range: Date
                 info="Contas distintas que acessaram ou navegaram no painel no período, medidas por eventos PostHog. Antes da instrumentação, visitas diretas podem estar subcontadas." />
             <PlusExposureMetricCard title="Exposições ao Plus"
                 value={exposureRate === null ? "—" : formatRatio(exposureRate)}
-                description={raw(data?.exposures) + " exposições · " + raw(data?.panelUsers) + " usuários no painel"}
+                description={raw(data?.exposures) + " exposições"}
                 {...periodChange(exposureRate, percentage(prior?.exposures, prior?.panelUsers))}
                 exposureData={data ? { exposures: data.exposures, sources: data.sources } : null}
                 info="Exposições ao Plus ÷ usuários no painel. Inclui modal de venda, Planos, limite IA, Vendas IA e Marketing. Antes de 10/11, os dados usam pageviews históricos estimados, sem origem detalhada. Uma pessoa pode contar novamente após 7 dias." />
-            <MetricCard inlineChange truncateTitle title="Visualizações do modal"
+            <MetricCard inlineChange truncateTitle title="Modal Views"
                 value={modalRate === null ? "—" : formatRatio(modalRate)}
-                description={raw(data?.modalViews) + " visualizações · " + raw(data?.exposures) + " exposições"}
+                description={raw(data?.modalViews) + " visualizações"}
                 {...periodChange(modalRate, percentage(prior?.modalViews, prior?.exposures))}
                 info="Usuários que viram o modal de venda do Plus ÷ exposições ao Plus. Medição disponível desde a instrumentação de 10/11; as exposições históricas não incluem visualizações antigas de modal. Deduplicação por pessoa a cada 7 dias." />
             <MetricCard inlineChange truncateTitle title="Checkout"
                 value={checkoutRate === null ? "—" : formatRatio(checkoutRate)}
-                description={raw(data?.checkout) + " checkouts · " + raw(data?.modalViews) + " visualizações do modal"}
+                description={raw(data?.checkout) + " checkouts"}
                 {...periodChange(checkoutRate, percentage(prior?.checkout, prior?.modalViews))}
                 info="Contas que abriram checkout ÷ visualizações registradas do modal de venda. Checkouts que não passaram pelo modal ou anteriores à instrumentação podem fazer a conversão parecer maior que 100%." />
             <MetricCard inlineChange truncateTitle title="Compraram"
                 value={purchaseRate === null ? "—" : formatRatio(purchaseRate)}
-                description={raw(data?.bought) + " compradores · " + raw(data?.checkout) + " checkouts"}
+                description={raw(data?.bought) + " compradores"}
                 {...periodChange(purchaseRate, percentage(prior?.bought, prior?.checkout))}
                 info="Primeiras compras confirmadas de Plus ÷ contas que abriram checkout. Exclui renovações e pagamentos antigos do IA Plus. Compras anteriores ao rastreamento do checkout podem aparecer sem abertura medida." />
         </div>}

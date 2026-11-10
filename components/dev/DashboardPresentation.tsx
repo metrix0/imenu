@@ -283,7 +283,7 @@ export function MetricCard({
     description,
     info,
     children,
-    headerAction,
+    footerAction,
     danger = false,
     reverseChangeColors = false,
     inlineChange = false,
@@ -296,7 +296,7 @@ export function MetricCard({
     description?: string;
     info?: string;
     children?: ReactNode;
-    headerAction?: ReactNode;
+    footerAction?: ReactNode;
     danger?: boolean;
     reverseChangeColors?: boolean;
     inlineChange?: boolean;
@@ -309,21 +309,18 @@ export function MetricCard({
             : "text-red-600";
     return (
         <article
-            className={`rounded-2xl border bg-white p-5 shadow-sm ${
+            className={`relative rounded-2xl border bg-white p-5 shadow-sm ${
                 danger ? "border-red-200" : "border-gray-200"
             }`}
         >
             {info ? (
                 <div className="flex min-w-0 items-center justify-between gap-2">
                     <p className={`text-sm font-medium text-gray-600 ${truncateTitle ? "min-w-0 flex-1 truncate whitespace-nowrap" : ""}`} title={truncateTitle ? title : undefined}>{title}</p>
-                    <div className="flex shrink-0 items-center gap-1">
-                        {headerAction}
-                        <InfoTooltip text={info} size="medium" showOnClick>
-                            <button type="button" aria-label={`Informações sobre ${title}`} className="inline-flex h-6 w-6 items-center justify-center text-gray-400 hover:text-brand">
-                                <PanelIcon icon={faCircleInfo} className="h-3.5 w-3.5" />
-                            </button>
-                        </InfoTooltip>
-                    </div>
+                    <InfoTooltip text={info} size="medium" showOnClick>
+                        <button type="button" aria-label={`Informações sobre ${title}`} className="inline-flex h-6 w-6 items-center justify-center text-gray-400 hover:text-brand">
+                            <PanelIcon icon={faCircleInfo} className="h-3.5 w-3.5" />
+                        </button>
+                    </InfoTooltip>
                 </div>
             ) : (
                 <p className={`text-sm font-medium text-gray-600 ${truncateTitle ? "truncate whitespace-nowrap" : ""}`} title={truncateTitle ? title : undefined}>{title}</p>
@@ -358,8 +355,9 @@ export function MetricCard({
                 </p>
             )}
             </>}
-            {description && <p className="mt-3 text-xs leading-5 text-gray-500">{description}</p>}
+            {description && <p className={`mt-3 text-xs leading-5 text-gray-500 ${footerAction ? "pr-6" : ""}`}>{description}</p>}
             {children}
+            {footerAction && <div className="absolute bottom-3 right-3">{footerAction}</div>}
         </article>
     );
 }
@@ -387,12 +385,12 @@ export function PlusExposureMetricCard({
     const [expanded, setExpanded] = useState(false);
     return <MetricCard inlineChange truncateTitle title={title} value={value} change={change}
         changeLabel={changeLabel} description={description} info={info}
-        headerAction={<button type="button" aria-label={expanded ? "Recolher origens do Plus" : "Expandir origens do Plus"}
+        footerAction={<button type="button" aria-label={expanded ? "Recolher origens do Plus" : "Expandir origens do Plus"}
             aria-expanded={expanded} onClick={() => setExpanded(previous => !previous)}
             className="inline-flex h-6 w-6 items-center justify-center rounded text-gray-400 hover:bg-gray-50 hover:text-brand">
             <ChevronDown size={16} className={"transition-transform duration-200 " + (expanded ? "rotate-180" : "")} />
         </button>}>
-        {expanded && <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
+        {expanded && <div className="mt-3 space-y-2 border-t border-gray-100 pt-3 pb-6">
             {PLUS_EXPOSURE_SOURCES.filter(source => source.key !== "legacy_pages" ||
                 (exposureData?.sources?.legacy_pages ?? 0) > 0).map(source => {
                 const count = exposureData?.sources?.[source.key];
