@@ -56,10 +56,16 @@ const fixtures = {
     mixed: { addons: [
         { addon: makeAddon("qr_code_mesa", { payment_provider: "payzu", payzu_payment_method: "PIX", status: "canceled" }), active: true, payments: [payment] },
     ] },
+    prepaidPlus: { addons: [
+        { addon: makeAddon("ia_plus", { status: "canceled", payment_provider: "mercadopago", current_period_ends_at: "2026-12-07T12:00:00.000Z" }), active: true, payments: [payment] },
+    ] },
+    expiredPlus: { addons: [
+        { addon: makeAddon("ia_plus", { status: "canceled", payment_provider: "mercadopago", current_period_ends_at: "2026-10-07T12:00:00.000Z" }), active: false, payments: [payment] },
+    ] },
 };
 afterEach(() => jest.restoreAllMocks());
 
-function renderBilling(payload: typeof fixtures.empty | typeof fixtures.active | typeof fixtures.mixed, wholePage = false, coupon?: string) {
+function renderBilling(payload: typeof fixtures[keyof typeof fixtures], wholePage = false, coupon?: string) {
     const state = jest.spyOn(React, "useState");
     // SSR does not run the authenticated load effect; seed only its existing state.
     if (wholePage) {
@@ -117,6 +123,20 @@ test("PROMOQR shows the discounted first-month price on the plan card before lau
     expect(plusCard).toContain("line-through");
     expect(plusCard).toContain("1º mês via Pix");
     expect(renderBilling(fixtures.mixed)).not.toContain("25,00");
+});
+
+test("prepaid Pix valid for the paid period displays an active Plus badge", () => {
+    const html = renderBilling(fixtures.prepaidPlus);
+    expect(html).toMatch(/iMenu Plus<\/h3><span data-ui="badge" data-variant="success"[^>]*>Ativo<\/span>/);
+    expect(html).toContain("07/12/2026");
+    expect(html).toContain(">Renovar<");
+    expect(html).not.toMatch(/data-ui="badge"[^>]*>Cancelado<\/span>/);
+});
+
+test("expired prepaid Pix displays expired, not active, on Plus", () => {
+    const html = renderBilling(fixtures.expiredPlus);
+    expect(html).toMatch(/iMenu Plus<\/h3><span data-ui="badge" data-variant="neutral"[^>]*>Expirado<\/span>/);
+    expect(html).not.toMatch(/data-ui="badge"[^>]*>Ativo<\/span>/);
 });
 
 test("QR-only legacy billing records are never shown as a paid subscription", () => {
