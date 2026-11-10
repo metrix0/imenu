@@ -55,7 +55,7 @@ export default function TrafficSourcesSection({ range }: { range: DateRange }) {
                 {channels.map(item => {
                     const label = CHANNELS[item.channel]?.label || item.channel;
                     const info = CHANNELS[item.channel]?.info || "Origem classificada pelo PostHog.";
-                    return <div key={item.channel} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 sm:grid-cols-[minmax(160px,230px)_minmax(0,1fr)_auto]">
+                    return <div key={item.channel} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-2 sm:grid-cols-[max-content_minmax(0,1fr)_auto]">
                         <div className="flex min-w-0 items-center gap-1.5">
                             <span className="min-w-0 truncate text-xs text-gray-700" title={label}>{label}</span>
                             <InfoTooltip text={info} size="medium" showOnClick>
