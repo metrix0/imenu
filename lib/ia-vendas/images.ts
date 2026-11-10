@@ -180,20 +180,18 @@ export async function previewImage(
       const own = new URL(process.env.SUPABASE_URL!);
       const url = new URL(path);
       const prefix = `/storage/v1/object/public/${t.bucket}/`;
-      path = url.origin === own.origin && url.pathname.startsWith(prefix)
-        ? decodeURIComponent(url.pathname.slice(prefix.length)) : "";
+      if (url.origin !== own.origin || !url.pathname.startsWith(prefix))
+        throw new SalesError("Anexe a foto original para preservar o produto.");
+      path = decodeURIComponent(url.pathname.slice(prefix.length));
     }
-    if (path) {
-      const { data, error } = await createSupabaseServerClient()
-        .storage.from(t.bucket)
-        .download(path);
-      // If an old menu image is inaccessible, generate from the owner's request.
-      // Never force the owner to upload an optional reference.
-      if (!error && data) reference = Buffer.from(await data.arrayBuffer());
-    }
+    const { data, error } = await createSupabaseServerClient()
+      .storage.from(t.bucket)
+      .download(path);
+    if (error || !data) throw new SalesError("Anexe a foto original.");
+    reference = Buffer.from(await data.arrayBuffer());
   }
   const purchasedImageCredit = await reserveImage(restaurant, run);
-  const prompt = `Crie uma imagem comercial realista para ${t.row.name}. ${input.target === "item" ? "Fotografia gastronômica. Preserve exatamente ingredientes, porção, quantidade e apresentação do produto de referência quando disponível. Não invente acompanhamentos ou ingredientes. Texto sobreposto somente quando solicitado no pedido ou definido no estilo aprovado." : "Preserve a identidade da marca."} Pedido do proprietário: ${input.prompt}.${Object.keys(style).length ? ` Preferências explicitamente escolhidas ou já aprovadas: ${JSON.stringify(style)}.` : ""}`;
+  const prompt = `Crie uma imagem comercial realista para ${t.row.name}. ${input.target === "item" ? "Fotografia gastronômica. Preserve exatamente ingredientes, porção, quantidade e apresentação do produto de referência. Não invente acompanhamentos ou ingredientes. Texto sobreposto somente quando solicitado no pedido ou definido no estilo aprovado." : "Preserve a identidade da marca."} Pedido do proprietário: ${input.prompt}.${Object.keys(style).length ? ` Preferências explicitamente escolhidas ou já aprovadas: ${JSON.stringify(style)}.` : ""}`;
   const generationSize =
       t.profile === "banner" ? "1536x1024" : "816x816",
     args = {

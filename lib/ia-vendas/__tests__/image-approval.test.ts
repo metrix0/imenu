@@ -4,7 +4,6 @@ import { LIMITS } from "../config";
 import { aiAccess } from "../access";
 import { query, withTransaction } from "@/lib/database/sql";
 import { saveFile, signedAttachment } from "../files";
-import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 import OpenAI from "openai";
 
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn(), withTransaction: jest.fn() }));
@@ -188,22 +187,3 @@ test("explicit product-specific regeneration remains allowed", async () => {
   expect(imageCount).toBe(1);
 });
 
-test("unavailable menu photo generates without asking for an optional upload or persisting missing style", async () => {
-  item.image_path = "restaurant/missing.webp";
-  try {
-    const download = jest.fn().mockResolvedValue({ data: null, error: new Error("Not found") });
-    (createSupabaseServerClient as jest.Mock).mockReturnValue({
-      storage: { from: jest.fn().mockReturnValue({ download }) },
-    });
-    await applyProposal(restaurant, proposal, conversation, "generate", run);
-    expect(download).toHaveBeenCalledWith("restaurant/missing.webp");
-    expect(generate).toHaveBeenCalledTimes(1);
-    const created = actions.get(actions.get(proposal).generated_actions[0]);
-    expect(created).toMatchObject({ status: "pending" });
-    const storedImage = (query as jest.Mock).mock.calls.find(([sql]) =>
-      sql.startsWith("UPDATE public.ia_vendas_actions SET image="));
-    expect(JSON.parse(storedImage?.[1]?.[2] || "{}")).not.toHaveProperty("style");
-  } finally {
-    item.image_path = null;
-  }
-});

@@ -1,4 +1,4 @@
-import { explicitlyTargetsImage, imageAllowed, approvedImageStyles, resolveImageStyle, explicitImageStyle } from '../imagePolicy';
+import { explicitlyTargetsImage, imageAllowed, approvedImageStyles, resolveImageStyle } from '../imagePolicy';
 import { query } from '@/lib/database/sql';
 jest.mock('@/lib/database/sql', () => ({ query: jest.fn() }));
 const sql = query as jest.Mock;
@@ -47,16 +47,3 @@ test('missing style fields do not inherit from another dish', () => {
  expect(resolveImageStyle(approved,{target:'logo'},'owner')).toEqual({});
 });
 
-test("optional image preferences are absent unless requested by the owner", () => {
-  expect(explicitImageStyle("Melhore a imagem da Batata Frita", {
-    background: "claro", presentation: "45 graus", text: "Imagem ilustrativa", ingredients: "molho extra",
-  })).toBeUndefined();
-  expect(explicitImageStyle("Melhore a imagem com fundo claro", {
-    background: "claro", presentation: "45 graus", text: "Imagem ilustrativa",
-  })).toEqual({ background: "claro" });
-  expect(explicitImageStyle("Melhore a imagem com fundo claro e sem texto")).toEqual({
-    background: "claro", text: "",
-  });
-  expect(explicitImageStyle("Imagem sem texto", { text: "Texto inventado" })).toEqual({ text: "" });
-  expect(explicitImageStyle("Gere imagem do produto")).toBeUndefined();
-});
