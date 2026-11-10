@@ -52,12 +52,15 @@ function TrafficBar({ label, visitors, maxVisitors, info, nested = false, expand
                 </button>
             </InfoTooltip>}
         </div>
-        <div aria-hidden="true" className={`min-w-0 overflow-hidden rounded bg-[#f1f3f5] ${nested ? "h-3" : "h-5"}`}>
-            <div className={`h-full rounded ${nested ? "bg-[#f7a17c]" : "bg-[#d93d00]"}`} style={{ width: (visitors / maxVisitors * 100) + "%", minWidth: visitors > 0 ? 2 : 0 }} />
+        <div className={`relative min-w-0 rounded bg-[#f1f3f5] ${nested ? "h-3" : "h-5"}`}>
+            <div className="absolute inset-y-0 left-0 right-16 flex items-center">
+                <div aria-hidden="true" className={`h-full shrink-0 rounded ${nested ? "bg-[#f7a17c]" : "bg-[#d93d00]"}`}
+                    style={{ width: (visitors / maxVisitors * 100) + "%", minWidth: visitors > 0 ? 2 : 0 }} />
+                <span className="ml-2 shrink-0 whitespace-nowrap text-xs font-semibold tabular-nums text-gray-800">
+                    {formatCount(visitors)}
+                </span>
+            </div>
         </div>
-        <span className="min-w-[38px] whitespace-nowrap text-right text-xs font-semibold tabular-nums text-gray-800">
-            {formatCount(visitors)}
-        </span>
     </div>;
 }
 
@@ -87,7 +90,7 @@ export default function TrafficSourcesSection({ range }: { range: DateRange }) {
         </header>
         {error && <p role="alert" className="p-5 text-sm text-red-700">{error}</p>}
         {loading ? <DevLoading /> : !error && (channels.length ? (
-            <div className="grid min-w-0 grid-cols-[max-content_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-2 p-5">
+            <div className="grid min-w-0 grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-2 gap-y-2 p-5">
                 {channels.map(item => {
                     const label = CHANNELS[item.channel]?.label || item.channel;
                     const info = CHANNELS[item.channel]?.info || "Origem classificada pelo PostHog.";
