@@ -11,7 +11,8 @@ import {
 } from "@/lib/seo/blogArticles";
 import { COMPARISON_PAGES } from "@/lib/seo/comparisonPages";
 
-export const revalidate = 3600;
+// Generate at request time, when the production Supabase credentials are available.
+export const revalidate = 0;
 
 const SITE_URL = "https://www.imenuapp.com.br";
 const PAGE_SIZE = 1000;
