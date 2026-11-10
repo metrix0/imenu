@@ -93,10 +93,10 @@ export function FunnelMaturationHeader({ title, active, range, onToggle }: {
 }) {
     return <div className="mb-4 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
         <h2 className="text-base font-semibold text-gray-900">{title}</h2>
-        <Button type="button" variant={active ? "primary" : "secondary"}
+        <Button type="button" variant="secondary"
             aria-pressed={active} onClick={onToggle}
             title="Analisa o mesmo intervalo 7 dias antes, mantendo sua duração."
-            className="!min-h-8 !px-3 !py-1.5 text-xs">Maturação</Button>
+            className={`!min-h-8 !px-3 !py-1.5 text-xs ${active ? "!bg-[#f1f3f5] !border-[#d1d5db] font-semibold" : ""}`}>Maturação</Button>
         {active && <span className="text-xs text-gray-500">
             Período: {formatRangeDate(range.startDate)} – {formatRangeDate(range.endDate)} (7 dias antes)
         </span>}
