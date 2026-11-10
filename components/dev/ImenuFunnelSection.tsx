@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { DateRange } from "@/lib/utils/dateRange";
+import { shiftDateRange, type DateRange } from "@/lib/utils/dateRange";
 import { devJson } from "@/lib/dev/client";
 import { conversion, formatCount, formatRatio } from "@/lib/dev/dashboardFormat";
-import { MetricCard } from "./DashboardPresentation";
+import { FunnelMaturationHeader, FUNNEL_MATURATION_DAYS, MetricCard } from "./DashboardPresentation";
 import DevLoading from "./DevLoading";
 
 type Counts = {
@@ -77,6 +77,8 @@ function periodChange(current: number | null, previous: number | null) {
 }
 
 export default function ImenuFunnelSection({ range }: { range: DateRange }) {
+    const [matured, setMatured] = useState(false);
+    const analyzedRange = matured ? shiftDateRange(range, FUNNEL_MATURATION_DAYS) : range;
     const [data, setData] = useState<Funnel | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -85,17 +87,18 @@ export default function ImenuFunnelSection({ range }: { range: DateRange }) {
         const controller = new AbortController();
         setLoading(true);
         setError("");
-        const params = new URLSearchParams({ startDate: range.startDate, endDate: range.endDate });
+        const params = new URLSearchParams({ startDate: analyzedRange.startDate, endDate: analyzedRange.endDate });
         void devJson<Funnel>("/api/dev/imenu-funnel?" + params, { signal: controller.signal })
             .then(result => { if (!controller.signal.aborted) setData(result); })
             .catch(err => { if (!controller.signal.aborted) { setError(err.message); setData(null); } })
             .finally(() => { if (!controller.signal.aborted) setLoading(false); });
         return () => controller.abort();
-    }, [range.startDate, range.endDate]);
+    }, [analyzedRange.startDate, analyzedRange.endDate]);
 
     const raw = (value: number | null | undefined) => value == null ? "—" : formatCount(value);
     return <section aria-label="Funil iMenu" className="min-w-0">
-        <h2 className="mb-4 text-base font-semibold text-gray-900">Funil iMenu</h2>
+        <FunnelMaturationHeader title="Funil iMenu" active={matured} range={analyzedRange}
+            onToggle={() => setMatured(value => !value)} />
         {error && <p role="alert" className="mb-3 text-sm text-red-700">{error}</p>}
         {loading ? <DevLoading /> : !error && <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {STEPS.map(step => {

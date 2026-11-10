@@ -1,9 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
-import type { DateRange } from "@/lib/utils/dateRange";
+import { shiftDateRange, type DateRange } from "@/lib/utils/dateRange";
 import { devJson } from "@/lib/dev/client";
 import DevLoading from "./DevLoading";
-import { MetricCard, PlusExposureMetricCard, type PlusExposureBreakdown } from "./DashboardPresentation";
+import { FunnelMaturationHeader, FUNNEL_MATURATION_DAYS, MetricCard, PlusExposureMetricCard, type PlusExposureBreakdown } from "./DashboardPresentation";
 import { conversion, formatCount, formatRatio } from "@/lib/dev/dashboardFormat";
 
 type FunnelCounts = {
@@ -25,24 +25,26 @@ function periodChange(current: number | null, previous: number | null) {
 }
 
 export default function PlusFunnelSection({ range, onDataLoaded }: { range: DateRange; onDataLoaded?: (breakdown: PlusExposureBreakdown) => void }) {
+    const [matured, setMatured] = useState(false);
+    const analyzedRange = matured ? shiftDateRange(range, FUNNEL_MATURATION_DAYS) : range;
     const [data, setData] = useState<PlusFunnel | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     useEffect(() => {
         const controller = new AbortController();
         setLoading(true);
-        const params = new URLSearchParams({ startDate: range.startDate, endDate: range.endDate });
+        const params = new URLSearchParams({ startDate: analyzedRange.startDate, endDate: analyzedRange.endDate });
         void devJson<PlusFunnel>("/api/dev/plus-funnel?" + params, { signal: controller.signal })
             .then(result => {
                 if (controller.signal.aborted) return;
                 setData(result);
                 setError("");
-                onDataLoaded?.({ exposures: result.exposures, sources: result.sources });
+                if (!matured) onDataLoaded?.({ exposures: result.exposures, sources: result.sources });
             })
             .catch(err => { if (!controller.signal.aborted) { setError(err.message); setData(null); } })
             .finally(() => { if (!controller.signal.aborted) setLoading(false); });
         return () => controller.abort();
-    }, [range.startDate, range.endDate, onDataLoaded]);
+    }, [analyzedRange.startDate, analyzedRange.endDate, matured, onDataLoaded]);
 
     const prior = data?.previous;
     const exposureRate = percentage(data?.exposures, data?.panelUsers);
@@ -52,7 +54,8 @@ export default function PlusFunnelSection({ range, onDataLoaded }: { range: Date
     const raw = (value: number | null | undefined) => value == null ? "—" : formatCount(value);
 
     return <section aria-label="Funil iMenu Plus" className="min-w-0">
-        <h2 className="mb-4 text-base font-semibold text-gray-900">Funil iMenu Plus</h2>
+        <FunnelMaturationHeader title="Funil iMenu Plus" active={matured} range={analyzedRange}
+            onToggle={() => setMatured(value => !value)} />
         {error && <p role="alert" className="mb-3 text-sm text-red-700">{error}</p>}
         {loading ? <DevLoading /> : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <MetricCard inlineChange truncateTitle title="Usuários no painel"

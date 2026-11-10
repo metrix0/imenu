@@ -2,6 +2,8 @@
 
 import styles from "./dashboard.module.css";
 import DataTable from "@/components/ui/DataTable";
+import Button from "@/components/ui/Button";
+import { formatRangeDate, type DateRange } from "@/lib/utils/dateRange";
 import { CHART_CATEGORY_AXIS, CHART_VALUE_AXIS, STANDARD_CHART_TOOLTIP, createBrandAreaGradient } from "@/components/restaurant-owner/exibicoes/chartStyles";
 import { Chart as ChartJS, Filler } from "chart.js";
 import { Line } from "react-chartjs-2";
@@ -79,6 +81,28 @@ export function SectionHeading({
             {description && <p className="mt-1 text-sm text-gray-500">{description}</p>}
         </div>
     );
+}
+
+export const FUNNEL_MATURATION_DAYS = 7;
+
+export function FunnelMaturationHeader({ title, active, range, onToggle }: {
+    title: string;
+    active: boolean;
+    range: DateRange;
+    onToggle: () => void;
+}) {
+    return <div className="mb-4 flex min-w-0 flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+            <h2 className="text-base font-semibold text-gray-900">{title}</h2>
+            {active && <p className="mt-0.5 text-xs text-gray-500">
+                Período: {formatRangeDate(range.startDate)} – {formatRangeDate(range.endDate)} (7 dias antes)
+            </p>}
+        </div>
+        <Button type="button" variant={active ? "primary" : "secondary"}
+            aria-pressed={active} onClick={onToggle}
+            title="Analisa o mesmo intervalo 7 dias antes, mantendo sua duração."
+            className="!min-h-8 !px-3 !py-1.5 text-xs">Maturação</Button>
+    </div>;
 }
 
 export function QrTableFunnelCard({
