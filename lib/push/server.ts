@@ -4,6 +4,8 @@ import { query, withTransaction } from "@/lib/database/sql";
 
 const PUSH_TTL_SECONDS = 600;
 const PUSH_RETRY_DELAYS_MS = [2000, 5000];
+const PUSH_RETRY_BATCH_SIZE = 100;
+const PUSH_RETRY_CONCURRENCY = 10;
 
 type PushPayload = {
     title: string;
@@ -127,9 +129,11 @@ async function queueNotification(
                 title,
                 body,
                 url,
-                tag
+                tag,
+                attempt_count,
+                last_attempt_at
             )
-            VALUES ($1, $2, $3, $4, $5)
+            VALUES ($1, $2, $3, $4, $5, 1, NOW())
         `,
         [
             subscriptionId,
@@ -216,6 +220,88 @@ export async function sendTestPush({
     return wakeSubscription(subscription);
 }
 
+// The service worker acknowledges only after displaying (or already displaying) an alert.
+export async function acknowledgeOwnerPush(
+    deviceToken: string,
+    notificationId: string
+): Promise<boolean> {
+    const result = await query<{ id: string }>(
+        `
+            UPDATE owner_push_notifications AS notification
+            SET delivered_at = COALESCE(notification.delivered_at, NOW())
+            FROM owner_push_subscriptions AS subscription
+            WHERE notification.id = $1
+              AND notification.subscription_id = subscription.id
+              AND subscription.device_token = $2
+              AND subscription.enabled = true
+              AND notification.created_at > NOW() - INTERVAL '10 minutes'
+            RETURNING notification.id
+        `,
+        [notificationId, deviceToken]
+    );
+    return result.rows.length > 0;
+}
+
+// Retry accepted but unacknowledged pushes: 30s, then 90s, then 3min.
+// A due row is claimed atomically so overlapping cron workers cannot repeat it.
+export async function retryUnacknowledgedOwnerPush(): Promise<{
+    claimed: number;
+    accepted: number;
+    failed: number;
+}> {
+    const result = await query<{ id: string; subscription_id: string; endpoint: string }>(
+        `
+            WITH due AS (
+                SELECT notification.id
+                FROM owner_push_notifications AS notification
+                INNER JOIN owner_push_subscriptions AS subscription
+                    ON subscription.id = notification.subscription_id
+                WHERE notification.delivered_at IS NULL
+                  AND notification.attempt_count BETWEEN 1 AND 3
+                  AND notification.created_at > NOW() - INTERVAL '10 minutes'
+                  AND subscription.enabled = true
+                  AND notification.last_attempt_at <= NOW() - (
+                      CASE notification.attempt_count
+                          WHEN 1 THEN INTERVAL '30 seconds'
+                          WHEN 2 THEN INTERVAL '90 seconds'
+                          ELSE INTERVAL '180 seconds'
+                      END
+                  )
+                ORDER BY notification.last_attempt_at ASC
+                LIMIT $1
+                FOR UPDATE OF notification SKIP LOCKED
+            )
+            UPDATE owner_push_notifications AS notification
+            SET attempt_count = notification.attempt_count + 1,
+                last_attempt_at = NOW()
+            FROM due, owner_push_subscriptions AS subscription
+            WHERE notification.id = due.id
+              AND subscription.id = notification.subscription_id
+            RETURNING notification.id, notification.subscription_id, subscription.endpoint
+        `,
+        [PUSH_RETRY_BATCH_SIZE]
+    );
+
+    let accepted = 0;
+    let failed = 0;
+    for (let offset = 0; offset < result.rows.length; offset += PUSH_RETRY_CONCURRENCY) {
+        await Promise.all(result.rows.slice(offset, offset + PUSH_RETRY_CONCURRENCY).map(async (row) => {
+            try {
+                if (await wakeSubscription({ id: row.subscription_id, endpoint: row.endpoint })) {
+                    accepted++;
+                } else {
+                    failed++;
+                }
+            } catch (error) {
+                failed++;
+                console.error("[OWNER_PUSH] Retry wake failed:", row.subscription_id, error);
+            }
+        }));
+    }
+
+    return { claimed: result.rows.length, accepted, failed };
+}
+
 export async function takeNextPushNotification(
     deviceToken: string
 ): Promise<PendingNotificationRow | null> {
@@ -250,7 +336,8 @@ export async function takeNextPushNotification(
                   AND subscription.enabled = true
                   AND notification.delivered_at IS NULL
                   AND notification.created_at > NOW() - ($2::integer * INTERVAL '1 second')
-                ORDER BY notification.created_at ASC
+                -- Prefer not-yet-fetched alerts so simultaneous order pushes each get a payload.
+                ORDER BY (notification.sent_at IS NOT NULL) ASC, notification.created_at ASC
                 LIMIT 1
                 FOR UPDATE OF notification SKIP LOCKED
             `,
@@ -263,7 +350,7 @@ export async function takeNextPushNotification(
         await client.query(
             `
                 UPDATE owner_push_notifications
-                SET delivered_at = NOW()
+                SET sent_at = COALESCE(sent_at, NOW())
                 WHERE id = $1
             `,
             [notification.id]
