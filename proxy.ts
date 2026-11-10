@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/database/sql";
 
 const NON_GOOGLE_INDEXING_CRAWLER =
-  /(bytespider|bingbot|adidxbot|bingpreview|duckduckbot|baiduspider|yandexbot|yandeximages|applebot|petalbot|seznambot|sogou|exabot|qwantify|ahrefsbot|semrushbot|mj12bot|dotbot|serpstatbot|ccbot|gptbot|claudebot|anthropic-ai|perplexitybot|cohere-ai|amazonbot|omgilibot|diffbot|imagesiftbot)/i;
+  /(bytespider|adidxbot|bingpreview|duckduckbot|baiduspider|yandexbot|yandeximages|applebot|petalbot|seznambot|sogou|exabot|qwantify|ahrefsbot|semrushbot|mj12bot|dotbot|serpstatbot|ccbot|gptbot|claudebot|anthropic-ai|perplexitybot|cohere-ai|amazonbot|omgilibot|diffbot|imagesiftbot)/i;
 
 export async function proxy(req: Request) {
   const url = new URL(req.url);
