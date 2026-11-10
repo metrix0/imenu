@@ -79,13 +79,15 @@
 .crmDetails dd .profileLink{display:block;overflow:hidden;text-overflow:ellipsis}
 @media(max-width:639px){.crmTable :global(th:first-child){width:calc(46% - 48px)}.crmTable :global(th:last-child){width:48px}}
 
-.payoutPayables :global(th:first-child){width:40px}.payoutPayables :global(th:nth-child(2)){width:19%}
-.payoutPayables :global(th:nth-child(4)){width:24%;white-space:normal}
+.payoutPayables :global(th:first-child){width:40px}.payoutPayables :global(th:nth-child(2)){width:17%}
+.payoutPayables :global(th:nth-child(4)){width:23%;white-space:normal;text-align:center}
+.payoutPayables :global(th:nth-child(6)){width:11%}
 .payoutPayables :global(th:last-child){width:244px}
 .payoutPayables :global(td:last-child){padding-left:18px}
-.payoutBreakdown{display:block;white-space:nowrap;text-align:left;font-size:12px;font-variant-numeric:tabular-nums}
+.payoutBreakdown{display:block;white-space:nowrap;text-align:center;font-size:12px;font-variant-numeric:tabular-nums}
 .payoutRowActions{display:flex;flex-wrap:nowrap;align-items:center;justify-content:flex-start;gap:8px}
 .payoutRowActions :global(button){flex:0 0 auto;padding-inline:9px;white-space:nowrap}
+@media(min-width:768px){.payoutPayables :global(th:nth-child(4)),.payoutPayables :global(td:nth-child(4)){padding-inline:6px}}
 
 
 .supportHandoffs :global(th:last-child){width:136px}.supportHandoffs :global(th:first-child){width:26%}
