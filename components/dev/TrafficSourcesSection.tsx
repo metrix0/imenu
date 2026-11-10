@@ -10,7 +10,7 @@ import { faCircleInfo } from "@fortawesome/free-solid-svg-icons";
 import DevLoading from "./DevLoading";
 import styles from "./dashboard.module.css";
 
-type TrafficSource = { channel: string; visitors: number };
+type TrafficSource = { channel: string; visitors: number; sources: Array<{ source: string; visitors: number }> };
 type TrafficSources = { channels: TrafficSource[] };
 
 const CHANNELS: Record<string, { label: string; info: string }> = {
@@ -25,6 +25,32 @@ const CHANNELS: Record<string, { label: string; info: string }> = {
     "Email": { label: "E-mail", info: "Links acessados por campanhas de e-mail." },
     "Unknown": { label: "Não identificado", info: "O PostHog não conseguiu classificar a origem." },
 };
+
+function TrafficBar({ label, visitors, maxVisitors, info, nested = false }: {
+    label: string;
+    visitors: number;
+    maxVisitors: number;
+    info?: string;
+    nested?: boolean;
+}) {
+    return <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 sm:grid-cols-[210px_minmax(0,1fr)_56px]">
+        <div className={`flex min-w-0 items-center justify-end gap-1.5 ${nested ? "pr-3" : ""}`}>
+            {nested && <span aria-hidden="true" className="shrink-0 text-gray-400">↳</span>}
+            <span className={`min-w-0 truncate text-right text-xs ${nested ? "text-gray-500" : "text-gray-700"}`} title={label}>{label}</span>
+            {info && <InfoTooltip text={info} size="medium" showOnClick>
+                <button type="button" aria-label={`Informações sobre ${label}`} className="inline-flex h-6 w-6 shrink-0 items-center justify-center text-gray-400 hover:text-brand">
+                    <PanelIcon icon={faCircleInfo} className="h-3.5 w-3.5" />
+                </button>
+            </InfoTooltip>}
+        </div>
+        <div aria-hidden="true" className={`col-span-2 row-start-2 overflow-hidden rounded bg-[#f1f3f5] sm:col-span-1 sm:col-start-2 sm:row-start-1 ${nested ? "h-3" : "h-5"}`}>
+            <div className={`h-full rounded ${nested ? "bg-[#f7a17c]" : "bg-[#d93d00]"}`} style={{ width: (visitors / maxVisitors * 100) + "%", minWidth: visitors > 0 ? 2 : 0 }} />
+        </div>
+        <span className="col-start-2 row-start-1 whitespace-nowrap text-right text-xs font-semibold tabular-nums text-gray-800 sm:col-start-3">
+            {formatCount(visitors)}
+        </span>
+    </div>;
+}
 
 export default function TrafficSourcesSection({ range }: { range: DateRange }) {
     const [data, setData] = useState<TrafficSources | null>(null);
@@ -55,21 +81,12 @@ export default function TrafficSourcesSection({ range }: { range: DateRange }) {
                 {channels.map(item => {
                     const label = CHANNELS[item.channel]?.label || item.channel;
                     const info = CHANNELS[item.channel]?.info || "Origem classificada pelo PostHog.";
-                    return <div key={item.channel} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-2 sm:grid-cols-[max-content_minmax(0,1fr)_auto]">
-                        <div className="flex min-w-0 items-center gap-1.5">
-                            <span className="min-w-0 truncate text-xs text-gray-700" title={label}>{label}</span>
-                            <InfoTooltip text={info} size="medium" showOnClick>
-                                <button type="button" aria-label={`Informações sobre ${label}`} className="inline-flex h-6 w-6 shrink-0 items-center justify-center text-gray-400 hover:text-brand">
-                                    <PanelIcon icon={faCircleInfo} className="h-3.5 w-3.5" />
-                                </button>
-                            </InfoTooltip>
-                        </div>
-                        <div aria-hidden="true" className="col-span-2 h-5 overflow-hidden rounded bg-[#f1f3f5] sm:col-span-1 sm:col-start-2 sm:row-start-1">
-                            <div className="h-full rounded bg-[#d93d00]" style={{ width: (item.visitors / maxVisitors * 100) + "%" }} />
-                        </div>
-                        <span className="col-start-2 row-start-1 whitespace-nowrap text-right text-xs font-semibold tabular-nums text-gray-800 sm:col-start-3">
-                            {formatCount(item.visitors)}
-                        </span>
+                    return <div key={item.channel} className="space-y-2">
+                        <TrafficBar label={label} visitors={item.visitors} maxVisitors={maxVisitors} info={info} />
+                        {item.sources?.map(source => (
+                            <TrafficBar key={source.source} nested label={source.source}
+                                visitors={source.visitors} maxVisitors={maxVisitors} />
+                        ))}
                     </div>;
                 })}
             </div>
