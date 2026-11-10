@@ -133,12 +133,13 @@ export async function GET(request: Request) {
             paths: SOURCES.map(source => {
                 const row = bySource.get(source);
                 const seo = seoBySource.get(source);
+                // SEO links have explicit click tracking. Menus and other
+                // internal routes use observed homepage arrivals instead.
+                const seoClicks = source === "blog" || source === "tools" || source === "content";
                 return {
                     source,
-                    visitors: Number(row?.[1]) || 0,
-                    previousVisitors: Number(row?.[2]) || 0,
-                    sourceVisitors: source === "menus" ? null : Number(seo?.[1]) || 0,
-                    homeClicks: source === "menus" ? null : Number(seo?.[2]) || 0,
+                    visitors: seoClicks ? Number(seo?.[2]) || 0 : Number(row?.[1]) || 0,
+                    previousVisitors: seoClicks ? Number(seo?.[4]) || 0 : Number(row?.[2]) || 0,
                 };
             }),
         }, { headers: { "Cache-Control": "no-store" } });
