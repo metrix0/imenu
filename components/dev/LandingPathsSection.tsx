@@ -8,7 +8,8 @@ import DevLoading from "./DevLoading";
 import styles from "./dashboard.module.css";
 
 type PathSource = "blog" | "menus" | "tools" | "content" | "other";
-type PathRow = { source: PathSource; visitors: number; previousVisitors: number };
+type PathDetail = { path: string; visitors: number; previousVisitors: number };
+type PathRow = { source: PathSource; visitors: number; previousVisitors: number; pages: PathDetail[] };
 type PathData = { paths: PathRow[] };
 
 const PATHS: { source: PathSource; label: string; info: string }[] = [
@@ -23,6 +24,7 @@ export default function LandingPathsSection({ range }: { range: DateRange }) {
     const [data, setData] = useState<PathData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [expanded, setExpanded] = useState<PathSource[]>([]);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -40,6 +42,7 @@ export default function LandingPathsSection({ range }: { range: DateRange }) {
         ...path,
         visitors: data?.paths.find(row => row.source === path.source)?.visitors ?? 0,
         previousVisitors: data?.paths.find(row => row.source === path.source)?.previousVisitors ?? 0,
+        pages: data?.paths.find(row => row.source === path.source)?.pages ?? [],
     }));
     const maxVisitors = Math.max(1, ...rows.map(row => row.visitors));
 
@@ -49,8 +52,25 @@ export default function LandingPathsSection({ range }: { range: DateRange }) {
         </header>
         {error && <p role="alert" className="p-5 text-sm text-red-700">{error}</p>}
         {loading ? <DevLoading /> : !error && <div className="grid min-w-0 grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-2 gap-y-2 p-5">
-            {rows.map(row => <TrafficBar key={row.source} label={row.label} info={row.info}
-                visitors={row.visitors} previousVisitors={row.previousVisitors} maxVisitors={maxVisitors} hideZeroChange />)}
+            {rows.map(row => {
+                const isExpanded = expanded.includes(row.source);
+                return <div key={row.source} className="contents">
+                    <TrafficBar label={row.label} info={row.info}
+                        visitors={row.visitors} previousVisitors={row.previousVisitors}
+                        maxVisitors={maxVisitors} hideZeroChange
+                        expanded={isExpanded}
+                        onToggle={row.pages.length ? () => setExpanded(current =>
+                            current.includes(row.source)
+                                ? current.filter(source => source !== row.source)
+                                : [...current, row.source]
+                        ) : undefined} />
+                    {isExpanded && row.pages.map(page => (
+                        <TrafficBar key={page.path} nested label={page.path}
+                            visitors={page.visitors} previousVisitors={page.previousVisitors}
+                            maxVisitors={maxVisitors} hideZeroChange />
+                    ))}
+                </div>;
+            })}
         </div>}
     </section>;
 }

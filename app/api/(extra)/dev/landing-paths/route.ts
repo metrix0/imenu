@@ -74,10 +74,10 @@ export async function GET(request: Request) {
     const previousPath = "if(prev_path != '', prev_path, if(" +
         internalReferrer + ", " + referrerPath + ", ''))";
     const hogql = [
-        "SELECT source,",
+        "SELECT source, source_path, grouping(source), grouping(source_path),",
         "uniqExactIf(distinct_id, timestamp >= toDateTime('" + timestamp(startAt) + "', 'UTC')) AS visitors,",
         "uniqExactIf(distinct_id, timestamp < toDateTime('" + timestamp(startAt) + "', 'UTC')) AS previous_visitors",
-        "FROM (SELECT distinct_id, timestamp, " + source + " AS source",
+        "FROM (SELECT distinct_id, timestamp, " + source + " AS source, source_path",
         "FROM (SELECT distinct_id, timestamp, " + previousPath + " AS source_path",
         "FROM (SELECT distinct_id, timestamp, toString(properties.$pathname) AS path,",
         "toString(properties.$referrer) AS referrer,",
@@ -92,7 +92,7 @@ export async function GET(request: Request) {
         "AND toString(properties.$host) IN ('www.imenuapp.com.br', 'imenuapp.com.br'))",
         "WHERE path = '/' AND timestamp >= toDateTime('" + timestamp(previousStart) + "', 'UTC'))",
         "WHERE source_path NOT IN ('', '/'))",
-        "GROUP BY source",
+        "GROUP BY ROLLUP(source, source_path)",
     ].join(" ");
 
     // These are the exact visitor/click events used by the old SEO dashboard.
@@ -108,7 +108,7 @@ export async function GET(request: Request) {
         "'other')",
     ].join(" ");
     const seoHogql = [
-        "SELECT source,",
+        "SELECT source, source_path, grouping(source), grouping(source_path),",
         "uniqExactIf(distinct_id, event = '" + SEO_TRAFFIC_EVENTS.pageViewed +
             "' AND timestamp >= toDateTime('" + timestamp(startAt) + "', 'UTC')) AS source_visitors,",
         "uniqExactIf(distinct_id, event = '" + SEO_TRAFFIC_EVENTS.homeClicked +
@@ -117,18 +117,42 @@ export async function GET(request: Request) {
             "' AND timestamp < toDateTime('" + timestamp(startAt) + "', 'UTC')) AS previous_source_visitors,",
         "uniqExactIf(distinct_id, event = '" + SEO_TRAFFIC_EVENTS.homeClicked +
             "' AND timestamp < toDateTime('" + timestamp(startAt) + "', 'UTC')) AS previous_home_clicks",
-        "FROM (SELECT distinct_id, timestamp, event, " + seoSource + " AS source",
+        "FROM (SELECT distinct_id, timestamp, event, " + seoSource + " AS source, " + seoPath + " AS source_path",
         "FROM events WHERE event IN ('" + SEO_TRAFFIC_EVENTS.pageViewed +
             "', '" + SEO_TRAFFIC_EVENTS.homeClicked + "')",
         "AND timestamp >= toDateTime('" + timestamp(previousStart) + "', 'UTC')",
         "AND timestamp < toDateTime('" + timestamp(endAt) + "', 'UTC'))",
-        "GROUP BY source",
+        "GROUP BY ROLLUP(source, source_path)",
     ].join(" ");
 
     try {
         const [rows, seoRows] = await Promise.all([runPostHogQuery(hogql), runPostHogQuery(seoHogql)]);
-        const bySource = new Map(rows.map(row => [String(row[0]), row]));
-        const seoBySource = new Map(seoRows.map(row => [String(row[0]), row]));
+        const totals = (data: unknown[][]) => new Map(data
+            .filter(row => Number(row[2]) === 0 && Number(row[3]) === 1)
+            .map(row => [String(row[0]), row]));
+        const bySource = totals(rows);
+        const seoBySource = totals(seoRows);
+        const breakdown = (data: unknown[][], valueColumn: number, previousColumn: number) => {
+            const pages = new Map<string, { path: string; visitors: number; previousVisitors: number }[]>();
+            for (const row of data) {
+                if (Number(row[2]) !== 0 || Number(row[3]) !== 0) continue;
+                const source = String(row[0] ?? "");
+                const path = String(row[1] ?? "");
+                if (!SOURCES.some(key => key === source) || !path.startsWith("/")) continue;
+                const visitors = Number(row[valueColumn]) || 0;
+                const previousVisitors = Number(row[previousColumn]) || 0;
+                if (!visitors && !previousVisitors) continue;
+                const entries = pages.get(source) ?? [];
+                entries.push({ path, visitors, previousVisitors });
+                pages.set(source, entries);
+            }
+            for (const entries of pages.values()) {
+                entries.sort((a, b) => b.visitors - a.visitors || b.previousVisitors - a.previousVisitors || a.path.localeCompare(b.path));
+            }
+            return pages;
+        };
+        const pageviewPages = breakdown(rows, 4, 5);
+        const clickPages = breakdown(seoRows, 5, 7);
         return NextResponse.json({
             paths: SOURCES.map(source => {
                 const row = bySource.get(source);
@@ -138,8 +162,9 @@ export async function GET(request: Request) {
                 const seoClicks = source === "blog" || source === "tools" || source === "content";
                 return {
                     source,
-                    visitors: seoClicks ? Number(seo?.[2]) || 0 : Number(row?.[1]) || 0,
-                    previousVisitors: seoClicks ? Number(seo?.[4]) || 0 : Number(row?.[2]) || 0,
+                    visitors: seoClicks ? Number(seo?.[5]) || 0 : Number(row?.[4]) || 0,
+                    previousVisitors: seoClicks ? Number(seo?.[7]) || 0 : Number(row?.[5]) || 0,
+                    pages: (seoClicks ? clickPages : pageviewPages).get(source) ?? [],
                 };
             }),
         }, { headers: { "Cache-Control": "no-store" } });
