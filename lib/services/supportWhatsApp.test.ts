@@ -1,5 +1,5 @@
 import { isSupportContactExcluded } from "@/lib/services/supportExclusions";
-import { generateSupportReply } from "@/lib/services/supportAgent";
+import { classifySupportFollowup, generateSupportReply } from "@/lib/services/supportAgent";
 import { query } from "@/lib/database/sql";
 import { resolveWahaChatPhone, sendWahaText } from "@/lib/services/wahaClient";
 import { isSecondaryBlastRecipient, sendTrackedSupportText } from "./supportWhatsApp";
@@ -190,7 +190,7 @@ describe("short confirmation while human handoff is pending", () => {
                 return { rows: [{ ...conversation, handoff_prompted_at: pending ? conversation.handoff_prompted_at : null }], rowCount: 1 };
             if (sql.startsWith("UPDATE support_conversations SET phone"))
                 return { rows: [{ ...conversation, handoff_prompted_at: pending ? conversation.handoff_prompted_at : null }], rowCount: 1 };
-            if (sql.startsWith("SELECT mode, last_inbound_at, handoff_prompted_at"))
+            if (sql.startsWith("SELECT mode, last_inbound_at::text AS last_inbound_at, handoff_prompted_at"))
                 return { rows: [{ mode: "ai", last_inbound_at: "2026-11-10T20:28:39Z",
                     handoff_prompted_at: pending ? conversation.handoff_prompted_at : null }], rowCount: 1 };
             if (sql.startsWith("SELECT provider_message_id FROM support_messages"))
@@ -218,4 +218,68 @@ describe("short confirmation while human handoff is pending", () => {
             [conversation.id, "sim", incoming.messageId],
         );
     });
+});
+
+test("preserves PostgreSQL microseconds when classifying a sent AI reply", async () => {
+    const inboundAt = "2026-11-10 17:45:01.576728+00";
+    const conversation = {
+        id: "conversation-followup", chat_id: "5511999999999@c.us",
+        phone: "5511999999999", customer_name: null, restaurant_id: null,
+        mode: "ai" as const, handoff_prompted_at: null,
+    };
+    const messageId = "provider-followup-1";
+    (generateSupportReply as jest.Mock).mockResolvedValue({
+        text: "Qual parte do cardápio precisa de ajuda?", handoffState: null,
+        model: "test-model", inputTokens: 5, outputTokens: 8,
+    });
+    (classifySupportFollowup as jest.Mock).mockResolvedValue("awaiting_customer");
+    (sendWahaText as jest.Mock).mockResolvedValue({ id: "sent" });
+    (query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+        if (sql.startsWith("SELECT phone FROM support_conversations"))
+            return { rows: [{ phone: conversation.phone }], rowCount: 1 };
+        if (sql.includes("bool_or(blacklisted)"))
+            return { rows: [{ blacklisted: false, blocked_handoff: false }], rowCount: 1 };
+        if (sql.startsWith("SELECT id, chat_id, phone") && sql.includes("support_conversations"))
+            return { rows: [conversation], rowCount: 1 };
+        if (sql.startsWith("UPDATE support_conversations SET phone"))
+            return { rows: [conversation], rowCount: 1 };
+        if (sql.startsWith("SELECT mode, last_inbound_at")) {
+            // Emulate node-postgres: timestamptz -> Date truncates microseconds;
+            // ::text returns all six digits and allows the atomic equality check.
+            const precise = sql.includes("last_inbound_at::text AS last_inbound_at");
+            return { rows: [{
+                mode: "ai",
+                last_inbound_at: precise ? inboundAt : new Date(inboundAt).toISOString(),
+                handoff_prompted_at: null,
+            }], rowCount: 1 };
+        }
+        if (sql.startsWith("SELECT provider_message_id FROM support_messages"))
+            return { rows: [{ provider_message_id: messageId }], rowCount: 1 };
+        if (sql.startsWith("SELECT phone, blacklisted"))
+            return { rows: [{ phone: conversation.phone, blacklisted: false }], rowCount: 1 };
+        if (sql.startsWith("SELECT id, body, send_status"))
+            return { rows: [], rowCount: 0 };
+        if (sql.startsWith("INSERT INTO support_messages") && sql.includes("'outbound'"))
+            return { rows: [{ id: "outbound-followup" }], rowCount: 1 };
+        if (sql.includes("SET followup_state = $3")) {
+            return { rows: [], rowCount: params?.[1] === inboundAt ? 1 : 0 };
+        }
+        return { rows: [], rowCount: 0 };
+    });
+
+    const { processSupportIncomingWhatsAppMessage } = await import("./supportWhatsApp");
+    await processSupportIncomingWhatsAppMessage({
+        sessionName: "imenu-support", chatId: conversation.chat_id,
+        body: "Preciso de ajuda com meu cardápio", hasMedia: false,
+        messageId, customerName: null, botEnabled: true,
+    });
+
+    expect(sendWahaText).toHaveBeenCalledTimes(1);
+    expect(classifySupportFollowup).toHaveBeenCalledWith(conversation.id);
+    const stateRead = (query as jest.Mock).mock.calls.find(([sql]) =>
+        String(sql).startsWith("SELECT mode, last_inbound_at"));
+    expect(stateRead?.[0]).toContain("last_inbound_at::text AS last_inbound_at");
+    const classificationWrite = (query as jest.Mock).mock.calls.find(([sql]) =>
+        String(sql).includes("SET followup_state = $3"));
+    expect(classificationWrite?.[1]).toEqual([conversation.id, inboundAt, "awaiting_customer"]);
 });

@@ -2,7 +2,7 @@ import { alarmUnnotifiedPayoutFailures, notifyPayoutProblem } from "@/lib/servic
 import { getMercadoPagoPixPayment } from "@/lib/payments/mercadoPagoPix";
 import * as https from "node:https";
 
-import { query } from "@/lib/database/sql";
+import { query, withTransaction } from "@/lib/database/sql";
 import { calculateOnePercentPayout } from "@/lib/services/payoutSafety";
 
 const ASAAS_BASE_URL = (
@@ -889,6 +889,103 @@ export async function sendPayouts(input: {
         validationErrors: plan.validationErrors,
         results,
     };
+}
+
+// Administrative bookkeeping only. This never calls Mercado Pago/Asaas transfer APIs.
+export async function markPayoutPaidManually(input:
+    | { payoutId: string; expectedAmountCents: number }
+    | { restaurantId: string; cutoffAt: Date; expectedAmountCents: number }
+): Promise<{ payoutId: string; amountCents: number; restaurantName: string }> {
+    if (!Number.isSafeInteger(input.expectedAmountCents) || input.expectedAmountCents <= 0) {
+        throw new PayoutValidationError("Valor confirmado inválido. Atualize a lista.", 400);
+    }
+
+    const note = "Baixa manual no painel administrativo (nenhum Pix enviado pelo iMenu).";
+    if ("payoutId" in input) {
+        const updated = await query<{
+            id: string; amount_cents: number; restaurant_name: string;
+            automation_run_id: string | null;
+        }>(
+            `UPDATE public.payouts p
+             SET status = 'paid', paid_at = NOW(),
+                 failure_reason = CONCAT($3::text, CASE WHEN p.failure_reason IS NOT NULL
+                     THEN ' Falha anterior: ' || p.failure_reason ELSE '' END)
+             FROM public.restaurants r
+             WHERE p.id = $1 AND p.restaurant_id = r.id
+               AND p.status IN ('failed', 'cancelled') AND p.amount_cents = $2
+             RETURNING p.id, p.amount_cents, r.name AS restaurant_name, p.automation_run_id`,
+            [input.payoutId, input.expectedAmountCents, note]
+        );
+        const payout = updated.rows[0];
+        if (!payout) throw new PayoutValidationError(
+            "Repasse com falha não encontrado, já pago ou com valor alterado. Atualize a lista.", 409
+        );
+        if (payout.automation_run_id) await syncAutomationRuns();
+        return { payoutId: payout.id, amountCents: Number(payout.amount_cents),
+            restaurantName: payout.restaurant_name };
+    }
+
+    const cutoffAt = input.cutoffAt;
+    if (!Number.isFinite(cutoffAt.getTime()) ||
+        cutoffAt.getTime() > getPayoutCutoffAt().getTime()) {
+        throw new PayoutValidationError("O período de segurança mudou. Atualize a lista.", 409);
+    }
+
+    // Snapshot the payout boundary before validating the original charges.
+    const previous = await query<{ latest: Date | null }>(
+        "SELECT MAX(created_at) AS latest FROM public.payouts WHERE restaurant_id = $1",
+        [input.restaurantId]
+    );
+    const previousBoundary = previous.rows[0]?.latest
+        ? new Date(previous.rows[0].latest).getTime() : null;
+    const verified = await getPayables(cutoffAt, { restaurantId: input.restaurantId });
+    const row = verified.payables.find(item => item.restaurant_id === input.restaurantId);
+    if (!row) throw new PayoutValidationError(
+        "Nenhum pedido elegível e confirmado para este restaurante. Atualize a lista.", 409
+    );
+    const grossCents = Number(row.gross_cents);
+    const amounts = calculateOnePercentPayout(grossCents, row.provider_fee_cents);
+    if (amounts.netCents <= 0 || amounts.netCents !== input.expectedAmountCents) {
+        throw new PayoutValidationError("O valor do repasse mudou. Atualize a lista.", 409);
+    }
+
+    return withTransaction(async client => {
+        // Serializes manual confirmations for the same restaurant.
+        const restaurant = await client.query<{ name: string; payment_info: string | null }>(
+            "SELECT name, payment_info FROM public.restaurants WHERE id = $1 FOR UPDATE",
+            [input.restaurantId]
+        );
+        if (!restaurant.rows[0]) throw new PayoutValidationError("Restaurante não encontrado.", 404);
+        const latest = await client.query<{ latest: Date | null }>(
+            "SELECT MAX(created_at) AS latest FROM public.payouts WHERE restaurant_id = $1",
+            [input.restaurantId]
+        );
+        const currentBoundary = latest.rows[0]?.latest
+            ? new Date(latest.rows[0].latest).getTime() : null;
+        if (currentBoundary !== previousBoundary) {
+            throw new PayoutValidationError(
+                "Outro repasse foi registrado enquanto você confirmava. Atualize a lista.", 409
+            );
+        }
+        const inserted = await client.query<{ id: string }>(
+            `INSERT INTO public.payouts
+               (restaurant_id, amount_cents, gross_cents, payzu_fee_cents,
+                discount_cents, pix_address_key, status, created_at, paid_at,
+                order_count, failure_reason)
+             VALUES ($1, $2, $3, $4, $5, $6, 'paid', $7, NOW(), $8, $9)
+             RETURNING id`,
+            [input.restaurantId, amounts.netCents, grossCents, amounts.payzuFeeCents,
+                amounts.discountCents, restaurant.rows[0].payment_info,
+                cutoffAt.toISOString(), Number(row.pix_order_count), note]
+        );
+        // The payout boundary is the verified cutoff, not NOW(): newer
+        // orders still waiting for the 90-minute margin remain payable.
+        return {
+            payoutId: inserted.rows[0].id,
+            amountCents: amounts.netCents,
+            restaurantName: restaurant.rows[0].name,
+        };
+    });
 }
 
 export async function retryFailedPayout(

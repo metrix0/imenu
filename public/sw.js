@@ -2,6 +2,9 @@ const PUSH_DB_NAME = "imenu-push";
 const PUSH_DB_VERSION = 1;
 const PUSH_STORE_NAME = "settings";
 const DEVICE_TOKEN_KEY = "deviceToken";
+const RECENTLY_SHOWN_KEY = "recentlyShownNotifications";
+const SHOWN_TTL_MS = 10 * 60 * 1000;
+const processingPushes = new Map();
 
 function openPushDatabase() {
     return new Promise((resolve, reject) => {
@@ -31,6 +34,48 @@ async function readDeviceToken() {
         request.onerror = () => reject(request.error);
         transaction.oncomplete = () => database.close();
     });
+}
+
+// Remember displayed IDs across service-worker restarts, without changing the
+// IndexedDB schema shared with the page. Keep only the 10-minute retry window.
+async function recentlyShown(notificationId, remember = false) {
+    const database = await openPushDatabase();
+    try {
+        return await new Promise((resolve, reject) => {
+            const transaction = database.transaction(PUSH_STORE_NAME, "readwrite");
+            const store = transaction.objectStore(PUSH_STORE_NAME);
+            const request = store.get(RECENTLY_SHOWN_KEY);
+            request.onsuccess = () => {
+                const now = Date.now();
+                const entries = Array.isArray(request.result)
+                    ? request.result.filter(entry => entry && entry.at > now - SHOWN_TTL_MS)
+                    : [];
+                const seen = entries.some(entry => entry.id === notificationId);
+                if (remember) {
+                    store.put([...entries.filter(entry => entry.id !== notificationId),
+                        { id: notificationId, at: now }].slice(-200), RECENTLY_SHOWN_KEY);
+                }
+                resolve(seen);
+            };
+            request.onerror = () => reject(request.error);
+            transaction.onerror = () => reject(transaction.error);
+        });
+    } finally {
+        database.close();
+    }
+}
+
+async function acknowledgePush(notificationId) {
+    const deviceToken = await readDeviceToken();
+    if (!deviceToken) return;
+    const response = await fetch("/api/push/ack", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        cache: "no-store",
+        body: JSON.stringify({ deviceToken, notificationId }),
+    });
+    if (!response.ok) throw new Error("Push acknowledgment returned " + response.status);
 }
 
 async function getNotificationPayload() {
@@ -88,17 +133,57 @@ self.addEventListener("push", (event) => {
             // An expired queue entry produces no alert, including after a delayed wake.
             if (!payload || (payload.expiresAt && payload.expiresAt <= Date.now())) return;
 
-            await self.registration.showNotification(payload.title, {
-                body: payload.body,
-                icon: "/logos/LogoMark_Brand.png",
-                badge: "/logos/LogoMark_Brand.png",
-                tag: payload.tag || undefined,
-                data: {
-                    url: payload.url || "/painel",
-                },
-                vibrate: [180, 90, 180],
-                requireInteraction: true,
-            });
+            const displayAndAcknowledge = async () => {
+                const seen = payload.id
+                    ? await recentlyShown(payload.id).catch(() => false)
+                    : false;
+
+                if (!seen) {
+                    await self.registration.showNotification(payload.title, {
+                        body: payload.body,
+                        icon: "/logos/LogoMark_Brand.png",
+                        badge: "/logos/LogoMark_Brand.png",
+                        tag: payload.tag || undefined,
+                        data: {
+                            url: payload.url || "/painel",
+                        },
+                        vibrate: [180, 90, 180],
+                        requireInteraction: true,
+                    });
+                    if (payload.id) {
+                        await recentlyShown(payload.id, true).catch(error =>
+                            console.error("[IMENU_PUSH] Could not remember display:", error)
+                        );
+                    }
+                }
+                if (payload.id) {
+                    try {
+                        await acknowledgePush(payload.id);
+                    } catch (error) {
+                        // The retry worker will wake the device again to retry this ACK.
+                        console.error("[IMENU_PUSH] Could not acknowledge display:", error);
+                    }
+                }
+            };
+
+            if (!payload.id) {
+                await displayAndAcknowledge();
+                return;
+            }
+
+            // Concurrent wake-ups for one order share one display operation.
+            const existing = processingPushes.get(payload.id);
+            if (existing) {
+                await existing;
+                return;
+            }
+            const task = displayAndAcknowledge();
+            processingPushes.set(payload.id, task);
+            try {
+                await task;
+            } finally {
+                processingPushes.delete(payload.id);
+            }
         })()
     );
 });
