@@ -27,7 +27,7 @@ const CHANNELS: Record<string, { label: string; info: string }> = {
     "Unknown": { label: "Não identificado", info: "O PostHog não conseguiu classificar a origem." },
 };
 
-function TrafficBar({ label, visitors, previousVisitors, maxVisitors, info, nested = false, expanded = false, onToggle }: {
+export function TrafficBar({ label, visitors, previousVisitors, maxVisitors, info, nested = false, expanded = false, onToggle }: {
     label: string;
     visitors: number;
     previousVisitors: number;

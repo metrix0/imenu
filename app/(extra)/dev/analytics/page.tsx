@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import DevPage from "@/components/dev/DevPage";
 import AnalyticsSection from "@/components/dev/AnalyticsSection";
 const TrafficSourcesSection = dynamic(() => import("@/components/dev/TrafficSourcesSection"), {ssr:false});
+const LandingPathsSection = dynamic(() => import("@/components/dev/LandingPathsSection"), {ssr:false});
 const ImenuFunnelSection = dynamic(() => import("@/components/dev/ImenuFunnelSection"), {ssr:false});
 const PlusFunnelSection = dynamic(() => import("@/components/dev/PlusFunnelSection"), {ssr:false});
 import ShortcutDatePicker from "@/components/ui/ShortcutDatePicker";
@@ -42,6 +43,7 @@ export default function Page(){
         {deferredRange===rangeKey&&<>
             <SectionDivider title="Tráfego"/>
             <TrafficSourcesSection range={range}/>
+            <LandingPathsSection range={range}/>
             <SectionDivider title="Conversão"/>
             <ImenuFunnelSection range={range}/>
             <PlusFunnelSection range={range} onDataLoaded={onFunnelLoaded}/>
