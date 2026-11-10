@@ -39,6 +39,7 @@ import SupportButton, {
     type SupportButtonRef,
 } from "@/components/common/SupportButton";
 import { OrderSoundProvider } from "@/components/restaurant-owner/OrderSoundProvider";
+import OrderMilestonePlusPopup from "@/components/restaurant-owner/OrderMilestonePlusPopup";
 import { ensureOwnerPushSubscription } from "@/lib/push/client";
 import { supabase } from "@/lib/database/supabaseClient";
 import { capturePosthogLightweight } from "@/lib/api/instrumentation-client";
@@ -448,6 +449,7 @@ export default function PainelLayout({
 
     return (
         <OrderSoundProvider>
+            <OrderMilestonePlusPopup />
             <ConfirmModal
                 open={showCloseModal}
                 onClose={() => setShowCloseModal(false)}
