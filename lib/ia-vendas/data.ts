@@ -77,7 +77,7 @@ export async function marketingCohorts(restaurant: string, client: PoolClient): 
       JOIN public.orders o ON o.restaurant_id=c.restaurant_id
         AND public.crm_phone(o.customer_phone)=c.phone
         AND o.status NOT IN ('canceled','pending_online_payment')
-      WHERE c.restaurant_id=$1 AND c.marketing_consent AND c.opted_out_at IS NULL
+      WHERE c.restaurant_id=$1 AND c.opted_out_at IS NULL
     ), last_orders AS (
       SELECT phone,max(created_at) last_purchase FROM customer_orders GROUP BY phone
     ), habit_customers AS (
@@ -91,7 +91,7 @@ export async function marketingCohorts(restaurant: string, client: PoolClient): 
     SELECT
       (SELECT count(DISTINCT s.phone)::int FROM public.checkout_sessions s
         LEFT JOIN public.customers c ON c.restaurant_id=s.restaurant_id AND c.phone=s.phone
-        WHERE s.restaurant_id=$1 AND s.phone IS NOT NULL AND s.marketing_consent
+        WHERE s.restaurant_id=$1 AND s.phone IS NOT NULL
           AND s.completed_at IS NULL AND s.created_at>=now()-interval '28 days'
           AND s.updated_at<now()-interval '30 minutes'
           AND jsonb_array_length(s.items)>0 AND c.opted_out_at IS NULL

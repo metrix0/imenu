@@ -11,8 +11,7 @@ import {
 
 export function useCheckoutSession(restaurantId: string, enabled: boolean) {
   const items = useCartStore((s) => s.items),
-    phone = useCheckoutStore((s) => s.celular),
-    consent = useCheckoutStore((s) => s.marketingConsent);
+    phone = useCheckoutStore((s) => s.celular);
   const queue = useRef(Promise.resolve());
   const tracked = useRef(false);
   useEffect(() => {
@@ -30,7 +29,6 @@ export function useCheckoutSession(restaurantId: string, enabled: boolean) {
         restaurantId,
         observedAt,
         phone,
-        marketingConsent: consent,
         items: items.map((x) => ({
           base_item_id: x.base_item_id,
           qty: x.qty,
@@ -50,7 +48,7 @@ export function useCheckoutSession(restaurantId: string, enabled: boolean) {
         .catch(() => undefined);
     }, 1500);
     return () => clearTimeout(timer);
-  }, [restaurantId, enabled, phone, consent, items]);
+  }, [restaurantId, enabled, phone, items]);
 }
 export default function CheckoutCustomerFields({
   restaurantId,

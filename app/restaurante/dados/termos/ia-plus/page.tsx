@@ -57,8 +57,8 @@ export default function IaPlusTermsPage() {
                             e download do cardápio em PDF. A exportação em PDF exige
                             iMenu Plus ativo. QR Code Mesa, Painel Garçom e Modo Vitrine
                             são gratuitos e permanecem disponíveis sem o plano.
-                            As automações dependem de conexão WhatsApp ativa, consentimento
-                            dos clientes e limites de envio configurados.
+                            As automações dependem de conexão WhatsApp ativa, respeito
+                            aos pedidos de descadastro e limites de envio configurados.
                         </p>
                         <p className="mt-2">
                             O Assistente IA possui acesso gratuito com limites

@@ -24,7 +24,7 @@ const faq = [
     { question: "O CRM do iMenu é gratuito?", answer: "Sim. A área Clientes e seus dados de compras estão disponíveis gratuitamente. As automações de marketing pelo WhatsApp são recursos opcionais do iMenu Plus." },
     { question: "Como identificar clientes inativos?", answer: "Compare a data do último pedido com o padrão de recompra da sua loja. O iMenu também organiza clientes por segmentos como Novo, Frequente, Em risco e Inativo." },
     { question: "Preciso de uma lista manual de clientes?", answer: "Não para começar. Pedidos realizados no cardápio do iMenu alimentam automaticamente o CRM. Confira a qualidade dos contatos antes de qualquer campanha." },
-    { question: "Posso enviar mensagens de marketing para todos os clientes?", answer: "Não. Respeite o consentimento do cliente, as regras aplicáveis e a possibilidade de não receber comunicações. Ter um telefone em um pedido não equivale a autorização irrestrita para marketing." },
+    { question: "Posso enviar mensagens de marketing para todos os clientes?", answer: "Não. Respeite as regras aplicáveis e os pedidos para parar de receber mensagens. Evite campanhas indiscriminadas." },
     { question: "CRM e programa de fidelidade são a mesma coisa?", answer: "Não. O CRM ajuda a conhecer e segmentar a base; o programa de fidelidade oferece incentivos e recompensas. Podem funcionar juntos, mas cumprem papéis diferentes." },
 ];
 
@@ -98,7 +98,7 @@ export default function CrmParaRestaurantesPage() {
                     <span key="frequente"><strong>Frequente:</strong> já demonstra hábito de compra; acompanhe consistência e preferências.</span>,
                     <span key="destaque"><strong>Destaque:</strong> alto volume ou gasto; mantenha qualidade e atenção ao relacionamento.</span>,
                     <span key="risco"><strong>Em risco:</strong> alguém que deixou de comprar recentemente; investigue motivos antes de presumir desinteresse.</span>,
-                    <span key="inativo"><strong>Inativo:</strong> não compra há mais tempo; avalie se uma reaproximação consentida faz sentido.</span>,
+                    <span key="inativo"><strong>Inativo:</strong> não compra há mais tempo; avalie se uma reaproximação pontual faz sentido.</span>,
                 ]} />
                 <p>
                     Não confunda segmentação com previsão garantida. A loja pode ter sazonalidade,
@@ -162,8 +162,8 @@ export default function CrmParaRestaurantesPage() {
                     <span key="controle"><strong>Controle:</strong> configurar textos, ofertas e regras; observar o histórico de envios no painel.</span>,
                 ]} />
                 <p>
-                    Essas mensagens dependem de WhatsApp conectado, configurações ativas e consentimento
-                    do cliente para marketing. Não basta que a pessoa tenha informado um número ao pedir.
+                    Essas mensagens dependem de WhatsApp conectado, configurações ativas,
+                    limites de envio e respeito aos pedidos de saída dos clientes.
                     Leia também o <Link href="/blog/imenu-plus" className="font-semibold text-brand underline">guia do iMenu Plus</Link>
                     para entender o que está incluído.
                 </p>
@@ -194,7 +194,7 @@ export default function CrmParaRestaurantesPage() {
                 <BlogSteps items={[
                     { title: "Semana 1: organize o canal", description: "Confira cadastro, telefone informado nos pedidos, cardápio, informações dos produtos e a área Clientes do iMenu." },
                     { title: "Semana 2: entenda a base", description: "Observe clientes novos, frequentes, em risco e inativos. Identifique itens favoritos, horários e dúvidas recorrentes." },
-                    { title: "Semana 3: escolha uma ação", description: "Melhore um ponto do atendimento, reveja um combo ou, com autorização de marketing e Plus, teste uma automação específica." },
+                    { title: "Semana 3: escolha uma ação", description: "Melhore um ponto do atendimento, reveja um combo ou, com Plus e WhatsApp conectado, teste uma automação específica." },
                     { title: "Semana 4: confira o efeito", description: "Analise novos pedidos, frequência, ticket médio e custo de ofertas. Mantenha o que for útil e ajuste o restante." },
                 ]} />
                 <p>

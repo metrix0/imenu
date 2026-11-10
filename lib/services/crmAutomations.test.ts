@@ -58,9 +58,16 @@ test("a rejected database claim sends nothing", async () => {
   expect(client.query.mock.calls[1][0]).toContain("automation_type IN ('cart','reactivation','habit')");
   expect(client.query.mock.calls[1][0]).toContain("<$8");
   expect(client.query.mock.calls[1][0]).toContain("<$11");
+  const totalsSql = (query as jest.Mock).mock.calls.find(([sql]) => String(sql).includes("GROUP BY automation_type"))?.[0];
+  expect(totalsSql).not.toContain("AT TIME ZONE 'America/Sao_Paulo')\n");
   expect(client.query.mock.calls[1][0]).toContain("plus.product_key='ia_plus'");
   expect(client.query.mock.calls[1][0]).toContain("plus.current_period_ends_at>now()");
   expect((query as jest.Mock).mock.calls[0][0]).toContain("plus.product_key='ia_plus'");
+  const cartSql = (query as jest.Mock).mock.calls.find(([sql]) => String(sql).includes("FROM checkout_sessions s"))?.[0];
+  expect(cartSql).toContain("c.opted_out_at IS NULL");
+  expect(cartSql).not.toContain("marketing_consent");
+  expect(client.query.mock.calls[1][0]).toContain("opted_out_at IS NOT NULL");
+  expect(client.query.mock.calls[1][0]).not.toContain("marketing_consent");
 });
 test("a full restaurant daily budget avoids candidate scanning", async () => {
   (query as jest.Mock).mockImplementation(async (sql: string) => ({
@@ -131,6 +138,9 @@ test("unused shares flow to a busy enabled mode without exceeding the shared 10"
     expect(client.query.mock.calls.filter((call) => String(call[0]).includes("INSERT INTO whatsapp_outbound_messages"))).toHaveLength(10);
     expect(client.query.mock.calls[1][0]).toContain("'message',$12::text");
     expect(client.query.mock.calls[1][1]?.[11]).toContain("Para não receber mais ofertas, responda SAIR.");
+    const audienceSql = (query as jest.Mock).mock.calls.find(([sql]) => String(sql).includes("FROM customers c JOIN orders"))?.[0];
+    expect(audienceSql).toContain("c.opted_out_at IS NULL");
+    expect(audienceSql).not.toContain("marketing_consent");
   } finally {
     jest.useRealTimers();
   }
@@ -140,7 +150,6 @@ test("SAIR persists opt-out without requiring campaign context", async () => {
   const result = await getCrmReply(id, "5519999991234", "SAIR");
   expect(result?.text).toContain("não receberá mais");
   expect((query as jest.Mock).mock.calls[0][0]).toContain("opted_out_at=now()");
-  expect((query as jest.Mock).mock.calls[1][0]).toContain(
-    "marketing_consent=false",
-  );
+  expect((query as jest.Mock).mock.calls).toHaveLength(1);
+  expect((query as jest.Mock).mock.calls[0][0]).not.toContain("marketing_consent");
 });

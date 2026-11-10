@@ -407,7 +407,6 @@ export default function CartBar({
             expected_promotion: { id: currentPromotion?.promotion?.id || null, total_cents },
             customer_name: checkout.nome,
             customer_address_details: pickup || isTableOrder ? null : {cep:checkout.cep,rua:checkout.rua,bairro:checkout.bairro,numero:checkout.numero,cidade:checkout.cidade,estado:checkout.estado,complemento:checkout.complemento,referencia:checkout.referencia},
-            marketing_consent: !isTableOrder && checkout.marketingConsent,
             customer_phone: isTableOrder ? null : checkout.celular,
             customer_address: pickup || isTableOrder
                 ? null

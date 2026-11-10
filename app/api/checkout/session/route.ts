@@ -70,8 +70,7 @@ export async function POST(request: NextRequest) {
           Math.min(10000000, Math.round(Number(x.unit_price_cents) || 0)),
         ),
       }));
-    const phone = normalizeCustomerPhone(body.phone),
-      consent = body.marketingConsent === true;
+    const phone = normalizeCustomerPhone(body.phone);
     if (
       phone &&
       (
@@ -83,16 +82,11 @@ export async function POST(request: NextRequest) {
     )
       return NextResponse.json({ ok: true });
     await query(
-      `INSERT INTO checkout_sessions(id,restaurant_id,phone,items,marketing_consent) VALUES($1,$2,$3,$4::jsonb,$5)
-          ON CONFLICT(id) DO UPDATE SET phone=EXCLUDED.phone,items=EXCLUDED.items,marketing_consent=EXCLUDED.marketing_consent,updated_at=now(),expires_at=now()+interval '7 days'
+      `INSERT INTO checkout_sessions(id,restaurant_id,phone,items) VALUES($1,$2,$3,$4::jsonb)
+          ON CONFLICT(id) DO UPDATE SET phone=EXCLUDED.phone,items=EXCLUDED.items,updated_at=now(),expires_at=now()+interval '7 days'
           WHERE checkout_sessions.restaurant_id=EXCLUDED.restaurant_id AND checkout_sessions.completed_at IS NULL`,
-      [session, id, phone, JSON.stringify(items), consent],
+      [session, id, phone, JSON.stringify(items)],
     );
-    if (phone && consent)
-      await query(
-        "UPDATE customers SET marketing_consent=true,updated_at=now() WHERE restaurant_id=$1 AND phone=$2 AND opted_out_at IS NULL",
-        [id, phone],
-      );
     const response = NextResponse.json({ ok: true });
     response.cookies.set(checkoutCookie(id), session, {
       ...cookieOptions,

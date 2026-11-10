@@ -137,11 +137,7 @@ export async function getCrmReply(
     .toLowerCase();
   if (["sair", "parar", "cancelar ofertas", "stop"].includes(normalized)) {
     await query(
-      `INSERT INTO customers (restaurant_id,phone,opted_out_at,marketing_consent) VALUES ($1,$2,now(),false) ON CONFLICT (restaurant_id,phone) DO UPDATE SET opted_out_at=now(),marketing_consent=false,updated_at=now()`,
-      [restaurantId, phone],
-    );
-    await query(
-      "UPDATE checkout_sessions SET marketing_consent=false WHERE restaurant_id=$1 AND phone=$2",
+      `INSERT INTO customers (restaurant_id,phone,opted_out_at) VALUES ($1,$2,now()) ON CONFLICT (restaurant_id,phone) DO UPDATE SET opted_out_at=now(),updated_at=now()`,
       [restaurantId, phone],
     );
     return {
@@ -234,7 +230,7 @@ async function candidates(
           i.image_path
         FROM checkout_sessions s LEFT JOIN customers c ON c.restaurant_id=s.restaurant_id AND c.phone=s.phone
         LEFT JOIN LATERAL (SELECT it.image_path FROM jsonb_array_elements(s.items) x JOIN items it ON it.id=(x->>'item_id')::uuid AND it.restaurant_id=s.restaurant_id ORDER BY (x->>'unit_price_cents')::numeric DESC LIMIT 1) i ON true
-        WHERE s.restaurant_id=$1 AND s.phone IS NOT NULL AND s.marketing_consent AND s.completed_at IS NULL
+        WHERE s.restaurant_id=$1 AND s.phone IS NOT NULL AND s.completed_at IS NULL
           AND s.updated_at<now()-interval '30 minutes' AND s.expires_at>now() AND jsonb_array_length(s.items)>0
           AND c.opted_out_at IS NULL
           AND NOT EXISTS(SELECT 1 FROM whatsapp_outbound_messages h WHERE h.restaurant_id=$1 AND h.customer_phone=s.phone AND h.automation_type='cart' AND h.created_at>now()-($2::int*interval '1 day'))
@@ -251,7 +247,7 @@ async function candidates(
          max(o.created_at)::text identity,
          array_agg(o.created_at::text ORDER BY o.created_at DESC) FILTER(WHERE o.created_at>now()-interval '90 days') dates
         FROM customers c JOIN orders o ON o.restaurant_id=c.restaurant_id AND public.crm_phone(o.customer_phone)=c.phone AND o.${PURCHASE_SQL}
-        WHERE c.restaurant_id=$1 AND c.marketing_consent AND c.opted_out_at IS NULL ${eligible}
+        WHERE c.restaurant_id=$1 AND c.opted_out_at IS NULL ${eligible}
         GROUP BY c.phone,c.name ${kind === "reactivation" ? "HAVING max(o.created_at)<now()-($4::int*interval '1 day')" : "HAVING max(o.created_at)>now()-interval '30 days'"}
         ORDER BY max(o.created_at) LIMIT 500`,
       [
@@ -300,11 +296,11 @@ async function claim(
          AND NOT EXISTS(SELECT 1 FROM whatsapp_outbound_messages WHERE restaurant_id=$2 AND customer_phone=$5 AND automation_type IN ('cart','habit','reactivation') AND status IN ('sent','sending','failed') AND created_at>now()-interval '24 hours')
          AND EXISTS(SELECT 1 FROM restaurant_addons plus WHERE plus.restaurant_id=$2 AND plus.product_key='ia_plus' AND (plus.status='active' OR (plus.status IN ('canceled','past_due') AND plus.current_period_ends_at>now())))
          AND NOT EXISTS(SELECT 1 FROM whatsapp_conversations WHERE restaurant_id=$2 AND chat_id=$3 AND (mode='storm' OR (mode='human' AND (human_until IS NULL OR human_until>now()))))
-         AND NOT EXISTS(SELECT 1 FROM customers WHERE restaurant_id=$2 AND phone=$5 AND (opted_out_at IS NOT NULL OR NOT marketing_consent))
-         AND ($4<>'cart' OR EXISTS(SELECT 1 FROM checkout_sessions s WHERE s.id=$6 AND s.restaurant_id=$2 AND s.phone=$5 AND s.marketing_consent AND s.completed_at IS NULL AND s.updated_at<now()-interval '30 minutes' AND s.expires_at>now() AND jsonb_array_length(s.items)>0
+         AND NOT EXISTS(SELECT 1 FROM customers WHERE restaurant_id=$2 AND phone=$5 AND opted_out_at IS NOT NULL)
+         AND ($4<>'cart' OR EXISTS(SELECT 1 FROM checkout_sessions s WHERE s.id=$6 AND s.restaurant_id=$2 AND s.phone=$5 AND s.completed_at IS NULL AND s.updated_at<now()-interval '30 minutes' AND s.expires_at>now() AND jsonb_array_length(s.items)>0
            AND NOT EXISTS(SELECT 1 FROM orders o WHERE o.restaurant_id=$2 AND public.crm_phone(o.customer_phone)=$5 AND o.created_at>=s.created_at AND o.status<>'canceled')
            AND NOT EXISTS(SELECT 1 FROM checkout_sessions newer WHERE newer.restaurant_id=$2 AND newer.phone=$5 AND newer.updated_at>s.updated_at AND newer.completed_at IS NULL)))
-         AND ($4 NOT IN ('reactivation','habit') OR EXISTS(SELECT 1 FROM customers c WHERE c.restaurant_id=$2 AND c.phone=$5 AND c.marketing_consent AND c.opted_out_at IS NULL))
+         AND ($4 NOT IN ('reactivation','habit') OR EXISTS(SELECT 1 FROM customers c WHERE c.restaurant_id=$2 AND c.phone=$5 AND c.opted_out_at IS NULL))
          AND ($4<>'reactivation' OR NOT EXISTS(SELECT 1 FROM orders o WHERE o.restaurant_id=$2 AND public.crm_phone(o.customer_phone)=$5 AND o.status NOT IN ('canceled','pending_online_payment') AND o.created_at>now()-($10::int*interval '1 day')))
          AND ($4<>'habit' OR NOT EXISTS(SELECT 1 FROM orders o WHERE o.restaurant_id=$2 AND public.crm_phone(o.customer_phone)=$5 AND o.status<>'canceled' AND o.created_at>now()-interval '24 hours'))
          ON CONFLICT DO NOTHING RETURNING dedupe_key`,
@@ -340,7 +336,7 @@ export async function processCustomerAutomations() {
       `SELECT automation_type,count(*)::int n FROM whatsapp_outbound_messages
        WHERE restaurant_id=$1 AND automation_type IN ('cart','reactivation','habit')
          AND status IN ('sent','sending','failed')
-         AND created_at>=date_trunc('day',now() AT TIME ZONE 'America/Sao_Paulo') AT TIME ZONE 'America/Sao_Paulo')
+         AND created_at>=date_trunc('day',now() AT TIME ZONE 'America/Sao_Paulo') AT TIME ZONE 'America/Sao_Paulo'
        GROUP BY automation_type`,
       [r.restaurant_id],
     );
