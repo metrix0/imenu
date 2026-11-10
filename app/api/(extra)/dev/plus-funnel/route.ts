@@ -75,7 +75,7 @@ export async function GET(request: Request) {
         "(toInt(0), toInt(-604800))), 1) AS visits",
         "FROM (SELECT range_label, distinct_id, timestamp,",
         "arrayJoin(['exposures', concat('source:', surface)]) AS bucket",
-        "FROM touchpoints",
+        "FROM touchpoints)",
         "GROUP BY range_label, bucket, distinct_id)",
         "GROUP BY range_label, bucket"
     ].join(" ");
