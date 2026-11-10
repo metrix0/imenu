@@ -21,51 +21,51 @@ type Counts = {
     active: number;
 };
 type Funnel = Counts & { previous: Counts };
-type Step = { key: keyof Counts; base?: keyof Counts; title: string; unit: string; info: string };
+type Step = { key: keyof Counts; base?: keyof Counts; title: string; unit?: string; info: string };
 
 const STEPS: Step[] = [
     {
-        key: "visitors", title: "Visitantes iMenu", unit: "visitantes únicos",
+        key: "visitors", title: "Visitantes iMenu",
         info: "Visitantes únicos de páginas próprias do iMenu, no PostHog. Exclui cardápios de restaurantes e o painel. A contagem pode ser menor que a real por bloqueios de rastreamento.",
     },
     {
-        key: "signupPage", base: "visitors", title: "Página de cadastro", unit: "visitaram o cadastro",
+        key: "signupPage", base: "visitors", title: "Página de cadastro", unit: "visitantes",
         info: "Pessoas que abriram /restaurante/registrar ÷ visitantes iMenu. Origem: PostHog; não representa necessariamente o início do formulário.",
     },
     {
-        key: "registered", title: "Registros", unit: "contas criadas",
+        key: "registered", title: "Registros",
         info: "Novos usuários não anônimos em auth.users, criados no período. Esta contagem não é dividida pelas visitas ao cadastro: PostHog e banco não possuem identidade vinculada e nem todos os cadastros geram pageview.",
     },
     {
-        key: "restaurants", base: "registered", title: "Restaurante criado", unit: "contas com restaurante",
+        key: "restaurants", base: "registered", title: "Restaurante criado", unit: "contas",
         info: "Contas cadastradas no período que já possuem um restaurante. Esta e as demais etapas de configuração são avaliadas pelo estado atual da coorte.",
     },
     {
-        key: "cardapio", base: "restaurants", title: "Etapa Cardápio", unit: "concluíram a etapa",
+        key: "cardapio", base: "restaurants", title: "Etapa Cardápio", unit: "contas",
         info: "Contas da coorte que avançaram da etapa Cardápio (etapa 1/4): creation_step >= 2 ou primeiro acesso já concluído.",
     },
     {
-        key: "horarios", base: "cardapio", title: "Etapa Horários", unit: "concluíram a etapa",
+        key: "horarios", base: "cardapio", title: "Etapa Horários", unit: "contas",
         info: "Contas da coorte que avançaram da etapa Horários (etapa 2/4): creation_step >= 3 ou primeiro acesso já concluído. Pular horários também avança a etapa.",
     },
     {
-        key: "loja", base: "horarios", title: "Etapa Loja", unit: "concluíram a etapa",
+        key: "loja", base: "horarios", title: "Etapa Loja", unit: "contas",
         info: "Contas da coorte que avançaram da etapa Loja (etapa 3/4): creation_step >= 4 ou primeiro acesso já concluído.",
     },
     {
-        key: "finished", base: "loja", title: "Cadastro finalizado", unit: "finalizaram a configuração",
+        key: "finished", base: "loja", title: "Cadastro finalizado", unit: "contas",
         info: "Contas da coorte com first_time = false, após a etapa Localização (4/4).",
     },
     {
-        key: "items", base: "finished", title: "Com produtos", unit: "contas com produtos",
+        key: "items", base: "finished", title: "Com produtos", unit: "contas",
         info: "Contas da coorte com ao menos um produto em items. Podem cadastrar produtos antes de finalizar a configuração, portanto a passagem desde a etapa anterior é indicativa.",
     },
     {
-        key: "firstOrder", base: "items", title: "Receberam pedido", unit: "contas com pedidos",
+        key: "firstOrder", base: "items", title: "Receberam pedido", unit: "contas",
         info: "Contas da coorte que já receberam pelo menos um pedido não cancelado nem pendente de pagamento online. Não inclui pedidos apenas simulados pelo evento de visita.",
     },
     {
-        key: "active", base: "firstOrder", title: "Usuários ativos", unit: "contas ativas",
+        key: "active", base: "firstOrder", title: "Usuários ativos", unit: "contas",
         info: "Contas da coorte com pedidos concluídos em ao menos 2 dias dos últimos 30 e 1 dia dos últimos 14, a mesma definição de usuários ativos do dashboard. Coortes antigas tiveram mais tempo para amadurecer.",
     },
 ];
@@ -106,7 +106,7 @@ export default function ImenuFunnelSection({ range }: { range: DateRange }) {
                 return <MetricCard key={step.key} inlineChange truncateTitle
                     title={step.title}
                     value={step.base ? currentRate === null ? "—" : formatRatio(currentRate) : raw(current)}
-                    description={raw(current) + " " + step.unit}
+                    description={step.base && current !== null ? raw(current) + " " + step.unit : undefined}
                     {...periodChange(currentRate, priorRate)}
                     info={step.info} />;
             })}

@@ -192,7 +192,7 @@ export function ProductOverviewSections({ metrics, previousMetrics, productsOnly
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                         {product.key === "ia_plus" ? <PlusExposureMetricCard title="Exposições ao Plus"
                             value={metric.pageViews === null ? "—" : formatCount(metric.pageViews)}
-                            description={metric.pageViews === null ? "—" : formatCount(metric.pageViews) + " exposições · " + trafficUnit}
+                            description={trafficUnit}
                             info={trafficInfo}
                             exposureData={plusExposureData}
                             {...(sameTrafficSource ? difference(metric.pageViews, previous?.pageViews) : {})} />

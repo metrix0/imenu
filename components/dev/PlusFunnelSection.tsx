@@ -57,7 +57,6 @@ export default function PlusFunnelSection({ range, onDataLoaded }: { range: Date
         {loading ? <DevLoading /> : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <MetricCard inlineChange truncateTitle title="Usuários no painel"
                 value={raw(data?.panelUsers)}
-                description={raw(data?.panelUsers) + " usuários no período"}
                 {...periodChange(data?.panelUsers ?? null, prior?.panelUsers ?? null)}
                 info="Contas distintas que acessaram ou navegaram no painel no período, medidas por eventos PostHog. Antes da instrumentação, visitas diretas podem estar subcontadas." />
             <PlusExposureMetricCard title="Exposições ao Plus"
