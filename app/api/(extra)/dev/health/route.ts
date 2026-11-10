@@ -7,6 +7,9 @@ import { INTEGRATIONS } from "@/lib/dev/health";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// Individual Gemini-to-OpenAI fallbacks are diagnostic events, not alerts.
+// Keep them in dev_alerts so the hourly recurrence threshold still counts them.
+const VISIBLE_ALERT_FILTER = "(source IS DISTINCT FROM 'gemini' OR operation IS DISTINCT FROM 'Importação de cardápio: fallback OpenAI' OR severity IS DISTINCT FROM 'info' OR trigger_type IS DISTINCT FROM 'none')";
 const UNREAD_ALERT_FILTER = "(read_at IS NULL OR (resolved_at IS NULL AND last_seen_at > read_at))";
 
 export async function GET(request: Request) {
@@ -30,10 +33,10 @@ export async function GET(request: Request) {
             // History is dated by acknowledgement, so an older alert just marked
             // as read appears immediately in the selected day's history.
             const timestamp = history ? "read_at" : "COALESCE(last_seen_at,created_at)";
-            const where = `${filter} AND ($3::timestamptz IS NULL OR ${timestamp} >= $3) AND ($4::timestamptz IS NULL OR ${timestamp} <= $4)`;
+            const where = `${filter} AND ${VISIBLE_ALERT_FILTER} AND ($3::timestamptz IS NULL OR ${timestamp} >= $3) AND ($4::timestamptz IS NULL OR ${timestamp} <= $4)`;
             const [rows, count] = await Promise.all([
                 query(`SELECT id,source,title,message,severity,created_at,phone_notified,alarm_triggered,delivery_error,trigger_type,operation,http_status,occurrences,last_seen_at,resolved_at FROM public.dev_alerts WHERE ${where} ORDER BY ${timestamp} DESC,id DESC LIMIT $1 OFFSET $2`, [alertPageSize, page * alertPageSize,...dates]),
-                query<{ total: number }>(`SELECT COUNT(*)::int total FROM public.dev_alerts WHERE ${filter} AND ($1::timestamptz IS NULL OR ${timestamp} >= $1) AND ($2::timestamptz IS NULL OR ${timestamp} <= $2)`,dates),
+                query<{ total: number }>(`SELECT COUNT(*)::int total FROM public.dev_alerts WHERE ${filter} AND ${VISIBLE_ALERT_FILTER} AND ($1::timestamptz IS NULL OR ${timestamp} >= $1) AND ($2::timestamptz IS NULL OR ${timestamp} <= $2)`,dates),
             ]);
             return NextResponse.json(paged(rows.rows, count.rows[0].total, page, alertPageSize));
         }
@@ -83,7 +86,7 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => null);
     if (body?.all === true && body?.id === undefined) {
         try {
-            await query(`UPDATE public.dev_alerts SET read_at = NOW() WHERE ${UNREAD_ALERT_FILTER}`);
+            await query(`UPDATE public.dev_alerts SET read_at = NOW() WHERE ${UNREAD_ALERT_FILTER} AND ${VISIBLE_ALERT_FILTER}`);
             return NextResponse.json({ ok: true });
         } catch {
             return NextResponse.json({ error: "Não foi possível marcar todos os alertas como lidos." }, { status: 500 });
