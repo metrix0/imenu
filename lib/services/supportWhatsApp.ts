@@ -1115,7 +1115,7 @@ export async function processSupportIncomingWhatsAppMessage(input: {
 
     await withAdvisoryLock("support-reply:" + conversation.chat_id, async () => {
         const stateResult = await query<{ mode: "ai" | "human"; last_inbound_at: string; handoff_prompted_at: string | null }>(
-            "SELECT mode, last_inbound_at, handoff_prompted_at FROM support_conversations WHERE id = $1 LIMIT 1",
+            "SELECT mode, last_inbound_at::text AS last_inbound_at, handoff_prompted_at FROM support_conversations WHERE id = $1 LIMIT 1",
             [conversation.id]
         );
         if (stateResult.rows[0]?.mode === "human") return;
