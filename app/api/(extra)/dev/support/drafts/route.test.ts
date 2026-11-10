@@ -69,7 +69,7 @@ it("lists the latest draft per contact with a matching distinct count",async()=>
  const response=await GET(new Request("https://example.com/api/dev/support/drafts?status=pending&page=1"));
  expect(response.status).toBe(200);
  expect((query as jest.Mock).mock.calls[0][0]).toContain("DISTINCT ON (session_name,chat_id)");
- expect((query as jest.Mock).mock.calls[1][0]).toContain("DISTINCT ON(session_name,chat_id) review_status");
+ expect((query as jest.Mock).mock.calls[1][0]).toContain("DISTINCT ON(session_name,chat_id) id,conversation_id,session_name,chat_id,review_status");
  expect((query as jest.Mock).mock.calls[0][0]).not.toContain("FROM support_ai_reply_drafts WHERE review_status");
  expect((query as jest.Mock).mock.calls[0][0]).toContain("WHERE d.review_status=$1");
  expect((query as jest.Mock).mock.calls[0][0]).toContain("last_msg.created_at > d.created_at");
