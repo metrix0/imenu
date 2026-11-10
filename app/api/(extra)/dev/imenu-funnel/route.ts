@@ -22,12 +22,12 @@ type CohortRow = {
 };
 
 function validDate(value: string | null): value is string {
-    return Boolean(value && /^\\d{4}-\\d{2}-\\d{2}$/.test(value) &&
+    return Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value) &&
         Number.isFinite(Date.parse(value)) &&
         new Date(value + "T12:00:00Z").toISOString().slice(0, 10) === value);
 }
 function timestamp(value: number): string {
-    return new Date(value).toISOString().replace("T", " ").replace(/\\.\\d{3}Z$/, "");
+    return new Date(value).toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "");
 }
 
 const cohortSql = `
