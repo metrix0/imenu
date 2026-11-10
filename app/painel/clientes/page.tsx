@@ -185,7 +185,7 @@ export default function ClientesPage() {
         columns={[
           {
             key: "name",
-            className: "w-[20%]",
+            className: "w-[17%]",
             sortable: true,
             label: "Cliente",
             render: (r) => (
@@ -202,7 +202,7 @@ export default function ClientesPage() {
           },
           {
             key: "segment",
-            className: "w-[13%]",
+            className: "w-[12%]",
             sortable: true,
             label: "Classificação",
             render: (r) => (
@@ -221,24 +221,24 @@ export default function ClientesPage() {
               </Badge>
             ),
           },
-          { key: "orders", className: "w-[9%]", label: "Pedidos", sortable: true, render: (r) => r.order_count },
+          { key: "orders", className: "w-[8%] px-1.5!", label: "Pedidos", sortable: true, render: (r) => r.order_count },
           {
             key: "spent",
-            className: "w-[10%]",
+            className: "w-[10%] px-1.5!",
             sortable: true,
             label: "Total gasto",
             render: (r) => formatPrice(r.spending_cents),
           },
           {
             key: "ticket",
-            className: "w-[12%]",
+            className: "w-[11%] px-1.5!",
             sortable: true,
             label: "Ticket médio",
             render: (r) => formatPrice(r.average_ticket_cents),
           },
           {
             key: "last",
-            className: "w-[13%]",
+            className: "w-[12%] px-1.5!",
             sortable: true,
             label: "Última compra",
             render: (r) => date(r.last_purchase),
@@ -258,7 +258,7 @@ export default function ClientesPage() {
           },
           {
             key: "favorite",
-            className: "w-[8%]",
+            className: "w-[15%]",
             label: "Favorito",
             render: (r) => r.favorite_product ? (
               <span title={r.favorite_product} className="block w-full truncate">
