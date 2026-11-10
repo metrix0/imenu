@@ -161,6 +161,7 @@ test("free image limit promotes Plus; Plus still shows reset and support", async
   const free = imageLimitMessage({ plus: false, images_reset_at: "2026-11-10T14:30:00Z" });
   expect(free).toContain("Adquira iMenu Plus");
   expect(free).toContain("75 imagens por mês");
+  expect(free).not.toContain("até 75 imagens");
   expect(free).not.toContain("10/11 às 11:30");
   expect(imageLimitMessage({ plus: true, images_reset_at: "2026-12-01T00:00:00Z" })).toContain("75 imagens");
   expect(imageLimitMessage({ plus: true, images_reset_at: "2026-12-01T00:00:00Z" })).toContain("Assistente IA normalmente");

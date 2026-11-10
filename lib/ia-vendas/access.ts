@@ -14,7 +14,7 @@ export class IaPlusRequired extends SalesError {
 }
 export function imageLimitMessage(access: { plus: boolean; images_reset_at?: string | null }) {
   if (!access.plus)
-    return `Seu limite gratuito de imagens foi atingido. Adquira iMenu Plus para continuar gerando imagens, com até ${LIMITS.images} imagens por mês.`;
+    return `Seu limite gratuito de imagens foi atingido. Adquira iMenu Plus para continuar gerando imagens, com ${LIMITS.images} imagens por mês.`;
   const reset = formatAiResetAt(access.images_reset_at);
   return `Seu limite mensal de ${LIMITS.images} imagens do iMenu Plus foi atingido. ${reset
     ? `Novas imagens disponíveis em ${reset}.`
