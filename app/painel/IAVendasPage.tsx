@@ -1074,7 +1074,6 @@ export default function SalesPage() {
             <div className="mx-auto max-w-3xl space-y-8">
               {messageList}
               {freeLimitReached && <IaPlusLimitMessage
-                resetAt={sales.access?.tokens_reset_at}
                 onCheckout={() => setPlusModal("checkout")}
               />}
             </div>

@@ -47,7 +47,11 @@ export default function AiUsage({ access, compact = false, onBuyTokens }: {
     .map((row) => new Date(row.resetAt!).getTime());
   const reset = resetDates.length ? formatAiResetAt(new Date(Math.max(...resetDates)).toISOString()) : null;
   return <div aria-label={access.plus ? "Uso mensal de IA" : "Uso gratuito de IA"} className={`space-y-3 ${compact ? "px-2 py-3" : "px-1 pb-2 pt-2"}`}>
-    {reset && <p className="text-[11px] leading-4 text-gray-600">Limites serão reiniciados em {reset}.</p>}
+    {access.plus
+      ? (reset && <p className="text-[11px] leading-4 text-gray-600">Limites serão reiniciados em {reset}.</p>)
+      : <p className="text-[11px] leading-4 text-gray-600">{reached
+          ? "Você chegou ao limite Grátis. Adquira iMenu Plus para continuar!"
+          : "Você está próximo do limite Grátis. Adquira iMenu Plus para continuar!"}</p>}
     {rows.map(row => <div key={row.label}>
       <div className={`mb-1 flex items-center gap-1 text-gray-600 ${compact ? "text-[10px]" : "text-xs"}`}>
         <span aria-label={row.label}>{compact ? row.short : row.label}</span>

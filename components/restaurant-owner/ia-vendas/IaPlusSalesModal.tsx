@@ -15,7 +15,6 @@ import QrCodeMesaCheckoutModal from "@/components/restaurant-owner/mesas/QrCodeM
 import { IA_PLUS_BENEFITS, IA_PLUS_BONUSES, IA_PLUS_PRICE_LABEL } from "@/lib/addons/products";
 import { PROMO_QR_CODE, PROMO_QR_PRICE_LABEL } from "@/lib/addons/promoQr";
 import { PLUS_BONUS_ICONS, PLUS_FEATURE_ICONS } from "@/components/restaurant-owner/mesas/MenuProductCard";
-import { formatAiResetAt } from "@/lib/ia-vendas/usageReset";
 import { usePlusExposure } from "@/lib/analytics/plusExposure";
 
 const SUPPORT_URL =
@@ -44,16 +43,14 @@ export function IaPlusDetails() {
     <p className="mt-2 text-xs text-gray-500">Cartão com renovação mensal; Pix libera um mês de acesso. Cancele quando quiser. Você revisa cada mudança antes de aplicar.</p>
   </>;
 }
-export function IaPlusLimitMessage({ onCheckout, resetAt }: {
+export function IaPlusLimitMessage({ onCheckout }: {
   onCheckout: () => void;
-  resetAt: string | null | undefined;
 }) {
-  const reset = formatAiResetAt(resetAt);
   const exposureRef = usePlusExposure("assistant_limit");
   return <article ref={exposureRef} aria-label="Limite gratuito do Assistente IA" className="mx-auto my-5 max-w-2xl rounded-xl border border-brand/20 bg-white p-5">
     <div className="mb-4 flex items-center gap-2 text-sm font-medium text-brand">
       <Sparkles size={18} />
-      <span>Seu limite gratuito foi atingido.{reset ? ` Limites serão reiniciados em ${reset}.` : ""}</span>
+      <span>Seu limite gratuito foi atingido. Adquira iMenu Plus para continuar.</span>
     </div>
     <IaPlusDetails />
     <div className="mt-5 flex flex-wrap gap-2">

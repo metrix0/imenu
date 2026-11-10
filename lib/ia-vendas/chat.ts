@@ -433,6 +433,12 @@ export async function runChat(args: {
     }
     if (args.deep && conv.kind !== "analysis")
       throw new SalesError("Use a conversa Análise.");
+    // Show the Plus action for exhausted free image requests without calling the AI model.
+    if (!args.resume && conv.kind === "chat" && focusedImageRequest(message)) {
+      const access = await aiAccess(restaurant);
+      if (!access.plus && Number(access.images_remaining) <= 0)
+        throw new IaImageLimitReached(false, access.images_reset_at);
+    }
     const ai = new OpenAI({ maxRetries: 0, timeout: 60000, fetch: openAiAlertFetch("Vendas IA") });
     let ctx: Data,
       input: any[],
@@ -1062,9 +1068,11 @@ export async function runChat(args: {
     }
     if (!started && isChatConversation &&
         (e instanceof IaPlusRequired ||
+         e instanceof IaImageLimitReached ||
          (e instanceof SalesError && e.message.startsWith("Limite mensal de IA atingido.")))) {
       // Quota responses are real, persisted chat turns, without a model request.
-      const quota = e instanceof IaPlusRequired ? "free" : "monthly";
+      const imageLimit = e instanceof IaImageLimitReached;
+      const quota = imageLimit ? "image" : e instanceof IaPlusRequired ? "free" : "monthly";
       const assistantMessageId = randomUUID();
       const userId = randomUUID();
       const saved = await withTransaction(async (c) => {
@@ -1085,7 +1093,7 @@ export async function runChat(args: {
         );
         await c.query(
           "INSERT INTO public.ia_vendas_messages (id,restaurant_id,conversation_id,role,content,cards,created_at) VALUES ($1,$2,$3,'assistant',$4,$5::jsonb,clock_timestamp())",
-          [assistantMessageId, restaurant, conversation, e.message, JSON.stringify([{ type: "quota_notice", quota }])],
+          [assistantMessageId, restaurant, conversation, e.message, JSON.stringify(imageLimit ? [{ type: "image_limit" }] : [{ type: "quota_notice", quota }])],
         );
         await c.query(
           "UPDATE public.ia_vendas_conversations SET updated_at=now(),title=CASE WHEN kind='chat' AND title='Nova conversa' THEN $3 ELSE title END WHERE restaurant_id=$1 AND id=$2",
