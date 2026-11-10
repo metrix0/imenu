@@ -454,8 +454,8 @@ export default function QrCodeMesaSettingsSection({
                                                         {addonProductName(itemAddon.product_key)}
                                                     </h3>
                                                     {presentation === "plans" && (
-                                                        <Badge variant={isQrCodeMesa || (itemActive && itemAddon.status !== "canceled") ? "success" : "neutral"}>
-                                                            {isQrCodeMesa ? "Gratuito" : itemAddon.status === "canceled" ? "Cancelado" : itemActive ? "Ativo" : addonStatus(itemAddon, false)}
+                                                        <Badge variant={isQrCodeMesa || itemActive ? "success" : "neutral"}>
+                                                            {isQrCodeMesa ? "Gratuito" : itemActive ? "Ativo" : addonStatus(itemAddon, false)}
                                                         </Badge>
                                                     )}
                                                 </div>

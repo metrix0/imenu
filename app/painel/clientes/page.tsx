@@ -163,7 +163,7 @@ export default function ClientesPage() {
           {error}
         </p>
       ) : null}
-      <div className="[&_th]:px-2.5 [&_td]:px-2.5">
+      <div className="[&_table]:table-fixed [&_table]:min-w-[1020px] [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap [&_th]:px-2 [&_td]:px-2">
       <DataTable
         loading={loading}
         sortKey={sortKey}
@@ -185,6 +185,7 @@ export default function ClientesPage() {
         columns={[
           {
             key: "name",
+            className: "w-[17%]",
             sortable: true,
             label: "Cliente",
             render: (r) => (
@@ -194,13 +195,14 @@ export default function ClientesPage() {
                   <p className="truncate font-medium text-gray-900" title={r.name || "Sem nome"}>
                     {r.name || "Sem nome"}
                   </p>
-                  <p className="mt-1 text-gray-500">{formatPhone(r.phone)}</p>
+                  <p className="mt-1 whitespace-nowrap text-gray-500">{formatPhone(r.phone)}</p>
                 </div>
               </div>
             ),
           },
           {
             key: "segment",
+            className: "w-[12%]",
             sortable: true,
             label: "Classificação",
             render: (r) => (
@@ -219,46 +221,47 @@ export default function ClientesPage() {
               </Badge>
             ),
           },
-          { key: "orders", label: "Pedidos", sortable: true, render: (r) => r.order_count },
+          { key: "orders", className: "w-[8%] px-1.5!", label: "Pedidos", sortable: true, render: (r) => r.order_count },
           {
             key: "spent",
+            className: "w-[10%] px-1.5!",
             sortable: true,
             label: "Total gasto",
             render: (r) => formatPrice(r.spending_cents),
           },
           {
             key: "ticket",
+            className: "w-[11%] px-1.5!",
             sortable: true,
             label: "Ticket médio",
             render: (r) => formatPrice(r.average_ticket_cents),
           },
           {
             key: "last",
+            className: "w-[12%] px-1.5!",
             sortable: true,
             label: "Última compra",
             render: (r) => date(r.last_purchase),
           },
           {
             key: "habits",
+            className: "w-[15%]",
             label: "Hábitos de consumo",
-            render: (r) => r.habits.length ? (
-              <div className="space-y-1">
-                {r.habits.slice(0, 2).map((habit) => (
-                  <p key={`${habit.weekday}-${habit.hour}`} className="whitespace-nowrap">
-                    {weekdays[habit.weekday] || habit.weekday} às {String(habit.hour).padStart(2, "0")}h
-                  </p>
-                ))}
-                {r.habits.length > 2 ? (
-                  <p className="text-xs text-gray-500">+{r.habits.length - 2}</p>
-                ) : null}
-              </div>
-            ) : <span className="text-gray-400">—</span>,
+            render: (r) => {
+              const summary = r.habits.map((habit) =>
+                `${weekdays[habit.weekday] || habit.weekday} às ${String(habit.hour).padStart(2, "0")}h`
+              ).join(" · ");
+              return summary
+                ? <span title={summary} className="block w-full truncate">{summary}</span>
+                : <span className="text-gray-400">—</span>;
+            },
           },
           {
             key: "favorite",
+            className: "w-[15%]",
             label: "Favorito",
             render: (r) => r.favorite_product ? (
-              <span title={r.favorite_product} className="block max-w-[180px] truncate">
+              <span title={r.favorite_product} className="block w-full truncate">
                 {r.favorite_product}
               </span>
             ) : <span className="text-gray-400">—</span>,
