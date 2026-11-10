@@ -47,13 +47,10 @@ export default function LandingPathsSection({ range }: { range: DateRange }) {
         <header className={styles.sectionHeader}>
             <h3 className="text-sm font-semibold text-gray-900">Caminhos até a LP</h3>
         </header>
-        <p className="px-5 pt-3 text-xs text-gray-500">
-            Pessoas que chegaram à página inicial a partir de páginas internas identificadas pelo referenciador. Uma pessoa pode aparecer em mais de um caminho.
-        </p>
         {error && <p role="alert" className="p-5 text-sm text-red-700">{error}</p>}
         {loading ? <DevLoading /> : !error && <div className="grid min-w-0 grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-2 gap-y-2 p-5">
             {rows.map(row => <TrafficBar key={row.source} label={row.label} info={row.info}
-                visitors={row.visitors} previousVisitors={row.previousVisitors} maxVisitors={maxVisitors} />)}
+                visitors={row.visitors} previousVisitors={row.previousVisitors} maxVisitors={maxVisitors} hideZeroChange />)}
         </div>}
     </section>;
 }

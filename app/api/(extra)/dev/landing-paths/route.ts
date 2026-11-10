@@ -40,36 +40,51 @@ export async function GET(request: Request) {
     const knownPaths = Array.from(new Set([
         "/", "/cardapio-web", "/delivery-direto", "/consumer",
         "/restaurante/registrar", "/restaurante/login", "/painel", "/dev",
-        "/termos", "/privacidade",
+        "/termos", "/privacidade", "/motoboy", "/garcom",
         ...PUBLIC_CONTENT_PAGES.map(page => page.path),
     ].flatMap(path => path === "/" ? [path] : [path, path + "/"])));
     const knownList = knownPaths.map(path => "'" + path.replace(/'/g, "''") + "'").join(", ");
 
-    // Count actual homepage pageviews with an identified preceding internal URL,
-    // not generic clicks to a call-to-action or all visits to the source page.
-    const referrer = "lower(ifNull(toString(properties.$referrer), ''))";
-    const internal = "match(" + referrer + ", '^https?://(www[.])?imenuapp[.]com[.]br(/|[?#]|$)')";
-    const sourcePath = "replaceRegexpOne(replaceRegexpOne(" + referrer +
-        ", '^https?://(www[.])?imenuapp[.]com[.]br', ''), '[?#].*$', '')";
+    // A single-page navigation retains the browser's original referrer. Use the
+    // preceding pageview in the same PostHog session, falling back to an
+    // internal referrer only when no preceding pageview was recorded.
+    const sourcePath = "source_path";
+    const knownSource = sourcePath + " IN (" + knownList + ")";
     const source = [
-        "multiIf(not(" + internal + "), 'external',",
+        "multiIf(",
         "startsWith(" + sourcePath + ", '/blog'), 'blog',",
         "startsWith(" + sourcePath + ", '/ferramentas'), 'tools',",
-        "startsWith(" + sourcePath + ", '/restaurantes/'), 'other',",
-        sourcePath + " IN (" + knownList + "), 'content',",
-        "match(" + sourcePath + ", '^/[a-z0-9_-]+/?$'), 'menus',",
+        "startsWith(" + sourcePath + ", '/restaurantes/'), 'content',",
+        knownSource + ", 'content',",
+        "startsWith(" + sourcePath + ", '/mesa/') OR startsWith(" + sourcePath + ", '/vitrine/')",
+        "OR match(" + sourcePath + ", '^/[a-z0-9_-]+/?$'), 'menus',",
         "'other')",
     ].join(" ");
+    const referrer = "lower(ifNull(referrer, ''))";
+    const internalReferrer = "match(" + referrer + ", '^https?://(www[.])?imenuapp[.]com[.]br(/|[?#]|$)')";
+    const referrerPath = "replaceRegexpOne(replaceRegexpOne(" + referrer +
+        ", '^https?://(www[.])?imenuapp[.]com[.]br', ''), '[?#].*$', '')";
+    const previousPath = "if(prev_path != '', prev_path, if(" +
+        internalReferrer + ", " + referrerPath + ", ''))";
     const hogql = [
         "SELECT source,",
         "uniqExactIf(distinct_id, timestamp >= toDateTime('" + timestamp(startAt) + "', 'UTC')) AS visitors,",
         "uniqExactIf(distinct_id, timestamp < toDateTime('" + timestamp(startAt) + "', 'UTC')) AS previous_visitors",
         "FROM (SELECT distinct_id, timestamp, " + source + " AS source",
+        "FROM (SELECT distinct_id, timestamp, " + previousPath + " AS source_path",
+        "FROM (SELECT distinct_id, timestamp, toString(properties.$pathname) AS path,",
+        "toString(properties.$referrer) AS referrer,",
+        "lagInFrame(toString(properties.$pathname), 1, '') OVER",
+        "(PARTITION BY distinct_id, `$session_id` ORDER BY timestamp",
+        "ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS prev_path",
         "FROM events WHERE event = '$pageview'",
-        "AND timestamp >= toDateTime('" + timestamp(previousStart) + "', 'UTC')",
+        // Include an earlier pageview so arrivals at the period boundary
+        // can still be attributed to the prior route.
+        "AND timestamp >= toDateTime('" + timestamp(previousStart - 60 * 60 * 1000) + "', 'UTC')",
         "AND timestamp < toDateTime('" + timestamp(endAt) + "', 'UTC')",
-        "AND toString(properties.$pathname) = '/'",
         "AND toString(properties.$host) IN ('www.imenuapp.com.br', 'imenuapp.com.br'))",
+        "WHERE path = '/' AND timestamp >= toDateTime('" + timestamp(previousStart) + "', 'UTC'))",
+        "WHERE source_path NOT IN ('', '/'))",
         "GROUP BY source",
     ].join(" ");
 
