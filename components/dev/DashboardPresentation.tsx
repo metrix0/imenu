@@ -153,7 +153,7 @@ export function qrTableStatusLabel(status: string): string {
 export function ProductOverviewSections({ metrics, previousMetrics, productsOnly, compact = false }: { metrics: ProductOverview; previousMetrics?: ProductOverview; productsOnly?: (keyof ProductOverview)[]; compact?: boolean }) {
     const products = [
         { key: "imenu", name: "iMenu", paths: "/", price: "-", priceInfo: "Referência do dashboard: sem mensalidade.", },
-        { key: "ia_plus", name: "iMenu Plus", paths: "/painel/marketing + /painel/vendas-ia + /painel/assistente-ia", price: "R$ 49,99/m", priceInfo: "Marketing, Assistente IA e Vendas IA.", },
+        { key: "ia_plus", name: "iMenu Plus", paths: "Modal de venda + Planos + Limite IA + Vendas IA + Marketing", price: "R$ 49,99/m", priceInfo: "Marketing, Assistente IA e Vendas IA.", },
         { key: "qr_code_mesa", name: "iMenu QR", paths: "/painel/mesas", price: "Grátis", priceInfo: "QR Code Mesa gratuito; pagamentos antigos são apenas históricos.", },
     ] as const;
     const difference = (current: number | null | undefined, previous: number | null | undefined, rate = false) => {
@@ -169,17 +169,19 @@ export function ProductOverviewSections({ metrics, previousMetrics, productsOnly
                 const metric = metrics[product.key];
                 const previous = previousMetrics?.[product.key];
                 const sameTrafficSource = previous?.trafficSource === metric.trafficSource;
-                const trafficUnit = metric.trafficSource === "pageviews" ? "Views (Unique)" : "Aberturas da aba";
-                const trafficInfo = metric.trafficSource === "pageviews"
-                    ? `PostHog · ${product.key === "imenu" ? "Página inicial" : product.key === "ia_plus" ? "Marketing, Vendas IA e Assistente IA (sem modais)" : "Página Mesas"}. Uma visita por pessoa a cada 7 dias; após 7 dias, conta novamente.`
-                    : "PostHog · Aberturas de abas; não são visitantes únicos.";
+                const trafficUnit = metric.trafficSource === "plus_exposures" ? "Usuários únicos (7 dias)" : metric.trafficSource === "pageviews" ? "Views (Unique)" : "Aberturas da aba";
+                const trafficInfo = metric.trafficSource === "plus_exposures"
+                    ? "PostHog · Exposição visível em: modal de venda do iMenu Plus, cartão do Plus em Planos, aviso de limite gratuito do Assistente IA, seção Vendas IA e página Marketing. Cada usuário autenticado conta uma vez entre os cinco pontos a cada 7 dias; após 7 dias, pode contar novamente. Histórico disponível a partir da implantação."
+                    : metric.trafficSource === "pageviews"
+                        ? `PostHog · ${product.key === "imenu" ? "Página inicial" : "Página Mesas"}. Uma visita por pessoa a cada 7 dias; após 7 dias, conta novamente.`
+                        : "PostHog · Aberturas de abas; não são visitantes únicos.";
                 const buyerLabel = product.key === "imenu" ? "Usuários ativados" : "Compradores";
                 return <section key={product.key} aria-label={product.name} className="space-y-3">
                     <h2 className="text-base font-semibold text-gray-900">{product.name}</h2>
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                        <MetricCard inlineChange truncateTitle title="Tráfego"
+                        <MetricCard inlineChange truncateTitle title={product.key === "ia_plus" ? "Exposições ao Plus" : "Tráfego"}
                             value={metric.pageViews === null ? "—" : formatCount(metric.pageViews)}
-                            description={trafficUnit}
+                            description={product.key === "ia_plus" ? "Modal · Planos · Limite IA · Vendas IA · Marketing" : trafficUnit}
                             info={trafficInfo}
                             {...(sameTrafficSource ? difference(metric.pageViews, previous?.pageViews) : {})} />
                         <MetricCard inlineChange truncateTitle title="Conversão"
@@ -216,7 +218,7 @@ export function ProductOverviewSections({ metrics, previousMetrics, productsOnly
             {(productsOnly ? productsOnly.map(key => products.find(product => product.key === key)!) : products).map((product) => {
                 const metric = metrics[product.key];
                 const views = metric.pageViews === null ? "—" : formatCount(metric.pageViews);
-                const trafficUnit = metric.trafficSource === "tab_opens" ? "aberturas da aba" : "visitas únicas";
+                const trafficUnit = metric.trafficSource === "plus_exposures" ? "exposições únicas" : metric.trafficSource === "tab_opens" ? "aberturas da aba" : "visitas únicas";
                 const buyers = formatCount(metric.buyers);
                 const churned = formatCount(metric.churnedUsers);
                 const base = formatCount(metric.churnBase);
@@ -229,7 +231,9 @@ export function ProductOverviewSections({ metrics, previousMetrics, productsOnly
                                 value={views}
                                 info={metric.trafficSource === "tab_opens"
                                     ? `PostHog · panel_tab_opened · ${views} aberturas no período; sem visitas de página registradas.`
-                                    : `PostHog · ${product.paths} · ${views} visitantes únicos (distinct_id) no período.`}
+                                    : metric.trafficSource === "plus_exposures"
+                                        ? `PostHog · ${product.paths} · ${views} usuários expostos; deduplicação de 7 dias.`
+                                        : `PostHog · ${product.paths} · ${views} visitantes únicos (distinct_id) no período.`}
                             />
                             <MetricCard
                                 title={product.key === "imenu" ? "Conversion (usuários ativados)" : "Conversion (compradores)"}

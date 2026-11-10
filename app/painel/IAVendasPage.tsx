@@ -44,6 +44,7 @@ import { isPanelTabKey, type PanelTabKey } from "@/lib/ia-vendas/panelTabs";
 import ErrorNoticeContent, { AssistantQuotaReply } from "@/components/restaurant-owner/ia-vendas/ErrorNoticeContent";
 import { SupportWhatsappBadge } from "@/components/common/SupportButton";
 import { capturePosthogLightweight } from "@/lib/api/instrumentation-client";
+import { usePlusExposure } from "@/lib/analytics/plusExposure";
 
 type MessagePart =
   | { type: "text"; content: string }
@@ -96,6 +97,7 @@ export default function SalesPage() {
     [batchIds, setBatchIds] = useState<string[]>([]),
     [selectedBatchIds, setSelectedBatchIds] = useState<string[]>([]),
     [newConversation, setNewConversation] = useState(false);
+  const analysisExposureRef = usePlusExposure("sales_section", isAnalysisRoute);
   const end = useRef<HTMLDivElement>(null),
     lastMessage = useRef<HTMLElement>(null),
     previousMessages = useRef({ conversationId: "", count: 0 }),
@@ -882,7 +884,7 @@ export default function SalesPage() {
           {isAnalysis ? (
             <div className="relative flex min-h-0 flex-1 overflow-hidden" data-analysis-workspace>
               <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" inert={analysisChatOpen && !wideAnalysis}>
-                <div className="sales-analysis-default-shell min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[var(--panel-background)] px-7 pb-20 pt-7" aria-label="Relatório de análise">
+                <div ref={analysisExposureRef} className="sales-analysis-default-shell min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[var(--panel-background)] px-7 pb-20 pt-7" aria-label="Relatório de análise">
                   {!analysisChatOpen && notice}
                   <AnalysisReport
                     locked={locked}

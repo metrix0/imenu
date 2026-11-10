@@ -1,5 +1,6 @@
 "use client";
 import { hasLegacyQrPurchase } from "@/lib/addons/promoQrEligibility";
+import { usePlusExposure } from "@/lib/analytics/plusExposure";
 
 import { useCallback, useEffect, useState } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
@@ -163,6 +164,7 @@ export default function QrCodeMesaSettingsSection({
 }) {
     const [billing, setBilling] = useState<BillingPayload | null>(null);
     const [loading, setLoading] = useState(true);
+    const plusPageExposureRef = usePlusExposure("plus_page", presentation === "plans" && !loading);
     const [salesOpen, setSalesOpen] = useState(false);
     const [iaPlusOpen, setIaPlusOpen] = useState(false);
     const [renewalProduct, setRenewalProduct] = useState<"ia_plus">("ia_plus");
@@ -404,7 +406,7 @@ export default function QrCodeMesaSettingsSection({
                 </Card>
             ) : (
                 presentation === "plans" ? (
-                    <section className="plans-catalog">
+                    <section ref={plusPageExposureRef} className="plans-catalog">
                         {productCards}
                     </section>
                 ) : productCards

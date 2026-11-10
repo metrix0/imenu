@@ -126,22 +126,21 @@ export async function loadPostHogMetrics(
                         distinct_id,
                         timestamp,
                         multiIf(
-                            properties.$pathname = '/', 'imenu',
-                            properties.$pathname IN (
-                                '/painel/vendas-ia', '/painel/assistente-ia', '/painel/marketing',
-                                '/painel/vendas-ia/', '/painel/assistente-ia/', '/painel/marketing/'
+                            event = 'imenu_plus_exposure_viewed' AND toString(properties.surface) IN (
+                                'sales_modal', 'plus_page', 'assistant_limit', 'sales_section', 'marketing_page'
                             ), 'ia_plus',
-                            properties.$pathname IN ('/painel/mesas', '/painel/mesas/'), 'qr_code_mesa',
+                            event = '$pageview' AND properties.$pathname = '/', 'imenu',
+                            event = '$pageview' AND properties.$pathname IN ('/painel/mesas', '/painel/mesas/'), 'qr_code_mesa',
                             'other'
                         ) AS product
                     FROM events
-                    WHERE event = '$pageview'
-                      AND timestamp >= toDateTime('${start}', 'UTC')
+                    WHERE timestamp >= toDateTime('${start}', 'UTC')
                       AND timestamp < toDateTime('${end}', 'UTC')
-                      AND properties.$pathname IN (
-                          '/', '/painel/vendas-ia', '/painel/assistente-ia', '/painel/marketing',
-                          '/painel/vendas-ia/', '/painel/assistente-ia/', '/painel/marketing/',
-                          '/painel/mesas', '/painel/mesas/'
+                      AND (
+                          (event = '$pageview' AND properties.$pathname IN ('/', '/painel/mesas', '/painel/mesas/'))
+                          OR (event = 'imenu_plus_exposure_viewed' AND toString(properties.surface) IN (
+                              'sales_modal', 'plus_page', 'assistant_limit', 'sales_section', 'marketing_page'
+                          ))
                       )
                 )
                 GROUP BY distinct_id, product
@@ -176,9 +175,8 @@ export async function loadPostHogMetrics(
             ${repeatAfter7Days ? "ifNull(any(rv.imenu_views), 0)" : "uniqIf(distinct_id, event = '$pageview' AND properties.$pathname = '/')"} AS landing_pageviews,
             ${repeatAfter7Days
                 ? "ifNull(any(rv.ia_plus_views), 0)"
-                : `uniqIf(distinct_id, event = '$pageview' AND properties.$pathname IN (
-                    '/painel/vendas-ia', '/painel/assistente-ia',
-                    '/painel/vendas-ia/', '/painel/assistente-ia/', '/painel/marketing', '/painel/marketing/'
+                : `uniqIf(distinct_id, event = 'imenu_plus_exposure_viewed' AND toString(properties.surface) IN (
+                    'sales_modal', 'plus_page', 'assistant_limit', 'sales_section', 'marketing_page'
                 ))`} AS ia_plus_pageviews,
             ${repeatAfter7Days ? "ifNull(any(rv.qr_views), 0)" : "uniqIf(distinct_id, event = '$pageview' AND properties.$pathname IN ('/painel/mesas', '/painel/mesas/')"} AS qr_pageviews,
             countIf(

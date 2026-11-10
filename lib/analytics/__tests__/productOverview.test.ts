@@ -9,7 +9,7 @@ describe("product overview", () => {
         ]);
         expect(result.imenu.conversion).toBe(5);
         expect(result.imenu.churn).toBe(20);
-        expect(result.ia_plus).toMatchObject({ buyers: 2, conversion: 5, churn: 25 });
+        expect(result.ia_plus).toMatchObject({ buyers: 2, conversion: 5, churn: 25, trafficSource: "plus_exposures" });
         expect(result.qr_code_mesa).toMatchObject({ buyers: 3, conversion: 15, churn: 0 });
     });
     it("keeps purchases and churn visible when traffic is unavailable", () => {
@@ -42,7 +42,7 @@ describe("product overview", () => {
                 { tab: "Pedidos", opens: 100 },
             ] });
         expect(result.qr_code_mesa).toMatchObject({ pageViews: 20, trafficSource: "tab_opens", conversion: 10 });
-        expect(result.ia_plus).toMatchObject({ pageViews: 12, trafficSource: "tab_opens" });
+        expect(result.ia_plus).toMatchObject({ pageViews: 0, trafficSource: "plus_exposures", conversion: null });
         expect(result.imenu).toMatchObject({ pageViews: 0, trafficSource: "pageviews", conversion: null });
     });
     it("prefers actual pageviews without adding overlapping tab clicks", () => {

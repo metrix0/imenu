@@ -25,6 +25,7 @@ import Loader from "@/components/ui/Loader";
 import Button from "@/components/ui/Button";
 import Image from "next/image";
 import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
+import { usePlusExposure } from "@/lib/analytics/plusExposure";
 import { IA_PLUS_FEATURE_MESSAGE, IA_PLUS_PRICE_LABEL } from "@/lib/addons/products";
 import { useAutoSave } from "@/lib/utils/useAutoSave";
 import WarningBox from "@/components/ui/WarningBox";
@@ -80,6 +81,7 @@ export default function MarketingPage() {
       body: JSON.stringify(snapshot),
     });
   });
+  const marketingExposureRef = usePlusExposure("marketing_page", settings !== null);
   const editorRefs = useRef<Record<AutomationKind, TemplateEditorHandle | null>>({ cart: null, reactivation: null, habit: null });
   const [openVariables, setOpenVariables] = useState<AutomationKind | null>(null);
   const [history, setHistory] = useState<HistoryRow[]>([]);
@@ -165,7 +167,7 @@ export default function MarketingPage() {
     );
   }
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-4 pb-20 pt-8 sm:px-6">
+    <div ref={marketingExposureRef} className="mx-auto max-w-6xl space-y-6 px-4 pb-20 pt-8 sm:px-6">
       <PageSaveHeader>
 <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
