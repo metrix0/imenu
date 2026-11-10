@@ -124,3 +124,22 @@
     .alertsHistory :global(th:nth-child(6)){width:100%}
     .alertsHeading :global(button){max-width:55%}
 }
+
+/* Payout data stays readable and actionable instead of squeezing nine columns on phones. */
+@media (max-width: 767px) {
+    .payoutTable :global([data-ui="table"]) { overflow-x: visible; }
+    .payoutTable :global(table), .payoutTable :global(tbody) { display: block; width: 100%; table-layout: auto; }
+    .payoutTable :global(thead) { display: none; }
+    .payoutTable :global(tbody tr) { display: block; }
+    .payoutTable :global(tbody tr:not(:last-child)) { border-bottom: 1px solid #e2e5e9; }
+    .payoutTable :global(tbody tr:has(td:not([colspan]))) { padding: 5px 12px; }
+    .payoutTable :global(tbody td:not([colspan])) { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; width: 100%; padding: 10px 0; overflow: visible; border: 0; text-align: right; white-space: normal; }
+    .payoutTable :global(tbody td:not([colspan]) + td:not([colspan])) { border-top: 1px solid #f1f3f5; }
+    .payoutTable :global(tbody td:not([colspan])::before) { content: attr(data-label); flex: 0 0 40%; font-size: 12px; font-weight: 500; color: #626973; text-align: left; }
+    .payoutTable :global(tbody td[data-label=""]::before) { display: none; }
+    .payoutTable :global(tbody td[data-label=""]) { justify-content: flex-end; }
+    .payoutTable :global(tbody td:not([colspan]) > *) { min-width: 0; }
+    .payoutTable :global(tbody td[colspan]) { display: block; width: 100%; }
+    .payoutTable :global(tbody td) :global(button) { max-width: 100%; white-space: normal; }
+    .payoutTable .profileLink { white-space: normal; overflow-wrap: anywhere; }
+}

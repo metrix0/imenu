@@ -41,7 +41,7 @@ export default function DataTable<T>({ columns, rows, rowKey, onRowClick, loadin
                 </tr>
                 : rows.map(row => <tr key={rowKey(row)} tabIndex={onRowClick ? 0 : undefined} className={`transition-colors hover:bg-[#f7f8fa] ${onRowClick ? "cursor-pointer" : ""}`}
                     onClick={() => onRowClick?.(row)} onKeyDown={event => { if (event.target === event.currentTarget && onRowClick && ["Enter", " "].includes(event.key)) { event.preventDefault(); onRowClick(row); } }}>
-                    {columns.map(column => <td key={column.key} className={`border-b border-[#e2e5e9] px-4 py-3.5 ${column.className ?? ""}`}>{column.render(row)}</td>)}
+                    {columns.map(column => <td key={column.key} data-label={column.label} className={`border-b border-[#e2e5e9] px-4 py-3.5 ${column.className ?? ""}`}>{column.render(row)}</td>)}
                 </tr>)}</tbody>
         </table>
     </div>;
