@@ -294,6 +294,7 @@ export default function PainelLayout({
             }
 
             setIsChecking(false);
+            capturePosthogLightweight("panel_dashboard_viewed", session.user.id);
             // The SDK excludes panel events; measure these product pages without loading it.
             if (window.location.pathname === pathname && productPageViewRef.current !== pathname) {
                 productPageViewRef.current = pathname;

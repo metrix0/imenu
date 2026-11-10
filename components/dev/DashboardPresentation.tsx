@@ -82,12 +82,15 @@ export function SectionHeading({
 
 export function QrTableFunnelCard({
     title,
+    description,
     steps,
 }: {
     title: string;
+    description?: string;
     steps: Array<{
         label: string;
         value: number | null;
+        info?: string;
         conversionBase?: number | null;
         conversionLabel?: string;
     }>;
@@ -95,6 +98,7 @@ export function QrTableFunnelCard({
     return (
         <article className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
             <h3 className="font-semibold text-gray-900">{title}</h3>
+            {description && <p className="mt-1 text-xs leading-5 text-gray-500">{description}</p>}
             <div className="mt-4 grid gap-3">
                 {steps.map((step, index) => {
                     const previous =
@@ -114,9 +118,14 @@ export function QrTableFunnelCard({
                             className="flex items-center justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3"
                         >
                             <div>
-                                <p className="text-sm font-medium text-gray-700">
-                                    {step.label}
-                                </p>
+                                <div className="flex items-center gap-2">
+                                    <p className="text-sm font-medium text-gray-700">{step.label}</p>
+                                    {step.info && <InfoTooltip text={step.info} showOnClick>
+                                        <button type="button" aria-label={"Sobre " + step.label} className="text-gray-400 hover:text-gray-600">
+                                            <PanelIcon icon={faCircleInfo} className="text-xs" />
+                                        </button>
+                                    </InfoTooltip>}
+                                </div>
                                 {index > 0 && (
                                     <p className="mt-0.5 text-xs text-gray-500">
                                         {stepConversion === null
