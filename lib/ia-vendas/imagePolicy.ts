@@ -47,11 +47,11 @@ export function resolveImageStyle(approved: Data[], input: Data, targetId: strin
   const relevant = approved.filter(row => row.profile === input.target)
     .sort((a,b) => Date.parse(b.applied_at) - Date.parse(a.applied_at));
   const sameProduct = relevant.find(row => row.target_id === targetId)?.style || {};
-  const latest = relevant[0]?.style || {};
   const supplied = input.style && typeof input.style === "object" ? input.style : {};
   const style: Data = {};
   for (const key of ["background", "text", "ingredients", "presentation"]) {
-    const value = supplied[key] ?? sameProduct[key] ?? (["background", "text"].includes(key) ? latest[key] : undefined);
+    // Never fill missing fields from another product.
+    const value = supplied[key] ?? sameProduct[key];
     if (typeof value === "string") style[key] = value.slice(0, 1500);
   }
   return style;

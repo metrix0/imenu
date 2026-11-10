@@ -5,6 +5,10 @@ import { query, withTransaction } from "@/lib/database/sql";
 import { createMercadoPagoPixCharge } from "@/lib/payments/mercadoPagoPix";
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn(), withTransaction: jest.fn() }));
 jest.mock("@/lib/payments/mercadoPagoPix", () => ({ createMercadoPagoPixCharge: jest.fn() }));
+jest.mock("@/lib/auth/restaurantOwner", () => ({
+    ...jest.requireActual("@/lib/auth/restaurantOwner"),
+    requireRestaurantOwner: jest.fn().mockResolvedValue({}),
+}));
 const restaurant = "30000000-0000-4000-8000-000000000001";
 const a = "10000000-0000-4000-8000-000000000001", b = "10000000-0000-4000-8000-000000000002";
 const table = "40000000-0000-4000-8000-000000000001";
@@ -49,6 +53,23 @@ it.each(["entrega", "retirada", "mesa"])("persists one combined line and final p
     expect(JSON.parse(lines[0].values[8])).toMatchObject({ pricing_rule: "average", flavors: [{ item_id: a }, { item_id: b }] });
     expect(writes.filter(w => w.sql.includes("stock_quantity -")).map(w => w.values)).toEqual([[2, a], [2, b]]);
 });
+it.each(["", "   "])("allows staff-created table orders without a customer name (%p)", async name => {
+    const response = await send({
+        panel_order: true, is_delivery: "mesa", customer_name: name,
+        table_token: table, table_id: table,
+        expected_promotion: { id: null, total_cents: 11000 },
+    });
+    expect(response.status).toBe(200);
+    const order = writes.find(write => write.sql.includes("INSERT INTO orders"));
+    expect(order?.values[5]).toBeNull();
+});
+
+it("continues to require a name in customer-facing table checkout", async () => {
+    const response = await send({ is_delivery: "mesa", customer_name: "", table_token: table, table_id: table });
+    expect(response.status).toBe(400);
+    expect(writes).toHaveLength(0);
+});
+
 it("rolls back before inserting when the second flavor lacks stock", async () => {
     secondaryStock = 1;
     expect((await send()).status).toBe(409);

@@ -77,7 +77,9 @@ it("lists the latest draft per contact with a matching distinct count",async()=>
  expect((query as jest.Mock).mock.calls[0][0]).toContain("ORDER BY sm.created_at DESC,sm.id DESC LIMIT 1");
  expect((query as jest.Mock).mock.calls[0][0]).toContain("last_msg.dedupe_key LIKE 'support:human:%'");
  expect((query as jest.Mock).mock.calls[0][0]).toMatch(/sm\.send_status\s*=\s*'sent'/);
- expect((query as jest.Mock).mock.calls[0][0]).toContain("ORDER BY attended ASC,d.created_at DESC");
+ expect((query as jest.Mock).mock.calls[0][0]).toContain("a.product_key='ia_plus'");
+ expect((query as jest.Mock).mock.calls[0][0]).toContain("a.current_period_ends_at>NOW()");
+ expect((query as jest.Mock).mock.calls[0][0]).toContain("ORDER BY plus DESC,attended ASC,d.created_at DESC");
  expect((query as jest.Mock).mock.calls[0][1]).toEqual(["pending",25,25]);
 });
 

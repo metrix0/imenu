@@ -65,7 +65,7 @@ const imageProposalTool = (maxJobs: number) => tool(
       items: {
         type: "object",
         properties: imageProps,
-        required: ["target", "prompt", "style"],
+        required: ["target", "prompt"],
       },
     },
   },
@@ -118,9 +118,9 @@ const tools = [
   ),
   tool(
     "image_example",
-    "Gerar no máximo UMA prévia antes/depois nesta mensagem. Não publica.",
+    "Gerar no máximo UMA prévia antes/depois nesta mensagem, quando solicitado. Estilo opcional; não publica.",
     imageProps,
-    ["target", "prompt", "style"],
+    ["target", "prompt"],
   ),
   imageProposalTool(LIMITS.imageBatch),
   tool(
@@ -253,7 +253,7 @@ Use somente dados reais do contexto/ferramentas. Escreva da forma mais simples p
 Cada recomendação executável deve vir com propose_action ou propose_images, contendo mudanças exatas. Se a oportunidade for clara, de baixo risco e o estado atual já tiver sido lido, crie a proposta diretamente em vez de pedir permissão: o botão Aplicar é a confirmação para executar. Pergunte apenas quando custo, operação ou intenção do restaurante forem necessários para propor algo com segurança. Depois de cada proposta criada, coloque em uma linha própria [[action:ID]] usando exatamente o id retornado pela ferramenta, no ponto do texto em que o cartão deve aparecer. Não explique esses marcadores. Se o usuário pedir para ver novamente uma proposta pendente já criada nesta conversa, mostre o mesmo cartão com [[action:ID]], usando o ID real da proposta disponível em actions no contexto. Não crie outra proposta nem invente um ID apenas para reexibir o cartão. Mantenha cada oportunidade curta: título e no máximo duas frases de justificativa, sem bullets que apenas repitam a mesma conclusão.
 Análise profunda: priorize automações sobre o cardápio existente e trabalho mínimo; não sugira novos pratos nem A/B. Antes de concluir, inspecione sistematicamente os principais vetores de melhoria do cardápio: ordem e visibilidade de categorias/itens, imagens, nomes, grafia, clareza e poder de venda das descrições, preços e apresentação/precificação psicológica (inclusive finais .99 quando fizer sentido), duplicidades, upsells/combos, Upsell Automático, automações de Marketing WhatsApp (carrinho abandonado, reativação e hábitos), promoções e fidelidade. Use growth_settings para checar quais recursos já estão ativos; proponha habilitar os desativados quando houver demanda e condições para funcionar. Upsell Automático exige iMenu Plus para ativar; Marketing também exige iMenu Plus, WhatsApp conectado e respeito aos pedidos de SAIR dos clientes: sem Plus ou conexão, oriente a regularização em vez de propor uma ativação executável. Não atribua ganhos inventados ou envio garantido. Inspecionar não significa recomendar: só destaque ou proponha mudanças que estejam entre as oportunidades de maior alavancagem para este restaurante, considerando impacto esperado, confiança, esforço e risco; ignore correções cosméticas de baixo impacto. Quando os dados sustentarem, proponha posições mais estratégicas. Transforme todos os achados claros e de baixo risco em propostas, sem fabricar mudanças só para aumentar a quantidade. Não crie seção "Prioridade prática" nem checklist final. A interface posiciona o potencial no topo do relatório, após o resumo: não repita o valor nem crie uma seção final de projeção no texto. Coloque [[card:benchmark]] perto da comparação com restaurantes parecidos e [[card:measurement]] perto de resultados anteriores quando esses cartões ajudarem. Conversa normal: pode discutir novos pratos e conferir viabilidade na cozinha antes de criar. Considere análise anterior, ações aplicadas, descartadas e desfeitas antes de repetir recomendações.
 Pode editar apenas campos comerciais listados. Pedidos, histórico, repasses, analytics e informações pessoais/credenciais são protegidos. Nunca proponha mudanças sem ler o estado atual. Use operações separadas para recomendações independentes; relacionadas no mesmo grupo. IDs de criações são atribuídos pelo servidor: após aprovação crie dependências em outra proposta. Deletes com dependências são proibidos: prefira desativar. Máximo 5 upsells GLOBAIS no carrinho (não existe upsell condicional por produto). Itens/preços em CENTAVOS. Promoção de produto type percent usa 10 para 10%, fixed usa centavos. Cupom discount_type percent usa 0.10 para 10%, fixed/min/max usam REAIS. Não altera contagens históricas de cupons/fidelidade. Upsell Automático exige Plus válido no momento de aplicar. Para habilitar Upsell Automático use create/update automatic_upsell com enabled=true (se não houver registro, create sem id; se houver, update com id=restaurant_id). Para Marketing use create/update whatsapp_bot_settings.automations com o objeto COMPLETO das três regras e dailyTotalLimit, preservando textos, limites, ofertas e regras não alteradas; se não houver registro, crie com os padrões de growth_settings. Configurações de Marketing exigem Plus ao aplicar e ofertas existentes quando escolhidas. A aplicação segue a aprovação normal e pode ser desfeita.
-Imagens: gere UMA prévia realista como exemplo se solicitado; outras via propose_images, nunca gere em massa sem aprovação. Preserve ingredientes, porção e identidade da foto. Sem referência, peça detalhes suficientes da apresentação. A imagem gerada é apenas prévia até aprovação. Logos/banners são permitidos. Nunca regenere imagens já aplicadas em pedidos amplos (todos, categoria, próximos): mantenha-as e complete apenas os produtos restantes. Só refaça uma imagem aplicada quando o pedido atual solicitar explicitamente a alteração e identificar especificamente o produto/logo/banner; se ambíguo, peça o nome e a alteração. Não trate aprovar um lote como autorização para refazer produtos concluídos. Use approved_image_styles como memória durável: preserve fundo e texto aprovados, e ingredientes/porção/apresentação do MESMO produto; não transfira ingredientes ou porções entre pratos. Em style, informe o estado completo desejado desses campos, com texto vazio quando o proprietário pedir sem texto. Não esqueça preferências ao mudar de lote ou conversa. Aplique novas preferências explícitas do proprietário antes de gerar.
+Imagens: gere UMA prévia realista como exemplo se solicitado; outras via propose_images, nunca gere em massa sem aprovação. Preserve ingredientes, porção e identidade da foto. Fundo, ângulo, texto e demais opções visuais são opcionais: não os solicite como campos obrigatórios, não invente opções ausentes nem salve preferências não expressamente escolhidas pelo proprietário. A imagem gerada é apenas prévia até aprovação. Logos/banners são permitidos. Nunca regenere imagens já aplicadas em pedidos amplos (todos, categoria, próximos): mantenha-as e complete apenas os produtos restantes. Só refaça uma imagem aplicada quando o pedido atual solicitar explicitamente a alteração e identificar especificamente o produto/logo/banner; se ambíguo, peça o nome e a alteração. Não trate aprovar um lote como autorização para refazer produtos concluídos. Use approved_image_styles como memória durável: preserve fundo e texto aprovados, e ingredientes/porção/apresentação do MESMO produto; não transfira ingredientes ou porções entre pratos. Em style, inclua apenas campos explicitamente escolhidos pelo proprietário; omita o campo inteiro quando não houver escolhas. Não esqueça preferências ao mudar de lote ou conversa. Aplique novas preferências explícitas do proprietário antes de gerar.
 Formato final obrigatório JSON: {"reply":"resposta Markdown", "summary":"memória concisa da conversa, até 6000 caracteres"}. Widgets são renderizados pelas ferramentas. Não repita a lista inteira de mudanças no texto quando já há widget. Use linguagem simples também nas evidências e hipóteses: não exponha nomes de campos, SQL, IDs internos ou detalhes de implementação. Cada justificativa deve conter apenas o dado que muda a decisão e a melhoria sugerida, em até duas frases curtas. Se uma ferramenta falhar, explique; no máximo uma nova tentativa ajustada. Campos disponíveis (tipo; ? aceita null; ! obrigatório na criação):\n` +
   fieldGuide;
 export function compactAssistantContext(ctx: Data): Data {
@@ -298,9 +298,30 @@ export function compactAssistantContext(ctx: Data): Data {
 
 export function focusedImageRequest(message: string): boolean {
   const normalized = message.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  return /\b(?:gera|gere|gerar|cria|crie|criar|faca|fazer|produza|generate|create)\b/.test(normalized)
-    && /\b(?:imagem|imagens|foto|fotos|logo|banner|image|images|photo|photos)\b/.test(normalized)
-    && !/\b(?:preco|precos|price|descricao|descricoes|description|cupom|coupon|promocao|promocoes|categoria|categorias|horario|horarios|configuracao|settings|altere|mude|edite|ajuste)\b/.test(normalized);
+  return /\b(?:gera|gere|gerar|cria|crie|criar|faca|fazer|produza|melhore|melhorar|refaca|refazer|troque|trocar|altere|alterar|mude|mudar|edite|editar|atualize|atualizar|generate|create|improve|replace|edit)\b/.test(normalized)
+    && /\b(?:imagem|imagens|foto|fotos|logo|logotipo|banner|image|images|photo|photos)\b/.test(normalized)
+    && !/\b(?:preco|precos|price|descricao|descricoes|description|cupom|coupon|promocao|promocoes|categoria|categorias|horario|horarios|configuracao|settings)\b/.test(normalized)
+    && !/\b(?:como|dicas|sugestoes|ideias)\s+(?:eu\s+|posso\s+)?(?:melhorar|gerar|criar|editar)\b/.test(normalized)
+    && !/\b(?:nao|nunca)\s+(?:gere|gerar|crie|criar|melhore|alterar|troque)\b/.test(normalized);
+}
+
+// Do not create required style slots. Keep only what the owner explicitly requests.
+export function requestedImageStyle(message: string): Data {
+  const normalized = message.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const style: Data = {};
+  const background = normalized.match(/\bfundo\s+(claro|branco|escuro|preto|bege|neutro)\b/);
+  if (background) style.background = "fundo " + background[1];
+  else if (/\bmesa de restaurante\b/.test(normalized)) style.background = "mesa de restaurante";
+  if (/\bsem\s+(?:texto|letras|escrita)\b/.test(normalized)) style.text = "";
+  else {
+    const lettering = message.match(/\btexto\s*(?::|=)\s*["“]([^"”]{1,120})["”]/i);
+    if (lettering) style.text = lettering[1];
+  }
+  if (/\b(?:45\s*(?:°|graus)|angulo de 45)\b/.test(normalized))
+    style.presentation = "ângulo de 45 graus";
+  else if (/\b(?:de cima|vista superior)\b/.test(normalized))
+    style.presentation = "vista de cima";
+  return style;
 }
 
 export function asksForAnalysis(text: string) {
@@ -866,13 +887,25 @@ export async function runChat(args: {
                     "O exemplo desta mensagem já foi gerado. Proponha um lote.",
                   );
                 example = true;
-                const a = await previewImage(restaurant, conversation, run, p);
+                const imageRequest = { ...p, ...(focusedImageRequest(message) ? { prompt: message } : {}) };
+                delete imageRequest.style;
+                const style = requestedImageStyle(message);
+                const a = await previewImage(restaurant, conversation, run,
+                  { ...imageRequest, ...(Object.keys(style).length ? { style } : {}) });
                 cards.push({ type: "action", id: a.id });
                 result = { id: a.id, status: "pending" };
                 break;
               }
               case "propose_images": {
-                const a = await proposeImages(restaurant, conversation, run, p, batched ? actionId(run, call.call_id) : undefined);
+                const jobs = Array.isArray(p.jobs) ? p.jobs.map((job: Data) => {
+                  const imageRequest = { ...job };
+                  delete imageRequest.style;
+                  if (focusedImageRequest(message)) imageRequest.prompt = message;
+                  const style = requestedImageStyle(message);
+                  return { ...imageRequest, ...(Object.keys(style).length ? { style } : {}) };
+                }) : p.jobs;
+                const a = await proposeImages(restaurant, conversation, run,
+                  { ...p, jobs }, batched ? actionId(run, call.call_id) : undefined);
                 if (a.id) cards.push({ type: "action", id: a.id });
                 result = { id: a.id, status: a.status || "pending", ...(a.skipped ? { skipped: a.skipped } : {}) };
                 break;

@@ -315,7 +315,7 @@ async function panelOrders(browser) {
                     .find(button => button.textContent.trim() === "Criar pedido");
                 return Boolean(panel && create && !create.disabled);
             }, { timeout: 15000 });
-            await page.type('input[placeholder="Nome do cliente *"]', "Cliente painel E2E");
+            await page.type('input[placeholder^="Nome do cliente"]', "Cliente painel E2E");
             await page.select('select:has(option[value="pix-entrega"])', method);
             await page.waitForFunction(value =>
                 document.querySelector('select:has(option[value="pix-entrega"])')?.value === value, {}, method);

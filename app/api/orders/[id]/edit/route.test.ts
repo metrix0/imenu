@@ -13,8 +13,9 @@ const orderId = "50000000-0000-4000-8000-000000000001";
 const itemId = "10000000-0000-4000-8000-000000000001";
 
 it.each([
-  ["balcao", true], ["mesa", true], ["mesa", false],
-] as const)("edits %s orders with salao availability %s, preserving destination and discounts", async (destination, available) => {
+  ["balcao", true, "Cliente"], ["mesa", true, "Cliente"], ["mesa", false, "Cliente"],
+  ["balcao", true, ""], ["mesa", true, ""],
+] as const)("edits %s orders with salao availability %s and customer name %s, preserving destination and discounts", async (destination, available, customerName) => {
   const tableId = "40000000-0000-4000-8000-000000000001";
   (requireRestaurantOwner as jest.Mock).mockResolvedValue({});
   const client = {
@@ -39,7 +40,7 @@ it.each([
     method: "PUT",
     headers: { "Content-Type": "application/json", Authorization: "Bearer owner-token" },
     body: JSON.stringify({
-      restaurantId, customer_name: "Cliente", delivery_fee_cents: 0, paymentMethod: "dinheiro",
+      restaurantId, customer_name: customerName, delivery_fee_cents: 0, paymentMethod: "dinheiro",
       is_delivery: destination, ...(destination === "mesa" ? { table_id: tableId } : {}), expected_promotion: { id: null, total_cents: 3960 },
       items: [{ id: "line", base_item_id: itemId, name: "Dog", qty: 4, unit_price_cents: 1740,
         total_cents: 6960, selectedSubitems: [] }],
@@ -53,6 +54,7 @@ it.each([
   expect(response.status).toBe(200);
   const orderUpdate = client.query.mock.calls.find(([sql]) => String(sql).includes("UPDATE orders SET"));
   const itemInsert = client.query.mock.calls.find(([sql]) => String(sql).includes("INSERT INTO order_items"));
+  expect(orderUpdate?.[1][0]).toBe(customerName || null);
   expect(orderUpdate?.[1][8]).toBe(destination);
   expect(orderUpdate?.[1][9]).toBe(destination === "mesa" ? tableId : null);
   expect(orderUpdate?.[1][10]).toBe(destination === "mesa" ? "Mesa 1" : null);

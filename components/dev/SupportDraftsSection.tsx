@@ -22,7 +22,7 @@ type Draft = {
     restaurant_id: string | null; id: string; reply_text: string; review_status: "pending" | "approved" | "rejected";
     session_name: string; created_at: string; customer_name: string | null;
     phone: string | null; restaurant_name: string | null; inbound_message: string | null;
-    attended: boolean;
+    attended: boolean; plus: boolean;
 };
 type DraftPage = PageData<Draft> & { pending: number };
 
@@ -128,7 +128,7 @@ export default function SupportDraftsSection() {
                 <PagedTable data={data} loading={loading} onPage={setPage}
                     rowKey={(draft) => draft.id} onRowClick={open} columns={[
                     { key: "contact", label: "Pessoa", render: draft => <div className="min-w-0"><p className="truncate font-medium">{draft.customer_name || "—"}</p><span className="text-xs text-gray-500">{formatPhone(draft.phone)}</span></div> },
-                    { key: "restaurant", label: "Restaurante", render: draft => draft.restaurant_id ? <button type="button" className={styles.profileLink} onClick={event=>{event.stopPropagation();setSelected(null);openProfile({id:draft.restaurant_id!,name:draft.restaurant_name || "Restaurante"});}}>{draft.restaurant_name || "Restaurante"}</button> : "—" },
+                    { key: "restaurant", label: "Restaurante", render: draft => <div className="flex min-w-0 items-center gap-2">{draft.restaurant_id ? <button type="button" className={styles.profileLink} onClick={event=>{event.stopPropagation();setSelected(null);openProfile({id:draft.restaurant_id!,name:draft.restaurant_name || "Restaurante"});}}>{draft.restaurant_name || "Restaurante"}</button> : <span>—</span>}{draft.plus && <Badge variant="brand" className="shrink-0 whitespace-nowrap">iMenu Plus</Badge>}</div> },
                     { key: "attended", label: "Situação", render: draft => <Badge variant={draft.attended ? "success" : "danger"}>{draft.attended ? "Atendido" : "Aguardando"}</Badge> },
                     { key: "reply", label: "Resposta sugerida", render: draft => <p className="truncate" title={draft.reply_text}>{draft.reply_text}</p> },
                     { key: "date", label: "Criada", render: (draft) =>

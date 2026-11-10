@@ -1,4 +1,5 @@
 import { isSupportContactExcluded } from "@/lib/services/supportExclusions";
+import { generateSupportReply } from "@/lib/services/supportAgent";
 import { query } from "@/lib/database/sql";
 import { resolveWahaChatPhone, sendWahaText } from "@/lib/services/wahaClient";
 import { isSecondaryBlastRecipient, sendTrackedSupportText } from "./supportWhatsApp";
@@ -17,6 +18,8 @@ jest.mock("@/lib/services/supportAgent", () => ({
 jest.mock("@/lib/services/wahaClient", () => ({
     resolveWahaChatPhone: jest.fn(),
     sendWahaText: jest.fn(),
+    startWahaTyping: jest.fn().mockResolvedValue(undefined),
+    stopWahaTyping: jest.fn().mockResolvedValue(undefined),
     SUPPORT_WAHA_SESSION_NAME: "imenu-support",
 }));
 
@@ -150,4 +153,69 @@ test("excluded blacklisted contact saves incoming history but never sends replie
         [row.id, "mensagem recebida", "imenu-blast:provider-1"],
     );
     expect(sendWahaText).not.toHaveBeenCalled();
+});
+
+describe("short confirmation while human handoff is pending", () => {
+    const conversation = {
+        id: "conversation-handoff", chat_id: "5511999999999@c.us",
+        phone: "5511999999999", customer_name: null, restaurant_id: null,
+        mode: "ai" as const, handoff_prompted_at: "2026-11-10T20:28:09Z",
+    };
+    const incoming = {
+        sessionName: "imenu-support",
+        chatId: conversation.chat_id,
+        body: "sim",
+        hasMedia: false,
+        messageId: "provider-second-sim",
+        customerName: null,
+        botEnabled: true,
+    };
+
+    test.each([
+        [true, true],
+        [false, false],
+    ])("pending handoff=%s: second 'sim' reaches AI=%s", async (pending, reachesAi) => {
+        (generateSupportReply as jest.Mock).mockResolvedValue({
+            text: "Encaminhamento confirmado.",
+            handoffState: "handed_off",
+            model: "test-model",
+            inputTokens: 5,
+            outputTokens: 5,
+        });
+        (sendWahaText as jest.Mock).mockResolvedValue(undefined);
+        (query as jest.Mock).mockImplementation(async (sql: string) => {
+            if (sql.startsWith("SELECT phone FROM support_conversations")) return { rows: [{ phone: conversation.phone }], rowCount: 1 };
+            if (sql.includes("bool_or(blacklisted)")) return { rows: [{ blacklisted: false, blocked_handoff: false }], rowCount: 1 };
+            if (sql.includes("SELECT id, chat_id, phone") && sql.includes("support_conversations"))
+                return { rows: [{ ...conversation, handoff_prompted_at: pending ? conversation.handoff_prompted_at : null }], rowCount: 1 };
+            if (sql.startsWith("UPDATE support_conversations SET phone"))
+                return { rows: [{ ...conversation, handoff_prompted_at: pending ? conversation.handoff_prompted_at : null }], rowCount: 1 };
+            if (sql.startsWith("SELECT mode, last_inbound_at, handoff_prompted_at"))
+                return { rows: [{ mode: "ai", last_inbound_at: "2026-11-10T20:28:39Z",
+                    handoff_prompted_at: pending ? conversation.handoff_prompted_at : null }], rowCount: 1 };
+            if (sql.startsWith("SELECT provider_message_id FROM support_messages"))
+                return { rows: [{ provider_message_id: incoming.messageId }], rowCount: 1 };
+            // Model the historical bug: a previous "sim" was already answered.
+            if (sql.includes("AS already_answered"))
+                return { rows: [{ already_answered: true }], rowCount: 1 };
+            if (sql.startsWith("SELECT phone, blacklisted"))
+                return { rows: [{ phone: conversation.phone, blacklisted: false }], rowCount: 1 };
+            if (sql.startsWith("INSERT INTO support_messages") && sql.includes("'outbound'"))
+                return { rows: [{ id: "outbound-message" }], rowCount: 1 };
+            return { rows: [], rowCount: 0 };
+        });
+
+        const { processSupportIncomingWhatsAppMessage } = await import("./supportWhatsApp");
+        await processSupportIncomingWhatsAppMessage(incoming);
+
+        expect((generateSupportReply as jest.Mock).mock.calls.length > 0).toBe(reachesAi);
+        expect((sendWahaText as jest.Mock).mock.calls.length > 0).toBe(reachesAi);
+        const repeatedChecks = (query as jest.Mock).mock.calls.filter(([sql]) =>
+            sql.includes("AS already_answered"));
+        expect(repeatedChecks).toHaveLength(pending ? 0 : 1);
+        expect(query).toHaveBeenCalledWith(
+            expect.stringContaining("ON CONFLICT (provider_message_id)"),
+            [conversation.id, "sim", incoming.messageId],
+        );
+    });
 });

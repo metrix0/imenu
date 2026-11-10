@@ -182,7 +182,7 @@
 
 .reportLocked { position: relative; padding-bottom: 0; }
 .paperLocked { position: relative; width: calc(100% + 56px); height: calc(var(--locked-cutoff, 75%) + 720px); margin-inline: -28px; padding-inline: 28px; box-sizing: border-box; overflow: hidden; }
-.structuredContent { position: relative; display: grid; gap: 24px; }
+.structuredContent { position: relative; display: grid; align-content: start; gap: 24px; }
 .preview { position: relative; min-height: 0; }
 .previewContent {
   -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 66%, rgb(0 0 0 / .72) 76%, rgb(0 0 0 / .24) 91%, transparent 100%);
@@ -193,6 +193,7 @@
 .paywallCard { display: flex; width: min(100%, 560px); flex-direction: column; align-items: center; gap: 12px; padding: 22px 26px 24px; border: 1px solid var(--panel-border); border-radius: 12px; background: var(--panel-surface); box-shadow: 0 10px 30px rgb(29 29 29 / .08); pointer-events: auto; }
 .paywallImage { position: relative; width: 80px; height: 112px; margin-bottom: -4px; }
 .paywallLogo { width: 200px; height: 44px; margin-bottom: 2px; }
+.reportLocked :global([data-ia-plus-action] button svg.lucide-lock) { display: none; }
 .reportLocked :global([data-ia-plus-action] button)::after {
   content: "";
   width: 14px;

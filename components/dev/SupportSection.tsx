@@ -772,7 +772,7 @@ export default function SupportSection({ section = "support" }: { section?: "sup
 
                 <DevDialog title="Conversa" description={selectedConversation?.restaurant_name || selectedConversation?.customer_name || undefined} open={Boolean(selectedConversation)} onClose={() => { if (!humanSending) setSelectedConversation(null); }}>
                     {selectedConversation && <div className="space-y-5 p-5 sm:p-6">
-                        <SupportConversation key={selectedConversation.id + ":" + chatRevision} url={"/api/dev/support/drafts?conversation_id=" + selectedConversation.id} />
+                        <SupportConversation key={selectedConversation.id + ":" + chatRevision} url={"/api/dev/support/drafts?conversation_id=" + selectedConversation.id} scrollToBottomOnLoad />
                         <div>
                             <label htmlFor="support-human-reply" className="mb-2 block text-sm font-medium">Resposta</label>
                             <Textarea

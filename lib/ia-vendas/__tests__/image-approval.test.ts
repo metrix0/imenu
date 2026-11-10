@@ -186,3 +186,4 @@ test("explicit product-specific regeneration remains allowed", async () => {
   expect(generate).toHaveBeenCalledTimes(1);
   expect(imageCount).toBe(1);
 });
+

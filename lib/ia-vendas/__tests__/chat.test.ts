@@ -5,6 +5,7 @@ import {
   chatApproval,
   compactAssistantContext,
   focusedImageRequest,
+  requestedImageStyle,
 } from "../chat";
 import {
   aiAccess,
@@ -245,8 +246,69 @@ test.each([
   ["Gere fotos e altere o preço", false],
   ["Como melhorar minhas vendas?", false],
   ["Generate product images", true],
+  ["Melhore a imagem do meu item mais vendido", true],
+  ["Troque a foto da Batata Frita", true],
+  ["Como melhorar minhas fotos?", false],
+  ["Não gere uma foto deste produto", false],
 ])("image-only routing: %s", (message, expected) => {
   expect(focusedImageRequest(message)).toBe(expected);
+});
+
+test("image style fields are optional and only extracted when explicitly requested", () => {
+  expect(requestedImageStyle("Melhore a foto da Batata Frita")).toEqual({});
+  expect(requestedImageStyle("Melhore a foto da Batata Frita com fundo claro")).toEqual({ background: "fundo claro" });
+  expect(requestedImageStyle("Melhore a foto, fundo claro e sem texto")).toEqual({ background: "fundo claro", text: "" });
+  expect(requestedImageStyle("Melhore a foto, ângulo de 45°")).toEqual({ presentation: "ângulo de 45 graus" });
+});
+
+test("an identifiable image request does not bypass the assistant's normal tool flow", async () => {
+  (query as jest.Mock).mockImplementation(async (sql: string) => ({
+    rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
+      ? [{ kind: "chat", summary: "" }]
+      : sql.includes("RETURNING id") ? [{ id: "user" }] : [],
+  }));
+  (context as jest.Mock).mockResolvedValueOnce(namedContext());
+  create.mockResolvedValueOnce({
+    status: "completed", output: [],
+    output_text: JSON.stringify({ reply: "Resposta padrão.", summary: "" }),
+    usage: { input_tokens: 100, output_tokens: 20 },
+  });
+  await runChat({ ...args, deep: false, text: "Melhore a imagem do meu item mais vendido" });
+  expect(create).toHaveBeenCalledTimes(1);
+  expect(create.mock.calls[0][0].tool_choice).toBe("auto");
+  expect(previewImage).not.toHaveBeenCalled();
+});
+
+test("model-generated optional image slots are discarded when the customer did not request them", async () => {
+  (query as jest.Mock).mockImplementation(async (sql: string) => ({
+    rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
+      ? [{ kind: "chat", summary: "" }]
+      : sql.includes("RETURNING id") ? [{ id: "user" }] : [],
+  }));
+  (context as jest.Mock).mockResolvedValueOnce({
+    restaurant: {}, items: { rows: [] }, sales: { products: [] },
+    categories: { rows: [] }, actions: [],
+  });
+  (previewImage as jest.Mock).mockResolvedValueOnce({ id: "image-preview" });
+  create.mockResolvedValueOnce({
+    status: "completed", output: [{
+      type: "function_call", name: "image_example", call_id: "image-call",
+      arguments: JSON.stringify({ target: "item", item_id: "fries",
+        prompt: "Fundo branco e vista a 45 graus",
+        style: { background: "branco", presentation: "45°", text: "Imagem ilustrativa" } }),
+    }],
+    usage: { input_tokens: 100, output_tokens: 40 },
+  }).mockResolvedValueOnce({
+    status: "completed", output: [],
+    output_text: JSON.stringify({ reply: "Prévia pronta.", summary: "" }),
+    usage: { input_tokens: 100, output_tokens: 20 },
+  });
+  const request = "Melhore a imagem de um produto";
+  await runChat({ ...args, deep: false, text: request });
+  expect(create.mock.calls[0][0].tool_choice).toBe("auto");
+  expect(previewImage).toHaveBeenCalledWith("owner", "conversation", "run", {
+    target: "item", item_id: "fries", prompt: request,
+  });
 });
 
 test.each([
@@ -270,6 +332,9 @@ test.each([
   await runChat({ ...args, deep: false, text: "Gere fotos" });
   const proposalTool = create.mock.calls[0][0].tools.find((item: any) => item.name === "propose_images");
   expect(proposalTool.parameters.properties.jobs.maxItems).toBe(maxJobs);
+  expect(proposalTool.parameters.properties.jobs.items.required).toEqual(["target", "prompt"]);
+  const imageExample = create.mock.calls[0][0].tools.find((tool: any) => tool.name === "image_example");
+  expect(imageExample.parameters.required).toEqual(["target", "prompt"]);
   expect(create.mock.calls[0][0].tools.some((tool: any) => tool.name === "propose_action")).toBe(false);
 });
 

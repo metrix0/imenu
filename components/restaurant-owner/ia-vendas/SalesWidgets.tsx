@@ -1018,13 +1018,15 @@ export function ActionCard({
               </Button>,
             )}
             {freeApply && !imageBatch && <span className="self-center text-xs text-gray-500">Primeira aplicação grátis</span>}
-            <Button
-              variant="secondary"
-              disabled={disabled}
-              onClick={() => onAction("reject", [action.id])}
-            >
-              Descartar
-            </Button>
+            {gateApply(
+              <Button
+                variant="secondary"
+                disabled={disabled}
+                onClick={() => onAction("reject", [action.id])}
+              >
+                Descartar
+              </Button>,
+            )}
           </>
         )}
         {action.status === "applied" &&
@@ -1058,15 +1060,16 @@ export function ActionCard({
               {locked && <Lock size={14} className="ml-1" aria-hidden="true" />}
             </Button>,
           )}
-        {action.status === "applied" && (!imageBatch || hasDiscardablePreviews) && (
-          <Button
-            variant="secondary"
-            disabled={disabled}
-            onClick={() => onAction("undo", [action.id])}
-          >
-            {imageBatch ? "Descartar prévias pendentes" : "Desfazer"}
-          </Button>
-        )}
+        {action.status === "applied" && (!imageBatch || hasDiscardablePreviews) &&
+          gateApply(
+            <Button
+              variant="secondary"
+              disabled={disabled}
+              onClick={() => onAction("undo", [action.id])}
+            >
+              {imageBatch ? "Descartar prévias pendentes" : "Desfazer"}
+            </Button>,
+          )}
         {action.status === "conflict" && (
           <p className="text-xs text-gray-500">
             Peça no chat uma proposta atualizada para este registro.

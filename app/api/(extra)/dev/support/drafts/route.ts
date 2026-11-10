@@ -54,7 +54,7 @@ export async function GET(request: Request) {
                 SELECT DISTINCT ON (session_name,chat_id) * FROM support_ai_reply_drafts
                 ORDER BY session_name,chat_id,created_at DESC,id DESC
             ) SELECT d.id,d.reply_text,d.review_status,d.session_name,d.created_at,c.customer_name,c.phone,
-                c.restaurant_id,r.name restaurant_name,m.body inbound_message,
+                c.restaurant_id,r.name restaurant_name,EXISTS(SELECT 1 FROM restaurant_addons a WHERE a.restaurant_id=r.id AND a.product_key='ia_plus' AND (a.status='active' OR (a.status IN ('canceled','past_due') AND a.current_period_ends_at>NOW()))) AS plus,m.body inbound_message,
                 COALESCE(last_msg.direction='outbound' AND last_msg.model IS NULL
                     AND (last_msg.dedupe_key IS NULL OR last_msg.dedupe_key LIKE 'support:human:%' OR last_msg.dedupe_key LIKE 'support:draft:%')
                     AND last_msg.created_at > d.created_at,false) AS attended
@@ -66,7 +66,7 @@ export async function GET(request: Request) {
                     WHERE sm.conversation_id=c.id AND (sm.direction='inbound' OR sm.send_status='sent')
                     ORDER BY sm.created_at DESC,sm.id DESC LIMIT 1
                 ) last_msg ON TRUE
-                WHERE d.review_status=$1 AND ${VISIBLE_DRAFT_SQL} ORDER BY attended ASC,d.created_at DESC,d.id DESC LIMIT $2 OFFSET $3`,[state,DEV_PAGE_SIZE,page*DEV_PAGE_SIZE]),
+                WHERE d.review_status=$1 AND ${VISIBLE_DRAFT_SQL} ORDER BY plus DESC,attended ASC,d.created_at DESC,d.id DESC LIMIT $2 OFFSET $3`,[state,DEV_PAGE_SIZE,page*DEV_PAGE_SIZE]),
             query<{total:number}>(`SELECT COUNT(*)::int total FROM (SELECT DISTINCT ON(session_name,chat_id) id,conversation_id,session_name,chat_id,review_status FROM support_ai_reply_drafts ORDER BY session_name,chat_id,created_at DESC,id DESC) d ${CONVERSATION_JOIN} WHERE d.review_status=$1 AND ${VISIBLE_DRAFT_SQL}`,[state]),
             query<{total:number}>(`SELECT COUNT(*)::int total FROM (SELECT DISTINCT ON(session_name,chat_id) id,conversation_id,session_name,chat_id,review_status FROM support_ai_reply_drafts ORDER BY session_name,chat_id,created_at DESC,id DESC) d ${CONVERSATION_JOIN} WHERE d.review_status='pending' AND ${VISIBLE_DRAFT_SQL}`),
         ]);

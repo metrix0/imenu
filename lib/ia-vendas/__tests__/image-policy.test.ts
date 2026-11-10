@@ -39,10 +39,11 @@ test('style lookup accepts only applied images and remains scoped to the restaur
  expect(sql.mock.calls[0][0]).toContain("status='applied'");
  expect(sql.mock.calls[0][1]).toEqual(['owner']);
 });
-test('new dishes inherit visual style without copying another dish ingredients or portion', () => {
+test('missing style fields do not inherit from another dish', () => {
  const approved=[{profile:'item',target_id:'sushi',applied_at:'2026-10-29',style:{background:'white',text:'Imagem ilustrativa',ingredients:'salmon',presentation:'30 pieces'}}];
- expect(resolveImageStyle(approved,{target:'item'},'poke')).toEqual({background:'white',text:'Imagem ilustrativa'});
+ expect(resolveImageStyle(approved,{target:'item'},'poke')).toEqual({});
  expect(resolveImageStyle(approved,{target:'item'},'sushi')).toEqual(approved[0].style);
  expect(resolveImageStyle(approved,{target:'item',style:{text:'',background:'black'}},'sushi')).toEqual({...approved[0].style,text:'',background:'black'});
  expect(resolveImageStyle(approved,{target:'logo'},'owner')).toEqual({});
 });
+
