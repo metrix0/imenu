@@ -31,6 +31,7 @@ type History = {
 };
 const statusLabels: Record<string, string> = { failed: "Falhou", cancelled: "Cancelado", canceled: "Cancelado", paid: "Pago", processing: "Processando", pending: "Pendente", completed: "Concluído", partial: "Parcial", blocked: "Bloqueado", running: "Executando", skipped: "Não executado" };
 const nullableMoney = (value: number | null | undefined) => value == null ? "—" : money(value);
+const payoutFigure = (cents: number) => (cents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const runDate = (value?: string) => value ? value.slice(0, 10).split("-").reverse().join("/") : "—";
 function PayoutStatus({ status }: { status?: string }) {
     return <Badge variant={status === "failed" || status === "cancelled" || status === "canceled" || status === "blocked" ? "danger" : status === "partial" ? "warning" : status === "paid" || status === "completed" ? "success" : status === "running" || status === "processing" ? "info" : "neutral"}>{status ? statusLabels[status] || status : "—"}</Badge>;
@@ -183,12 +184,7 @@ export default function PayoutsSection() {
                     { key: "pix", label: "PIX", render: r => <p className="min-w-0 max-w-40 break-all text-xs">{r.pixKey ? <>{r.pixKeyType && <span className="text-gray-500">{r.pixKeyType} · </span>}{r.pixKey}</> : <span className="text-red-700">Não cadastrado</span>}</p> },
                     { key: "breakdown", label: "Bruto / Gateway / Desconto / Lucro", render: r => {
                         const payout = calculateOnePercentPayout(r.grossCents, r.payzuFeeCents);
-                        return <dl className={styles.payoutBreakdown}>
-                            <div><dt>Bruto</dt><dd>{money(r.grossCents)}</dd></div>
-                            <div><dt>Gateway</dt><dd>{money(r.payzuFeeCents)}</dd></div>
-                            <div><dt>Desconto</dt><dd>{money(r.grossCents - payout.netCents)}</dd></div>
-                            <div><dt>Lucro</dt><dd>{money(payout.discountCents)}</dd></div>
-                        </dl>;
+                        return <span className={styles.payoutBreakdown}>R$ {payoutFigure(r.grossCents)} / {payoutFigure(r.payzuFeeCents)} / {payoutFigure(r.grossCents - payout.netCents)} / {payoutFigure(payout.discountCents)}</span>;
                     } },
                     { key: "net", label: "Repasse líquido", className: styles.numericCell, render: r => <span className="font-semibold">{money(net(r))}</span> },
                     { key: "waiting", label: "A liberar", className: styles.numericCell, render: r => <div><span>{money(r.waitingGrossCents)}</span>{r.waitingGrossCents > 0 && r.nextEligibleAt && <p className="mt-1 text-xs text-gray-500">Até {formatDateTime(r.nextEligibleAt)}</p>}</div> },
