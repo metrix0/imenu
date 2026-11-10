@@ -11,7 +11,7 @@ type Buyers = { current_buyers: number | string; previous_buyers: number | strin
 type FunnelCounts = {
     panelUsers: number | null;
     exposures: number | null;
-    traffic: number | null;
+    modalViews: number | null;
     checkout: number | null;
     bought: number | null;
     sources: Record<string, number> | null;
@@ -74,9 +74,8 @@ export async function GET(request: Request) {
         "arraySort(groupArray(toInt(toUnixTimestamp(timestamp)))),",
         "(toInt(0), toInt(-604800))), 1) AS visits",
         "FROM (SELECT range_label, distinct_id, timestamp,",
-        "arrayJoin(['exposures', concat('source:', surface),",
-        "if(surface = 'sales_modal', 'skip', 'traffic')]) AS bucket",
-        "FROM touchpoints) WHERE bucket != 'skip'",
+        "arrayJoin(['exposures', concat('source:', surface)]) AS bucket",
+        "FROM touchpoints",
         "GROUP BY range_label, bucket, distinct_id)",
         "GROUP BY range_label, bucket"
     ].join(" ");
@@ -130,7 +129,8 @@ export async function GET(request: Request) {
         return {
             panelUsers: users.status === "fulfilled" ? Number(userRow?.[1] || 0) : null,
             exposures: exposures.status === "fulfilled" ? getExposure("exposures") : null,
-            traffic: exposures.status === "fulfilled" ? getExposure("traffic") : null,
+            modalViews: exposures.status === "fulfilled" && (label === "current" ? endAt : startAt) > Date.parse("2026-11-10T12:50:49Z")
+                ? getExposure("source:sales_modal") : null,
             checkout: users.status === "fulfilled" ? Number(userRow?.[2] || 0) : null,
             bought: buyers.status === "fulfilled" ? Number(buyers.value.rows[0]?.[label === "current" ? "current_buyers" : "previous_buyers"] || 0) : null,
             sources,

@@ -33,7 +33,7 @@ const change = (current: number, previous: number | null | undefined, existing?:
     return { change: (current - previous) / previous * 100 };
 };
 
-export default function AnalyticsSection({range,onLoaded}:{range:DateRange;onLoaded?:()=>void}) {
+export default function AnalyticsSection({range,onLoaded,plusExposureData}:{range:DateRange;onLoaded?:()=>void;plusExposureData?: import("./DashboardPresentation").PlusExposureBreakdown|null}) {
     const [data, setData] = useState<Analytics | null>(null);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(true);
@@ -80,7 +80,7 @@ export default function AnalyticsSection({range,onLoaded}:{range:DateRange;onLoa
                 </div>
             </section>
             <ProductOverviewSections metrics={data.productOverview} previousMetrics={data.previousProductOverview}
-                productsOnly={["imenu", "ia_plus"]} compact />
+                productsOnly={["imenu", "ia_plus"]} plusExposureData={plusExposureData} compact />
             <div className={`${styles.section} ${styles.chartGrid} ${styles.analyticsCharts}`}>
                 <MetricChart embedded value={formatAverage(data.cards.activatedUsers / days)} change={data.cardChanges.activatedUsers} title="Usuários ativados / dia" series={data.series.activatedUsersPerDay} color="#d93d00" decimal />
                 <MetricChart embedded value={formatCount(data.productOverview.ia_plus.buyers)} change={percentageChange(data.productOverview.ia_plus.buyers, data.acquisitions.previous.subscriptions)} title="Assinaturas iMenu Plus" series={data.acquisitions.subscriptions} color="#d93d00" />

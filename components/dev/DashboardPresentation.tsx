@@ -5,7 +5,8 @@ import DataTable from "@/components/ui/DataTable";
 import { CHART_CATEGORY_AXIS, CHART_VALUE_AXIS, STANDARD_CHART_TOOLTIP, createBrandAreaGradient } from "@/components/restaurant-owner/exibicoes/chartStyles";
 import { Chart as ChartJS, Filler } from "chart.js";
 import { Line } from "react-chartjs-2";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { ChevronDown } from "lucide-react";
 import type { ProductOverview } from "@/lib/analytics/productOverview";
 import { formatAverage, formatCount, formatCurrency, formatRatio, conversion } from "@/lib/dev/dashboardFormat";
 import InfoTooltip from "@/components/ui/Tooltip";
@@ -159,7 +160,8 @@ export function qrTableStatusLabel(status: string): string {
     return status;
 }
 
-export function ProductOverviewSections({ metrics, previousMetrics, productsOnly, compact = false }: { metrics: ProductOverview; previousMetrics?: ProductOverview; productsOnly?: (keyof ProductOverview)[]; compact?: boolean }) {
+export type PlusExposureBreakdown = { exposures: number | null; sources: Record<string, number> | null };
+export function ProductOverviewSections({ metrics, previousMetrics, productsOnly, compact = false, plusExposureData }: { metrics: ProductOverview; previousMetrics?: ProductOverview; productsOnly?: (keyof ProductOverview)[]; compact?: boolean; plusExposureData?: PlusExposureBreakdown | null }) {
     const products = [
         { key: "imenu", name: "iMenu", paths: "/", price: "-", priceInfo: "Referência do dashboard: sem mensalidade.", },
         { key: "ia_plus", name: "iMenu Plus", paths: "Modal de venda + Planos + Limite IA + Vendas IA + Marketing", price: "R$ 49,99/m", priceInfo: "Marketing, Assistente IA e Vendas IA.", },
@@ -188,11 +190,17 @@ export function ProductOverviewSections({ metrics, previousMetrics, productsOnly
                 return <section key={product.key} aria-label={product.name} className="space-y-3">
                     <h2 className="text-base font-semibold text-gray-900">{product.name}</h2>
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                        <MetricCard inlineChange truncateTitle title={product.key === "ia_plus" ? "Exposições ao Plus" : "Tráfego"}
+                        {product.key === "ia_plus" ? <PlusExposureMetricCard title="Exposições ao Plus"
                             value={metric.pageViews === null ? "—" : formatCount(metric.pageViews)}
-                            description={product.key === "ia_plus" ? "Modal · Planos · Limite IA · Vendas IA · Marketing" : trafficUnit}
+                            description={metric.pageViews === null ? "—" : formatCount(metric.pageViews) + " exposições · " + trafficUnit}
                             info={trafficInfo}
+                            exposureData={plusExposureData}
                             {...(sameTrafficSource ? difference(metric.pageViews, previous?.pageViews) : {})} />
+                        : <MetricCard inlineChange truncateTitle title="Tráfego"
+                            value={metric.pageViews === null ? "—" : formatCount(metric.pageViews)}
+                            description={trafficUnit}
+                            info={trafficInfo}
+                            {...(sameTrafficSource ? difference(metric.pageViews, previous?.pageViews) : {})} />}
                         <MetricCard inlineChange truncateTitle title="Conversão"
                             value={metric.conversion === null ? "—" : formatRatio(metric.conversion)}
                             description={`${formatCount(metric.buyers)} ${buyerLabel.toLowerCase()} · ${trafficUnit}`}
@@ -275,6 +283,7 @@ export function MetricCard({
     description,
     info,
     children,
+    headerAction,
     danger = false,
     reverseChangeColors = false,
     inlineChange = false,
@@ -287,6 +296,7 @@ export function MetricCard({
     description?: string;
     info?: string;
     children?: ReactNode;
+    headerAction?: ReactNode;
     danger?: boolean;
     reverseChangeColors?: boolean;
     inlineChange?: boolean;
@@ -306,11 +316,14 @@ export function MetricCard({
             {info ? (
                 <div className="flex min-w-0 items-center justify-between gap-2">
                     <p className={`text-sm font-medium text-gray-600 ${truncateTitle ? "min-w-0 flex-1 truncate whitespace-nowrap" : ""}`} title={truncateTitle ? title : undefined}>{title}</p>
-                    <InfoTooltip text={info} size="medium" showOnClick>
-                        <button type="button" aria-label={`Informações sobre ${title}`} className="inline-flex h-6 w-6 items-center justify-center text-gray-400 hover:text-brand">
-                            <PanelIcon icon={faCircleInfo} className="h-3.5 w-3.5" />
-                        </button>
-                    </InfoTooltip>
+                    <div className="flex shrink-0 items-center gap-1">
+                        {headerAction}
+                        <InfoTooltip text={info} size="medium" showOnClick>
+                            <button type="button" aria-label={`Informações sobre ${title}`} className="inline-flex h-6 w-6 items-center justify-center text-gray-400 hover:text-brand">
+                                <PanelIcon icon={faCircleInfo} className="h-3.5 w-3.5" />
+                            </button>
+                        </InfoTooltip>
+                    </div>
                 </div>
             ) : (
                 <p className={`text-sm font-medium text-gray-600 ${truncateTitle ? "truncate whitespace-nowrap" : ""}`} title={truncateTitle ? title : undefined}>{title}</p>
@@ -349,6 +362,50 @@ export function MetricCard({
             {children}
         </article>
     );
+}
+
+const PLUS_EXPOSURE_SOURCES = [
+    { key: "sales_modal", label: "Modal de venda" },
+    { key: "plus_page", label: "Planos" },
+    { key: "assistant_limit", label: "Limite Assistente IA" },
+    { key: "sales_section", label: "Vendas IA" },
+    { key: "marketing_page", label: "Marketing" },
+    { key: "legacy_pages", label: "Páginas (histórico)" },
+] as const;
+
+export function PlusExposureMetricCard({
+    title, value, change, changeLabel, description, info, exposureData,
+}: {
+    title: string;
+    value: string;
+    change?: number | null;
+    changeLabel?: string;
+    description?: string;
+    info: string;
+    exposureData?: PlusExposureBreakdown | null;
+}) {
+    const [expanded, setExpanded] = useState(false);
+    return <MetricCard inlineChange truncateTitle title={title} value={value} change={change}
+        changeLabel={changeLabel} description={description} info={info}
+        headerAction={<button type="button" aria-label={expanded ? "Recolher origens do Plus" : "Expandir origens do Plus"}
+            aria-expanded={expanded} onClick={() => setExpanded(previous => !previous)}
+            className="inline-flex h-6 w-6 items-center justify-center rounded text-gray-400 hover:bg-gray-50 hover:text-brand">
+            <ChevronDown size={16} className={"transition-transform duration-200 " + (expanded ? "rotate-180" : "")} />
+        </button>}>
+        {expanded && <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
+            {PLUS_EXPOSURE_SOURCES.filter(source => source.key !== "legacy_pages" ||
+                (exposureData?.sources?.legacy_pages ?? 0) > 0).map(source => {
+                const count = exposureData?.sources?.[source.key];
+                const rate = conversion(count ?? null, exposureData?.exposures ?? null);
+                return <div key={source.key} className="flex min-w-0 items-baseline justify-between gap-2 text-xs">
+                    <span className="min-w-0 text-gray-500">{source.label}</span>
+                    <span className="shrink-0 whitespace-nowrap font-semibold tabular-nums text-gray-800">
+                        {rate == null ? "—" : formatRatio(rate)} {count == null ? "" : "(" + formatCount(count) + ")"}
+                    </span>
+                </div>;
+            })}
+        </div>}
+    </MetricCard>;
 }
 
 export function MetricChart({
