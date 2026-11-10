@@ -33,8 +33,8 @@ export default function Page(){
             const id=window.requestIdleCallback(activate,{timeout:1500});
             return ()=>window.cancelIdleCallback(id);
         }
-        const id=window.setTimeout(activate,0);
-        return ()=>window.clearTimeout(id);
+        const id=setTimeout(activate,0);
+        return ()=>clearTimeout(id);
     },[loadedRange,rangeKey]);
 
     return <DevPage title="Analytics" actions={<ShortcutDatePicker value={range} onChange={onRangeChange}/>}>
