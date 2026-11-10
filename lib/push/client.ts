@@ -162,6 +162,35 @@ async function reconcileOwnerPushSubscription(
     return { enabled: true, repaired: true };
 }
 
+// Check this device's push status without registering, repairing, or changing it.
+export async function hasOwnerPushSubscription(restaurantId: string): Promise<boolean> {
+    if (
+        typeof window === "undefined" ||
+        !("serviceWorker" in navigator) ||
+        !("PushManager" in window) ||
+        !("Notification" in window) ||
+        Notification.permission !== "granted"
+    ) return false;
+
+    const registration = await navigator.serviceWorker.getRegistration("/");
+    const subscription = await registration?.pushManager.getSubscription();
+    if (!subscription) return false;
+
+    const deviceToken = await readStoredDeviceToken();
+    if (!deviceToken) return false;
+
+    const token = await getAccessToken();
+    const verifyUrl = "/api/push/subscriptions?restaurantId=" + encodeURIComponent(restaurantId)
+        + "&deviceToken=" + encodeURIComponent(deviceToken);
+    const response = await fetch(verifyUrl, {
+        headers: { Authorization: "Bearer " + token },
+        cache: "no-store",
+    });
+    if (!response.ok) return false;
+    const registered = await response.json();
+    return registered.endpoint === subscription.endpoint;
+}
+
 export function ensureOwnerPushSubscription(
     restaurantId: string
 ): Promise<PushRegistrationStatus> {

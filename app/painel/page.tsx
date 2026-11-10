@@ -8,6 +8,8 @@ import Loader from "@/components/ui/Loader";
 import Button from "@/components/ui/Button";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { Inbox } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { hasOwnerPushSubscription } from "@/lib/push/client";
 import {
     faShareAlt,
     faBell,
@@ -58,7 +60,9 @@ const PanelOrderModal = forwardRef<PanelOrderModalHandle, {
 });
 
 export default function PainelPedidosAtivosPage() {
+    const router = useRouter();
     const [isLoading, setIsLoading] = useState(true);
+    const [pushEnabled, setPushEnabled] = useState<boolean | null>(null);
 
     // 1. Recupera ID do Store Global para acesso imediato
     const {
@@ -198,6 +202,38 @@ export default function PainelPedidosAtivosPage() {
         };
     }, [fetchOrders, restaurantId]);
 
+    // Mobile bell reports push notifications, independently of panel audio.
+    useEffect(() => {
+        if (!restaurantId) return;
+        let mounted = true;
+        let checkId = 0;
+        const mobile = window.matchMedia("(max-width: 639px)");
+        const refreshPushStatus = () => {
+            if (!mobile.matches) return;
+            const currentCheck = ++checkId;
+            void hasOwnerPushSubscription(restaurantId)
+                .then(enabled => {
+                    if (mounted && checkId === currentCheck) setPushEnabled(enabled);
+                })
+                .catch(() => {
+                    if (mounted && checkId === currentCheck) setPushEnabled(false);
+                });
+        };
+        const onVisibilityChange = () => {
+            if (!document.hidden) refreshPushStatus();
+        };
+        refreshPushStatus();
+        window.addEventListener("focus", refreshPushStatus);
+        mobile.addEventListener("change", refreshPushStatus);
+        document.addEventListener("visibilitychange", onVisibilityChange);
+        return () => {
+            mounted = false;
+            window.removeEventListener("focus", refreshPushStatus);
+            mobile.removeEventListener("change", refreshPushStatus);
+            document.removeEventListener("visibilitychange", onVisibilityChange);
+        };
+    }, [restaurantId]);
+
     if (isLoading) {
         return (
             <div className="flex flex-col justify-center items-center h-64">
@@ -302,25 +338,32 @@ export default function PainelPedidosAtivosPage() {
                         <FontAwesomeIcon icon={faShareAlt} className="" />
                     </Button>
 
-                    <div
-                        className={`sm:hidden shrink-0 overflow-hidden transition-[max-width,opacity] delay-600 duration-300 ${
-                            soundEnabled
-                                ? "pointer-events-none max-w-0 opacity-0"
-                                : "max-w-16 opacity-100"
-                        }`}
-                    >
+                    <div className="sm:hidden shrink-0">
                         <button
-                            className={`p-4 cursor-pointer rounded-2xl transition-colors duration-300 ${
-                                soundEnabled
-                                    ? "bg-green/10 text-green-800"
-                                    : "bg-warning-bg text-warning"
+                            type="button"
+                            className={`p-4 rounded-2xl transition-colors duration-300 ${
+                                pushEnabled === null
+                                    ? "bg-gray-100 text-gray-500"
+                                    : pushEnabled
+                                        ? "bg-green/10 text-green-800 cursor-default"
+                                        : "bg-warning-bg text-warning cursor-pointer"
                             }`}
-                            onClick={() => void enableSound()}
-                            aria-label="Ativar som dos pedidos"
+                            disabled={pushEnabled === null}
+                            onClick={() => {
+                                if (pushEnabled === false) router.push("/painel/aplicativo");
+                            }}
+                            aria-label={pushEnabled === null
+                                ? "Verificando notificações de pedidos"
+                                : pushEnabled
+                                    ? "Notificações de pedidos ativas neste aparelho"
+                                    : "Notificações de pedidos desativadas. Configurar"}
+                            title={pushEnabled === null
+                                ? "Verificando notificações"
+                                : pushEnabled
+                                    ? "Notificações de pedidos ativas"
+                                    : "Configurar notificações de pedidos"}
                         >
-                            <FontAwesomeIcon
-                                icon={soundEnabled ? faBell : faBellSlash}
-                            />
+                            <FontAwesomeIcon icon={pushEnabled ? faBell : faBellSlash} />
                         </button>
                     </div>
                 </div>
