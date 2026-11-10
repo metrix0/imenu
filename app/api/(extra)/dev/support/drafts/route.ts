@@ -11,6 +11,12 @@ const CONVERSATION_JOIN = `LEFT JOIN support_conversations c ON c.id=d.conversat
     OR (d.conversation_id IS NULL AND c.chat_id=CASE WHEN d.session_name='imenu-blast'
     THEN 'imenu-blast:' || d.chat_id ELSE d.chat_id END)`;
 const UUID = /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i;
+const VISIBLE_DRAFT_SQL = [
+    "NOT EXISTS (SELECT 1 FROM support_contact_exclusions e WHERE",
+    "e.identifier_hash = encode(sha256(convert_to('chat:' || replace(d.chat_id,'imenu-blast:',''), 'UTF8')), 'hex')",
+    "OR e.identifier_hash = encode(sha256(convert_to('phone:' ||",
+    "regexp_replace(COALESCE(c.phone,''), '[^0-9]', '', 'g'), 'UTF8')), 'hex'))",
+].join(" ");
 
 export async function GET(request: Request) {
     const denied = await authorize(request);
@@ -60,9 +66,9 @@ export async function GET(request: Request) {
                     WHERE sm.conversation_id=c.id AND (sm.direction='inbound' OR sm.send_status='sent')
                     ORDER BY sm.created_at DESC,sm.id DESC LIMIT 1
                 ) last_msg ON TRUE
-                WHERE d.review_status=$1 ORDER BY attended ASC,d.created_at DESC,d.id DESC LIMIT $2 OFFSET $3`,[state,DEV_PAGE_SIZE,page*DEV_PAGE_SIZE]),
-            query<{total:number}>("SELECT COUNT(*)::int total FROM (SELECT DISTINCT ON(session_name,chat_id) review_status FROM support_ai_reply_drafts ORDER BY session_name,chat_id,created_at DESC,id DESC) latest WHERE review_status=$1",[state]),
-            query<{total:number}>("SELECT COUNT(*)::int total FROM (SELECT DISTINCT ON(session_name,chat_id) review_status FROM support_ai_reply_drafts ORDER BY session_name,chat_id,created_at DESC,id DESC) latest WHERE review_status='pending'"),
+                WHERE d.review_status=$1 AND ${VISIBLE_DRAFT_SQL} ORDER BY attended ASC,d.created_at DESC,d.id DESC LIMIT $2 OFFSET $3`,[state,DEV_PAGE_SIZE,page*DEV_PAGE_SIZE]),
+            query<{total:number}>(`SELECT COUNT(*)::int total FROM (SELECT DISTINCT ON(session_name,chat_id) id,conversation_id,session_name,chat_id,review_status FROM support_ai_reply_drafts ORDER BY session_name,chat_id,created_at DESC,id DESC) d ${CONVERSATION_JOIN} WHERE d.review_status=$1 AND ${VISIBLE_DRAFT_SQL}`,[state]),
+            query<{total:number}>(`SELECT COUNT(*)::int total FROM (SELECT DISTINCT ON(session_name,chat_id) id,conversation_id,session_name,chat_id,review_status FROM support_ai_reply_drafts ORDER BY session_name,chat_id,created_at DESC,id DESC) d ${CONVERSATION_JOIN} WHERE d.review_status='pending' AND ${VISIBLE_DRAFT_SQL}`),
         ]);
         return NextResponse.json({
             ...paged(rows.rows, count.rows[0]?.total ?? 0, page),

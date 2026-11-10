@@ -1,3 +1,4 @@
+import { isSupportContactExcluded } from "@/lib/services/supportExclusions";
 import { query, withAdvisoryLock } from "@/lib/database/sql";
 import {
     analyzeSupportImage,
@@ -330,6 +331,10 @@ export async function isSecondaryBlastRecipient(input: {
         (await resolveWahaChatPhone(input.sessionName, input.chatId)) ||
         String(input.chatId).split("@")[0].replace(/\D/g, "") ||
         null;
+    if (await isSupportContactExcluded({ chatId: input.chatId, phone: resolvedPhone })) {
+        // Keep excluded contacts eligible for incoming history storage.
+        return true;
+    }
     const chatIds = new Set<string>([
         input.chatId.replace("@s.whatsapp.net", "@c.us"),
     ]);
@@ -991,7 +996,8 @@ export async function processSupportIncomingWhatsAppMessage(input: {
     botEnabled: boolean;
 }): Promise<void> {
     const rules = await getSupportContactRules(input.sessionName, input.chatId);
-    if (rules.blacklisted || rules.unresolvedLid) return;
+    const excluded = await isSupportContactExcluded({ chatId: input.chatId, phone: rules.phone });
+    if (rules.unresolvedLid || (rules.blacklisted && !excluded)) return;
     const conversation = await prepareConversation({
         sessionName: input.sessionName,
         chatId: input.chatId,
@@ -1077,7 +1083,7 @@ export async function processSupportIncomingWhatsAppMessage(input: {
         [conversation.id, messageBody, storageMessageId]
     );
 
-    if (conversation.mode === "human" || !input.botEnabled) return;
+    if (excluded || conversation.mode === "human" || !input.botEnabled) return;
 
     if (
         shouldIgnoreAutomatedSupportMessage({

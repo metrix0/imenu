@@ -1,3 +1,4 @@
+import { isSupportContactExcluded } from "@/lib/services/supportExclusions";
 import { randomUUID } from "node:crypto";
 import { ABANDONED_BLAST_MESSAGE, PLUS_ABANDONED_BLAST_MESSAGE, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE, RECOVERY_DAILY_LIMIT } from "@/lib/dev/abandonedBlast";
 import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGE, PLUS_FEEDBACK_DAILY_LIMIT } from "@/lib/dev/plusFeedbackBlast";
@@ -160,7 +161,7 @@ export async function getSupportBlastRecipients(id: string) {
         id: number; phone: string; status: string; error: string | null;
         scheduled_at: string; sent_at: string | null;
     }>(
-        "SELECT id, phone, status, error, scheduled_at, sent_at FROM support_blast_recipients WHERE campaign_id = $1 ORDER BY scheduled_at, id LIMIT 500",
+        "SELECT r.id, r.phone, r.status, r.error, r.scheduled_at, r.sent_at FROM support_blast_recipients r WHERE r.campaign_id = $1 AND NOT EXISTS (SELECT 1 FROM support_contact_exclusions e WHERE e.identifier_hash = encode(sha256(convert_to('phone:' || regexp_replace(r.phone, '[^0-9]', '', 'g'), 'UTF8')), 'hex')) ORDER BY r.scheduled_at, r.id LIMIT 500",
         [id]
     )).rows;
 }
@@ -280,6 +281,10 @@ async function claimNextRecipient(): Promise<ClaimedRecipient | null> {
 }
 
 async function sendRecipient(item: ClaimedRecipient): Promise<"sent" | "skipped" | "failed" | "disconnected"> {
+    if (await isSupportContactExcluded({ phone: item.phone })) {
+        await finishRecipient(item.id, "skipped_reactivated");
+        return "skipped";
+    }
     const conn = await query<{ session_name: string; status: string; desired_state: string }>(
         "SELECT session_name, status, desired_state FROM support_whatsapp_connection WHERE id = $1",
         [item.sender === "blast" ? "blast" : "default"]

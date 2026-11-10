@@ -1,6 +1,9 @@
+import { isSupportContactExcluded } from "@/lib/services/supportExclusions";
 import sharp from "sharp";
 import { findWahaSentTextSince, requestWahaPairingCode, sendWahaImage } from "./wahaClient";
+jest.mock("@/lib/services/supportExclusions", () => ({ isSupportContactExcluded: jest.fn() }));
 const originalFetch = global.fetch;
+beforeEach(() => { (isSupportContactExcluded as jest.Mock).mockResolvedValue(false); });
 afterEach(() => {
   global.fetch = originalFetch;
 });
@@ -91,4 +94,15 @@ test("rejects pairing-code responses without a valid code", async () => {
   await expect(requestWahaPairingCode("imenu-test", "5511999991234")).rejects.toThrow(
     "WAHA não retornou um código de conexão válido."
   );
+});
+
+test("blocked WAHA recipient never receives text, list or image", async () => {
+  const { sendWahaText, sendWahaList } = await import("./wahaClient");
+  (isSupportContactExcluded as jest.Mock).mockResolvedValue(true);
+  const calls = jest.fn();
+  global.fetch = calls;
+  await expect(sendWahaText("imenu-support", "5511988576886@c.us", "Teste")).rejects.toThrow("excluído");
+  await expect(sendWahaList("imenu-support", "5511988576886@c.us", [{ title: "Opção", rowId: "one" }])).rejects.toThrow("excluído");
+  await expect(sendWahaImage("imenu-blast", "99389989204047@lid", "https://storage.test/blocked.png", "Teste")).rejects.toThrow("excluído");
+  expect(calls).not.toHaveBeenCalled();
 });

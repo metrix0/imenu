@@ -1,10 +1,12 @@
+import { isSupportContactExcluded } from "@/lib/services/supportExclusions";
 import { query } from "@/lib/database/sql";
 import { resolveWahaChatPhone, sendWahaText } from "@/lib/services/wahaClient";
 import { isSecondaryBlastRecipient, sendTrackedSupportText } from "./supportWhatsApp";
 
+jest.mock("@/lib/services/supportExclusions", () => ({ isSupportContactExcluded: jest.fn() }));
 jest.mock("@/lib/database/sql", () => ({
     query: jest.fn(),
-    withAdvisoryLock: jest.fn(),
+    withAdvisoryLock: jest.fn(async (_key: string, run: () => Promise<unknown>) => run()),
 }));
 jest.mock("@/lib/services/supportAgent", () => ({
     analyzeSupportImage: jest.fn(),
@@ -20,6 +22,7 @@ jest.mock("@/lib/services/wahaClient", () => ({
 
 beforeEach(() => {
     jest.clearAllMocks();
+    (isSupportContactExcluded as jest.Mock).mockResolvedValue(false);
     (resolveWahaChatPhone as jest.Mock).mockResolvedValue("5511999999999");
 });
 
@@ -112,4 +115,39 @@ describe("approved draft delivery",()=>{
   await expect(sendTrackedSupportText(input)).rejects.toThrow("offline");
   expect(query).toHaveBeenCalledWith(expect.stringContaining("send_status = 'failed'"),["message","offline"]);
  });
+});
+
+test("excluded blast contact still accepts incoming messages for history", async () => {
+    (isSupportContactExcluded as jest.Mock).mockResolvedValue(true);
+    await expect(isSecondaryBlastRecipient({
+        sessionName: "imenu-blast", chatId: "99389989204047@lid",
+    })).resolves.toBe(true);
+    expect(query).not.toHaveBeenCalled();
+});
+
+test("excluded blacklisted contact saves incoming history but never sends replies", async () => {
+    const { processSupportIncomingWhatsAppMessage } = await import("./supportWhatsApp");
+    (isSupportContactExcluded as jest.Mock).mockResolvedValue(true);
+    const row = {
+        id: "conversation-test", chat_id: "imenu-blast:99389989204047@lid",
+        phone: "5511988576886", customer_name: null, restaurant_id: "restaurant-test",
+        mode: "human", handoff_prompted_at: null,
+    };
+    (query as jest.Mock).mockImplementation(async (sql: string) => {
+        if (sql.startsWith("SELECT phone FROM support_conversations")) return { rows: [{ phone: row.phone }], rowCount: 1 };
+        if (sql.includes("bool_or(blacklisted)")) return { rows: [{ blacklisted: true, blocked_handoff: true }], rowCount: 1 };
+        if (sql.includes("SELECT id, chat_id, phone") && sql.includes("support_conversations")) return { rows: [row], rowCount: 1 };
+        if (sql.startsWith("UPDATE support_conversations SET phone")) return { rows: [row], rowCount: 1 };
+        return { rows: [], rowCount: 0 };
+    });
+    await processSupportIncomingWhatsAppMessage({
+        sessionName: "imenu-blast", chatId: "99389989204047@lid",
+        body: "mensagem recebida", hasMedia: false, messageId: "provider-1",
+        customerName: null, botEnabled: true,
+    });
+    expect(query).toHaveBeenCalledWith(
+        expect.stringContaining("INSERT INTO support_messages"),
+        [row.id, "mensagem recebida", "imenu-blast:provider-1"],
+    );
+    expect(sendWahaText).not.toHaveBeenCalled();
 });

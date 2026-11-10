@@ -25,7 +25,14 @@ const patterns = [ABANDONED_BLAST_MESSAGE,PLUS_ABANDONED_BLAST_MESSAGE,SINGLE_OR
 const campaignGroup = `CASE WHEN c.message = '${PLUS_FIRST_MONTH_FEEDBACK_MESSAGE.replaceAll("'", "''")}' THEN 'automation:plus-feedback' WHEN regexp_replace(trim(c.message),'\\s+',' ','g') ~ANY($1::text[]) THEN 'automation:recovery' ELSE 'campaign:'||c.id::text END`;
 
 
-const EVENTS = `WITH notifications AS (${MESSAGE_ROWS_SQL}),events AS (
+const visiblePhoneSql = (alias: string) => `NOT EXISTS (
+    SELECT 1 FROM support_contact_exclusions exclusion
+    WHERE exclusion.identifier_hash = encode(sha256(convert_to(
+        'phone:' || regexp_replace(COALESCE(${alias}.phone, ''), '[^0-9]', '', 'g'),
+        'UTF8')), 'hex')
+)`;
+
+const EVENTS = `WITH notifications AS (${MESSAGE_ROWS_SQL}),events_raw AS (
     SELECT ${campaignGroup} AS group_id,c.created_at,c.message,c.sender,c.status,
         NULL::text AS phone,NULL::text AS error,c.id::text campaign_id,NULL::uuid restaurant_id
     FROM support_blast_campaigns c
@@ -47,7 +54,7 @@ const EVENTS = `WITH notifications AS (${MESSAGE_ROWS_SQL}),events AS (
       AND NOT EXISTS(SELECT 1 FROM whatsapp_outbound_messages o WHERE o.context->>'message'=m.body AND (split_part(o.chat_id,'@',1)=c.phone OR o.restaurant_id=c.restaurant_id) AND ABS(EXTRACT(EPOCH FROM o.updated_at-m.created_at))<300)
     UNION ALL SELECT CASE WHEN n.category='automation' THEN 'customer:'||n.subtype||':'||(n.created_at AT TIME ZONE 'America/Sao_Paulo')::date::text ELSE n.id END,
     COALESCE(n.sent_at,n.created_at),COALESCE(n.message,'Texto não registrado no histórico antigo.'),CASE WHEN n.category='automation' THEN 'restaurant' ELSE 'support' END,n.status,n.phone,n.error,NULL,n.restaurant_id FROM notifications n WHERE n.category <> 'automation'
-)`;
+),events AS (SELECT * FROM events_raw e WHERE e.phone IS NULL OR ${visiblePhoneSql('e')})`;
 
 
 type ProfileTarget={restaurant_id:string;name:string;kind:string};
@@ -76,7 +83,7 @@ export async function getBlastHistory(params:URLSearchParams) {
    query<{total:number}>(`SELECT COUNT(*)::int total FROM support_blast_campaigns c WHERE ${where}`,[patterns,id])]);return paged(rows.rows,count.rows[0].total,page);
  }
  if(id) {
-  const recipients=`${EVENTS},recipients AS (SELECT r.id::text,r.phone,r.message,r.status,r.error,r.sent_at,r.scheduled_at,r.created_at,NULL::uuid restaurant_id FROM support_blast_recipients r JOIN support_blast_campaigns c ON c.id=r.campaign_id WHERE (${campaignGroup})=$2 OR 'campaign:'||c.id::text=$2 UNION ALL SELECT group_id||':'||row_number() OVER()::text,phone,message,status,error,created_at,NULL::timestamptz,created_at,restaurant_id FROM events WHERE group_id=$2 AND campaign_id IS NULL)`;
+  const recipients=`${EVENTS},recipients_raw AS (SELECT r.id::text,r.phone,r.message,r.status,r.error,r.sent_at,r.scheduled_at,r.created_at,NULL::uuid restaurant_id FROM support_blast_recipients r JOIN support_blast_campaigns c ON c.id=r.campaign_id WHERE (${campaignGroup})=$2 OR 'campaign:'||c.id::text=$2 UNION ALL SELECT group_id||':'||row_number() OVER()::text,phone,message,status,error,created_at,NULL::timestamptz,created_at,restaurant_id FROM events WHERE group_id=$2 AND campaign_id IS NULL),recipients AS (SELECT * FROM recipients_raw r WHERE r.phone IS NULL OR ${visiblePhoneSql('r')})`;
   const [rows,count]=await Promise.all([query(`${recipients} SELECT * FROM recipients ORDER BY created_at DESC,id LIMIT $3 OFFSET $4`,[patterns,id,DEV_PAGE_SIZE,page*DEV_PAGE_SIZE]),query<{total:number}>(`${recipients} SELECT COUNT(*)::int total FROM recipients`,[patterns,id])]);return paged(await withDestinations(rows.rows),count.rows[0].total,page);
  }
  const [rows,count]=await Promise.all([query(`${EVENTS} SELECT group_id id,MAX(created_at) created_at,MIN(message) message,MIN(sender) sender,CASE WHEN COUNT(DISTINCT restaurant_id)=1 THEN MIN(restaurant_id::text) END restaurant_id,CASE WHEN COUNT(DISTINCT phone)=1 THEN MIN(phone) END phone,CASE WHEN COUNT(*)=1 THEN MAX(campaign_id) END campaign_id,COUNT(*)::int total,COUNT(*) FILTER(WHERE status='sent')::int sent,COUNT(*) FILTER(WHERE status='failed')::int failed FROM events GROUP BY group_id ORDER BY MAX(created_at) DESC,group_id LIMIT $2 OFFSET $3`,[patterns,DEV_PAGE_SIZE,page*DEV_PAGE_SIZE]),query<{total:number}>(`${EVENTS} SELECT COUNT(DISTINCT group_id)::int total FROM events`,[patterns])]);

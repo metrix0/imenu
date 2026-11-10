@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { unstable_cache } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 import { getRestaurantDirectory } from "@/lib/seo/restaurantDirectory";
 import {
@@ -11,7 +12,8 @@ import {
 } from "@/lib/seo/blogArticles";
 import { COMPARISON_PAGES } from "@/lib/seo/comparisonPages";
 
-export const revalidate = 3600;
+// Generate at request time, when the production Supabase credentials are available.
+export const revalidate = 0;
 
 const SITE_URL = "https://www.imenuapp.com.br";
 const PAGE_SIZE = 1000;
@@ -52,7 +54,8 @@ const STATIC_ROUTES: MetadataRoute.Sitemap = [
     })),
 ];
 
-async function getRestaurantSlugsWithAvailableItems(): Promise<Set<string>> {
+const getRestaurantSlugsWithAvailableItems = unstable_cache(
+async function loadRestaurantSlugsWithAvailableItems(): Promise<string[]> {
     const supabase = createSupabaseServerClient();
     const slugs = new Set<string>();
 
@@ -79,15 +82,19 @@ async function getRestaurantSlugsWithAvailableItems(): Promise<Set<string>> {
         if (batch.length < PAGE_SIZE) break;
     }
 
-    return slugs;
-}
+    return [...slugs];
+},
+    ["public-sitemap-eligible-restaurant-slugs-v1"],
+    { revalidate: 3600 }
+);
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     try {
-        const [cities, restaurantSlugsWithAvailableItems] = await Promise.all([
+        const [cities, eligibleSlugs] = await Promise.all([
             getRestaurantDirectory(),
             getRestaurantSlugsWithAvailableItems(),
         ]);
+        const restaurantSlugsWithAvailableItems = new Set(eligibleSlugs);
         const staticUrls = new Set(
             STATIC_ROUTES.map((route) => route.url)
         );

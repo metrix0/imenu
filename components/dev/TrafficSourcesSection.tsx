@@ -27,7 +27,7 @@ const CHANNELS: Record<string, { label: string; info: string }> = {
     "Unknown": { label: "Não identificado", info: "O PostHog não conseguiu classificar a origem." },
 };
 
-export function TrafficBar({ label, visitors, previousVisitors, maxVisitors, info, nested = false, expanded = false, onToggle }: {
+export function TrafficBar({ label, visitors, previousVisitors, maxVisitors, info, nested = false, expanded = false, onToggle, hideZeroChange = false }: {
     label: string;
     visitors: number;
     previousVisitors: number;
@@ -36,6 +36,7 @@ export function TrafficBar({ label, visitors, previousVisitors, maxVisitors, inf
     nested?: boolean;
     expanded?: boolean;
     onToggle?: () => void;
+    hideZeroChange?: boolean;
 }) {
     const change = previousVisitors > 0 ? (visitors - previousVisitors) / previousVisitors * 100 : null;
     const changeLabel = change === null ? (visitors > 0 ? "Novo" : "0%")
@@ -64,9 +65,10 @@ export function TrafficBar({ label, visitors, previousVisitors, maxVisitors, inf
                     style={{ width: (visitors / maxVisitors * 100) + "%", minWidth: visitors > 0 ? 2 : 0 }} />
                 <span className="ml-2 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap tabular-nums">
                     <span className="text-xs font-semibold text-gray-800">{formatCount(visitors)}</span>
-                    <span className={`text-[11px] font-medium ${changeColor}`} title="Variação em relação ao período anterior">
+                    {(!hideZeroChange || visitors > 0 || previousVisitors > 0) && <span
+                        className={`text-[11px] font-medium ${changeColor}`} title="Variação em relação ao período anterior">
                         {changeLabel}
-                    </span>
+                    </span>}
                 </span>
             </div>
         </div>

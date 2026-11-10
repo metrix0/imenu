@@ -72,5 +72,13 @@ test("iMenu Plus stays visible in both desktop and mobile panel sidebars", () =>
         );
         expect(plusLinks).toHaveLength(1);
         expect(plusLinks[0]).toContain("iMenu Plus");
+
+        const integrations = sidebar.indexOf('href="/painel/integracoes"');
+        const plus = sidebar.indexOf('href="/painel/planos"');
+        const settings = sidebar.indexOf('href="/painel/configuracoes"');
+        expect(integrations).toBeGreaterThan(-1);
+        expect(plus).toBeGreaterThan(integrations);
+        expect(settings).toBeGreaterThan(plus);
+        expect(sidebar.slice(integrations, settings)).not.toContain("<hr");
     }
 });
