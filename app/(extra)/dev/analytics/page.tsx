@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import DevPage from "@/components/dev/DevPage";
 import AnalyticsSection from "@/components/dev/AnalyticsSection";
 const TrafficSourcesSection = dynamic(() => import("@/components/dev/TrafficSourcesSection"), {ssr:false});
+const ImenuFunnelSection = dynamic(() => import("@/components/dev/ImenuFunnelSection"), {ssr:false});
 const PlusFunnelSection = dynamic(() => import("@/components/dev/PlusFunnelSection"), {ssr:false});
 import ShortcutDatePicker from "@/components/ui/ShortcutDatePicker";
 import {getDateRangeForDays,type DateRange} from "@/lib/utils/dateRange";
@@ -42,6 +43,7 @@ export default function Page(){
             <SectionDivider title="Tráfego"/>
             <TrafficSourcesSection range={range}/>
             <SectionDivider title="Conversão"/>
+            <ImenuFunnelSection range={range}/>
             <PlusFunnelSection range={range} onDataLoaded={onFunnelLoaded}/>
         </>}
     </DevPage>;
