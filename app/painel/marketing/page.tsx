@@ -341,7 +341,7 @@ export default function MarketingPage() {
             })}
           </div>
           <p className="text-xs leading-relaxed text-gray-500">
-            Somente clientes que aceitaram receber ofertas. No máximo uma
+            Não enviamos ofertas para clientes que responderam SAIR. No máximo uma
             automação por cliente a cada 24 horas. Novos pedidos impedem a
             recuperação do carrinho. Responder SAIR cancela os próximos envios.
             As respostas usam menus e ações definidas.
