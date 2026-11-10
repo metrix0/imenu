@@ -598,8 +598,10 @@ export default function SalesPage() {
                         return <SalesAnalysisSuggestionCard key={i} />;
                       if (card.type === "image_limit")
                         return <div key={i} className="mt-3 flex flex-wrap items-center gap-2">
-                          {sales.access?.plus ? <Button variant="secondary" onClick={() => setModal("buy_tokens")}>Comprar tokens</Button> : <Button variant="secondary" onClick={() => setPlusModal("checkout")}>Assinar iMenu Plus</Button>}
-                          <SupportWhatsappBadge />
+                          {sales.access?.plus
+                            ? <Button variant="secondary" onClick={() => setModal("buy_tokens")}>Comprar tokens</Button>
+                            : <Button variant="primary" leftIcon={<Crown size={16} aria-hidden="true" />} onClick={() => setPlusModal("checkout")}>iMenu Plus</Button>}
+                          {sales.access?.plus && <SupportWhatsappBadge />}
                         </div>;
                       return card.type !== "action" ? (
                         <DataCard key={i} card={card} />
