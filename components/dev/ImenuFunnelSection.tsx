@@ -33,8 +33,8 @@ const STEPS: Step[] = [
         info: "Pessoas que abriram /restaurante/registrar ÷ visitantes iMenu. Origem: PostHog; não representa necessariamente o início do formulário.",
     },
     {
-        key: "registered", base: "signupPage", title: "Registros", unit: "contas criadas",
-        info: "Novos usuários não anônimos em auth.users ÷ visitantes da página de cadastro. Fontes diferentes (banco e PostHog): taxa indicativa, não conversão individual rastreada; cadastros diretos podem não ter pageview.",
+        key: "registered", title: "Registros", unit: "contas criadas",
+        info: "Novos usuários não anônimos em auth.users, criados no período. Esta contagem não é dividida pelas visitas ao cadastro: PostHog e banco não possuem identidade vinculada e nem todos os cadastros geram pageview.",
     },
     {
         key: "restaurants", base: "registered", title: "Restaurante criado", unit: "contas com restaurante",
