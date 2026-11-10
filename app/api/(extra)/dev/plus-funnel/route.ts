@@ -7,12 +7,26 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-type Buyers = { buyers: number | string };
+type Buyers = { current_buyers: number | string; previous_buyers: number | string };
+type FunnelCounts = {
+    panelUsers: number | null;
+    exposures: number | null;
+    traffic: number | null;
+    checkout: number | null;
+    bought: number | null;
+    sources: Record<string, number> | null;
+};
+const PLUS_SOURCES = ["sales_modal", "plus_page", "assistant_limit", "sales_section", "marketing_page", "legacy_pages"] as const;
+
 function validDate(value: string | null): value is string {
     return Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value) &&
         Number.isFinite(Date.parse(value)) &&
         new Date(value + "T12:00:00Z").toISOString().slice(0, 10) === value);
 }
+function timestamp(value: number): string {
+    return new Date(value).toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "");
+}
+
 export async function GET(request: Request) {
     const denied = await authorize(request);
     if (denied) return denied;
@@ -27,26 +41,47 @@ export async function GET(request: Request) {
     if (startAt >= endAt) {
         return NextResponse.json({ error: "Período inválido." }, { status: 400 });
     }
-    const start = new Date(startAt).toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "");
-    const end = new Date(endAt).toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "");
-    const period = "timestamp >= toDateTime('" + start + "', 'UTC') AND timestamp < toDateTime('" + end + "', 'UTC')";
-    const usersSql = "SELECT uniqExactIf(distinct_id, event IN ('panel_dashboard_viewed', 'panel_tab_opened')) AS panel_users, " +
-        "uniqExactIf(distinct_id, event = 'imenu_plus_checkout_viewed') AS checkout_users FROM events WHERE " + period;
-    // Same rolling-seven-day definition as the five-surface Plus exposure,
-    // but deliberately exclude the sales_modal touchpoint.
-    const trafficSql = [
-        "SELECT ifNull(sum(visits), 0) FROM (",
-        "SELECT distinct_id, tupleElement(arrayFold(",
-        "(state, second) -> if(second >= tupleElement(state, 2) + 604800,",
+    const previousStart = startAt - (endAt - startAt);
+    const start = timestamp(startAt);
+    const end = timestamp(endAt);
+    const previous = timestamp(previousStart);
+    const period = "timestamp >= toDateTime('" + previous + "', 'UTC') AND timestamp < toDateTime('" + end + "', 'UTC')";
+    const rangeLabel = "if(timestamp >= toDateTime('" + start + "', 'UTC'), 'current', 'previous')";
+
+    const usersSql = "SELECT " + rangeLabel + " AS range_label, " +
+        "uniqExactIf(distinct_id, event IN ('panel_dashboard_viewed', 'panel_tab_opened')) AS panel_users, " +
+        "uniqExactIf(distinct_id, event = 'imenu_plus_checkout_viewed') AS checkout_users " +
+        "FROM events WHERE " + period + " GROUP BY range_label";
+
+    // Exposures share the five-surface 7-day deduplication definition of Plus traffic.
+    // Earlier panel pageviews are backfilled in-place, without creating synthetic events.
+    // Old pageviews cannot prove that a specific Plus offer was visible.
+    const exposuresSql = [
+        "WITH touchpoints AS (SELECT", rangeLabel + " AS range_label, distinct_id, timestamp,",
+        "if(event = 'imenu_plus_exposure_viewed', toString(properties.surface), 'legacy_pages') AS surface",
+        "FROM events WHERE " + period,
+        "AND ((event = 'imenu_plus_exposure_viewed' AND toString(properties.surface) IN",
+        "('sales_modal','plus_page','assistant_limit','sales_section','marketing_page'))",
+        "OR (event = '$pageview' AND timestamp < toDateTime('2026-11-10 12:50:49', 'UTC')",
+        "AND properties.$pathname IN ('/painel/marketing','/painel/marketing/',",
+        "'/painel/vendas-ia','/painel/vendas-ia/',",
+        "'/painel/assistente-ia','/painel/assistente-ia/'))))",
+        "SELECT range_label, bucket, sum(visits) AS visits FROM (",
+        "SELECT range_label, bucket, distinct_id,",
+        "tupleElement(arrayFold((state, second) -> if(",
+        "second >= tupleElement(state, 2) + 604800,",
         "(tupleElement(state, 1) + 1, second), state),",
         "arraySort(groupArray(toInt(toUnixTimestamp(timestamp)))),",
         "(toInt(0), toInt(-604800))), 1) AS visits",
-        "FROM events WHERE event = 'imenu_plus_exposure_viewed'",
-        "AND toString(properties.surface) IN ('plus_page', 'assistant_limit', 'sales_section', 'marketing_page')",
-        "AND " + period,
-        "GROUP BY distinct_id)"
+        "FROM (SELECT range_label, distinct_id, timestamp,",
+        "arrayJoin(['exposures', concat('source:', surface),",
+        "if(surface = 'sales_modal', 'skip', 'traffic')]) AS bucket",
+        "FROM touchpoints) WHERE bucket != 'skip'",
+        "GROUP BY range_label, bucket, distinct_id)",
+        "GROUP BY range_label, bucket"
     ].join(" ");
-    // The first confirmed purchase after the new Plus launched, never legacy October payments or renewals.
+
+    // New Plus first purchases only; renewals and earlier legacy IA Plus payments are excluded.
     const buyersSql = [
         "WITH first_plus_paid AS (",
         "SELECT restaurant.user_id AS owner_id, MIN(payment.paid_at) AS first_paid_at",
@@ -59,26 +94,51 @@ export async function GET(request: Request) {
         "AND payment.amount_cents > 0",
         "AND UPPER(payment.status) IN ('APPROVED', 'COMPLETED', 'CONFIRMED', 'RECEIVED', 'RECEIVED_IN_CASH', 'PAID')",
         "GROUP BY restaurant.user_id",
-        ") SELECT COUNT(*)::int AS buyers FROM first_plus_paid",
-        "WHERE first_paid_at >= $1::timestamptz"
+        ") SELECT",
+        "COUNT(*) FILTER (WHERE first_paid_at >= $1::timestamptz AND first_paid_at < $2::timestamptz)::int AS current_buyers,",
+        "COUNT(*) FILTER (WHERE first_paid_at >= $4::timestamptz AND first_paid_at < $1::timestamptz)::int AS previous_buyers",
+        "FROM first_plus_paid"
     ].join(" ");
-    const results = await Promise.allSettled([
+
+    const [users, exposures, buyers] = await Promise.allSettled([
         runPostHogQuery(usersSql),
-        runPostHogQuery(trafficSql),
+        runPostHogQuery(exposuresSql),
         query<Buyers>(buyersSql, [
-            new Date(startAt).toISOString(), new Date(endAt).toISOString(), "2026-10-28T03:00:00Z",
+            new Date(startAt).toISOString(),
+            new Date(endAt).toISOString(),
+            "2026-10-28T03:00:00Z",
+            new Date(previousStart).toISOString(),
         ]),
     ]);
-    if (results[0].status === "rejected" || results[1].status === "rejected") {
-        console.warn("[PLUS_FUNNEL] PostHog unavailable.");
+    if (users.status === "rejected" || exposures.status === "rejected") {
+        console.warn("[PLUS_FUNNEL] PostHog unavailable.", 
+            users.status === "rejected" ? users.reason : exposures.status === "rejected" ? exposures.reason : "");
     }
-    if (results[2].status === "rejected") {
-        console.error("[PLUS_FUNNEL] Buyer query failed:", results[2].reason);
+    if (buyers.status === "rejected") {
+        console.error("[PLUS_FUNNEL] Buyers query failed:", buyers.reason);
     }
+
+    const metrics = (label: "current" | "previous"): FunnelCounts => {
+        const userRow = users.status === "fulfilled"
+            ? users.value.find(row => row[0] === label) : undefined;
+        const exposureRows = exposures.status === "fulfilled"
+            ? exposures.value.filter(row => row[0] === label) : [];
+        const getExposure = (key: string) => Number(exposureRows.find(row => row[1] === key)?.[2] || 0);
+        const sources = exposures.status === "fulfilled"
+            ? Object.fromEntries(PLUS_SOURCES.map(source => [source, getExposure("source:" + source)]))
+            : null;
+        return {
+            panelUsers: users.status === "fulfilled" ? Number(userRow?.[1] || 0) : null,
+            exposures: exposures.status === "fulfilled" ? getExposure("exposures") : null,
+            traffic: exposures.status === "fulfilled" ? getExposure("traffic") : null,
+            checkout: users.status === "fulfilled" ? Number(userRow?.[2] || 0) : null,
+            bought: buyers.status === "fulfilled" ? Number(buyers.value.rows[0]?.[label === "current" ? "current_buyers" : "previous_buyers"] || 0) : null,
+            sources,
+        };
+    };
+
     return NextResponse.json({
-        panelUsers: results[0].status === "fulfilled" ? Number(results[0].value[0]?.[0] || 0) : null,
-        traffic: results[1].status === "fulfilled" ? Number(results[1].value[0]?.[0] || 0) : null,
-        checkout: results[0].status === "fulfilled" ? Number(results[0].value[0]?.[1] || 0) : null,
-        bought: results[2].status === "fulfilled" ? Number(results[2].value.rows[0]?.buyers || 0) : null,
+        ...metrics("current"),
+        previous: metrics("previous"),
     }, { headers: { "Cache-Control": "no-store" } });
 }
