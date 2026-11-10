@@ -1114,8 +1114,8 @@ export async function processSupportIncomingWhatsAppMessage(input: {
     );
 
     await withAdvisoryLock("support-reply:" + conversation.chat_id, async () => {
-        const stateResult = await query<{ mode: "ai" | "human"; last_inbound_at: string }>(
-            "SELECT mode, last_inbound_at FROM support_conversations WHERE id = $1 LIMIT 1",
+        const stateResult = await query<{ mode: "ai" | "human"; last_inbound_at: string; handoff_prompted_at: string | null }>(
+            "SELECT mode, last_inbound_at, handoff_prompted_at FROM support_conversations WHERE id = $1 LIMIT 1",
             [conversation.id]
         );
         if (stateResult.rows[0]?.mode === "human") return;
@@ -1132,6 +1132,9 @@ export async function processSupportIncomingWhatsAppMessage(input: {
         if (
             !input.hasMedia &&
             [...originalBody].length <= 12 &&
+            // A second short confirmation (e.g. "sim") is a new handoff step,
+            // not an answered duplicate. Webhook/provider-ID dedupe still applies.
+            !stateResult.rows[0]?.handoff_prompted_at &&
             (await hasRepliedToRepeatedShortMessage(
                 conversation.id,
                 storageMessageId,
