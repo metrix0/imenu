@@ -73,8 +73,8 @@ export async function GET(request: Request) {
         ", '^https?://(www[.])?imenuapp[.]com[.]br', ''), '[?#].*$', '')";
     const previousPath = "if(prev_path != '', prev_path, if(" +
         internalReferrer + ", " + referrerPath + ", ''))";
-    const hogql = [
-        "SELECT source, source_path, grouping(source), grouping(source_path),",
+    const homepageQuery = (byPath: boolean) => [
+        "SELECT source" + (byPath ? ", source_path" : "") + ",",
         "uniqExactIf(distinct_id, timestamp >= toDateTime('" + timestamp(startAt) + "', 'UTC')) AS visitors,",
         "uniqExactIf(distinct_id, timestamp < toDateTime('" + timestamp(startAt) + "', 'UTC')) AS previous_visitors",
         "FROM (SELECT distinct_id, timestamp, " + source + " AS source, source_path",
@@ -92,8 +92,10 @@ export async function GET(request: Request) {
         "AND toString(properties.$host) IN ('www.imenuapp.com.br', 'imenuapp.com.br'))",
         "WHERE path = '/' AND timestamp >= toDateTime('" + timestamp(previousStart) + "', 'UTC'))",
         "WHERE source_path NOT IN ('', '/'))",
-        "GROUP BY ROLLUP(source, source_path)",
+        "GROUP BY source" + (byPath ? ", source_path" : ""),
     ].join(" ");
+    const hogql = homepageQuery(false);
+    const homepagePagesHogql = homepageQuery(true);
 
     // These are the exact visitor/click events used by the old SEO dashboard.
     // They measure reach and click intent, NOT confirmed homepage arrivals.
@@ -107,8 +109,8 @@ export async function GET(request: Request) {
         seoPath + " IN (" + knownList + "), 'content',",
         "'other')",
     ].join(" ");
-    const seoHogql = [
-        "SELECT source, source_path, grouping(source), grouping(source_path),",
+    const seoQuery = (byPath: boolean) => [
+        "SELECT source" + (byPath ? ", source_path" : "") + ",",
         "uniqExactIf(distinct_id, event = '" + SEO_TRAFFIC_EVENTS.pageViewed +
             "' AND timestamp >= toDateTime('" + timestamp(startAt) + "', 'UTC')) AS source_visitors,",
         "uniqExactIf(distinct_id, event = '" + SEO_TRAFFIC_EVENTS.homeClicked +
@@ -122,20 +124,25 @@ export async function GET(request: Request) {
             "', '" + SEO_TRAFFIC_EVENTS.homeClicked + "')",
         "AND timestamp >= toDateTime('" + timestamp(previousStart) + "', 'UTC')",
         "AND timestamp < toDateTime('" + timestamp(endAt) + "', 'UTC'))",
-        "GROUP BY ROLLUP(source, source_path)",
+        "GROUP BY source" + (byPath ? ", source_path" : ""),
     ].join(" ");
+    const seoHogql = seoQuery(false);
+    const seoPagesHogql = seoQuery(true);
 
     try {
-        const [rows, seoRows] = await Promise.all([runPostHogQuery(hogql), runPostHogQuery(seoHogql)]);
-        const totals = (data: unknown[][]) => new Map(data
-            .filter(row => Number(row[2]) === 0 && Number(row[3]) === 1)
-            .map(row => [String(row[0]), row]));
-        const bySource = totals(rows);
-        const seoBySource = totals(seoRows);
+        // Keep the existing, proven totals query intact. Details are calculated
+        // separately by page, using the same source classification and metric.
+        const [rows, seoRows, homepageDetails, seoDetails] = await Promise.all([
+            runPostHogQuery(hogql),
+            runPostHogQuery(seoHogql),
+            runPostHogQuery(homepagePagesHogql),
+            runPostHogQuery(seoPagesHogql),
+        ]);
+        const bySource = new Map(rows.map(row => [String(row[0]), row]));
+        const seoBySource = new Map(seoRows.map(row => [String(row[0]), row]));
         const breakdown = (data: unknown[][], valueColumn: number, previousColumn: number) => {
             const pages = new Map<string, { path: string; visitors: number; previousVisitors: number }[]>();
             for (const row of data) {
-                if (Number(row[2]) !== 0 || Number(row[3]) !== 0) continue;
                 const source = String(row[0] ?? "");
                 const path = String(row[1] ?? "");
                 if (!SOURCES.some(key => key === source) || !path.startsWith("/")) continue;
@@ -151,8 +158,8 @@ export async function GET(request: Request) {
             }
             return pages;
         };
-        const pageviewPages = breakdown(rows, 4, 5);
-        const clickPages = breakdown(seoRows, 5, 7);
+        const pageviewPages = breakdown(homepageDetails, 2, 3);
+        const clickPages = breakdown(seoDetails, 3, 5);
         return NextResponse.json({
             paths: SOURCES.map(source => {
                 const row = bySource.get(source);
@@ -162,8 +169,8 @@ export async function GET(request: Request) {
                 const seoClicks = source === "blog" || source === "tools" || source === "content";
                 return {
                     source,
-                    visitors: seoClicks ? Number(seo?.[5]) || 0 : Number(row?.[4]) || 0,
-                    previousVisitors: seoClicks ? Number(seo?.[7]) || 0 : Number(row?.[5]) || 0,
+                    visitors: seoClicks ? Number(seo?.[2]) || 0 : Number(row?.[1]) || 0,
+                    previousVisitors: seoClicks ? Number(seo?.[4]) || 0 : Number(row?.[2]) || 0,
                     pages: (seoClicks ? clickPages : pageviewPages).get(source) ?? [],
                 };
             }),

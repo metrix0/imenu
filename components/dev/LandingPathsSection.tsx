@@ -51,7 +51,7 @@ export default function LandingPathsSection({ range }: { range: DateRange }) {
             <h3 className="text-sm font-semibold text-gray-900">Caminhos até a LP</h3>
         </header>
         {error && <p role="alert" className="p-5 text-sm text-red-700">{error}</p>}
-        {loading ? <DevLoading /> : !error && <div className="grid min-w-0 grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-2 gap-y-2 p-5">
+        {loading ? <DevLoading /> : !error && <div className="grid min-w-0 grid-cols-[minmax(0,155px)_minmax(0,1fr)] items-center gap-x-2 gap-y-2 p-5 sm:grid-cols-[minmax(0,215px)_minmax(0,1fr)]">
             {rows.map(row => {
                 const isExpanded = expanded.includes(row.source);
                 return <div key={row.source} className="contents">
