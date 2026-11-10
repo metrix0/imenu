@@ -46,7 +46,7 @@ function TrafficBar({ label, visitors, maxVisitors, info, nested = false, expand
                 <span className="min-w-0 max-w-[175px] truncate sm:max-w-[205px]" title={label}>{label}</span>
                 <ChevronDown size={14} className={`shrink-0 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`} />
             </button> : <span className={`min-w-0 max-w-[175px] truncate text-left text-xs sm:max-w-[205px] ${nested ? "text-gray-500" : "text-gray-700"}`} title={label}>{label}</span>}
-            {info && <InfoTooltip text={info} size="medium" showOnClick>
+            {info && <InfoTooltip text={info} size="line" showOnClick>
                 <button type="button" aria-label={`Informações sobre ${label}`} className="inline-flex h-6 w-6 shrink-0 items-center justify-center text-gray-400 hover:text-brand">
                     <PanelIcon icon={faCircleInfo} className="h-3.5 w-3.5" />
                 </button>
