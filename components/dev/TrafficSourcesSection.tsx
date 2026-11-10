@@ -33,20 +33,20 @@ function TrafficBar({ label, visitors, maxVisitors, info, nested = false }: {
     info?: string;
     nested?: boolean;
 }) {
-    return <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 sm:grid-cols-[210px_minmax(0,1fr)_56px]">
-        <div className={`flex min-w-0 items-center justify-end gap-1.5 ${nested ? "pr-3" : ""}`}>
+    return <div className="contents">
+        <div className={`flex min-w-0 items-center justify-start gap-1.5 ${nested ? "pl-3" : ""}`}>
             {nested && <span aria-hidden="true" className="shrink-0 text-gray-400">↳</span>}
-            <span className={`min-w-0 truncate text-right text-xs ${nested ? "text-gray-500" : "text-gray-700"}`} title={label}>{label}</span>
+            <span className={`min-w-0 max-w-[175px] truncate text-left text-xs sm:max-w-[205px] ${nested ? "text-gray-500" : "text-gray-700"}`} title={label}>{label}</span>
             {info && <InfoTooltip text={info} size="medium" showOnClick>
                 <button type="button" aria-label={`Informações sobre ${label}`} className="inline-flex h-6 w-6 shrink-0 items-center justify-center text-gray-400 hover:text-brand">
                     <PanelIcon icon={faCircleInfo} className="h-3.5 w-3.5" />
                 </button>
             </InfoTooltip>}
         </div>
-        <div aria-hidden="true" className={`col-span-2 row-start-2 overflow-hidden rounded bg-[#f1f3f5] sm:col-span-1 sm:col-start-2 sm:row-start-1 ${nested ? "h-3" : "h-5"}`}>
+        <div aria-hidden="true" className={`min-w-0 overflow-hidden rounded bg-[#f1f3f5] ${nested ? "h-3" : "h-5"}`}>
             <div className={`h-full rounded ${nested ? "bg-[#f7a17c]" : "bg-[#d93d00]"}`} style={{ width: (visitors / maxVisitors * 100) + "%", minWidth: visitors > 0 ? 2 : 0 }} />
         </div>
-        <span className="col-start-2 row-start-1 whitespace-nowrap text-right text-xs font-semibold tabular-nums text-gray-800 sm:col-start-3">
+        <span className="min-w-[38px] whitespace-nowrap text-right text-xs font-semibold tabular-nums text-gray-800">
             {formatCount(visitors)}
         </span>
     </div>;
@@ -77,11 +77,11 @@ export default function TrafficSourcesSection({ range }: { range: DateRange }) {
         </header>
         {error && <p role="alert" className="p-5 text-sm text-red-700">{error}</p>}
         {loading ? <DevLoading /> : !error && (channels.length ? (
-            <div className="space-y-3 p-5">
+            <div className="grid min-w-0 grid-cols-[max-content_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-2 p-5">
                 {channels.map(item => {
                     const label = CHANNELS[item.channel]?.label || item.channel;
                     const info = CHANNELS[item.channel]?.info || "Origem classificada pelo PostHog.";
-                    return <div key={item.channel} className="space-y-2">
+                    return <div key={item.channel} className="contents">
                         <TrafficBar label={label} visitors={item.visitors} maxVisitors={maxVisitors} info={info} />
                         {item.sources?.map(source => (
                             <TrafficBar key={source.source} nested label={source.source}
