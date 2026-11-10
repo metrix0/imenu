@@ -605,14 +605,6 @@ export default function CreatePanelOrderModal({
             return;
         }
 
-        if (!customerName.trim()) {
-            setToast({
-                message: "Informe o nome do cliente.",
-                type: "error",
-            });
-            return;
-        }
-
         if (selectedItems.length === 0) {
             alert("Adicione ao menos 1 item.");
             return;
@@ -938,7 +930,7 @@ export default function CreatePanelOrderModal({
                                                 <Input
                                                     value={customerName}
                                                     onChange={(e) => setCustomerName(e.target.value)}
-                                                    label="Nome do cliente *" placeholder="Nome do cliente *"
+                                                    label="Nome do cliente (opcional)" placeholder="Nome do cliente (opcional)"
                                                     className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/10"
                                                 />
 

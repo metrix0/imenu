@@ -29,7 +29,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         if (!Array.isArray(requestedItems) || requestedItems.length < 1 || requestedItems.length > 100) {
             throw new EditOrderError("Adicione ao menos um item válido.");
         }
-        if (typeof body.customer_name !== "string" || !body.customer_name.trim()) {
+        if (typeof body.customer_name !== "string") {
             throw new EditOrderError("Informe o nome do cliente.");
         }
         const deliveryFee = Number(body.delivery_fee_cents);
@@ -201,7 +201,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
                 ? null : typeof body.customer_address === "string" ? body.customer_address.trim() || null : null;
             await client.query(
                 "UPDATE orders SET customer_name = $1, customer_phone = $2, customer_address = $3, subtotal_cents = $4, delivery_cents = $5, total_cents = $6, coupon_discount_cents = $7, applied_promotion = $8::jsonb, is_delivery = $9, table_id = $10, table_name_snapshot = $11, payment_method = $12, updated_at = NOW() WHERE id = $13 AND restaurant_id = $14",
-                [body.customer_name.trim(), destination === "mesa" ? null : customerPhone, customerAddress,
+                [body.customer_name.trim() || null, destination === "mesa" ? null : customerPhone, customerAddress,
                     finalSubtotal, fee, finalTotal,
                     pricing.result.promotion ? pricing.result.discount_cents : null,
                     pricing.result.promotion ? JSON.stringify(pricing.result.promotion) : null,

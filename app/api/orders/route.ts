@@ -289,7 +289,7 @@ export async function POST(request: Request) {
             );
         }
 
-        if (isTableOrder && !String(customer_name || "").trim()) {
+        if (isTableOrder && panel_order !== true && !String(customer_name || "").trim()) {
             throw new OrderRequestError("Informe seu nome.");
         }
 
