@@ -163,7 +163,7 @@ export default function ClientesPage() {
           {error}
         </p>
       ) : null}
-      <div className="[&_table]:table-fixed [&_table]:min-w-[960px] [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap [&_th]:px-2 [&_td]:px-2">
+      <div className="[&_table]:table-fixed [&_table]:min-w-[1020px] [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap [&_th]:px-2 [&_td]:px-2">
       <DataTable
         loading={loading}
         sortKey={sortKey}
@@ -185,7 +185,7 @@ export default function ClientesPage() {
         columns={[
           {
             key: "name",
-            className: "w-[23%]",
+            className: "w-[20%]",
             sortable: true,
             label: "Cliente",
             render: (r) => (
@@ -202,7 +202,7 @@ export default function ClientesPage() {
           },
           {
             key: "segment",
-            className: "w-[12%]",
+            className: "w-[13%]",
             sortable: true,
             label: "Classificação",
             render: (r) => (
@@ -221,7 +221,7 @@ export default function ClientesPage() {
               </Badge>
             ),
           },
-          { key: "orders", className: "w-[7%]", label: "Pedidos", sortable: true, render: (r) => r.order_count },
+          { key: "orders", className: "w-[9%]", label: "Pedidos", sortable: true, render: (r) => r.order_count },
           {
             key: "spent",
             className: "w-[10%]",
@@ -231,7 +231,7 @@ export default function ClientesPage() {
           },
           {
             key: "ticket",
-            className: "w-[10%]",
+            className: "w-[12%]",
             sortable: true,
             label: "Ticket médio",
             render: (r) => formatPrice(r.average_ticket_cents),
@@ -258,7 +258,7 @@ export default function ClientesPage() {
           },
           {
             key: "favorite",
-            className: "w-[10%]",
+            className: "w-[8%]",
             label: "Favorito",
             render: (r) => r.favorite_product ? (
               <span title={r.favorite_product} className="block w-full truncate">
