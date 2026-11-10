@@ -11,6 +11,7 @@ import {
     faChartLine,
     faCircleQuestion,
     faClock,
+    faCrown,
     faDoorOpen,
     faGear,
     faGift,
@@ -375,6 +376,8 @@ export default function PainelLayout({
             icon: faGear,
             href: `${base}/configuracoes`,
         },
+        { type: "divider" },
+        { label: "iMenu Plus", icon: faCrown, href: `${base}/planos`, isNew: true },
     ];
 
     const trackPanelTabOpen = (item: { label: string; href: string }) => {
