@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { authorize } from "@/lib/dev/authorize";
 import { runPostHogQuery } from "@/lib/analytics/posthogQuery";
 import { PUBLIC_CONTENT_PAGES } from "@/lib/seo/publicContent";
+import { SEO_TRAFFIC_EVENTS } from "@/lib/analytics/seoTraffic";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,6 +45,12 @@ export async function GET(request: Request) {
         ...PUBLIC_CONTENT_PAGES.map(page => page.path),
     ].flatMap(path => path === "/" ? [path] : [path, path + "/"])));
     const knownList = knownPaths.map(path => "'" + path.replace(/'/g, "''") + "'").join(", ");
+    // Reuse the legacy dashboard's content taxonomy, including articles like
+    // /cardapio-digital, rather than treating only /blog/* as blog content.
+    const articlePaths = Array.from(new Set([
+        "/blog", ...PUBLIC_CONTENT_PAGES.filter(page => page.kind === "Conteúdo").map(page => page.path),
+    ].flatMap(path => [path, path + "/"])));
+    const articleList = articlePaths.map(path => "'" + path.replace(/'/g, "''") + "'").join(", ");
 
     // A single-page navigation retains the browser's original referrer. Use the
     // preceding pageview in the same PostHog session, falling back to an
@@ -52,7 +59,7 @@ export async function GET(request: Request) {
     const knownSource = sourcePath + " IN (" + knownList + ")";
     const source = [
         "multiIf(",
-        "startsWith(" + sourcePath + ", '/blog'), 'blog',",
+        "startsWith(" + sourcePath + ", '/blog') OR " + sourcePath + " IN (" + articleList + "), 'blog',",
         "startsWith(" + sourcePath + ", '/ferramentas'), 'tools',",
         "startsWith(" + sourcePath + ", '/restaurantes/'), 'content',",
         knownSource + ", 'content',",
@@ -88,16 +95,50 @@ export async function GET(request: Request) {
         "GROUP BY source",
     ].join(" ");
 
+    // These are the exact visitor/click events used by the old SEO dashboard.
+    // They measure reach and click intent, NOT confirmed homepage arrivals.
+    const seoPath = "toString(if(event = '" + SEO_TRAFFIC_EVENTS.pageViewed +
+        "', properties.path, properties.source_path))";
+    const seoSource = [
+        "multiIf(",
+        "startsWith(" + seoPath + ", '/blog') OR " + seoPath + " IN (" + articleList + "), 'blog',",
+        "startsWith(" + seoPath + ", '/ferramentas'), 'tools',",
+        "startsWith(" + seoPath + ", '/restaurantes/'), 'other',",
+        seoPath + " IN (" + knownList + "), 'content',",
+        "'other')",
+    ].join(" ");
+    const seoHogql = [
+        "SELECT source,",
+        "uniqExactIf(distinct_id, event = '" + SEO_TRAFFIC_EVENTS.pageViewed +
+            "' AND timestamp >= toDateTime('" + timestamp(startAt) + "', 'UTC')) AS source_visitors,",
+        "uniqExactIf(distinct_id, event = '" + SEO_TRAFFIC_EVENTS.homeClicked +
+            "' AND timestamp >= toDateTime('" + timestamp(startAt) + "', 'UTC')) AS home_clicks,",
+        "uniqExactIf(distinct_id, event = '" + SEO_TRAFFIC_EVENTS.pageViewed +
+            "' AND timestamp < toDateTime('" + timestamp(startAt) + "', 'UTC')) AS previous_source_visitors,",
+        "uniqExactIf(distinct_id, event = '" + SEO_TRAFFIC_EVENTS.homeClicked +
+            "' AND timestamp < toDateTime('" + timestamp(startAt) + "', 'UTC')) AS previous_home_clicks",
+        "FROM (SELECT distinct_id, timestamp, event, " + seoSource + " AS source",
+        "FROM events WHERE event IN ('" + SEO_TRAFFIC_EVENTS.pageViewed +
+            "', '" + SEO_TRAFFIC_EVENTS.homeClicked + "')",
+        "AND timestamp >= toDateTime('" + timestamp(previousStart) + "', 'UTC')",
+        "AND timestamp < toDateTime('" + timestamp(endAt) + "', 'UTC'))",
+        "GROUP BY source",
+    ].join(" ");
+
     try {
-        const rows = await runPostHogQuery(hogql);
+        const [rows, seoRows] = await Promise.all([runPostHogQuery(hogql), runPostHogQuery(seoHogql)]);
         const bySource = new Map(rows.map(row => [String(row[0]), row]));
+        const seoBySource = new Map(seoRows.map(row => [String(row[0]), row]));
         return NextResponse.json({
             paths: SOURCES.map(source => {
                 const row = bySource.get(source);
+                const seo = seoBySource.get(source);
                 return {
                     source,
                     visitors: Number(row?.[1]) || 0,
                     previousVisitors: Number(row?.[2]) || 0,
+                    sourceVisitors: source === "menus" ? null : Number(seo?.[1]) || 0,
+                    homeClicks: source === "menus" ? null : Number(seo?.[2]) || 0,
                 };
             }),
         }, { headers: { "Cache-Control": "no-store" } });
