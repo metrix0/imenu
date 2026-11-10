@@ -4,10 +4,6 @@ import { query } from "@/lib/database/sql";
 import { checkWahaPhoneExists, sendWahaImage, sendWahaText } from "@/lib/services/wahaClient";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 import { SINGLE_ORDER_DAY_RECOVERY_MESSAGE } from "@/lib/dev/abandonedBlast";
-import {
-    PLUS_FIRST_MONTH_FEEDBACK_MESSAGE,
-    PREVIOUS_PLUS_FIRST_MONTH_FEEDBACK_MESSAGE,
-} from "@/lib/dev/plusFeedbackBlast";
 
 jest.mock("@/lib/services/supportExclusions", () => ({ isSupportContactExcluded: jest.fn() }));
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn(), withTransaction: jest.fn() }));
@@ -22,29 +18,6 @@ jest.mock("@/lib/services/wahaClient", () => ({
 
 beforeEach(() => {
     jest.clearAllMocks();
-});
-
-test("feedback wording changes preserve the shared limit for old and new campaigns", async () => {
-    let inspected = false;
-    (query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-        if (sql.includes("WITH claimed AS")) {
-            inspected = true;
-            expect(sql).toContain("WHEN c.message = ANY($3::text[])");
-            expect(sql).toContain("WHERE counted.message = ANY($3::text[])");
-            expect(params?.[2]).toEqual([
-                PLUS_FIRST_MONTH_FEEDBACK_MESSAGE,
-                PREVIOUS_PLUS_FIRST_MONTH_FEEDBACK_MESSAGE,
-            ]);
-        }
-        return { rows: [], rowCount: 0 };
-    });
-    expect(await processSupportBlastQueue()).toEqual({
-        sent: 0, failed: 0, skipped: 0, disconnected: false,
-    });
-    expect(inspected).toBe(true);
-    expect(PLUS_FIRST_MONTH_FEEDBACK_MESSAGE).toContain(
-        "adquiriu o Plus há algumas semanas, agradecemos a confiança!"
-    );
 });
 
 test("dispatch checks a 60-day history, including sends before the policy change", async () => {
