@@ -182,7 +182,7 @@
 
 .reportLocked { position: relative; padding-bottom: 0; }
 .paperLocked { position: relative; width: calc(100% + 56px); height: calc(var(--locked-cutoff, 75%) + 720px); margin-inline: -28px; padding-inline: 28px; box-sizing: border-box; overflow: hidden; }
-.structuredContent { position: relative; display: grid; gap: 24px; }
+.structuredContent { position: relative; display: grid; align-content: start; gap: 24px; }
 .preview { position: relative; min-height: 0; }
 .previewContent {
   -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 66%, rgb(0 0 0 / .72) 76%, rgb(0 0 0 / .24) 91%, transparent 100%);
