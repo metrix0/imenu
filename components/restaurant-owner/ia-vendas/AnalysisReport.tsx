@@ -173,15 +173,17 @@ export default function AnalysisReport({
           .map((generatedId) => actionById.get(generatedId))
           .filter((generated): generated is Action => !!generated);
         return (
-          <div key={id}>{gate(<ActionCard
-            key={id}
-            action={action}
-            generatedActions={generatedActions}
-            refs={refs}
-            disabled={disabled}
-            onAction={onAction}
-            compact
-          />)}</div>
+          <div key={id} data-ia-plus-action={locked ? "" : undefined}>
+            <ActionCard
+              action={action}
+              generatedActions={generatedActions}
+              refs={refs}
+              disabled={disabled}
+              onAction={onAction}
+              locked={locked}
+              compact
+            />
+          </div>
         );
       });
   };
