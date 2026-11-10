@@ -5,6 +5,9 @@ import {
   chatApproval,
   compactAssistantContext,
   focusedImageRequest,
+  immediateImageRequest,
+  imageStyleFollowup,
+  requestedImageStyle,
 } from "../chat";
 import {
   aiAccess,
@@ -245,8 +248,119 @@ test.each([
   ["Gere fotos e altere o preço", false],
   ["Como melhorar minhas vendas?", false],
   ["Generate product images", true],
+  ["Melhore a imagem do meu item mais vendido", true],
+  ["Troque a foto da Batata Frita", true],
+  ["Como melhorar minhas fotos?", false],
+  ["Não gere uma foto deste produto", false],
 ])("image-only routing: %s", (message, expected) => {
   expect(focusedImageRequest(message)).toBe(expected);
+});
+
+test("image style fields are optional and only extracted when explicitly requested", () => {
+  expect(requestedImageStyle("Melhore a foto da Batata Frita")).toEqual({});
+  expect(requestedImageStyle("Melhore a foto da Batata Frita com fundo claro")).toEqual({ background: "fundo claro" });
+  expect(requestedImageStyle("Melhore a foto, fundo claro e sem texto")).toEqual({ background: "fundo claro", text: "" });
+  expect(requestedImageStyle("Melhore a foto, ângulo de 45°")).toEqual({ presentation: "ângulo de 45 graus" });
+});
+
+test("best seller resolves by units even when outside first 15 menu items", async () => {
+  (readData as jest.Mock).mockClear();
+  const input = await immediateImageRequest("owner", "Melhore a imagem do meu item mais vendido", {
+    items: { rows: Array.from({ length: 15 }, (_, i) => ({ id: "other-" + i, name: "Outro " + i })) },
+    sales: { products: [
+      { item_id: "top-revenue", units: 12, gross_cents: 100000 },
+      { item_id: "best-units", units: 30, gross_cents: 60000 },
+    ] },
+  });
+  expect(input).toEqual({ target: "item", item_id: "best-units",
+    prompt: "Melhore a imagem do meu item mais vendido", style: {} });
+  expect(readData).not.toHaveBeenCalled();
+});
+
+test("an identifiable image request creates the preview immediately without asking style questions", async () => {
+  (query as jest.Mock).mockImplementation(async (sql: string) => ({
+    rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
+      ? [{ kind: "chat", summary: "" }]
+      : sql.includes("RETURNING id") ? [{ id: "user" }] : [],
+  }));
+  (context as jest.Mock).mockResolvedValueOnce({
+    restaurant: { url_slug: "menu" },
+    items: { rows: [{ id: "fries", name: "Batata Frita", image_path: "existing.webp" }] },
+    sales: { products: [{ item_id: "fries", units: 30, gross_cents: 60000 }] },
+    categories: { rows: [] }, actions: [], instructions: "",
+  });
+  (previewImage as jest.Mock).mockResolvedValueOnce({ id: "image-preview" });
+  await runChat({ ...args, deep: false, text: "Melhore a imagem do meu item mais vendido" });
+  expect(previewImage).toHaveBeenCalledWith(
+    "owner", "conversation", "run",
+    { target: "item", item_id: "fries", prompt: "Melhore a imagem do meu item mais vendido", style: {} },
+  );
+  expect(create).not.toHaveBeenCalled();
+  const saved = (finishRun as jest.Mock).mock.calls.at(-1)[2];
+  expect(saved.reply).toContain("Prévia gerada");
+  expect(saved.reply).not.toMatch(/fundo|ângulo|texto|anexe/i);
+  expect(args.send).toHaveBeenCalledWith("done", expect.any(Object));
+});
+
+test("a requested light background and no text are passed to generation without filling angle", async () => {
+  (query as jest.Mock).mockImplementation(async (sql: string) => ({
+    rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
+      ? [{ kind: "chat", summary: "" }]
+      : sql.includes("RETURNING id") ? [{ id: "user" }] : [],
+  }));
+  (context as jest.Mock).mockResolvedValueOnce({
+    restaurant: {}, items: { rows: [{ id: "fries", name: "Batata Frita" }] },
+    sales: { products: [] }, categories: { rows: [] }, actions: [],
+  });
+  (previewImage as jest.Mock).mockResolvedValueOnce({ id: "image-preview" });
+  await runChat({ ...args, deep: false, text: "Gere imagem da Batata Frita, fundo claro e sem texto" });
+  expect((previewImage as jest.Mock).mock.calls.at(-1)[3]).toMatchObject({
+    target: "item", item_id: "fries", style: { background: "fundo claro", text: "" },
+  });
+  expect(create).not.toHaveBeenCalled();
+});
+
+test("standalone explicit style is recognized only as a follow-up, not a required slot", () => {
+  expect(imageStyleFollowup("Fundo claro")).toBe(true);
+  expect(imageStyleFollowup("Sem texto")).toBe(true);
+  expect(imageStyleFollowup("Ângulo de 45°")).toBe(true);
+  expect(imageStyleFollowup("Como estão minhas vendas?")).toBe(false);
+});
+
+test("after an image request, standalone style changes regenerate without asking for other options", async () => {
+  (query as jest.Mock).mockImplementation(async (sql: string) => ({
+    rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
+      ? [{ kind: "chat", summary: "" }]
+      : sql.includes("RETURNING id") ? [{ id: "user" }]
+      : sql.includes("SELECT role,content,cards FROM public.ia_vendas_messages")
+        ? [
+            { role: "user", content: "Sem texto" },
+            { role: "assistant", content: "Prévia pronta." },
+            { role: "user", content: "Fundo claro" },
+            { role: "assistant", content: "Prévia pronta." },
+            { role: "user", content: "Melhore a imagem do meu item mais vendido" },
+          ] : [],
+  }));
+  (context as jest.Mock).mockResolvedValueOnce({
+    restaurant: {}, items: { rows: [{ id: "fries", name: "Batata Frita" }] },
+    sales: { products: [{ item_id: "fries", units: 30, gross_cents: 60000 }] },
+    categories: { rows: [] }, actions: [],
+  });
+  (previewImage as jest.Mock).mockResolvedValueOnce({ id: "updated-preview" });
+  await runChat({ ...args, deep: false, text: "Sem texto" });
+  expect((previewImage as jest.Mock).mock.calls.at(-1)[3]).toMatchObject({
+    target: "item", item_id: "fries",
+    style: { background: "fundo claro", text: "" },
+  });
+  expect(create).not.toHaveBeenCalled();
+  expect(args.send).toHaveBeenCalledWith("done", expect.any(Object));
+});
+
+test("batch image requests still use the reviewed batch flow", async () => {
+  const input = await immediateImageRequest("owner", "Gere fotos para os meus produtos", {
+    items: { rows: [{ id: "fries", name: "Batata Frita" }] }, sales: { products: [] },
+  });
+  expect(input).toBeNull();
 });
 
 test.each([
