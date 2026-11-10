@@ -80,12 +80,13 @@ export async function GET(request: Request) {
             lower(ifNull(toString(session.$entry_referring_domain), ''))
         )`;
     const hogql = [
-        "SELECT period, channel, source, uniqExact(distinct_id) AS visitors",
+        "SELECT channel, source,",
+        "uniqExactIf(distinct_id, timestamp >= toDateTime('" + timestamp(startAt) + "', 'UTC')) AS visitors,",
+        "uniqExactIf(distinct_id, timestamp < toDateTime('" + timestamp(startAt) + "', 'UTC')) AS previous_visitors",
         "FROM (",
-        "  SELECT distinct_id, period, channel, arrayJoin(['', origin]) AS source",
+        "  SELECT distinct_id, timestamp, channel, arrayJoin(['', origin]) AS source",
         "  FROM (",
-        "    SELECT distinct_id,",
-        "      if(timestamp >= toDateTime('" + timestamp(startAt) + "', 'UTC'), 'current', 'previous') AS period,",
+        "    SELECT distinct_id, timestamp,",
         "      if(empty(ifNull(toString(session.$channel_type), '')), 'Unknown', toString(session.$channel_type)) AS channel,",
         "      " + origin + " AS origin",
         "    FROM events",
@@ -97,7 +98,7 @@ export async function GET(request: Request) {
         "    OR startsWith(toString(properties.$pathname), '/restaurantes/'))",
         "  )",
         ")",
-        "GROUP BY period, channel, source",
+        "GROUP BY channel, source",
         "ORDER BY visitors DESC",
         "LIMIT 500",
     ].join("\n");
@@ -107,41 +108,34 @@ export async function GET(request: Request) {
         type ChannelGroup = {
             channel: string;
             visitors: number;
-            sources: Array<{ source: string; visitors: number }>;
+            previousVisitors: number;
+            sources: Array<{ source: string; visitors: number; previousVisitors: number }>;
         };
-        const periods = {
-            current: new Map<string, ChannelGroup>(),
-            previous: new Map<string, ChannelGroup>(),
-        };
+        const channels = new Map<string, ChannelGroup>();
         for (const row of rows) {
-            const period = row[0] === "previous" ? "previous" : "current";
-            const channel = String(row[1] || "Unknown");
-            const source = String(row[2] || "");
-            const visitors = Number(row[3]) || 0;
-            const channels = periods[period];
+            const channel = String(row[0] || "Unknown");
+            const source = String(row[1] || "");
+            const visitors = Number(row[2]) || 0;
+            const previousVisitors = Number(row[3]) || 0;
             if (!channels.has(channel)) {
-                channels.set(channel, { channel, visitors: 0, sources: [] });
+                channels.set(channel, { channel, visitors: 0, previousVisitors: 0, sources: [] });
             }
             const group = channels.get(channel)!;
-            if (source) group.sources.push({ source, visitors });
-            else group.visitors = visitors;
+            if (source) {
+                if (visitors > 0) group.sources.push({ source, visitors, previousVisitors });
+            } else {
+                group.visitors = visitors;
+                group.previousVisitors = previousVisitors;
+            }
         }
         return NextResponse.json({
-            channels: [...periods.current.values()]
+            channels: [...channels.values()]
+                .filter(group => group.visitors > 0)
                 .sort((a, b) => b.visitors - a.visitors)
-                .map(group => {
-                    const prior = periods.previous.get(group.channel);
-                    return {
-                        ...group,
-                        previousVisitors: prior?.visitors ?? 0,
-                        sources: group.sources
-                            .sort((a, b) => b.visitors - a.visitors)
-                            .map(source => ({
-                                ...source,
-                                previousVisitors: prior?.sources.find(p => p.source === source.source)?.visitors ?? 0,
-                            })),
-                    };
-                }),
+                .map(group => ({
+                    ...group,
+                    sources: group.sources.sort((a, b) => b.visitors - a.visitors),
+                })),
         }, { headers: { "Cache-Control": "no-store" } });
     } catch (error) {
         console.warn("[DEV_TRAFFIC_SOURCES] PostHog unavailable:", error);
