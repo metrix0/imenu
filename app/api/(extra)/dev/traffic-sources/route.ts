@@ -33,6 +33,7 @@ export async function GET(request: Request) {
     if (startAt >= endAt) {
         return NextResponse.json({ error: "Período inválido." }, { status: 400 });
     }
+    const previousStart = startAt - (endAt - startAt);
 
     // Explicit iMenu-owned pages. Restaurant storefront slugs and panel pages are excluded.
     const paths = Array.from(new Set([
@@ -79,38 +80,45 @@ export async function GET(request: Request) {
             lower(ifNull(toString(session.$entry_referring_domain), ''))
         )`;
     const hogql = [
-        "SELECT channel, source, uniqExact(distinct_id) AS visitors",
+        "SELECT period, channel, source, uniqExact(distinct_id) AS visitors",
         "FROM (",
-        "  SELECT distinct_id, channel, arrayJoin(['', origin]) AS source",
+        "  SELECT distinct_id, period, channel, arrayJoin(['', origin]) AS source",
         "  FROM (",
         "    SELECT distinct_id,",
+        "      if(timestamp >= toDateTime('" + timestamp(startAt) + "', 'UTC'), 'current', 'previous') AS period,",
         "      if(empty(ifNull(toString(session.$channel_type), '')), 'Unknown', toString(session.$channel_type)) AS channel,",
         "      " + origin + " AS origin",
         "    FROM events",
         "    WHERE event = '$pageview'",
-        "    AND timestamp >= toDateTime('" + timestamp(startAt) + "', 'UTC')",
+        "    AND timestamp >= toDateTime('" + timestamp(previousStart) + "', 'UTC')",
         "    AND timestamp < toDateTime('" + timestamp(endAt) + "', 'UTC')",
         "    AND toString(properties.$host) IN ('www.imenuapp.com.br', 'imenuapp.com.br')",
         "    AND (toString(properties.$pathname) IN (" + pathList + ")",
         "    OR startsWith(toString(properties.$pathname), '/restaurantes/'))",
         "  )",
         ")",
-        "GROUP BY channel, source",
+        "GROUP BY period, channel, source",
         "ORDER BY visitors DESC",
-        "LIMIT 250",
+        "LIMIT 500",
     ].join("\n");
 
     try {
         const rows = await runPostHogQuery(hogql);
-        const channels = new Map<string, {
+        type ChannelGroup = {
             channel: string;
             visitors: number;
             sources: Array<{ source: string; visitors: number }>;
-        }>();
+        };
+        const periods = {
+            current: new Map<string, ChannelGroup>(),
+            previous: new Map<string, ChannelGroup>(),
+        };
         for (const row of rows) {
-            const channel = String(row[0] || "Unknown");
-            const source = String(row[1] || "");
-            const visitors = Number(row[2]) || 0;
+            const period = row[0] === "previous" ? "previous" : "current";
+            const channel = String(row[1] || "Unknown");
+            const source = String(row[2] || "");
+            const visitors = Number(row[3]) || 0;
+            const channels = periods[period];
             if (!channels.has(channel)) {
                 channels.set(channel, { channel, visitors: 0, sources: [] });
             }
@@ -119,12 +127,21 @@ export async function GET(request: Request) {
             else group.visitors = visitors;
         }
         return NextResponse.json({
-            channels: [...channels.values()]
+            channels: [...periods.current.values()]
                 .sort((a, b) => b.visitors - a.visitors)
-                .map(group => ({
-                    ...group,
-                    sources: group.sources.sort((a, b) => b.visitors - a.visitors),
-                })),
+                .map(group => {
+                    const prior = periods.previous.get(group.channel);
+                    return {
+                        ...group,
+                        previousVisitors: prior?.visitors ?? 0,
+                        sources: group.sources
+                            .sort((a, b) => b.visitors - a.visitors)
+                            .map(source => ({
+                                ...source,
+                                previousVisitors: prior?.sources.find(p => p.source === source.source)?.visitors ?? 0,
+                            })),
+                    };
+                }),
         }, { headers: { "Cache-Control": "no-store" } });
     } catch (error) {
         console.warn("[DEV_TRAFFIC_SOURCES] PostHog unavailable:", error);
