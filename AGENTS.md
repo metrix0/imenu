@@ -6,6 +6,7 @@
 - Inspect the actual relevant implementation, schema, state, and logs before concluding. Never invent findings or claim validation not performed.
 - For bug fixes, reproduce or verify the failure before editing. Fix the underlying cause, not just the symptom. Never implement speculative fixes.
 - Keep answers brief and direct unless details are requested. Do not unnecessarily ask for information already available.
+- **Testing with existing accounts:** Never hardcode account-specific exceptions. Use database changes instead, preserving existing data whenever possible. Confirm changes before executing.
 
 ## Live configuration and high-risk operational changes
 - **Ask for the user's explicit permission before changing live/runtime configurations or high-risk operational rules**, including changes made indirectly by code, API calls, dashboards, status checks, scripts, tests, AI agents, or staging environments connected to shared production services. Do not assume a merge, deployment, or an explicit production action is necessary for a live effect; never silently reconfigure external services.
