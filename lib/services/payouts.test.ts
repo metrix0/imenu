@@ -1,7 +1,7 @@
-import { query } from "@/lib/database/sql";
+import { query, withTransaction } from "@/lib/database/sql";
 import { getMercadoPagoPixPayment } from "@/lib/payments/mercadoPagoPix";
-import { createPayoutPlan, isAsaasTransferSafeToRetry, retryFailedPayout } from "./payouts";
-jest.mock("@/lib/database/sql", () => ({ query: jest.fn() }));
+import { createPayoutPlan, isAsaasTransferSafeToRetry, markPayoutPaidManually, retryFailedPayout } from "./payouts";
+jest.mock("@/lib/database/sql", () => ({ query: jest.fn(), withTransaction: jest.fn() }));
 jest.mock("@/lib/payments/mercadoPagoPix", () => ({ getMercadoPagoPixPayment: jest.fn() }));
 beforeEach(() => {
     jest.clearAllMocks();
@@ -168,5 +168,90 @@ describe("retrying transfers already recorded in Asaas", () => {
         expect(isAsaasTransferSafeToRetry({ id: "another", status: "CANCELLED" }, "old", "payout-id")).toBe(false);
         expect(isAsaasTransferSafeToRetry({ id: "old", status: "CANCELLED", externalReference: "different" }, "old", "payout-id")).toBe(false);
         expect(isAsaasTransferSafeToRetry({ id: "old", status: undefined }, "old", "payout-id")).toBe(false);
+    });
+});
+
+describe("manual payout settlement", () => {
+    const cutoffAt = new Date(Date.now() - 4 * 60 * 60 * 1000);
+
+    it("updates only failed/cancelled payouts, preserving their history", async () => {
+        (query as jest.Mock).mockResolvedValueOnce({
+            rows: [{ id: "failed-id", amount_cents: 4950, restaurant_name: "Loja", automation_run_id: null }],
+        });
+        const result = await markPayoutPaidManually({
+            payoutId: "failed-id", expectedAmountCents: 4950,
+        });
+        expect(result).toEqual({
+            payoutId: "failed-id", amountCents: 4950, restaurantName: "Loja",
+        });
+        const [sql, parameters] = (query as jest.Mock).mock.calls[0];
+        expect(sql).toContain("SET status = 'paid', paid_at = NOW()");
+        expect(sql).toContain("p.status IN ('failed', 'cancelled')");
+        expect(sql).toContain("p.amount_cents = $2");
+        expect(parameters.slice(0, 2)).toEqual(["failed-id", 4950]);
+        expect(getMercadoPagoPixPayment).not.toHaveBeenCalled();
+    });
+
+    it("rejects a stale failed payout without marking it paid", async () => {
+        (query as jest.Mock).mockResolvedValueOnce({ rows: [] });
+        await expect(markPayoutPaidManually({
+            payoutId: "failed-id", expectedAmountCents: 4950,
+        })).rejects.toMatchObject({ status: 409 });
+    });
+
+    it("records verified restaurant earnings at the cutoff, retaining newer waiting orders", async () => {
+        (query as jest.Mock).mockImplementation(async (sql: string) => {
+            if (sql.startsWith("SELECT MAX(created_at)"))
+                return { rows: [{ latest: new Date("2026-11-01T13:00:00Z") }] };
+            return { rows: [{
+                restaurant_id: "r", restaurant_name: "Loja",
+                payment_info: null, payment_info_type: null,
+                gross_cents: 10000, pix_order_count: 2,
+                payments: [
+                    { id: "first", payment_ref: "123", total_cents: 5000 },
+                    { id: "second", payment_ref: "456", total_cents: 5000 },
+                ],
+            }] };
+        });
+        const clientQuery = jest.fn(async (sql: string, _params?: unknown[]) => {
+            if (sql.includes("FROM public.restaurants WHERE id = $1 FOR UPDATE"))
+                return { rows: [{ name: "Loja", payment_info: null }] };
+            if (sql.includes("MAX(created_at)"))
+                return { rows: [{ latest: new Date("2026-11-01T13:00:00Z") }] };
+            return { rows: [{ id: "manual-payout-id" }] };
+        });
+        (withTransaction as jest.Mock).mockImplementation(async cb => cb({ query: clientQuery }));
+        const result = await markPayoutPaidManually({
+            restaurantId: "r", cutoffAt, expectedAmountCents: 9900,
+        });
+        expect(result).toMatchObject({
+            payoutId: "manual-payout-id", amountCents: 9900, restaurantName: "Loja",
+        });
+        const insert = clientQuery.mock.calls.find(([sql]) =>
+            sql.includes("INSERT INTO public.payouts"));
+        expect(insert).toBeDefined();
+        expect(insert![1]).toEqual(["r", 9900, 10000, 60, 40, null, cutoffAt.toISOString(), 2,
+            expect.stringContaining("Baixa manual")]);
+        expect(getMercadoPagoPixPayment).toHaveBeenCalledTimes(2);
+    });
+
+    it("rejects changes to the payout boundary before writing", async () => {
+        (query as jest.Mock).mockImplementation(async (sql: string) =>
+            sql.startsWith("SELECT MAX(created_at)")
+                ? { rows: [{ latest: new Date("2026-11-01T13:00:00Z") }] }
+                : { rows: [{
+                    restaurant_id: "r", restaurant_name: "Loja", payment_info: null,
+                    payments: [{ id: "first", payment_ref: "123", total_cents: 5000 }],
+                }] }
+        );
+        const clientQuery = jest.fn(async (sql: string, _params?: unknown[]) =>
+            sql.includes("FOR UPDATE") ? { rows: [{ name: "Loja", payment_info: null }] }
+                : { rows: [{ latest: new Date("2026-11-02T13:00:00Z") }] }
+        );
+        (withTransaction as jest.Mock).mockImplementation(async cb => cb({ query: clientQuery }));
+        await expect(markPayoutPaidManually({
+            restaurantId: "r", cutoffAt, expectedAmountCents: 4950,
+        })).rejects.toMatchObject({ status: 409 });
+        expect(clientQuery.mock.calls.some(([sql]) => sql.includes("INSERT INTO public.payouts"))).toBe(false);
     });
 });

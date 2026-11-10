@@ -9,6 +9,7 @@ import {
     getAsaasBalance,
     getPayoutCutoffAt,
     getPayoutDashboardData,
+    markPayoutPaidManually,
     PayoutValidationError,
     retryFailedPayout,
     sendPayouts,
@@ -93,6 +94,9 @@ export async function POST(request: Request) {
         restaurantIds?: unknown;
         cutoffAt?: unknown;
         retryPayoutId?: unknown;
+        payoutId?: unknown;
+        restaurantId?: unknown;
+        expectedAmountCents?: unknown;
     };
     try {
         body = await request.json();
@@ -120,6 +124,31 @@ export async function POST(request: Request) {
             : null;
 
     try {
+        if (body.action === "mark_paid") {
+            const payoutId = typeof body.payoutId === "string" ? body.payoutId : null;
+            const restaurantId = typeof body.restaurantId === "string" ? body.restaurantId : null;
+            const validId = (id: string | null) =>
+                !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+            if (Number(validId(payoutId)) + Number(validId(restaurantId)) !== 1 ||
+                !Number.isSafeInteger(body.expectedAmountCents) ||
+                Number(body.expectedAmountCents) <= 0) {
+                return NextResponse.json({ error: "Dados inválidos para a baixa manual." }, { status: 400 });
+            }
+            if (payoutId) {
+                return NextResponse.json(await markPayoutPaidManually({
+                    payoutId, expectedAmountCents: Number(body.expectedAmountCents),
+                }));
+            }
+            const cutoffAt = typeof body.cutoffAt === "string"
+                ? new Date(body.cutoffAt) : new Date(NaN);
+            if (!Number.isFinite(cutoffAt.getTime())) {
+                return NextResponse.json({ error: "Período inválido. Atualize a lista." }, { status: 400 });
+            }
+            return NextResponse.json(await markPayoutPaidManually({
+                restaurantId: restaurantId!, cutoffAt,
+                expectedAmountCents: Number(body.expectedAmountCents),
+            }));
+        }
         if (body.action === "fund_asaas") {
             const cutoffAt = getPayoutCutoffAt();
             const plan = await createPayoutPlan({

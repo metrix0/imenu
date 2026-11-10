@@ -5,6 +5,7 @@ import {
     createPayoutPlan,
     getAsaasBalance,
     getPayoutDashboardData,
+    markPayoutPaidManually,
     sendPayouts,
 } from "@/lib/services/payouts";
 import {
@@ -19,6 +20,7 @@ jest.mock("@/lib/services/payouts", () => ({
     getAsaasBalance: jest.fn(),
     getPayoutCutoffAt: jest.fn(() => new Date("2026-10-23T00:00:00Z")),
     getPayoutDashboardData: jest.fn(),
+    markPayoutPaidManually: jest.fn(),
     retryFailedPayout: jest.fn(),
     sendPayouts: jest.fn(),
     PayoutValidationError: class extends Error {},
@@ -188,4 +190,59 @@ it("sends only the selected restaurants with the reviewed cutoff and fee", async
         restaurantIds,cutoffAt:new Date("2026-10-23T00:00:00.000Z"),discountPercent:1,adjustToOnePercent:true,
     }));
     expect(transferMercadoPagoToAsaas).not.toHaveBeenCalled();
+});
+
+describe("mark payout as paid manually", () => {
+    const payoutId = "30000000-0000-4000-8000-000000000001";
+    const restaurantId = "30000000-0000-4000-8000-000000000002";
+    const post = (body: unknown) => POST(new Request("https://example.com/api/dev/payout", {
+        method: "POST",
+        headers: { authorization: "Bearer token", "content-type": "application/json" },
+        body: JSON.stringify(body),
+    }));
+
+    it("marks a failed payout without sending money", async () => {
+        (markPayoutPaidManually as jest.Mock).mockResolvedValue({
+            payoutId, amountCents: 9900, restaurantName: "Loja",
+        });
+        const response = await post({ action: "mark_paid", payoutId, expectedAmountCents: 9900 });
+        expect(response.status).toBe(200);
+        expect(markPayoutPaidManually).toHaveBeenCalledWith({ payoutId, expectedAmountCents: 9900 });
+        expect(sendPayouts).not.toHaveBeenCalled();
+        expect(transferMercadoPagoToAsaas).not.toHaveBeenCalled();
+    });
+
+    it("marks only a restaurant's reviewed cutoff amount", async () => {
+        (markPayoutPaidManually as jest.Mock).mockResolvedValue({
+            payoutId, amountCents: 9900, restaurantName: "Loja",
+        });
+        const response = await post({
+            action: "mark_paid", restaurantId, cutoffAt: "2026-10-23T00:00:00.000Z",
+            expectedAmountCents: 9900,
+        });
+        expect(response.status).toBe(200);
+        expect(markPayoutPaidManually).toHaveBeenCalledWith({
+            restaurantId, cutoffAt: new Date("2026-10-23T00:00:00.000Z"),
+            expectedAmountCents: 9900,
+        });
+        expect(sendPayouts).not.toHaveBeenCalled();
+    });
+
+    it.each([
+        { payoutId, restaurantId, expectedAmountCents: 9900 },
+        { restaurantId, expectedAmountCents: 9900 },
+        { payoutId: "invalid", expectedAmountCents: 9900 },
+        { payoutId, expectedAmountCents: 0 },
+    ])("rejects invalid manual confirmation %j", async fields => {
+        const response = await post({ action: "mark_paid", ...fields });
+        expect(response.status).toBe(400);
+        expect(markPayoutPaidManually).not.toHaveBeenCalled();
+    });
+
+    it("blocks manual payout status changes on staging", async () => {
+        delete process.env.IMENU_SUPPORT_PUBLIC_URL;
+        const response = await post({ action: "mark_paid", payoutId, expectedAmountCents: 9900 });
+        expect(response.status).toBe(403);
+        expect(markPayoutPaidManually).not.toHaveBeenCalled();
+    });
 });
