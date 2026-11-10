@@ -48,7 +48,7 @@ export async function GET(request: Request) {
     // Reuse the legacy dashboard's content taxonomy, including articles like
     // /cardapio-digital, rather than treating only /blog/* as blog content.
     const articlePaths = Array.from(new Set([
-        "/blog", ...PUBLIC_CONTENT_PAGES.filter(page => page.kind === "Conteúdo").map(page => page.path),
+        "/blog", ...PUBLIC_CONTENT_PAGES.filter(page => page.kind === "Conteúdo" || page.kind === "Comparativo").map(page => page.path),
     ].flatMap(path => [path, path + "/"])));
     const articleList = articlePaths.map(path => "'" + path.replace(/'/g, "''") + "'").join(", ");
 
