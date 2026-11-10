@@ -91,17 +91,15 @@ export function FunnelMaturationHeader({ title, active, range, onToggle }: {
     range: DateRange;
     onToggle: () => void;
 }) {
-    return <div className="mb-4 flex min-w-0 flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-            <h2 className="text-base font-semibold text-gray-900">{title}</h2>
-            {active && <p className="mt-0.5 text-xs text-gray-500">
-                Período: {formatRangeDate(range.startDate)} – {formatRangeDate(range.endDate)} (7 dias antes)
-            </p>}
-        </div>
+    return <div className="mb-4 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+        <h2 className="text-base font-semibold text-gray-900">{title}</h2>
         <Button type="button" variant={active ? "primary" : "secondary"}
             aria-pressed={active} onClick={onToggle}
             title="Analisa o mesmo intervalo 7 dias antes, mantendo sua duração."
             className="!min-h-8 !px-3 !py-1.5 text-xs">Maturação</Button>
+        {active && <span className="text-xs text-gray-500">
+            Período: {formatRangeDate(range.startDate)} – {formatRangeDate(range.endDate)} (7 dias antes)
+        </span>}
     </div>;
 }
 
