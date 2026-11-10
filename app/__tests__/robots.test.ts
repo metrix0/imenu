@@ -24,11 +24,28 @@ test.each([
     "Claude-SearchBot",
     "Claude-User",
     "bingbot",
+    "Applebot",
+    "DuckAssistBot",
+    "MistralAI-Index",
+    "MistralAI-User",
+    "Meta-WebIndexer",
+    "Meta-ExternalFetcher",
+    "Amzn-SearchBot",
+    "Amzn-User",
+    "YouBot",
 ])("allows existing Google and search/user retrieval crawler %s", agent => {
     expect(groupFor(agent)?.allow).toBe("/");
 });
 
-test.each(["GPTBot", "ClaudeBot", "Google-Extended"])("explicitly blocks training crawler %s", agent => {
+test.each([
+    "GPTBot",
+    "ClaudeBot",
+    "Google-Extended",
+    "Applebot-Extended",
+    "MistralAI-Training",
+    "Meta-ExternalAgent",
+    "Amazonbot",
+])("explicitly blocks training crawler %s", agent => {
     expect(groupFor(agent)?.disallow).toBe("/");
 });
 
