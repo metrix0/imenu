@@ -51,15 +51,23 @@ test('100% Plus usage shows exact reset and buy-more button, without upsell CTA'
  expect(html).not.toContain('Assinar iMenu Plus');
  expect(html.indexOf('Limites serão reiniciados')).toBeLessThan(html.indexOf('aria-label="Limite"'));
 });
-test('free usage only appears near its cap and shows the rolling reset', () => {
+test('free usage at its cap promotes iMenu Plus', () => {
  const html=renderToStaticMarkup(<AiUsage access={access(false,100,0)} onBuyTokens={() => {}} />);
  expect(html).toContain('Uso gratuito de IA');
- expect(html).toContain('Limites serão reiniciados em');
+ expect(html).toContain('Você chegou ao limite Grátis. Adquira iMenu Plus para continuar!');
+ expect(html).not.toContain('Limites serão reiniciados');
  expect(html).not.toContain('Recarregar créditos');
 });
+test('free near-limit usage promotes iMenu Plus without showing a reset date', () => {
+ const html=renderToStaticMarkup(<AiUsage access={access(false,80,0)} />);
+ expect(html).toContain('Você está próximo do limite Grátis. Adquira iMenu Plus para continuar!');
+ expect(html).not.toContain('Limites serão reiniciados');
+});
 test('free limit keeps the iMenu Plus paywall without credit recharge', () => {
- const html = renderToStaticMarkup(<IaPlusLimitMessage resetAt={resetAt} onCheckout={() => {}} />);
+ const html = renderToStaticMarkup(<IaPlusLimitMessage onCheckout={() => {}} />);
  expect(html).toContain('Limite gratuito do Assistente IA');
+ expect(html).toContain('Seu limite gratuito foi atingido. Adquira iMenu Plus para continuar.');
+ expect(html).not.toContain('Limites serão reiniciados');
  expect(html).toContain('Assinar iMenu Plus');
  expect(html).not.toContain('Recarregar créditos');
 });

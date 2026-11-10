@@ -28,7 +28,7 @@ const faq = [
     { question: "Quanto custa o iMenu Plus?", answer: "O preço regular é R$ 49,99 por mês. Consulte o painel Planos para conferir as condições de contratação vigentes." },
     { question: "O Robô WhatsApp com IA faz parte do Plus?", answer: "Sim. O Robô WhatsApp tradicional permanece gratuito. Com Plus válido, o robô pode usar IA para dúvidas sobre produtos e preços não atendidas pelos fluxos comuns, mantendo atendimento humano." },
     { question: "O iMenu continua gratuito?", answer: "Sim. O cardápio digital, o recebimento de pedidos, o Robô WhatsApp, o CRM, o QR Code Mesa, o Painel Garçom e outros recursos gratuitos continuam disponíveis sem contratar o iMenu Plus." },
-    { question: "O WhatsApp automático de marketing é gratuito?", answer: "O Robô WhatsApp do cardápio é gratuito. Recuperação de carrinho, reativação e mensagens por hábitos de compra são automações de marketing incluídas no iMenu Plus e exigem as condições de envio, como conexão e consentimento." },
+    { question: "O WhatsApp automático de marketing é gratuito?", answer: "O Robô WhatsApp do cardápio é gratuito. Recuperação de carrinho, reativação e mensagens por hábitos de compra são automações de marketing incluídas no iMenu Plus e exigem as condições de envio, como conexão, limites de envio e descadastro." },
     { question: "O Assistente IA só funciona com iMenu Plus?", answer: "Não. Existe acesso gratuito ao Assistente IA, inclusive para geração de imagens, dentro das condições aplicáveis. O Plus amplia a capacidade e o acesso." },
     { question: "O Vendas IA altera o cardápio sozinho?", answer: "Não. A análise identifica oportunidades e pode preparar propostas. A aplicação das alterações depende de revisão e aprovação do restaurante." },
     { question: "Preciso pagar pelo QR Code na mesa?", answer: "Não. QR Code Mesa e Painel Garçom são gratuitos e independentes do iMenu Plus." },
@@ -116,8 +116,8 @@ export default function IMenuPlusPage() {
                     Na área <Link href="/painel/marketing" className="font-semibold text-brand underline">Marketing</Link>,
                     o restaurante pode configurar regras, textos e ofertas opcionais, além de acompanhar
                     envios. A execução depende de WhatsApp conectado, configurações ativas,
-                    consentimento para receber marketing e demais condições de entrega.
-                    A existência de um telefone no pedido não autoriza campanhas indiscriminadas.
+                    pedidos de descadastro e demais condições de entrega.
+                    A existência de um telefone no pedido não justifica campanhas indiscriminadas.
                 </p>
                 <BlogCallout title="Robô WhatsApp e marketing são coisas diferentes" variant="info">
                     O Robô WhatsApp gratuito ajuda no atendimento e no fluxo dos pedidos.
@@ -163,7 +163,7 @@ export default function IMenuPlusPage() {
                 </p>
                 <p>
                     O CRM organiza os segmentos de clientes; a automação de reativação é um recurso
-                    pago do Plus. O envio continua condicionado a consentimento e à configuração
+                    pago do Plus. O envio continua condicionado à conexão e à configuração
                     do canal. Avalie o retorno junto com a frequência de compra e o custo da campanha.
                 </p>
             </BlogSection>
@@ -280,7 +280,7 @@ export default function IMenuPlusPage() {
                     { title: "Leia a base", description: "Na área Clientes, confira histórico, favoritos e segmentos. Este passo usa o CRM gratuito." },
                     { title: "Escolha a oportunidade", description: "No Vendas IA, revise as sugestões disponíveis e identifique um ajuste realista para a operação." },
                     { title: "Prepare a mudança", description: "Peça ao Assistente IA uma descrição melhor ou uma prévia de imagem fiel ao produto. Confira e aprove antes de aplicar." },
-                    { title: "Configure a comunicação", description: "Se fizer sentido, ative uma automação de marketing do Plus para um público e um objetivo específicos, com consentimento." },
+                    { title: "Configure a comunicação", description: "Se fizer sentido, ative uma automação de marketing do Plus para um público e um objetivo específicos, respeitando pedidos de SAIR." },
                     { title: "Acompanhe os próximos pedidos", description: "Observe pedidos, retorno dos clientes e margem dos itens afetados, sem atribuir toda oscilação à campanha." },
                 ]} />
                 <p>
@@ -319,7 +319,7 @@ export default function IMenuPlusPage() {
                 </p>
                 <BlogSteps items={[
                     { title: "Defina um problema", description: "Escolha entre recompra, carrinhos interrompidos, apresentação do cardápio ou sugestões de produtos. Evite perseguir tudo de uma vez." },
-                    { title: "Verifique os dados e o canal", description: "Confira pedidos, cardápio, WhatsApp conectado e consentimento para marketing quando a ação envolver mensagens." },
+                    { title: "Verifique os dados e o canal", description: "Confira pedidos, cardápio, WhatsApp conectado e os limites de envio quando a ação envolver mensagens." },
                     { title: "Ative apenas o necessário", description: "Configure uma automação ou prepare uma melhoria com IA, sempre revisando os textos, a oferta e as regras." },
                     { title: "Estabeleça uma comparação", description: "Observe pedidos, recorrência, ticket médio e custos antes e depois, considerando sazonalidade e variações de volume." },
                     { title: "Revise e ajuste", description: "Se a ação não ajuda, modifique-a ou desative-a. O plano deve servir à operação, e não gerar mais tarefas sem retorno." },

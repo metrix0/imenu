@@ -370,7 +370,7 @@ async function crmPanels(browser) {
         sessionStorage.setItem("imenu-creation-complete:"+user.id,"true");
         localStorage.setItem("imenu:application-promo-dismissed-at:v1",String(Date.now()));
     },{user,token,restaurantId,authStorageKey:process.env.NEXT_PUBLIC_SUPABASE_AUTH_STORAGE_KEY||"sb-127-auth-token"});
-    const customer={habits:[],favorite_product:null,phone:"5511999990000",name:"Cliente CRM",address:{rua:"Rua de teste",numero:"123",bairro:"Centro"},marketing_consent:true,opted_out_at:null,order_count:3,spending_cents:15000,average_ticket_cents:5000,last_purchase:new Date().toISOString(),segment:"Frequente"};
+    const customer={habits:[],favorite_product:null,phone:"5511999990000",name:"Cliente CRM",address:{rua:"Rua de teste",numero:"123",bairro:"Centro"},opted_out_at:null,order_count:3,spending_cents:15000,average_ticket_cents:5000,last_purchase:new Date().toISOString(),segment:"Frequente"};
     let saved=null,saveCount=0,pdfPlus=false;
     const settings={dailyTotalLimit:10,...Object.fromEntries(["cart","reactivation","habit"].map(kind=>[kind,{enabled:false,message:"Oi, {{nome}}! Vamos pedir na {{restaurante}}?",days:30,dailyLimit:kind==="cart"?7:2,cooldownDays:kind==="reactivation"?120:7,offer:""}]))};
     await page.setRequestInterception(true);

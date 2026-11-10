@@ -1067,7 +1067,7 @@ export async function POST(request: Request) {
                     const crmPhone = normalizeCustomerPhone(customer_phone);
                     const crmAddress = isPickup || isCounterOrder || isTableOrder ? null : structuredAddress(body.customer_address_details);
                     if (crmPhone && !isTableOrder) {
-                        await client.query(`UPDATE customers SET address=coalesce($3::jsonb,address), marketing_consent=marketing_consent OR $4::boolean,updated_at=now() WHERE restaurant_id=$1 AND phone=$2`,[restaurantId,crmPhone,crmAddress ? JSON.stringify(crmAddress) : null,body.marketing_consent===true]);
+                        await client.query(`UPDATE customers SET address=coalesce($3::jsonb,address),updated_at=now() WHERE restaurant_id=$1 AND phone=$2`,[restaurantId,crmPhone,crmAddress ? JSON.stringify(crmAddress) : null]);
                     }
                     const crmSession = readCookie(request,checkoutCookie(restaurantId));
                     if (/^[0-9a-f-]{36}$/i.test(crmSession)) {

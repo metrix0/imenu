@@ -20,7 +20,6 @@ export async function GET(request: NextRequest) {
           p.get("segment") || "",
           Math.max(1, Math.min(10000, Number(p.get("page")) || 1)),
           p.get("orders") || "",
-          p.get("marketing") || "",
           p.get("sort") || "last:desc",
         );
     return NextResponse.json(result, {

@@ -101,6 +101,21 @@ export async function loadPostHogMetrics(
         .map((path) => `'${path.replace(/'/g, "\\'")}'`)
         .join(", ");
 
+    // Historical Plus tracking used pageviews for three panel pages. Keep them
+    // only before the first Plus-exposure tracking commit; do not synthesize
+    // missing modal, plan-card, or quota-notice events.
+    const legacyPlusPageview = `event = '$pageview'
+        AND timestamp < toDateTime('2026-11-10 12:50:49', 'UTC')
+        AND properties.$pathname IN (
+            '/painel/vendas-ia', '/painel/assistente-ia', '/painel/marketing',
+            '/painel/vendas-ia/', '/painel/assistente-ia/', '/painel/marketing/'
+        )`;
+    const plusExposure = `event = 'imenu_plus_exposure_viewed'
+        AND timestamp >= toDateTime('2026-11-10 12:50:49', 'UTC')
+        AND toString(properties.surface) IN (
+            'sales_modal', 'plus_page', 'assistant_limit', 'sales_section', 'marketing_page'
+        )`;
+
     // Recount a visitor only seven full days after their last counted visit.
     const rollingVisitors = repeatAfter7Days ? `
         WITH rolling_visitors AS (
@@ -126,22 +141,18 @@ export async function loadPostHogMetrics(
                         distinct_id,
                         timestamp,
                         multiIf(
-                            properties.$pathname = '/', 'imenu',
-                            properties.$pathname IN (
-                                '/painel/vendas-ia', '/painel/assistente-ia', '/painel/marketing',
-                                '/painel/vendas-ia/', '/painel/assistente-ia/', '/painel/marketing/'
-                            ), 'ia_plus',
-                            properties.$pathname IN ('/painel/mesas', '/painel/mesas/'), 'qr_code_mesa',
+                            (${plusExposure}) OR (${legacyPlusPageview}), 'ia_plus',
+                            event = '$pageview' AND properties.$pathname = '/', 'imenu',
+                            event = '$pageview' AND properties.$pathname IN ('/painel/mesas', '/painel/mesas/'), 'qr_code_mesa',
                             'other'
                         ) AS product
                     FROM events
-                    WHERE event = '$pageview'
-                      AND timestamp >= toDateTime('${start}', 'UTC')
+                    WHERE timestamp >= toDateTime('${start}', 'UTC')
                       AND timestamp < toDateTime('${end}', 'UTC')
-                      AND properties.$pathname IN (
-                          '/', '/painel/vendas-ia', '/painel/assistente-ia', '/painel/marketing',
-                          '/painel/vendas-ia/', '/painel/assistente-ia/', '/painel/marketing/',
-                          '/painel/mesas', '/painel/mesas/'
+                      AND (
+                          (event = '$pageview' AND properties.$pathname IN ('/', '/painel/mesas', '/painel/mesas/'))
+                          OR (${plusExposure})
+                          OR (${legacyPlusPageview})
                       )
                 )
                 GROUP BY distinct_id, product
@@ -176,10 +187,7 @@ export async function loadPostHogMetrics(
             ${repeatAfter7Days ? "ifNull(any(rv.imenu_views), 0)" : "uniqIf(distinct_id, event = '$pageview' AND properties.$pathname = '/')"} AS landing_pageviews,
             ${repeatAfter7Days
                 ? "ifNull(any(rv.ia_plus_views), 0)"
-                : `uniqIf(distinct_id, event = '$pageview' AND properties.$pathname IN (
-                    '/painel/vendas-ia', '/painel/assistente-ia',
-                    '/painel/vendas-ia/', '/painel/assistente-ia/', '/painel/marketing', '/painel/marketing/'
-                ))`} AS ia_plus_pageviews,
+                : `uniqIf(distinct_id, (${plusExposure}) OR (${legacyPlusPageview}))`} AS ia_plus_pageviews,
             ${repeatAfter7Days ? "ifNull(any(rv.qr_views), 0)" : "uniqIf(distinct_id, event = '$pageview' AND properties.$pathname IN ('/painel/mesas', '/painel/mesas/')"} AS qr_pageviews,
             countIf(
                 event = '$pageview'

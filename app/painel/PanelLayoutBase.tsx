@@ -39,6 +39,7 @@ import SupportButton, {
     type SupportButtonRef,
 } from "@/components/common/SupportButton";
 import { OrderSoundProvider } from "@/components/restaurant-owner/OrderSoundProvider";
+import OrderMilestonePlusPopup from "@/components/restaurant-owner/OrderMilestonePlusPopup";
 import { ensureOwnerPushSubscription } from "@/lib/push/client";
 import { supabase } from "@/lib/database/supabaseClient";
 import { capturePosthogLightweight } from "@/lib/api/instrumentation-client";
@@ -293,6 +294,7 @@ export default function PainelLayout({
             }
 
             setIsChecking(false);
+            capturePosthogLightweight("panel_dashboard_viewed", session.user.id);
             // The SDK excludes panel events; measure these product pages without loading it.
             if (window.location.pathname === pathname && productPageViewRef.current !== pathname) {
                 productPageViewRef.current = pathname;
@@ -448,6 +450,7 @@ export default function PainelLayout({
 
     return (
         <OrderSoundProvider>
+            <OrderMilestonePlusPopup />
             <ConfirmModal
                 open={showCloseModal}
                 onClose={() => setShowCloseModal(false)}

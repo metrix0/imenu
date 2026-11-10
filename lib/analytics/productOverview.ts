@@ -2,7 +2,7 @@ export type ProductKey = "imenu" | "ia_plus" | "qr_code_mesa";
 export type ProductPageViews = Record<ProductKey, number | null>;
 export type ProductOverviewMetrics = {
     pageViews: number | null;
-    trafficSource: "pageviews" | "tab_opens";
+    trafficSource: "pageviews" | "tab_opens" | "plus_exposures";
     buyers: number;
     conversion: number | null;
     churnedUsers: number;
@@ -96,17 +96,16 @@ export function buildProductOverview(
     panelTabs?: { available: boolean; tabs: { tab: string; opens: number }[] }
 ): ProductOverview {
     const metric = (key: ProductKey, buyers: number, count: number, base: number): ProductOverviewMetrics => {
-        const labels = key === "ia_plus" ? ["Assistente IA", "Vendas IA", "Marketing"] : key === "qr_code_mesa" ? ["Mesas"] : [];
+        const labels = key === "qr_code_mesa" ? ["Mesas"] : [];
         const opens = panelTabs?.available
             ? panelTabs.tabs.reduce((sum, tab) => sum + (labels.includes(tab.tab) ? tab.opens : 0), 0)
             : 0;
-        // Panel pageviews were previously blocked. Reuse known tab opens only
-        // when no pageviews exist; never add both events for the same visit.
-        const useTabOpens = (pageViews[key] === null || pageViews[key] === 0) && opens > 0;
+        // Mesas can fall back to tab opens. Plus uses only its explicit exposure events.
+        const useTabOpens = key === "qr_code_mesa" && (pageViews[key] === null || pageViews[key] === 0) && opens > 0;
         const traffic = useTabOpens ? opens : pageViews[key];
         return {
             pageViews: traffic,
-            trafficSource: useTabOpens ? "tab_opens" : "pageviews",
+            trafficSource: key === "ia_plus" ? "plus_exposures" : useTabOpens ? "tab_opens" : "pageviews",
             buyers,
             conversion: ratio(buyers, traffic),
             churnedUsers: count,

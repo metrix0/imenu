@@ -253,7 +253,10 @@ test.each([
   [false, 3],
   [true, LIMITS.imageBatch],
 ])("Plus=%s image proposal tool allows %i images per batch", async (plus, maxJobs) => {
-  (aiAccess as jest.Mock).mockResolvedValueOnce({ plus });
+  // Image requests check access before the run and again when selecting tools.
+  (aiAccess as jest.Mock)
+    .mockResolvedValueOnce({ plus, images_remaining: 3 })
+    .mockResolvedValueOnce({ plus, images_remaining: 3 });
   (query as jest.Mock).mockImplementation(async (sql: string) => ({
     rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
       ? [{ kind: "chat", summary: "" }]
@@ -841,7 +844,7 @@ test("free chat turns an internal response limit into a normal assistant reply w
   expect(finished[3]).toBeUndefined();
 });
 
-test("weekly image exhaustion saves a notice with reset/support while chat stays usable", async () => {
+test("weekly image exhaustion saves a Plus upgrade notice while chat stays usable", async () => {
   (args.send as jest.Mock).mockClear();
   (aiAccess as jest.Mock).mockResolvedValueOnce({ plus: false }).mockResolvedValueOnce({
     plus: false, images_remaining: 0, images_reset_at: "2026-11-10T14:30:00Z",
@@ -876,8 +879,8 @@ test("weekly image exhaustion saves a notice with reset/support while chat stays
   const notices = (query as jest.Mock).mock.calls.filter(([sql]) =>
     sql.startsWith("INSERT INTO public.ia_vendas_messages (restaurant_id,conversation_id,role,content,cards)"));
   expect(notices).toHaveLength(1);
-  expect(notices[0][1][2]).toContain("10/11 às 11:30");
-  expect(notices[0][1][2]).toContain("+55 19 99723-5394");
+  expect(notices[0][1][2]).toContain("Adquira iMenu Plus");
+  expect(notices[0][1][2]).not.toContain("10/11 às 11:30");
   expect(JSON.parse(notices[0][1][3])).toEqual([{ type: "image_limit" }]);
   const finished = (finishRun as jest.Mock).mock.calls.at(-1);
   expect(finished[2].reply).toBe("Posso continuar ajudando com textos.");
@@ -960,9 +963,37 @@ test("chat tells the model when the first application is already used", async ()
   expect((finishRun as jest.Mock).mock.calls.at(-1)[2].reply).toContain("primeira aplicação grátis já foi usada");
 });
 
+test("exhausted free image requests persist an iMenu Plus button without invoking OpenAI", async () => {
+  (args.send as jest.Mock).mockClear();
+  (beginRun as jest.Mock).mockClear();
+  (aiAccess as jest.Mock).mockResolvedValueOnce({
+    plus: false, images_remaining: 0, images_reset_at: "2026-11-13T16:59:00Z",
+  });
+  (query as jest.Mock).mockImplementation(async (statement: string) => ({
+    rows: statement.includes("SELECT * FROM public.ia_vendas_conversations") ? [{ kind: "chat", summary: "" }] : [],
+  }));
+  const sql = jest.fn().mockImplementation(async (statement: string) => ({
+    rowCount: 1,
+    rows: statement.startsWith("INSERT INTO public.ia_vendas_runs") ? [{ id: "run" }] : [],
+  }));
+  (withTransaction as jest.Mock).mockImplementationOnce(async (fn) => fn({ query: sql }));
+
+  await runChat({ ...args, text: "gere outra imagem", deep: false, attachments: [] });
+
+  expect(beginRun).not.toHaveBeenCalled();
+  expect(create).not.toHaveBeenCalled();
+  const inserts = sql.mock.calls.filter(([statement]) => statement.startsWith("INSERT INTO public.ia_vendas_messages"));
+  expect(inserts).toHaveLength(2);
+  expect(inserts[0][1][3]).toBe("gere outra imagem");
+  expect(inserts[1][1][3]).toContain("Adquira iMenu Plus");
+  expect(inserts[1][1][3]).not.toContain("13/11");
+  expect(JSON.parse(inserts[1][1][4])).toEqual([{ type: "image_limit" }]);
+  expect(args.send).toHaveBeenCalledWith("done", expect.objectContaining({ duplicate: false }));
+});
+
 test.each([
   ["monthly", () => new (require("../types").SalesError)("Limite mensal de IA atingido. Limites serão reiniciados em 30/11 às 21:00.", 429)],
-  ["free", () => new IaPlusRequired("Seu limite gratuito foi atingido. Limites serão reiniciados em 10/11 às 14:00.")],
+  ["free", () => new IaPlusRequired("Seu limite gratuito foi atingido. Adquira iMenu Plus para continuar.")],
 ])("quota-exhausted %s sends persist both messages without invoking OpenAI", async (quota, reject) => {
   (beginRun as jest.Mock).mockRejectedValueOnce(reject());
   (query as jest.Mock).mockImplementation(async (statement: string) => ({
@@ -990,7 +1021,8 @@ test.each([
   expect(inserts[1][0]).toContain("clock_timestamp()");
   // The read query sorts an assistant reply before its timestamp-tied user message (DESC),
   // then reverses that window for natural user → assistant display.
-  expect(inserts[1][1][3]).toContain("Limites serão reiniciados");
+  expect(inserts[1][1][3]).toContain(quota === "free" ? "Adquira iMenu Plus" : "Limites serão reiniciados");
+  if (quota === "free") expect(inserts[1][1][3]).not.toContain("Limites serão reiniciados");
   expect(JSON.parse(inserts[1][1][4])).toEqual([{ type: "quota_notice", quota }]);
   expect(create).not.toHaveBeenCalled();
   expect(args.send).toHaveBeenCalledWith("done", expect.objectContaining({ duplicate: false }));

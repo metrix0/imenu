@@ -1,0 +1,59 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import type { DateRange } from "@/lib/utils/dateRange";
+import { devJson } from "@/lib/dev/client";
+import { TrafficBar } from "./TrafficSourcesSection";
+import DevLoading from "./DevLoading";
+import styles from "./dashboard.module.css";
+
+type PathSource = "blog" | "menus" | "tools" | "content" | "other";
+type PathRow = { source: PathSource; visitors: number; previousVisitors: number };
+type PathData = { paths: PathRow[] };
+
+const PATHS: { source: PathSource; label: string; info: string }[] = [
+    { source: "blog", label: "Blog", info: "Pessoas que chegaram à página inicial a partir de artigos ou do índice do blog." },
+    { source: "menus", label: "Cardápios de restaurantes", info: "Pessoas que chegaram à página inicial vindas de URLs de cardápios, como o link no rodapé. Identificação pela estrutura da URL." },
+    { source: "tools", label: "Ferramentas", info: "Pessoas vindas de páginas das ferramentas gratuitas do iMenu." },
+    { source: "content", label: "Páginas de conteúdo", info: "Pessoas vindas de comparativos, páginas institucionais e demais conteúdos do iMenu." },
+    { source: "other", label: "Outras páginas iMenu", info: "Pessoas vindas de outras páginas internas identificadas pelo endereço de referência." },
+];
+
+export default function LandingPathsSection({ range }: { range: DateRange }) {
+    const [data, setData] = useState<PathData | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+
+    useEffect(() => {
+        const controller = new AbortController();
+        setLoading(true);
+        setError("");
+        const params = new URLSearchParams({ startDate: range.startDate, endDate: range.endDate });
+        void devJson<PathData>("/api/dev/landing-paths?" + params, { signal: controller.signal })
+            .then(result => { if (!controller.signal.aborted) setData(result); })
+            .catch(err => { if (!controller.signal.aborted) { setError(err.message); setData(null); } })
+            .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+        return () => controller.abort();
+    }, [range.startDate, range.endDate]);
+
+    const rows = PATHS.map(path => ({
+        ...path,
+        visitors: data?.paths.find(row => row.source === path.source)?.visitors ?? 0,
+        previousVisitors: data?.paths.find(row => row.source === path.source)?.previousVisitors ?? 0,
+    }));
+    const maxVisitors = Math.max(1, ...rows.map(row => row.visitors));
+
+    return <section aria-label="Caminhos até a LP" className={styles.section}>
+        <header className={styles.sectionHeader}>
+            <h3 className="text-sm font-semibold text-gray-900">Caminhos até a LP</h3>
+        </header>
+        <p className="px-5 pt-3 text-xs text-gray-500">
+            Pessoas que chegaram à página inicial a partir de páginas internas identificadas pelo referenciador. Uma pessoa pode aparecer em mais de um caminho.
+        </p>
+        {error && <p role="alert" className="p-5 text-sm text-red-700">{error}</p>}
+        {loading ? <DevLoading /> : !error && <div className="grid min-w-0 grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-2 gap-y-2 p-5">
+            {rows.map(row => <TrafficBar key={row.source} label={row.label} info={row.info}
+                visitors={row.visitors} previousVisitors={row.previousVisitors} maxVisitors={maxVisitors} />)}
+        </div>}
+    </section>;
+}

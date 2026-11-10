@@ -20,6 +20,15 @@ export function parseDate(value: string): Date {
     return new Date(year, month - 1, day);
 }
 
+/** Shift the selected calendar window while retaining its exact number of days. */
+export function shiftDateRange(range: DateRange, days: number): DateRange {
+    const start = parseDate(range.startDate);
+    const end = parseDate(range.endDate);
+    start.setDate(start.getDate() - days);
+    end.setDate(end.getDate() - days);
+    return { startDate: formatDate(start), endDate: formatDate(end) };
+}
+
 export function formatRangeDate(value: string): string {
     return parseDate(value).toLocaleDateString("pt-BR", {
         day: "2-digit",

@@ -61,14 +61,15 @@ test("monthly quota reply is an assistant-style card with consistent purchase an
 test("free quota reply keeps the subscriber upgrade path", () => {
   const html = renderToStaticMarkup(
     <AssistantQuotaReply
-      message="Seu limite gratuito foi atingido. Limites serão reiniciados em 10/11 às 14:00."
+      message="Seu limite gratuito foi atingido. Adquira iMenu Plus para continuar."
       onBuyCredits={() => {}}
       onSubscribe={() => {}}
       access={{ plus: false } as NonNullable<Parameters<typeof AssistantQuotaReply>[0]["access"]>}
     />,
   );
   expect(html).toContain('aria-label="Limite gratuito atingido"');
-  expect(html).toContain("Limites serão reiniciados em 10/11 às 14:00.");
+  expect(html).toContain("Adquira iMenu Plus para continuar.");
+  expect(html).not.toContain("Limites serão reiniciados");
   expect(html).toContain("Assinar iMenu Plus");
   expect(html).not.toContain("Recarregar créditos");
   expect(html).toContain("Suporte WhatsApp");

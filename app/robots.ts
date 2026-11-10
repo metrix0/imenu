@@ -17,6 +17,41 @@ export default function robots(): MetadataRoute.Robots {
                 allow: "/",
             },
             {
+                // Search discovery and user-initiated AI page retrieval.
+                userAgent: [
+                    "OAI-SearchBot",
+                    "ChatGPT-User",
+                    "PerplexityBot",
+                    "Perplexity-User",
+                    "Claude-SearchBot",
+                    "Claude-User",
+                    "bingbot",
+                    "Applebot",
+                    "DuckAssistBot",
+                    "MistralAI-Index",
+                    "MistralAI-User",
+                    "Meta-WebIndexer",
+                    "Meta-ExternalFetcher",
+                    "Amzn-SearchBot",
+                    "Amzn-User",
+                    "YouBot",
+                ],
+                allow: "/",
+            },
+            {
+                // AI training must stay excluded independently of search.
+                userAgent: [
+                    "GPTBot",
+                    "ClaudeBot",
+                    "Google-Extended",
+                    "Applebot-Extended",
+                    "MistralAI-Training",
+                    "Meta-ExternalAgent",
+                    "Amazonbot",
+                ],
+                disallow: "/",
+            },
+            {
                 userAgent: "*",
                 disallow: "/",
             },

@@ -44,6 +44,7 @@ import { isPanelTabKey, type PanelTabKey } from "@/lib/ia-vendas/panelTabs";
 import ErrorNoticeContent, { AssistantQuotaReply } from "@/components/restaurant-owner/ia-vendas/ErrorNoticeContent";
 import { SupportWhatsappBadge } from "@/components/common/SupportButton";
 import { capturePosthogLightweight } from "@/lib/api/instrumentation-client";
+import { usePlusExposure } from "@/lib/analytics/plusExposure";
 
 type MessagePart =
   | { type: "text"; content: string }
@@ -96,6 +97,7 @@ export default function SalesPage() {
     [batchIds, setBatchIds] = useState<string[]>([]),
     [selectedBatchIds, setSelectedBatchIds] = useState<string[]>([]),
     [newConversation, setNewConversation] = useState(false);
+  const analysisExposureRef = usePlusExposure("sales_section", isAnalysisRoute);
   const end = useRef<HTMLDivElement>(null),
     lastMessage = useRef<HTMLElement>(null),
     previousMessages = useRef({ conversationId: "", count: 0 }),
@@ -596,8 +598,10 @@ export default function SalesPage() {
                         return <SalesAnalysisSuggestionCard key={i} />;
                       if (card.type === "image_limit")
                         return <div key={i} className="mt-3 flex flex-wrap items-center gap-2">
-                          {sales.access?.plus ? <Button variant="secondary" onClick={() => setModal("buy_tokens")}>Comprar tokens</Button> : <Button variant="secondary" onClick={() => setPlusModal("checkout")}>Assinar iMenu Plus</Button>}
-                          <SupportWhatsappBadge />
+                          {sales.access?.plus
+                            ? <Button variant="secondary" onClick={() => setModal("buy_tokens")}>Comprar tokens</Button>
+                            : <Button variant="primary" leftIcon={<Crown size={16} aria-hidden="true" />} onClick={() => setPlusModal("checkout")}>iMenu Plus</Button>}
+                          {sales.access?.plus && <SupportWhatsappBadge />}
                         </div>;
                       return card.type !== "action" ? (
                         <DataCard key={i} card={card} />
@@ -882,7 +886,7 @@ export default function SalesPage() {
           {isAnalysis ? (
             <div className="relative flex min-h-0 flex-1 overflow-hidden" data-analysis-workspace>
               <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" inert={analysisChatOpen && !wideAnalysis}>
-                <div className="sales-analysis-default-shell min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[var(--panel-background)] px-7 pb-20 pt-7" aria-label="Relatório de análise">
+                <div ref={analysisExposureRef} className="sales-analysis-default-shell min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[var(--panel-background)] px-7 pb-20 pt-7" aria-label="Relatório de análise">
                   {!analysisChatOpen && notice}
                   <AnalysisReport
                     locked={locked}
@@ -1072,7 +1076,6 @@ export default function SalesPage() {
             <div className="mx-auto max-w-3xl space-y-8">
               {messageList}
               {freeLimitReached && <IaPlusLimitMessage
-                resetAt={sales.access?.tokens_reset_at}
                 onCheckout={() => setPlusModal("checkout")}
               />}
             </div>

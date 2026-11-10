@@ -72,7 +72,7 @@ export async function beginRun(
     const freeExhausted = free && Number(access.base_tokens_remaining) <= 0;
     if (kind === "image" && freeExhausted && Number(access?.purchased_credits.images || 0) <= 0) {
       throw new IaPlusRequired(
-        `Seu limite gratuito foi atingido.${formatAiResetAt(access?.tokens_reset_at) ? ` Limites serão reiniciados em ${formatAiResetAt(access?.tokens_reset_at)}.` : ""}`,
+        "Seu limite gratuito foi atingido. Adquira iMenu Plus para continuar.",
       );
     }
     const includedInput = kind !== "chat" ? 0 : free
@@ -95,7 +95,7 @@ export async function beginRun(
       if (!wallet.rowCount) {
         if (free) {
           throw new IaPlusRequired(
-            `Seu limite gratuito foi atingido.${formatAiResetAt(access?.tokens_reset_at) ? ` Limites serão reiniciados em ${formatAiResetAt(access?.tokens_reset_at)}.` : ""}`,
+            "Seu limite gratuito foi atingido. Adquira iMenu Plus para continuar.",
           );
         }
         const resetAt = formatAiResetAt(access?.tokens_reset_at);

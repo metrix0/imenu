@@ -388,6 +388,9 @@ export default function CartModal({
             : Array.isArray(configured?.entrega) ? configured.entrega : [];
         return ranges.length === 0;
     })();
+    const missingNeighborhoods = neighborhoodMode && !isTableOrder && !isPickup &&
+        !neighborhoodDeliveryRules?.some((rule) => Boolean(normalizeNeighborhoodName(rule.neighborhood)));
+    const missingDeliveryConfig = missingDeliveryRanges || missingNeighborhoods;
 
     function computeFeeFromTiers(distanceKm: number, tiersAny: any): number | null {
         if (!tiersAny) return null;
@@ -1312,17 +1315,19 @@ export default function CartModal({
                             </button>
                         </div>
 
-                        {missingDeliveryRanges && (
+                        {missingDeliveryConfig && (
                             <WarningBox
                                 role="alert"
                                 icon={icons.faTriangleExclamation}
                                 className="mt-2 mb-8 p-4 2xl:text-lg"
                             >
-                                O restaurante não tem faixas de entrega cadastradas.
+                                {missingNeighborhoods
+                                    ? "O restaurante não tem bairros de entrega cadastrados."
+                                    : "O restaurante não tem faixas de entrega cadastradas."}
                             </WarningBox>
                         )}
 
-                        {showAddressWarning && !isPickup && !missingDeliveryRanges &&
+                        {showAddressWarning && !isPickup && !missingDeliveryConfig &&
                             <WarningBox
                                 icon={icons.faTriangleExclamation}
                                 className="mt-2 mb-8 p-4 2xl:text-lg"

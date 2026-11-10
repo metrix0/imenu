@@ -2,7 +2,8 @@
 import { IA_PLUS_PRICE_LABEL } from "@/lib/addons/products";
 import { PROMO_QR_CODE, PROMO_QR_PRICE_LABEL } from "@/lib/addons/promoQr";
 
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
+import { capturePosthogLightweight } from "@/lib/api/instrumentation-client";
 import { faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
 
 import PaymentCheckout from "@/components/payments/PaymentCheckout";
@@ -83,6 +84,17 @@ export default function QrCodeMesaCheckoutModal({
     onBack,
     onPaid,
 }: QrCodeMesaCheckoutModalProps) {
+    useEffect(() => {
+        if (!open || productKey !== "ia_plus" || renewal) return;
+        let canceled = false;
+        void supabase.auth.getSession().then(({ data: { session } }) => {
+            if (!canceled && session?.user?.id) {
+                capturePosthogLightweight("imenu_plus_checkout_viewed", session.user.id, { restaurant_id: restaurantId });
+            }
+        }).catch(() => undefined);
+        return () => { canceled = true; };
+    }, [open, productKey, renewal, restaurantId]);
+
     const loadCardPrefill = useCallback(async () => {
         const [
             {

@@ -30,11 +30,11 @@ test("iMenu Plus details use meaningful icons and concise customer-facing benefi
   expect(html).not.toContain("deduplicação");
 });
 
-test("Assistant free limit displays the exact reset date and Plus subscription without credit recharge", () => {
+test("Assistant free limit offers Plus without a reset-date or credit recharge", () => {
   const { IaPlusLimitMessage } = require("@/components/restaurant-owner/ia-vendas/IaPlusSalesModal");
-  const html = renderToStaticMarkup(<IaPlusLimitMessage resetAt="2026-12-01T00:00:00.000Z" onCheckout={() => {}} />);
-  expect(html).toContain("Limites serão reiniciados em 30/11 às 21:00");
+  const html = renderToStaticMarkup(<IaPlusLimitMessage onCheckout={() => {}} />);
+  expect(html).toContain("Seu limite gratuito foi atingido.");
   expect(html).toContain("Assinar iMenu Plus");
+  expect(html).not.toContain("Limites serão reiniciados");
   expect(html).not.toContain("Recarregar créditos");
-  expect(html).not.toContain("Seus limites são reiniciados em 7 dias");
 });

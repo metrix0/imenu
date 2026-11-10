@@ -156,12 +156,16 @@ test('Plus usage follows the enforced monthly input/output budgets and reports b
  expect((await aiAccess('restaurant')).usage).toBeNull();
 });
 
-test("image limit text includes reset, continued chat and support phone", async () => {
+test("free image limit promotes Plus; Plus still shows reset and support", async () => {
   const { imageLimitMessage } = await import("../access");
-  expect(imageLimitMessage({ plus: false, images_reset_at: "2026-11-10T14:30:00Z" })).toContain("10/11 às 11:30");
+  const free = imageLimitMessage({ plus: false, images_reset_at: "2026-11-10T14:30:00Z" });
+  expect(free).toContain("Adquira iMenu Plus");
+  expect(free).toContain("75 imagens por mês");
+  expect(free).not.toContain("até 75 imagens");
+  expect(free).not.toContain("10/11 às 11:30");
   expect(imageLimitMessage({ plus: true, images_reset_at: "2026-12-01T00:00:00Z" })).toContain("75 imagens");
   expect(imageLimitMessage({ plus: true, images_reset_at: "2026-12-01T00:00:00Z" })).toContain("Assistente IA normalmente");
-  expect(imageLimitMessage({ plus: false })).toContain("+55 19 99723-5394");
+  expect(imageLimitMessage({ plus: true, images_reset_at: "2026-12-01T00:00:00Z" })).toContain("+55 19 99723-5394");
 });
 
 test("rolling free reset timestamp is computed only when tokens are exhausted", async () => {

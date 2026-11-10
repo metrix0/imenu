@@ -38,7 +38,7 @@ export const BLOG_ARTICLES: BlogArticleDefinition[] = [
         metaDescription:
             "Aprenda a automatizar o WhatsApp do restaurante: recupere carrinhos, reative clientes e use hábitos de compra na aba Marketing do iMenu.",
         excerpt:
-            "Guia da aba Marketing do iMenu: como configurar as três automações, mensagens, cupons, consentimento e histórico de envios.",
+            "Guia da aba Marketing do iMenu: como configurar as três automações, mensagens, cupons, descadastro e histórico de envios.",
         category: "Vendas",
         readingTime: "14 min de leitura",
         publishedAt: "2026-10-28",

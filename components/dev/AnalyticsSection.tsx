@@ -33,15 +33,15 @@ const change = (current: number, previous: number | null | undefined, existing?:
     return { change: (current - previous) / previous * 100 };
 };
 
-export default function AnalyticsSection({range}:{range:DateRange}) {
+export default function AnalyticsSection({range,onLoaded,plusExposureData}:{range:DateRange;onLoaded?:()=>void;plusExposureData?: import("./DashboardPresentation").PlusExposureBreakdown|null}) {
     const [data, setData] = useState<Analytics | null>(null);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(true);
     useEffect(() => {
         const controller = new AbortController(); setLoading(true);
-        void devJson<Analytics>(`/api/dev/dashboard?startDate=${range.startDate}&endDate=${range.endDate}&compact=1`, { signal: controller.signal }).then(result => { setData(result); setError(""); }).catch(e => { if (!controller.signal.aborted) setError(e.message); }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
+        void devJson<Analytics>(`/api/dev/dashboard?startDate=${range.startDate}&endDate=${range.endDate}&compact=1`, { signal: controller.signal }).then(result => { setData(result); setError(""); }).catch(e => { if (!controller.signal.aborted) setError(e.message); }).finally(() => { if (!controller.signal.aborted) { setLoading(false); onLoaded?.(); } });
         return () => controller.abort();
-    }, [range.startDate,range.endDate]);
+    }, [range.startDate,range.endDate,onLoaded]);
     const days = data ? Math.max(1, Math.ceil((new Date(data.range.endAt).getTime() - new Date(data.range.startAt).getTime()) / 86400000)) : 1;
     return <>
         {error && <p role="alert" className="text-red-700">{error}</p>}
@@ -80,7 +80,7 @@ export default function AnalyticsSection({range}:{range:DateRange}) {
                 </div>
             </section>
             <ProductOverviewSections metrics={data.productOverview} previousMetrics={data.previousProductOverview}
-                productsOnly={["imenu", "ia_plus"]} compact />
+                productsOnly={["imenu", "ia_plus"]} plusExposureData={plusExposureData} compact />
             <div className={`${styles.section} ${styles.chartGrid} ${styles.analyticsCharts}`}>
                 <MetricChart embedded value={formatAverage(data.cards.activatedUsers / days)} change={data.cardChanges.activatedUsers} title="Usuários ativados / dia" series={data.series.activatedUsersPerDay} color="#d93d00" decimal />
                 <MetricChart embedded value={formatCount(data.productOverview.ia_plus.buyers)} change={percentageChange(data.productOverview.ia_plus.buyers, data.acquisitions.previous.subscriptions)} title="Assinaturas iMenu Plus" series={data.acquisitions.subscriptions} color="#d93d00" />

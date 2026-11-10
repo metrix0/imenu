@@ -2,10 +2,13 @@
 
 import styles from "./dashboard.module.css";
 import DataTable from "@/components/ui/DataTable";
+import Button from "@/components/ui/Button";
+import { formatRangeDate, type DateRange } from "@/lib/utils/dateRange";
 import { CHART_CATEGORY_AXIS, CHART_VALUE_AXIS, STANDARD_CHART_TOOLTIP, createBrandAreaGradient } from "@/components/restaurant-owner/exibicoes/chartStyles";
 import { Chart as ChartJS, Filler } from "chart.js";
 import { Line } from "react-chartjs-2";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { ChevronDown } from "lucide-react";
 import type { ProductOverview } from "@/lib/analytics/productOverview";
 import { formatAverage, formatCount, formatCurrency, formatRatio, conversion } from "@/lib/dev/dashboardFormat";
 import InfoTooltip from "@/components/ui/Tooltip";
@@ -80,14 +83,37 @@ export function SectionHeading({
     );
 }
 
+export const FUNNEL_MATURATION_DAYS = 7;
+
+export function FunnelMaturationHeader({ title, active, range, onToggle }: {
+    title: string;
+    active: boolean;
+    range: DateRange;
+    onToggle: () => void;
+}) {
+    return <div className="mb-4 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+        <h2 className="text-base font-semibold text-gray-900">{title}</h2>
+        <Button type="button" variant="secondary"
+            aria-pressed={active} onClick={onToggle}
+            title="Analisa o mesmo intervalo 7 dias antes, mantendo sua duração."
+            className={`!min-h-8 !px-3 !py-1.5 text-xs ${active ? "!bg-[#f1f3f5] !border-[#d1d5db] font-semibold" : ""}`}>Maturação</Button>
+        {active && <span className="text-xs text-gray-500">
+            Período: {formatRangeDate(range.startDate)} – {formatRangeDate(range.endDate)} (7 dias antes)
+        </span>}
+    </div>;
+}
+
 export function QrTableFunnelCard({
     title,
+    description,
     steps,
 }: {
     title: string;
+    description?: string;
     steps: Array<{
         label: string;
         value: number | null;
+        info?: string;
         conversionBase?: number | null;
         conversionLabel?: string;
     }>;
@@ -95,6 +121,7 @@ export function QrTableFunnelCard({
     return (
         <article className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
             <h3 className="font-semibold text-gray-900">{title}</h3>
+            {description && <p className="mt-1 text-xs leading-5 text-gray-500">{description}</p>}
             <div className="mt-4 grid gap-3">
                 {steps.map((step, index) => {
                     const previous =
@@ -114,9 +141,14 @@ export function QrTableFunnelCard({
                             className="flex items-center justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3"
                         >
                             <div>
-                                <p className="text-sm font-medium text-gray-700">
-                                    {step.label}
-                                </p>
+                                <div className="flex items-center gap-2">
+                                    <p className="text-sm font-medium text-gray-700">{step.label}</p>
+                                    {step.info && <InfoTooltip text={step.info} showOnClick>
+                                        <button type="button" aria-label={"Sobre " + step.label} className="text-gray-400 hover:text-gray-600">
+                                            <PanelIcon icon={faCircleInfo} className="text-xs" />
+                                        </button>
+                                    </InfoTooltip>}
+                                </div>
                                 {index > 0 && (
                                     <p className="mt-0.5 text-xs text-gray-500">
                                         {stepConversion === null
@@ -150,10 +182,11 @@ export function qrTableStatusLabel(status: string): string {
     return status;
 }
 
-export function ProductOverviewSections({ metrics, previousMetrics, productsOnly, compact = false }: { metrics: ProductOverview; previousMetrics?: ProductOverview; productsOnly?: (keyof ProductOverview)[]; compact?: boolean }) {
+export type PlusExposureBreakdown = { exposures: number | null; sources: Record<string, number> | null };
+export function ProductOverviewSections({ metrics, previousMetrics, productsOnly, compact = false, plusExposureData }: { metrics: ProductOverview; previousMetrics?: ProductOverview; productsOnly?: (keyof ProductOverview)[]; compact?: boolean; plusExposureData?: PlusExposureBreakdown | null }) {
     const products = [
         { key: "imenu", name: "iMenu", paths: "/", price: "-", priceInfo: "Referência do dashboard: sem mensalidade.", },
-        { key: "ia_plus", name: "iMenu Plus", paths: "/painel/marketing + /painel/vendas-ia + /painel/assistente-ia", price: "R$ 49,99/m", priceInfo: "Marketing, Assistente IA e Vendas IA.", },
+        { key: "ia_plus", name: "iMenu Plus", paths: "Modal de venda + Planos + Limite IA + Vendas IA + Marketing", price: "R$ 49,99/m", priceInfo: "Marketing, Assistente IA e Vendas IA.", },
         { key: "qr_code_mesa", name: "iMenu QR", paths: "/painel/mesas", price: "Grátis", priceInfo: "QR Code Mesa gratuito; pagamentos antigos são apenas históricos.", },
     ] as const;
     const difference = (current: number | null | undefined, previous: number | null | undefined, rate = false) => {
@@ -169,19 +202,27 @@ export function ProductOverviewSections({ metrics, previousMetrics, productsOnly
                 const metric = metrics[product.key];
                 const previous = previousMetrics?.[product.key];
                 const sameTrafficSource = previous?.trafficSource === metric.trafficSource;
-                const trafficUnit = metric.trafficSource === "pageviews" ? "Views (Unique)" : "Aberturas da aba";
-                const trafficInfo = metric.trafficSource === "pageviews"
-                    ? `PostHog · ${product.key === "imenu" ? "Página inicial" : product.key === "ia_plus" ? "Marketing, Vendas IA e Assistente IA (sem modais)" : "Página Mesas"}. Uma visita por pessoa a cada 7 dias; após 7 dias, conta novamente.`
-                    : "PostHog · Aberturas de abas; não são visitantes únicos.";
+                const trafficUnit = metric.trafficSource === "plus_exposures" ? "Usuários únicos (7 dias)" : metric.trafficSource === "pageviews" ? "Views (Unique)" : "Aberturas da aba";
+                const trafficInfo = metric.trafficSource === "plus_exposures"
+                    ? "PostHog · Desde 10/11/2026: exposições visíveis no modal de venda, Planos, aviso de limite gratuito do Assistente IA, Vendas IA e Marketing. Antes disso: histórico aproximado por pageviews de Assistente IA, Vendas IA e Marketing; modais, Planos e avisos antigos não eram medidos. Deduplicação por ID a cada 7 dias; na transição, IDs antigos e novos podem diferir."
+                    : metric.trafficSource === "pageviews"
+                        ? `PostHog · ${product.key === "imenu" ? "Página inicial" : "Página Mesas"}. Uma visita por pessoa a cada 7 dias; após 7 dias, conta novamente.`
+                        : "PostHog · Aberturas de abas; não são visitantes únicos.";
                 const buyerLabel = product.key === "imenu" ? "Usuários ativados" : "Compradores";
                 return <section key={product.key} aria-label={product.name} className="space-y-3">
                     <h2 className="text-base font-semibold text-gray-900">{product.name}</h2>
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                        <MetricCard inlineChange truncateTitle title="Tráfego"
+                        {product.key === "ia_plus" ? <PlusExposureMetricCard title="Exposições ao Plus"
                             value={metric.pageViews === null ? "—" : formatCount(metric.pageViews)}
                             description={trafficUnit}
                             info={trafficInfo}
+                            exposureData={plusExposureData}
                             {...(sameTrafficSource ? difference(metric.pageViews, previous?.pageViews) : {})} />
+                        : <MetricCard inlineChange truncateTitle title="Tráfego"
+                            value={metric.pageViews === null ? "—" : formatCount(metric.pageViews)}
+                            description={trafficUnit}
+                            info={trafficInfo}
+                            {...(sameTrafficSource ? difference(metric.pageViews, previous?.pageViews) : {})} />}
                         <MetricCard inlineChange truncateTitle title="Conversão"
                             value={metric.conversion === null ? "—" : formatRatio(metric.conversion)}
                             description={`${formatCount(metric.buyers)} ${buyerLabel.toLowerCase()} · ${trafficUnit}`}
@@ -216,7 +257,7 @@ export function ProductOverviewSections({ metrics, previousMetrics, productsOnly
             {(productsOnly ? productsOnly.map(key => products.find(product => product.key === key)!) : products).map((product) => {
                 const metric = metrics[product.key];
                 const views = metric.pageViews === null ? "—" : formatCount(metric.pageViews);
-                const trafficUnit = metric.trafficSource === "tab_opens" ? "aberturas da aba" : "visitas únicas";
+                const trafficUnit = metric.trafficSource === "plus_exposures" ? "exposições únicas" : metric.trafficSource === "tab_opens" ? "aberturas da aba" : "visitas únicas";
                 const buyers = formatCount(metric.buyers);
                 const churned = formatCount(metric.churnedUsers);
                 const base = formatCount(metric.churnBase);
@@ -229,7 +270,9 @@ export function ProductOverviewSections({ metrics, previousMetrics, productsOnly
                                 value={views}
                                 info={metric.trafficSource === "tab_opens"
                                     ? `PostHog · panel_tab_opened · ${views} aberturas no período; sem visitas de página registradas.`
-                                    : `PostHog · ${product.paths} · ${views} visitantes únicos (distinct_id) no período.`}
+                                    : metric.trafficSource === "plus_exposures"
+                                        ? `PostHog · ${product.paths} · ${views} usuários expostos; deduplicação de 7 dias.`
+                                        : `PostHog · ${product.paths} · ${views} visitantes únicos (distinct_id) no período.`}
                             />
                             <MetricCard
                                 title={product.key === "imenu" ? "Conversion (usuários ativados)" : "Conversion (compradores)"}
@@ -262,6 +305,7 @@ export function MetricCard({
     description,
     info,
     children,
+    footerAction,
     danger = false,
     reverseChangeColors = false,
     inlineChange = false,
@@ -274,6 +318,7 @@ export function MetricCard({
     description?: string;
     info?: string;
     children?: ReactNode;
+    footerAction?: ReactNode;
     danger?: boolean;
     reverseChangeColors?: boolean;
     inlineChange?: boolean;
@@ -286,7 +331,7 @@ export function MetricCard({
             : "text-red-600";
     return (
         <article
-            className={`rounded-2xl border bg-white p-5 shadow-sm ${
+            className={`relative rounded-2xl border bg-white p-5 shadow-sm ${
                 danger ? "border-red-200" : "border-gray-200"
             }`}
         >
@@ -332,10 +377,55 @@ export function MetricCard({
                 </p>
             )}
             </>}
-            {description && <p className="mt-3 text-xs leading-5 text-gray-500">{description}</p>}
+            {description && <p className={`mt-3 text-xs leading-5 text-gray-500 ${footerAction ? "pr-6" : ""}`}>{description}</p>}
             {children}
+            {footerAction && <div className="absolute bottom-3 right-3">{footerAction}</div>}
         </article>
     );
+}
+
+const PLUS_EXPOSURE_SOURCES = [
+    { key: "sales_modal", label: "Modal de venda" },
+    { key: "plus_page", label: "Planos" },
+    { key: "assistant_limit", label: "Limite Assistente IA" },
+    { key: "sales_section", label: "Vendas IA" },
+    { key: "marketing_page", label: "Marketing" },
+    { key: "legacy_pages", label: "Páginas (histórico)" },
+] as const;
+
+export function PlusExposureMetricCard({
+    title, value, change, changeLabel, description, info, exposureData,
+}: {
+    title: string;
+    value: string;
+    change?: number | null;
+    changeLabel?: string;
+    description?: string;
+    info: string;
+    exposureData?: PlusExposureBreakdown | null;
+}) {
+    const [expanded, setExpanded] = useState(false);
+    return <MetricCard inlineChange truncateTitle title={title} value={value} change={change}
+        changeLabel={changeLabel} description={description} info={info}
+        footerAction={<button type="button" aria-label={expanded ? "Recolher origens do Plus" : "Expandir origens do Plus"}
+            aria-expanded={expanded} onClick={() => setExpanded(previous => !previous)}
+            className="inline-flex h-6 w-6 items-center justify-center rounded text-gray-400 hover:bg-gray-50 hover:text-brand">
+            <ChevronDown size={16} className={"transition-transform duration-200 " + (expanded ? "rotate-180" : "")} />
+        </button>}>
+        {expanded && <div className="mt-3 space-y-2 border-t border-gray-100 pt-3 pb-6">
+            {PLUS_EXPOSURE_SOURCES.filter(source => source.key !== "legacy_pages" ||
+                (exposureData?.sources?.legacy_pages ?? 0) > 0).map(source => {
+                const count = exposureData?.sources?.[source.key];
+                const rate = conversion(count ?? null, exposureData?.exposures ?? null);
+                return <div key={source.key} className="flex min-w-0 items-baseline justify-between gap-2 text-xs">
+                    <span className="min-w-0 text-gray-500">{source.label}</span>
+                    <span className="shrink-0 whitespace-nowrap font-semibold tabular-nums text-gray-800">
+                        {rate == null ? "—" : formatRatio(rate)} {count == null ? "" : "(" + formatCount(count) + ")"}
+                    </span>
+                </div>;
+            })}
+        </div>}
+    </MetricCard>;
 }
 
 export function MetricChart({

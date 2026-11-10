@@ -7,7 +7,6 @@ export type CustomerRow = {
   phone: string;
   name: string | null;
   address: Record<string, string> | null;
-  marketing_consent: boolean;
   opted_out_at: string | null;
   order_count: number;
   spending_cents: number;
@@ -23,7 +22,6 @@ export async function listCustomers(
   segment = "",
   page = 1,
   orders = "",
-  marketing = "",
   sort = "last:desc",
 ) {
   const sortColumns: Record<string, string> = {
@@ -45,7 +43,7 @@ export async function listCustomers(
               max(created_at) last_purchase
             FROM orders WHERE restaurant_id=$1 AND ${PURCHASE_SQL} GROUP BY 1
         ), customers_with_metrics AS (
-            SELECT c.*, coalesce(m.order_count,0) order_count, coalesce(m.spending_cents,0) spending_cents,
+            SELECT c.phone,c.name,c.address,c.opted_out_at, coalesce(m.order_count,0) order_count, coalesce(m.spending_cents,0) spending_cents,
               coalesce(m.average_ticket_cents,0) average_ticket_cents, m.last_purchase,
               CASE WHEN m.last_purchase IS NULL OR m.last_purchase <= now()-interval '60 days' THEN 'Inativo'
                 WHEN m.last_purchase <= now()-interval '30 days' THEN 'Em risco'
@@ -59,15 +57,12 @@ export async function listCustomers(
             OR ($4='few' AND order_count BETWEEN 1 AND 2)
             OR ($4='regular' AND order_count BETWEEN 3 AND 9)
             OR ($4='tenPlus' AND order_count>=10))
-          AND ($5='' OR ($5='consented' AND marketing_consent IS TRUE AND opted_out_at IS NULL)
-            OR ($5='notConsented' AND (marketing_consent IS NOT TRUE OR opted_out_at IS NOT NULL)))
-        ORDER BY ${sortColumn} ${sortDirection} NULLS LAST,phone LIMIT 25 OFFSET $6`,
+        ORDER BY ${sortColumn} ${sortDirection} NULLS LAST,phone LIMIT 25 OFFSET $5`,
     [
       restaurantId,
       search.slice(0, 100),
       CUSTOMER_SEGMENTS.includes(segment as CustomerSegment) ? segment : "",
       ["none", "few", "regular", "tenPlus"].includes(orders) ? orders : "",
-      ["consented", "notConsented"].includes(marketing) ? marketing : "",
       (page - 1) * 25,
     ],
   );
@@ -126,7 +121,7 @@ export async function customerDetails(restaurantId: string, phone: string, order
   const offset = (Math.max(1, orderPage) - 1) * 10;
   const [profile, orders, orderCount, favorites, habitOrders] = await Promise.all([
     query(
-      "SELECT phone,name,address,marketing_consent,opted_out_at FROM customers WHERE restaurant_id=$1 AND phone=$2",
+      "SELECT phone,name,address,opted_out_at FROM customers WHERE restaurant_id=$1 AND phone=$2",
       [restaurantId, phone],
     ),
     query(

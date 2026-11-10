@@ -13,10 +13,10 @@ export class IaPlusRequired extends SalesError {
   constructor(message = "Continue com o iMenu Plus para usar esta função.") { super(message, 402); }
 }
 export function imageLimitMessage(access: { plus: boolean; images_reset_at?: string | null }) {
+  if (!access.plus)
+    return `Seu limite gratuito de imagens foi atingido. Adquira iMenu Plus para continuar gerando imagens, com ${LIMITS.images} imagens por mês.`;
   const reset = formatAiResetAt(access.images_reset_at);
-  return `${access.plus
-    ? `Seu limite mensal de ${LIMITS.images} imagens do iMenu Plus foi atingido.`
-    : "Seu limite semanal de geração de imagens foi atingido."} ${reset
+  return `Seu limite mensal de ${LIMITS.images} imagens do iMenu Plus foi atingido. ${reset
     ? `Novas imagens disponíveis em ${reset}.`
     : "Novas imagens estarão disponíveis quando o limite for renovado."} Você pode continuar conversando e usando as outras funções do Assistente IA normalmente. Para ajuda, fale com o suporte pelo WhatsApp: +55 19 99723-5394.`;
 }
