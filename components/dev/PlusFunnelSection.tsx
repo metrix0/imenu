@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import type { DateRange } from "@/lib/utils/dateRange";
 import { devJson } from "@/lib/dev/client";
 import DevLoading from "./DevLoading";
-import { QrTableFunnelCard } from "./DashboardPresentation";
+import { MetricCard } from "./DashboardPresentation";
+import { conversion, formatCount, formatRatio } from "@/lib/dev/dashboardFormat";
 
 type PlusFunnel = { panelUsers: number | null; traffic: number | null; checkout: number | null; bought: number | null };
 
@@ -21,33 +22,28 @@ export default function PlusFunnelSection({ range }: { range: DateRange }) {
             .finally(() => { if (!controller.signal.aborted) setLoading(false); });
         return () => controller.abort();
     }, [range.startDate, range.endDate]);
-    if (loading) return <DevLoading />;
+
+    const percentage = (value: number | null | undefined, base: number | null | undefined) => {
+        const rate = conversion(value ?? null, base ?? null);
+        return rate === null ? "—" : formatRatio(rate);
+    };
+
     return <section aria-label="Funil iMenu Plus" className="min-w-0">
+        <h2 className="mb-4 text-base font-semibold text-gray-900">Funil iMenu Plus</h2>
         {error && <p role="alert" className="mb-3 text-sm text-red-700">{error}</p>}
-        <QrTableFunnelCard
-            title="Funil iMenu Plus"
-            description="Totais do período. As taxas entre etapas são indicativas, não uma sequência individual comprovada."
-            steps={[
-                {
-                    label: "Usuários no painel", value: data?.panelUsers ?? null,
-                    info: "Contas distintas que abriram ou navegaram no painel. A medição completa começa após a implantação; períodos anteriores podem subcontar acessos diretos.",
-                },
-                {
-                    label: "Tráfego (sem modal)", value: data?.traffic ?? null,
-                    info: "Exposições visíveis em Planos, limite do Assistente IA, Vendas IA e Marketing. Exclui o modal de venda. Mesma deduplicação de 7 dias de Exposições ao Plus; a conta pode contar novamente após 7 dias.",
-                    conversionLabel: "sobre os usuários do painel · indicativo",
-                },
-                {
-                    label: "Checkout", value: data?.checkout ?? null,
-                    info: "Contas distintas que abriram o formulário de pagamento do Plus, sem renovações. Histórico após implantação.",
-                    conversionLabel: "sobre o tráfego · indicativo",
-                },
-                {
-                    label: "Compraram", value: data?.bought ?? null,
-                    info: "Contas com primeira compra confirmada desde o lançamento em 28/10/2026, usando pagamentos registrados. Não inclui renovações nem pagamentos antigos do IA Plus.",
-                    conversionLabel: "sobre os checkouts · indicativo",
-                },
-            ]}
-        />
+        {loading ? <DevLoading /> : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <MetricCard title="Usuários no painel"
+                value={data?.panelUsers == null ? "—" : formatCount(data.panelUsers)}
+                info="Contas distintas que abriram ou navegaram no painel no período. A medição completa começou após a instrumentação; períodos anteriores podem subcontar visitas diretas." />
+            <MetricCard title="Tráfego (sem modal)"
+                value={percentage(data?.traffic, data?.panelUsers)}
+                info="Exposições em Planos, limite gratuito do Assistente IA, Vendas IA e Marketing, excluindo o modal de venda. Deduplicação a cada 7 dias, igual ao indicador Exposições ao Plus. Percentual sobre usuários no painel (medida indicativa; as bases de contagem são diferentes)." />
+            <MetricCard title="Checkout"
+                value={percentage(data?.checkout, data?.traffic)}
+                info="Contas distintas que abriram o checkout do iMenu Plus, sem renovações. Percentual sobre Tráfego (sem modal). Quem chegou diretamente pelo modal pode não ter sido contabilizado no tráfego; dado disponível após instrumentação." />
+            <MetricCard title="Compraram"
+                value={percentage(data?.bought, data?.checkout)}
+                info="Primeiras compras confirmadas de iMenu Plus no período ÷ contas que abriram checkout. Pagamentos confirmados no banco; exclui renovações e vendas anteriores ao lançamento de 28/10/2026. Compras anteriores à instrumentação podem aparecer sem checkout registrado." />
+        </div>}
     </section>;
 }
