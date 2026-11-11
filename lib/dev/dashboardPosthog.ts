@@ -116,8 +116,11 @@ export async function loadPostHogMetrics(
             'sales_modal', 'plus_page', 'assistant_limit', 'sales_section', 'marketing_page'
         )`;
 
-    // Recount a visitor only seven full days after their last counted visit.
-    const rollingVisitors = repeatAfter7Days ? `
+    // A visitor cannot qualify for a second visit inside a <=7-day window.
+    // A direct distinct count is equivalent and avoids the expensive rolling
+    // arrayFold/CROSS JOIN that can time out the dashboard comparison query.
+    const useRollingVisitors = repeatAfter7Days && endAt - startAt > 7 * 24 * 60 * 60 * 1000;
+    const rollingVisitors = useRollingVisitors ? `
         WITH rolling_visitors AS (
             SELECT
                 sumIf(visits, product = 'imenu') AS imenu_views,
@@ -184,17 +187,17 @@ export async function loadPostHogMetrics(
                 )
             ) AS blog_views,
             countIf(event = '$pageview') AS total_pageviews,
-            ${repeatAfter7Days ? "ifNull(any(rv.imenu_views), 0)" : "uniqIf(distinct_id, event = '$pageview' AND properties.$pathname = '/')"} AS landing_pageviews,
+            ${useRollingVisitors ? "ifNull(any(rv.imenu_views), 0)" : "uniqIf(distinct_id, event = '$pageview' AND properties.$pathname = '/')"} AS landing_pageviews,
             ${repeatAfter7Days
                 ? "ifNull(any(rv.ia_plus_views), 0)"
                 : `uniqIf(distinct_id, (${plusExposure}) OR (${legacyPlusPageview}))`} AS ia_plus_pageviews,
-            ${repeatAfter7Days ? "ifNull(any(rv.qr_views), 0)" : "uniqIf(distinct_id, event = '$pageview' AND properties.$pathname IN ('/painel/mesas', '/painel/mesas/')"} AS qr_pageviews,
+            ${useRollingVisitors ? "ifNull(any(rv.qr_views), 0)" : "uniqIf(distinct_id, event = '$pageview' AND properties.$pathname IN ('/painel/mesas', '/painel/mesas/')"} AS qr_pageviews,
             countIf(
                 event = '$pageview'
                 AND properties.$pathname IN (${publicContentPathList})
             ) AS public_content_pageviews
         FROM events
-        ${repeatAfter7Days ? "CROSS JOIN rolling_visitors AS rv" : ""}
+        ${useRollingVisitors ? "CROSS JOIN rolling_visitors AS rv" : ""}
         WHERE timestamp >= toDateTime('${start}', 'UTC')
           AND timestamp < toDateTime('${end}', 'UTC')
     `;
