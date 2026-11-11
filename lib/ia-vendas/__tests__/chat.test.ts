@@ -5,6 +5,7 @@ import {
   chatApproval,
   compactAssistantContext,
   focusedImageRequest,
+  instantAssistantInstructions,
   requestedImageStyle,
 } from "../chat";
 import {
@@ -1239,4 +1240,54 @@ test("retrying an identical quota-rejected request does not duplicate messages",
 
   expect(sql).toHaveBeenCalledTimes(1);
   expect(args.send).toHaveBeenCalledWith("done", expect.objectContaining({ duplicate: true }));
+});
+
+
+test.each([
+  ["Crie uma promoção", "Atalho instantâneo: CRIAR PROMOÇÃO", "promotions"],
+  ["Revise meus itens e melhore meu cardápio", "Atalho instantâneo: REVISAR ITENS", "descrições"],
+  ["Ajuste meus upsells", "Atalho instantâneo: AJUSTAR UPSELLS", "automatic_upsell"],
+])("exact assistant shortcut %s injects only its action-specific guidance", async (message, expected, detail) => {
+  (query as jest.Mock).mockImplementation(async (sql: string) => ({
+    rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
+      ? [{ kind: "chat", summary: "" }]
+      : sql.includes("SELECT role,content,cards FROM public.ia_vendas_messages")
+        ? [{ role: "user", content: message, cards: [] }]
+        : sql.includes("RETURNING id") ? [{ id: "user" }] : [],
+  }));
+  (context as jest.Mock).mockResolvedValueOnce({
+    restaurant: { name: "Loja" },
+    items: { rows: [{ id: "item-1", name: "Açaí", price_cents: 2500 }] },
+    categories: { rows: [] },
+    sales: { products: [] },
+    actions: [],
+  });
+  create.mockResolvedValueOnce({
+    status: "completed",
+    output: [],
+    output_text: JSON.stringify({ reply: "Proposta analisada.", summary: "" }),
+    usage: { input_tokens: 100, output_tokens: 10 },
+  });
+  await runChat({ ...args, deep: false, text: message });
+  const input = create.mock.calls[0][0].input;
+  expect(input[0].content).toContain(expected);
+  expect(input[0].content).toContain(detail);
+  expect(input[1].content).toBe(message);
+  expect((finishRun as jest.Mock).mock.calls.at(-1)[2].reply).toBe("Proposta analisada.");
+});
+
+test.each([
+  "Crie uma promoção!",
+  "crie uma promoção",
+  "Revise meus itens e melhore meu cardápio ",
+  "Ajuste meus upsells.",
+  "Quero criar uma promoção",
+])("no shortcut instruction for nonexact input: %s", (message) => {
+  expect(instantAssistantInstructions(message)).toBe("");
+});
+
+test("exact menu shortcut avoids the generic Vendas IA handoff without changing its normal detection", () => {
+  expect(asksAboutWholeMenu("Revise meus itens e melhore meu cardápio")).toBe(true);
+  expect(instantAssistantInstructions("Revise meus itens e melhore meu cardápio")).toContain("Atalho instantâneo");
+  expect(instantAssistantInstructions("Revise meus itens e melhore meu cardápio!")).toBe("");
 });
