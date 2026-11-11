@@ -88,7 +88,7 @@ export function mapIfoodOrder(data: any) {
     if (!["DELIVERY", "TAKEOUT"].includes(data.orderType)) throw new Error("Tipo de pedido iFood não suportado.");
     const address = data.delivery?.deliveryAddress;
     return {
-        subtotal: cents(data.total?.itemsPrice), delivery: cents(data.total?.deliveryFee || 0), total: cents(data.total?.orderAmount),
+        subtotal: cents(data.total?.subTotal), delivery: cents(data.total?.deliveryFee || 0), total: cents(data.total?.orderAmount),
         type: data.orderType === "DELIVERY" ? "entrega" : "retirada",
         address: address ? { rua: address.streetName, numero: address.streetNumber, bairro: address.neighborhood, cidade: address.city, estado: address.state, complemento: address.complement || "" } : null,
         items: data.items.map((item: any, index: number) => {
