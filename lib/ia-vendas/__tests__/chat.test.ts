@@ -220,6 +220,38 @@ test("assistant offers targeted reads and a compact field guide", async () => {
   expect(request.input[0].content).not.toContain('"nullable":false');
 });
 
+test("chat memory stays in its conversation while durable image preferences remain available", async () => {
+  const otherChat = "Falta escolher ângulo de cima ou 45°";
+  (query as jest.Mock).mockImplementation(async (sql: string) => ({
+    rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
+      ? [{ kind: "chat", summary: "Memória apenas desta conversa" }]
+      : sql.includes("SELECT title,summary FROM public.ia_vendas_conversations")
+        ? [{ title: "Outra conversa", summary: otherChat }]
+        : sql.includes("SELECT DISTINCT ON (image->>")
+          ? [{ profile: "item", target_id: "item-1",
+              style: { background: "fundo claro" }, applied_at: "2026-11-10T20:00:00Z" }]
+          : sql.includes("RETURNING id") ? [{ id: "user" }] : [],
+  }));
+  (context as jest.Mock).mockResolvedValueOnce({
+    restaurant: {}, items: { rows: [] }, categories: { rows: [] },
+    sales: { products: [] }, actions: [],
+  });
+  create.mockResolvedValueOnce({
+    status: "completed", output: [],
+    output_text: JSON.stringify({ reply: "Tudo certo.", summary: "" }),
+    usage: { input_tokens: 100, output_tokens: 10 },
+  });
+  await runChat({ ...args, deep: false, text: "Olá" });
+  const prompts = create.mock.calls[0][0].input[0].content as string;
+  expect(prompts).toContain("Memória desta conversa: Memória apenas desta conversa");
+  expect(prompts).not.toContain("Outras conversas:");
+  expect(prompts).not.toContain(otherChat);
+  expect(prompts).toContain('"approved_image_styles":[{"profile":"item","target_id":"item-1"');
+  expect(prompts).toContain('"background":"fundo claro"');
+  expect((query as jest.Mock).mock.calls.some(([sql]: [string]) =>
+    sql.includes("SELECT title,summary FROM public.ia_vendas_conversations"))).toBe(false);
+});
+
 test("assistant snapshot keeps useful data but omits heavy fields", () => {
   const compact = compactAssistantContext({
     items: { rows: Array.from({ length: 25 }, (_, i) => ({

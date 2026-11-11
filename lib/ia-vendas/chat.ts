@@ -589,14 +589,6 @@ export async function runChat(args: {
             .map((entry: Data) => String(entry.content || "")).join(". ");
         }
       }
-      const summaries = deep
-        ? []
-        : (
-            await query(
-              "SELECT title,summary FROM public.ia_vendas_conversations WHERE restaurant_id=$1 AND id<>$2 AND summary<>'' AND ($3::boolean OR kind='chat') AND NOT EXISTS(SELECT 1 FROM public.ia_vendas_runs r WHERE r.restaurant_id=$1 AND r.conversation_id=ia_vendas_conversations.id AND r.result->>'detached_at' IS NOT NULL) ORDER BY updated_at DESC LIMIT 5",
-              [restaurant, conversation, !freeAssistant],
-            )
-          ).rows;
       if (deep) {
         send("status", { message: "Comparando restaurantes semelhantes…" });
         try {
@@ -656,8 +648,7 @@ export async function runChat(args: {
             JSON.stringify({ ...compact, approved_image_styles: ctx.approved_image_styles }) +
             (deep
               ? ""
-              : `\nMemória desta conversa: ${conv.summary}\nOutras conversas: ` +
-                JSON.stringify(summaries)) +
+              : `\nMemória desta conversa: ${conv.summary}`) +
             (!deep && scopedReport
               ? `\nRelatório em discussão (dados): ${JSON.stringify(scopedReport)}\nOportunidade selecionada: ${args.opportunity_id || "relatório completo"}`
               : ""),
