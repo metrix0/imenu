@@ -12,6 +12,67 @@ const PLUS_SINCE = `(SELECT MIN(a.activated_at) FROM restaurant_addons a WHERE a
 const PLUS = `EXISTS(SELECT 1 FROM restaurant_addons a WHERE a.restaurant_id=r.id AND a.product_key='ia_plus'
     AND (a.status='active' OR (a.status IN ('canceled','past_due') AND a.current_period_ends_at>NOW())))`;
 
+
+
+const ACCOUNT = "COALESCE(r.user_id,r.id)";
+const OWNED_ACCOUNT = "COALESCE(owned.user_id,owned.id)";
+const PURCHASE_DAY = "(o.created_at AT TIME ZONE 'America/Sao_Paulo')::date";
+const RECOVERY_AS_OF = "((date_trunc('day', NOW() AT TIME ZONE 'America/Sao_Paulo') + INTERVAL '20 hours') AT TIME ZONE 'America/Sao_Paulo')";
+// Use grouped account ID sets so pagination and counts do not run per-row scans.
+// The recovery sets match the daily 20:00 SP eligibility snapshot.
+const ACCOUNT_PLUS = [
+    ACCOUNT + " IN (SELECT " + OWNED_ACCOUNT + " FROM restaurant_addons addon",
+    "JOIN restaurants owned ON owned.id=addon.restaurant_id",
+    "WHERE addon.product_key = 'ia_plus'",
+    "AND (addon.status='active' OR (addon.status IN ('canceled','past_due') AND addon.current_period_ends_at>NOW())))",
+].join(" ");
+const doneOrders = (asOf: string, having: string) => [
+    ACCOUNT + " IN (SELECT " + OWNED_ACCOUNT + " FROM orders o JOIN restaurants owned ON owned.id=o.restaurant_id",
+    "WHERE o.table_id IS NULL AND o.status='done'",
+    "AND o.created_at >= " + asOf + " - INTERVAL '30 days' AND o.created_at < " + asOf,
+    "GROUP BY " + OWNED_ACCOUNT + " HAVING " + having + ")",
+].join(" ");
+const ABANDONED = doneOrders(RECOVERY_AS_OF, [
+    "COUNT(DISTINCT " + PURCHASE_DAY + ") >= 2",
+    "AND MAX(o.created_at) >= " + RECOVERY_AS_OF + " - INTERVAL '15 days'",
+    "AND MAX(o.created_at) < " + RECOVERY_AS_OF + " - INTERVAL '14 days'",
+].join(" "));
+const ACTIVITY: Record<string, string> = {
+    active: doneOrders("NOW()", [
+        "COUNT(DISTINCT " + PURCHASE_DAY + ") >= 2",
+        "AND COUNT(DISTINCT " + PURCHASE_DAY + ") FILTER (WHERE o.created_at >= NOW() - INTERVAL '14 days') >= 1",
+    ].join(" ")),
+    active_customers: [
+        ACCOUNT + " IN (SELECT " + OWNED_ACCOUNT + " FROM orders o JOIN restaurants owned ON owned.id=o.restaurant_id",
+        "CROSS JOIN LATERAL (SELECT regexp_replace(COALESCE(o.customer_phone,''),'[^0-9]','','g') AS digits) raw",
+        "CROSS JOIN LATERAL (SELECT CASE WHEN raw.digits LIKE '55%' AND length(raw.digits) IN (12,13)",
+        "THEN substring(raw.digits FROM 3) ELSE raw.digits END AS phone) normalized",
+        "WHERE o.table_id IS NULL",
+        "AND o.status IS DISTINCT FROM 'canceled' AND o.status IS DISTINCT FROM 'pending_online_payment'",
+        "AND o.created_at >= NOW() - INTERVAL '30 days' AND o.created_at < NOW()",
+        "GROUP BY " + OWNED_ACCOUNT,
+        "HAVING COUNT(*) FILTER (WHERE length(normalized.phone) >= 10) >= 4",
+        "AND COUNT(DISTINCT normalized.phone) FILTER (WHERE length(normalized.phone) >= 10) >= 4)",
+    ].join(" "),
+    abandoned_plus: "(" + ABANDONED + " AND " + ACCOUNT_PLUS + ")",
+    abandoned_imenu: "(" + ABANDONED + " AND NOT " + ACCOUNT_PLUS + ")",
+    single_day: [
+        ACCOUNT + " IN (SELECT " + OWNED_ACCOUNT + " FROM restaurants owned JOIN orders o ON o.restaurant_id=owned.id",
+        "WHERE owned.creation_step=4 AND owned.first_time=false",
+        "AND o.table_id IS NULL AND o.created_at >= " + RECOVERY_AS_OF + " - INTERVAL '14 days'",
+        "AND o.created_at < " + RECOVERY_AS_OF,
+        "GROUP BY owned.id, " + OWNED_ACCOUNT + " HAVING COUNT(DISTINCT " + PURCHASE_DAY + ")=1)",
+    ].join(" "),
+    no_first_order: [
+        ACCOUNT + " IN (SELECT " + OWNED_ACCOUNT + " FROM restaurants owned",
+        "WHERE owned.creation_step=4 AND owned.first_time=false",
+        "AND owned.onboarding_completed_at >= " + RECOVERY_AS_OF + " - INTERVAL '48 hours'",
+        "AND owned.onboarding_completed_at < " + RECOVERY_AS_OF + " - INTERVAL '24 hours'",
+        "AND NOT EXISTS (SELECT 1 FROM orders o JOIN restaurants other ON other.id=o.restaurant_id",
+        "WHERE COALESCE(other.user_id,other.id)=" + OWNED_ACCOUNT + "))",
+    ].join(" "),
+};
+
 export async function getCrm(params: URLSearchParams) {
     const page = devPage(params);
     const id = params.get("restaurant_id");
@@ -48,12 +109,12 @@ export async function getCrm(params: URLSearchParams) {
     const paidOnly = params.get("paid") === "1";
     const search = params.get("q")?.trim().slice(0, 200) || "";
     const plan = params.get("plan");
-    const age = params.get("age");
+    const activity = ACTIVITY[params.get("activity") || ""];
     const conditions = [
         `($1='' OR r.name ILIKE '%'||$1||'%' OR u.email ILIKE '%'||$1||'%' OR r.phone ILIKE '%'||$1||'%' OR r.store_whatsapp ILIKE '%'||$1||'%' OR u.raw_user_meta_data->>'phone' ILIKE '%'||$1||'%')`,
         ...(paidOnly ? [`(${PAID})`] : []),
         ...(plan === "plus" ? [`(${PLUS})`] : plan === "historical" ? [`(${PAID}) AND NOT (${PLUS})`] : plan === "free" ? [`NOT (${PAID})`] : []),
-        ...(age === "30" ? ["r.created_at >= NOW() - INTERVAL '30 days'"] : age === "90" ? ["r.created_at >= NOW() - INTERVAL '90 days'"] : age === "older" ? ["r.created_at < NOW() - INTERVAL '90 days'"] : []),
+        ...(activity ? [activity] : []),
     ];
     const where = conditions.join(" AND ");
     // Only allow known SQL expressions; sorting must happen before LIMIT/OFFSET.
