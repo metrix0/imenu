@@ -1038,7 +1038,7 @@ export default function SalesPage() {
                     },
                     {
                       title: "Ajustar configurações",
-                      prompt: "Ajuste meus horários, taxas e configurações",
+                      prompt: "Ajuste meus upsells",
                       icon: Sparkles,
                     },
                   ].map(({ title, prompt, icon: Icon }) => (
