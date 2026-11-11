@@ -135,9 +135,9 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
     }
 
-    // Daily 20:00 São Paulo snapshot. No backfill for step-4 completion.
+    // Daily 19:00 São Paulo snapshot. No backfill for step-4 completion.
     const { day, hour } = brazilClock(new Date());
-    if (hour !== 20) {
+    if (hour !== 19) {
         return NextResponse.json({ skipped: "outside_sending_hour", day });
     }
 
@@ -154,7 +154,7 @@ export async function GET(request: Request) {
             `WITH clock AS (
                 SELECT (
                     date_trunc('day', NOW() AT TIME ZONE 'America/Sao_Paulo')
-                    + INTERVAL '20 hours'
+                    + INTERVAL '19 hours'
                 ) AT TIME ZONE 'America/Sao_Paulo' AS as_of
             ),
             completed AS (
@@ -208,7 +208,7 @@ export async function GET(request: Request) {
         const [singleDayCandidates, noOrderCandidates] = await Promise.all([
             query<NewlyAbandoned>(`WITH clock AS (
     SELECT (date_trunc('day', NOW() AT TIME ZONE 'America/Sao_Paulo')
-        + INTERVAL '20 hours') AT TIME ZONE 'America/Sao_Paulo' AS as_of
+        + INTERVAL '19 hours') AT TIME ZONE 'America/Sao_Paulo' AS as_of
 ), per_restaurant AS (
     SELECT
         COALESCE(r.user_id::text, r.id::text) AS account_id,
@@ -242,7 +242,7 @@ FROM per_restaurant
 ORDER BY account_id, last_order_at DESC`),
             query<NewlyAbandoned>(`WITH clock AS (
     SELECT (date_trunc('day', NOW() AT TIME ZONE 'America/Sao_Paulo')
-        + INTERVAL '20 hours') AT TIME ZONE 'America/Sao_Paulo' AS as_of
+        + INTERVAL '19 hours') AT TIME ZONE 'America/Sao_Paulo' AS as_of
 )
 SELECT DISTINCT ON (COALESCE(r.user_id, r.id))
     COALESCE(r.user_id::text, r.id::text) AS account_id,

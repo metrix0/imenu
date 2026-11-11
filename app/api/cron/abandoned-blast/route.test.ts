@@ -16,7 +16,7 @@ const mockQuery = query as jest.Mock;
 const mockBlast = createSupportBlast as jest.Mock;
 
 beforeEach(() => {
-    jest.useFakeTimers().setSystemTime(new Date("2026-10-22T23:00:00Z"));
+    jest.useFakeTimers().setSystemTime(new Date("2026-10-22T22:00:00Z"));
     process.env.CRON_SECRET = "test-secret";
     mockQuery.mockImplementation(async (sql: string) => {
         if (sql.includes("AS total FROM support_blast_recipients")) return { rows: [{ total: 0 }] };
@@ -135,9 +135,9 @@ test("feedback honors already reserved slots and previous contacts", async () =>
     expect(args.recipients.map((r: { phone: string }) => r.phone)).toEqual(["5511666660001", "5511666660002"]);
 });
 
-test("outside 20h São Paulo does not schedule messages", async () => {
-    jest.setSystemTime(new Date("2026-10-22T22:00:00Z"));
-    expect((await GET(request())).status).toBe(200);
+test("outside 19h São Paulo does not schedule messages", async () => {
+    jest.setSystemTime(new Date("2026-10-22T23:00:00Z"));
+    expect(await (await GET(request())).json()).toMatchObject({ skipped: "outside_sending_hour" });
     expect(mockQuery).not.toHaveBeenCalled();
     expect(mockBlast).not.toHaveBeenCalled();
 });
