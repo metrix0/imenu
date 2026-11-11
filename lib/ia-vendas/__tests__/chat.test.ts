@@ -23,7 +23,7 @@ import { context, measure, readData } from "../data";
 import { beginRun, recordTokens, finishRun } from "../runs";
 import { propose } from "../actions";
 import { applyProposal } from "../application";
-import { analysisPhotos, previewImage } from "../images";
+import { analysisPhotos, previewImage, proposeImages } from "../images";
 import OpenAI from "openai";
 import { batchResponse, readBatch, saveToolResult, BatchPending } from "../batch";
 jest.mock("../batch", () => ({ ...jest.requireActual("../batch"), batchResponse: jest.fn(), readBatch: jest.fn(), saveToolResult: jest.fn() }));
@@ -316,7 +316,7 @@ test("image requests retry with normal AI tools rather than saving invented styl
       output: [{
         type: "function_call", name: "image_example", call_id: "image",
         arguments: JSON.stringify({
-          target: "item", item_id: "first", prompt: "45° e fundo claro",
+          target: "item", item_id: "first", prompt: "Fotografia gastronômica do Caseiro com luz suave e composição comercial.",
           style: { background: "fundo claro", presentation: "45°", text: "" },
         }),
       }],
@@ -338,7 +338,7 @@ test("image requests retry with normal AI tools rather than saving invented styl
   expect(create.mock.calls[1][0].input.some((m: any) =>
     m.role === "developer" && m.content.includes("Não pergunte ângulo"))).toBe(true);
   expect(previewImage).toHaveBeenCalledWith("owner", "conversation", "run", {
-    target: "item", item_id: "first", prompt: message,
+    target: "item", item_id: "first", prompt: "Fotografia gastronômica do Caseiro com luz suave e composição comercial.",
   });
   const finished = (finishRun as jest.Mock).mock.calls.at(-1);
   expect(finished[2].reply).toContain("[[action:generated-preview]]");
@@ -369,7 +369,7 @@ test("a short OK after a mistaken angle question retries the original image requ
     .mockResolvedValueOnce({
       status: "completed",
       output: [{ type: "function_call", name: "image_example", call_id: "image",
-        arguments: JSON.stringify({ target: "item", item_id: "first", prompt: "45° e fundo claro",
+        arguments: JSON.stringify({ target: "item", item_id: "first", prompt: "Foto profissional do Caseiro, com iluminação uniforme e foco no produto.",
           style: { background: "claro", presentation: "45°", text: "" } }) }],
       usage: { input_tokens: 150, output_tokens: 50 },
     })
@@ -382,7 +382,7 @@ test("a short OK after a mistaken angle question retries the original image requ
   expect(create.mock.calls[0][0].tool_choice).toBe("auto");
   expect(create.mock.calls[1][0].tool_choice).toBe("required");
   expect(previewImage).toHaveBeenCalledWith("owner", "conversation", "run", {
-    target: "item", item_id: "first", prompt: message + ". ok",
+    target: "item", item_id: "first", prompt: "Foto profissional do Caseiro, com iluminação uniforme e foco no produto.",
   });
 });
 
@@ -423,7 +423,7 @@ test("model-generated optional image slots are discarded when the customer did n
     status: "completed", output: [{
       type: "function_call", name: "image_example", call_id: "image-call",
       arguments: JSON.stringify({ target: "item", item_id: "fries",
-        prompt: "Fundo branco e vista a 45 graus",
+        prompt: "Foto comercial com iluminação aprimorada, produto em destaque e composição limpa.",
         style: { background: "branco", presentation: "45°", text: "Imagem ilustrativa" } }),
     }],
     usage: { input_tokens: 100, output_tokens: 40 },
@@ -436,8 +436,45 @@ test("model-generated optional image slots are discarded when the customer did n
   await runChat({ ...args, deep: false, text: request });
   expect(create.mock.calls[0][0].tool_choice).toBe("auto");
   expect(previewImage).toHaveBeenCalledWith("owner", "conversation", "run", {
-    target: "item", item_id: "fries", prompt: request,
+    target: "item", item_id: "fries", prompt: "Foto comercial com iluminação aprimorada, produto em destaque e composição limpa.",
   });
+});
+
+test("batch proposals retain distinct model-written photography directions and discard invented styles", async () => {
+  (query as jest.Mock).mockImplementation(async (sql: string) => ({
+    rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
+      ? [{ kind: "chat", summary: "" }]
+      : sql.includes("RETURNING id") ? [{ id: "user" }] : [],
+  }));
+  (context as jest.Mock).mockResolvedValueOnce(namedContext());
+  (proposeImages as jest.Mock).mockReset().mockResolvedValueOnce({ id: "image-batch", status: "pending" });
+  const originalPrompts = [
+    "Foto comercial do Caseiro, iluminação suave e foco no sanduíche.",
+    "Foto comercial do Segundo com composição limpa e detalhes nítidos.",
+  ];
+  create.mockResolvedValueOnce({
+    status: "completed", output: [{
+      type: "function_call", name: "propose_images", call_id: "batch",
+      arguments: JSON.stringify({ jobs: [
+        { target: "item", item_id: "first", prompt: originalPrompts[0],
+          style: { background: "branco" } },
+        { target: "item", item_id: "second", prompt: originalPrompts[1],
+          style: { presentation: "45 graus" } },
+      ] }),
+    }],
+    usage: { input_tokens: 100, output_tokens: 30 },
+  }).mockResolvedValueOnce({
+    status: "completed", output: [],
+    output_text: JSON.stringify({ reply: "Proposta pronta [[action:image-batch]]", summary: "" }),
+    usage: { input_tokens: 100, output_tokens: 30 },
+  });
+  await runChat({ ...args, deep: false, text: "Melhore as imagens dos meus produtos" });
+  expect(proposeImages).toHaveBeenCalledWith("owner", "conversation", "run", {
+    jobs: [
+      { target: "item", item_id: "first", prompt: originalPrompts[0] },
+      { target: "item", item_id: "second", prompt: originalPrompts[1] },
+    ],
+  }, undefined);
 });
 
 test.each([
