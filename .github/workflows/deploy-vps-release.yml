@@ -111,7 +111,7 @@ jobs:
         if: steps.gate.outputs.enabled == 'true'
         uses: actions/setup-node@v5
         with:
-          node-version: ${{ inputs.target == 'preview' && '24' || '22' }}
+          node-version: '24'
           cache: npm
 
       - name: Restore Next.js build cache
