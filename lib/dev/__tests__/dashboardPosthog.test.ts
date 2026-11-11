@@ -43,6 +43,11 @@ test.each([true, false])("Plus includes historical pageviews only before the cut
     for (const surface of ["sales_modal", "plus_page", "assistant_limit", "sales_section", "marketing_page"]) {
         expect(hogql).toContain(surface);
     }
+    if (rolling) {
+        expect(hogql).toContain("ifNull(any(rv.qr_views), 0) AS qr_pageviews");
+    } else {
+        expect(hogql).toContain("uniqIf(distinct_id, event = '$pageview' AND properties.$pathname IN ('/painel/mesas', '/painel/mesas/')) AS qr_pageviews");
+    }
     expect(hogql).not.toContain("event = 'panel_tab_opened'");
     if (rolling) {
         expect(hogql).toContain("GROUP BY distinct_id, product");

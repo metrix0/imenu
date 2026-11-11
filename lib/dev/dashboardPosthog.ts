@@ -191,7 +191,7 @@ export async function loadPostHogMetrics(
             ${useRollingVisitors
                 ? "ifNull(any(rv.ia_plus_views), 0)"
                 : `uniqIf(distinct_id, (${plusExposure}) OR (${legacyPlusPageview}))`} AS ia_plus_pageviews,
-            ${useRollingVisitors ? "ifNull(any(rv.qr_views), 0)" : "uniqIf(distinct_id, event = '$pageview' AND properties.$pathname IN ('/painel/mesas', '/painel/mesas/')"} AS qr_pageviews,
+            ${useRollingVisitors ? "ifNull(any(rv.qr_views), 0)" : "uniqIf(distinct_id, event = '$pageview' AND properties.$pathname IN ('/painel/mesas', '/painel/mesas/'))"} AS qr_pageviews,
             countIf(
                 event = '$pageview'
                 AND properties.$pathname IN (${publicContentPathList})

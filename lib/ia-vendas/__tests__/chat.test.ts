@@ -227,9 +227,9 @@ test("chat memory stays in its conversation while durable image preferences rema
       ? [{ kind: "chat", summary: "Memória apenas desta conversa" }]
       : sql.includes("SELECT title,summary FROM public.ia_vendas_conversations")
         ? [{ title: "Outra conversa", summary: otherChat }]
-        : sql.includes("SELECT DISTINCT ON (image->>")
+        : sql.includes("a.image->'explicit_style'")
           ? [{ profile: "item", target_id: "item-1",
-              style: { background: "fundo claro" }, applied_at: "2026-11-10T20:00:00Z" }]
+              explicit_style: { background: "fundo claro" }, applied_at: "2026-11-10T20:00:00Z" }]
           : sql.includes("RETURNING id") ? [{ id: "user" }] : [],
   }));
   (context as jest.Mock).mockResolvedValueOnce({

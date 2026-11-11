@@ -34,16 +34,57 @@ test('new products need no regeneration permission', async () => {
  expect(await imageAllowed('owner','run',{ target:'item',item_id:'item' },'Temaki')).toBe(true);
  expect(sql).toHaveBeenCalledTimes(1);
 });
-test('style lookup accepts only applied images and remains scoped to the restaurant', async () => {
- sql.mockResolvedValue({ rows: [] }); await approvedImageStyles('owner');
- expect(sql.mock.calls[0][0]).toContain("status='applied'");
+test('style lookup accepts only published images scoped to the restaurant', async () => {
+ sql.mockResolvedValue({ rows: [] });
+ expect(await approvedImageStyles('owner')).toEqual([]);
+ expect(sql.mock.calls[0][0]).toContain("a.status='applied'");
  expect(sql.mock.calls[0][1]).toEqual(['owner']);
 });
-test('missing style fields do not inherit from another dish', () => {
- const approved=[{profile:'item',target_id:'sushi',applied_at:'2026-10-29',style:{background:'white',text:'Imagem ilustrativa',ingredients:'salmon',presentation:'30 pieces'}}];
- expect(resolveImageStyle(approved,{target:'item'},'poke')).toEqual({});
- expect(resolveImageStyle(approved,{target:'item'},'sushi')).toEqual(approved[0].style);
- expect(resolveImageStyle(approved,{target:'item',style:{text:'',background:'black'}},'sushi')).toEqual({...approved[0].style,text:'',background:'black'});
+test('previously model-invented styles do not become shared owner preferences', async () => {
+ sql.mockResolvedValueOnce({ rows: [
+  { profile:'item',target_id:'sushi',applied_at:'2026-11-10',explicit_style:null,
+    owner_message:'Gere uma foto deste prato',style:{background:'black',text:'Oferta'} },
+ ] });
+ expect(await approvedImageStyles('owner')).toEqual([]);
+});
+test('legacy style inherits only when the original owner request verifies it', async () => {
+ sql.mockResolvedValueOnce({ rows: [
+  {profile:'item',target_id:'sushi',applied_at:'2026-11-10',
+   explicit_style:null,owner_message:'Gere com fundo branco e vista superior'},
+ ] });
+ const approved=await approvedImageStyles('owner');
+ expect(approved).toEqual([{profile:'item',target_id:'sushi',applied_at:'2026-11-10',
+  style:{background:'fundo branco',presentation:'vista de cima'}}]);
+ expect(resolveImageStyle(approved,{target:'item'},'poke')).toEqual({
+  background:'fundo branco',presentation:'vista de cima',
+ });
+});
+test('explicit styles are persisted independently of inherited styles', async () => {
+ sql.mockResolvedValueOnce({ rows: [
+  {profile:'item',target_id:'sushi',applied_at:'2026-11-10',
+   explicit_style:{background:'fundo claro',text:''},owner_message:null},
+ ] });
+ expect(await approvedImageStyles('owner')).toEqual([{
+  profile:'item',target_id:'sushi',applied_at:'2026-11-10',
+  style:{background:'fundo claro',text:''},
+ }]);
+});
+test('new dishes share only visual choices, never ingredients or portions', () => {
+ const approved=[
+  {profile:'item',target_id:'sushi',applied_at:'2026-11-10',
+   style:{background:'white',text:'',ingredients:'salmon',presentation:'30 pieces'}},
+  {profile:'item',target_id:'burger',applied_at:'2026-11-09',
+   style:{background:'black',text:'Sale',presentation:'ângulo de 45 graus'}},
+ ];
+ expect(resolveImageStyle(approved,{target:'item'},'poke')).toEqual({
+  background:'white',text:'',presentation:'ângulo de 45 graus',
+ });
+ expect(resolveImageStyle(approved,{target:'item'},'sushi')).toEqual({
+  background:'white',text:'',ingredients:'salmon',presentation:'30 pieces',
+ });
+ expect(resolveImageStyle(approved,{target:'item',style:{background:'beige',text:''}},'poke')).toEqual({
+  background:'beige',text:'',presentation:'ângulo de 45 graus',
+ });
+ expect(resolveImageStyle([],{target:'item'},'poke')).toEqual({});
  expect(resolveImageStyle(approved,{target:'logo'},'owner')).toEqual({});
 });
-
