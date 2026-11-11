@@ -835,7 +835,7 @@ export default function SalesPage() {
                           !newConversation && c.id === sales.conversation_id ? "page" : undefined
                         }
                         onClick={() => changeConversation(c.id)}
-                        className="min-w-0 flex-1 cursor-pointer truncate p-3 text-left text-sm disabled:cursor-not-allowed"
+                        className="min-w-0 flex-1 cursor-pointer truncate p-3 text-left text-sm min-[1920px]:text-base disabled:cursor-not-allowed"
                       >
                         {c.title}
                       </button>
