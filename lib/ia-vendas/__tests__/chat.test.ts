@@ -338,7 +338,7 @@ test("image requests retry with normal AI tools rather than saving invented styl
   expect(create.mock.calls[1][0].input.some((m: any) =>
     m.role === "developer" && m.content.includes("Não pergunte ângulo"))).toBe(true);
   expect(previewImage).toHaveBeenCalledWith("owner", "conversation", "run", {
-    target: "item", item_id: "first", prompt: "Fotografia gastronômica do Caseiro com luz suave e composição comercial.",
+    target: "item", item_id: "first", prompt: "Fotografia gastronômica do Caseiro com luz suave e composição comercial.\nPedido original do proprietário: Melhore a imagem do meu produto que mais vende!",
   });
   const finished = (finishRun as jest.Mock).mock.calls.at(-1);
   expect(finished[2].reply).toContain("[[action:generated-preview]]");
@@ -382,7 +382,7 @@ test("a short OK after a mistaken angle question retries the original image requ
   expect(create.mock.calls[0][0].tool_choice).toBe("auto");
   expect(create.mock.calls[1][0].tool_choice).toBe("required");
   expect(previewImage).toHaveBeenCalledWith("owner", "conversation", "run", {
-    target: "item", item_id: "first", prompt: "Foto profissional do Caseiro, com iluminação uniforme e foco no produto.",
+    target: "item", item_id: "first", prompt: "Foto profissional do Caseiro, com iluminação uniforme e foco no produto.\nPedido original do proprietário: Melhore a imagem do meu produto que mais vende!. ok",
   });
 });
 
@@ -408,7 +408,7 @@ test("a failed image attempt does not persist another mandatory style questionna
   });
 });
 
-test("model-generated optional image slots are discarded when the customer did not request them", async () => {
+test("model-invented style is discarded while the owner's unrecognized background instruction survives in the prompt", async () => {
   (query as jest.Mock).mockImplementation(async (sql: string) => ({
     rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
       ? [{ kind: "chat", summary: "" }]
@@ -432,11 +432,11 @@ test("model-generated optional image slots are discarded when the customer did n
     output_text: JSON.stringify({ reply: "Prévia pronta.", summary: "" }),
     usage: { input_tokens: 100, output_tokens: 20 },
   });
-  const request = "Melhore a imagem de um produto";
+  const request = "Melhore a imagem de um produto com fundo azul";
   await runChat({ ...args, deep: false, text: request });
   expect(create.mock.calls[0][0].tool_choice).toBe("auto");
   expect(previewImage).toHaveBeenCalledWith("owner", "conversation", "run", {
-    target: "item", item_id: "fries", prompt: "Foto comercial com iluminação aprimorada, produto em destaque e composição limpa.",
+    target: "item", item_id: "fries", prompt: "Foto comercial com iluminação aprimorada, produto em destaque e composição limpa.\nPedido original do proprietário: Melhore a imagem de um produto com fundo azul",
   });
 });
 
@@ -468,11 +468,12 @@ test("batch proposals retain distinct model-written photography directions and d
     output_text: JSON.stringify({ reply: "Proposta pronta [[action:image-batch]]", summary: "" }),
     usage: { input_tokens: 100, output_tokens: 30 },
   });
-  await runChat({ ...args, deep: false, text: "Melhore as imagens dos meus produtos" });
+  const ownerRequest = "Melhore as imagens dos meus produtos";
+  await runChat({ ...args, deep: false, text: ownerRequest });
   expect(proposeImages).toHaveBeenCalledWith("owner", "conversation", "run", {
     jobs: [
-      { target: "item", item_id: "first", prompt: originalPrompts[0] },
-      { target: "item", item_id: "second", prompt: originalPrompts[1] },
+      { target: "item", item_id: "first", prompt: originalPrompts[0] + "\nPedido original do proprietário: " + ownerRequest },
+      { target: "item", item_id: "second", prompt: originalPrompts[1] + "\nPedido original do proprietário: " + ownerRequest },
     ],
   }, undefined);
 });

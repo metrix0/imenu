@@ -898,6 +898,8 @@ export async function runChat(args: {
                 example = true;
                 const imageRequest = { ...p };
                 delete imageRequest.style;
+                if (focusedImageRequest(imageRequestText))
+                  imageRequest.prompt = `${p.prompt}\nPedido original do proprietário: ${imageRequestText}`;
                 const style = requestedImageStyle(imageRequestText);
                 const a = await previewImage(restaurant, conversation, run,
                   { ...imageRequest, ...(Object.keys(style).length ? { style } : {}) });
@@ -909,6 +911,8 @@ export async function runChat(args: {
                 const jobs = Array.isArray(p.jobs) ? p.jobs.map((job: Data) => {
                   const imageRequest = { ...job };
                   delete imageRequest.style;
+                  if (focusedImageRequest(imageRequestText))
+                    imageRequest.prompt = `${job.prompt}\nPedido original do proprietário: ${imageRequestText}`;
                   const style = requestedImageStyle(imageRequestText);
                   return { ...imageRequest, ...(Object.keys(style).length ? { style } : {}) };
                 }) : p.jobs;
