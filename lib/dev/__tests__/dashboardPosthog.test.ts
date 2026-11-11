@@ -51,3 +51,31 @@ test.each([true, false])("Plus includes historical pageviews only before the cut
         expect(hogql).toContain("uniqIf(distinct_id, (");
     }
 });
+
+test.each([
+    ["one day", "2026-11-10T00:00:00.000Z", "2026-11-11T00:00:00.000Z", false],
+    ["seven days", "2026-11-04T00:00:00.000Z", "2026-11-11T00:00:00.000Z", false],
+    ["over seven days", "2026-11-03T00:00:00.000Z", "2026-11-11T00:00:00.000Z", true],
+])("uses the lightweight equivalent distinct query for %s (rolling CTE=%s)",
+    async (_label, start, end, shouldRoll) => {
+        const request = jest.fn(async (_url: string, _options: RequestInit) => ({
+            ok: true,
+            json: async () => ({ results: [[0, 0, 0, 0, 0, 546, 197, 0, 0]] }),
+        }));
+        globalThis.fetch = request as unknown as typeof fetch;
+
+        const result = await loadPostHogMetrics(Date.parse(start), Date.parse(end), true);
+        expect(result.productPageViews.imenu).toBe(546);
+        expect(result.productPageViews.ia_plus).toBe(197);
+        const options = request.mock.calls[0][1];
+        const query = (JSON.parse(String(options.body)) as { query: { query: string } }).query.query;
+        if (shouldRoll) {
+            expect(query).toContain("arrayFold(");
+            expect(query).toContain("CROSS JOIN rolling_visitors AS rv");
+        } else {
+            expect(query).toContain("uniqIf(distinct_id, (");
+            expect(query).not.toContain("arrayFold(");
+            expect(query).not.toContain("CROSS JOIN rolling_visitors AS rv");
+        }
+    }
+);

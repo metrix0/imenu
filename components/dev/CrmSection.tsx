@@ -9,34 +9,51 @@ import PagedTable, { type PageData } from "./PagedTable";
 import { devJson } from "@/lib/dev/client";
 
 import {useDevProfile,PhoneLink,CustomerBadge,type Restaurant} from "./DevProfileProvider";
-import {accountAge} from "@/lib/dev/dashboardFormat";
+import {accountAge, formatCurrencyFromCents} from "@/lib/dev/dashboardFormat";
 const empty = <T,>(): PageData<T> => ({ rows: [], page: 0, total: 0, pageCount: 1 });
 
 function CrmList({ paid, search, plan, age, onOpen }: { paid: boolean; search: string; plan: string; age: string; onOpen: (row: Restaurant) => void }) {
     const [page, setPage] = useState(0);
+    const [sort, setSort] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
     const [data, setData] = useState(empty<Restaurant>);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     useEffect(() => { setPage(0); }, [search, plan, age]);
+    const onSort = (key: string) => {
+        setSort(current => ({
+            key,
+            direction: current?.key === key
+                ? current.direction === "asc" ? "desc" : "asc"
+                : key === "gmv" || key === "created" ? "desc" : "asc",
+        }));
+        setPage(0);
+    };
     useEffect(() => {
         const controller = new AbortController();
         setLoading(true);
-        void devJson<PageData<Restaurant>>(`/api/dev/restaurants?mode=crm&paid=${paid ? 1 : 0}&q=${encodeURIComponent(search)}&plan=${plan}&age=${age}&page=${page}`, { signal: controller.signal })
+        const params = new URLSearchParams({ mode: "crm", paid: paid ? "1" : "0", q: search, plan, age, page: String(page) });
+        if (sort) {
+            params.set("sort", sort.key);
+            params.set("direction", sort.direction);
+        }
+        void devJson<PageData<Restaurant>>(`/api/dev/restaurants?${params}`, { signal: controller.signal })
             .then(result => { setData(result); setError(""); })
             .catch(e => { if (!controller.signal.aborted) setError(e.message); })
             .finally(() => { if (!controller.signal.aborted) setLoading(false); });
         return () => controller.abort();
-    }, [paid, search, plan, age, page]);
+    }, [paid, search, plan, age, page, sort]);
     return <section className={styles.tableSection}>
         <h2>{paid ? "Clientes pagantes e históricos" : "Todos os restaurantes"} <span className="font-normal text-gray-500">({data.total})</span></h2>
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
         <div className={styles.crmTable}>
-            <PagedTable pageSize={10} data={data} loading={loading} rowKey={r => r.id} onPage={setPage} onRowClick={onOpen} columns={[
-                { key: "name", label: "Restaurante", render: r => <span className="block min-w-0 truncate whitespace-nowrap font-medium" title={r.name}>{r.name}</span> },
-                { key: "status", label: "Cliente", render: r => <CustomerBadge restaurant={r} /> },
-                { key: "store", label: "Celular loja", render: r => <PhoneLink phone={r.store_phone} /> },
-                { key: "owner", label: "Celular dono", render: r => <PhoneLink phone={r.owner_phone || r.phone} /> },
-                { key: "created", label: "Conta há", render: r => <span className="whitespace-nowrap">{accountAge(r.created_at)}</span> },
+            <PagedTable pageSize={10} data={data} loading={loading} rowKey={r => r.id} onPage={setPage}
+                onRowClick={onOpen} sortKey={sort?.key} sortDirection={sort?.direction} onSort={onSort} columns={[
+                { key: "name", label: "Restaurante", sortable: true, render: r => <span className="block min-w-0 truncate whitespace-nowrap font-medium" title={r.name}>{r.name}</span> },
+                { key: "status", label: "Cliente", sortable: true, render: r => <CustomerBadge restaurant={r} /> },
+                { key: "store", label: "Celular loja", sortable: true, render: r => <PhoneLink phone={r.store_phone} /> },
+                { key: "owner", label: "Celular dono", sortable: true, render: r => <PhoneLink phone={r.owner_phone || r.phone} /> },
+                { key: "created", label: "Conta há", sortable: true, render: r => <span className="whitespace-nowrap">{accountAge(r.created_at)}</span> },
+                { key: "gmv", label: "GMV", sortable: true, className: styles.numericCell, render: r => formatCurrencyFromCents(Number(r.gmv_cents) || 0) },
                 { key: "open", label: "", render: r => <button type="button" title="Ver detalhes" aria-label={`Ver detalhes de ${r.name}`} onClick={e => { e.stopPropagation(); onOpen(r); }} className="cursor-pointer rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-brand"><Eye size={16} aria-hidden="true" /></button> },
             ]} />
         </div>

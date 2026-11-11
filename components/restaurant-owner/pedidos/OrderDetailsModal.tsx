@@ -19,6 +19,7 @@ interface OrderDetailsModalProps {
     onClose: () => void;
     order: Order | null; 
     onOrderUpdate?: () => void;
+    onCourierError?: (message: string) => void;
     onEditOrder?: (order: Order) => void;
     onDeleteOrder?: (order: Order) => void;
     showStatusActions?: boolean;
@@ -55,7 +56,7 @@ type OrderDetail = Omit<Order, "status"> & {
     }>;
 };
 
-export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdate, onEditOrder, onDeleteOrder, showStatusActions = false }: OrderDetailsModalProps) {
+export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdate, onEditOrder, onDeleteOrder, onCourierError, showStatusActions = false }: OrderDetailsModalProps) {
     const [isLoading, setIsLoading] = useState(true);
     const [isUpdating, setIsUpdating] = useState(false);
     const [details, setDetails] = useState<OrderDetail | null>(null);
@@ -209,6 +210,8 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                 throw new Error(payload?.error || "Falha ao atualizar");
             }
 
+            const result = await response.json();
+            if (result.courierError) onCourierError?.(result.courierError);
             // Atualiza localmente para feedback instantâneo
             setDetails(prev => prev ? { ...prev, status: newStatus as any } : null);
             

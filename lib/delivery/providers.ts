@@ -45,20 +45,34 @@ export async function ifoodRequest(config: DeliveryConfig["ifood"], path: string
     return action ? undefined : response.json();
 }
 export function machinePayload(order: any, config: DeliveryConfig["machine"]) {
-    // Checkout stores a printable address: street, number - neighborhood - CEP (complement).
-    const match = String(order.customer_address || "").match(/^(.+?),\s*(.+?)\s+-\s+(.+?)\s+-\s+(\d{5}-?\d{3})(?:\s*\((.*)\))?$/);
-    const address = order.delivery_address || (match ? {
-        rua: match[1], numero: match[2], bairro: match[3], complemento: match[5] || "",
-    } : null);
-    if (!address?.rua || !address?.numero || !address?.bairro) throw new Error("Endereço incompleto. Confira o endereço antes de solicitar o entregador.");
+    // Only the Machine payload interprets the stored address; checkout and orders remain unchanged.
+    const savedAddress = String(order.customer_address || "").trim()
+        .replace(/\s+-\s+Refer[eê]ncia:\s*.*$/i, "");
+    const sections = savedAddress.split(/\s+-\s+/);
+    const streetNumber = sections[0]?.match(/^(.+?),\s*([^,]+)$/);
+    const neighborhood = sections[1]?.match(/^(.+?)(?:\s*\(([^()]*)\))?$/);
+    const postal = sections[2]?.match(/^\d{5}-?\d{3}(?:\s*\(([^()]*)\))?$/);
+    const checkoutAddress = streetNumber && neighborhood && (sections.length === 2 || (sections.length === 3 && postal))
+        ? { rua: streetNumber[1].trim(), numero: streetNumber[2].trim(), bairro: neighborhood[1].trim(),
+            complemento: postal?.[1] || neighborhood[2] || "" }
+        : null;
+    const parts = savedAddress.split(",").map(part => part.trim());
+    const manualAddress = !checkoutAddress && parts.length === 4 && parts.every(Boolean)
+        ? { rua: parts[0], numero: parts[1], bairro: parts[2], cidade: parts[3], complemento: "" }
+        : null;
+    const address = order.delivery_address || checkoutAddress || manualAddress;
+    const city = address?.cidade || order.city;
+    const state = address?.estado || order.state;
+    if (!address?.rua || !address?.numero || !address?.bairro || !city || !state)
+        throw new Error("Endereço incompleto para a Machine. Confira rua, número, bairro, cidade e estado.");
     return {
         empresa_id: Number(config.companyId), forma_pagamento: config.payment,
         ...(config.categoryId ? { categoria_id: Number(config.categoryId) } : {}),
         paradas: [{
             id_externo: order.id,
             endereco_parada: `${address.rua}, ${address.numero}`,
-            bairro_parada: address.bairro, cidade_parada: address.cidade || order.city || "",
-            estado_parada: address.estado || order.state || "", complemento_parada: address.complemento || "",
+            bairro_parada: address.bairro, cidade_parada: city,
+            estado_parada: state, complemento_parada: address.complemento || "",
             nome_cliente_parada: order.customer_name || "", telefone_cliente_parada: order.customer_phone || "",
             observacao_parada: `Pedido iMenu #${order.display_id}`,
         }],

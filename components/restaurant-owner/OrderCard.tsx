@@ -75,6 +75,7 @@ interface OrderCardProps {
     onStatusChange: () => void; 
     onViewOrder?: (order: OrderData) => void; // NOVA PROP
     deliveryOnly?: boolean;
+    onCourierError?: (message: string) => void;
 }
 
 
@@ -126,7 +127,7 @@ function TimeInfo({ text, time, scheduled }: { text: string; time: string; sched
     );
 }
 
-export default function OrderCard({ order, onStatusChange, onViewOrder, deliveryOnly = false }: OrderCardProps) {
+export default function OrderCard({ order, onStatusChange, onViewOrder, deliveryOnly = false, onCourierError }: OrderCardProps) {
     const [loading, setLoading] = useState(false);
     const [currentTime, setCurrentTime] = useState(() => Date.now());
     const [allowFutureOrderScheduling, setAllowFutureOrderScheduling] = useState(false);
@@ -301,7 +302,10 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
             
             const result = await res.json();
             if (result.ifoodPending) alert("Atualização enviada ao iFood. Aguardando confirmação.");
-            if (result.courierError) alert(result.courierError);
+            if (result.courierError) {
+                if (onCourierError) onCourierError(result.courierError);
+                else alert(result.courierError);
+            }
             onStatusChange(); // Dispara refresh no pai
         } catch (err) {
             console.error(err);
