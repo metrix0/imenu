@@ -859,8 +859,6 @@ export async function runChat(args: {
                 delete imageRequest.style;
                 if (imageRequest.attachment_id && !isUuid(imageRequest.attachment_id))
                   delete imageRequest.attachment_id;
-                if (focusedImageRequest(imageRequestText))
-                  imageRequest.prompt = `${p.prompt}\nPedido original do proprietário: ${imageRequestText}`;
                 const style = requestedImageStyle(imageRequestText);
                 const a = await previewImage(restaurant, conversation, run,
                   { ...imageRequest, ...(Object.keys(style).length ? { style } : {}) });

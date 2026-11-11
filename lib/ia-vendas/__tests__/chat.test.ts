@@ -350,11 +350,11 @@ test("a short OK after a mistaken angle question retries the original image requ
   expect(create.mock.calls[0][0].tool_choice).toBe("auto");
   expect(create.mock.calls[1][0].tool_choice).toBe("auto");
   expect(previewImage).toHaveBeenCalledWith("owner", "conversation", "run", {
-    target: "item", item_id: "first", prompt: "Foto profissional do Caseiro, com iluminação uniforme e foco no produto.\nPedido original do proprietário: Melhore a imagem do meu produto que mais vende!. ok",
+    target: "item", item_id: "first", prompt: "Foto profissional do Caseiro, com iluminação uniforme e foco no produto.",
   });
 });
 
-test("model-invented style is discarded while the owner's unrecognized background instruction survives in the prompt", async () => {
+test("model-invented style is discarded while the detailed AI prompt is preserved", async () => {
   (query as jest.Mock).mockImplementation(async (sql: string) => ({
     rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
       ? [{ kind: "chat", summary: "" }]
@@ -382,7 +382,7 @@ test("model-invented style is discarded while the owner's unrecognized backgroun
   await runChat({ ...args, deep: false, text: request });
   expect(create.mock.calls[0][0].tool_choice).toBe("auto");
   expect(previewImage).toHaveBeenCalledWith("owner", "conversation", "run", {
-    target: "item", item_id: "fries", prompt: "Foto comercial com iluminação aprimorada, produto em destaque e composição limpa.\nPedido original do proprietário: Melhore a imagem de um produto com fundo azul",
+    target: "item", item_id: "fries", prompt: "Foto comercial com iluminação aprimorada, produto em destaque e composição limpa.",
   });
 });
 
@@ -418,7 +418,7 @@ test("broad image request generates directly without a batch-proposal tool", asy
   expect(available).not.toContain("propose_images");
   expect(previewImage).toHaveBeenCalledWith("owner", "conversation", "run", {
     target: "item", item_id: "first",
-    prompt: photoPrompt + "\nPedido original do proprietário: " + request,
+    prompt: photoPrompt,
   });
   expect((finishRun as jest.Mock).mock.calls.at(-1)[2].reply).toContain("[[action:image-preview]]");
 });
