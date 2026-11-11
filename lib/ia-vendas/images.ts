@@ -15,8 +15,8 @@ import {
 import { beginRun, finishRun, reserveImage, releaseImage } from "./runs";
 import { propose, claim } from "./actions";
 import { MODELS, LIMITS } from "./config";
-import { aiAccess, FREE_AI_IMAGES, IaImageLimitReached, saveImageLimitNotice } from "./access";
-import { SalesError, object, type Data, type Action } from "./types";
+import { saveImageLimitNotice } from "./access";
+import { SalesError, type Data, type Action } from "./types";
 import { isUuid } from "./catalog";
 import { isSellableItem, productReviewTargets } from "./products";
 
@@ -303,61 +303,6 @@ export async function publishImage(restaurant: string, action: Action) {
       upsert: true,
     });
   if (error) throw new SalesError("Não foi possível publicar a imagem.");
-}
-export async function proposeImages(
-  restaurant: string,
-  conversation: string,
-  run: string,
-  input: unknown,
-  proposalId?: string,
-) {
-  const data = object(input);
-  const access = await aiAccess(restaurant);
-  if (Number(access.images_remaining) <= 0)
-    throw new IaImageLimitReached(access.plus, access.images_reset_at);
-  const maxJobs = access.plus ? LIMITS.imageBatch : FREE_AI_IMAGES;
-  if (!Array.isArray(data.jobs) || !data.jobs.length || data.jobs.length > maxJobs)
-    throw new SalesError(`Proponha até ${maxJobs} ${maxJobs === 1 ? "imagem" : "imagens"} por lote.`);
-  if (proposalId) {
-    const existing = (await query("SELECT * FROM public.ia_vendas_actions WHERE restaurant_id=$1 AND run_id=$2 AND id=$3", [restaurant, run, proposalId])).rows[0];
-    if (existing) return existing;
-  }
-  const count = Number(
-    (
-      await query(
-        "SELECT count(*) n FROM public.ia_vendas_actions WHERE restaurant_id=$1 AND run_id=$2",
-        [restaurant, run],
-      )
-    ).rows[0].n,
-  );
-  if (count >= LIMITS.actions)
-    throw new SalesError("Revise as propostas primeiro.");
-  const jobs = [], skipped: string[] = [];
-  for (const job of data.jobs) {
-    const t = await target(restaurant, job);
-    if (!(await imageAllowed(restaurant, run, job, t.row.name))) {
-      skipped.push(t.row.name);
-      continue;
-    }
-    jobs.push({ ...job, label: t.row.name });
-  }
-  if (!jobs.length) return { status: "skipped", skipped, id: null };
-
-  const proposal = (
-    await query(
-      "INSERT INTO public.ia_vendas_actions (restaurant_id,conversation_id,run_id,title,reason,image_jobs,id) VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7) ON CONFLICT(id) DO UPDATE SET id=excluded.id RETURNING *",
-      [
-        restaurant,
-        conversation,
-        run,
-        "Gerar prévias de imagens",
-        "Aprovar gera as prévias; publicar exige nova aprovação.",
-        JSON.stringify(jobs),
-        proposalId || randomUUID(),
-      ],
-    )
-  ).rows[0];
-  return { ...proposal, skipped };
 }
 export async function applyImages(restaurant: string, id: string, existingRun?: string) {
   const action = await claim(restaurant, id);

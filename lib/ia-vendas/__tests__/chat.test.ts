@@ -23,7 +23,7 @@ import { context, measure, readData } from "../data";
 import { beginRun, recordTokens, finishRun } from "../runs";
 import { propose } from "../actions";
 import { applyProposal } from "../application";
-import { analysisPhotos, previewImage, proposeImages } from "../images";
+import { analysisPhotos, previewImage } from "../images";
 import OpenAI from "openai";
 import { batchResponse, readBatch, saveToolResult, BatchPending } from "../batch";
 jest.mock("../batch", () => ({ ...jest.requireActual("../batch"), batchResponse: jest.fn(), readBatch: jest.fn(), saveToolResult: jest.fn() }));
@@ -51,7 +51,6 @@ jest.mock("../actions", () => ({ propose: jest.fn() }));
 jest.mock("../application", () => ({ applyProposal: jest.fn() }));
 jest.mock("../images", () => ({
   previewImage: jest.fn(),
-  proposeImages: jest.fn(),
   analysisPhotos: jest.fn(),
 }));
 jest.mock("../files", () => ({ attachment: jest.fn(), download: jest.fn() }));
@@ -293,56 +292,25 @@ test("image style fields are optional and only extracted when explicitly request
   expect(requestedImageStyle("Melhore a foto, ângulo de 45°")).toEqual({ presentation: "ângulo de 45 graus" });
 });
 
-test("image requests retry with normal AI tools rather than saving invented style questions", async () => {
+test("image requests do not force retries after an AI style question", async () => {
   (query as jest.Mock).mockImplementation(async (sql: string) => ({
     rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
       ? [{ kind: "chat", summary: "" }]
       : sql.includes("RETURNING id") ? [{ id: "user" }] : [],
   }));
   (context as jest.Mock).mockResolvedValueOnce(namedContext());
-  (previewImage as jest.Mock).mockResolvedValueOnce({ id: "generated-preview" });
-  const message = "Melhore a imagem do meu produto que mais vende!";
-  create
-    .mockResolvedValueOnce({
-      status: "completed", output: [],
-      output_text: JSON.stringify({
-        reply: "Já deixo definidos fundo claro e sem texto. Prefere 45° ou de cima?",
-        summary: "Fundo claro e sem texto",
-      }),
-      usage: { input_tokens: 100, output_tokens: 50 },
-    })
-    .mockResolvedValueOnce({
-      status: "completed",
-      output: [{
-        type: "function_call", name: "image_example", call_id: "image",
-        arguments: JSON.stringify({
-          target: "item", item_id: "first", prompt: "Fotografia gastronômica do Caseiro com luz suave e composição comercial.",
-          style: { background: "fundo claro", presentation: "45°", text: "" },
-        }),
-      }],
-      usage: { input_tokens: 150, output_tokens: 80 },
-    })
-    .mockResolvedValueOnce({
-      status: "completed", output: [],
-      output_text: JSON.stringify({ reply: "Prévia pronta [[action:generated-preview]]", summary: "" }),
-      usage: { input_tokens: 100, output_tokens: 20 },
-    });
-  await runChat({ ...args, deep: false, text: message });
-  expect(create).toHaveBeenCalledTimes(3);
-  expect(create.mock.calls[0][0].tool_choice).toBe("required");
-  expect(create.mock.calls[1][0].tool_choice).toBe("required");
-  expect(create.mock.calls[2][0].tool_choice).toBe("auto");
-  expect(create.mock.calls[1][0].tools.map((tool: any) => tool.name)).toEqual([
-    "read_data", "sales_metrics", "image_example",
-  ]);
-  expect(create.mock.calls[1][0].input.some((m: any) =>
-    m.role === "developer" && m.content.includes("Não pergunte ângulo"))).toBe(true);
-  expect(previewImage).toHaveBeenCalledWith("owner", "conversation", "run", {
-    target: "item", item_id: "first", prompt: "Fotografia gastronômica do Caseiro com luz suave e composição comercial.\nPedido original do proprietário: Melhore a imagem do meu produto que mais vende!",
+  create.mockResolvedValueOnce({
+    status: "completed", output: [],
+    output_text: JSON.stringify({ reply: "Prefere foto a 45 graus?", summary: "" }),
+    usage: { input_tokens: 100, output_tokens: 20 },
   });
-  const finished = (finishRun as jest.Mock).mock.calls.at(-1);
-  expect(finished[2].reply).toContain("[[action:generated-preview]]");
-  expect(finished[2].reply).not.toContain("Prefere 45°");
+  await runChat({ ...args, deep: false, text: "Melhore a imagem do meu produto" });
+  expect(create).toHaveBeenCalledTimes(1);
+  expect(create.mock.calls[0][0].tool_choice).toBe("auto");
+  expect(create.mock.calls[0][0].tools.map((tool: any) => tool.name)).toContain("image_example");
+  expect(create.mock.calls[0][0].tools.map((tool: any) => tool.name)).not.toContain("propose_images");
+  expect(previewImage).not.toHaveBeenCalled();
+  expect((finishRun as jest.Mock).mock.calls.at(-1)[2].reply).toContain("Prefere foto");
 });
 
 test("a short OK after a mistaken angle question retries the original image request without invented styles", async () => {
@@ -379,32 +347,10 @@ test("a short OK after a mistaken angle question retries the original image requ
       usage: { input_tokens: 100, output_tokens: 20 },
     });
   await runChat({ ...args, deep: false, text: "ok" });
-  expect(create.mock.calls[0][0].tool_choice).toBe("required");
-  expect(create.mock.calls[1][0].tool_choice).toBe("required");
+  expect(create.mock.calls[0][0].tool_choice).toBe("auto");
+  expect(create.mock.calls[1][0].tool_choice).toBe("auto");
   expect(previewImage).toHaveBeenCalledWith("owner", "conversation", "run", {
     target: "item", item_id: "first", prompt: "Foto profissional do Caseiro, com iluminação uniforme e foco no produto.\nPedido original do proprietário: Melhore a imagem do meu produto que mais vende!. ok",
-  });
-});
-
-test("a failed image attempt does not persist another mandatory style questionnaire", async () => {
-  (query as jest.Mock).mockImplementation(async (sql: string) => ({
-    rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
-      ? [{ kind: "chat", summary: "" }]
-      : sql.includes("RETURNING id") ? [{ id: "user" }] : [],
-  }));
-  (context as jest.Mock).mockResolvedValueOnce(namedContext());
-  create
-    .mockResolvedValueOnce({ status: "completed", output: [],
-      output_text: JSON.stringify({ reply: "Fundo claro ou escuro?", summary: "" }),
-      usage: { input_tokens: 100, output_tokens: 20 } })
-    .mockResolvedValueOnce({ status: "completed", output: [],
-      output_text: JSON.stringify({ reply: "Qual ângulo?", summary: "" }),
-      usage: { input_tokens: 100, output_tokens: 20 } });
-  await runChat({ ...args, deep: false, text: "Melhore a imagem do meu produto que mais vende!" });
-  expect(finishRun).toHaveBeenCalledWith("owner", "run", null,
-    "Não consegui preparar a prévia desta imagem. Tente novamente.");
-  expect(args.send).toHaveBeenCalledWith("error", {
-    message: "Não consegui preparar a prévia desta imagem. Tente novamente.",
   });
 });
 
@@ -434,60 +380,13 @@ test("model-invented style is discarded while the owner's unrecognized backgroun
   });
   const request = "Melhore a imagem de um produto com fundo azul";
   await runChat({ ...args, deep: false, text: request });
-  expect(create.mock.calls[0][0].tool_choice).toBe("required");
+  expect(create.mock.calls[0][0].tool_choice).toBe("auto");
   expect(previewImage).toHaveBeenCalledWith("owner", "conversation", "run", {
     target: "item", item_id: "fries", prompt: "Foto comercial com iluminação aprimorada, produto em destaque e composição limpa.\nPedido original do proprietário: Melhore a imagem de um produto com fundo azul",
   });
 });
 
-test("broad image requests generate the first preview immediately before proposing remaining images", async () => {
-  (query as jest.Mock).mockImplementation(async (sql: string) => ({
-    rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
-      ? [{ kind: "chat", summary: "" }]
-      : sql.includes("RETURNING id") ? [{ id: "user" }] : [],
-  }));
-  (context as jest.Mock).mockResolvedValueOnce(namedContext());
-  (previewImage as jest.Mock).mockResolvedValueOnce({ id: "first-preview" });
-  (proposeImages as jest.Mock).mockResolvedValueOnce({ id: "remaining-proposal", status: "pending" });
-  const userText = "Melhore as imagens dos meus produtos";
-  const first = "Foto comercial do Caseiro, iluminação suave e foco no sanduíche.";
-  const second = "Foto comercial do Segundo com composição limpa e detalhes nítidos.";
-  create.mockResolvedValueOnce({
-    status: "completed", output: [{
-      type: "function_call", name: "image_example", call_id: "preview",
-      arguments: JSON.stringify({ target: "item", item_id: "first", prompt: first,
-        attachment_id: "menu-images/owner/original.webp", style: { background: "branco" } }),
-    }],
-    usage: { input_tokens: 100, output_tokens: 30 },
-  }).mockResolvedValueOnce({
-    status: "completed", output: [{
-      type: "function_call", name: "propose_images", call_id: "batch",
-      arguments: JSON.stringify({ jobs: [
-        { target: "item", item_id: "first", prompt: first, style: { background: "branco" } },
-        { target: "item", item_id: "second", prompt: second, style: { presentation: "45 graus" } },
-      ] }),
-    }],
-    usage: { input_tokens: 100, output_tokens: 30 },
-  }).mockResolvedValueOnce({
-    status: "completed", output: [],
-    output_text: JSON.stringify({ reply: "Prévia e proposta prontas [[action:first-preview]] [[action:remaining-proposal]]", summary: "" }),
-    usage: { input_tokens: 100, output_tokens: 20 },
-  });
-  await runChat({ ...args, deep: false, text: userText });
-  const firstTools = create.mock.calls[0][0].tools.map((tool: any) => tool.name);
-  expect(create.mock.calls[0][0].tool_choice).toBe("required");
-  expect(firstTools).toContain("image_example");
-  expect(firstTools).not.toContain("propose_images");
-  expect(previewImage).toHaveBeenCalledWith("owner", "conversation", "run", {
-    target: "item", item_id: "first", prompt: first + "\nPedido original do proprietário: " + userText,
-  });
-  expect(proposeImages).toHaveBeenCalledWith("owner", "conversation", "run", {
-    jobs: [{ target: "item", item_id: "second", prompt: second + "\nPedido original do proprietário: " + userText }],
-  }, undefined);
-  expect((finishRun as jest.Mock).mock.calls.at(-1)[2].reply).toContain("[[action:first-preview]]");
-});
-
-test("a broad image request with a bad model attachment generates a preview then proposes remaining images without asking", async () => {
+test("broad image request generates directly without a batch-proposal tool", async () => {
   (query as jest.Mock).mockImplementation(async (sql: string) => ({
     rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
       ? [{ kind: "chat", summary: "" }]
@@ -495,86 +394,33 @@ test("a broad image request with a bad model attachment generates a preview then
   }));
   (context as jest.Mock).mockResolvedValueOnce(namedContext());
   (previewImage as jest.Mock).mockResolvedValueOnce({ id: "image-preview" });
-  (proposeImages as jest.Mock).mockResolvedValueOnce({ id: "image-batch", status: "pending" });
-  const userText = "Melhore as imagens dos meus produtos";
-  const prompt = "Fotografia profissional do Caseiro, com luz suave e destaque no prato.";
-  const second = "Fotografia comercial do Segundo, composição limpa e iluminada.";
+  const request = "Melhore as imagens dos meus produtos";
+  const photoPrompt = "Foto profissional do Caseiro com atenção à apresentação e aos ingredientes.";
   create.mockResolvedValueOnce({
-    status: "completed", output: [{ type: "function_call", name: "image_example", call_id: "bad-attachment",
-      arguments: JSON.stringify({ target: "item", item_id: "first", prompt,
-        attachment_id: "menu-images/owner/path.webp", style: {} }) }],
-    usage: { input_tokens: 100, output_tokens: 25 },
-  }).mockResolvedValueOnce({
-    status: "completed", output: [],
-    output_text: JSON.stringify({ reply: "Quer que eu gere o lote completo?", summary: "" }),
-    usage: { input_tokens: 100, output_tokens: 20 },
-  }).mockResolvedValueOnce({
-    status: "completed", output: [{ type: "function_call", name: "propose_images", call_id: "batch",
-      arguments: JSON.stringify({ jobs: [{
-        target: "item", item_id: "second", prompt: second,
-        attachment_id: "menu-images/owner/other.webp",
-      }] }) }],
-    usage: { input_tokens: 100, output_tokens: 25 },
-  }).mockResolvedValueOnce({
-    status: "completed", output: [],
-    output_text: JSON.stringify({ reply: "Prévia e proposta prontas [[action:image-preview]] [[action:image-batch]]", summary: "" }),
-    usage: { input_tokens: 100, output_tokens: 20 },
-  });
-  await runChat({ ...args, text: userText, deep: false });
-  expect(previewImage).toHaveBeenCalledWith("owner", "conversation", "run", {
-    target: "item", item_id: "first", prompt: prompt + "\nPedido original do proprietário: " + userText,
-  });
-  expect(create.mock.calls[2][0].tool_choice).toBe("required");
-  expect(create.mock.calls[2][0].tools.map((t: any) => t.name)).toEqual(["read_data", "propose_images"]);
-  expect(proposeImages).toHaveBeenCalledWith("owner", "conversation", "run", {
-    jobs: [{ target: "item", item_id: "second", prompt: second + "\nPedido original do proprietário: " + userText }],
-  }, undefined);
-  const finished = (finishRun as jest.Mock).mock.calls.at(-1);
-  expect(finished[2].reply).not.toContain("Quer que eu gere");
-  expect(finished[2].reply).toContain("[[action:image-batch]]");
-});
-
-test("a broad image request never ends in a bare permission question", async () => {
-  (query as jest.Mock).mockImplementation(async (sql: string) => ({
-    rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
-      ? [{ kind: "chat", summary: "" }]
-      : sql.includes("RETURNING id") ? [{ id: "user" }] : [],
-  }));
-  (context as jest.Mock).mockResolvedValueOnce(namedContext());
-  (previewImage as jest.Mock).mockResolvedValueOnce({ id: "generated-preview" });
-  (proposeImages as jest.Mock).mockResolvedValueOnce({ id: "batch-proposal", status: "pending" });
-  const ask = () => ({
-    status: "completed", output: [],
-    output_text: JSON.stringify({ reply: "Quer que eu gere o lote?", summary: "" }),
-    usage: { input_tokens: 100, output_tokens: 20 },
-  });
-  create.mockResolvedValueOnce(ask()).mockResolvedValueOnce({
     status: "completed", output: [{
-      type: "function_call", name: "image_example", call_id: "preview",
-      arguments: JSON.stringify({ target: "item", item_id: "first", prompt: "Foto comercial do Caseiro" }),
+      type: "function_call", name: "image_example", call_id: "image",
+      arguments: JSON.stringify({
+        target: "item", item_id: "first", prompt: photoPrompt,
+        attachment_id: "menu-images/owner/path.webp",
+        style: { background: "branco", presentation: "45°" },
+      }),
     }],
     usage: { input_tokens: 100, output_tokens: 25 },
-  }).mockResolvedValueOnce(ask()).mockResolvedValueOnce({
-    status: "completed", output: [{ type: "function_call", name: "propose_images", call_id: "proposal",
-      arguments: JSON.stringify({ jobs: [{
-        target: "item", item_id: "second", prompt: "Foto comercial do Segundo",
-      }] }) }],
-    usage: { input_tokens: 100, output_tokens: 30 },
   }).mockResolvedValueOnce({
     status: "completed", output: [],
-    output_text: JSON.stringify({ reply: "Prévia pronta [[action:generated-preview]] [[action:batch-proposal]]", summary: "" }),
+    output_text: JSON.stringify({ reply: "Prévia pronta [[action:image-preview]]", summary: "" }),
     usage: { input_tokens: 100, output_tokens: 20 },
   });
-  await runChat({ ...args, text: "Melhore as imagens dos meus produtos", deep: false });
-  expect(create.mock.calls[0][0].tool_choice).toBe("required");
-  expect(create.mock.calls[1][0].tool_choice).toBe("required");
-  expect(create.mock.calls[3][0].tool_choice).toBe("required");
-  expect(create.mock.calls[3][0].tools.map((tool: any) => tool.name)).toEqual(["read_data", "propose_images"]);
-  expect(previewImage).toHaveBeenCalledTimes(1);
-  expect(proposeImages).toHaveBeenCalledTimes(1);
-  const reply = (finishRun as jest.Mock).mock.calls.at(-1)[2].reply;
-  expect(reply).toContain("[[action:generated-preview]]");
-  expect(reply).not.toContain("Quer que eu gere");
+  await runChat({ ...args, deep: false, text: request });
+  const available = create.mock.calls[0][0].tools.map((tool: any) => tool.name);
+  expect(create.mock.calls[0][0].tool_choice).toBe("auto");
+  expect(available).toContain("image_example");
+  expect(available).not.toContain("propose_images");
+  expect(previewImage).toHaveBeenCalledWith("owner", "conversation", "run", {
+    target: "item", item_id: "first",
+    prompt: photoPrompt + "\nPedido original do proprietário: " + request,
+  });
+  expect((finishRun as jest.Mock).mock.calls.at(-1)[2].reply).toContain("[[action:image-preview]]");
 });
 
 test("a failed image preview does not consume the one-preview guard", async () => {
@@ -606,44 +452,23 @@ test("a failed image preview does not consume the one-preview guard", async () =
   expect((finishRun as jest.Mock).mock.calls.at(-1)[2].reply).toContain("successful-preview");
 });
 
-test.each([
-  [false, 3],
-  [true, LIMITS.imageBatch],
-])("Plus=%s image proposal tool allows %i images per batch after the first preview", async (plus, maxJobs) => {
-  (aiAccess as jest.Mock).mockResolvedValueOnce({ plus, images_remaining: 3 })
-    .mockResolvedValueOnce({ plus, images_remaining: 3 });
+test.each([false, true])("Plus=%s offers image_example without a batch proposal tool", async (plus) => {
+  (aiAccess as jest.Mock).mockResolvedValue({ plus, images_remaining: 3 });
   (query as jest.Mock).mockImplementation(async (sql: string) => ({
     rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
       ? [{ kind: "chat", summary: "" }]
       : sql.includes("RETURNING id") ? [{ id: "user" }] : [],
   }));
-  (previewImage as jest.Mock).mockResolvedValueOnce({ id: "first-preview" });
-  (proposeImages as jest.Mock).mockResolvedValueOnce({ id: "remaining", status: "pending" });
   create.mockResolvedValueOnce({
-    status: "completed", output: [{
-      type: "function_call", name: "image_example", call_id: "preview",
-      arguments: JSON.stringify({ target: "item", item_id: "item-0", prompt: "Foto profissional" }),
-    }],
-    usage: { input_tokens: 100, output_tokens: 15 },
-  }).mockResolvedValueOnce({
-    status: "completed", output: [{
-      type: "function_call", name: "propose_images", call_id: "batch",
-      arguments: JSON.stringify({ jobs: [{ target: "item", item_id: "item-1", prompt: "Foto profissional" }] }),
-    }],
-    usage: { input_tokens: 100, output_tokens: 15 },
-  }).mockResolvedValueOnce({
     status: "completed", output: [],
-    output_text: JSON.stringify({ reply: "Pronto", summary: "" }),
+    output_text: JSON.stringify({ reply: "Entendi.", summary: "" }),
     usage: { input_tokens: 100, output_tokens: 10 },
   });
   await runChat({ ...args, deep: false, text: "Gere fotos" });
-  expect(create.mock.calls[0][0].tools.map((tool: any) => tool.name)).not.toContain("propose_images");
-  const proposalTool = create.mock.calls[1][0].tools.find((item: any) => item.name === "propose_images");
-  expect(proposalTool.parameters.properties.jobs.maxItems).toBe(maxJobs);
-  expect(proposalTool.parameters.properties.jobs.items.required).toEqual(["target", "prompt"]);
-  const imageExample = create.mock.calls[0][0].tools.find((tool: any) => tool.name === "image_example");
-  expect(imageExample.parameters.required).toEqual(["target", "prompt"]);
-  expect(create.mock.calls[0][0].tools.some((tool: any) => tool.name === "propose_action")).toBe(false);
+  const available = create.mock.calls[0][0].tools.map((tool: any) => tool.name);
+  expect(available).toContain("image_example");
+  expect(available).not.toContain("propose_images");
+  expect(create.mock.calls[0][0].tool_choice).toBe("auto");
 });
 
 test("deep analysis retains the original full-field 50-row read_data tool", async () => {

@@ -1,6 +1,4 @@
 import { applyProposal } from "../application";
-import { proposeImages } from "../images";
-import { LIMITS } from "../config";
 import { aiAccess } from "../access";
 import { query, withTransaction } from "@/lib/database/sql";
 import { saveFile, signedAttachment } from "../files";
@@ -130,34 +128,6 @@ test("free users cannot start an existing batch exceeding three images", async (
   expect(imageCount).toBe(0);
 });
 
-test("free proposals accept three images but reject four before saving a batch", async () => {
-  const job = { target: "item", item_id: item.id, prompt: "Foto aprovada" };
-  await expect(proposeImages(restaurant, conversation, run, { jobs: [job, job, job, job] }))
-    .rejects.toThrow("até 3 imagens por lote");
-  expect(statements.some((sql) => sql.startsWith("INSERT INTO public.ia_vendas_actions"))).toBe(false);
-  const proposed = await proposeImages(restaurant, conversation, run, { jobs: [job, job, job] });
-  expect(proposed.image_jobs).toHaveLength(3);
-});
-
-test("image proposal attempts after exhausting credits keep backend image generation blocked", async () => {
-  imageCount = 3;
-  await expect(proposeImages(restaurant, conversation, run, { jobs: [
-    { target: "item", item_id: item.id, prompt: "Mais uma foto" },
-  ] })).rejects.toThrow("Seu limite gratuito de imagens foi atingido");
-  expect(statements.some(sql => sql.startsWith("INSERT INTO public.ia_vendas_actions"))).toBe(false);
-});
-
-test("iMenu Plus can still propose eight images per batch, but not nine", async () => {
-  plus = true;
-  const jobs = Array.from({ length: LIMITS.imageBatch }, () => ({
-    target: "item", item_id: item.id, prompt: "Foto aprovada",
-  }));
-  const proposed = await proposeImages(restaurant, conversation, run, { jobs });
-  expect(proposed.image_jobs).toHaveLength(LIMITS.imageBatch);
-  await expect(proposeImages(restaurant, conversation, run, { jobs: [...jobs, jobs[0]] }))
-    .rejects.toThrow("até 8 imagens por lote");
-});
-
 test("failed image generation releases its reserved quota", async () => {
   generate.mockRejectedValueOnce(new Error("Generation failed"));
   await expect(applyProposal(restaurant, proposal, conversation, "generate", run)).rejects.toThrow("Generation failed");
@@ -167,13 +137,6 @@ test("failed image generation releases its reserved quota", async () => {
 
 
 
-test("broad image requests skip applied products before proposing or spending any image quota", async () => {
-  appliedImage = true;
-  const result = await proposeImages(restaurant, conversation, run, { jobs: [{ target: "item", item_id: item.id, prompt: "new" }] });
-  expect(result).toMatchObject({ id: null, status: "skipped", skipped: ["Prato"] });
-  expect(generate).not.toHaveBeenCalled();
-  expect(imageCount).toBe(0);
-});
 test("an old approved batch rechecks applied images before calling the provider", async () => {
   appliedImage = true;
   await applyProposal(restaurant, proposal, conversation, "generate", run);
