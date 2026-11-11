@@ -9,8 +9,22 @@ export const dynamic = "force-dynamic";
 // Acknowledge only the notification belonging to that exact subscription.
 export async function POST(request: NextRequest) {
     const origin = request.headers.get("origin");
-    if (origin && origin !== request.nextUrl.origin) {
-        return NextResponse.json({ error: "Origem inválida." }, { status: 403 });
+    if (origin) {
+        // Behind the reverse proxy, nextUrl.origin may be the internal app URL.
+        // Compare with the public Host header instead, keeping cross-origin ACKs blocked.
+        const host = request.headers.get("host");
+        let validOrigin = false;
+        try {
+            const parsed = new URL(origin);
+            const isLocal = /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(parsed.host);
+            validOrigin = Boolean(host) && parsed.host === host &&
+                (parsed.protocol === "https:" || (isLocal && parsed.protocol === "http:"));
+        } catch {
+            // Reject malformed origins.
+        }
+        if (!validOrigin) {
+            return NextResponse.json({ error: "Origem inválida." }, { status: 403 });
+        }
     }
 
     try {
