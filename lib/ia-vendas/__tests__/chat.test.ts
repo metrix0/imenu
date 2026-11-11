@@ -220,6 +220,38 @@ test("assistant offers targeted reads and a compact field guide", async () => {
   expect(request.input[0].content).not.toContain('"nullable":false');
 });
 
+test("chat memory stays in its conversation while durable image preferences remain available", async () => {
+  const otherChat = "Falta escolher ângulo de cima ou 45°";
+  (query as jest.Mock).mockImplementation(async (sql: string) => ({
+    rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
+      ? [{ kind: "chat", summary: "Memória apenas desta conversa" }]
+      : sql.includes("SELECT title,summary FROM public.ia_vendas_conversations")
+        ? [{ title: "Outra conversa", summary: otherChat }]
+        : sql.includes("SELECT DISTINCT ON (image->>")
+          ? [{ profile: "item", target_id: "item-1",
+              style: { background: "fundo claro" }, applied_at: "2026-11-10T20:00:00Z" }]
+          : sql.includes("RETURNING id") ? [{ id: "user" }] : [],
+  }));
+  (context as jest.Mock).mockResolvedValueOnce({
+    restaurant: {}, items: { rows: [] }, categories: { rows: [] },
+    sales: { products: [] }, actions: [],
+  });
+  create.mockResolvedValueOnce({
+    status: "completed", output: [],
+    output_text: JSON.stringify({ reply: "Tudo certo.", summary: "" }),
+    usage: { input_tokens: 100, output_tokens: 10 },
+  });
+  await runChat({ ...args, deep: false, text: "Olá" });
+  const prompts = create.mock.calls[0][0].input[0].content as string;
+  expect(prompts).toContain("Memória desta conversa: Memória apenas desta conversa");
+  expect(prompts).not.toContain("Outras conversas:");
+  expect(prompts).not.toContain(otherChat);
+  expect(prompts).toContain('"approved_image_styles":[{"profile":"item","target_id":"item-1"');
+  expect(prompts).toContain('"background":"fundo claro"');
+  expect((query as jest.Mock).mock.calls.some(([sql]: [string]) =>
+    sql.includes("SELECT title,summary FROM public.ia_vendas_conversations"))).toBe(false);
+});
+
 test("assistant snapshot keeps useful data but omits heavy fields", () => {
   const compact = compactAssistantContext({
     items: { rows: Array.from({ length: 25 }, (_, i) => ({
@@ -261,22 +293,119 @@ test("image style fields are optional and only extracted when explicitly request
   expect(requestedImageStyle("Melhore a foto, ângulo de 45°")).toEqual({ presentation: "ângulo de 45 graus" });
 });
 
-test("an identifiable image request does not bypass the assistant's normal tool flow", async () => {
+test("image requests retry with normal AI tools rather than saving invented style questions", async () => {
   (query as jest.Mock).mockImplementation(async (sql: string) => ({
     rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
       ? [{ kind: "chat", summary: "" }]
       : sql.includes("RETURNING id") ? [{ id: "user" }] : [],
   }));
   (context as jest.Mock).mockResolvedValueOnce(namedContext());
-  create.mockResolvedValueOnce({
-    status: "completed", output: [],
-    output_text: JSON.stringify({ reply: "Resposta padrão.", summary: "" }),
-    usage: { input_tokens: 100, output_tokens: 20 },
-  });
-  await runChat({ ...args, deep: false, text: "Melhore a imagem do meu item mais vendido" });
-  expect(create).toHaveBeenCalledTimes(1);
+  (previewImage as jest.Mock).mockResolvedValueOnce({ id: "generated-preview" });
+  const message = "Melhore a imagem do meu produto que mais vende!";
+  create
+    .mockResolvedValueOnce({
+      status: "completed", output: [],
+      output_text: JSON.stringify({
+        reply: "Já deixo definidos fundo claro e sem texto. Prefere 45° ou de cima?",
+        summary: "Fundo claro e sem texto",
+      }),
+      usage: { input_tokens: 100, output_tokens: 50 },
+    })
+    .mockResolvedValueOnce({
+      status: "completed",
+      output: [{
+        type: "function_call", name: "image_example", call_id: "image",
+        arguments: JSON.stringify({
+          target: "item", item_id: "first", prompt: "45° e fundo claro",
+          style: { background: "fundo claro", presentation: "45°", text: "" },
+        }),
+      }],
+      usage: { input_tokens: 150, output_tokens: 80 },
+    })
+    .mockResolvedValueOnce({
+      status: "completed", output: [],
+      output_text: JSON.stringify({ reply: "Prévia pronta [[action:generated-preview]]", summary: "" }),
+      usage: { input_tokens: 100, output_tokens: 20 },
+    });
+  await runChat({ ...args, deep: false, text: message });
+  expect(create).toHaveBeenCalledTimes(3);
   expect(create.mock.calls[0][0].tool_choice).toBe("auto");
-  expect(previewImage).not.toHaveBeenCalled();
+  expect(create.mock.calls[1][0].tool_choice).toBe("required");
+  expect(create.mock.calls[2][0].tool_choice).toBe("auto");
+  expect(create.mock.calls[1][0].tools.map((tool: any) => tool.name)).toEqual([
+    "read_data", "sales_metrics", "image_example",
+  ]);
+  expect(create.mock.calls[1][0].input.some((m: any) =>
+    m.role === "developer" && m.content.includes("Não pergunte ângulo"))).toBe(true);
+  expect(previewImage).toHaveBeenCalledWith("owner", "conversation", "run", {
+    target: "item", item_id: "first", prompt: message,
+  });
+  const finished = (finishRun as jest.Mock).mock.calls.at(-1);
+  expect(finished[2].reply).toContain("[[action:generated-preview]]");
+  expect(finished[2].reply).not.toContain("Prefere 45°");
+});
+
+test("a short OK after a mistaken angle question retries the original image request without invented styles", async () => {
+  const message = "Melhore a imagem do meu produto que mais vende!";
+  (query as jest.Mock).mockImplementation(async (sql: string) => ({
+    rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
+      ? [{ kind: "chat", summary: "" }]
+      : sql.includes("SELECT role,content,cards FROM public.ia_vendas_messages")
+        ? [
+            { role: "user", content: "ok" },
+            { role: "assistant", content: "Já defini fundo claro e sem texto. Falta escolher o ângulo?", cards: [] },
+            { role: "user", content: message },
+          ]
+        : sql.includes("RETURNING id") ? [{ id: "user" }] : [],
+  }));
+  (context as jest.Mock).mockResolvedValueOnce(namedContext());
+  (previewImage as jest.Mock).mockResolvedValueOnce({ id: "generated-preview" });
+  create
+    .mockResolvedValueOnce({
+      status: "completed", output: [],
+      output_text: JSON.stringify({ reply: "Escolha o ângulo.", summary: "" }),
+      usage: { input_tokens: 100, output_tokens: 20 },
+    })
+    .mockResolvedValueOnce({
+      status: "completed",
+      output: [{ type: "function_call", name: "image_example", call_id: "image",
+        arguments: JSON.stringify({ target: "item", item_id: "first", prompt: "45° e fundo claro",
+          style: { background: "claro", presentation: "45°", text: "" } }) }],
+      usage: { input_tokens: 150, output_tokens: 50 },
+    })
+    .mockResolvedValueOnce({
+      status: "completed", output: [],
+      output_text: JSON.stringify({ reply: "Prévia [[action:generated-preview]]", summary: "" }),
+      usage: { input_tokens: 100, output_tokens: 20 },
+    });
+  await runChat({ ...args, deep: false, text: "ok" });
+  expect(create.mock.calls[0][0].tool_choice).toBe("auto");
+  expect(create.mock.calls[1][0].tool_choice).toBe("required");
+  expect(previewImage).toHaveBeenCalledWith("owner", "conversation", "run", {
+    target: "item", item_id: "first", prompt: message + ". ok",
+  });
+});
+
+test("a failed image attempt does not persist another mandatory style questionnaire", async () => {
+  (query as jest.Mock).mockImplementation(async (sql: string) => ({
+    rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
+      ? [{ kind: "chat", summary: "" }]
+      : sql.includes("RETURNING id") ? [{ id: "user" }] : [],
+  }));
+  (context as jest.Mock).mockResolvedValueOnce(namedContext());
+  create
+    .mockResolvedValueOnce({ status: "completed", output: [],
+      output_text: JSON.stringify({ reply: "Fundo claro ou escuro?", summary: "" }),
+      usage: { input_tokens: 100, output_tokens: 20 } })
+    .mockResolvedValueOnce({ status: "completed", output: [],
+      output_text: JSON.stringify({ reply: "Qual ângulo?", summary: "" }),
+      usage: { input_tokens: 100, output_tokens: 20 } });
+  await runChat({ ...args, deep: false, text: "Melhore a imagem do meu produto que mais vende!" });
+  expect(finishRun).toHaveBeenCalledWith("owner", "run", null,
+    "Não consegui preparar a prévia desta imagem. Tente novamente.");
+  expect(args.send).toHaveBeenCalledWith("error", {
+    message: "Não consegui preparar a prévia desta imagem. Tente novamente.",
+  });
 });
 
 test("model-generated optional image slots are discarded when the customer did not request them", async () => {

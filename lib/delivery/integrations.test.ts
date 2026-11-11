@@ -12,7 +12,7 @@ const config = () => ({ ...structuredClone(emptyDeliveryConfig), machine: {
 const order = { id:"11111111-1111-4111-8111-111111111111",restaurant_id:"restaurant",is_delivery:"entrega",status:"preparing",display_id:7,
     customer_name:"Ana",customer_phone:"19999999999",customer_address:"Rua A, 10 - Centro - 13500-000 (Casa)",city:"Rio Claro",state:"SP" };
 const ifoodOrder = { id:"22222222-2222-4222-8222-222222222222",displayId:"1234",orderType:"DELIVERY",merchant:{id:"merchant"},
-    total:{itemsPrice:32,deliveryFee:5,orderAmount:37},customer:{name:"Ana"},
+    total:{subTotal:32,deliveryFee:5,orderAmount:37},customer:{name:"Ana"},
     items:[{name:"Lanche",quantity:2,totalPrice:32,observations:"Sem cebola",options:[{quantity:1,name:"Queijo"}]}],
     payments:{methods:[{method:"CREDIT",type:"ONLINE"}]},delivery:{deliveryAddress:{streetName:"Rua A",streetNumber:"10",neighborhood:"Centro",city:"Rio Claro",state:"SP"}} };
 beforeEach(() => {
@@ -44,6 +44,11 @@ test("iFood mapping preserves totals/options/payment without product matching", 
     expect(mapped.items[0].observation).toContain("1x Queijo");
     expect(mapped.items[0].observation).toContain("CREDIT (ONLINE)");
     expect(() => mapIfoodOrder({...ifoodOrder,total:{}})).toThrow();
+});
+test("iFood documented subTotal imports even with discounts and extra fees", () => {
+    const orderWithFees = { ...ifoodOrder, total: { subTotal: 50, deliveryFee: 10, additionalFees: 2, benefits: 5, orderAmount: 57 } };
+    expect(mapIfoodOrder(orderWithFees)).toMatchObject({ subtotal: 5000, delivery: 1000, total: 5700 });
+    expect(() => mapIfoodOrder({ ...ifoodOrder, total: { itemsPrice: 32, deliveryFee: 5, orderAmount: 37 } })).toThrow("Valor inválido");
 });
 test("Machine destination includes unique order reference and never guesses malformed addresses", () => {
     expect(machinePayload(order,config().machine)).toMatchObject({empresa_id:123,forma_pagamento:"F",paradas:[{id_externo:order.id,endereco_parada:"Rua A, 10",bairro_parada:"Centro",cidade_parada:"Rio Claro"}]});
