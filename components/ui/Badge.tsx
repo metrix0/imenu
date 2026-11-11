@@ -30,7 +30,7 @@ const variants: Record<BadgeVariant, string> = {
 const modes: Record<BadgeMode, string> = {
     default:
         "inline-flex shrink-0 items-center align-middle rounded-full px-2 py-1 !text-[11px] leading-none font-semibold ring-1 ring-inset",
-    pill: "relative -top-[1.5px] inline-flex shrink-0 items-center align-middle rounded-full px-1.5 pt-1 pb-0.5 !text-[9px] leading-none font-semibold tracking-wide ring-1 ring-inset",
+    pill: "inline-flex shrink-0 items-center justify-center align-middle rounded-full px-1.5 py-0.5 !text-[9px] leading-none font-semibold tracking-wide ring-1 ring-inset",
     page: "inline-flex shrink-0 items-center gap-1.5 align-middle rounded-md px-2.5 py-1.5 !text-[12px] leading-none font-medium ring-1 ring-inset",
 };
 
