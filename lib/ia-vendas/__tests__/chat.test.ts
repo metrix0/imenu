@@ -278,6 +278,7 @@ test.each([
   ["Gere fotos e altere o preço", false],
   ["Como melhorar minhas vendas?", false],
   ["Generate product images", true],
+  ["make an image for BOTH of my products", true],
   ["Melhore a imagem do meu item mais vendido", true],
   ["Troque a foto da Batata Frita", true],
   ["Como melhorar minhas fotos?", false],
@@ -384,6 +385,78 @@ test("model-invented style is discarded while the detailed AI prompt is preserve
   expect(create.mock.calls[0][0].tool_choice).toBe("auto");
   expect(previewImage).toHaveBeenCalledWith("owner", "conversation", "run", {
     target: "item", item_id: "fries", prompt: "Foto comercial com iluminação aprimorada, produto em destaque e composição limpa.",
+  });
+});
+
+test("discarded previews remain eligible and a request for both products generates both", async () => {
+  (query as jest.Mock).mockImplementation(async (sql: string) => ({
+    rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
+      ? [{ kind: "chat", summary: "A prévia do primeiro produto já foi gerada." }]
+      : sql.includes("RETURNING id") ? [{ id: "user" }] : [],
+  }));
+  (context as jest.Mock).mockResolvedValueOnce({
+    ...namedContext(),
+    actions: [{
+      id: "discarded", title: "Atualizar imagem: Caseiro", status: "rejected",
+      operations: [{ entity: "items", id: "first", kind: "update", values: { image_path: "discarded.webp" } }],
+    }],
+  });
+  (previewImage as jest.Mock)
+    .mockResolvedValueOnce({ id: "new-first" })
+    .mockResolvedValueOnce({ id: "new-second" });
+  const first = "Foto gastronômica detalhada do Caseiro";
+  const second = "Foto gastronômica detalhada do Segundo";
+  create.mockResolvedValueOnce({
+    status: "completed", output: [
+      { type: "function_call", name: "image_example", call_id: "first-call",
+        arguments: JSON.stringify({ target: "item", item_id: "first", prompt: first }) },
+      { type: "function_call", name: "image_example", call_id: "second-call",
+        arguments: JSON.stringify({ target: "item", item_id: "second", prompt: second }) },
+    ],
+    usage: { input_tokens: 100, output_tokens: 40 },
+  }).mockResolvedValueOnce({
+    status: "completed", output: [],
+    output_text: JSON.stringify({ reply: "As duas prévias estão prontas.", summary: "" }),
+    usage: { input_tokens: 100, output_tokens: 20 },
+  });
+  await runChat({ ...args, deep: false, text: "make an image for BOTH of my products" });
+  expect(create.mock.calls[0][0].input[0].content).toContain('"status":"rejected"');
+  expect(create.mock.calls[0][0].input[0].content).toContain("Uma prévia descartada");
+  expect(previewImage).toHaveBeenCalledTimes(2);
+  expect(previewImage).toHaveBeenNthCalledWith(1, "owner", "conversation", "run", {
+    target: "item", item_id: "first", prompt: first,
+  });
+  expect(previewImage).toHaveBeenNthCalledWith(2, "owner", "conversation", "run", {
+    target: "item", item_id: "second", prompt: second,
+  });
+  expect((finishRun as jest.Mock).mock.calls.at(-1)[2].reply).toContain("duas prévias");
+});
+
+test("single-product requests still allow only one successful preview", async () => {
+  (query as jest.Mock).mockImplementation(async (sql: string) => ({
+    rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
+      ? [{ kind: "chat", summary: "" }]
+      : sql.includes("RETURNING id") ? [{ id: "user" }] : [],
+  }));
+  (context as jest.Mock).mockResolvedValueOnce(namedContext());
+  (previewImage as jest.Mock).mockResolvedValueOnce({ id: "first-preview" });
+  create.mockResolvedValueOnce({
+    status: "completed", output: [
+      { type: "function_call", name: "image_example", call_id: "one",
+        arguments: JSON.stringify({ target: "item", item_id: "first", prompt: "Foto um" }) },
+      { type: "function_call", name: "image_example", call_id: "two",
+        arguments: JSON.stringify({ target: "item", item_id: "second", prompt: "Foto dois" }) },
+    ],
+    usage: { input_tokens: 100, output_tokens: 40 },
+  }).mockResolvedValueOnce({
+    status: "completed", output: [],
+    output_text: JSON.stringify({ reply: "Primeira prévia pronta.", summary: "" }),
+    usage: { input_tokens: 100, output_tokens: 20 },
+  });
+  await runChat({ ...args, deep: false, text: "Melhore a imagem do Caseiro" });
+  expect(previewImage).toHaveBeenCalledTimes(1);
+  expect(previewImage).toHaveBeenCalledWith("owner", "conversation", "run", {
+    target: "item", item_id: "first", prompt: "Foto um",
   });
 });
 
