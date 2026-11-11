@@ -49,6 +49,19 @@ test("Machine destination includes unique order reference and never guesses malf
     expect(machinePayload(order,config().machine)).toMatchObject({empresa_id:123,forma_pagamento:"F",paradas:[{id_externo:order.id,endereco_parada:"Rua A, 10",bairro_parada:"Centro",cidade_parada:"Rio Claro"}]});
     expect(() => machinePayload({...order,customer_address:"unstructured"},config().machine)).toThrow();
 });
+test("Machine accepts a manual address without CEP", () => {
+    const result = machinePayload({ ...order, customer_address: "Rua Padre Cícero, 60C, Célio Miranda, Paragominas",
+        city: "Paragominas", state: "PA" }, config().machine);
+    expect(result.paradas[0]).toMatchObject({ endereco_parada: "Rua Padre Cícero, 60C",
+        bairro_parada: "Célio Miranda", cidade_parada: "Paragominas", estado_parada: "PA" });
+});
+test("Machine supports checkout addresses with or without CEP and reference", () => {
+    expect(machinePayload({ ...order, customer_address: "Rua A, 10 - Centro" }, config().machine).paradas[0])
+        .toMatchObject({ endereco_parada: "Rua A, 10", bairro_parada: "Centro" });
+    expect(machinePayload({ ...order, customer_address: "Rua A, 10 - Centro - 13500-000 (Casa) - Referência: portão" }, config().machine).paradas[0])
+        .toMatchObject({ endereco_parada: "Rua A, 10", bairro_parada: "Centro", complemento_parada: "Casa" });
+    expect(() => machinePayload({ ...order, customer_address: "Rua A, 10" }, config().machine)).toThrow(/Endereço incompleto/);
+});
 test.each(["retirada","mesa","balcao"])("%s never calls Machine",async type => {
     sql.mockResolvedValueOnce({rows:[{...order,is_delivery:type}]});
     expect(await dispatchCourier(order.id)).toBeNull();

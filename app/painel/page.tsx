@@ -5,6 +5,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useSta
 import { supabase } from "@/lib/database/supabaseClient"; // Ajustado para o seu import padrão
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; // Ajustado para o seu import padrão
 import Loader from "@/components/ui/Loader";
+import Toast from "@/components/ui/Toast";
 import Button from "@/components/ui/Button";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { Inbox } from "lucide-react";
@@ -73,6 +74,8 @@ export default function PainelPedidosAtivosPage() {
     } = useCreationStore();
 
     const [orders, setOrders] = useState<OrderData[]>([]);
+    const [courierError, setCourierError] = useState<{ id: number; message: string } | null>(null);
+    const showCourierError = (message: string) => setCourierError({ id: Date.now(), message });
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const [isTablesModalOpen, setIsTablesModalOpen] = useState(false);
     const [hasMesasAccess, setHasMesasAccess] = useState(false);
@@ -253,6 +256,8 @@ export default function PainelPedidosAtivosPage() {
 
     return (
         <div className="max-w-7xl 2xl:max-w-[90rem] mx-auto pb-20 px-4 sm:px-6 pt-8">
+            {courierError && <Toast key={courierError.id} type="error" message={"Entrega Machine: " + courierError.message}
+                duration={5000} onClose={() => setCourierError(null)} />}
             {/* Header */}
             <div className="panel-page-heading flex flex-col xl:flex-row justify-between items-start xl:items-end gap-4 mb-8">
                 <div>
@@ -388,6 +393,7 @@ export default function PainelPedidosAtivosPage() {
                             order={order}
                             onStatusChange={() => fetchOrders(restaurantId)}
                             onViewOrder={handleViewOrder}
+                            onCourierError={showCourierError}
                         />
                     ))}
                 </div>
@@ -408,6 +414,7 @@ export default function PainelPedidosAtivosPage() {
                     order={selectedOrder}
                     showStatusActions
                     onOrderUpdate={() => void fetchOrders(restaurantId)}
+                    onCourierError={showCourierError}
                     onEditOrder={(order) => {
                         setIsDetailsOpen(false);
                         orderModalRef.current?.open({ id: order.id });

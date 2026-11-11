@@ -62,6 +62,16 @@ test("Entregue uses the existing status API and refreshes after success", async 
     expect(refresh).toHaveBeenCalledTimes(1);
 });
 
+test("a Machine failure on acceptance reaches the toast callback", async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ courierError: "Endereço incompleto para a Machine." }) });
+    const alertMock = jest.fn();
+    Object.assign(global, { alert: alertMock });
+    const toast = jest.fn();
+    const tree = OrderCard({ order: order("paid"), onStatusChange: jest.fn(), onCourierError: toast });
+    await findButton(tree, "Aceitar")!.props.onClick();
+    expect(toast).toHaveBeenCalledWith("Endereço incompleto para a Machine.");
+    expect(alertMock).not.toHaveBeenCalled();
+});
 test("failed completion does not report a delivery or refresh success", async () => {
     global.fetch = jest.fn().mockResolvedValue({ ok: false, json: async () => ({ error: "Falha" }) });
     const alertMock = jest.fn();
