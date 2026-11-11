@@ -265,6 +265,8 @@ export async function previewImage(
   const image = {
     profile: input.target,
     ...(Object.keys(style).length ? { style } : {}),
+    // Explicit owner choices stay distinct from inherited visual preferences.
+    ...(input.style && Object.keys(input.style).length ? { explicit_style: input.style } : {}),
     before: imageUrl(before, t.bucket),
     attachment_id: saved.id,
     bucket: t.bucket,
