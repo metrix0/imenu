@@ -1022,24 +1022,24 @@ export default function SalesPage() {
                 <div className="mt-2 grid w-full gap-2 text-left sm:grid-cols-2">
                   {[
                     {
-                      title: "Editar itens e cardápio",
-                      prompt: "Revise meus itens e melhore meu cardápio",
-                      icon: Utensils,
-                    },
-                    {
-                      title: "Ajustar configurações do iMenu",
-                      prompt: "Ajuste meus horários, taxas e configurações",
-                      icon: Sparkles,
-                    },
-                    {
-                      title: "Melhorar imagens dos produtos",
+                      title: "Melhorar imagens",
                       prompt: "Melhore as imagens dos meus produtos",
                       icon: ImageIcon,
                     },
                     {
-                      title: "Preços, promoções e upsells",
-                      prompt: "Revise meus preços, promoções e upsells",
+                      title: "Editar itens",
+                      prompt: "Revise meus itens e melhore meu cardápio",
+                      icon: Utensils,
+                    },
+                    {
+                      title: "Criar promoção",
+                      prompt: "Crie uma promoção",
                       icon: BadgePercent,
+                    },
+                    {
+                      title: "Ajustar configurações",
+                      prompt: "Ajuste meus horários, taxas e configurações",
+                      icon: Sparkles,
                     },
                   ].map(({ title, prompt, icon: Icon }) => (
                     <button
