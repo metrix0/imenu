@@ -56,11 +56,34 @@ export async function getCrm(params: URLSearchParams) {
         ...(age === "30" ? ["r.created_at >= NOW() - INTERVAL '30 days'"] : age === "90" ? ["r.created_at >= NOW() - INTERVAL '90 days'"] : age === "older" ? ["r.created_at < NOW() - INTERVAL '90 days'"] : []),
     ];
     const where = conditions.join(" AND ");
+    // Only allow known SQL expressions; sorting must happen before LIMIT/OFFSET.
+    const sortColumns: Record<string, string> = {
+        name: "LOWER(r.name)",
+        status: `CASE WHEN (${PLUS}) THEN 2 WHEN (${PAID}) THEN 1 ELSE 0 END`,
+        store: "NULLIF(BTRIM(r.store_whatsapp), '')",
+        owner: "COALESCE(NULLIF(BTRIM(u.raw_user_meta_data->>'phone'), ''), NULLIF(BTRIM(r.phone), ''))",
+        created: "r.created_at",
+        gmv: "gmv.gmv_cents",
+    };
+    const sortKey = params.get("sort") || "";
+    const sortColumn = Object.prototype.hasOwnProperty.call(sortColumns, sortKey) ? sortColumns[sortKey] : null;
+    const direction = params.get("direction") === "asc" ? "ASC" : "DESC";
+    const orderBy = sortColumn
+        ? `${sortColumn} ${direction} NULLS LAST, r.id`
+        : `${paidOnly ? `(${PLUS}) DESC,` : ""} r.created_at DESC,r.id`;
     const [rows, count] = await Promise.all([
         query(`SELECT r.id,r.name,r.url_slug,r.created_at,COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),r.phone) phone,r.store_whatsapp AS store_phone,
-            COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),NULLIF(TRIM(r.phone),'')) AS owner_phone,(${PLUS_SINCE}) AS plus_since,u.email,(${PAID}) AS has_paid,(${PLUS}) AS plus
-            FROM restaurants r LEFT JOIN auth.users u ON u.id=r.user_id WHERE ${where}
-            ORDER BY ${paidOnly ? `(${PLUS}) DESC,` : ""} r.created_at DESC,r.id LIMIT $2 OFFSET $3`, [search, CRM_PAGE_SIZE, page * CRM_PAGE_SIZE]),
+            COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),NULLIF(TRIM(r.phone),'')) AS owner_phone,(${PLUS_SINCE}) AS plus_since,u.email,(${PAID}) AS has_paid,(${PLUS}) AS plus,
+            COALESCE(gmv.gmv_cents,0) AS gmv_cents
+            FROM restaurants r LEFT JOIN auth.users u ON u.id=r.user_id
+            LEFT JOIN LATERAL (
+                SELECT COALESCE(SUM(o.total_cents),0)::bigint AS gmv_cents
+                FROM orders o WHERE o.restaurant_id=r.id
+                  AND o.status IS DISTINCT FROM 'canceled'
+                  AND o.status IS DISTINCT FROM 'pending_online_payment'
+            ) gmv ON true
+            WHERE ${where}
+            ORDER BY ${orderBy} LIMIT $2 OFFSET $3`, [search, CRM_PAGE_SIZE, page * CRM_PAGE_SIZE]),
         query<{ total: number }>(`SELECT COUNT(*)::int total FROM restaurants r LEFT JOIN auth.users u ON u.id=r.user_id WHERE ${where}`, [search]),
     ]);
     return paged(rows.rows, count.rows[0].total, page, CRM_PAGE_SIZE);
