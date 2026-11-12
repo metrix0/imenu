@@ -355,7 +355,7 @@ test("image requests do not force retries after an AI style question", async () 
   expect((finishRun as jest.Mock).mock.calls.at(-1)[2].reply).toContain("Prefere foto");
 });
 
-test("a short OK after a mistaken angle question retries the original image request without invented styles", async () => {
+test("a short OK after a mistaken angle question can generate without invented styles or forced retries", async () => {
   const message = "Melhore a imagem do meu produto que mais vende!";
   (query as jest.Mock).mockImplementation(async (sql: string) => ({
     rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
@@ -372,11 +372,6 @@ test("a short OK after a mistaken angle question retries the original image requ
   (previewImage as jest.Mock).mockResolvedValueOnce({ id: "generated-preview" });
   create
     .mockResolvedValueOnce({
-      status: "completed", output: [],
-      output_text: JSON.stringify({ reply: "Escolha o ângulo.", summary: "" }),
-      usage: { input_tokens: 100, output_tokens: 20 },
-    })
-    .mockResolvedValueOnce({
       status: "completed",
       output: [{ type: "function_call", name: "image_example", call_id: "image",
         arguments: JSON.stringify({ target: "item", item_id: "first", prompt: "Foto profissional do Caseiro, com iluminação uniforme e foco no produto.",
@@ -389,6 +384,7 @@ test("a short OK after a mistaken angle question retries the original image requ
       usage: { input_tokens: 100, output_tokens: 20 },
     });
   await runChat({ ...args, deep: false, text: "ok" });
+  expect(create).toHaveBeenCalledTimes(2);
   expect(create.mock.calls[0][0].tool_choice).toBe("auto");
   expect(create.mock.calls[1][0].tool_choice).toBe("auto");
   expect(previewImage).toHaveBeenCalledWith("owner", "conversation", "run", {
