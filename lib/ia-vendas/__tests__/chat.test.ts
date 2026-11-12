@@ -327,7 +327,7 @@ test("a discarded image preview stays eligible for regeneration", async () => {
   expect(request.input[0].content).toContain("Uma prévia descartada (status rejected)");
   expect(request.input[0].content).toContain("mesmo que o histórico ou resumo");
   expect(request.tools.find((tool: any) => tool.name === "image_example").description)
-    .toContain("no máximo UMA prévia");
+    .toContain("uma vez por imagem na mesma mensagem");
   expect(previewImage).toHaveBeenCalledTimes(1);
   expect(previewImage).toHaveBeenCalledWith("owner", "conversation", "run", {
     target: "item", item_id: "first", prompt: "Foto profissional do Caseiro",
@@ -465,7 +465,46 @@ test("broad image request generates directly without a batch-proposal tool", asy
   expect((finishRun as jest.Mock).mock.calls.at(-1)[2].reply).toContain("[[action:image-preview]]");
 });
 
-test("a failed image preview does not consume the one-preview guard", async () => {
+test.each([false, true])("multiple images generate directly in one message (separate rounds=%s)", async (separateRounds) => {
+  const transactionQuery = jest.fn().mockResolvedValue({ rows: [{ status: "running", locked: true }] });
+  (withTransaction as jest.Mock).mockImplementation((fn) => fn({ query: transactionQuery }));
+  (query as jest.Mock).mockImplementation(async (sql: string) => ({
+    rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
+      ? [{ kind: "chat", summary: "" }]
+      : sql.includes("RETURNING id") ? [{ id: "user" }] : [],
+  }));
+  (context as jest.Mock).mockResolvedValueOnce(namedContext());
+  (previewImage as jest.Mock).mockReset().mockImplementation(async (_r, _c, _run, input) => ({ id: `preview-${input.item_id}` }));
+  const calls = ["first", "second", "third"].map((item_id) => ({
+    type: "function_call", name: "image_example", call_id: item_id,
+    arguments: JSON.stringify({ target: "item", item_id, prompt: `Foto de ${item_id}` }),
+  }));
+  for (const output of separateRounds ? calls.map((call) => [call]) : [calls])
+    create.mockResolvedValueOnce({
+      status: "completed", output, usage: { input_tokens: 100, output_tokens: 30 },
+    });
+  create.mockResolvedValueOnce({
+    status: "completed", output: [], output_text: JSON.stringify({ reply: "Prévias prontas.", summary: "" }),
+    usage: { input_tokens: 100, output_tokens: 20 },
+  });
+  await runChat({ ...args, text: "Melhore as fotos destes produtos", deep: false });
+  expect(previewImage).toHaveBeenCalledTimes(3);
+  for (const item_id of ["first", "second", "third"])
+    expect(previewImage).toHaveBeenCalledWith("owner", "conversation", "run", {
+      target: "item", item_id, prompt: `Foto de ${item_id}`,
+    });
+  const saved = transactionQuery.mock.calls.find(([sql]) => sql.startsWith("INSERT INTO public.ia_vendas_messages"));
+  expect(JSON.parse(saved![1][4])).toEqual(
+    ["first", "second", "third"].map((id) => ({ type: "action", id: `preview-${id}` })),
+  );
+  expect((finishRun as jest.Mock).mock.calls.at(-1)[2].reply).toBe("Prévias prontas.");
+  const outputs = create.mock.calls.at(-1)[0].input.filter((entry: any) => entry.type === "function_call_output");
+  expect(outputs.map((entry: any) => JSON.parse(entry.output))).toEqual(
+    ["first", "second", "third"].map((id) => ({ id: `preview-${id}`, status: "pending" })),
+  );
+});
+
+test("a failed image preview can be attempted again", async () => {
   (query as jest.Mock).mockImplementation(async (sql: string) => ({
     rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
       ? [{ kind: "chat", summary: "" }]

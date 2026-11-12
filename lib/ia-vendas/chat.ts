@@ -102,7 +102,7 @@ const tools = [
   ),
   tool(
     "image_example",
-    "Gerar no máximo UMA prévia antes/depois nesta mensagem, quando solicitado. Estilo opcional; não publica.",
+    "Gerar uma prévia antes/depois quando solicitado. Para várias imagens, chame uma vez por imagem na mesma mensagem. Estilo opcional; não publica.",
     imageProps,
     ["target", "prompt"],
   ),
@@ -870,10 +870,6 @@ export async function runChat(args: {
               }
               case "image_example": {
                 if (batched) throw new SalesError("A geração de imagens não está disponível durante a análise.");
-                if (example)
-                  throw new SalesError(
-                    "O exemplo desta mensagem já foi gerado.",
-                  );
                 const imageRequest = { ...p };
                 delete imageRequest.style;
                 if (imageRequest.attachment_id && !isUuid(imageRequest.attachment_id))
