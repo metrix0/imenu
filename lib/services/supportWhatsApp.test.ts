@@ -2,7 +2,7 @@ import { isSupportContactExcluded } from "@/lib/services/supportExclusions";
 import { classifySupportFollowup, generateSupportReply } from "@/lib/services/supportAgent";
 import { query } from "@/lib/database/sql";
 import { resolveWahaChatPhone, sendWahaText } from "@/lib/services/wahaClient";
-import { isSecondaryBlastRecipient, sendTrackedSupportText } from "./supportWhatsApp";
+import { isSecondaryBlastRecipient, releaseExpiredSupportHandoffs, sendTrackedSupportText } from "./supportWhatsApp";
 
 jest.mock("@/lib/services/supportExclusions", () => ({ isSupportContactExcluded: jest.fn() }));
 jest.mock("@/lib/database/sql", () => ({
@@ -27,6 +27,18 @@ beforeEach(() => {
     jest.clearAllMocks();
     (isSupportContactExcluded as jest.Mock).mockResolvedValue(false);
     (resolveWahaChatPhone as jest.Mock).mockResolvedValue("5511999999999");
+});
+
+test("only expires human handoffs after the first human reply", async () => {
+    (query as jest.Mock).mockResolvedValue({ rows: [], rowCount: 0 });
+
+    await releaseExpiredSupportHandoffs("5511999999999@c.us");
+
+    const [sql, params] = (query as jest.Mock).mock.calls[0];
+    expect(sql).toContain("AND last_human_reply_at IS NOT NULL");
+    expect(sql).toContain("human_started_at <= NOW() - INTERVAL '12 hours'");
+    expect(sql).toContain("last_human_reply_at <= NOW() - INTERVAL '30 minutes'");
+    expect(params).toEqual(["5511999999999@c.us"]);
 });
 
 test("secondary WhatsApp accepts sent 20:00 recovery blasts and ordinary blasts", async () => {
