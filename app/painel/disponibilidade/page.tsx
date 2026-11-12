@@ -235,7 +235,7 @@ export default function DisponibilidadePage() {
             </div>}
             <Card className="mt-6 border border-gray-200 shadow-sm">
                 <div className="mb-5">
-                    <h2 className="font-medium text-gray-900">Agendamento de pedidos</h2>
+                    <h2 className="text-lg font-medium text-gray-900">Agendamento de pedidos</h2>
                     <p className="mt-2 text-sm text-gray-500">
                         Defina quando os clientes podem agendar pedidos, inclusive enquanto a loja estiver fechada.
                     </p>
