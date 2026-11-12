@@ -8,11 +8,16 @@ import Loader from "@/components/ui/Loader";
 import SaveStatus from "@/components/ui/SaveStatus";
 import WeeklyScheduleClick, { Availability } from "@/components/restaurant-owner/configuracoes/WeeklyScheduleClick";
 import PreorderModeToggle from "@/components/restaurant-owner/configuracoes/PreorderModeToggle";
+import ChoiceCardGroup from "@/components/ui/ChoiceCardGroup";
+import Card from "@/components/ui/Card";
 
 export default function DisponibilidadePage() {
     const { restaurantId, setRestaurantId } = useCreationStore();
     const [availability, setAvailability] = useState<Availability>({});
     const [preorderOnly, setPreorderOnly] = useState(false);
+    const [allowFutureOrderScheduling, setAllowFutureOrderScheduling] = useState(false);
+    const [isSavingOrderScheduling, setIsSavingOrderScheduling] = useState(false);
+    const [schedulingSaveError, setSchedulingSaveError] = useState(false);
     const [openPreorderConfirmationSignal, setOpenPreorderConfirmationSignal] = useState(0);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -108,13 +113,14 @@ export default function DisponibilidadePage() {
             if (targetId) {
                 const { data: restaurant } = await supabase
                     .from("restaurants")
-                    .select("availability_json,preorder_only")
+                    .select("availability_json,preorder_only,allow_future_order_scheduling")
                     .eq("id", targetId)
                     .single();
 
                 if (restaurant) {
                     setAvailability(restaurant.availability_json || {});
                     setPreorderOnly(restaurant.preorder_only === true);
+                    setAllowFutureOrderScheduling(restaurant.allow_future_order_scheduling === true);
                 }
             }
             setIsLoading(false);
@@ -149,6 +155,26 @@ export default function DisponibilidadePage() {
             alert("Falha ao salvar alterações. Verifique sua conexão.");
         } finally {
             setTimeout(() => setIsSaving(false), 500);
+        }
+    };
+
+    const saveOrderSchedulingMode = async (allowFuture: boolean) => {
+        if (!restaurantId || isSavingOrderScheduling || preorderOnly) return;
+
+        setIsSavingOrderScheduling(true);
+        setSchedulingSaveError(false);
+        try {
+            const { error } = await supabase
+                .from("restaurants")
+                .update({ allow_future_order_scheduling: allowFuture })
+                .eq("id", restaurantId);
+            if (error) throw error;
+            setAllowFutureOrderScheduling(allowFuture);
+        } catch (error) {
+            setSchedulingSaveError(true);
+            console.error("Erro ao salvar modo de agendamento:", error);
+        } finally {
+            setIsSavingOrderScheduling(false);
         }
     };
 
@@ -193,7 +219,7 @@ export default function DisponibilidadePage() {
                 </div>
                 
                 <div className="text-sm font-medium h-6 flex items-center">
-                    <SaveStatus status={saveError ? "error" : isSaving ? "saving" : "saved"} />
+                    <SaveStatus status={saveError || schedulingSaveError ? "error" : isSaving || isSavingOrderScheduling ? "saving" : "saved"} />
                 </div>
             </div>
 </PageSaveHeader>
@@ -208,8 +234,27 @@ export default function DisponibilidadePage() {
                 </div>
             </div>}
             <div id="preorder-mode" className="mt-6 scroll-mt-24">
-                <PreorderModeToggle restaurantId={restaurantId} enabled={preorderOnly} onChange={setPreorderOnly} openConfirmationSignal={openPreorderConfirmationSignal} />
+                <PreorderModeToggle restaurantId={restaurantId} enabled={preorderOnly} onChange={(enabled) => { setPreorderOnly(enabled); if (enabled) setAllowFutureOrderScheduling(true); }} openConfirmationSignal={openPreorderConfirmationSignal} />
             </div>
+            <Card className="mt-6 border border-gray-200 shadow-sm">
+                <div className="mb-5">
+                    <h2 className="text-xl font-medium text-gray-900">Agendamento de pedidos</h2>
+                    <p className="mt-2 text-sm text-gray-500">
+                        Defina quando os clientes podem agendar pedidos, inclusive enquanto a loja estiver fechada.
+                    </p>
+                </div>
+                <ChoiceCardGroup
+                    value={allowFutureOrderScheduling ? "future" : "today"}
+                    disabled={isSavingOrderScheduling || preorderOnly}
+                    onChange={(value) => void saveOrderSchedulingMode(value === "future")}
+                    className="sm:grid-cols-2"
+                    options={[
+                        { value: "today", label: "Dia atual", description: "Permite agendar apenas para horários disponíveis de hoje." },
+                        { value: "future", label: "Dias futuros", description: "Permite agendar para hoje e dias futuros, escolhendo a data e o horário disponível." },
+                    ]}
+                />
+                {preorderOnly && <p className="mt-3 text-sm text-gray-500">Dias futuros está ativado automaticamente pelo modo Encomendas. Para alterar, desative o modo acima.</p>}
+            </Card>
         </div>
     );
 }
