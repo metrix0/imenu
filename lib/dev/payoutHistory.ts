@@ -30,7 +30,7 @@ export async function payoutHistory(params: URLSearchParams) {
     // Match the legacy dashboard's current operational window; full history remains available separately.
     const where = section === "failed" ? "WHERE p.status IN ('failed','cancelled') AND p.id IN (SELECT id FROM payouts ORDER BY created_at DESC LIMIT 100)" : "";
     const [rows, count] = await Promise.all([
-        query(`SELECT ${runs ? "p.*,paid.paid_profit_cents,trouble.troubled_payouts" : "p.*,r.name restaurant_name,r.payment_info pix_key,r.payment_info_type pix_key_type,COALESCE(NULLIF(u.raw_user_meta_data->>'phone',''),r.phone) owner_phone"}${alertColumns} FROM ${from} ${alertJoin} ${where} ORDER BY ${runs ? "p.run_date DESC,p.started_at DESC" : "p.created_at DESC,p.id"} LIMIT $1 OFFSET $2`, [pageSize, pageSize * page]),
+        query(`SELECT ${runs ? "p.*,paid.paid_profit_cents,trouble.troubled_payouts" : "p.*,COALESCE(NULLIF(BTRIM(r.name), ''), INITCAP(REPLACE(r.url_slug, '-', ' ')), 'Restaurante') restaurant_name,r.payment_info pix_key,r.payment_info_type pix_key_type,COALESCE(NULLIF(u.raw_user_meta_data->>'phone',''),r.phone) owner_phone"}${alertColumns} FROM ${from} ${alertJoin} ${where} ORDER BY ${runs ? "p.run_date DESC,p.started_at DESC" : "p.created_at DESC,p.id"} LIMIT $1 OFFSET $2`, [pageSize, pageSize * page]),
         query<{ total: number }>(`SELECT COUNT(*)::int total FROM ${runs ? "payout_automation_runs p" : "payouts p"} ${where}`),
     ]);
     return paged(rows.rows, count.rows[0].total, page, pageSize);
