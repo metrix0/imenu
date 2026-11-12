@@ -637,9 +637,9 @@ export default function SalesPage() {
               {(sales.busy || sales.acting || sales.running) && !analysisRunning && (
                 <p
                   role="status"
-                  className="flex items-center gap-2 py-3 text-sm text-gray-500"
+                  className="flex animate-pulse items-center gap-2 py-3 text-sm text-gray-500"
                 >
-                  <Sparkles size={16} className="animate-pulse" />
+                  <Sparkles size={16} />
                   {sales.status || "Processamento em andamento…"}
                 </p>
               )}
