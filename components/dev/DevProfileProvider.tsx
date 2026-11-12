@@ -2,9 +2,10 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import Card from "@/components/ui/Card";
-import {Check, LogIn} from "lucide-react";
+import {Check, LogIn, MessageCircle} from "lucide-react";
 import Button from "@/components/ui/Button";
 import DevDialog from "./DevDialog";
+import SupportConversationDialog, { type ActiveSupportConversation, type SupportConversationTarget } from "./SupportConversationDialog";
 import styles from "./dashboard.module.css";
 import Badge from "@/components/ui/Badge";
 import { formatPhone, getWhatsappUrl } from "@/lib/dev/supportView";
@@ -18,7 +19,7 @@ import { normalizeCreationStep } from "@/lib/restaurantCreation";
 import { devJson } from "@/lib/dev/client";
 import { formatCurrencyFromCents, formatDateTime, monthsSince, accountAge } from "@/lib/dev/dashboardFormat";
 
-export type Restaurant = { id: string; name: string; email?: string | null; phone?: string | null; store_phone?: string | null; owner_phone?: string | null; created_at?: string; plus_since?: string | null; has_paid?: boolean; plus?: boolean; gmv_cents?: number | string | null; payment_info?: string | null; url_slug?: string | null; creation_step?: number | null; first_time?: boolean | null; onboarding_completed_at?: string | null; city?: string | null; state?: string | null; pickup_enabled?: boolean | null; delivery_disabled?: boolean | null; preorder_only?: boolean | null };
+export type Restaurant = { id: string; name: string; email?: string | null; phone?: string | null; store_phone?: string | null; owner_phone?: string | null; created_at?: string; plus_since?: string | null; has_paid?: boolean; plus?: boolean; gmv_cents?: number | string | null; payment_info?: string | null; url_slug?: string | null; creation_step?: number | null; first_time?: boolean | null; onboarding_completed_at?: string | null; city?: string | null; state?: string | null; pickup_enabled?: boolean | null; delivery_disabled?: boolean | null; preorder_only?: boolean | null; support_conversation_id?: string | null; support_mode?: "ai" | "human" | null; last_message?: string | null; last_message_at?: string | null };
 type Payment = { id: string; amount_cents: number; status: string; created_at: string; product_key?: string; failure_reason?: string | null; billing_type?: string | null };
 type Details = { restaurant: Restaurant; metrics: { gmv_cents: number; orders: number; online_cents: number; monthly_gmv_cents: number }; analysis: { potential: { cents?: number; assumptions?: string; reason?: string; available?: boolean }; summary: string } | null };
 const empty = <T,>(): PageData<T> => ({rows:[],total:0,page:0,pageCount:1});
@@ -53,6 +54,7 @@ function PaymentHistory({ id, kind }: { id: string; kind: "payments" | "payouts"
 }
 
 function RestaurantDetails({ restaurant: initialRestaurant, onLoaded }: { restaurant: Restaurant; onLoaded:(restaurant:Restaurant)=>void }) {
+    const { openConversation } = useDevProfile();
     const [data, setData] = useState<Details | null>(null);
     const restaurant=data?.restaurant || initialRestaurant;
     const completedSteps = restaurant.first_time === false || restaurant.onboarding_completed_at ? 4 : normalizeCreationStep(restaurant.creation_step) - 1;
@@ -99,6 +101,7 @@ function RestaurantDetails({ restaurant: initialRestaurant, onLoaded }: { restau
             </div>
             <div className="flex flex-wrap items-center gap-2">
                 <IaAssistantConversationsSection restaurant={{ restaurantId: restaurant.id, restaurantName: restaurant.name }} />
+                <Button variant="secondary" leftIcon={<MessageCircle size={16} aria-hidden="true" />} onClick={() => openConversation(restaurant.support_conversation_id ? { id: restaurant.support_conversation_id, mode: restaurant.support_mode === "human" ? "human" : "ai", restaurant_name: restaurant.name } : null, restaurant.name)}>Abrir conversa</Button>
                 <Button leftIcon={<LogIn size={16} aria-hidden="true" />} loading={entering} onClick={() => void enter()}>Entrar no restaurante</Button>
             </div>
         </div>
@@ -127,9 +130,22 @@ function RestaurantDetails({ restaurant: initialRestaurant, onLoaded }: { restau
     </div>;
 }
 
-const ProfileContext=createContext<{openProfile:(restaurant:Restaurant)=>void}|null>(null);
+type ProfileContextValue = {
+    openProfile: (restaurant: Restaurant) => void;
+    openConversation: (conversation: SupportConversationTarget | null, description?: string, onSent?: () => void) => void;
+};
+const ProfileContext=createContext<ProfileContextValue|null>(null);
 export function useDevProfile(){const context=useContext(ProfileContext);if(!context)throw new Error("DevProfileProvider missing");return context;}
 export default function DevProfileProvider({children}:{children:ReactNode}){
  const [selected,setSelected]=useState<Restaurant|null>(null);
- return <ProfileContext.Provider value={{openProfile:setSelected}}>{children}<DevDialog wide title={selected?.name||"Restaurante"} description={selected?.plus !== undefined ? <CustomerBadge restaurant={selected}/> : undefined} open={Boolean(selected)} onClose={()=>setSelected(null)}>{selected&&<RestaurantDetails key={selected.id} restaurant={selected} onLoaded={setSelected}/>}</DevDialog></ProfileContext.Provider>;
+ const [activeConversation,setActiveConversation]=useState<ActiveSupportConversation|null>(null);
+ const openConversation: ProfileContextValue["openConversation"] = (conversation, description, onSent) => {
+  setSelected(null);
+  setActiveConversation({conversation,description,onSent});
+ };
+ return <ProfileContext.Provider value={{openProfile:setSelected,openConversation}}>
+  {children}
+  <DevDialog wide title={selected?.name||"Restaurante"} description={selected?.plus !== undefined ? <CustomerBadge restaurant={selected}/> : undefined} open={Boolean(selected)} onClose={()=>setSelected(null)}>{selected&&<RestaurantDetails key={selected.id} restaurant={selected} onLoaded={setSelected}/>}</DevDialog>
+  <SupportConversationDialog active={activeConversation} onClose={()=>setActiveConversation(null)} />
+ </ProfileContext.Provider>;
 }

@@ -14,7 +14,6 @@ import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 
 import {Send, Bot, MessageCircle, SquareArrowOutUpRight} from "lucide-react";
 import BlastHistorySection from "@/components/dev/BlastHistorySection";
-import SupportConversation from "@/components/dev/SupportConversation";
 import SupportDraftsSection from "@/components/dev/SupportDraftsSection";
 import Pagination from "@/components/ui/Pagination";
 import Button from "@/components/ui/Button";
@@ -37,7 +36,7 @@ import {
 } from "@/lib/dev/didNotActivateBlast";
 import { supabase } from "@/lib/database/supabaseClient";
 import { parseBulkPhones, parseBulkRecipients, renderBulkMessage, type BulkInputRecipient } from "@/lib/dev/supportBulk";
-import type { AccessState, BlastCampaign, BlastRecipient, Connection, Stats, KnowledgeEntry, Conversation, DashboardData } from "@/lib/dev/supportTypes";
+import type { AccessState, BlastCampaign, BlastRecipient, Connection, Stats, KnowledgeEntry, DashboardData } from "@/lib/dev/supportTypes";
 import { formatPhone, getWhatsappUrl, statusPresentation } from "@/lib/dev/supportView";
 
 import { useDevProfile, PhoneLink } from "./DevProfileProvider";
@@ -207,16 +206,10 @@ function WhatsAppConnectionCard({
 const ALLOWED_DEV_EMAIL = "joaovralmeida@hotmail.com";
 export default function SupportSection({ section = "support" }: { section?: "support" | "blast" | "legacy" }) {
     const router = useRouter();
-    const { openProfile } = useDevProfile();
+    const { openProfile, openConversation } = useDevProfile();
     const [accessState, setAccessState] =
         useState<AccessState>("checking");
     const [supportPage, setSupportPage] = useState(0);
-    const [selectedConversation,setSelectedConversation] = useState<Conversation|null>(null);
-    const [humanReply, setHumanReply] = useState("");
-    const [humanSending, setHumanSending] = useState(false);
-    const [humanError, setHumanError] = useState("");
-    const [humanRequestId, setHumanRequestId] = useState<string | null>(null);
-    const [chatRevision, setChatRevision] = useState(0);
     const [handoffPage, setHandoffPage] = useState(0);
     const [knowledgePage, setKnowledgePage] = useState(0);
     const [data, setData] = useState<DashboardData | null>(null);
@@ -443,42 +436,6 @@ export default function SupportSection({ section = "support" }: { section?: "sup
             );
         } finally {
             setAction("");
-        }
-    };
-
-    const openHumanConversation = (conversation: Conversation) => {
-        setSelectedConversation(conversation);
-        setHumanReply("");
-        setHumanError("");
-        setHumanRequestId(null);
-    };
-
-    const sendHumanReply = async () => {
-        if (!selectedConversation || !humanReply.trim() || humanSending) return;
-        const requestId = humanRequestId || window.crypto.randomUUID();
-        setHumanRequestId(requestId);
-        setHumanError("");
-        setHumanSending(true);
-        try {
-            await devJson("/api/dev/support/drafts", {
-                method: "POST",
-                body: JSON.stringify({
-                    id: selectedConversation.id,
-                    action: "send_human_message",
-                    text: humanReply.trim(),
-                    requestId,
-                }),
-            });
-            setHumanReply("");
-            setHumanRequestId(null);
-            setChatRevision(value => value + 1);
-            void loadDashboard().catch(caught => {
-                setError(caught instanceof Error ? caught.message : "Não foi possível atualizar a lista.");
-            });
-        } catch (caught) {
-            setHumanError(caught instanceof Error ? caught.message : "Não foi possível enviar a mensagem.");
-        } finally {
-            setHumanSending(false);
         }
     };
 
@@ -765,32 +722,10 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                         { key: "owner", label: "Celular dono", render: conversation => <PhoneLink phone={conversation.owner_phone} /> },
                         { key: "store", label: "Celular restaurante", render: conversation => <PhoneLink phone={conversation.store_phone} /> },
                         {key:"context",label:"Última mensagem",render:conversation=><p className="truncate" title={conversation.last_message || undefined}>{conversation.last_message || "—"}</p>},
-                        { key: "actions", label: "", render: conversation => <div className="flex justify-end gap-1"><button type="button" title="Reativar IA" aria-label="Reativar IA" disabled={action === "set_conversation_mode"} className={styles.supportIcon} onClick={() => void runAction("set_conversation_mode", { id: conversation.id, mode: "ai" })}><Bot size={16} aria-hidden="true" /></button><button type="button" title="Ver mensagens" aria-label="Ver mensagens" className={styles.supportIcon} onClick={()=>openHumanConversation(conversation)}><MessageCircle size={16} aria-hidden="true"/></button><button type="button" title="Abrir WhatsApp" aria-label="Abrir WhatsApp" className={styles.supportIcon} disabled={!getWhatsappUrl(conversation.phone)} onClick={() => { const url = getWhatsappUrl(conversation.phone); if (url) window.open(url, "_blank", "noopener,noreferrer"); }}><SquareArrowOutUpRight size={16} aria-hidden="true" /></button></div> },
+                        { key: "actions", label: "", render: conversation => <div className="flex justify-end gap-1"><button type="button" title="Reativar IA" aria-label="Reativar IA" disabled={action === "set_conversation_mode"} className={styles.supportIcon} onClick={() => void runAction("set_conversation_mode", { id: conversation.id, mode: "ai" })}><Bot size={16} aria-hidden="true" /></button><button type="button" title="Ver mensagens" aria-label="Ver mensagens" className={styles.supportIcon} onClick={()=>openConversation(conversation, undefined, () => { void loadDashboard().catch(caught => setError(caught instanceof Error ? caught.message : "Não foi possível atualizar a lista.")); })}><MessageCircle size={16} aria-hidden="true"/></button><button type="button" title="Abrir WhatsApp" aria-label="Abrir WhatsApp" className={styles.supportIcon} disabled={!getWhatsappUrl(conversation.phone)} onClick={() => { const url = getWhatsappUrl(conversation.phone); if (url) window.open(url, "_blank", "noopener,noreferrer"); }}><SquareArrowOutUpRight size={16} aria-hidden="true" /></button></div> },
                     ]} />
                     {(data?.stats.human_conversations || 0) > 25 && <div className={styles.tableFooter}><Pagination page={handoffPage} pageCount={Math.ceil((data?.stats.human_conversations || 0) / 25)} onChange={setHandoffPage} /></div>}
                 </section>
-
-                <DevDialog title="Conversa" description={selectedConversation?.restaurant_name || selectedConversation?.customer_name || undefined} open={Boolean(selectedConversation)} onClose={() => { if (!humanSending) setSelectedConversation(null); }}>
-                    {selectedConversation && <div className="space-y-5 p-5 sm:p-6">
-                        <SupportConversation key={selectedConversation.id + ":" + chatRevision} url={"/api/dev/support/drafts?conversation_id=" + selectedConversation.id} scrollToBottomOnLoad />
-                        <div>
-                            <label htmlFor="support-human-reply" className="mb-2 block text-sm font-medium">Resposta</label>
-                            <Textarea
-                                id="support-human-reply"
-                                value={humanReply}
-                                maxLength={8000}
-                                rows={4}
-                                disabled={humanSending}
-                                placeholder="Digite sua resposta..."
-                                className="w-full resize-y rounded-lg border border-[#e2e5e9] bg-white p-3 text-sm focus:border-[#d93d00] focus:outline-none"
-                                onChange={event => { setHumanReply(event.target.value); setHumanRequestId(null); }}
-                            />
-                        </div>
-                        {humanError && <p role="alert" className="text-sm text-red-700">{humanError}</p>}
-                        <Button leftIcon={<Send size={16} aria-hidden="true" />} loading={humanSending} disabled={!humanReply.trim() || humanSending}
-                            onClick={() => void sendHumanReply()}>Enviar mensagem</Button>
-                    </div>}
-                </DevDialog>
 
                {section === "support" && <SupportDraftsSection/>}
                {section === "legacy" && <>

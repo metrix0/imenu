@@ -1,5 +1,6 @@
 import { query } from "@/lib/database/sql";
 import { devPage, paged } from "./pagination";
+import { SUPPORT_CONVERSATION_VISIBLE_SQL } from "@/lib/services/supportExclusions";
 
 const CRM_PAGE_SIZE = 10;
 
@@ -13,6 +14,20 @@ const PLUS = `EXISTS(SELECT 1 FROM restaurant_addons a WHERE a.restaurant_id=r.i
     AND (a.status='active' OR (a.status IN ('canceled','past_due') AND a.current_period_ends_at>NOW())))`;
 
 
+
+const LAST_SUPPORT_JOIN = `LEFT JOIN LATERAL (
+    SELECT c.id AS conversation_id, c.mode, message.body AS last_message, message.created_at AS last_message_at
+    FROM support_conversations c
+    JOIN LATERAL (
+        SELECT sm.id, sm.body, sm.created_at
+        FROM support_messages sm
+        WHERE sm.conversation_id=c.id AND (sm.direction='inbound' OR sm.send_status='sent')
+        ORDER BY sm.created_at DESC, sm.id DESC LIMIT 1
+    ) message ON TRUE
+    WHERE c.restaurant_id=r.id AND c.chat_id NOT LIKE 'imenu-blast:%'
+      AND ${SUPPORT_CONVERSATION_VISIBLE_SQL}
+    ORDER BY message.created_at DESC, message.id DESC LIMIT 1
+) support ON TRUE`;
 
 const ACCOUNT = "COALESCE(r.user_id,r.id)";
 const OWNED_ACCOUNT = "COALESCE(owned.user_id,owned.id)";
@@ -94,7 +109,7 @@ export async function getCrm(params: URLSearchParams) {
                 COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),NULLIF(TRIM(r.phone),'')) AS owner_phone,(${PLUS_SINCE}) AS plus_since,r.payment_info,r.payment_info_type,u.email,
                 r.creation_step,r.first_time,r.onboarding_completed_at,r.address->>'city' AS city,r.address->>'state' AS state,
                 r.pickup_enabled,r.delivery_disabled,r.preorder_only,
-                (${PAID}) AS has_paid,(${PLUS}) AS plus FROM restaurants r LEFT JOIN auth.users u ON u.id=r.user_id WHERE r.id=$1`, [id]),
+                (${PAID}) AS has_paid,(${PLUS}) AS plus,support.conversation_id AS support_conversation_id,support.mode AS support_mode,support.last_message,support.last_message_at FROM restaurants r LEFT JOIN auth.users u ON u.id=r.user_id ${LAST_SUPPORT_JOIN} WHERE r.id=$1`, [id]),
             query(`SELECT COUNT(*)::int orders,COALESCE(SUM(total_cents),0)::bigint gmv_cents,
                 COALESCE(SUM(total_cents) FILTER(WHERE payment_method IN ('pix','cartao')),0)::bigint online_cents,
                 COALESCE(SUM(total_cents) FILTER(WHERE created_at >= date_trunc('month',NOW() AT TIME ZONE 'America/Sao_Paulo') AT TIME ZONE 'America/Sao_Paulo'),0)::bigint monthly_gmv_cents
@@ -125,17 +140,16 @@ export async function getCrm(params: URLSearchParams) {
         owner: "COALESCE(NULLIF(BTRIM(u.raw_user_meta_data->>'phone'), ''), NULLIF(BTRIM(r.phone), ''))",
         created: "r.created_at",
         gmv: "gmv.gmv_cents",
+        last_message: "support.last_message_at",
     };
     const sortKey = params.get("sort") || "";
     const sortColumn = Object.prototype.hasOwnProperty.call(sortColumns, sortKey) ? sortColumns[sortKey] : null;
     const direction = params.get("direction") === "asc" ? "ASC" : "DESC";
-    const orderBy = sortColumn
-        ? `${sortColumn} ${direction} NULLS LAST, r.id`
-        : `${paidOnly ? `(${PLUS}) DESC,` : ""} r.created_at DESC,r.id`;
+    const orderBy = `(${PLUS}) DESC, ${sortColumn ? `${sortColumn} ${direction} NULLS LAST, r.id` : "r.created_at DESC,r.id"}`;
     const [rows, count] = await Promise.all([
         query(`SELECT r.id,r.name,r.url_slug,r.created_at,COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),r.phone) phone,r.store_whatsapp AS store_phone,
             COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),NULLIF(TRIM(r.phone),'')) AS owner_phone,(${PLUS_SINCE}) AS plus_since,u.email,(${PAID}) AS has_paid,(${PLUS}) AS plus,
-            COALESCE(gmv.gmv_cents,0) AS gmv_cents
+            COALESCE(gmv.gmv_cents,0) AS gmv_cents,support.conversation_id AS support_conversation_id,support.mode AS support_mode,support.last_message,support.last_message_at
             FROM restaurants r LEFT JOIN auth.users u ON u.id=r.user_id
             LEFT JOIN LATERAL (
                 SELECT COALESCE(SUM(o.total_cents),0)::bigint AS gmv_cents
@@ -143,6 +157,7 @@ export async function getCrm(params: URLSearchParams) {
                   AND o.status IS DISTINCT FROM 'canceled'
                   AND o.status IS DISTINCT FROM 'pending_online_payment'
             ) gmv ON true
+            ${LAST_SUPPORT_JOIN}
             WHERE ${where}
             ORDER BY ${orderBy} LIMIT $2 OFFSET $3`, [search, CRM_PAGE_SIZE, page * CRM_PAGE_SIZE]),
         query<{ total: number }>(`SELECT COUNT(*)::int total FROM restaurants r LEFT JOIN auth.users u ON u.id=r.user_id WHERE ${where}`, [search]),

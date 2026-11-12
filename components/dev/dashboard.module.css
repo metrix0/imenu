@@ -57,27 +57,27 @@
 .crmTable :global([data-ui="badge"]){white-space:nowrap}
 
 .tableSection{min-width:0}.tableSection>h2{font-size:18px;font-weight:600;margin-bottom:14px}
-.crmTable :global([data-ui="table"]),.blastTable :global([data-ui="table"]){max-width:100%;overflow-x:hidden}
-.crmTable :global(table),.blastTable :global(table){width:100%;table-layout:fixed}
+.crmTable :global([data-ui="table"]){max-width:100%;overflow-x:auto}.blastTable :global([data-ui="table"]){max-width:100%;overflow-x:hidden}
+.crmTable :global(table),.blastTable :global(table){width:100%;table-layout:fixed}.crmTable :global(table){min-width:960px}
 .crmTable :global(th),.crmTable :global(td),.blastTable :global(th),.blastTable :global(td){overflow:hidden;text-overflow:ellipsis}
-.crmTable :global(th:nth-child(1)){width:28%}.crmTable :global(th:nth-child(2)){width:22%}.crmTable :global(th:nth-child(3)),.crmTable :global(th:nth-child(4)){width:14%}.crmTable :global(th:nth-child(5)){width:10%}.crmTable :global(th:nth-child(6)){width:12%}.crmTable :global(th:last-child){width:48px}
+.crmTable :global(th:nth-child(1)){width:20%}.crmTable :global(th:nth-child(2)){width:17%}.crmTable :global(th:nth-child(3)),.crmTable :global(th:nth-child(4)){width:13%}.crmTable :global(th:nth-child(5)),.crmTable :global(th:nth-child(6)){width:9%}.crmTable :global(th:nth-child(7)){width:19%}.crmTable :global(th:last-child){width:48px}
 .crmTable :global(td>span),.crmTable :global(td>a){max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .blastMain :global(th:nth-child(1)){width:14%}.blastMain :global(th:nth-child(2)){width:29%}.blastMain :global(th:nth-child(3)){width:26%}.blastMain :global(th:nth-child(4)){width:12%}.blastMain :global(th:nth-child(5)){width:13%}.blastMain :global(th:last-child){width:6%}
 .blastAutomations :global(th:nth-child(1)){width:18%}.blastAutomations :global(th:nth-child(2)){width:27%}.blastAutomations :global(th:nth-child(3)){width:15%}.blastAutomations :global(th:nth-child(4)){width:28%}.blastAutomations :global(th:nth-child(5)){width:12%}
 .blastPreview,.blastMessage{max-width:100%;overflow-wrap:anywhere}.blastTable .profileLink{min-width:0;overflow:hidden;max-width:100%}.blastTable .profileLink>span:first-child{min-width:0}
-@media(max-width:639px){.crmTable :global(th),.crmTable :global(td),.blastTable :global(th),.blastTable :global(td){padding-inline:8px}.crmTable :global(th:nth-child(3)),.crmTable :global(td:nth-child(3)),.crmTable :global(th:nth-child(4)),.crmTable :global(td:nth-child(4)){display:none}.crmTable :global(th:nth-child(1)){width:36%}.crmTable :global(th:nth-child(2)){width:28%}.crmTable :global(th:nth-child(5)){width:14%}.crmTable :global(th:nth-child(6)){width:22%}.crmTable :global(th:last-child){width:48px}.blastMain :global(th:first-child),.blastMain :global(td:first-child){display:none}.blastMain :global(th:nth-child(2)){width:28%}.blastMain :global(th:nth-child(3)){width:31%}.blastMain :global(th:nth-child(4)){width:14%}.blastMain :global(th:nth-child(5)){width:17%}.blastMain :global(th:last-child){width:10%}.blastAutomations :global([data-ui="table"]){overflow-x:auto}.blastAutomations :global(table){min-width:840px}}
+@media(max-width:639px){.crmTable :global(th),.crmTable :global(td),.blastTable :global(th),.blastTable :global(td){padding-inline:8px}.crmTable :global(th:nth-child(3)),.crmTable :global(td:nth-child(3)),.crmTable :global(th:nth-child(4)),.crmTable :global(td:nth-child(4)){display:none}.crmTable :global(th:nth-child(1)){width:31%}.crmTable :global(th:nth-child(2)){width:24%}.crmTable :global(th:nth-child(5)){width:12%}.crmTable :global(th:nth-child(6)){width:13%}.crmTable :global(th:nth-child(7)){width:20%}.crmTable :global(th:last-child){width:48px}.blastMain :global(th:first-child),.blastMain :global(td:first-child){display:none}.blastMain :global(th:nth-child(2)){width:28%}.blastMain :global(th:nth-child(3)){width:31%}.blastMain :global(th:nth-child(4)){width:14%}.blastMain :global(th:nth-child(5)){width:17%}.blastMain :global(th:last-child){width:10%}.blastAutomations :global([data-ui="table"]){overflow-x:auto}.blastAutomations :global(table){min-width:840px}}
 
 .payoutTable{min-width:0}.payoutTable :global([data-ui="table"]){max-width:100%;overflow-x:hidden}.payoutTable :global(table){width:100%;table-layout:fixed}.payoutTable :global(th),.payoutTable :global(td){overflow:hidden;text-overflow:ellipsis;overflow-wrap:anywhere;padding-inline:10px}.payoutTable :global(th){white-space:nowrap}.payoutTable :global(th:first-child){width:18%}.payoutTable :global(td) :global(button){max-width:100%}.payoutTable .profileLink{display:block;overflow:hidden;text-overflow:ellipsis}.payoutTable :global([data-ui="badge"]){max-width:100%;white-space:normal}
 
 .supportTable{min-width:0}.supportTable :global([data-ui="table"]){max-width:100%;overflow-x:hidden}.supportTable :global(table){width:100%;table-layout:fixed}.supportTable :global(th),.supportTable :global(td){padding-inline:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.supportTable :global(th:first-child){width:28%}.supportTable :global(th:last-child){width:90px}.supportTable .profileLink{overflow:hidden;text-overflow:ellipsis;max-width:100%}.supportIcon{display:inline-flex;align-items:center;justify-content:center;padding:8px;border-radius:6px;color:#626973;cursor:pointer}.supportIcon:hover{background:#f1f3f5;color:#c43700}.supportIcon:disabled{opacity:.4;cursor:default}
 .profileLink:hover,.profileLink:focus-visible{font-weight:600}
 .crmTable :global(td){white-space:nowrap}
-.crmTable :global(th:first-child){width:calc(28% - 48px)}
+.crmTable :global(th:first-child){width:calc(20% - 48px)}
 .crmTable :global(th:last-child){width:48px}
 .crmTable :global(td:last-child){padding-inline:8px;text-overflow:clip}
 .crmDetails dd{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal}
 .crmDetails dd .profileLink{display:block;overflow:hidden;text-overflow:ellipsis}
-@media(max-width:639px){.crmTable :global(th:first-child){width:calc(36% - 48px)}.crmTable :global(th:last-child){width:48px}.crmTable :global([data-ui="table"]){overflow-x:auto}.crmTable :global(table){min-width:540px}}
+@media(max-width:639px){.crmTable :global(th:first-child){width:calc(31% - 48px)}.crmTable :global(th:last-child){width:48px}.crmTable :global([data-ui="table"]){overflow-x:auto}.crmTable :global(table){min-width:540px}}
 
 .payoutPayables :global(th:first-child){width:40px}.payoutPayables :global(th:nth-child(2)){width:17%}
 .payoutPayables :global(th:nth-child(4)){width:23%;white-space:normal;text-align:center}
