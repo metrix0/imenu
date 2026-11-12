@@ -191,7 +191,7 @@ export async function previewImage(
     reference = Buffer.from(await data.arrayBuffer());
   }
   const purchasedImageCredit = await reserveImage(restaurant, run);
-  const prompt = `Crie uma imagem comercial realista para ${t.row.name}. ${input.target === "item" ? "Fotografia gastronômica. Preserve exatamente ingredientes, porção, quantidade e apresentação do produto de referência. Não invente acompanhamentos ou ingredientes. Texto sobreposto somente quando solicitado no pedido ou definido no estilo aprovado." : "Preserve a identidade da marca."} Pedido do proprietário: ${input.prompt}.${Object.keys(style).length ? ` Preferências explicitamente escolhidas ou já aprovadas: ${JSON.stringify(style)}.` : ""}`;
+  const prompt = `Crie uma imagem comercial realista para ${t.row.name}. ${input.target === "item" ? "Fotografia gastronômica profissional. Preserve exatamente ingredientes, porção, quantidade e identidade do produto de referência. Não invente acompanhamentos ou ingredientes. Melhore iluminação, nitidez, enquadramento e composição para valorizar o produto. A referência define o produto, não o ambiente: substitua fundos distrativos e remova mãos e objetos alheios ao produto quando necessário, respeitando as preferências explícitas do proprietário. Texto sobreposto somente quando solicitado no pedido ou definido no estilo aprovado." : "Preserve a identidade da marca."} Pedido do proprietário: ${input.prompt}.${Object.keys(style).length ? ` Preferências explicitamente escolhidas ou já aprovadas: ${JSON.stringify(style)}.` : ""}`;
   const generationSize =
       t.profile === "banner" ? "1536x1024" : "816x816",
     args = {
