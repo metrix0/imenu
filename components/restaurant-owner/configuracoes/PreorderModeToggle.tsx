@@ -139,7 +139,7 @@ export default function PreorderModeToggle({ restaurantId, enabled, onChange, op
         <>
             <Card className="mb-5 flex items-center justify-between gap-4">
                 <div>
-                    <p className="text-lg font-medium text-gray-900">Trabalho apenas com encomendas</p>
+                    <h2 className="text-lg font-medium text-gray-900">Trabalho apenas com encomendas</h2>
                     <p className="mt-1 text-sm text-gray-500">
                         Ao ativar, os clientes só podem fazer pedidos agendados: precisam escolher data e horário de entrega ou retirada. Você pode definir os dias e horários para quais o cliente pode fazer agendamentos.
                     </p>
