@@ -12,13 +12,13 @@ import {useDevProfile,PhoneLink,CustomerBadge,type Restaurant} from "./DevProfil
 import {accountAge, formatCurrencyFromCents} from "@/lib/dev/dashboardFormat";
 const empty = <T,>(): PageData<T> => ({ rows: [], page: 0, total: 0, pageCount: 1 });
 
-function CrmList({ paid, search, plan, age, onOpen }: { paid: boolean; search: string; plan: string; age: string; onOpen: (row: Restaurant) => void }) {
+function CrmList({ paid, search, plan, activity, onOpen }: { paid: boolean; search: string; plan: string; activity: string; onOpen: (row: Restaurant) => void }) {
     const [page, setPage] = useState(0);
     const [sort, setSort] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
     const [data, setData] = useState(empty<Restaurant>);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
-    useEffect(() => { setPage(0); }, [search, plan, age]);
+    useEffect(() => { setPage(0); }, [search, plan, activity]);
     const onSort = (key: string) => {
         setSort(current => ({
             key,
@@ -31,7 +31,7 @@ function CrmList({ paid, search, plan, age, onOpen }: { paid: boolean; search: s
     useEffect(() => {
         const controller = new AbortController();
         setLoading(true);
-        const params = new URLSearchParams({ mode: "crm", paid: paid ? "1" : "0", q: search, plan, age, page: String(page) });
+        const params = new URLSearchParams({ mode: "crm", paid: paid ? "1" : "0", q: search, plan, activity, page: String(page) });
         if (sort) {
             params.set("sort", sort.key);
             params.set("direction", sort.direction);
@@ -41,7 +41,7 @@ function CrmList({ paid, search, plan, age, onOpen }: { paid: boolean; search: s
             .catch(e => { if (!controller.signal.aborted) setError(e.message); })
             .finally(() => { if (!controller.signal.aborted) setLoading(false); });
         return () => controller.abort();
-    }, [paid, search, plan, age, page, sort]);
+    }, [paid, search, plan, activity, page, sort]);
     return <section className={styles.tableSection}>
         <h2>{paid ? "Clientes pagantes e históricos" : "Todos os restaurantes"} <span className="font-normal text-gray-500">({data.total})</span></h2>
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
@@ -64,7 +64,7 @@ export default function CrmSection() {
     const [search, setSearch] = useState("");
     const [query, setQuery] = useState("");
     const [plan, setPlan] = useState("all");
-    const [age, setAge] = useState("all");
+    const [activity, setActivity] = useState("all");
     const {openProfile}=useDevProfile();
     useEffect(() => { const timer = setTimeout(() => setQuery(search), 300); return () => clearTimeout(timer); }, [search]);
     return <div className="space-y-6">
@@ -73,11 +73,17 @@ export default function CrmSection() {
             <div className="min-w-40 flex-1 max-w-56"><Dropdown label="Cliente" value={plan} onChange={e => setPlan(e.target.value)} options={[
                 { value: "all", label: "Todos" }, { value: "plus", label: "iMenu Plus" }, { value: "historical", label: "Pagantes históricos" }, { value: "free", label: "Gratuitos" },
             ]} /></div>
-            <div className="min-w-40 flex-1 max-w-56"><Dropdown label="Cadastro" value={age} onChange={e => setAge(e.target.value)} options={[
-                { value: "all", label: "Qualquer período" }, { value: "30", label: "Últimos 30 dias" }, { value: "90", label: "Últimos 90 dias" }, { value: "older", label: "Mais de 90 dias" },
+            <div className="min-w-40 flex-1 max-w-56"><Dropdown label="Atividade" value={activity} onChange={e => setActivity(e.target.value)} options={[
+                { value: "all", label: "Todas" },
+                { value: "active", label: "Cliente Ativo" },
+                { value: "active_customers", label: "Usuários com clientes ativos" },
+                { value: "abandoned_plus", label: "Abandonados Plus" },
+                { value: "abandoned_imenu", label: "Abandonados iMenu" },
+                { value: "single_day", label: "Um único dia de pedidos" },
+                { value: "no_first_order", label: "Não ativados" },
             ]} /></div>
         </div>
-        <CrmList paid search={query} plan={plan} age={age} onOpen={openProfile} />
-        <CrmList paid={false} search={query} plan={plan} age={age} onOpen={openProfile} />
+        <CrmList paid search={query} plan={plan} activity={activity} onOpen={openProfile} />
+        <CrmList paid={false} search={query} plan={plan} activity={activity} onOpen={openProfile} />
     </div>;
 }

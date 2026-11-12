@@ -1,6 +1,6 @@
 import { isSupportContactExcluded } from "@/lib/services/supportExclusions";
-import { processSupportBlastQueue } from "./supportBlast";
-import { query } from "@/lib/database/sql";
+import { createSupportBlast, processSupportBlastQueue } from "./supportBlast";
+import { query, withTransaction } from "@/lib/database/sql";
 import { checkWahaPhoneExists, sendWahaImage, sendWahaText } from "@/lib/services/wahaClient";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 import { SINGLE_ORDER_DAY_RECOVERY_MESSAGE } from "@/lib/dev/abandonedBlast";
@@ -145,4 +145,60 @@ test("image blast sends once with caption and uses a signed private URL", async 
         String(sql).includes("INSERT INTO whatsapp_outbound_messages")
     );
     expect(outboundClaim?.[1]?.[3]).toBe("image");
+});
+
+test("recovery ignores stale and out-of-hours campaigns even when daily_limit is NULL", async () => {
+    (query as jest.Mock).mockResolvedValue({ rows: [], rowCount: 0 });
+    const result = await processSupportBlastQueue();
+    const expiry = (query as jest.Mock).mock.calls.find(([sql]) =>
+        String(sql).includes("Campanha de recuperação expirada.")
+    );
+    expect(expiry).toBeDefined();
+    expect(expiry![0]).toContain("c.sender = 'blast'");
+    expect(expiry![0]).toContain("c.message = ANY($1::text[])");
+    expect(expiry![0]).toContain("r.status = 'pending'");
+    expect(expiry![0]).toContain("c.created_at AT TIME ZONE 'America/Sao_Paulo'");
+    const claim = (query as jest.Mock).mock.calls.find(([sql]) =>
+        String(sql).includes("WITH claimed AS")
+    );
+    expect(claim).toBeDefined();
+    expect(claim![0]).toContain("c.sender <> 'blast' OR c.message <> ALL($1::text[])");
+    expect(claim![0]).toContain("TIME '08:00'");
+    expect(claim![0]).toContain("TIME '21:00'");
+    expect(claim![0]).toContain("c.daily_limit IS NULL");
+    expect(claim![1][1]).toBe(13);
+    expect(result).toEqual({ sent: 0, failed: 0, skipped: 0, disconnected: false });
+    expect(sendWahaText).not.toHaveBeenCalled();
+});
+
+test("automatic recovery always uses the shared 13/day cadence even when a caller provides 5", async () => {
+    const write = jest.fn().mockResolvedValue({ rowCount: 1 });
+    (withTransaction as jest.Mock).mockImplementation(async (fn) => fn({ query: write }));
+    (query as jest.Mock).mockResolvedValue({
+        rows: [{ desired_state: "connected", status: "WORKING" }],
+    });
+    const id = "ba0d64cc-1928-4690-93a5-3cd96af89e02";
+    await createSupportBlast({
+        sender: "blast", message: SINGLE_ORDER_DAY_RECOVERY_MESSAGE,
+        dailyLimit: 5, skipRecent: true, campaignId: id,
+        recipients: [{ phone: "5511999999999", message: "Oi, Loja!" }],
+    });
+    expect(write).toHaveBeenCalledTimes(2);
+    expect(write.mock.calls[0][1][3]).toBe(13);
+    expect(write.mock.calls[1][1][2]).toBe(13);
+});
+
+test("manual support blast cadence remains unchanged", async () => {
+    const write = jest.fn().mockResolvedValue({ rowCount: 1 });
+    (withTransaction as jest.Mock).mockImplementation(async (fn) => fn({ query: write }));
+    (query as jest.Mock).mockResolvedValue({
+        rows: [{ desired_state: "connected", status: "WORKING" }],
+    });
+    await createSupportBlast({
+        sender: "support", message: "Aviso personalizado",
+        dailyLimit: 5, skipRecent: true,
+        recipients: [{ phone: "5511999999999", message: "Aviso personalizado" }],
+    });
+    expect(write.mock.calls[0][1][3]).toBe(5);
+    expect(write.mock.calls[1][1][2]).toBe(5);
 });

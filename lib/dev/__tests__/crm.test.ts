@@ -57,3 +57,35 @@ test("paid CRM list retains Plus-first default ordering", async () => {
     const [sql] = sqlQuery.mock.calls[0];
     expect(sql).toContain(") DESC, r.created_at DESC,r.id");
 });
+
+test.each([
+    ["active", ["o.status='done'", "COUNT(DISTINCT", "INTERVAL '14 days'"]],
+    ["active_customers", ["o.customer_phone", "COUNT(DISTINCT normalized.phone)", "INTERVAL '30 days'"]],
+    ["abandoned_plus", ["MAX(o.created_at)", "INTERVAL '15 days'", "addon.product_key = 'ia_plus'"]],
+    ["abandoned_imenu", ["MAX(o.created_at)", "INTERVAL '15 days'", "AND NOT "]],
+    ["single_day", ["owned.creation_step=4", "owned.first_time=false", "GROUP BY owned.id, "]],
+    ["no_first_order", ["owned.onboarding_completed_at", "INTERVAL '48 hours'", "INTERVAL '24 hours'", "NOT EXISTS"]],
+])("CRM activity %s filters data and total before pagination", async (activity, parts) => {
+    await getCrm(new URLSearchParams({ activity, page: "2", sort: "gmv", direction: "desc" }));
+    const [listSql, params] = sqlQuery.mock.calls[0];
+    const [countSql] = sqlQuery.mock.calls[1];
+    for (const part of parts) {
+        expect(listSql).toContain(part);
+        expect(countSql).toContain(part);
+    }
+    expect(listSql).toContain("ORDER BY gmv.gmv_cents DESC NULLS LAST, r.id LIMIT $2 OFFSET $3");
+    expect(params).toEqual(["", 10, 20]);
+});
+
+test("invalid activity values are ignored (cannot inject SQL)", async () => {
+    await getCrm(new URLSearchParams({ activity: "x' OR true --" }));
+    const [sql] = sqlQuery.mock.calls[0];
+    expect(sql).not.toContain("x' OR true --");
+    expect(sql).not.toContain("COUNT(DISTINCT normalized.phone)");
+});
+
+test("legacy Cadastro query parameter no longer affects filtering", async () => {
+    await getCrm(new URLSearchParams({ age: "30" }));
+    const [sql] = sqlQuery.mock.calls[0];
+    expect(sql).not.toContain("r.created_at >= NOW() - INTERVAL '30 days'");
+});

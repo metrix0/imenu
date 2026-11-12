@@ -16,7 +16,7 @@ const mockQuery = query as jest.Mock;
 const mockBlast = createSupportBlast as jest.Mock;
 
 beforeEach(() => {
-    jest.useFakeTimers().setSystemTime(new Date("2026-10-22T23:00:00Z"));
+    jest.useFakeTimers().setSystemTime(new Date("2026-10-22T22:00:00Z"));
     process.env.CRON_SECRET = "test-secret";
     mockQuery.mockImplementation(async (sql: string) => {
         if (sql.includes("AS total FROM support_blast_recipients")) return { rows: [{ total: 0 }] };
@@ -56,7 +56,7 @@ test("recovery keeps the 60-day cooldown including historical sends", async () =
     expect(eligibilitySql).toContain("o.created_at >= clock.as_of - INTERVAL '30 days'");
 });
 
-test("recovery selects only the 5 highest-GMV accounts across Plus and iMenu", async () => {
+test("recovery selects only the 13 highest-GMV accounts across Plus and iMenu", async () => {
     mockQuery.mockImplementation(async (sql: string) => {
         if (sql.includes("AS total FROM support_blast_recipients")) return { rows: [{ total: 0 }] };
         if (sql.includes("WITH first_month AS")) return { rows: [] };
@@ -74,10 +74,10 @@ test("recovery selects only the 5 highest-GMV accounts across Plus and iMenu", a
 
     const response = await GET(request());
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ queued: 5, eligible: 22 });
+    expect(await response.json()).toMatchObject({ queued: 13, eligible: 22 });
     const calls = mockBlast.mock.calls.map(([arg]) => arg);
-    expect(calls.reduce((sum, arg) => sum + arg.recipients.length, 0)).toBe(5);
-    expect(calls.every(arg => arg.dailyLimit === 5 && arg.skipRecent === true && arg.sender === "blast")).toBe(true);
+    expect(calls.reduce((sum, arg) => sum + arg.recipients.length, 0)).toBe(13);
+    expect(calls.every(arg => arg.dailyLimit === 13 && arg.skipRecent === true && arg.sender === "blast")).toBe(true);
     const allMessages = calls.flatMap(arg => arg.recipients.map((row: { message: string }) => row.message));
     expect(allMessages.some(message => message.includes("Loja 22"))).toBe(true);
     expect(allMessages.some(message => message.includes("Loja 1."))).toBe(false);
@@ -85,7 +85,7 @@ test("recovery selects only the 5 highest-GMV accounts across Plus and iMenu", a
 
 test("recovery does not replenish its daily limit after campaigns are queued", async () => {
     mockQuery.mockImplementation(async (sql: string) => {
-        if (sql.includes("AS total FROM support_blast_recipients")) return { rows: [{ total: 5 }] };
+        if (sql.includes("AS total FROM support_blast_recipients")) return { rows: [{ total: 13 }] };
         if (sql.includes("WITH first_month AS")) return { rows: [] };
         if (sql.includes("completed AS (")) return { rows: [{ account_id: "account-1", restaurant_name: "Loja", owner_phone: phone }] };
         return { rows: [] };
@@ -135,9 +135,9 @@ test("feedback honors already reserved slots and previous contacts", async () =>
     expect(args.recipients.map((r: { phone: string }) => r.phone)).toEqual(["5511666660001", "5511666660002"]);
 });
 
-test("outside 20h São Paulo does not schedule messages", async () => {
-    jest.setSystemTime(new Date("2026-10-22T22:00:00Z"));
-    expect((await GET(request())).status).toBe(200);
+test("outside 19h São Paulo does not schedule messages", async () => {
+    jest.setSystemTime(new Date("2026-10-22T23:00:00Z"));
+    expect(await (await GET(request())).json()).toMatchObject({ skipped: "outside_sending_hour" });
     expect(mockQuery).not.toHaveBeenCalled();
     expect(mockBlast).not.toHaveBeenCalled();
 });

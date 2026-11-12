@@ -762,7 +762,7 @@ export function ActionPreview({
   return (
     <div className={flat ? styles.flatOperations : "space-y-2"}>
       {action.image && (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 min-[1920px]:gap-5">
           {[
             ["Antes", action.image.before],
             ["Depois", action.image.after],
@@ -783,7 +783,7 @@ export function ActionPreview({
                   </span>
                 )}
               </div>
-              <figcaption className="mt-1 text-center text-xs text-gray-500">
+              <figcaption className="mt-1 text-center text-xs text-gray-500 min-[1920px]:mt-2 min-[1920px]:text-sm">
                 {label}
               </figcaption>
             </figure>
@@ -992,7 +992,7 @@ export function ActionCard({
         content
       );
   const actionButtons = (
-      <div className={compact ? styles.actionButtons : "mt-3 flex flex-wrap gap-2"}>
+      <div className={compact ? styles.actionButtons : `mt-3 flex flex-wrap gap-2${imagePreview ? " min-[1920px]:mt-5 min-[1920px]:gap-3" : ""}`}>
         {(action.status === "pending" || retry) && (
           <>
             {gateApply(
@@ -1017,7 +1017,7 @@ export function ActionCard({
                 {locked && <Lock size={14} className="ml-1" aria-hidden="true" />}
               </Button>,
             )}
-            {freeApply && !imageBatch && <span className="self-center text-xs text-gray-500">Primeira aplicação grátis</span>}
+            {freeApply && !imageBatch && <span className={`self-center text-xs text-gray-500${imagePreview ? " min-[1920px]:text-sm" : ""}`}>Primeira aplicação grátis</span>}
             {gateApply(
               <Button
                 variant="secondary"
@@ -1113,16 +1113,16 @@ export function ActionCard({
     </article>
   );
   return (
-    <article className="my-4 rounded-[12px] border border-[var(--panel-border)] bg-[var(--panel-background)] p-3">
-      <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
-        <h3 className="font-semibold text-gray-900">{action.title}</h3>
+    <article className={`my-4 rounded-[12px] border border-[var(--panel-border)] bg-[var(--panel-background)] p-3${imagePreview ? " min-[1920px]:px-6 min-[1920px]:py-5" : ""}`}>
+      <div className={`mb-2 flex flex-wrap items-start justify-between gap-2${imagePreview ? " min-[1920px]:mb-3 min-[1920px]:gap-4" : ""}`}>
+        <h3 className={`font-semibold text-gray-900${imagePreview ? " min-[1920px]:text-lg" : ""}`}>{action.title}</h3>
         <span
-          className={`rounded-full px-2 py-1 text-[11px] ${action.status === "applied" ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-600"}`}
+          className={`rounded-full px-2 py-1 text-[11px] ${imagePreview ? "min-[1920px]:px-3 min-[1920px]:text-xs" : ""} ${action.status === "applied" ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-600"}`}
         >
           {actionState(action)}
         </span>
       </div>
-      <p className="mb-2 text-sm text-gray-600">{action.reason}</p>
+      <p className={`mb-2 text-sm text-gray-600${imagePreview ? " min-[1920px]:mb-4 min-[1920px]:text-base" : ""}`}>{action.reason}</p>
       <ActionPreview action={action} refs={refs} />
       {generatedPreviewCards}
       {action.error && (

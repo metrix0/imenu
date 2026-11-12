@@ -54,11 +54,11 @@ type MessagePart =
 function splitMessageParts(content: string): MessagePart[] {
   return content
     .split(
-      /(\[\[(?:action|image):[0-9a-f-]{36}\]\]|\[\[card:(?:benchmark|measurement|potential)\]\])/gi,
+      /(\[\[(?:action|image|preview):[0-9a-f-]{36}\]\]|\[\[card:(?:benchmark|measurement|potential)\]\])/gi,
     )
     .filter((part) => part.trim())
     .map((part) => {
-      const action = /^\[\[(?:action|image):([0-9a-f-]{36})\]\]$/i.exec(part);
+      const action = /^\[\[(?:action|image|preview):([0-9a-f-]{36})\]\]$/i.exec(part);
       if (action) return { type: "action", id: action[1] };
       const card = /^\[\[card:(benchmark|measurement|potential)\]\]$/i.exec(
         part,
@@ -637,9 +637,9 @@ export default function SalesPage() {
               {(sales.busy || sales.acting || sales.running) && !analysisRunning && (
                 <p
                   role="status"
-                  className="flex items-center gap-2 py-3 text-sm text-gray-500"
+                  className="flex animate-pulse items-center gap-2 py-3 text-sm text-gray-500"
                 >
-                  <Sparkles size={16} className="animate-pulse" />
+                  <Sparkles size={16} />
                   {sales.status || "Processamento em andamento…"}
                 </p>
               )}
@@ -835,7 +835,7 @@ export default function SalesPage() {
                           !newConversation && c.id === sales.conversation_id ? "page" : undefined
                         }
                         onClick={() => changeConversation(c.id)}
-                        className="min-w-0 flex-1 cursor-pointer truncate p-3 text-left text-sm disabled:cursor-not-allowed"
+                        className="min-w-0 flex-1 cursor-pointer truncate p-3 text-left text-sm min-[1920px]:text-base disabled:cursor-not-allowed"
                       >
                         {c.title}
                       </button>
@@ -1022,24 +1022,24 @@ export default function SalesPage() {
                 <div className="mt-2 grid w-full gap-2 text-left sm:grid-cols-2">
                   {[
                     {
-                      title: "Editar itens e cardápio",
-                      prompt: "Revise meus itens e melhore meu cardápio",
-                      icon: Utensils,
-                    },
-                    {
-                      title: "Ajustar configurações do iMenu",
-                      prompt: "Ajuste meus horários, taxas e configurações",
-                      icon: Sparkles,
-                    },
-                    {
-                      title: "Melhorar imagens dos produtos",
+                      title: "Melhorar imagens",
                       prompt: "Melhore as imagens dos meus produtos",
                       icon: ImageIcon,
                     },
                     {
-                      title: "Preços, promoções e upsells",
-                      prompt: "Revise meus preços, promoções e upsells",
+                      title: "Editar itens",
+                      prompt: "Revise meus itens e melhore meu cardápio",
+                      icon: Utensils,
+                    },
+                    {
+                      title: "Criar promoção",
+                      prompt: "Crie uma promoção",
                       icon: BadgePercent,
+                    },
+                    {
+                      title: "Ajustar configurações",
+                      prompt: "Ajuste meus upsells",
+                      icon: Sparkles,
                     },
                   ].map(({ title, prompt, icon: Icon }) => (
                     <button

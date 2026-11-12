@@ -413,11 +413,11 @@ export default function PanelNavigation({ children, base, menuItems, onNavigate,
                                         {item.isNew && !expanded && (
                                             <span
                                                 aria-label="Novo"
-                                                className="absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full bg-brand 2xl:bottom-1 2xl:right-1"
+                                                className="absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full bg-brand"
                                             />
                                         )}
                                         {item.notification && !expanded && (
-                                            <span role="img" aria-label={item.notificationTitle || item.notification} className="absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full bg-brand 2xl:bottom-1 2xl:right-1" />
+                                            <span role="img" aria-label={item.notificationTitle || item.notification} className="absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full bg-brand" />
                                         )}
                                     </div>
                                     <span
