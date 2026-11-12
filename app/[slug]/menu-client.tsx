@@ -978,8 +978,13 @@ export default function MenuClientPage({
                     (warningOpening !== null && warningOpening.getTime() > Date.now())) && (
                 <WarningBox icon={icons.faTriangleExclamation} className="mt-10 mx-5 md:mx-48 2xl:mx-80">
                     {closedForToday && (
-                        "Hoje o restaurante está fechado no horário comum de funcionamento, devido à possíveis feriados ou eventos especiais."
-                        )}
+                        <>
+                            Hoje o restaurante está fechado no horário comum de funcionamento, devido à possíveis feriados ou eventos especiais.
+                            {!isTableOrder && restaurant.allow_future_order_scheduling === true && (
+                                <> <b>Você pode montar seu pedido e agendar para outro dia</b>.</>
+                            )}
+                        </>
+                    )}
                     {!isTableOrder && canScheduleToday && nextOpening && (
                         <>
                             Restaurante fechado no momento. <b>{restaurant.allow_future_order_scheduling === true
@@ -1293,6 +1298,7 @@ export default function MenuClientPage({
                     cartOpen={cartOpen}
                     setCartOpenAction={setCartOpen}
                     restaurant={restaurant}
+                    manuallyClosedToday={closedForToday}
                     closeItemModalOpen={() => setOpenedItem(null)}
                     trackMeta={trackMeta}
                     slug={slug}
