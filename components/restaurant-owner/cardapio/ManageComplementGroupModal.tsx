@@ -690,7 +690,7 @@ export default function ManageComplementGroupModal({
                                         position="top"
                                         parentClassName="min-w-0 max-w-full overflow-hidden sm:max-w-none sm:overflow-visible"
                                     >
-                                        <span className="block max-w-full cursor-help truncate">
+                                        <span className="block max-w-full cursor-pointer truncate">
                                             Permitir repetir opções
                                         </span>
                                     </Tooltip>
