@@ -233,12 +233,9 @@ export default function DisponibilidadePage() {
                     />
                 </div>
             </div>}
-            <div id="preorder-mode" className="mt-6 scroll-mt-24">
-                <PreorderModeToggle restaurantId={restaurantId} enabled={preorderOnly} onChange={(enabled) => { setPreorderOnly(enabled); if (enabled) setAllowFutureOrderScheduling(true); }} openConfirmationSignal={openPreorderConfirmationSignal} />
-            </div>
             <Card className="mt-6 border border-gray-200 shadow-sm">
                 <div className="mb-5">
-                    <h2 className="text-xl font-medium text-gray-900">Agendamento de pedidos</h2>
+                    <h2 className="font-medium text-gray-900">Agendamento de pedidos</h2>
                     <p className="mt-2 text-sm text-gray-500">
                         Defina quando os clientes podem agendar pedidos, inclusive enquanto a loja estiver fechada.
                     </p>
@@ -253,8 +250,11 @@ export default function DisponibilidadePage() {
                         { value: "future", label: "Dias futuros", description: "Permite agendar para hoje e dias futuros, escolhendo a data e o horário disponível." },
                     ]}
                 />
-                {preorderOnly && <p className="mt-3 text-sm text-gray-500">Dias futuros está ativado automaticamente pelo modo Encomendas. Para alterar, desative o modo acima.</p>}
+                {preorderOnly && <p className="mt-3 text-sm text-gray-500">Dias futuros está ativado automaticamente pelo modo Encomendas. Para alterar, desative o modo abaixo.</p>}
             </Card>
+            <div id="preorder-mode" className="mt-6 scroll-mt-24">
+                <PreorderModeToggle restaurantId={restaurantId} enabled={preorderOnly} onChange={(enabled) => { setPreorderOnly(enabled); if (enabled) setAllowFutureOrderScheduling(true); }} openConfirmationSignal={openPreorderConfirmationSignal} />
+            </div>
         </div>
     );
 }
