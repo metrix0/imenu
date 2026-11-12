@@ -595,18 +595,50 @@ export default function ManageComplementGroupModal({
                                     Obrigatório
                                 </label>
 
+                                {draft.min_select > 0 && (
+                                    <div className="flex items-center gap-2">
+                                        <span>Mínimo:</span>
+                                        <Input inline
+                                            type="number"
+                                            min={1}
+                                            max={draft.max_select}
+                                            value={draft.min_select}
+                                            disabled={isSaving}
+                                            onChange={(event) =>
+                                                setDraft({
+                                                    ...draft,
+                                                    min_select: Math.max(
+                                                        1,
+                                                        Math.min(draft.max_select, Number.parseInt(event.target.value, 10) || 1)
+                                                    ),
+                                                })
+                                            }
+                                            onBlur={(event) => {
+                                                const min_select = Math.max(
+                                                    1,
+                                                    Math.min(draft.max_select, Number.parseInt(event.currentTarget.value, 10) || 1)
+                                                );
+                                                if (min_select !== savedGroupRef.current?.min_select) {
+                                                    void updateGroup({ min_select });
+                                                }
+                                            }}
+                                            className="w-14 rounded border border-gray-300 p-1 text-center text-sm disabled:opacity-60 2xl:text-base"
+                                        />
+                                    </div>
+                                )}
+
                                 <div className="flex items-center gap-2">
                                     <span>Até:</span>
                                     <Input inline
                                         type="number"
-                                        min={1}
+                                        min={draft.min_select > 0 ? draft.min_select : 1}
                                         value={draft.max_select}
                                         disabled={isSaving}
                                         onChange={(event) =>
                                             setDraft({
                                                 ...draft,
                                                 max_select: Math.max(
-                                                    1,
+                                                    draft.min_select || 1,
                                                     Number.parseInt(
                                                         event.target.value,
                                                         10
@@ -616,7 +648,7 @@ export default function ManageComplementGroupModal({
                                         }
                                         onBlur={(event) => {
                                             const max_select = Math.max(
-                                                1,
+                                                draft.min_select || 1,
                                                 Number.parseInt(
                                                     event.currentTarget.value,
                                                     10

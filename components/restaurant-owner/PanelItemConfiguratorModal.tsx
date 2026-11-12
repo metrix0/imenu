@@ -735,9 +735,15 @@ export default function PanelItemConfiguratorModal({
                                                         {group.name}
                                                     </p>
                                                     <p className="mt-0.5 text-xs text-gray-500">
-                                                        {group.max_select > 0
-                                                            ? `Escolha até ${group.max_select}`
-                                                            : "Escolha o quanto quiser"}
+                                                        {group.min_select > 1
+                                                            ? group.min_select === group.max_select
+                                                                ? `Escolha ${group.min_select}`
+                                                                : group.max_select > 0
+                                                                    ? `Escolha de ${group.min_select} a ${group.max_select}`
+                                                                    : `Escolha ao menos ${group.min_select}`
+                                                            : group.max_select > 0
+                                                                ? `Escolha até ${group.max_select}`
+                                                                : "Escolha o quanto quiser"}
                                                         {group.allow_multiple_units && group.max_per_option != null && `. Até ${group.max_per_option} por tipo.`}
                                                     </p>
                                                 </div>
