@@ -151,12 +151,16 @@ export default function CartModal({
     const todayInput = formatDateInputValue(new Date());
     const preorderOnly = restaurant?.preorder_only === true && !isTableOrder;
     const minAdvanceDays = preorderOnly ? Math.max(0, Math.min(59, Number(restaurant?.preorder_min_days) || 0)) : 0;
-    const [scheduleDate, setScheduleDate] = useState(() => {
-        const firstDate = new Date();
-        firstDate.setDate(firstDate.getDate() + minAdvanceDays);
-        return formatDateInputValue(firstDate);
-    });
     const allowFutureScheduling = restaurant?.allow_future_order_scheduling === true || preorderOnly;
+    const manuallyClosedToday = (() => {
+        if (isTableOrder || preorderOnly || !restaurant?.is_closed) return false;
+        const closedDate = new Date(restaurant.is_closed);
+        const businessToday = new Date();
+        if (businessToday.getHours() < 4) businessToday.setDate(businessToday.getDate() - 1);
+        return closedDate.getFullYear() === businessToday.getFullYear() &&
+            closedDate.getMonth() === businessToday.getMonth() &&
+            closedDate.getDate() === businessToday.getDate();
+    })();
     const scheduleDateOptions = Array.from({ length: 60 - minAdvanceDays }, (_, index) => {
         const date = new Date();
         date.setHours(12, 0, 0, 0);
@@ -171,6 +175,18 @@ export default function CartModal({
             value,
             label: minAdvanceDays === 0 && index === 0 ? `Hoje • ${dateLabel}` : dateLabel,
         };
+    });
+    const [scheduleDate, setScheduleDate] = useState(() => {
+        if (manuallyClosedToday && allowFutureScheduling) {
+            const nextOpenDate = scheduleDateOptions.find(({ value }) =>
+                value !== todayInput &&
+                (restaurant?.availability_json?.[dateFromInput(value).getDay()]?.length ?? 0) > 0
+            );
+            if (nextOpenDate) return nextOpenDate.value;
+        }
+        const firstDate = new Date();
+        firstDate.setDate(firstDate.getDate() + minAdvanceDays);
+        return formatDateInputValue(firstDate);
     });
     const coupon_code = useCheckoutStore((s) => s.coupon_code);
     const coupon_type = useCheckoutStore((s) => s.coupon_type);
@@ -196,22 +212,11 @@ export default function CartModal({
             : now;
         const isToday = formatDateInputValue(targetDate) === todayInput;
 
-        if (isToday && restaurant?.is_closed && !preorderOnly) {
-            const closedDate = new Date(restaurant.is_closed);
-            const businessToday = new Date();
-            if (businessToday.getHours() < 4) {
-                businessToday.setDate(businessToday.getDate() - 1);
-            }
-            const manuallyClosedToday =
-                closedDate.getFullYear() === businessToday.getFullYear() &&
-                closedDate.getMonth() === businessToday.getMonth() &&
-                closedDate.getDate() === businessToday.getDate();
-            if (manuallyClosedToday) {
-                return {
-                    options: [] as { value: string; label: string }[],
-                    isOpenNow: false,
-                };
-            }
+        if (isToday && manuallyClosedToday) {
+            return {
+                options: [] as { value: string; label: string }[],
+                isOpenNow: false,
+            };
         }
 
         const slots = availability[targetDate.getDay()] ?? [];
@@ -277,7 +282,7 @@ export default function CartModal({
     })();
     const scheduledOptions = schedulingState.options;
     const selectedDateIsToday = scheduleDate === todayInput;
-    const mustSchedule = preorderOnly || (
+    const mustSchedule = preorderOnly || manuallyClosedToday || (
         selectedDateIsToday &&
         scheduledOptions.length > 0 &&
         !schedulingState.isOpenNow);

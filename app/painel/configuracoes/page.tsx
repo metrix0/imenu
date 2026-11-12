@@ -43,8 +43,6 @@ type Restaurant = {
     user_id?: string | null;
     phone?: string | null;
     force_whatsapp_order_confirmation?: boolean | null;
-    allow_future_order_scheduling?: boolean | null;
-    preorder_only?: boolean | null;
     vitrine_enabled?: boolean;
     dark_menu_enabled?: boolean;
     delivery_fee_mode?: "radius" | "neighborhood" | null;
@@ -219,10 +217,6 @@ export default function ConfiguracoesPage() {
         useState(false);
     const [isSavingWhatsappConfirmation, setIsSavingWhatsappConfirmation] =
         useState(false);
-    const [allowFutureOrderScheduling, setAllowFutureOrderScheduling] =
-        useState(false);
-    const [isSavingOrderScheduling, setIsSavingOrderScheduling] =
-        useState(false);
     const [isSavingVitrine, setIsSavingVitrine] = useState(false);
     const [isSavingSmallCityMode, setIsSavingSmallCityMode] = useState(false);
     const [confirmSmallCityModeOpen, setConfirmSmallCityModeOpen] = useState(false);
@@ -301,7 +295,7 @@ export default function ConfiguracoesPage() {
                     const { data: restData } = await supabase
                         .from("restaurants")
                         .select(
-                            "id, name, url_slug, user_id, phone, force_whatsapp_order_confirmation, allow_future_order_scheduling, preorder_only, vitrine_enabled, dark_menu_enabled, delivery_fee_mode, small_city_mode_enabled",
+                            "id, name, url_slug, user_id, phone, force_whatsapp_order_confirmation, vitrine_enabled, dark_menu_enabled, delivery_fee_mode, small_city_mode_enabled",
                         )
                         .eq("id", targetId)
                         .single();
@@ -310,9 +304,6 @@ export default function ConfiguracoesPage() {
                         setRestaurant(restData);
                         setForceWhatsappOrderConfirmation(
                             restData.force_whatsapp_order_confirmation === true,
-                        );
-                        setAllowFutureOrderScheduling(
-                            restData.allow_future_order_scheduling === true,
                         );
                         const formattedPhone = formatPhone(
                             restData.phone || "",
@@ -435,44 +426,6 @@ export default function ConfiguracoesPage() {
             ? { ...current, small_city_mode_enabled: enabled, delivery_fee_mode: data.delivery_fee_mode }
             : current);
         setConfirmSmallCityModeOpen(false);
-    };
-
-    const saveOrderSchedulingMode = async (allowFuture: boolean) => {
-        if (!restaurant || isSavingOrderScheduling || restaurant.preorder_only) return;
-
-        setIsSavingOrderScheduling(true);
-        setSaveErrors(previous => ({ ...previous, scheduling: false }));
-        const { error } = await supabase
-            .from("restaurants")
-            .update({ allow_future_order_scheduling: allowFuture })
-            .eq("id", restaurant.id);
-        setIsSavingOrderScheduling(false);
-
-        if (error) {
-            setSaveErrors(previous => ({ ...previous, scheduling: true }));
-            console.error("Erro ao salvar modo de agendamento:", error);
-            setToast({
-                message: "Erro ao salvar a configuração de agendamentos.",
-                type: "error",
-            });
-            return;
-        }
-
-        setAllowFutureOrderScheduling(allowFuture);
-        setRestaurant((current) =>
-            current
-                ? {
-                      ...current,
-                      allow_future_order_scheduling: allowFuture,
-                  }
-                : current,
-        );
-        setToast({
-            message: allowFuture
-                ? "Agendamentos para dias futuros ativados."
-                : "Agendamentos limitados ao dia atual.",
-            type: "success",
-        });
     };
 
     const saveVitrineMode = async (enabled: boolean) => {
@@ -945,31 +898,6 @@ export default function ConfiguracoesPage() {
                                 <FontAwesomeIcon icon={faChevronRight} />
                             </span>
                         </button>
-                    </Card>
-
-                    <Card className="border border-gray-200 shadow-sm">
-                        <div className="mb-5">
-                            <h2 className="text-xl font-medium text-gray-900">
-                                Agendamento de pedidos
-                            </h2>
-                            <p className="mt-2 text-sm text-gray-500">
-                                Escolha se os clientes podem agendar somente para o dia atual ou também para dias futuros. Dias futuros é mais indicado para quem trabalha com encomendas.
-                            </p>
-                        </div>
-
-                        <ChoiceCardGroup
-                            value={allowFutureOrderScheduling ? "future" : "today"}
-                            disabled={isSavingOrderScheduling || restaurant?.preorder_only === true}
-                            onChange={(value) => void saveOrderSchedulingMode(value === "future")}
-                            className="sm:grid-cols-2"
-                            options={[
-                                { value: "today", label: "Dia atual", description: "Permite agendar apenas horários disponíveis de hoje." },
-                                { value: "future", label: "Dias futuros", description: "Ideal para encomendas: o cliente escolhe o dia e depois o horário disponível." },
-                            ]}
-                        />
-
-                        {restaurant?.preorder_only && <p className="mt-3 text-sm text-gray-500">Dias futuros está ativado automaticamente pelo modo Encomendas. Para alterar, desative o modo em Horários.</p>}
-                        <SaveStatus status={saveErrors.scheduling ? "error" : isSavingOrderScheduling ? "saving" : "saved"} />
                     </Card>
 
                     <Card className="border border-gray-200 shadow-sm">

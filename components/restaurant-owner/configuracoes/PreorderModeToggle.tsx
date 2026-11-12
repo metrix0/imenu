@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Switch from "@/components/ui/Switch";
+import Card from "@/components/ui/Card";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import SaveStatus from "@/components/ui/SaveStatus";
 import Input from "@/components/ui/Input";
@@ -136,11 +137,11 @@ export default function PreorderModeToggle({ restaurantId, enabled, onChange, op
 
     return (
         <>
-            <div className="mb-5 flex items-center justify-between gap-4 rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
+            <Card className="mb-5 flex items-center justify-between gap-4">
                 <div>
-                    <p className="font-medium text-gray-900">Trabalho apenas com encomendas</p>
+                    <h2 className="text-lg font-medium text-gray-900">Trabalho apenas com encomendas</h2>
                     <p className="mt-1 text-sm text-gray-500">
-                        Os clientes devem agendar o dia e o horário da encomenda.
+                        Ao ativar, os clientes só podem fazer pedidos agendados: precisam escolher data e horário de entrega ou retirada. Você pode definir os dias e horários para quais o cliente pode fazer agendamentos.
                     </p>
                     {enabled && <p className="mt-2 text-xs font-medium text-green-700">Modo encomendas ativo</p>}
                     {error && <p role="alert" className="mt-2 text-sm text-red-600">{error}</p>}
@@ -154,7 +155,7 @@ export default function PreorderModeToggle({ restaurantId, enabled, onChange, op
                         onClick={() => enabled ? void saveMode(false) : setConfirmOpen(true)}
                     />
                 </div>
-            </div>
+            </Card>
 
             {enabled && (
                 <div className="space-y-5">
