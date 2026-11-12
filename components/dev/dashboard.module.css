@@ -87,6 +87,7 @@
 .payoutBreakdown{display:block;white-space:nowrap;text-align:center;font-size:12px;font-variant-numeric:tabular-nums}
 .payoutRowActions{display:flex;flex-wrap:nowrap;align-items:center;justify-content:flex-start;gap:8px}
 .payoutRowActions :global(button){flex:0 0 auto;padding-inline:9px;white-space:nowrap}
+@media(min-width:768px){.payoutFailed :global([data-ui="table"]){overflow-x:auto}.payoutFailed :global(table){min-width:1240px}.payoutFailed :global(th:nth-child(4)){width:23%;white-space:normal;text-align:center}.payoutFailed :global(td:nth-child(4)){padding-inline:6px}.payoutFailed :global(th:last-child){width:244px}}
 @media(min-width:768px){.payoutPayables :global(th:nth-child(4)),.payoutPayables :global(td:nth-child(4)){padding-inline:6px}}
 
 

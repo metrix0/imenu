@@ -478,9 +478,15 @@ export default function ItemModal({
                                             {sc.name}
                                         </p>
                                         {!readOnly && <p className="text-[13px] 2xl:text-lg text-[var(--im-menu-muted,#4b5563)]">
-                                            {sc.max_select > 0
-                                                ? `Escolha até ${sc.max_select}`
-                                                : "Escolha o quanto quiser"}
+                                            {sc.min_select > 1
+                                                ? sc.min_select === sc.max_select
+                                                    ? `Escolha ${sc.min_select}`
+                                                    : sc.max_select > 0
+                                                        ? `Escolha de ${sc.min_select} a ${sc.max_select}`
+                                                        : `Escolha ao menos ${sc.min_select}`
+                                                : sc.max_select > 0
+                                                    ? `Escolha até ${sc.max_select}`
+                                                    : "Escolha o quanto quiser"}
                                             {sc.allow_multiple_units && sc.max_per_option != null && `. Até ${sc.max_per_option} por tipo.`}
                                         </p>}
                                     </div>

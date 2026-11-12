@@ -1146,9 +1146,15 @@ export default function CreatePanelOrderModal({
                                                                                         {sc.name}
                                                                                     </p>
                                                                                     <p className="text-[13px] text-gray-500">
-                                                                                        {sc.max_select > 0
-                                                                                            ? `Escolha até ${sc.max_select}`
-                                                                                            : "Escolha o quanto quiser"}
+                                                                                        {sc.min_select > 1
+                                                                                            ? sc.min_select === sc.max_select
+                                                                                                ? `Escolha ${sc.min_select}`
+                                                                                                : sc.max_select > 0
+                                                                                                    ? `Escolha de ${sc.min_select} a ${sc.max_select}`
+                                                                                                    : `Escolha ao menos ${sc.min_select}`
+                                                                                            : sc.max_select > 0
+                                                                                                ? `Escolha até ${sc.max_select}`
+                                                                                                : "Escolha o quanto quiser"}
                                                                                     </p>
                                                                                 </div>
 

@@ -514,12 +514,17 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
     };
 
     const handleUpdateGroup = async (groupId: string, updates: Partial<Subcategory>) => {
-        updateGroupLocally(groupId, updates);
         let dbUpdates: any = { ...updates };
         if (updates.required !== undefined) {
             dbUpdates.min_select = updates.required ? 1 : 0;
             delete dbUpdates.required;
         }
+        updateGroupLocally(groupId, {
+            ...updates,
+            ...(dbUpdates.min_select !== undefined
+                ? { min_select: dbUpdates.min_select, required: dbUpdates.min_select > 0 }
+                : {}),
+        });
         delete dbUpdates.subitems;
         await supabase.from("item_subcategories").update(dbUpdates).eq("id", groupId);
     };
@@ -619,14 +624,30 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                                                 />
                                                 Obrigatório
                                             </label>
+                                            {group.required && (
+                                                <div className="flex shrink-0 items-center gap-2 2xl:text-base">
+                                                    <span>Mínimo:</span>
+                                                    <Input inline
+                                                        type="number"
+                                                        min={1}
+                                                        max={group.max_select}
+                                                        className="w-12 p-1 text-center rounded border border-gray-300 text-sm 2xl:text-base"
+                                                        value={group.min_select}
+                                                        onChange={(e) => updateGroupLocally(group.id, { min_select: Math.max(1, Math.min(group.max_select, parseInt(e.target.value, 10) || 1)) })}
+                                                        onBlur={(e) => handleUpdateGroup(group.id, { min_select: Math.max(1, Math.min(group.max_select, parseInt(e.currentTarget.value, 10) || 1)) })}
+                                                        onMouseDown={e => e.stopPropagation()}
+                                                    />
+                                                </div>
+                                            )}
                                             <div className="flex shrink-0 items-center gap-2 2xl:text-base">
                                                 <span>Até:</span>
                                                 <Input inline
-                                                    type="number" 
+                                                    type="number"
+                                                    min={group.min_select > 0 ? group.min_select : 1}
                                                     className="w-12 p-1 text-center rounded border border-gray-300 text-sm 2xl:text-base"
                                                     value={group.max_select}
-                                                    onChange={(e) => updateGroupLocally(group.id, { max_select: parseInt(e.target.value) || 1 })}
-                                                    onBlur={(e) => handleUpdateGroup(group.id, { max_select: parseInt(e.currentTarget.value) || 1 })}
+                                                    onChange={(e) => updateGroupLocally(group.id, { max_select: Math.max(group.min_select || 1, parseInt(e.target.value, 10) || 1) })}
+                                                    onBlur={(e) => handleUpdateGroup(group.id, { max_select: Math.max(group.min_select || 1, parseInt(e.currentTarget.value, 10) || 1) })}
                                                     onMouseDown={e => e.stopPropagation()}
                                                 />
                                             </div>
@@ -644,7 +665,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                                                     position="top"
                                                     parentClassName="min-w-0 max-w-full overflow-hidden sm:max-w-none sm:overflow-visible"
                                                 >
-                                                    <span className="block max-w-full cursor-help truncate">
+                                                    <span className="block max-w-full cursor-pointer truncate">
                                                         Permitir repetir opções
                                                     </span>
                                                 </Tooltip>
