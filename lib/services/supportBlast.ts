@@ -13,6 +13,11 @@ import {
 
 export type BlastRecipientInput = { phone: string; message: string };
 
+const RECOVERY_MESSAGES = [
+    ABANDONED_BLAST_MESSAGE, PLUS_ABANDONED_BLAST_MESSAGE,
+    SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE,
+];
+
 export function normalizeBlastPhone(value: string): string | null {
     let digits = String(value || "").replace(/\D/g, "");
     if (digits.startsWith("0055")) digits = digits.slice(2);
@@ -35,8 +40,11 @@ export async function createSupportBlast(input: {
     if ((!input.message.trim() && !input.imagePath) || !input.recipients.length || input.recipients.length > 10000) {
         throw new Error("Informe uma mensagem e de 1 a 10.000 destinatários.");
     }
-    if (input.dailyLimit !== null &&
-        (!Number.isInteger(input.dailyLimit) || input.dailyLimit < 1 || input.dailyLimit > 10000)) {
+    // Recovery has one shared 13/day budget, regardless of caller-provided cadence.
+    const dailyLimit = input.sender === "blast" && RECOVERY_MESSAGES.includes(input.message.trim())
+        ? RECOVERY_DAILY_LIMIT : input.dailyLimit;
+    if (dailyLimit !== null &&
+        (!Number.isInteger(dailyLimit) || dailyLimit < 1 || dailyLimit > 10000)) {
         throw new Error("A cadência deve ser de 1 a 10.000 mensagens por dia.");
     }
 
@@ -68,7 +76,7 @@ export async function createSupportBlast(input: {
     await withTransaction(async (client) => {
         const inserted = await client.query(
             "INSERT INTO support_blast_campaigns (id, sender, message, daily_limit, skip_recent, total, image_path, status) VALUES ($1, $2, $3, $4, $5, $6, $7, 'running') ON CONFLICT (id) DO NOTHING RETURNING id",
-            [id, input.sender, input.message.trim(), input.dailyLimit, input.skipRecent, rows.length, input.imagePath || null]
+            [id, input.sender, input.message.trim(), dailyLimit, input.skipRecent, rows.length, input.imagePath || null]
         );
         if (!inserted.rowCount) return; // Cron retry: leave the existing campaign untouched.
         // Assign one slot to every recipient. Cadenced sends are distributed over
@@ -128,7 +136,7 @@ export async function createSupportBlast(input: {
             FROM slots s CROSS JOIN starts
             ORDER BY s.ord
             `,
-            [id, JSON.stringify(rows), input.dailyLimit, rows.length]
+            [id, JSON.stringify(rows), dailyLimit, rows.length]
         );
     });
     return id;
@@ -215,6 +223,23 @@ async function finishCampaigns() {
     );
 }
 
+async function expireStaleRecoveryRecipients() {
+    // A daily recovery campaign must never spill into the following day.
+    // Older uncapped campaigns used to send at midnight and consume today's shared quota.
+    await query(
+        `UPDATE support_blast_recipients r
+         SET status = 'cancelled', error = 'Campanha de recuperação expirada.'
+         FROM support_blast_campaigns c
+         WHERE r.campaign_id = c.id
+           AND c.sender = 'blast'
+           AND c.message = ANY($1::text[])
+           AND r.status = 'pending'
+           AND (c.created_at AT TIME ZONE 'America/Sao_Paulo')::date
+               < (NOW() AT TIME ZONE 'America/Sao_Paulo')::date`,
+        [RECOVERY_MESSAGES]
+    );
+}
+
 async function claimNextRecipient(): Promise<ClaimedRecipient | null> {
     const result = await query<ClaimedRecipient>(
         `
@@ -225,6 +250,15 @@ async function claimNextRecipient(): Promise<ClaimedRecipient | null> {
             WHERE c.status = 'running'
               AND r.status = 'pending'
               AND r.scheduled_at <= NOW()
+              AND (
+                c.sender <> 'blast' OR c.message <> ALL($1::text[])
+                OR (
+                    (c.created_at AT TIME ZONE 'America/Sao_Paulo')::date =
+                        (NOW() AT TIME ZONE 'America/Sao_Paulo')::date
+                    AND (NOW() AT TIME ZONE 'America/Sao_Paulo')::time >= TIME '08:00'
+                    AND (NOW() AT TIME ZONE 'America/Sao_Paulo')::time < TIME '21:00'
+                )
+              )
               AND (
                 c.daily_limit IS NULL
                 OR (
@@ -273,9 +307,8 @@ async function claimNextRecipient(): Promise<ClaimedRecipient | null> {
         WHERE r.id = claimed.id AND c.id = r.campaign_id
         RETURNING r.id, r.campaign_id, r.phone, r.message, c.sender, c.skip_recent, c.message AS campaign_message, c.image_path AS campaign_image_path
         `,
-        [[ABANDONED_BLAST_MESSAGE, PLUS_ABANDONED_BLAST_MESSAGE,
-            SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE],
-         RECOVERY_DAILY_LIMIT, PLUS_FIRST_MONTH_FEEDBACK_MESSAGE, PLUS_FEEDBACK_DAILY_LIMIT]
+        [RECOVERY_MESSAGES, RECOVERY_DAILY_LIMIT,
+         PLUS_FIRST_MONTH_FEEDBACK_MESSAGE, PLUS_FEEDBACK_DAILY_LIMIT]
     );
     return result.rows[0] || null;
 }
@@ -546,6 +579,7 @@ export async function processSupportBlastQueue(): Promise<{
            error='Envio interrompido; verifique o WhatsApp antes de reenviar.'
          WHERE status='processing' AND attempted_at < NOW() - INTERVAL '20 minutes'`
     );
+    await expireStaleRecoveryRecipients();
     const result = { sent: 0, failed: 0, skipped: 0, disconnected: false };
     const stopAt = Date.now() + 45_000; // Leave headroom for the route's 60s limit.
     for (let i = 0; i < 3; i++) {
