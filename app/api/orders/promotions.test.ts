@@ -59,6 +59,7 @@ const giftId = "10000000-0000-4000-8000-000000000002";
 let insert: any[] | null;
 let writes: string[];
 let transactions: string[];
+let manuallyClosedToday: boolean;
 let client: { query: jest.Mock };
 
 beforeEach(() => {
@@ -72,6 +73,7 @@ beforeEach(() => {
   insert = null;
   writes = [];
   transactions = [];
+  manuallyClosedToday = false;
   jest.spyOn(console, "error").mockImplementation(() => undefined);
   (query as jest.Mock).mockResolvedValue({ rows: [], rowCount: 1 });
   (createMercadoPagoPixCharge as jest.Mock).mockResolvedValue({
@@ -84,7 +86,7 @@ beforeEach(() => {
       if (/INSERT|UPDATE/.test(sql) && !sql.includes("FOR UPDATE"))
         writes.push(sql);
       if (sql.includes("SELECT url_slug, automatic_promotions"))
-        return { rows: [{ url_slug: "teste", automatic_promotions: offers }] };
+        return { rows: [{ url_slug: "teste", automatic_promotions: offers, manually_closed_today: manuallyClosedToday }] };
       if (sql.includes("LEFT JOIN promotions"))
         return {
           rows: [
@@ -183,6 +185,32 @@ it("requires a schedule for customer checkout in preorder-only mode", async () =
   expect((await response.json()).error).toMatch(/agendar/);
   expect(requireRestaurantOwner).not.toHaveBeenCalled();
   expect(insert).toBeNull();
+});
+
+it("rejects unscheduled storefront orders during manual closure", async () => {
+  manuallyClosedToday = true;
+  const response = await send();
+  expect(response.status).toBe(409);
+  expect((await response.json()).error).toMatch(/Agende seu pedido/);
+  expect(transactions).toContain("rollback");
+  expect(insert).toBeNull();
+  expect(writes).toEqual([]);
+});
+
+it("allows scheduled storefront orders during manual closure", async () => {
+  manuallyClosedToday = true;
+  const scheduled_for = new Date(Date.now() + 24 * 60 * 60_000).toISOString();
+  const response = await send({ scheduled_for });
+  expect(response.status).toBe(200);
+  expect(saved()[9]).toEqual(new Date(scheduled_for));
+});
+
+it("allows authenticated staff orders during manual closure", async () => {
+  manuallyClosedToday = true;
+  const response = await send({ panel_order: true }, { Authorization: "Bearer owner-token" });
+  expect(response.status).toBe(200);
+  expect(requireRestaurantOwner).toHaveBeenCalled();
+  expect(insert).not.toBeNull();
 });
 
 it("allows an unscheduled manual order for the authenticated restaurant owner", async () => {
