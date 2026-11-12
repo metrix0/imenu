@@ -735,19 +735,10 @@ export async function POST(request: Request) {
                     }
 
                     const restaurantResult = await client.query(
-                        `SELECT url_slug, automatic_promotions, pizza_settings,
-                            (is_closed IS NOT NULL AND
-                                ((is_closed AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo') - INTERVAL '4 hours')::date =
-                                ((NOW() AT TIME ZONE 'America/Sao_Paulo') - INTERVAL '4 hours')::date
-                            ) AS manually_closed_today
-                         FROM restaurants WHERE id = $1 FOR SHARE`,
+                        "SELECT url_slug, automatic_promotions, pizza_settings FROM restaurants WHERE id = $1",
                         [restaurantId]
                     );
                     if (!restaurantResult.rows[0]) throw new OrderRequestError("Restaurante não encontrado.");
-                    if (!isTableOrder && panel_order !== true && !scheduledFor &&
-                        restaurantResult.rows[0].manually_closed_today) {
-                        throw new OrderRequestError("Restaurante fechado no momento. Agende seu pedido.", 409);
-                    }
                     if (items.some((item: any) => item.pizza != null)) {
                         items = await pricePizzaOrderItems(client, restaurantId, restaurantResult.rows[0].pizza_settings, items);
                         subtotal = items.reduce((sum: number, item: any) => sum + (promotionPrice(item) ?? Number(item.total_cents) ?? 0), 0);
