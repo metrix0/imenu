@@ -1,7 +1,16 @@
 import { createCipheriv, createDecipheriv, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
+export type IfoodConnection = {
+    restaurantId: string; accessToken?: string; refreshToken?: string; expiresAt?: number;
+    merchantName?: string; lastPollAt?: number; pollingUntil?: number; lastError?: string;
+    pending?: {
+        userCode: string; verifier: string; url: string; expiresAt: number;
+        accessToken?: string; refreshToken?: string; tokenExpiresAt?: number;
+        merchants?: { id: string; name: string }[];
+    };
+};
 export type DeliveryConfig = {
-    ifood: { enabled: boolean; merchantId: string; clientId: string; clientSecret: string };
+    ifood: { enabled: boolean; merchantId: string; clientId: string; clientSecret: string; connection?: IfoodConnection };
     machine: { enabled: boolean; apiKey: string; username: string; password: string; companyId: string; payment: string; categoryId: string };
 };
 export const emptyDeliveryConfig: DeliveryConfig = {
@@ -10,7 +19,7 @@ export const emptyDeliveryConfig: DeliveryConfig = {
 };
 function encryptionKey() {
     const key = Buffer.from(process.env.DELIVERY_INTEGRATIONS_KEY || "", "base64");
-    if (key.length !== 32) throw new Error("Integrações Delivery aguardando liberação. Contate o suporte.");
+    if (key.length !== 32) throw new Error("Integrações Delivery indisponíveis. Tente novamente mais tarde.");
     return key;
 }
 export function seal(value: unknown): string {
@@ -26,10 +35,19 @@ export function unseal(value: string): DeliveryConfig {
     return JSON.parse(Buffer.concat([decipher.update(bytes.subarray(28)), decipher.final()]).toString("utf8"));
 }
 export function validSignature(raw: string | Uint8Array, signature: string, secret: string) {
-    if (!/^[a-f0-9]{64}$/i.test(signature)) return false;
+    if (!secret || !/^[a-f0-9]{64}$/i.test(signature)) return false;
     return timingSafeEqual(createHmac("sha256", secret).update(raw).digest(), Buffer.from(signature, "hex"));
 }
 export async function ifoodRequest(config: DeliveryConfig["ifood"], path: string, action?: "confirm" | "startPreparation" | "readyToPickup" | "dispatch") {
+    if (config.connection?.refreshToken) {
+        const { ifoodApi } = await import("./ifoodConnection");
+        const response = await ifoodApi(config.connection.restaurantId, path, {
+            method: action ? "POST" : "GET",
+            ...(action === "dispatch" ? { body: JSON.stringify({ deliveredBy: "MERCHANT" }) } : {}),
+            ...(action ? { headers: { "Content-Type": "application/json" } } : {}),
+        });
+        return action || response.status === 204 ? undefined : response.json();
+    }
     const tokenResponse = await fetch("https://merchant-api.ifood.com.br/authentication/v1.0/oauth/token", {
         method: "POST", body: new URLSearchParams({ grantType: "client_credentials", clientId: config.clientId, clientSecret: config.clientSecret }),
         cache: "no-store", signal: AbortSignal.timeout(10000),
@@ -102,3 +120,4 @@ export function mapIfoodOrder(data: any) {
         }),
     };
 }
+

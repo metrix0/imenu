@@ -20,7 +20,7 @@ export async function requestIfoodStatus(orderId: string, current: string, targe
     const { rows: [order] } = await query<Imported>("SELECT * FROM delivery_imported_orders WHERE order_id=$1", [orderId]);
     if (!order) throw new IfoodStatusError("Pedido iFood não encontrado.");
     const config = (await loadDeliveryConfig(order.restaurant_id)).ifood;
-    if (!config.enabled || !config.clientId || !config.clientSecret || !config.merchantId) throw new IfoodStatusError("Configure e ative a integração iFood antes de atualizar o pedido.");
+    if (!config.enabled || !config.merchantId || (!config.connection?.refreshToken && (!config.clientId || !config.clientSecret))) throw new IfoodStatusError("Conecte e ative a integração iFood antes de atualizar o pedido.");
     const state = order.sync_state || {};
     let action: "confirm" | "startPreparation" | "readyToPickup" | "dispatch";
     if (["pending_physical_payment", "paid"].includes(current) && target === "preparing") action = "confirm";
@@ -80,3 +80,4 @@ export async function receiveIfoodStatus(restaurantId: string, event: any) {
         if (status !== local.status) await client.query("UPDATE orders SET status=$2::public.order_status,updated_at=now() WHERE id=$1", [local.id,status]);
     });
 }
+
