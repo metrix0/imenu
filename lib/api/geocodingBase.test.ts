@@ -114,6 +114,52 @@ describe("ArcGIS interpolation in a different neighborhood", () => {
         expect(await fetchCoordinates(c.input)).toEqual({ latitude: c.lat, longitude: c.lon });
     });
 });
+it.each(["TomTom", "Nominatim"])("checks the neighborhood returned by %s", async provider => {
+    const c = cases[0];
+    process.env.NEXT_PUBLIC_TOMTOM_API_KEY = "test";
+    const alternate = { latitude: -29.69, longitude: -51.13 };
+    providers(url => {
+        if (url.hostname.includes("arcgis.com")) {
+            return reply({ candidates: [{
+                ...candidate(c, "StreetName", { AddNum: "", District: "Canudos" }),
+                location: { y: alternate.latitude, x: alternate.longitude },
+            }] });
+        }
+        if (url.hostname === "api.tomtom.com") {
+            return reply({ results: provider === "TomTom" ? [{
+                address: { streetName: c.street, streetNumber: c.number, municipality: c.city, municipalitySubdivision: "Outro Bairro" },
+                position: { lat: c.lat, lon: c.lon },
+            }] : [] });
+        }
+        return reply(provider === "Nominatim" ? [{
+            address: { road: c.street, house_number: c.number, city: c.city, suburb: "Outro Bairro" },
+            lat: c.lat,
+            lon: c.lon,
+        }] : []);
+    });
+    expect(await fetchCoordinates(c.input)).toEqual(alternate);
+    expect(await fetchCoordinates(c.input, () => false)).toEqual({ latitude: c.lat, longitude: c.lon });
+});
+
+it("tries the matching street when TomTom omits the neighborhood and ArcGIS detects a conflict", async () => {
+    const c = cases[0];
+    process.env.NEXT_PUBLIC_TOMTOM_API_KEY = "test";
+    providers(url => {
+        if (url.hostname.includes("arcgis.com")) {
+            return reply({ candidates: [
+                candidate(c, "StreetAddress", { District: "Outro Bairro" }),
+                { ...candidate(c, "StreetName", { AddNum: "", District: "Canudos" }), location: { y: -29.69, x: -51.13 } },
+            ] });
+        }
+        if (url.hostname === "api.tomtom.com") return reply({ results: [{
+            address: { streetName: c.street, streetNumber: c.number, municipality: c.city },
+            position: { lat: c.lat, lon: c.lon },
+        }] });
+        return reply([]);
+    });
+    expect(await fetchCoordinates(c.input)).toEqual({ latitude: -29.69, longitude: -51.13 });
+});
+
 it("does not let a wrong number hide a later exact number", async () => {
     arcgisOnly([candidate(cases[0], "PointAddress", { AddNum: "92" }), { ...candidate(), score: 98, location: { y: -29.69, x: -51.13 } }]);
     expect(await fetchCoordinates(cases[0].input)).toEqual({ latitude: -29.69, longitude: -51.13 });
