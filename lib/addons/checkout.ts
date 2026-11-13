@@ -1,6 +1,5 @@
 import type { AddonProduct } from "@/lib/addons/products";
 import { isPromoQrDate, PROMO_QR_CODE, PROMO_QR_PRICE_CENTS } from "@/lib/addons/promoQr";
-import { isPromoQrAllowlistedOwnerEmail } from "@/lib/addons/promoQrEligibility";
 import { createMercadoPagoPixCharge, getMercadoPagoPixPayment, isMercadoPagoPixFailureStatus, MercadoPagoPixApiError } from "@/lib/payments/mercadoPagoPix";
 import { activateMercadoPagoQrTablePrepaid, saveMercadoPagoQrTablePayment, setMercadoPagoQrTablePending } from "@/lib/qr-table/mercadoPagoBilling";
 import { createHash } from "node:crypto";
@@ -317,33 +316,23 @@ export async function checkoutAddon(request: Request, product: AddonProduct) {
                 return NextResponse.json({ error: "A promoção PROMOQR é válida somente para pagamento via Pix." }, { status: 400 });
             }
             const eligible = await query<{ eligible: boolean }>(`
-                SELECT (
-                    ($3::boolean OR EXISTS (
-                        SELECT 1 FROM public.restaurant_addons qr
-                        WHERE qr.restaurant_id = $1 AND qr.product_key = 'qr_code_mesa'
-                          AND EXISTS (
-                            SELECT 1 FROM public.restaurant_addon_payments legacy_payment
-                            WHERE legacy_payment.addon_id=qr.id AND legacy_payment.amount_cents > 0
-                              AND UPPER(legacy_payment.status) IN ('APPROVED','COMPLETED','CONFIRMED','RECEIVED','RECEIVED_IN_CASH')
-                          )
-                    )) AND NOT EXISTS (
-                        SELECT 1 FROM public.restaurant_addons plus
-                        WHERE plus.restaurant_id = $1 AND plus.product_key = 'ia_plus'
-                          AND (
-                            plus.status = 'active' OR
-                            (plus.status IN ('canceled', 'past_due') AND plus.current_period_ends_at > NOW()) OR
-                            EXISTS (
-                              SELECT 1 FROM public.restaurant_addon_payments payment
-                              WHERE payment.addon_id = plus.id
+                SELECT NOT EXISTS (
+                    SELECT 1 FROM public.restaurant_addons plus
+                    WHERE plus.restaurant_id = $1 AND plus.product_key = 'ia_plus'
+                      AND (
+                        plus.status = 'active' OR
+                        (plus.status IN ('canceled', 'past_due') AND plus.current_period_ends_at > NOW()) OR
+                        EXISTS (
+                            SELECT 1 FROM public.restaurant_addon_payments payment
+                            WHERE payment.addon_id = plus.id
                               AND payment.amount_cents = $2
                               AND UPPER(payment.status) IN ('APPROVED','COMPLETED','CONFIRMED','RECEIVED','RECEIVED_IN_CASH')
-                            )
-                          )
-                    )
+                        )
+                      )
                 ) AS eligible
-            `, [restaurantId, PROMO_QR_PRICE_CENTS, isPromoQrAllowlistedOwnerEmail(owner.user.email)]);
+            `, [restaurantId, PROMO_QR_PRICE_CENTS]);
             if (eligible.rows[0]?.eligible !== true) {
-                return NextResponse.json({ error: "Este cupom é exclusivo para antigos assinantes do QR Code que ainda não utilizaram a promoção." }, { status: 403 });
+                return NextResponse.json({ error: "Este cupom só pode ser usado uma vez e exige que o iMenu Plus esteja inativo." }, { status: 403 });
             }
         }
         const expectedPriceCents = wantsPromo ? PROMO_QR_PRICE_CENTS : product.priceCents;

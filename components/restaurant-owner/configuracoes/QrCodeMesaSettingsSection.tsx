@@ -1,5 +1,4 @@
 "use client";
-import { hasLegacyQrPurchase } from "@/lib/addons/promoQrEligibility";
 import { usePlusExposure } from "@/lib/analytics/plusExposure";
 
 import { useCallback, useEffect, useState } from "react";
@@ -60,7 +59,6 @@ type BillingItem = {
 
 type BillingPayload = {
     addons: BillingItem[];
-    promoQrOwnerOverride?: boolean;
     error?: string;
 };
 
@@ -294,10 +292,8 @@ export default function QrCodeMesaSettingsSection({
     const active = true;
     const iaPlusActive = billing?.addons.some(item => item.addon.product_key === "ia_plus" && item.active) === true;
     const promoQr = coupon?.trim().toUpperCase() === PROMO_QR_CODE;
-    const qrLegacy = billing?.addons.find(item => item.addon.product_key === "qr_code_mesa");
     const plusHistory = billing?.addons.find(item => item.addon.product_key === "ia_plus");
-    const eligiblePromo = promoQr && isPromoQrDate() && !loading &&
-        ((qrLegacy && hasLegacyQrPurchase(qrLegacy.payments)) || billing?.promoQrOwnerOverride === true) &&
+    const eligiblePromo = promoQr && isPromoQrDate() && !loading && billing !== null &&
         !plusHistory?.active && !plusHistory?.payments.some(p => p.amount_cents === PROMO_QR_PRICE_CENTS && ["APPROVED", "COMPLETED", "CONFIRMED", "RECEIVED", "RECEIVED_IN_CASH"].includes(p.status.toUpperCase()));
     const appliedCoupon = eligiblePromo ? PROMO_QR_CODE : undefined;
     const cancelBilling =
@@ -334,7 +330,7 @@ export default function QrCodeMesaSettingsSection({
                     {eligiblePromo ? (
                         <><strong className="text-brand">PROMOQR aplicado!</strong> Primeiro mês do iMenu Plus por <strong>{PROMO_QR_PRICE_LABEL}</strong> (50% de desconto), via Pix. Válido até 27/11/2026.</>
                     ) : (
-                        <>O cupom PROMOQR é válido até 27/11/2026 para assinantes elegíveis do antigo QR Code.</>
+                        <>O cupom PROMOQR é válido até 27/11/2026</>
                     )}
                 </div>
             )}
