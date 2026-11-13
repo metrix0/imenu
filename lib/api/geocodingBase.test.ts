@@ -78,6 +78,42 @@ it("accepts a numbered StreetAddress when no rooftop exists", async () => {
     arcgisOnly([candidate(cases[0], "StreetAddress")]);
     expect(await fetchCoordinates(cases[0].input)).toEqual({ latitude: cases[0].lat, longitude: cases[0].lon });
 });
+describe("ArcGIS interpolation in a different neighborhood", () => {
+    const c = cases[0];
+    const wrongNeighborhood = candidate(c, "StreetAddress", { District: "Outro Bairro" });
+    const correctStreet = {
+        ...candidate(c, "StreetName", { AddNum: "", District: "Canudos" }),
+        score: 96,
+        location: { y: -29.69, x: -51.13 },
+    };
+
+    it("prefers a street in the requested neighborhood even when the interpolation scores higher", async () => {
+        arcgisOnly([wrongNeighborhood, correctStreet]);
+        expect(await fetchCoordinates(c.input)).toEqual({ latitude: -29.69, longitude: -51.13 });
+    });
+
+    it("tries a matching neighborhood from Nominatim before keeping the interpolation", async () => {
+        providers(url => {
+            if (url.hostname.includes("arcgis.com")) return reply({ candidates: [wrongNeighborhood] });
+            return reply([{
+                address: { road: c.street, city: c.city, suburb: "Canudos" },
+                lat: -29.69,
+                lon: -51.13,
+            }]);
+        });
+        expect(await fetchCoordinates(c.input)).toEqual({ latitude: -29.69, longitude: -51.13 });
+    });
+
+    it("keeps the original interpolation when the matching point cannot produce a fee", async () => {
+        arcgisOnly([wrongNeighborhood, correctStreet]);
+        expect(await fetchCoordinates(c.input, () => false)).toEqual({ latitude: c.lat, longitude: c.lon });
+    });
+
+    it("keeps the original interpolation when there is no better point", async () => {
+        arcgisOnly([wrongNeighborhood]);
+        expect(await fetchCoordinates(c.input)).toEqual({ latitude: c.lat, longitude: c.lon });
+    });
+});
 it("does not let a wrong number hide a later exact number", async () => {
     arcgisOnly([candidate(cases[0], "PointAddress", { AddNum: "92" }), { ...candidate(), score: 98, location: { y: -29.69, x: -51.13 } }]);
     expect(await fetchCoordinates(cases[0].input)).toEqual({ latitude: -29.69, longitude: -51.13 });

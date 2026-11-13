@@ -486,7 +486,14 @@ export default function CartModal({
 
         const fullAddress = `${st.rua}, ${st.numero}, ${st.bairro}, ${st.cidade} - ${st.estado}, ${st.cep}, Brasil`;
 
-        const coords = await fetchCoordinates(fullAddress);
+        const restLat = Number(restaurant.latitude);
+        const restLon = Number(restaurant.longitude);
+        const tiers = getDeliveryTiers();
+        const coords = await fetchCoordinates(fullAddress, (point) => {
+            const distance = calculateDistanceKm(restLat, restLon, point.latitude, point.longitude);
+            const fee = computeFeeFromTiers(distance, tiers);
+            return fee !== null && Number.isFinite(fee);
+        });
 
         const latest = useCheckoutStore.getState() as any;
         const latestFullAddress = `${latest.rua}, ${latest.numero}, ${latest.bairro}, ${latest.cidade} - ${latest.estado}, ${latest.cep}, Brasil`;
@@ -500,9 +507,6 @@ export default function CartModal({
             return;
         }
 
-        const restLat = Number(restaurant.latitude);
-        const restLon = Number(restaurant.longitude);
-
         if (Number.isNaN(restLat) || Number.isNaN(restLon)) {
             setCepLocationError(true);
             return;
@@ -515,7 +519,6 @@ export default function CartModal({
             coords.longitude
         );
 
-        const tiers = getDeliveryTiers();
         const fee = computeFeeFromTiers(distKm, tiers);
 
         if (fee === null) {

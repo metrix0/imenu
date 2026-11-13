@@ -67,13 +67,19 @@ export async function fetchAddressByCEP(cep: string): Promise<GeoAddress | null>
 /**
  * 2. Transforma Endereço (texto) em Coordenadas
  */
-export async function fetchCoordinates(fullAddress: string): Promise<{ latitude: number; longitude: number }> {
+type Coordinates = { latitude: number; longitude: number };
+
+export async function fetchCoordinates(
+    fullAddress: string,
+    canUseAlternative?: (coordinates: Coordinates) => boolean,
+): Promise<Coordinates> {
     const TOMTOM_API_KEY = process.env.NEXT_PUBLIC_TOMTOM_API_KEY;
 
     const parts = fullAddress.split(",").map((part) => part.trim());
     const cepIndex = parts.findIndex((part) => /^\d{5}-?\d{3}$/.test(part));
     const hasNumberField = cepIndex === 4 || (cepIndex < 0 && parts.length >= 5);
     const wantedStreet = parts[0] || "";
+    const wantedNeighborhood = parts[hasNumberField ? 2 : 1] || "";
     const wantedNumber = hasNumberField ? parts[1].match(/^\d+[a-z]?/i)?.[0] || "" : "";
     const wantedCity = (parts[hasNumberField ? 3 : 2] || "").split(/\s+-\s+/)[0];
     const wantedState = (parts[hasNumberField ? 3 : 2] || "").split(/\s+-\s+/).slice(1).join(" - ");
@@ -85,6 +91,9 @@ export async function fetchCoordinates(fullAddress: string): Promise<{ latitude:
     const normalize = (value: unknown) => String(value ?? "")
         .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
         .toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+
+    const neighborhoodMatches = (actual: unknown) =>
+        normalize(actual) === normalize(wantedNeighborhood);
 
     const normalizeStreet = (value: unknown) => normalize(value)
         .replace(/\b(rua|avenida|av|r|travessa|estrada|rodovia|praca|alameda|doutor|dr|de|da|do|dos|das)\b/g, " ")
@@ -152,6 +161,7 @@ export async function fetchCoordinates(fullAddress: string): Promise<{ latitude:
 
     let postalCandidate: { latitude: number; longitude: number } | null = null;
     let interpolated: { latitude: number; longitude: number } | null = null;
+    let interpolatedNeighborhoodMismatch = false;
     const arcgisResponses = new Map<string, any[]>();
     const geocodeArcGIS = async (approximate = false) => {
         try {
@@ -160,7 +170,7 @@ export async function fetchCoordinates(fullAddress: string): Promise<{ latitude:
                 const params = new URLSearchParams({
                     SingleLine: address,
                     f: "json",
-                    outFields: "Addr_type,StName,AddNum,City,Postal,Match_addr,RegionAbbr",
+                    outFields: "Addr_type,StName,AddNum,City,Postal,Match_addr,RegionAbbr,Nbrhd,District",
                     sourceCountry: "BRA",
                     maxLocations: "5",
                     forStorage: "false",
@@ -205,7 +215,13 @@ export async function fetchCoordinates(fullAddress: string): Promise<{ latitude:
                 normalize(candidate.attributes.AddNum) === normalize(wantedNumber) &&
                 streetMatches(candidate.attributes.StName) && cityMatches(candidate.attributes.City) &&
                 stateMatches(candidate.attributes.RegionAbbr) && position(candidate.location?.y, candidate.location?.x));
-            if (numberedStreet) interpolated = position(numberedStreet.location.y, numberedStreet.location.x);
+            if (numberedStreet) {
+                interpolated = position(numberedStreet.location.y, numberedStreet.location.x);
+                const neighborhood = numberedStreet.attributes.Nbrhd || numberedStreet.attributes.District;
+                interpolatedNeighborhoodMismatch = Boolean(
+                    normalize(wantedNeighborhood) && normalize(neighborhood) && !neighborhoodMatches(neighborhood)
+                );
+            }
             if (!approximate) return null;
             // Retry without the number AND CEP: a stale/mistyped CEP must not veto
             // a matching street in the explicitly entered city.
@@ -216,6 +232,7 @@ export async function fetchCoordinates(fullAddress: string): Promise<{ latitude:
                 .filter((candidate: any) => candidate.score >= 70 &&
                     streetMatches(candidate.attributes?.StName) &&
                     cityMatches(candidate.attributes?.City) && stateMatches(candidate.attributes?.RegionAbbr) &&
+                    (!interpolatedNeighborhoodMismatch || neighborhoodMatches(candidate.attributes?.Nbrhd || candidate.attributes?.District)) &&
                     ["StreetAddress", "StreetAddressExt", "StreetName", "PointAddress", "Subaddress", "PointAddressInt"]
                         .includes(candidate.attributes?.Addr_type) &&
                     position(candidate.location?.y, candidate.location?.x))
@@ -241,7 +258,9 @@ export async function fetchCoordinates(fullAddress: string): Promise<{ latitude:
                 return streetMatches(address.road || address.pedestrian || address.residential) &&
                     cityMatches(address.city || address.town || address.village || address.municipality) &&
                     stateMatches(address["ISO3166-2-lvl4"] || address.state) &&
-                    (approximate || !wantedNumber || normalize(address.house_number) === normalize(wantedNumber));
+                    (approximate || !wantedNumber || normalize(address.house_number) === normalize(wantedNumber)) &&
+                    (!approximate || !interpolatedNeighborhoodMismatch ||
+                        [address.neighbourhood, address.suburb, address.city_district].some(neighborhoodMatches));
             });
             if (!match) return null;
             return position(match.lat, match.lon);
@@ -256,10 +275,16 @@ export async function fetchCoordinates(fullAddress: string): Promise<{ latitude:
     const exact = await Promise.all([geocodeArcGIS(), geocodeTomTom(), geocodeNominatim()]);
     const bestExact = exact.find(Boolean);
     if (bestExact) return bestExact;
-    if (interpolated) return interpolated;
+    if (interpolated && !interpolatedNeighborhoodMismatch) return interpolated;
 
-    const street = await geocodeArcGIS(true) || await geocodeNominatim(true);
+    const usableStreet = (coordinates: Coordinates | null) =>
+        coordinates && interpolatedNeighborhoodMismatch && canUseAlternative && !canUseAlternative(coordinates)
+            ? null
+            : coordinates;
+    const street = usableStreet(await geocodeArcGIS(true)) || usableStreet(await geocodeNominatim(true));
     if (street) return street;
+    // A generic CEP or city point cannot resolve a known neighborhood mismatch.
+    if (interpolated) return interpolated;
 
     // BrasilAPI v2 may have CEP coordinates even when no house/street is mapped.
     if (wantedCEP) {
