@@ -20,7 +20,7 @@ test("CRM list returns lifetime GMV using the same eligible order statuses as th
     expect(sql).toContain("o.restaurant_id=r.id");
     expect(sql).toContain("o.status IS DISTINCT FROM 'canceled'");
     expect(sql).toContain("o.status IS DISTINCT FROM 'pending_online_payment'");
-    expect(sql).toContain("ORDER BY  r.created_at DESC,r.id LIMIT $2 OFFSET $3");
+    expect(sql).toContain(") DESC, r.created_at DESC,r.id LIMIT $2 OFFSET $3");
 });
 
 test.each([
@@ -33,14 +33,14 @@ test.each([
 ])("sort %s %s is applied in SQL before pagination", async (sort, direction, expected) => {
     await getCrm(new URLSearchParams({ sort, direction, page: "2" }));
     const [sql, params] = sqlQuery.mock.calls[0];
-    expect(sql).toContain("ORDER BY " + expected + " LIMIT $2 OFFSET $3");
+    expect(sql).toContain(") DESC, " + expected + " LIMIT $2 OFFSET $3");
     expect(params).toEqual(["", 10, 20]);
 });
 
 test("sorting by customer tier uses Plus > historically paid > free", async () => {
     await getCrm(new URLSearchParams({ sort: "status", direction: "desc", paid: "1" }));
     const [sql] = sqlQuery.mock.calls[0];
-    expect(sql).toContain("ORDER BY CASE WHEN (");
+    expect(sql).toContain("DESC, CASE WHEN (");
     expect(sql).toContain("THEN 2 WHEN (");
     expect(sql).toContain("THEN 1 ELSE 0 END DESC NULLS LAST, r.id");
 });
@@ -49,7 +49,7 @@ test("unrecognized sort input cannot become executable SQL", async () => {
     await getCrm(new URLSearchParams({ sort: "gmv;DROP TABLE orders", direction: "asc" }));
     const [sql] = sqlQuery.mock.calls[0];
     expect(sql).not.toContain("DROP TABLE");
-    expect(sql).toContain("ORDER BY  r.created_at DESC,r.id");
+    expect(sql).toContain(") DESC, r.created_at DESC,r.id");
 });
 
 test("paid CRM list retains Plus-first default ordering", async () => {
@@ -73,7 +73,7 @@ test.each([
         expect(listSql).toContain(part);
         expect(countSql).toContain(part);
     }
-    expect(listSql).toContain("ORDER BY gmv.gmv_cents DESC NULLS LAST, r.id LIMIT $2 OFFSET $3");
+    expect(listSql).toContain(") DESC, gmv.gmv_cents DESC NULLS LAST, r.id LIMIT $2 OFFSET $3");
     expect(params).toEqual(["", 10, 20]);
 });
 
@@ -88,4 +88,30 @@ test("legacy Cadastro query parameter no longer affects filtering", async () => 
     await getCrm(new URLSearchParams({ age: "30" }));
     const [sql] = sqlQuery.mock.calls[0];
     expect(sql).not.toContain("r.created_at >= NOW() - INTERVAL '30 days'");
+});
+
+test("last support message uses the visible real conversation and sorts by message date", async () => {
+    await getCrm(new URLSearchParams({ sort: "last_message", direction: "desc" }));
+    const [sql] = sqlQuery.mock.calls[0];
+    expect(sql).toContain("support.conversation_id AS support_conversation_id");
+    expect(sql).toContain("support.last_message");
+    expect(sql).toContain("support.last_message_at DESC NULLS LAST");
+    expect(sql).toContain("c.restaurant_id=r.id");
+    expect(sql).toContain("c.chat_id NOT LIKE 'imenu-blast:%'");
+    expect(sql).toContain("sm.direction='inbound' OR sm.send_status='sent'");
+    expect(sql).toContain("support_contact_exclusions");
+});
+
+test("restaurant profile includes the same support conversation lookup", async () => {
+    sqlQuery.mockReset()
+        .mockResolvedValueOnce({ rows: [{ id: "profile" }] })
+        .mockResolvedValueOnce({ rows: [{}] })
+        .mockResolvedValueOnce({ rows: [] });
+    const id = "00000000-0000-0000-0000-000000000001";
+    await getCrm(new URLSearchParams({ restaurant_id: id }));
+    const [sql, params] = sqlQuery.mock.calls[0];
+    expect(sql).toContain("support.conversation_id AS support_conversation_id");
+    expect(sql).toContain("support.mode AS support_mode");
+    expect(sql).toContain("c.restaurant_id=r.id");
+    expect(params).toEqual([id]);
 });

@@ -12,7 +12,7 @@ import {useDevProfile,PhoneLink,CustomerBadge,type Restaurant} from "./DevProfil
 import {accountAge, formatCurrencyFromCents} from "@/lib/dev/dashboardFormat";
 const empty = <T,>(): PageData<T> => ({ rows: [], page: 0, total: 0, pageCount: 1 });
 
-function CrmList({ paid, search, plan, activity, onOpen }: { paid: boolean; search: string; plan: string; activity: string; onOpen: (row: Restaurant) => void }) {
+function CrmList({ search, plan, activity, onOpen }: { search: string; plan: string; activity: string; onOpen: (row: Restaurant) => void }) {
     const [page, setPage] = useState(0);
     const [sort, setSort] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
     const [data, setData] = useState(empty<Restaurant>);
@@ -31,7 +31,7 @@ function CrmList({ paid, search, plan, activity, onOpen }: { paid: boolean; sear
     useEffect(() => {
         const controller = new AbortController();
         setLoading(true);
-        const params = new URLSearchParams({ mode: "crm", paid: paid ? "1" : "0", q: search, plan, activity, page: String(page) });
+        const params = new URLSearchParams({ mode: "crm", q: search, plan, activity, page: String(page) });
         if (sort) {
             params.set("sort", sort.key);
             params.set("direction", sort.direction);
@@ -41,9 +41,8 @@ function CrmList({ paid, search, plan, activity, onOpen }: { paid: boolean; sear
             .catch(e => { if (!controller.signal.aborted) setError(e.message); })
             .finally(() => { if (!controller.signal.aborted) setLoading(false); });
         return () => controller.abort();
-    }, [paid, search, plan, activity, page, sort]);
+    }, [search, plan, activity, page, sort]);
     return <section className={styles.tableSection}>
-        <h2>{paid ? "Clientes pagantes e históricos" : "Todos os restaurantes"} <span className="font-normal text-gray-500">({data.total})</span></h2>
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
         <div className={styles.crmTable}>
             <PagedTable pageSize={10} data={data} loading={loading} rowKey={r => r.id} onPage={setPage}
@@ -54,6 +53,7 @@ function CrmList({ paid, search, plan, activity, onOpen }: { paid: boolean; sear
                 { key: "owner", label: "Celular dono", sortable: true, render: r => <PhoneLink phone={r.owner_phone || r.phone} /> },
                 { key: "created", label: "Conta há", sortable: true, render: r => <span className="whitespace-nowrap">{accountAge(r.created_at)}</span> },
                 { key: "gmv", label: "GMV", sortable: true, className: styles.numericCell, render: r => formatCurrencyFromCents(Number(r.gmv_cents) || 0) },
+                { key: "last_message", label: "Última mensagem", sortable: true, render: r => <span className="block truncate text-gray-600" title={r.last_message || undefined}>{r.last_message || "—"}</span> },
                 { key: "open", label: "", render: r => <button type="button" title="Ver detalhes" aria-label={`Ver detalhes de ${r.name}`} onClick={e => { e.stopPropagation(); onOpen(r); }} className="cursor-pointer rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-brand"><Eye size={16} aria-hidden="true" /></button> },
             ]} />
         </div>
@@ -83,7 +83,6 @@ export default function CrmSection() {
                 { value: "no_first_order", label: "Não ativados" },
             ]} /></div>
         </div>
-        <CrmList paid search={query} plan={plan} activity={activity} onOpen={openProfile} />
-        <CrmList paid={false} search={query} plan={plan} activity={activity} onOpen={openProfile} />
+        <CrmList search={query} plan={plan} activity={activity} onOpen={openProfile} />
     </div>;
 }

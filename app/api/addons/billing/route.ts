@@ -5,7 +5,6 @@ import {
     requireRestaurantOwner,
 } from "@/lib/auth/restaurantOwner";
 import { query } from "@/lib/database/sql";
-import { isPromoQrAllowlistedOwnerEmail } from "@/lib/addons/promoQrEligibility";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,7 +59,7 @@ export async function GET(request: Request) {
             );
         }
 
-        const owner = await requireRestaurantOwner(request, restaurantId);
+        await requireRestaurantOwner(request, restaurantId);
 
         const addonsResult = await query<AddonRow>(
             `
@@ -114,7 +113,6 @@ export async function GET(request: Request) {
 
         return NextResponse.json(
             {
-                promoQrOwnerOverride: isPromoQrAllowlistedOwnerEmail(owner.user.email),
                 addons: addonsResult.rows.map((addon) => ({
                     addon,
                     active: hasAddonAccess(addon),

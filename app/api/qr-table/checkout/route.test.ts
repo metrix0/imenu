@@ -2,7 +2,6 @@ import { hasIMenuPlusAccess } from "@/lib/addons/access";
 import { POST } from "./route";
 import { POST as iaPlusCheckout } from "@/app/api/ia-plus/checkout/route";
 import { query } from "@/lib/database/sql";
-import { requireRestaurantOwner } from "@/lib/auth/restaurantOwner";
 import { createMercadoPagoPixCharge, getMercadoPagoPixPayment } from "@/lib/payments/mercadoPagoPix";
 import { getPayZuPixCharge } from "@/lib/payments/payzu";
 import { asaasRequest } from "@/lib/qr-table/asaas";
@@ -53,7 +52,7 @@ afterEach(() => {
     jest.restoreAllMocks();
 });
 
-it("applies PROMOQR only to an eligible first-month Pix charge during the promotion", async () => {
+it("applies PROMOQR to a first-month Pix charge without checking QR purchase history", async () => {
     jest.spyOn(Date, "now").mockReturnValue(Date.parse("2026-10-30T12:00:00-03:00"));
     (query as jest.Mock).mockResolvedValueOnce({ rows: [{ eligible: true }] });
     (createMercadoPagoPixCharge as jest.Mock).mockImplementation(async input => ({
@@ -68,6 +67,8 @@ it("applies PROMOQR only to an eligible first-month Pix charge during the promot
     }));
 
     expect(response.status).toBe(200);
+    expect((query as jest.Mock).mock.calls[0][0]).not.toMatch(/qr_code_mesa|legacy_payment/);
+    expect((query as jest.Mock).mock.calls[0][1]).toEqual(["restaurant", 2500]);
     expect(createMercadoPagoPixCharge).toHaveBeenCalledWith(
         expect.objectContaining({ amount: 25, externalReference: expect.stringContaining(":PROMOQR:") })
     );
@@ -100,7 +101,7 @@ it("rejects PROMOQR after November 27", async () => {
     expect(createMercadoPagoPixCharge).not.toHaveBeenCalled();
 });
 
-it("rejects PROMOQR for ineligible restaurants without creating a charge", async () => {
+it("rejects PROMOQR when Plus is active or the coupon was already redeemed", async () => {
     jest.spyOn(Date, "now").mockReturnValue(Date.parse("2026-11-01T12:00:00-03:00"));
     (query as jest.Mock).mockResolvedValueOnce({ rows: [{ eligible: false }] });
     const response = await iaPlusCheckout(new Request("https://example.com/api/ia-plus/checkout", {
@@ -109,28 +110,6 @@ it("rejects PROMOQR for ineligible restaurants without creating a charge", async
     }));
     expect(response.status).toBe(403);
     expect(createMercadoPagoPixCharge).not.toHaveBeenCalled();
-});
-
-it("allows the designated owner to claim PROMOQR without a historical QR subscription", async () => {
-    jest.spyOn(Date, "now").mockReturnValue(Date.parse("2026-11-01T12:00:00-03:00"));
-    (requireRestaurantOwner as jest.Mock).mockResolvedValueOnce({
-        user: { email: "JOAOVRALMEIDA@HOTMAIL.COM" },
-        restaurant: { name: "Restaurant" },
-    });
-    (query as jest.Mock).mockResolvedValueOnce({ rows: [{ eligible: true }] });
-    (createMercadoPagoPixCharge as jest.Mock).mockImplementation(async input => ({
-        id: "promo-payment", status: "pending", amount: input.amount,
-        paymentMethodId: "pix", externalReference: input.externalReference, qrCodeText: "pix"
-    }));
-
-    const response = await iaPlusCheckout(new Request("https://example.com/api/ia-plus/checkout", {
-        method: "POST",
-        body: JSON.stringify({ restaurantId: "restaurant", paymentMethod: "pix", coupon: "PROMOQR" }),
-    }));
-
-    expect(response.status).toBe(200);
-    expect((query as jest.Mock).mock.calls[0][1]).toEqual(["restaurant", 2500, true]);
-    expect(createMercadoPagoPixCharge).toHaveBeenCalledWith(expect.objectContaining({ amount: 25 }));
 });
 
 it("never uses PROMOQR for a recurring credit-card subscription", async () => {

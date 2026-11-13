@@ -115,14 +115,16 @@ test("active plans keep recurring cancellation and prepaid renewal with collapse
     expect(html).toContain("07/11/2026");
 });
 
-test("PROMOQR shows the discounted first-month price on the plan card before launch", () => {
-    const html = renderBilling(fixtures.mixed, false, "PROMOQR");
+test("PROMOQR shows the discounted first-month price with no purchase history", () => {
+    jest.spyOn(Date, "now").mockReturnValue(Date.parse("2026-11-13T12:00:00-03:00"));
+    const html = renderBilling(fixtures.empty, false, "PROMOQR");
     const plusCard = html.slice(html.indexOf('class="plans-product plans-plus"'));
     expect(plusCard).toContain("25,00");
     expect(plusCard).toContain("49,99");
     expect(plusCard).toContain("line-through");
     expect(plusCard).toContain("1º mês via Pix");
-    expect(renderBilling(fixtures.mixed)).not.toContain("25,00");
+    expect(renderBilling(fixtures.empty)).not.toContain("25,00");
+    expect(renderBilling(fixtures.active, false, "PROMOQR")).toContain("O cupom PROMOQR é válido até 27/11/2026</div>");
 });
 
 test("prepaid Pix valid for the paid period displays an active Plus badge", () => {
