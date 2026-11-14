@@ -18,6 +18,10 @@ import type { DeliveryConfig } from "@/lib/delivery/providers";
 
 type Failure = { order_id: string; display_id: string; state: string; error: string | null };
 type Props = { restaurantId: string; onSaveState: (state: SaveState) => void };
+type IfoodState = {
+    connected: boolean; enabled: boolean; available: boolean; merchantName: string; lastError?: string;
+    pending: { userCode: string; url: string; expiresAt: number; merchants: { id: string; name: string }[] } | null;
+};
 export default function DeliveryIntegrations({ restaurantId, onSaveState }: Props) {
     const [config, setConfig] = useState<DeliveryConfig | null>(null);
     const [configured, setConfigured] = useState({ ifood: false, machine: false });
@@ -27,14 +31,23 @@ export default function DeliveryIntegrations({ restaurantId, onSaveState }: Prop
     const [retrying, setRetrying] = useState("");
     const [loadVersion, setLoadVersion] = useState(0);
     const [expanded, setExpanded] = useState({ ifood: false, machine: false });
+    const [ifood, setIfood] = useState<IfoodState | null>(null);
+    const [connecting, setConnecting] = useState(false);
+    const [authorizationCode, setAuthorizationCode] = useState("");
+    const [selectedMerchant, setSelectedMerchant] = useState("");
+    const [ifoodSaveState, setIfoodSaveState] = useState<SaveState>("idle");
     const autosave = useAutoSave<DeliveryConfig>(restaurantId, async value => {
         const response = await qrTableAuthenticatedFetch("/api/integrations/delivery", {
-            method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ restaurantId, config: value }),
+            method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ restaurantId, config: { machine: value.machine } }),
         });
         if (!response.ok) throw new Error((await response.json()).error || "Não foi possível salvar a integração.");
         setConfigured(previous => ({ ifood: previous.ifood || Boolean(value.ifood.clientSecret), machine: previous.machine || Boolean(value.machine.apiKey && value.machine.password) }));
     });
-    useEffect(() => { onSaveState(autosave.status); }, [autosave.status, onSaveState]);
+    useEffect(() => {
+        onSaveState(autosave.status === "error" || ifoodSaveState === "error" ? "error"
+            : autosave.status === "saving" || ifoodSaveState === "saving" ? "saving"
+            : autosave.status === "saved" || ifoodSaveState === "saved" ? "saved" : "idle");
+    }, [autosave.status, ifoodSaveState, onSaveState]);
     useEffect(() => {
         let canceled = false;
         setConfig(null);
@@ -44,11 +57,49 @@ export default function DeliveryIntegrations({ restaurantId, onSaveState }: Prop
                 const response = await qrTableAuthenticatedFetch(`/api/integrations/delivery?restaurantId=${encodeURIComponent(restaurantId)}`, { cache: "no-store" });
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error || "Não foi possível carregar as integrações.");
-                if (!canceled) { setConfig(data.config); setConfigured(data.configured); setAvailable(data.available); setFailures(data.failures); }
+                if (!canceled) { setConfig(data.config); setConfigured(data.configured); setAvailable(data.available); setFailures(data.failures); setIfood(data.ifood); setExpanded(previous => ({ ...previous, ifood: Boolean(data.ifood?.pending) })); }
             } catch (cause) { if (!canceled) setError(cause instanceof Error ? cause.message : "Não foi possível carregar as integrações."); }
         })();
         return () => { canceled = true; };
     }, [restaurantId, loadVersion]);
+    async function connectIfood(action: "start" | "finish" | "select" | "toggle") {
+        if (connecting) return;
+        if (action === "start" && !ifood?.available) {
+            setError("A conexão com o iFood está indisponível. Tente novamente mais tarde.");
+            return;
+        }
+        const popup = action === "start" ? window.open("about:blank", "_blank") : null;
+        if (popup) popup.opener = null;
+        setConnecting(true); setError("");
+        if (action === "toggle") setIfoodSaveState("saving");
+        try {
+            const toggle = action === "toggle";
+            const response = await qrTableAuthenticatedFetch(toggle ? "/api/integrations/delivery" : "/api/integrations/ifood/connect", {
+                method: toggle ? "PATCH" : "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(toggle ? { restaurantId, config: { ifood: { enabled: !ifood?.enabled } } }
+                    : { restaurantId, action, authorizationCode, merchantId: selectedMerchant }),
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || "Não foi possível conectar ao iFood.");
+            if (toggle) { setIfood(previous => previous && { ...previous, enabled: !previous.enabled }); setIfoodSaveState("saved"); }
+            else if (action === "start") {
+                const url = new URL(data.pending.url);
+                if (url.origin !== "https://portal.ifood.com.br" || url.pathname !== "/apps/code") throw new Error("O iFood não retornou uma autorização válida.");
+                setIfood(previous => previous && { ...previous, pending: data.pending });
+                setAuthorizationCode(""); setSelectedMerchant("");
+                setExpanded(previous => ({ ...previous, ifood: true }));
+                if (popup) popup.location.href = url.href;
+            } else {
+                setIfood(previous => ({ ...data.ifood, available: previous?.available || false }));
+                setSelectedMerchant("");
+                if (data.ifood.connected && !data.ifood.pending) setAuthorizationCode("");
+            }
+        } catch (cause) {
+            popup?.close();
+            if (action === "toggle") setIfoodSaveState("error");
+            setError(cause instanceof Error ? cause.message : "Não foi possível conectar ao iFood.");
+        } finally { setConnecting(false); }
+    }
     function change(provider: "ifood" | "machine", field: string, value: string | boolean) {
         if (!config) return;
         const next = { ...config, [provider]: { ...config[provider], [field]: value } };
@@ -56,7 +107,6 @@ export default function DeliveryIntegrations({ restaurantId, onSaveState }: Prop
         autosave.schedule(next);
     }
     const complete = {
-        ifood: Boolean(config?.ifood.merchantId.trim() && config.ifood.clientId.trim() && (config.ifood.clientSecret || configured.ifood)),
         machine: Boolean(config?.machine.username.trim() && config.machine.companyId.trim() && config.machine.payment &&
             (config.machine.apiKey || configured.machine) && (config.machine.password || configured.machine)),
     };
@@ -77,7 +127,7 @@ export default function DeliveryIntegrations({ restaurantId, onSaveState }: Prop
         {!config && !error && <div className="flex justify-center py-6"><Loader /></div>}
         {config && <>
             <section aria-labelledby="ifood-title">
-                <div className="flex items-start gap-3 sm:gap-4">
+                <div className="flex flex-col items-start gap-3 sm:flex-row sm:gap-4">
                     <button
                         type="button"
                         aria-expanded={expanded.ifood}
@@ -91,9 +141,11 @@ export default function DeliveryIntegrations({ restaurantId, onSaveState }: Prop
                             <span className="mt-1 block text-sm text-gray-500">Receba pedidos do iFood nos painéis do iMenu, com impressão automática quando habilitada.</span>
                         </span>
                     </button>
-                    <div className="flex h-9 shrink-0 items-center gap-2 sm:gap-3">
-                        {config.ifood.enabled && !complete.ifood && <Badge variant="warning">Não configurado</Badge>}
-                        <Switch aria-label="Ativar integração iFood" checked={config.ifood.enabled} disabled={!available} onClick={() => change("ifood", "enabled", !config.ifood.enabled)} />
+                    <div className="flex h-9 shrink-0 items-center gap-2 self-end sm:self-auto sm:gap-3">
+                        {ifood?.connected ? <>
+                            <Badge variant={ifood.enabled && !ifood.lastError ? "success" : "warning"}>{ifood.lastError ? "Verificar conexão" : ifood.enabled ? "Conectado" : "Pausado"}</Badge>
+                            <Switch aria-label="Ativar integração iFood" checked={ifood.enabled} disabled={connecting} onClick={() => void connectIfood("toggle")} />
+                        </> : <Button loading={connecting} disabled={!available} onClick={() => void connectIfood("start")}>Conectar iFood</Button>}
                         <button
                             type="button"
                             aria-label={`${expanded.ifood ? "Recolher" : "Expandir"} integração iFood`}
@@ -114,12 +166,22 @@ export default function DeliveryIntegrations({ restaurantId, onSaveState }: Prop
                 >
                     <div className="min-h-0 overflow-hidden">
                         <div className="space-y-4 pt-4 sm:pl-[52px]">
-                            <p className="text-sm text-gray-500">Aceite e atualize o preparo dos pedidos pelo iMenu. Os status acompanham as confirmações do iFood.</p>
-                            <Input disabled={!available} label="ID da loja no iFood" value={config.ifood.merchantId} onChange={event => change("ifood", "merchantId", event.target.value)} />
-                            <div className="grid gap-4 sm:grid-cols-2">
-                                <Input disabled={!available} label="Client ID iFood" autoComplete="off" value={config.ifood.clientId} onChange={event => change("ifood", "clientId", event.target.value)} />
-                                <Input disabled={!available} label="Client Secret iFood" type="password" autoComplete="new-password" placeholder={configured.ifood ? "Credencial salva" : "Informe a credencial"} value={config.ifood.clientSecret} onChange={event => change("ifood", "clientSecret", event.target.value)} />
-                            </div>
+                            {ifood?.connected && <p className="text-sm text-gray-600">Loja conectada: <strong>{ifood.merchantName}</strong></p>}
+                            {ifood?.lastError && <p role="alert" className="text-sm text-red-600">{ifood.lastError}</p>}
+                            {ifood?.connected && !ifood.pending && <Button variant="secondary" loading={connecting} onClick={() => void connectIfood("start")}>Reconectar iFood</Button>}
+                            {ifood?.pending ? <form className="space-y-4" onSubmit={event => { event.preventDefault(); void connectIfood(ifood.pending?.merchants.length ? "select" : "finish"); }}>
+                                {ifood.pending.merchants.length ? <Dropdown label="Loja no iFood" value={selectedMerchant} disabled={connecting}
+                                    options={[{ value: "", label: "Selecione sua loja" }, ...ifood.pending.merchants.map(merchant => ({ value: merchant.id, label: merchant.name }))]}
+                                    onChange={event => setSelectedMerchant(event.target.value)} /> : <>
+                                    <p className="text-sm text-gray-500">Autorize o iMenu no iFood e cole abaixo o código exibido ao concluir.</p>
+                                    <a href={ifood.pending.url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-brand underline">Abrir autorização no iFood</a>
+                                    <Input label="Código de autorização" autoComplete="off" value={authorizationCode} disabled={connecting} onChange={event => setAuthorizationCode(event.target.value)} />
+                                </>}
+                                <div className="flex flex-wrap gap-3">
+                                    <Button type="submit" loading={connecting} disabled={ifood.pending.merchants.length ? !selectedMerchant : !authorizationCode.trim()}>Concluir conexão</Button>
+                                    <Button type="button" variant="secondary" disabled={connecting} onClick={() => void connectIfood("start")}>Reabrir autorização</Button>
+                                </div>
+                            </form> : <p className="text-sm text-gray-500">{ifood?.connected ? "Aceite e atualize o preparo dos pedidos pelo iMenu." : "Clique em Conectar iFood e autorize o acesso à sua loja."}</p>}
                         </div>
                     </div>
                 </div>
@@ -185,3 +247,4 @@ export default function DeliveryIntegrations({ restaurantId, onSaveState }: Prop
         </>}
     </Card>;
 }
+

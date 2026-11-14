@@ -53,9 +53,13 @@ export async function fetchAddressByCoordinates(lat: number, lon: number) {
     return address;
 }
 
-export async function fetchCoordinates(fullAddress: string) {
+export async function fetchCoordinates(
+    fullAddress: string,
+    canUseAlternative?: Parameters<typeof fetchCoordinatesBase>[1],
+    streetFallback?: Parameters<typeof fetchCoordinatesBase>[2],
+) {
     if (!neighborhoodDeliveryBypass) {
-        return fetchCoordinatesBase(fullAddress);
+        return fetchCoordinatesBase(fullAddress, canUseAlternative, streetFallback);
     }
 
     const initialValidation =

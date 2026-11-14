@@ -3,6 +3,7 @@ import { authorize } from "@/lib/dev/authorize";
 import { query } from "@/lib/database/sql";
 import { devPage, paged } from "@/lib/dev/pagination";
 import { INTEGRATIONS } from "@/lib/dev/health";
+import { checkCnefe } from "@/lib/delivery/cnefe";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,16 +42,18 @@ export async function GET(request: Request) {
             return NextResponse.json(paged(rows.rows, count.rows[0].total, page, alertPageSize));
         }
         const days = params.get("range") === "30d" ? 30 : params.get("range") === "7d" ? 7 : 1;
-        const [latest, history, connections] = await Promise.all([
+        const [latest, history, connections, cnefe] = await Promise.all([
             query("SELECT reported_at,data FROM imenu_ops.health WHERE id=true"),
             query(`SELECT date_trunc($2,reported_at) AS reported_at,
                 AVG(cpu_percent)::float8 cpu_percent,AVG(memory_percent)::float8 memory_percent,
                 AVG(disk_percent)::float8 disk_percent FROM public.dev_health_history
                 WHERE reported_at >= COALESCE($3::timestamptz,NOW()-($1*INTERVAL '1 day')) AND ($4::timestamptz IS NULL OR reported_at <= $4) GROUP BY 1 ORDER BY 1`, [days, start===end ? "minute" : "hour",...bounds]),
             query<{source:string;ok:boolean;http_status:number|null;checked_at:string;check_kind:string;state:string|null;operation:string|null;detail:string|null}>("SELECT source,ok,http_status,checked_at,check_kind,state,operation,detail FROM public.dev_integration_status"),
+            checkCnefe(),
         ]);
         const delivery = latest.rows[0]?.data?.operations?.webhook_delivery;
         return NextResponse.json({ latest: latest.rows[0] || null, history: history.rows, connections: INTEGRATIONS.map(item=>{
+            if(item.id==="ibge") return { ...item, observation: cnefe };
             if(item.id==="waha_webhooks"){
                 if(!delivery)return {id:item.id,name:item.name,priority:item.priority,observation:null};
                 const checkedAt=typeof delivery.checked_at==="string" ? delivery.checked_at : null;

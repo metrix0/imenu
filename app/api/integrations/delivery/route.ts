@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
 import { query, withTransaction } from "@/lib/database/sql";
 import { loadDeliveryConfig } from "@/lib/delivery/integrations";
+import { ifoodAppAvailable, publicIfood } from "@/lib/delivery/ifoodConnection";
 import { seal, unseal, emptyDeliveryConfig, type DeliveryConfig } from "@/lib/delivery/providers";
 
 export async function GET(request: Request) {
@@ -13,8 +14,9 @@ export async function GET(request: Request) {
             JOIN orders o ON o.id=d.order_id WHERE d.restaurant_id=$1 AND d.state IN ('failed','uncertain','requesting')
             AND o.status='preparing' ORDER BY d.updated_at DESC LIMIT 10`, [restaurantId]);
         return NextResponse.json({
-            config: { ifood: { ...config.ifood, clientSecret: "" }, machine: { ...config.machine, apiKey: "", password: "" } },
-            configured: { ifood: Boolean(config.ifood.clientSecret), machine: Boolean(config.machine.apiKey && config.machine.password) },
+            config: { ifood: { enabled: publicIfood(config.ifood).enabled, merchantId: config.ifood.merchantId, clientId: "", clientSecret: "" }, machine: { ...config.machine, apiKey: "", password: "" } },
+            ifood: { ...publicIfood(config.ifood), available: ifoodAppAvailable() },
+            configured: { ifood: publicIfood(config.ifood).connected, machine: Boolean(config.machine.apiKey && config.machine.password) },
             available: Buffer.from(process.env.DELIVERY_INTEGRATIONS_KEY || "", "base64").length === 32, failures: failures.rows,
         }, { headers: { "Cache-Control": "no-store" } });
     } catch (error) { return failure(error); }
@@ -29,7 +31,14 @@ export async function PATCH(request: Request) {
             const existing = await client.query("SELECT credentials FROM delivery_integrations WHERE restaurant_id=$1", [restaurantId]);
             const old = existing.rows[0] ? unseal(existing.rows[0].credentials) : structuredClone(emptyDeliveryConfig);
             const next: DeliveryConfig = structuredClone(old);
-            for (const provider of ["ifood", "machine"] as const) {
+            // OAuth credentials, merchant routing and tokens are server-owned; stale autosaves cannot replace them.
+            if (typeof body.config?.ifood?.enabled === "boolean") {
+                if (body.config.ifood.enabled && !publicIfood(old.ifood).connected)
+                    throw new RestaurantOwnerAuthError("Conecte sua loja ao iFood antes de ativar a integração.", 409);
+                next.ifood.enabled = body.config.ifood.enabled;
+            }
+            for (const provider of ["machine"] as const) {
+                if (!body.config?.[provider]) continue;
                 const fields = next[provider] as unknown as Record<string, string | boolean>;
                 for (const key of Object.keys(fields)) {
                     if (key === "enabled") { fields[key] = body.config?.[provider]?.enabled === true; continue; }
@@ -51,3 +60,4 @@ function failure(error: unknown) {
     return NextResponse.json({ error: error instanceof RestaurantOwnerAuthError ? error.message : "Não foi possível carregar ou salvar a integração. Confira os dados e a liberação da conta." },
         { status: error instanceof RestaurantOwnerAuthError ? error.status : 503 });
 }
+

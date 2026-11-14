@@ -8,6 +8,8 @@ services:
     env_file: ${IMENU_STAGE_ENV_FILE:?Set an absolute private environment file path}
     networks: [supabase, egress]
     ports: ["127.0.0.1:13000:3000"]
+    volumes:
+      - /opt/imenu-migration/ops/cnefe/2022:/var/lib/imenu/cnefe:ro
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s

@@ -78,6 +78,88 @@ it("accepts a numbered StreetAddress when no rooftop exists", async () => {
     arcgisOnly([candidate(cases[0], "StreetAddress")]);
     expect(await fetchCoordinates(cases[0].input)).toEqual({ latitude: cases[0].lat, longitude: cases[0].lon });
 });
+describe("ArcGIS interpolation in a different neighborhood", () => {
+    const c = cases[0];
+    const wrongNeighborhood = candidate(c, "StreetAddress", { District: "Outro Bairro" });
+    const correctStreet = {
+        ...candidate(c, "StreetName", { AddNum: "", District: "Canudos" }),
+        score: 96,
+        location: { y: -29.69, x: -51.13 },
+    };
+
+    it("prefers a street in the requested neighborhood even when the interpolation scores higher", async () => {
+        arcgisOnly([wrongNeighborhood, correctStreet]);
+        expect(await fetchCoordinates(c.input)).toEqual({ latitude: -29.69, longitude: -51.13 });
+    });
+
+    it("tries a matching neighborhood from Nominatim before keeping the interpolation", async () => {
+        providers(url => {
+            if (url.hostname.includes("arcgis.com")) return reply({ candidates: [wrongNeighborhood] });
+            return reply([{
+                address: { road: c.street, city: c.city, suburb: "Canudos" },
+                lat: -29.69,
+                lon: -51.13,
+            }]);
+        });
+        expect(await fetchCoordinates(c.input)).toEqual({ latitude: -29.69, longitude: -51.13 });
+    });
+
+    it("keeps the original interpolation when the matching point cannot produce a fee", async () => {
+        arcgisOnly([wrongNeighborhood, correctStreet]);
+        expect(await fetchCoordinates(c.input, () => false)).toEqual({ latitude: c.lat, longitude: c.lon });
+    });
+
+    it("keeps the original interpolation when there is no better point", async () => {
+        arcgisOnly([wrongNeighborhood]);
+        expect(await fetchCoordinates(c.input)).toEqual({ latitude: c.lat, longitude: c.lon });
+    });
+});
+it.each(["TomTom", "Nominatim"])("checks the neighborhood returned by %s", async provider => {
+    const c = cases[0];
+    process.env.NEXT_PUBLIC_TOMTOM_API_KEY = "test";
+    const alternate = { latitude: -29.69, longitude: -51.13 };
+    providers(url => {
+        if (url.hostname.includes("arcgis.com")) {
+            return reply({ candidates: [{
+                ...candidate(c, "StreetName", { AddNum: "", District: "Canudos" }),
+                location: { y: alternate.latitude, x: alternate.longitude },
+            }] });
+        }
+        if (url.hostname === "api.tomtom.com") {
+            return reply({ results: provider === "TomTom" ? [{
+                address: { streetName: c.street, streetNumber: c.number, municipality: c.city, municipalitySubdivision: "Outro Bairro" },
+                position: { lat: c.lat, lon: c.lon },
+            }] : [] });
+        }
+        return reply(provider === "Nominatim" ? [{
+            address: { road: c.street, house_number: c.number, city: c.city, suburb: "Outro Bairro" },
+            lat: c.lat,
+            lon: c.lon,
+        }] : []);
+    });
+    expect(await fetchCoordinates(c.input)).toEqual(alternate);
+    expect(await fetchCoordinates(c.input, () => false)).toEqual({ latitude: c.lat, longitude: c.lon });
+});
+
+it("tries the matching street when TomTom omits the neighborhood and ArcGIS detects a conflict", async () => {
+    const c = cases[0];
+    process.env.NEXT_PUBLIC_TOMTOM_API_KEY = "test";
+    providers(url => {
+        if (url.hostname.includes("arcgis.com")) {
+            return reply({ candidates: [
+                candidate(c, "StreetAddress", { District: "Outro Bairro" }),
+                { ...candidate(c, "StreetName", { AddNum: "", District: "Canudos" }), location: { y: -29.69, x: -51.13 } },
+            ] });
+        }
+        if (url.hostname === "api.tomtom.com") return reply({ results: [{
+            address: { streetName: c.street, streetNumber: c.number, municipality: c.city },
+            position: { lat: c.lat, lon: c.lon },
+        }] });
+        return reply([]);
+    });
+    expect(await fetchCoordinates(c.input)).toEqual({ latitude: -29.69, longitude: -51.13 });
+});
+
 it("does not let a wrong number hide a later exact number", async () => {
     arcgisOnly([candidate(cases[0], "PointAddress", { AddNum: "92" }), { ...candidate(), score: 98, location: { y: -29.69, x: -51.13 } }]);
     expect(await fetchCoordinates(cases[0].input)).toEqual({ latitude: -29.69, longitude: -51.13 });
@@ -169,4 +251,48 @@ it("retains the actual Lucas Carneiro postal candidate when finer references are
 it("does not replace an exact address with a higher-score street", async () => {
     arcgisOnly([candidate(cases[0], "StreetName"), { ...candidate(), score: 97, location: { y: -29.69, x: -51.13 } }]);
     expect(await fetchCoordinates(cases[0].input)).toEqual({ latitude: -29.69, longitude: -51.13 });
+});
+
+describe("IBGE street fallback", () => {
+    const input = "Rua José Demoliner, 148, Demoliner, Erechim - RS, 99702-609, Brasil";
+    const point = { latitude: -27.612958, longitude: -52.225898 };
+    const range = { min: 7.65, max: 7.76 };
+    const origin = { latitude: -27.6402584, longitude: -52.2972858 };
+    const cep = { latitude: -27.64, longitude: -52.28 };
+
+    function mockFallbackProviders() {
+        global.fetch = jest.fn(async input => {
+            const url = new URL(String(input), "https://i.menu");
+            if (url.pathname === "/api/checkout/geocode-ibge") return reply({ point, range });
+            if (url.hostname === "brasilapi.com.br") return reply({ city: "Erechim", state: "RS", location: { coordinates: cep } });
+            if (url.hostname.includes("arcgis.com")) return reply({ candidates: [] });
+            return reply([]);
+        }) as typeof fetch;
+    }
+
+    test("uses a consistent IBGE range before the CEP fallback", async () => {
+        mockFallbackProviders();
+        const acceptsRange = jest.fn(() => true);
+        expect(await fetchCoordinates(input, undefined, { origin, acceptsRange })).toEqual(point);
+        expect(acceptsRange).toHaveBeenCalledWith(range);
+        const calls = (global.fetch as jest.Mock).mock.calls;
+        const [, options] = calls.find(([url]) => url === "/api/checkout/geocode-ibge")!;
+        expect(JSON.parse(options.body)).toMatchObject({ address: { city: "Erechim", uf: "RS", bairro: "Demoliner", number: "148" } });
+        expect(calls.some(([url]) => String(url).includes("brasilapi.com.br"))).toBe(false);
+    });
+
+    test("continues to CEP when the local range crosses delivery tiers", async () => {
+        mockFallbackProviders();
+        expect(await fetchCoordinates(input, undefined, { origin, acceptsRange: () => false })).toEqual(cep);
+    });
+
+    test("rejects an ArcGIS point in a different bairro", async () => {
+        const c = cases[0];
+        const valid = { latitude: -29.69, longitude: -51.13 };
+        arcgisOnly([
+            candidate(c, "PointAddress", { District: "Outro Bairro" }),
+            { ...candidate(c, "PointAddress", { District: "Canudos" }), score: 97, location: { y: valid.latitude, x: valid.longitude } },
+        ]);
+        expect(await fetchCoordinates(c.input)).toEqual(valid);
+    });
 });

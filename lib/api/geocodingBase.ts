@@ -1,4 +1,5 @@
 import { cities, states } from "./brazilianMunicipalities";
+import { normalizeNeighborhoodName } from "../delivery/neighborhood";
 // lib/geocoding.ts
 
 // ^ Nota: Se AddressData for usado em muitos lugares, considere mover para types.ts. 
@@ -67,13 +68,28 @@ export async function fetchAddressByCEP(cep: string): Promise<GeoAddress | null>
 /**
  * 2. Transforma Endereço (texto) em Coordenadas
  */
-export async function fetchCoordinates(fullAddress: string): Promise<{ latitude: number; longitude: number }> {
+export type Coordinates = { latitude: number; longitude: number };
+export type StreetFallback = {
+    origin: Coordinates;
+    acceptsRange: (range: { min: number; max: number }) => boolean;
+};
+type NumberedLocation = {
+    point: Coordinates;
+    neighborhood: "match" | "mismatch" | "unknown";
+};
+
+export async function fetchCoordinates(
+    fullAddress: string,
+    canUseAlternative?: (coordinates: Coordinates) => boolean,
+    streetFallback?: StreetFallback,
+): Promise<Coordinates> {
     const TOMTOM_API_KEY = process.env.NEXT_PUBLIC_TOMTOM_API_KEY;
 
     const parts = fullAddress.split(",").map((part) => part.trim());
     const cepIndex = parts.findIndex((part) => /^\d{5}-?\d{3}$/.test(part));
     const hasNumberField = cepIndex === 4 || (cepIndex < 0 && parts.length >= 5);
     const wantedStreet = parts[0] || "";
+    const wantedNeighborhood = parts[hasNumberField ? 2 : 1] || "";
     const wantedNumber = hasNumberField ? parts[1].match(/^\d+[a-z]?/i)?.[0] || "" : "";
     const wantedCity = (parts[hasNumberField ? 3 : 2] || "").split(/\s+-\s+/)[0];
     const wantedState = (parts[hasNumberField ? 3 : 2] || "").split(/\s+-\s+/).slice(1).join(" - ");
@@ -85,6 +101,15 @@ export async function fetchCoordinates(fullAddress: string): Promise<{ latitude:
     const normalize = (value: unknown) => String(value ?? "")
         .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
         .toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+
+    const neighborhoodMatches = (actual: unknown) =>
+        normalizeNeighborhoodName(actual) === normalizeNeighborhoodName(wantedNeighborhood);
+
+    const neighborhoodStatus = (...names: unknown[]): NumberedLocation["neighborhood"] => {
+        const knownNames = names.filter(name => normalizeNeighborhoodName(name));
+        if (!normalizeNeighborhoodName(wantedNeighborhood) || knownNames.length === 0) return "unknown";
+        return knownNames.some(neighborhoodMatches) ? "match" : "mismatch";
+    };
 
     const normalizeStreet = (value: unknown) => normalize(value)
         .replace(/\b(rua|avenida|av|r|travessa|estrada|rodovia|praca|alameda|doutor|dr|de|da|do|dos|das)\b/g, " ")
@@ -124,14 +149,15 @@ export async function fetchCoordinates(fullAddress: string): Promise<{ latitude:
         return { latitude, longitude };
     };
 
-    const geocodeTomTom = async () => {
-        if (!TOMTOM_API_KEY) return null;
+    const geocodeTomTom = async (): Promise<NumberedLocation[]> => {
+        if (!TOMTOM_API_KEY) return [];
         try {
             const json = await requestJson(
                 "https://api.tomtom.com/search/2/geocode/" + encodeURIComponent(fullAddress) +
                 ".json?key=" + TOMTOM_API_KEY + "&countrySet=BR&limit=5&language=pt-BR"
             );
-            const match = json?.results?.find((result: any) => {
+            const results = Array.isArray(json?.results) ? json.results : [];
+            const matches = results.filter((result: any) => {
                 const address = result.address || {};
                 const confidence = result.matchConfidence?.score;
                 return streetMatches(address.streetName) &&
@@ -139,19 +165,21 @@ export async function fetchCoordinates(fullAddress: string): Promise<{ latitude:
                     (!wantedNumber || normalize(address.streetNumber) === normalize(wantedNumber)) &&
                     (typeof confidence !== "number" || confidence >= 0.7);
             });
-            if (!match) {
-                console.log("[geocoding] TomTom rejected: no matching street, city, number and CEP");
-                return null;
-            }
-            return position(match.position?.lat, match.position?.lon);
+            return matches.flatMap((result: any) => {
+                const point = position(result.position?.lat, result.position?.lon);
+                const neighborhood = neighborhoodStatus(result.address.municipalitySubdivision);
+                return point ? [{ point, neighborhood }] : [];
+            });
         } catch (error) {
             console.log("[geocoding] TomTom failed", error);
-            return null;
+            return [];
         }
     };
 
     let postalCandidate: { latitude: number; longitude: number } | null = null;
-    let interpolated: { latitude: number; longitude: number } | null = null;
+    const arcgisInterpolation: { location?: NumberedLocation } = {};
+    let requireNeighborhoodMatch = false;
+    let exactNeighborhoodMismatch = false;
     const arcgisResponses = new Map<string, any[]>();
     const geocodeArcGIS = async (approximate = false) => {
         try {
@@ -160,7 +188,7 @@ export async function fetchCoordinates(fullAddress: string): Promise<{ latitude:
                 const params = new URLSearchParams({
                     SingleLine: address,
                     f: "json",
-                    outFields: "Addr_type,StName,AddNum,City,Postal,Match_addr,RegionAbbr",
+                    outFields: "Addr_type,StName,AddNum,City,Postal,Match_addr,RegionAbbr,Nbrhd,District",
                     sourceCountry: "BRA",
                     maxLocations: "5",
                     forStorage: "false",
@@ -184,7 +212,7 @@ export async function fetchCoordinates(fullAddress: string): Promise<{ latitude:
             const exact = [...candidates].sort((a, b) => b.score - a.score).find((candidate: any) => {
                 const details = candidate.attributes || {};
                 const type = details.Addr_type;
-                return candidate.score >= 95 &&
+                const matchesAddress = candidate.score >= 95 &&
                     streetMatches(details.StName) &&
                     cityMatches(details.City) && stateMatches(details.RegionAbbr) &&
                     (!wantedNumber ||
@@ -192,6 +220,9 @@ export async function fetchCoordinates(fullAddress: string): Promise<{ latitude:
                             normalize(details.AddNum) === normalize(wantedNumber))) &&
                     (wantedNumber || ["PointAddress", "StreetAddress", "StreetAddressExt", "StreetName"].includes(type)) &&
                     position(candidate.location?.y, candidate.location?.x);
+                const neighborhood = neighborhoodStatus(details.Nbrhd, details.District);
+                if (matchesAddress && neighborhood === "mismatch") exactNeighborhoodMismatch = true;
+                return matchesAddress && neighborhood !== "mismatch";
             });
             if (exact && position(exact.location?.y, exact.location?.x)) {
                 console.log("[geocoding] resolved with ArcGIS", {
@@ -205,7 +236,13 @@ export async function fetchCoordinates(fullAddress: string): Promise<{ latitude:
                 normalize(candidate.attributes.AddNum) === normalize(wantedNumber) &&
                 streetMatches(candidate.attributes.StName) && cityMatches(candidate.attributes.City) &&
                 stateMatches(candidate.attributes.RegionAbbr) && position(candidate.location?.y, candidate.location?.x));
-            if (numberedStreet) interpolated = position(numberedStreet.location.y, numberedStreet.location.x);
+            if (numberedStreet) {
+                const point = position(numberedStreet.location.y, numberedStreet.location.x);
+                if (point) arcgisInterpolation.location = {
+                    point,
+                    neighborhood: neighborhoodStatus(numberedStreet.attributes.Nbrhd, numberedStreet.attributes.District),
+                };
+            }
             if (!approximate) return null;
             // Retry without the number AND CEP: a stale/mistyped CEP must not veto
             // a matching street in the explicitly entered city.
@@ -213,12 +250,17 @@ export async function fetchCoordinates(fullAddress: string): Promise<{ latitude:
                 [wantedCity, wantedState].filter(Boolean).join(" - "), "Brasil"].join(", ");
             const streets = [...candidates, ...await search(streetQuery)];
             const street = streets
-                .filter((candidate: any) => candidate.score >= 70 &&
-                    streetMatches(candidate.attributes?.StName) &&
-                    cityMatches(candidate.attributes?.City) && stateMatches(candidate.attributes?.RegionAbbr) &&
-                    ["StreetAddress", "StreetAddressExt", "StreetName", "PointAddress", "Subaddress", "PointAddressInt"]
-                        .includes(candidate.attributes?.Addr_type) &&
-                    position(candidate.location?.y, candidate.location?.x))
+                .filter((candidate: any) => {
+                    const details = candidate.attributes || {};
+                    const neighborhood = neighborhoodStatus(details.Nbrhd, details.District);
+                    return candidate.score >= 70 && streetMatches(details.StName) &&
+                        cityMatches(details.City) && stateMatches(details.RegionAbbr) &&
+                        neighborhood !== "mismatch" &&
+                        (!requireNeighborhoodMatch || neighborhood === "match") &&
+                        ["StreetAddress", "StreetAddressExt", "StreetName", "PointAddress", "Subaddress", "PointAddressInt"]
+                            .includes(details.Addr_type) &&
+                        position(candidate.location?.y, candidate.location?.x);
+                })
                 .sort((a: any, b: any) => b.score - a.score)[0];
             if (street) return position(street.location.y, street.location.x);
             console.log("[geocoding] ArcGIS rejected: no verified address or street match");
@@ -229,37 +271,89 @@ export async function fetchCoordinates(fullAddress: string): Promise<{ latitude:
         }
     };
 
-    const geocodeNominatim = async (approximate = false) => {
+    const geocodeNominatim = async (approximate = false): Promise<NumberedLocation[]> => {
         try {
             const results = await requestJson(
                 "https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&countrycodes=br&q=" +
                 encodeURIComponent(approximate ? addressWithoutNumber : fullAddress)
             );
-            if (!Array.isArray(results)) return null;
-            const match = results.find((result: any) => {
+            if (!Array.isArray(results)) return [];
+            const matches = results.filter((result: any) => {
                 const address = result.address || {};
                 return streetMatches(address.road || address.pedestrian || address.residential) &&
                     cityMatches(address.city || address.town || address.village || address.municipality) &&
                     stateMatches(address["ISO3166-2-lvl4"] || address.state) &&
                     (approximate || !wantedNumber || normalize(address.house_number) === normalize(wantedNumber));
             });
-            if (!match) return null;
-            return position(match.lat, match.lon);
+            return matches.flatMap((result: any) => {
+                const point = position(result.lat, result.lon);
+                const { neighbourhood, suburb, city_district } = result.address;
+                const neighborhood = neighborhoodStatus(neighbourhood, suburb, city_district);
+                return point ? [{ point, neighborhood }] : [];
+            });
         } catch (error) {
             console.log("[geocoding] Nominatim failed", error);
-            return null;
+            return [];
         }
     };
 
     // Resolve all numbered candidates before accepting ANY less precise fallback.
     // Google forward lookup remains disabled.
-    const exact = await Promise.all([geocodeArcGIS(), geocodeTomTom(), geocodeNominatim()]);
-    const bestExact = exact.find(Boolean);
-    if (bestExact) return bestExact;
-    if (interpolated) return interpolated;
+    const [arcgisExact, tomTom, nominatim] = await Promise.all([
+        geocodeArcGIS(), geocodeTomTom(), geocodeNominatim(),
+    ]);
+    if (arcgisExact) return arcgisExact;
 
-    const street = await geocodeArcGIS(true) || await geocodeNominatim(true);
-    if (street) return street;
+    const numbered = [...tomTom, ...nominatim];
+    const firstNumbered = numbered[0];
+    const interpolated = arcgisInterpolation.location;
+    const original = firstNumbered?.point ?? interpolated?.point;
+    requireNeighborhoodMatch = exactNeighborhoodMismatch || firstNumbered?.neighborhood === "mismatch" ||
+        interpolated?.neighborhood === "mismatch";
+    if (original && !requireNeighborhoodMatch) return original;
+
+    const usable = (point: Coordinates) => !canUseAlternative || canUseAlternative(point);
+    if (requireNeighborhoodMatch) {
+        const match = numbered.find(location => location.neighborhood === "match" && usable(location.point));
+        if (match) return match.point;
+        if (interpolated?.neighborhood === "match" && usable(interpolated.point)) return interpolated.point;
+    }
+
+    const arcgisStreet = await geocodeArcGIS(true);
+    if (arcgisStreet && (!requireNeighborhoodMatch || usable(arcgisStreet))) return arcgisStreet;
+    const nominatimStreet = (await geocodeNominatim(true)).find(location =>
+        location.neighborhood !== "mismatch" &&
+        (!requireNeighborhoodMatch || (location.neighborhood === "match" && usable(location.point)))
+    );
+    if (nominatimStreet) return nominatimStreet.point;
+    if (streetFallback && state && wantedCity && wantedStreet && wantedNeighborhood) {
+        try {
+            const response = await fetch("/api/checkout/geocode-ibge", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                signal: AbortSignal.timeout(1500),
+                body: JSON.stringify({
+                    origin: streetFallback.origin,
+                    address: {
+                        city: wantedCity, uf: state[0], street: wantedStreet,
+                        bairro: wantedNeighborhood, number: wantedNumber, cep: wantedCEP,
+                    },
+                }),
+            });
+            const result = response.ok ? await response.json() : null;
+            const point = position(result?.point?.latitude, result?.point?.longitude);
+            const range = result?.range;
+            if (point && Number.isFinite(range?.min) && Number.isFinite(range?.max) &&
+                range.min >= 0 && range.min <= range.max && streetFallback.acceptsRange(range)) {
+                return point;
+            }
+        } catch {
+            // An unavailable local index must not interrupt the existing fallback chain.
+        }
+    }
+
+    // A generic CEP or city point cannot resolve a known neighborhood mismatch.
+    if (original) return original;
 
     // BrasilAPI v2 may have CEP coordinates even when no house/street is mapped.
     if (wantedCEP) {

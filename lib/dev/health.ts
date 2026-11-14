@@ -14,6 +14,7 @@ export const INTEGRATIONS = [
     { id: "tomtom", name: "TomTom", priority: 3 },
     { id: "arcgis", name: "ArcGIS", priority: 3 },
     { id: "nominatim", name: "OpenStreetMap", priority: 3 },
+    { id: "ibge", name: "IBGE / CNEFE", priority: 3 },
     { id: "brasilapi", name: "BrasilAPI / CEP", priority: 3 },
     { id: "ntfy", name: "Ntfy", priority: 2 },
 ] as const;
