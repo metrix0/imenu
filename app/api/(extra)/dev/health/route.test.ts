@@ -30,3 +30,15 @@ test("mark-all only acknowledges visible alerts", async () => {
     expect(response.status).toBe(200);
     expect((query as jest.Mock).mock.calls[0][0]).toContain("source IS DISTINCT FROM 'gemini'");
 });
+
+test("shows the local IBGE check in the existing Health connections", async () => {
+    const response = await GET(new Request("https://example.com/api/dev/health"));
+    expect(response.status).toBe(200);
+    const result = await response.json();
+    expect(result.connections).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+            id: "ibge", name: "IBGE / CNEFE",
+            observation: expect.objectContaining({ operation: "Geocodificação local" }),
+        }),
+    ]));
+});

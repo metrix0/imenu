@@ -252,3 +252,47 @@ it("does not replace an exact address with a higher-score street", async () => {
     arcgisOnly([candidate(cases[0], "StreetName"), { ...candidate(), score: 97, location: { y: -29.69, x: -51.13 } }]);
     expect(await fetchCoordinates(cases[0].input)).toEqual({ latitude: -29.69, longitude: -51.13 });
 });
+
+describe("IBGE street fallback", () => {
+    const input = "Rua José Demoliner, 148, Demoliner, Erechim - RS, 99702-609, Brasil";
+    const point = { latitude: -27.612958, longitude: -52.225898 };
+    const range = { min: 7.65, max: 7.76 };
+    const origin = { latitude: -27.6402584, longitude: -52.2972858 };
+    const cep = { latitude: -27.64, longitude: -52.28 };
+
+    function mockFallbackProviders() {
+        global.fetch = jest.fn(async input => {
+            const url = new URL(String(input), "https://i.menu");
+            if (url.pathname === "/api/checkout/geocode-ibge") return reply({ point, range });
+            if (url.hostname === "brasilapi.com.br") return reply({ city: "Erechim", state: "RS", location: { coordinates: cep } });
+            if (url.hostname.includes("arcgis.com")) return reply({ candidates: [] });
+            return reply([]);
+        }) as typeof fetch;
+    }
+
+    test("uses a consistent IBGE range before the CEP fallback", async () => {
+        mockFallbackProviders();
+        const acceptsRange = jest.fn(() => true);
+        expect(await fetchCoordinates(input, undefined, { origin, acceptsRange })).toEqual(point);
+        expect(acceptsRange).toHaveBeenCalledWith(range);
+        const calls = (global.fetch as jest.Mock).mock.calls;
+        const [, options] = calls.find(([url]) => url === "/api/checkout/geocode-ibge")!;
+        expect(JSON.parse(options.body)).toMatchObject({ address: { city: "Erechim", uf: "RS", bairro: "Demoliner", number: "148" } });
+        expect(calls.some(([url]) => String(url).includes("brasilapi.com.br"))).toBe(false);
+    });
+
+    test("continues to CEP when the local range crosses delivery tiers", async () => {
+        mockFallbackProviders();
+        expect(await fetchCoordinates(input, undefined, { origin, acceptsRange: () => false })).toEqual(cep);
+    });
+
+    test("rejects an ArcGIS point in a different bairro", async () => {
+        const c = cases[0];
+        const valid = { latitude: -29.69, longitude: -51.13 };
+        arcgisOnly([
+            candidate(c, "PointAddress", { District: "Outro Bairro" }),
+            { ...candidate(c, "PointAddress", { District: "Canudos" }), score: 97, location: { y: valid.latitude, x: valid.longitude } },
+        ]);
+        expect(await fetchCoordinates(c.input)).toEqual(valid);
+    });
+});

@@ -397,7 +397,7 @@ export default function CartModal({
         !neighborhoodDeliveryRules?.some((rule) => Boolean(normalizeNeighborhoodName(rule.neighborhood)));
     const missingDeliveryConfig = missingDeliveryRanges || missingNeighborhoods;
 
-    function computeFeeFromTiers(distanceKm: number, tiersAny: any): number | null {
+    function findDeliveryTier(distanceKm: number, tiersAny: any) {
         if (!tiersAny) return null;
 
         let tiers = Array.isArray(tiersAny)
@@ -412,19 +412,14 @@ export default function CartModal({
 
         if (!tiers?.length) return null;
 
-        tiers.sort((a: any, b: any) => (a.radius_km ?? 0) - (b.radius_km ?? 0));
+        return [...tiers]
+            .sort((a, b) => (a.radius_km ?? 0) - (b.radius_km ?? 0))
+            .find(tier => distanceKm <= tier.radius_km) ?? null;
+    }
 
-        const lastTier = tiers[tiers.length - 1];
-
-        if (distanceKm > lastTier.radius_km) return null;
-
-        for (let t of tiers) {
-            if (distanceKm <= t.radius_km) {
-                return Number(t.fee_cents);
-            }
-        }
-
-        return null;
+    function computeFeeFromTiers(distanceKm: number, tiersAny: any): number | null {
+        const tier = findDeliveryTier(distanceKm, tiersAny);
+        return tier ? Number(tier.fee_cents) : null;
     }
 
     async function recalcDeliveryFeeFromAddress() {
@@ -493,6 +488,15 @@ export default function CartModal({
             const distance = calculateDistanceKm(restLat, restLon, point.latitude, point.longitude);
             const fee = computeFeeFromTiers(distance, tiers);
             return fee !== null && Number.isFinite(fee);
+        }, {
+            origin: { latitude: restLat, longitude: restLon },
+            acceptsRange: ({ min, max }) => {
+                const nearest = findDeliveryTier(min, tiers);
+                const farthest = findDeliveryTier(max, tiers);
+                return nearest !== null && farthest !== null &&
+                    Number(nearest.radius_km) === Number(farthest.radius_km) &&
+                    Number.isFinite(Number(farthest.fee_cents));
+            },
         });
 
         const latest = useCheckoutStore.getState() as any;
@@ -531,15 +535,9 @@ export default function CartModal({
         setDeliveryFeeCents(fee);
         setField("delivery_fee_cents", String(fee));
 
-        let matchedTime = null;
-        if (Array.isArray(tiers)) {
-            for (let t of tiers) {
-                if (Number(t.radius_km) >= distKm) {
-                    matchedTime = t.time_minutes ?? null;
-                    break;
-                }
-            }
-        }
+        const matchedTime = Array.isArray(tiers)
+            ? findDeliveryTier(distKm, tiers)?.time_minutes ?? null
+            : null;
 
         if (matchedTime !== null) {
             setField("delivery_time_minutes", String(matchedTime));

@@ -213,3 +213,9 @@ Install `deployment/vps/systemd/imenu-job-customer-automations.{service,timer}` 
 - The live preview application is restricted to 512 MiB RAM, no swap, 0.75 CPU and 128 processes. Its low normal usage is expected; this is a ceiling, not a pre-allocation.
 - Release smoke-check containers are independently restricted to 512 MiB RAM, no swap, 0.5 CPU, 128 processes and a 256 MiB Node heap. Validate the real Next.js health route and native Sharp import; browser E2E stays in CI.
 - Deploy activation uses the existing `application-build.lock` to avoid running alongside Docker retention or another release activation. Retention runs daily off-peak and skips expensive cleanup while at least 40 GiB of disk remains free. Do not bypass the lock or use arbitrary unrestricted `docker run` QA on this host.
+
+## Base local de geocodificação IBGE
+
+O fallback do checkout consulta o CNEFE 2022 quando os provedores deixam de resolver o endereço. A importação baixa os ZIPs oficiais por UF, gera índices SQLite e publica cada estado por renomeação atômica. O processo pode ser reiniciado para completar estados faltantes. A aba Health mostra a disponibilidade dos índices.
+
+Instale o importador em `/opt/imenu-migration/ops/cnefe/tools/import-cnefe.py` e execute com `/opt/imenu-migration/ops/cnefe/2022` como argumento. Use a configuração de staging em `ops/config/compose.stage.yml` para montar esse diretório como somente leitura em `/var/lib/imenu/cnefe`. Os arquivos são independentes da versão do aplicativo e ficam fora do artefato de deploy.
