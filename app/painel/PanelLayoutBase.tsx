@@ -33,6 +33,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 
 import ConfirmModal from "@/components/ui/ConfirmModal";
+import PanelTabCard from "@/components/restaurant-owner/ia-vendas/PanelTabCard";
 import { isManualOpeningActive, isStoreManuallyClosed } from "@/lib/menu/storeHoursOverride";
 import Loader from "@/components/ui/Loader";
 import { useSalesStore } from "@/lib/stores/restaurant-owner/iaVendasStore";
@@ -376,6 +377,8 @@ export default function PainelLayout({
     const storeStatus = manuallyOpen ? "open"
         : isStoreManuallyClosed(storeOverride?.is_closed, scheduleNow) ? "manual"
         : isStoreOpenBySchedule(availability, scheduleNow) ? "open" : "scheduled-closed";
+    const hasManualClosure = storeStatus === "manual";
+    const canResumeSchedule = manuallyOpen || hasManualClosure;
     const storeStatusLabel = manuallyOpen ? "Aberta manualmente até 23h59"
         : storeStatus === "manual" ? "Fechada manualmente"
         : storeStatus === "open" ? "Loja aberta" : "Loja fechada";
@@ -415,17 +418,24 @@ export default function PainelLayout({
             <ConfirmModal
                 open={showStoreModal}
                 onClose={() => { if (!isTogglingStore) setShowStoreModal(false); }}
-                onConfirm={() => void handleStoreToggle(storeStatus === "manual" ? "open" : "close")}
+                onConfirm={() => void handleStoreToggle(hasManualClosure ? "open" : "close")}
                 title="Horário da loja hoje"
-                description={manuallyOpen
-                    ? "Sua loja está aberta manualmente até 23h59 (horário de Brasília)."
-                    : "Abra ou feche a loja temporariamente. A abertura manual vale até 23h59 (horário de Brasília)."}
-                confirmLabel={storeStatus === "manual" ? "Abrir loja hoje" : "Fechar loja hoje"}
-                variant={storeStatus === "manual" ? "primary" : "danger"}
-                extraAction={{
-                    label: manuallyOpen || storeStatus === "manual" ? "Voltar aos horários normais" : "Abrir loja hoje",
-                    onClick: () => void handleStoreToggle(manuallyOpen || storeStatus === "manual" ? "resume" : "open"),
-                }}
+                description={
+                    <>
+                        {manuallyOpen
+                            ? "Sua loja está aberta manualmente até 23h59."
+                            : "Abra ou feche a loja temporariamente. A abertura manual vale até 23h59."}
+                        <span className="mt-3 block">
+                            Você pode abrir sua loja definindo horários na aba <PanelTabCard tab="horarios" inline />.
+                        </span>
+                    </>
+                }
+                confirmLabel={hasManualClosure ? "Abrir loja hoje" : "Fechar loja hoje"}
+                variant="neutral"
+                confirmTone={hasManualClosure ? "success" : undefined}
+                extraAction={canResumeSchedule
+                    ? { label: "Voltar aos horários normais", onClick: () => void handleStoreToggle("resume") }
+                    : { label: "Abrir loja hoje", onClick: () => void handleStoreToggle("open"), tone: "success" }}
                 isLoading={isTogglingStore}
             />
 

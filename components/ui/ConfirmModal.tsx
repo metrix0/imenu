@@ -4,20 +4,21 @@ import { Children, isValidElement, type ReactNode } from "react";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import { faExclamationTriangle } from "@fortawesome/free-solid-svg-icons";
+import { faClock, faExclamationTriangle } from "@fortawesome/free-solid-svg-icons";
 
 interface ConfirmModalProps {
     open: boolean;
     onClose: () => void;
     onConfirm: () => void;
     title: string;
-    description?: string;
+    description?: ReactNode;
     descriptionAfter?: ReactNode;
     confirmLabel?: string;
     cancelLabel?: string;
     isLoading?: boolean;
-    extraAction?: { label: string; onClick: () => void };
-    variant?: "danger" | "primary";
+    extraAction?: { label: string; onClick: () => void; tone?: "success" };
+    confirmTone?: "success";
+    variant?: "danger" | "primary" | "neutral";
 }
 
 export default function ConfirmModal({
@@ -31,15 +32,22 @@ export default function ConfirmModal({
     cancelLabel = "Cancelar",
     isLoading = false,
     extraAction,
+    confirmTone,
     variant = "danger"
 }: ConfirmModalProps) {
-    const descriptionLength = description?.trim().length ?? 0;
+    const descriptionLength = typeof description === "string" ? description.trim().length : 0;
+    const badgeStyle = {
+        danger: "bg-red-100 text-red-600",
+        primary: "bg-orange-100 text-brand",
+        neutral: "bg-gray-100 text-gray-600",
+    }[variant];
+    const successButtonClass = "border-green-700 bg-green-700 hover:border-green-800 hover:bg-green-800 focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-green-700";
     const descriptionAfterParts = descriptionAfter
         ? isValidElement<{ children?: ReactNode }>(descriptionAfter)
             ? Children.toArray(descriptionAfter.props.children)
             : [descriptionAfter]
         : [];
-    const height = extraAction ? 380 : descriptionAfter
+    const height = extraAction ? (typeof description === "string" ? 380 : 430) : descriptionAfter
         ? 370
         : !description
           ? 260
@@ -52,11 +60,8 @@ export default function ConfirmModal({
     return (
         <Modal height={height} open={open} onClose={onClose} className="max-w-md 2xl:max-w-lg">
             <div className="p-4 sm:p-6 2xl:p-7 text-center">
-                <div className={`mx-auto mb-4 flex h-12 w-12 2xl:h-16 2xl:w-16 items-center justify-center rounded-full ${variant === 'danger' ? 'bg-red-100' : 'bg-orange-100'}`}>
-                    <FontAwesomeIcon 
-                        icon={faExclamationTriangle} 
-                        className={`text-xl 2xl:text-2xl ${variant === 'danger' ? 'text-red-600' : 'text-brand'}`}
-                    />
+                <div className={`mx-auto mb-4 flex h-12 w-12 2xl:h-16 2xl:w-16 items-center justify-center rounded-full ${badgeStyle}`}>
+                    <FontAwesomeIcon icon={variant === "neutral" ? faClock : faExclamationTriangle} className="text-xl 2xl:text-2xl" />
                 </div>
 
                 <h3 className="mb-2 text-lg font-bold text-gray-900 2xl:text-xl">{title}</h3>
@@ -93,15 +98,20 @@ export default function ConfirmModal({
                     </Button>
 
                     <Button 
-                        variant={variant === 'danger' ? "secondary" : "primary"} 
+                        variant={confirmTone === "success" || variant === "primary" ? "primary" : "secondary"}
                         onClick={onConfirm}
                         loading={isLoading}
-                        className={`w-full sm:w-auto ${variant === 'danger' ? 'bg-red-600 text-white hover:bg-red-700 border-transparent' : ''}`}
+                        className={`w-full sm:w-auto ${confirmTone === "success" ? successButtonClass : variant === "danger" ? "bg-red-600 text-white hover:bg-red-700 border-transparent" : ""}`}
                     >
                         {confirmLabel}
                     </Button>
                     {extraAction && (
-                        <Button variant="secondary" onClick={extraAction.onClick} disabled={isLoading} className="w-full sm:w-auto">
+                        <Button
+                            variant={extraAction.tone === "success" ? "primary" : "secondary"}
+                            onClick={extraAction.onClick}
+                            disabled={isLoading}
+                            className={`w-full sm:w-auto ${extraAction.tone === "success" ? successButtonClass : ""}`}
+                        >
                             {extraAction.label}
                         </Button>
                     )}
