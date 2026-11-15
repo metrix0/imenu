@@ -95,7 +95,7 @@ export default function ShareMenuModal({
                         Ir para o painel
                     </Button>
 
-                    <div className="mt-6 w-full border-t border-gray-200 pt-5 text-left">
+                    <div className="mt-6 w-full pt-5 text-left">
                         <p className="mb-2 text-xs font-semibold text-gray-500">
                             Link do seu cardápio
                         </p>
