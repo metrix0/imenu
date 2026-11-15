@@ -109,9 +109,6 @@ export default function ShareMenuModal({
                                 {copied ? "Copiado!" : "Copiar"}
                             </Button>
                         </div>
-                        <a href={menuUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex w-full items-center justify-center rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-50">
-                            Ver meu cardápio
-                        </a>
                         <p className="mt-2 text-xs leading-5 text-gray-500">
                             Use este link no WhatsApp, Instagram, Google ou onde seus clientes encontrarem sua loja.
                         </p>
