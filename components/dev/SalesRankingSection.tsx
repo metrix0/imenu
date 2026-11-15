@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import styles from "./dashboard.module.css";
 import { supabase } from "@/lib/database/supabaseClient";
 
 type RangeKey = "7d" | "this_week" | "last_week" | "30d" | "90d";
@@ -226,11 +227,11 @@ export default function SalesRankingSection({ range }: { range: RangeKey }) {
                     </p>
 
                     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-                        <div className="overflow-x-auto">
-                            <table className="w-full min-w-[760px] text-left text-sm">
+                        <div className={styles.fitLegacyTable}>
+                            <table className="w-full text-left text-sm">
                                 <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                                     <tr>
-                                        <th className="w-16 px-5 py-3.5 text-center font-semibold">
+                                        <th className="px-5 py-3.5 text-center font-semibold">
                                             #
                                         </th>
                                         <th className="px-5 py-3.5 font-semibold">
@@ -258,26 +259,26 @@ export default function SalesRankingSection({ range }: { range: RangeKey }) {
                                                 key={restaurant.id}
                                                 className="hover:bg-gray-50/70"
                                             >
-                                                <td className="px-5 py-3.5 text-center font-semibold tabular-nums text-gray-500">
+                                                <td data-label="#" className="px-5 py-3.5 text-center font-semibold tabular-nums text-gray-500">
                                                     {index + 1}
                                                 </td>
-                                                <td className="px-5 py-3.5 font-medium text-gray-900">
+                                                <td data-label="Restaurante" className="px-5 py-3.5 font-medium text-gray-900">
                                                     {restaurant.name}
                                                 </td>
-                                                <td className="px-5 py-3.5 text-right font-semibold tabular-nums text-gray-900">
+                                                <td data-label="GMV" className="px-5 py-3.5 text-right font-semibold tabular-nums text-gray-900">
                                                     {formatCurrencyFromCents(
                                                         restaurant.gmvCents
                                                     )}
                                                 </td>
-                                                <td className="px-5 py-3.5 text-right tabular-nums text-gray-700">
+                                                <td data-label="Pedidos" className="px-5 py-3.5 text-right tabular-nums text-gray-700">
                                                     {formatCount(restaurant.orders)}
                                                 </td>
-                                                <td className="px-5 py-3.5 text-right tabular-nums text-gray-700">
+                                                <td data-label="Ticket médio" className="px-5 py-3.5 text-right tabular-nums text-gray-700">
                                                     {formatCurrencyFromCents(
                                                         restaurant.averageTicketCents
                                                     )}
                                                 </td>
-                                                <td className="px-5 py-3.5 text-right">
+                                                <td data-label="% do GMV" className="px-5 py-3.5 text-right">
                                                     <span className="inline-flex min-w-16 justify-center rounded-full bg-brand/10 px-3 py-1 font-semibold tabular-nums text-brand">
                                                         {formatPercent(
                                                             restaurant.sharePercent

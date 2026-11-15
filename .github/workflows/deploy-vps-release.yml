@@ -133,6 +133,26 @@ jobs:
           set -euo pipefail
           npx next build
           test -f .next/standalone/server.js
+          python3 - <<'PYCRON'
+          import json, pathlib, re, sys
+          sys.path.insert(0, 'deployment/vps')
+          from job_timers import read_schedule
+          root = pathlib.Path('.next/standalone')
+          jobs = read_schedule(pathlib.Path('deployment/vps/cron-schedule.json'))
+          units = pathlib.Path('deployment/vps/systemd')
+          if any(units.glob('imenu-job-*')) or any(units.glob('imenu-preview-*')):
+              raise SystemExit('Define application timers only in deployment/vps/cron-schedule.json')
+          if json.loads(pathlib.Path('vercel.json').read_text()).get('crons'):
+              raise SystemExit('Schedule iMenu application jobs in deployment/vps/cron-schedule.json')
+          routes = json.loads((root / '.next/server/app-paths-manifest.json').read_text())
+          for name in jobs:
+              route = f'app/api/cron/{name}/route.js'
+              source = pathlib.Path(f'app/api/cron/{name}/route.ts')
+              if routes.get(f'/api/cron/{name}/route') != route or not (root / '.next/server' / route).is_file():
+                  raise SystemExit(f'Missing compiled cron route: {name}')
+              if not re.search(r'^export\s+(?:async\s+)?function\s+GET\s*\(', source.read_text(), re.M):
+                  raise SystemExit(f'Missing GET handler for cron: {name}')
+          PYCRON
 
       - name: Package standalone release
         if: steps.gate.outputs.enabled == 'true'
@@ -143,6 +163,9 @@ jobs:
           cp -a public .next/standalone/public
           # Keep the existing design-system URL available in the standalone runtime.
           cp design-system.html .next/standalone/design-system.html
+          if [[ "$TARGET" == production ]]; then
+            cp deployment/vps/cron-schedule.json .next/standalone/.imenu-cron-schedule.json
+          fi
           printf '%s\n' "$TARGET_SHA" > .next/standalone/.imenu-commit-sha
           printf '%s\n' "$PUBLIC_CONFIG_HASH" > .next/standalone/.imenu-public-config-sha256
           python3 - <<'PYASSET'

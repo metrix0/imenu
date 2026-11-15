@@ -1,3 +1,4 @@
+export const PAYOUT_MARGIN_MINUTES = 90;
 export const MIN_PAYOUT_DIFFERENCE_CENTS = -300;
 
 export function getMaxPayoutDifferenceCents(totalCents: number): number {

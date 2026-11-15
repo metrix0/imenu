@@ -4,6 +4,7 @@ import sharp from "sharp";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 
 import { cleanupExpiredWhatsAppPairing } from "@/lib/services/whatsappPairingCleanup";
+import { cleanupExpiredMenuScans } from "@/lib/menu/scanDiagnostics";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -294,6 +295,10 @@ export async function GET(request: Request) {
     }
 
     try {
+        const menuScansDeleted = await cleanupExpiredMenuScans().catch(() => {
+            console.error("[storage-cleanup] Falha ao remover diagnósticos de importação expirados.");
+            return null;
+        });
         const whatsappPairing = await cleanupExpiredWhatsAppPairing();
         const supabase = createSupabaseServerClient();
 
@@ -369,6 +374,7 @@ export async function GET(request: Request) {
             ),
             visuals,
             whatsappPairing,
+            menuScansDeleted,
         });
     } catch (error) {
         console.error("[storage-cleanup] Failed:", error);

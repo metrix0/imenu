@@ -82,7 +82,7 @@ export default function RevenueSection() {
                     <p>{formatCount(data.summary.card30)} compras · {share(data.summary.cardGross30, data.summary.gross30)} da receita</p>
                 </div>
             </dl>
-            <section className={styles.tableSection}>
+            <section className={`${styles.tableSection} ${styles.fitTable}`}>
                 <h2>Compras iMenu Plus <span className="font-normal text-gray-500">({formatCount(data.purchases.total)})</span></h2>
                 <PagedTable data={data.purchases} loading={loading} onPage={setPage} rowKey={row => row.id}
                     onRowClick={row => openProfile({ id: row.restaurantId, name: row.restaurantName })}

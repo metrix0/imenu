@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip } from "chart.js";
 import { Line } from "react-chartjs-2";
 import DataTable from "@/components/ui/DataTable";
+import Dropdown from "@/components/ui/Dropdown";
 import { CHART_BRAND, CHART_CATEGORY_AXIS, CHART_VALUE_AXIS, STANDARD_CHART_TOOLTIP, createBrandAreaGradient } from "@/components/restaurant-owner/exibicoes/chartStyles";
 import Badge from "@/components/ui/Badge";
 import PagedTable, { type PageData } from "./PagedTable";
@@ -43,6 +44,7 @@ type OpenAiCosts =
         usdBrlRate: number;
         totalUsd: number;
         daily: { date: string; usd: number }[];
+        models?: { id: string; dailyUsd: number[] }[];
         breakdown: { label: string; usd: number; share: number; usage: string }[];
     };
 
@@ -90,6 +92,7 @@ export default function QualityAssuranceSection() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [costs, setCosts] = useState<OpenAiCosts | null>(null);
+    const [selectedModel, setSelectedModel] = useState("");
     const { openProfile } = useDevProfile();
 
     useEffect(() => {
@@ -124,6 +127,10 @@ export default function QualityAssuranceSection() {
     const openRestaurant = (restaurantId: string, restaurantName: string) =>
         openProfile({ id: restaurantId, name: restaurantName });
 
+    const models = costs?.status === "ok" ? costs.models ?? [] : [];
+    const modelDailyUsd = models.find(model => model.id === selectedModel)?.dailyUsd;
+    const modelTotalUsd = modelDailyUsd?.reduce((sum, usd) => sum + usd, 0);
+
     if (!data && loading) return <DevLoading />;
 
     return <div className="space-y-6">
@@ -148,7 +155,7 @@ export default function QualityAssuranceSection() {
                     </p>
                 </div>
             </dl>
-            <section className={styles.tableSection}>
+            <section className={`${styles.tableSection} ${styles.fitTable}`}>
                 <h2>Análises Vendas IA <span className="font-normal text-gray-500">({data.analyses.total})</span></h2>
                 <p className="mb-4 text-xs text-gray-500">Últimos 90 dias · GMV registrado no relatório, sem frete. Uma linha por análise concluída.</p>
                 <div>
@@ -156,7 +163,7 @@ export default function QualityAssuranceSection() {
                         rowKey={row => row.id}
                         onRowClick={row => openRestaurant(row.restaurantId, row.restaurantName)}
                         columns={[
-                            { key: "restaurant", label: "Restaurante", render: row => <span title={row.restaurantName} className="block min-w-44 max-w-64 truncate whitespace-nowrap font-medium">{row.restaurantName}</span> },
+                            { key: "restaurant", label: "Restaurante", render: row => <span title={row.restaurantName} className="block max-w-64 truncate whitespace-nowrap font-medium">{row.restaurantName}</span> },
                             { key: "saved", label: "Salvo em", className: "whitespace-nowrap", render: row => formatDateTime(row.finishedAt) },
                             { key: "potential", label: "Potencial estimado", className: "whitespace-nowrap", render: row => row.potentialCents === null ? "—" : formatCurrencyFromCents(row.potentialCents) },
                             { key: "gmv", label: "GMV no relatório", className: "whitespace-nowrap", render: row => row.snapshotGmvCents === null ? "—" : formatCurrencyFromCents(row.snapshotGmvCents) },
@@ -166,7 +173,7 @@ export default function QualityAssuranceSection() {
                         ]} />
                 </div>
             </section>
-            <section className={styles.tableSection}>
+            <section className={`${styles.tableSection} ${styles.fitTable}`}>
                 <h2>Restaurantes Plus sem análise <span className="font-normal text-gray-500">({data.missing.length})</span></h2>
                 <div>
                     <PagedTable data={{ rows: data.missing.slice(missingPage * 10, (missingPage + 1) * 10), total: data.missing.length, page: missingPage, pageCount: Math.max(1, Math.ceil(data.missing.length / 10)) }}
@@ -174,7 +181,7 @@ export default function QualityAssuranceSection() {
                         onPage={setMissingPage}
                         onRowClick={row => openRestaurant(row.restaurantId, row.restaurantName)}
                         columns={[
-                            { key: "restaurant", label: "Restaurante", render: row => <span title={row.restaurantName} className="block min-w-44 max-w-64 truncate whitespace-nowrap font-medium">{row.restaurantName}</span> },
+                            { key: "restaurant", label: "Restaurante", render: row => <span title={row.restaurantName} className="block max-w-64 truncate whitespace-nowrap font-medium">{row.restaurantName}</span> },
                             { key: "activated", label: "Plus ativado em", className: "whitespace-nowrap", render: row => formatDateTime(row.activatedAt) },
                             { key: "waiting", label: "Aguardando há", className: "whitespace-nowrap", render: row => duration(row.waitingSeconds / 60) },
                             { key: "lastAttempt", label: "Última tentativa", className: "whitespace-nowrap", render: row => formatDateTime(row.latestAttemptAt) },
@@ -185,7 +192,7 @@ export default function QualityAssuranceSection() {
                         ]} />
                 </div>
             </section>
-            <section className={styles.tableSection}>
+            <section className={`${styles.tableSection} ${styles.fitTable}`}>
                 <h2>Gastos OpenAI</h2>
                 {costs === null ? <div className={styles.section}><div className="p-6"><DevLoading /></div></div>
                     : costs.status !== "ok" ? <div className={styles.section}>
@@ -194,9 +201,19 @@ export default function QualityAssuranceSection() {
                             : "Não foi possível consultar os gastos OpenAI."}</p>
                     </div> : <>
                         <div className={styles.chart}>
-                            <div className="flex flex-wrap items-baseline justify-between gap-2">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
                                 <h3 className="text-sm font-semibold text-[#1d1d1d]">Gasto por dia</h3>
-                                <span className="text-sm font-medium tabular-nums">{formatBrl(costs.totalUsd * costs.usdBrlRate)} no período</span>
+                                <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
+                                    <span className="text-sm font-medium tabular-nums">
+                                        {formatBrl((modelTotalUsd ?? costs.totalUsd) * costs.usdBrlRate)} no período
+                                    </span>
+                                    <div className="w-56 max-w-full">
+                                        <Dropdown aria-label="Modelo OpenAI" value={selectedModel}
+                                            onChange={event => setSelectedModel(event.target.value)}
+                                            options={[{ value: "", label: "Todos" }, ...models.map(model => ({ value: model.id, label: model.id }))]}
+                                        />
+                                    </div>
+                                </div>
                             </div>
                             <div className="mt-5 h-[240px] min-w-0 sm:h-[300px]">
                                 <Line
@@ -204,7 +221,7 @@ export default function QualityAssuranceSection() {
                                         labels: costs.daily.map(point => dayLabel(point.date)),
                                         datasets: [{
                                             label: "Gasto (R$)",
-                                            data: costs.daily.map(point => point.usd * costs.usdBrlRate),
+                                            data: costs.daily.map((point, index) => (modelDailyUsd?.[index] ?? point.usd) * costs.usdBrlRate),
                                             borderColor: CHART_BRAND,
                                             backgroundColor: createBrandAreaGradient,
                                             fill: true, tension: 0.25, pointRadius: 2, pointHoverRadius: 5,

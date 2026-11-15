@@ -77,7 +77,6 @@ const RESOURCE_SECTIONS: readonly { title: string; imenu?: string; competitor?: 
             ["Alta conversão", "check", "limited"],
             ["Cliente acompanha pedido", "tracking", "limited"],
             ["Agendamento de pedido", "check", "limited"],
-            ["Integração iFood (pedidos, impressão e status)", "ifoodHomologacao", "-"],
             ['Modo "Só trabalho com Encomendas"', "check", "limited"],
             ["Recomendação de Produtos no carrinho (Manual)", "check", "limited"],
             ["Notificações de pedidos", "notification", "limited"],
@@ -203,19 +202,6 @@ function ResourceImenuValue({ value }: { value?: string }) {
     if (value === "scan") return <ResourceAvailabilityLabel kind="free" label="Grátis. Fotos, PDFs ou links e tenha o cardápio pronto em segundos" />;
     if (value === "analyticsDetails") return <ResourceAvailabilityLabel kind="free" label="Cliques, visualizações do cardápio, valor médio do carrinho e origem dos acessos" />;
     if (value === "assistantLimited") return <ResourceAvailabilityLabel kind="free" label="Grátis, com limites" />;
-    if (value === "ifoodHomologacao") {
-        return (
-            <Tooltip text="Exige aplicação homologada, credenciais autorizadas e configuração da integração no iFood." showOnClick>
-                <span className="inline-flex cursor-help">
-                    <Badge variant="neutral" className="gap-1.5 !whitespace-normal !font-normal">
-                        Requer homologação
-                        <Info size={13} strokeWidth={1.75} className="shrink-0" aria-hidden="true" />
-                    </Badge>
-                </span>
-            </Tooltip>
-        );
-    }
-
     if (value === "plusLink" || value === "iMenu Plus") {
         return (
             <a href="#planos" className="inline-flex rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" aria-label="Conhecer o iMenu Plus">

@@ -25,11 +25,7 @@ export default function UpdateEmailPage() {
 
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<string>("");
-
-    // URL de redirecionamento após clique no e-mail
-    const REDIRECT_URL = typeof window !== "undefined"
-        ? `${window.location.origin}/restaurante/confirmar-alteracao-email`
-        : "";
+    const [needsSignIn, setNeedsSignIn] = useState(false);
 
     // Carrega e-mail atual
     useEffect(() => {
@@ -47,6 +43,7 @@ export default function UpdateEmailPage() {
     const handleRequestConfirmationLink = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
         setMessage("");
+        setNeedsSignIn(false);
 
         const cleaned = (newEmail || "").trim().toLowerCase();
 
@@ -62,39 +59,22 @@ export default function UpdateEmailPage() {
         setLoading(true);
 
         try {
-            // 1. Verificar duplicidade diretamente no auth.users via endpoint do servidor
-            const check = await fetch("/api/auth/email-exists", {
+            const { data: { session } } = await supabase.auth.getSession();
+            const response = await fetch("/api/auth/change-email", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${session?.access_token || ""}`,
+                },
                 body: JSON.stringify({ email: cleaned }),
             });
-            const checkData = await check.json();
-
-            if (!check.ok) {
-                setMessage(
-                    checkData?.error || "Não foi possível verificar este e-mail."
-                );
-                return;
-            }
-
-            if (checkData.exists) {
-                setMessage("Este e-mail já está cadastrado em outra conta.");
-                return;
-            }
-
-            // 2. Update Auth
-            const { error: updateAuthError } = await supabase.auth.updateUser({
-                email: cleaned,
-            }, {
-                emailRedirectTo: REDIRECT_URL,
-            });
-
-            if (updateAuthError) {
-                console.error("updateUser error:", updateAuthError);
-                if (updateAuthError.message.includes("Email already taken")) {
-                    setMessage("Este e-mail já está em uso.");
+            const result = await response.json();
+            if (!response.ok) {
+                if (result.code === "reauthentication_needed" || response.status === 401) {
+                    setNeedsSignIn(true);
+                    setMessage("Entre novamente na sua conta para confirmar a troca de e-mail.");
                 } else {
-                    setMessage(`Erro ao solicitar troca: e-mail em uso ou não existe`);
+                    setMessage(result.error || "Não foi possível solicitar a troca de e-mail.");
                 }
                 return;
             }
@@ -130,6 +110,7 @@ export default function UpdateEmailPage() {
                     {message && (
                         <div className="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-md">
                             {message}
+                            {needsSignIn && <div className="mt-3"><Button type="button" variant="secondary" onClick={() => router.push("/restaurante/login?next=atualizando-email")}>Entrar novamente</Button></div>}
                         </div>
                     )}
 

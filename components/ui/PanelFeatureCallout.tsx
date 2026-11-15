@@ -1,16 +1,16 @@
 import Link from "next/link";
-import { faArrowRight, faBullhorn, faChartLine } from "@fortawesome/free-solid-svg-icons";
+import { faArrowRight, faBullhorn, faRocket } from "@fortawesome/free-solid-svg-icons";
 import Card from "@/components/ui/Card";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 
 const content = {
-    analytics: {
-        icon: faChartLine,
-        label: "Analytics",
-        title: "Quer entender melhor o que está por trás das vendas?",
-        description: "Descubra os itens mais pedidos, categorias que mais vendem, combinações de compra e outros indicadores do seu cardápio.",
-        href: "/painel/analytics",
-        action: "Abrir Analytics",
+    "vendas-ia": {
+        icon: faRocket,
+        label: "Vendas IA",
+        title: "Descubra oportunidades para vender mais",
+        description: "O Vendas IA analisa seus pedidos e seu cardápio para recomendar melhorias em produtos, combinações e promoções.",
+        href: "/painel/vendas-ia",
+        action: "Abrir Vendas IA",
     },
     marketing: {
         icon: faBullhorn,

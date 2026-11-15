@@ -1,0 +1,14 @@
+{
+  "abandoned-blast": "*-*-* 22:00:00 UTC",
+  "addon-expiry-whatsapp": "*-*-* 18:00:00 UTC",
+  "customer-automations": "*-*-* *:00/15:00",
+  "daily-payout": "*-*-* 14:30:00 UTC",
+  "ia-plus-analysis-watch": "*-*-* *:00:00 UTC",
+  "ia-vendas-analysis": "*-*-* 00:00:00 UTC",
+  "integration-health": "*-*-* *:02/15:00",
+  "payout-pix-warning": "*-*-* 06:00:00 America/Sao_Paulo",
+  "push-retries": "*-*-* *:*:00",
+  "reconcile-payouts": "*-*-* 15:05:00 UTC",
+  "storage-cleanup": "*-*-* 04:30:00 UTC",
+  "support-blast": "*-*-* *:00/10:00 UTC"
+}

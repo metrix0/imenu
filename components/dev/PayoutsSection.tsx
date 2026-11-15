@@ -160,15 +160,13 @@ function HistoryTable({ section, revision, onRetry, onMarkPaid, busy = false, ca
                 <p className="text-sm">{selectedRun.paid_count || 0} pagos · {selectedRun.processing_count || 0} processando · {selectedRun.failed_count || 0} falhas</p>
                 <section className="space-y-3">
                     <h3 className="text-base font-semibold">Repasses com problema</h3>
-                    {selectedRun.troubled_payouts?.length ? <div className="overflow-x-auto">
-                        <DataTable rows={selectedRun.troubled_payouts} rowKey={row => row.id} columns={[
-                            { key: "restaurant", label: "Restaurante", render: row => row.restaurant_name },
-                            { key: "amount", label: "Valor", render: row => money(row.amount_cents) },
-                            { key: "status", label: "Status", render: row => <PayoutStatus status={row.status} /> },
-                            { key: "reason", label: "Motivo", render: row => row.failure_reason || "Motivo não registrado." },
-                            { key: "notice", label: "Aviso automático", render: row => <Badge variant={row.alert_status === "sent" ? "success" : row.alert_status === "failed" ? "danger" : "neutral"}>{row.alert_status === "sent" ? "Enviado" : row.alert_status === "failed" ? "Falhou" : row.alert_status === "sending" ? "Enviando" : "Não enviado"}</Badge> },
-                        ]} />
-                    </div> : <p className="text-sm text-gray-500">Nenhum repasse individual com problema registrado.</p>}
+                    {selectedRun.troubled_payouts?.length ? <DataTable rows={selectedRun.troubled_payouts} rowKey={row => row.id} columns={[
+                        { key: "restaurant", label: "Restaurante", render: row => row.restaurant_name },
+                        { key: "amount", label: "Valor", render: row => money(row.amount_cents) },
+                        { key: "status", label: "Status", render: row => <PayoutStatus status={row.status} /> },
+                        { key: "reason", label: "Motivo", render: row => row.failure_reason || "Motivo não registrado." },
+                        { key: "notice", label: "Aviso automático", render: row => <Badge variant={row.alert_status === "sent" ? "success" : row.alert_status === "failed" ? "danger" : "neutral"}>{row.alert_status === "sent" ? "Enviado" : row.alert_status === "failed" ? "Falhou" : row.alert_status === "sending" ? "Enviando" : "Não enviado"}</Badge> },
+                    ]} /> : <p className="text-sm text-gray-500">Nenhum repasse individual com problema registrado.</p>}
                 </section>
                 {selectedRun.error_message && <p role="alert" className="text-sm text-red-700">{selectedRun.error_message}</p>}
             </div>}

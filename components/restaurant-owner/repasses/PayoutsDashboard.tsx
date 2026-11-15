@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { faCircleInfo } from "@fortawesome/free-solid-svg-icons";
 
 import { supabase } from "@/lib/database/supabaseClient";
-import { calculateOnePercentPayout } from "@/lib/services/payoutSafety";
+import { calculateOnePercentPayout, PAYOUT_MARGIN_MINUTES } from "@/lib/services/payoutSafety";
+import cronSchedule from "@/deployment/vps/cron-schedule.json";
 import Card from "@/components/ui/Card";
 import ListLoader from "@/components/ui/ListLoader";
 import Pagination from "@/components/ui/Pagination";
@@ -12,7 +13,13 @@ import Tooltip from "@/components/ui/Tooltip";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 
 const PAGE_SIZE = 5;
+const ORDER_BATCH_SIZE = 1000;
 const BUSINESS_TIME_ZONE = "America/Sao_Paulo";
+const DAY_MS = 24 * 60 * 60 * 1000;
+const MARGIN_MS = PAYOUT_MARGIN_MINUTES * 60 * 1000;
+const PAYOUT_COLUMNS = "id, restaurant_id, amount_cents, status, created_at, paid_at, order_count, gross_cents, payzu_fee_cents, discount_cents";
+// The deploy manifest defines a fixed UTC time for the daily payout.
+const [PAYOUT_HOUR_UTC, PAYOUT_MINUTE_UTC] = cronSchedule["daily-payout"].split(" ")[1].split(":").map(Number);
 
 interface Payout {
     id: string;
@@ -25,6 +32,56 @@ interface Payout {
     gross_cents: number | null;
     payzu_fee_cents: number | null;
     discount_cents: number | null;
+}
+
+type PendingPixOrder = {
+    total_cents: number;
+    created_at: string;
+    payment_paid_at: string | null;
+};
+
+function payoutTimeOnUtcDay(date: Date) {
+    return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), PAYOUT_HOUR_UTC, PAYOUT_MINUTE_UTC);
+}
+
+function payoutForecastAt(runAt: number) {
+    const date = new Date(runAt);
+    date.setUTCHours(15, 0, 0, 0); // 12:00 in São Paulo.
+    return date;
+}
+
+function forecastPayouts(orders: PendingPixOrder[], restaurantId: string, now: Date): Payout[] {
+    const todaysRun = payoutTimeOnUtcDay(now);
+    const nextRun = payoutForecastAt(todaysRun).getTime() < now.getTime() ? todaysRun + DAY_MS : todaysRun;
+    const batches = new Map<number, { grossCents: number; orderCount: number }>();
+
+    for (const order of orders) {
+        const createdAt = Date.parse(order.created_at);
+        const paidAt = order.payment_paid_at ? Date.parse(order.payment_paid_at) : createdAt;
+        const eligibleAt = Math.max(createdAt, paidAt) + MARGIN_MS;
+        const eligibleRun = payoutTimeOnUtcDay(new Date(eligibleAt));
+        const runAt = Math.max(nextRun, eligibleRun < eligibleAt ? eligibleRun + DAY_MS : eligibleRun);
+        const batch = batches.get(runAt) ?? { grossCents: 0, orderCount: 0 };
+        batch.grossCents += order.total_cents;
+        batch.orderCount++;
+        batches.set(runAt, batch);
+    }
+
+    return [...batches.entries()].sort(([a], [b]) => a - b).map(([time, batch]) => {
+        const { netCents, discountCents } = calculateOnePercentPayout(batch.grossCents, 0);
+        return {
+            id: `forecast-${time}`,
+            restaurant_id: restaurantId,
+            amount_cents: netCents,
+            status: "forecast",
+            created_at: payoutForecastAt(time).toISOString(),
+            paid_at: null,
+            order_count: batch.orderCount,
+            gross_cents: batch.grossCents,
+            payzu_fee_cents: null,
+            discount_cents: discountCents,
+        };
+    });
 }
 
 interface PayoutsDashboardProps {
@@ -58,9 +115,9 @@ const getStatusPresentation = (status: string) => {
         };
     }
 
-    if (status === "pending") {
+    if (status === "pending" || status === "forecast") {
         return {
-            label: "A receber",
+            label: status === "forecast" ? "Previsto" : "A receber",
             dotClass: "bg-yellow-500",
             textClass: "text-yellow-700",
         };
@@ -110,8 +167,7 @@ export default function PayoutsDashboard({
     endDate,
 }: PayoutsDashboardProps) {
     const [payouts, setPayouts] = useState<Payout[]>([]);
-    const [dueCents, setDueCents] = useState(0);
-    const [dueOrderCount, setDueOrderCount] = useState(0);
+    const [due, setDue] = useState({ cents: 0, orderCount: 0 });
     const [lastPaidPayout, setLastPaidPayout] = useState<Payout | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -125,110 +181,105 @@ export default function PayoutsDashboard({
     useEffect(() => {
         if (!menuId) return;
 
+        const controller = new AbortController();
         const fetchPayouts = async () => {
             setIsLoading(true);
             setError(null);
 
             try {
-                let historyQuery = supabase
-                    .from("payouts")
-                    .select(
-                        "id, restaurant_id, amount_cents, status, created_at, paid_at, order_count, gross_cents, payzu_fee_cents, discount_cents",
-                        { count: "exact" }
-                    )
-                    .eq("restaurant_id", menuId)
-                    .order("created_at", { ascending: false })
-                    .range(
-                        page * PAGE_SIZE,
-                        (page + 1) * PAGE_SIZE - 1
-                    );
-
-                if (startDate) {
-                    historyQuery = historyQuery.gte(
-                        "created_at",
-                        `${startDate}T00:00:00-03:00`
-                    );
-                }
-
-                if (endDate) {
-                    historyQuery = historyQuery.lte(
-                        "created_at",
-                        `${endDate}T23:59:59.999-03:00`
-                    );
-                }
-
-                const [historyResult, latestPayoutResult, lastPaidResult] =
-                    await Promise.all([
-                        historyQuery,
-                        supabase
-                            .from("payouts")
-                            .select("created_at")
-                            .eq("restaurant_id", menuId)
-                            .order("created_at", { ascending: false })
-                            .limit(1)
-                            .maybeSingle(),
-                        supabase
-                            .from("payouts")
-                            .select(
-                                "id, restaurant_id, amount_cents, status, created_at, paid_at, order_count, gross_cents, payzu_fee_cents, discount_cents"
-                            )
-                            .eq("restaurant_id", menuId)
-                            .eq("status", "paid")
-                            .order("created_at", { ascending: false })
-                            .limit(1)
-                            .maybeSingle(),
-                    ]);
-
-                if (historyResult.error) throw historyResult.error;
+                const { signal } = controller;
+                const [latestPayoutResult, lastPaidResult] = await Promise.all([
+                    supabase
+                        .from("payouts")
+                        .select("created_at")
+                        .eq("restaurant_id", menuId)
+                        .order("created_at", { ascending: false, nullsFirst: false })
+                        .limit(1)
+                        .abortSignal(signal)
+                        .maybeSingle(),
+                    supabase
+                        .from("payouts")
+                        .select(PAYOUT_COLUMNS)
+                        .eq("restaurant_id", menuId)
+                        .eq("status", "paid")
+                        .order("created_at", { ascending: false, nullsFirst: false })
+                        .limit(1)
+                        .abortSignal(signal)
+                        .maybeSingle(),
+                ]);
                 if (latestPayoutResult.error) throw latestPayoutResult.error;
                 if (lastPaidResult.error) throw lastPaidResult.error;
 
-                let dueOrdersQuery = supabase
+                let ordersQuery = supabase
                     .from("orders")
-                    .select("total_cents")
+                    .select("total_cents, created_at, payment_paid_at")
                     .eq("restaurant_id", menuId)
                     .eq("payment_method", "pix")
                     .not("payment_ref", "is", null)
-                    .in("status", ["paid", "preparing", "delivering", "done"]);
+                    .in("status", ["paid", "preparing", "delivering", "done"])
+                    .order("id")
+                    .abortSignal(signal);
 
                 if (latestPayoutResult.data?.created_at) {
-                    dueOrdersQuery = dueOrdersQuery.gt(
-                        "created_at",
-                        latestPayoutResult.data.created_at
-                    );
+                    const cutoff = new Date(latestPayoutResult.data.created_at).toISOString();
+                    ordersQuery = ordersQuery.or(`created_at.gt.${cutoff},payment_paid_at.gt.${cutoff}`);
                 }
 
-                const dueOrdersResult = await dueOrdersQuery;
-                if (dueOrdersResult.error) throw dueOrdersResult.error;
+                const pendingOrders: PendingPixOrder[] = [];
+                for (let offset = 0; ; offset += ORDER_BATCH_SIZE) {
+                    const result = await ordersQuery.range(offset, offset + ORDER_BATCH_SIZE - 1);
+                    if (result.error) throw result.error;
+                    pendingOrders.push(...result.data);
+                    if (result.data.length < ORDER_BATCH_SIZE) break;
+                }
 
-                const dueOrders = dueOrdersResult.data || [];
-                const grossDueCents = dueOrders.reduce(
-                    (sum, order) => sum + Number(order.total_cents || 0),
-                    0
-                );
-                const { netCents } = calculateOnePercentPayout(
-                    grossDueCents,
-                    dueOrders.length
-                );
+                const forecasts = forecastPayouts(pendingOrders, menuId, new Date());
+                const offset = page * PAGE_SIZE;
+                const forecastPage = forecasts.slice(offset, offset + PAGE_SIZE);
+                const historySize = PAGE_SIZE - forecastPage.length;
+                const historyOffset = Math.max(0, offset - forecasts.length);
 
-                setPayouts((historyResult.data || []) as Payout[]);
-                setTotalCount(
-                    historyResult.count ?? historyResult.data?.length ?? 0
-                );
-                setDueCents(netCents);
-                setDueOrderCount(dueOrders.length);
-                setLastPaidPayout(
-                    (lastPaidResult.data as Payout | null) || null
-                );
+                let historyQuery = supabase
+                    .from("payouts")
+                    .select(PAYOUT_COLUMNS, { count: "exact", head: historySize === 0 })
+                    .eq("restaurant_id", menuId)
+                    .order("created_at", { ascending: false })
+                    .order("id")
+                    .abortSignal(signal);
+
+                if (startDate) historyQuery = historyQuery.gte("created_at", `${startDate}T00:00:00-03:00`);
+                if (endDate) historyQuery = historyQuery.lte("created_at", `${endDate}T23:59:59.999-03:00`);
+                if (historySize > 0) historyQuery = historyQuery.range(historyOffset, historyOffset + historySize - 1);
+
+                const historyResult = await historyQuery;
+                if (historyResult.error) throw historyResult.error;
+                if (signal.aborted) return;
+
+                const rowCount = forecasts.length + (historyResult.count ?? 0);
+                const lastPage = Math.max(0, Math.ceil(rowCount / PAGE_SIZE) - 1);
+                if (page > lastPage) {
+                    setPage(lastPage);
+                    return;
+                }
+
+                setPayouts([...forecastPage, ...(historyResult.data ?? [])]);
+                setDue({
+                    cents: forecasts.reduce((total, payout) => total + payout.amount_cents, 0),
+                    orderCount: pendingOrders.length,
+                });
+                setTotalCount(rowCount);
+                setLastPaidPayout(lastPaidResult.data);
             } catch (caught) {
+                if (controller.signal.aborted) return;
                 console.error(caught);
                 setError("Não foi possível carregar os repasses.");
             } finally {
-                setIsLoading(false);
+                if (!controller.signal.aborted) setIsLoading(false);
             }
         };
 
         void fetchPayouts();
+        return () => controller.abort();
     }, [menuId, page, startDate, endDate]);
 
     if (isLoading) {
@@ -268,11 +319,11 @@ export default function PayoutsDashboard({
                         Repasse a receber
                     </h2>
                     <p className="mt-2 text-3xl font-medium tabular-nums tracking-tight text-gray-900">
-                        {formatPrice(dueCents)}
+                        {formatPrice(due.cents)}
                     </p>
                     <p className="mt-2 text-sm text-gray-500">
-                        {dueOrderCount > 0
-                            ? `${dueOrderCount} ${dueOrderCount === 1 ? "pedido via Pix aguardando" : "pedidos via Pix aguardando"} o próximo repasse.`
+                        {due.orderCount > 0
+                            ? `${due.orderCount} ${due.orderCount === 1 ? "pedido via Pix aguardando" : "pedidos via Pix aguardando"} repasse.`
                             : "Nenhum valor pendente para repasse."}
                     </p>
                 </Card>
@@ -297,7 +348,7 @@ export default function PayoutsDashboard({
             <Card>
                 <div className="mb-6">
                     <h2 className="text-lg font-bold text-gray-900 2xl:text-xl">
-                        Histórico de Repasses
+                        Repasses
                     </h2>
                     <p className="text-sm text-gray-500 2xl:text-base">
                         Repasses diários às 12:00. Veja o horário, status e composição de cada repasse.
@@ -339,7 +390,7 @@ export default function PayoutsDashboard({
                                             </Tooltip>
                                         </span>
                                     </th>
-                                    <th className="px-3 py-3 text-right">Valor repassado</th>
+                                    <th className="px-3 py-3 text-right">Valor líquido</th>
                                 </tr>
                             </thead>
                             <tbody>

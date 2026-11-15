@@ -295,7 +295,7 @@ async function renderPublicPage(url: URL): Promise<string> {
     }
 }
 
-export async function readPublicMenuLink(raw: string): Promise<string> {
+export async function readPublicMenuLink(raw: string, onExtracted?: (text: string) => void): Promise<string> {
     let url = validateUrl(raw.trim());
 
     for (let redirect = 0; redirect <= 3; redirect++) {
@@ -339,6 +339,7 @@ export async function readPublicMenuLink(raw: string): Promise<string> {
         } else {
             text = content.slice(0, MAX_TEXT_LENGTH);
         }
+        onExtracted?.(text);
         if (text.trim().length < 80) {
             throw new MenuLinkError(
                 "Não encontramos conteúdo suficiente nesse link. Envie fotos ou PDF do cardápio."

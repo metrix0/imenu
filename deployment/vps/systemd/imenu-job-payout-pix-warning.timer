@@ -1,7 +1,0 @@
-[Unit]
-Description=iMenu payout-pix-warning schedule
-[Timer]
-OnCalendar=*-*-* 06:00:00 America/Sao_Paulo
-Persistent=false
-[Install]
-WantedBy=timers.target

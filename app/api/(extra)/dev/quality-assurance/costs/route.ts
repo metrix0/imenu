@@ -25,6 +25,7 @@ type CostPayload = {
     usdBrlRate: number;
     totalUsd: number;
     daily: { date: string; usd: number }[];
+    models: { id: string; dailyUsd: number[] }[];
     breakdown: { label: string; usd: number; share: number; usage: string }[];
 };
 let cached: { until: number; value: CostPayload } | null = null;
@@ -60,7 +61,8 @@ function usageForLineItem(lineItem: string): string {
         { model: process.env.OPENAI_SUPPORT_MODEL?.trim() || "gpt-5.6-luna", feature: "Suporte Chatbot IA — Chat e visão de imagens" },
         { model: process.env.OPENAI_SUPPORT_FOLLOWUP_MODEL?.trim() || "gpt-4o-mini", feature: "Suporte Chatbot IA — Acompanhamento" },
         { model: "gpt-4o-mini-transcribe", feature: "Suporte Chatbot IA — Transcrever áudios" },
-        { model: process.env.OPENAI_MENU_SCAN_MODEL?.trim() || "gpt-4.1", feature: "Importação de Cardápio — Leitura IA" },
+        { model: process.env.OPENAI_MENU_SCAN_MODEL?.trim() || "gpt-6-luna", feature: "Importação de Cardápio — Leitura IA" },
+        { model: "gpt-4.1", feature: "Importação de Cardápio — Leitura IA" },
     ];
     const matched = uses
         .filter(({ model }) => lineItemMatchesModel(lineItem, model))
@@ -70,12 +72,20 @@ function usageForLineItem(lineItem: string): string {
         : "Origem não identificada no iMenu.";
 }
 
+function modelFromLineItem(lineItem: string): string | undefined {
+    // Batch prefixes and audio/image/text modalities belong to the same billed model.
+    const label = lineItem.slice(lineItem.lastIndexOf("|") + 1).trim();
+    const model = label.match(/^((?:gpt-|chatgpt-|o\d|text-embedding-|whisper-|tts-|dall-e-|sora-|omni-moderation-|codex-|computer-use-|ft:)[a-z0-9_.:-]*)(?:\s+(?:audio|image|text))?(?=\s*(?:,|$))/i);
+    return model?.[1];
+}
+
 async function loadCosts(adminKey: string): Promise<CostPayload> {
     // Complete UTC days, excluding the current (possibly incomplete) billing day.
     const end = Math.floor(Date.now() / 86400000) * 86400;
     const start = end - DAYS * 86400;
     const daily = new Map<string, number>();
     const categories = new Map<string, number>();
+    const dailyByModel = new Map<string, Map<string, number>>();
     let page: string | null = null;
     let complete = false;
 
@@ -113,6 +123,12 @@ async function loadCosts(adminKey: string): Promise<CostPayload> {
                 const label = result.line_item?.trim() || "Não categorizado";
                 daily.set(date, (daily.get(date) || 0) + usd);
                 categories.set(label, (categories.get(label) || 0) + usd);
+                const model = modelFromLineItem(label);
+                if (model) {
+                    const modelDays = dailyByModel.get(model) ?? new Map<string, number>();
+                    modelDays.set(date, (modelDays.get(date) ?? 0) + usd);
+                    dailyByModel.set(model, modelDays);
+                }
             }
         }
         if (!body.has_more) { complete = true; break; }
@@ -147,6 +163,9 @@ async function loadCosts(adminKey: string): Promise<CostPayload> {
         averageDaily7dUsd: series.slice(-7).reduce((sum, day) => sum + day.usd, 0) / 7,
         totalUsd,
         daily: series,
+        models: Array.from(dailyByModel.keys()).sort().map(id => ({
+            id, dailyUsd: series.map(({ date }) => dailyByModel.get(id)?.get(date) ?? 0),
+        })),
         breakdown: top.map(item => ({
             ...item, share: totalUsd === 0 ? 0 : (item.usd / totalUsd) * 100,
             usage: usageForLineItem(item.label),

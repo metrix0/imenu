@@ -1,7 +1,7 @@
 import { GET, POST } from "./route";
 import { query } from "@/lib/database/sql";
 import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
-import { readPublicMenuLink } from "@/lib/menu/readPublicMenuLink";
+import { MenuLinkError, readPublicMenuLink } from "@/lib/menu/readPublicMenuLink";
 import { recordGeminiMenuFallback } from "@/lib/dev/health";
 
 const mockOpenAiCreate = jest.fn();
@@ -30,6 +30,11 @@ jest.mock("@/lib/auth/restaurantOwner", () => {
 const restaurantId = "restaurant-1";
 const url = `https://example.test/api/scan-menu?restaurantId=${restaurantId}`;
 const request = () => new Request(url, { headers: { Authorization: "Bearer test" } });
+const submitLink = (menuUrl = "https://example.test/menu") => new Request(url, {
+    method: "POST", headers: { Authorization: "Bearer test", "Content-Type": "application/json" },
+    body: JSON.stringify({ restaurantId, menuUrl, urls: [] }),
+});
+const diagnostics = () => (query as jest.Mock).mock.calls.filter(([sql]) => sql.includes("INSERT INTO public.menu_scan_events"));
 const post = () => new Request(url, {
     method: "POST", headers: { Authorization: "Bearer test", "Content-Type": "application/json" },
     body: JSON.stringify({ restaurantId, urls: ["https://example.test/menu.png"] }),
@@ -42,15 +47,20 @@ const setExistingItems = (itemCount: number) => {
     });
 };
 
+const configuredMenuModel = process.env.OPENAI_MENU_SCAN_MODEL;
+
 beforeEach(() => {
     jest.resetAllMocks();
     (requireRestaurantOwner as jest.Mock).mockResolvedValue({});
     process.env.OPENAI_API_KEY = "test-only-key";
+    delete process.env.OPENAI_MENU_SCAN_MODEL;
 });
 
 afterEach(() => {
     delete process.env.OPENAI_API_KEY;
     delete process.env.GEMINI_API_KEY;
+    if (configuredMenuModel === undefined) delete process.env.OPENAI_MENU_SCAN_MODEL;
+    else process.env.OPENAI_MENU_SCAN_MODEL = configuredMenuModel;
     jest.restoreAllMocks();
 });
 
@@ -127,16 +137,34 @@ it("retries a hydrated public menu with OpenAI when Gemini returns no products",
         expect(payload.items).toHaveLength(1);
         expect(payload.items[0].price_cents).toBe(1900);
         expect(readPublicMenuLink).toHaveBeenCalledTimes(1);
+        expect(diagnostics()).toHaveLength(1);
+        expect(diagnostics()[0][1].slice(0,7)).toEqual([restaurantId, "link", "success", 0, null, 1, null]);
         expect(geminiFetch).toHaveBeenCalledTimes(1);
         expect(mockOpenAiCreate).toHaveBeenCalledTimes(1);
+        expect(mockOpenAiCreate).toHaveBeenCalledWith(expect.objectContaining({
+            model: "gpt-6-luna",
+            reasoning: { effort: "none" },
+            text: {
+                format: {
+                    type: "json_schema",
+                    name: "menu_scan",
+                    strict: true,
+                    schema: expect.objectContaining({
+                        required: ["items", "categories"],
+                        additionalProperties: false,
+                    }),
+                },
+            },
+        }));
         expect(recordGeminiMenuFallback).toHaveBeenCalledWith("Gemini não identificou produtos");
     } finally {
         global.fetch = previousFetch;
     }
 });
 
-it("records missing Gemini key when an import uses OpenAI directly", async () => {
+it("honors the OpenAI model override when Gemini is unavailable", async () => {
     setExistingItems(0);
+    process.env.OPENAI_MENU_SCAN_MODEL = "gpt-4.1";
     mockOpenAiCreate.mockResolvedValue({
         output_text: JSON.stringify({
             items: [{ name: "Suco", description: null, price_cents: 900,
@@ -148,6 +176,10 @@ it("records missing Gemini key when an import uses OpenAI directly", async () =>
     const response = await POST(post());
     expect(response.status).toBe(200);
     expect(recordGeminiMenuFallback).toHaveBeenCalledWith("GEMINI_API_KEY ausente");
+    const [request] = mockOpenAiCreate.mock.calls[0];
+    expect(request.model).toBe("gpt-4.1");
+    expect(request).not.toHaveProperty("reasoning");
+    expect(request.text.format.strict).toBe(true);
 });
 
 it("records a Gemini rate-limit fallback without exposing the response body", async () => {
@@ -176,4 +208,56 @@ it("records a Gemini rate-limit fallback without exposing the response body", as
     } finally {
         global.fetch = previousFetch;
     }
+});
+
+it("records short extracted text on link failure and redacts contact and URL details", async () => {
+    setExistingItems(0);
+    (readPublicMenuLink as jest.Mock).mockImplementation(async (_url, onExtracted) => {
+        onExtracted("Carregando cardápio. contato@example.com\nhttps://example.test/m?secret=abc\nDados estruturados:\nhidden text");
+        throw new MenuLinkError("Não encontramos conteúdo suficiente nesse link.");
+    });
+    const response = await POST(submitLink("https://example.test/menu?secret=abc"));
+    expect(response.status).toBe(422);
+    expect(diagnostics()).toHaveLength(1);
+    expect(diagnostics()[0][1].slice(2,11)).toEqual([
+        "failed", null, null, null, null, "link_http_422", "example.test",
+        expect.any(Number), "Carregando cardápio. [email] [url]",
+    ]);
+    expect(mockOpenAiCreate).not.toHaveBeenCalled();
+});
+
+it("records both zero outcomes when neither provider recovers a link", async () => {
+    setExistingItems(0);
+    process.env.GEMINI_API_KEY = "test-gemini-key";
+    (readPublicMenuLink as jest.Mock).mockImplementation(async (_url, onExtracted) => {
+        onExtracted("Carregando cardápio.");
+        return "Carregando cardápio.";
+    });
+    const previousFetch = global.fetch;
+    const empty = JSON.stringify({ items: [], categories: [] });
+    global.fetch = jest.fn().mockResolvedValue({
+        ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: empty }] } }] }),
+    }) as unknown as typeof fetch;
+    mockOpenAiCreate.mockResolvedValue({ output_text: empty });
+    try {
+        expect((await POST(submitLink())).status).toBe(422);
+        expect(diagnostics()).toHaveLength(1);
+        expect(diagnostics()[0][1].slice(2,11)).toEqual([
+            "empty", 0, null, 0, null, "no_products", "example.test", 20, "Carregando cardápio.",
+        ]);
+    } finally {
+        global.fetch = previousFetch;
+    }
+});
+
+it("preserves the import response when writing diagnostics fails", async () => {
+    setExistingItems(0);
+    const baselineQuery = (query as jest.Mock).getMockImplementation()!;
+    (query as jest.Mock).mockImplementation(async (sql, params) => {
+        if (sql.includes("INSERT INTO public.menu_scan_events")) throw new Error("DB unavailable");
+        return baselineQuery(sql, params);
+    });
+    (readPublicMenuLink as jest.Mock).mockRejectedValue(new MenuLinkError("Link inacessível."));
+    expect((await POST(submitLink())).status).toBe(422);
+    expect(diagnostics()).toHaveLength(1);
 });

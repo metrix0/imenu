@@ -18,6 +18,7 @@ import ConsumerPipelineCard from "@/components/common/analytics/ConsumerPipeline
 import SalesRankingSection from "@/components/dev/SalesRankingSection";
 import IaAssistantConversationsSection from "@/components/dev/IaAssistantConversationsSection";
 import Button from "@/components/ui/Button";
+import styles from "@/components/dev/dashboard.module.css";
 import InfoTooltip from "@/components/ui/Tooltip";
 import { PanelIcon } from "@/components/ui/PanelIcon";
 import { faCircleInfo } from "@fortawesome/free-solid-svg-icons";
@@ -822,8 +823,8 @@ export default function DevDashboardPage() {
                                         </span>
                                     </div>
                                     {details.monthlyRevenue.pixPayers.length ? (
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full min-w-[760px] text-left text-sm">
+                                        <div className={styles.fitLegacyTable}>
+                                            <table className="w-full text-left text-sm">
                                                 <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                                                     <tr>
                                                         <th className="px-5 py-3 font-semibold">Restaurante</th>
@@ -841,7 +842,7 @@ export default function DevDashboardPage() {
                                                                 key={`${payer.restaurantId}-${payer.productKey}`}
                                                                 className="hover:bg-gray-50/70"
                                                             >
-                                                                <td className="px-5 py-4 font-medium text-gray-900">
+                                                                <td data-label="Restaurante" className="px-5 py-4 font-medium text-gray-900">
                                                                     {payer.slug ? (
                                                                         <a
                                                                             href={`https://imenuapp.com.br/${payer.slug}`}
@@ -855,27 +856,27 @@ export default function DevDashboardPage() {
                                                                         payer.restaurantName
                                                                     )}
                                                                 </td>
-                                                                <td className="px-5 py-4 text-gray-600">
+                                                                <td data-label="Add-on" className="px-5 py-4 text-gray-600">
                                                                     {addonProductLabel(
                                                                         payer.productKey
                                                                     )}
                                                                 </td>
-                                                                <td className="px-5 py-4 text-gray-600">
+                                                                <td data-label="Pago em" className="px-5 py-4 text-gray-600">
                                                                     {formatDateTime(
                                                                         payer.paidAt
                                                                     )}
                                                                 </td>
-                                                                <td className="px-5 py-4 text-gray-600">
+                                                                <td data-label="Acesso até" className="px-5 py-4 text-gray-600">
                                                                     {formatDateTime(
                                                                         payer.currentPeriodEndsAt
                                                                     )}
                                                                 </td>
-                                                                <td className="px-5 py-4 text-right font-semibold tabular-nums text-gray-900">
+                                                                <td data-label="Valor" className="px-5 py-4 text-right font-semibold tabular-nums text-gray-900">
                                                                     {formatCurrencyFromCents(
                                                                         payer.amountCents
                                                                     )}
                                                                 </td>
-                                                                <td className="px-5 py-4">
+                                                                <td data-label="Situação" className="px-5 py-4">
                                                                     <span
                                                                         className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
                                                                             payer.active
@@ -1378,8 +1379,8 @@ export default function DevDashboardPage() {
                                 </div>
                                 {details?.didNotActivateUsers.length ? (
                                     <>
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full min-w-[760px] text-left text-sm">
+                                        <div className={styles.fitLegacyTable}>
+                                            <table className="w-full text-left text-sm">
                                                 <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                                                     <tr>
                                                         <th className="px-5 py-4 font-semibold">Restaurante</th>
@@ -1397,16 +1398,16 @@ export default function DevDashboardPage() {
                                                             key={user.restaurantId}
                                                             className="hover:bg-gray-50/70"
                                                         >
-                                                            <td className="px-5 py-4 font-medium text-gray-900">
+                                                            <td data-label="Restaurante" className="px-5 py-4 font-medium text-gray-900">
                                                                 {user.restaurantName}
                                                             </td>
-                                                            <td className="px-5 py-4 text-gray-600">
+                                                            <td data-label="Celular do responsável" className="px-5 py-4 text-gray-600">
                                                                 {formatPhone(user.ownerPhone)}
                                                             </td>
-                                                            <td className="px-5 py-4 text-right tabular-nums text-gray-700">
+                                                            <td data-label="Tentativas" className="px-5 py-4 text-right tabular-nums text-gray-700">
                                                                 {formatCount(user.orderAttempts)}
                                                             </td>
-                                                            <td className="px-5 py-4 text-gray-600">
+                                                            <td data-label="Última tentativa" className="px-5 py-4 text-gray-600">
                                                                 {formatDateTime(user.lastOrderAt)}
                                                             </td>
                                                         </tr>
@@ -1500,8 +1501,8 @@ export default function DevDashboardPage() {
                                 </div>
                                 {details?.abandonedUsers.length ? (
                                     <>
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full min-w-[1180px] text-left text-sm">
+                                        <div className={styles.fitLegacyTable}>
+                                            <table className="w-full text-left text-sm">
                                                 <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                                                     <tr>
                                                         <th className="px-5 py-4 font-semibold">Restaurante</th>
@@ -1527,7 +1528,7 @@ export default function DevDashboardPage() {
                                                                 key={user.accountId}
                                                                 className="hover:bg-gray-50/70"
                                                             >
-                                                                <td className="px-5 py-4 font-medium text-gray-900">
+                                                                <td data-label="Restaurante" className="px-5 py-4 font-medium text-gray-900">
                                                                     <span className="inline-flex items-center gap-2">
                                                                         {user.activeCustomerAbandoned && (
                                                                             <span className="text-base text-amber-500">★</span>
@@ -1535,25 +1536,25 @@ export default function DevDashboardPage() {
                                                                         {user.restaurantName}
                                                                     </span>
                                                                 </td>
-                                                                <td className="px-5 py-4 text-gray-600">
+                                                                <td data-label="Telefone" className="px-5 py-4 text-gray-600">
                                                                     {formatPhone(user.phone)}
                                                                 </td>
-                                                                <td className="px-5 py-4 text-gray-600">
+                                                                <td data-label="Telefone loja" className="px-5 py-4 text-gray-600">
                                                                     {formatPhone(user.storeWhatsapp)}
                                                                 </td>
-                                                                <td className="px-5 py-4 text-right tabular-nums text-gray-700">
+                                                                <td data-label="Pedidos" className="px-5 py-4 text-right tabular-nums text-gray-700">
                                                                     {formatCount(user.last30DaysOrders)}
                                                                 </td>
-                                                                <td className="px-5 py-4 text-right tabular-nums text-gray-700">
+                                                                <td data-label="Clientes" className="px-5 py-4 text-right tabular-nums text-gray-700">
                                                                     {formatCount(user.last30DaysCustomers)}
                                                                 </td>
-                                                                <td className="px-5 py-4 text-right font-semibold tabular-nums text-gray-900">
+                                                                <td data-label="GMV" className="px-5 py-4 text-right font-semibold tabular-nums text-gray-900">
                                                                     {formatCurrencyFromCents(user.last30DaysGmvCents)}
                                                                 </td>
-                                                                <td className="px-5 py-4 text-gray-600">
+                                                                <td data-label="Último pedido" className="px-5 py-4 text-gray-600">
                                                                     {formatDateTime(user.lastOrderAt)}
                                                                 </td>
-                                                                <td className="px-5 py-4 text-right">
+                                                                <td data-label="Contato" className="px-5 py-4 text-right">
                                                                     <button
                                                                         type="button"
                                                                         disabled={!whatsappNumber}
@@ -1738,8 +1739,8 @@ export default function DevDashboardPage() {
                                 />
                             </div>
                             <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-                                <div className="overflow-x-auto">
-                                    <table className="w-full min-w-[760px] text-left text-sm">
+                                <div className={styles.fitLegacyTable}>
+                                    <table className="w-full text-left text-sm">
                                         <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                                             <tr>
                                                 <th className="px-5 py-4 font-semibold">Página</th>
@@ -1752,7 +1753,7 @@ export default function DevDashboardPage() {
                                         <tbody className="divide-y divide-gray-100">
                                             {data.traffic.pages.map((page) => (
                                                 <tr key={page.path} className="hover:bg-gray-50/70">
-                                                    <td className="px-5 py-4">
+                                                    <td data-label="Página" className="px-5 py-4">
                                                         <a
                                                             href={page.path}
                                                             target="_blank"
@@ -1763,14 +1764,14 @@ export default function DevDashboardPage() {
                                                         </a>
                                                         <p className="mt-1 text-xs text-gray-500">{page.label}</p>
                                                     </td>
-                                                    <td className="px-5 py-4 text-gray-600">{page.kind}</td>
-                                                    <td className="px-5 py-4 text-right tabular-nums text-gray-700">
+                                                    <td data-label="Tipo" className="px-5 py-4 text-gray-600">{page.kind}</td>
+                                                    <td data-label="Visitantes" className="px-5 py-4 text-right tabular-nums text-gray-700">
                                                         {data.traffic.available ? formatCount(page.visitors) : "—"}
                                                     </td>
-                                                    <td className="px-5 py-4 text-right tabular-nums text-gray-700">
+                                                    <td data-label="Foram ao index" className="px-5 py-4 text-right tabular-nums text-gray-700">
                                                         {data.traffic.available ? formatCount(page.homeVisitors) : "—"}
                                                     </td>
-                                                    <td className="px-5 py-4 text-right">
+                                                    <td data-label="Taxa" className="px-5 py-4 text-right">
                                                         <span className="inline-flex min-w-16 justify-center rounded-full bg-brand/10 px-3 py-1 font-semibold tabular-nums text-brand">
                                                             {data.traffic.available ? formatRatio(page.ratio) : "—"}
                                                         </span>
@@ -1861,8 +1862,8 @@ export default function DevDashboardPage() {
                                         </h3>
                                     </div>
                                     {details.qrTable.buyers.length ? (
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full min-w-[900px] text-left text-sm">
+                                        <div className={styles.fitLegacyTable}>
+                                            <table className="w-full text-left text-sm">
                                                 <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                                                     <tr>
                                                         <th className="px-5 py-4 font-semibold">Restaurante</th>
@@ -1876,22 +1877,22 @@ export default function DevDashboardPage() {
                                                 <tbody className="divide-y divide-gray-100">
                                                     {details.qrTable.buyers.map((buyer) => (
                                                         <tr key={buyer.restaurantId} className="hover:bg-gray-50/70">
-                                                            <td className="px-5 py-4 font-medium text-gray-900">
+                                                            <td data-label="Restaurante" className="px-5 py-4 font-medium text-gray-900">
                                                                 {buyer.restaurantName}
                                                             </td>
-                                                            <td className="px-5 py-4 text-gray-600">
+                                                            <td data-label="Cardápio" className="px-5 py-4 text-gray-600">
                                                                 {buyer.domain || (buyer.slug ? `imenuapp.com.br/${buyer.slug}` : "—")}
                                                             </td>
-                                                            <td className="px-5 py-4 text-gray-600">
+                                                            <td data-label="Origem" className="px-5 py-4 text-gray-600">
                                                                 {qrTableSourceLabel(buyer.source)}
                                                             </td>
-                                                            <td className="px-5 py-4 text-gray-600">
+                                                            <td data-label="Ativado em" className="px-5 py-4 text-gray-600">
                                                                 {formatDateTime(buyer.activatedAt)}
                                                             </td>
-                                                            <td className="px-5 py-4 text-right tabular-nums text-gray-700">
+                                                            <td data-label="Mesas" className="px-5 py-4 text-right tabular-nums text-gray-700">
                                                                 {formatCount(buyer.tableCount)}
                                                             </td>
-                                                            <td className="px-5 py-4">
+                                                            <td data-label="Situação" className="px-5 py-4">
                                                                 <span className="inline-flex rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800">
                                                                     {qrTableStatusLabel(buyer.status)}
                                                                 </span>

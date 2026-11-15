@@ -303,7 +303,7 @@ export default function HistoricoPage() {
 
             <DailyCashClosing restaurantId={restaurantId} refreshKey={cashRefreshKey} />
 
-            <PanelFeatureCallout feature="analytics" />
+            <PanelFeatureCallout feature="vendas-ia" />
 
             <ConfirmModal
                 open={orderToDelete !== null}
