@@ -5,6 +5,7 @@ import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/res
 import { readPublicMenuLink, MenuLinkError } from "@/lib/menu/readPublicMenuLink";
 import { query } from "@/lib/database/sql";
 import { recordGeminiMenuFallback } from "@/lib/dev/health";
+import { menuScanLinkDomain, recordMenuScan, type MenuScanDiagnostics } from "@/lib/menu/scanDiagnostics";
 
 export const runtime = "nodejs";
 
@@ -878,17 +879,8 @@ export async function POST(req: Request) {
     const geminiApiKey = process.env.GEMINI_API_KEY?.trim();
     const openAiApiKey = process.env.OPENAI_API_KEY?.trim();
 
-    if (!geminiApiKey && !openAiApiKey) {
-        return NextResponse.json(
-            {
-                error: "A análise por IA está temporariamente indisponível.",
-                details:
-                    "GEMINI_API_KEY e OPENAI_API_KEY não estão configuradas.",
-            },
-            { status: 503 }
-        );
-    }
-
+    const startedAt = Date.now();
+    let diagnostic: MenuScanDiagnostics | undefined;
     let isLinkImport = false;
     try {
         const { urls, restaurantId, menuUrl } = (await req.json()) as ScanRequest;
@@ -901,6 +893,21 @@ export async function POST(req: Request) {
         }
 
         await requireRestaurantOwner(req, restaurantId);
+        diagnostic = {
+            restaurantId, inputType: menuUrl === undefined ? "files" : "link",
+            outcome: "failed", elapsedMs: 0,
+        };
+        if (!geminiApiKey && !openAiApiKey) {
+            diagnostic.errorCode = "providers_unconfigured";
+            return NextResponse.json(
+                {
+                    error: "A análise por IA está temporariamente indisponível.",
+                    details: "GEMINI_API_KEY e OPENAI_API_KEY não estão configuradas.",
+                },
+                { status: 503 },
+            );
+        }
+
         const access = await getScanAccess(restaurantId);
         const existingMenuContext = access.hasItems ? await getExistingMenuContext(restaurantId) : undefined;
 
@@ -908,58 +915,68 @@ export async function POST(req: Request) {
         if (menuUrl !== undefined) {
             isLinkImport = true;
             if (typeof menuUrl !== "string" || (Array.isArray(urls) && urls.length > 0)) {
+                diagnostic.errorCode = "invalid_link_input";
                 return NextResponse.json(
                     { error: "Informe apenas um link de cardápio válido." },
                     { status: 400 }
                 );
             }
-            pageText = await readPublicMenuLink(menuUrl);
+            diagnostic.linkDomain = menuScanLinkDomain(menuUrl);
+            const linkDiagnostic = diagnostic;
+            pageText = await readPublicMenuLink(menuUrl, text => { linkDiagnostic.extractedText = text; });
         } else if (
             !Array.isArray(urls) ||
             urls.length === 0 ||
             urls.some((url) => typeof url !== "string" || !url.startsWith("http"))
         ) {
+            diagnostic.errorCode = "invalid_files";
             return NextResponse.json(
                 { error: "Envie ao menos uma imagem ou PDF válido." },
                 { status: 400 }
             );
         }
 
-        let parsed: ParsedMenu;
-
+        let parsed: ParsedMenu | undefined;
+        let fallbackReason: string | undefined;
         if (geminiApiKey) {
-            let usedOpenAiFallback = false;
             try {
                 parsed = await scanWithGemini(geminiApiKey, urls, pageText, existingMenuContext);
+                diagnostic.geminiItems = parsed.items.length;
             } catch (geminiError) {
+                diagnostic.geminiError = geminiFallbackReason(geminiError);
                 if (!openAiApiKey || !shouldUseOpenAIFallback(geminiError)) {
+                    diagnostic.errorCode = "gemini_failed";
                     throw geminiError;
                 }
-
-                console.warn(
-                    "[SCAN_MENU] Gemini failed; using OpenAI fallback:",
-                    geminiError instanceof Error
-                        ? geminiError.message
-                        : geminiError
-                );
-
-                usedOpenAiFallback = true;
-                await recordGeminiMenuFallback(geminiFallbackReason(geminiError));
-                parsed = await scanWithOpenAI(openAiApiKey, urls, pageText, existingMenuContext);
+                console.warn("[SCAN_MENU] Gemini failed; using OpenAI fallback:", diagnostic.geminiError);
+                fallbackReason = diagnostic.geminiError;
             }
-            // A syntactically valid empty Gemini response is not success when
-            // importing a public menu. Give OpenAI a chance to read the same page.
-            if (!usedOpenAiFallback && parsed.items.length === 0 && openAiApiKey) {
+            if (parsed?.items.length === 0 && openAiApiKey) {
                 console.warn("[SCAN_MENU] Gemini found zero products; trying OpenAI fallback");
-                await recordGeminiMenuFallback("Gemini não identificou produtos");
-                parsed = await scanWithOpenAI(openAiApiKey, urls, pageText, existingMenuContext);
+                fallbackReason = "Gemini não identificou produtos";
             }
         } else {
-            await recordGeminiMenuFallback("GEMINI_API_KEY ausente");
-            parsed = await scanWithOpenAI(openAiApiKey!, urls, pageText, existingMenuContext);
+            diagnostic.geminiError = fallbackReason = "GEMINI_API_KEY ausente";
         }
 
-        if (parsed.items.length === 0) {
+        if (fallbackReason && openAiApiKey) {
+            await recordGeminiMenuFallback(fallbackReason);
+            try {
+                parsed = await scanWithOpenAI(openAiApiKey, urls, pageText, existingMenuContext);
+                diagnostic.openAiItems = parsed.items.length;
+            } catch (error) {
+                const status = error && typeof error === "object" && "status" in error ? error.status : null;
+                diagnostic.openAiError = typeof status === "number" ? `OpenAI HTTP ${status}`
+                    : error instanceof MenuJsonParseError ? "Resposta OpenAI com JSON inválido"
+                    : "Falha de leitura com OpenAI";
+                diagnostic.errorCode = "openai_failed";
+                throw error;
+            }
+        }
+
+        if (!parsed?.items.length) {
+            diagnostic.outcome = "empty";
+            diagnostic.errorCode = "no_products";
             return NextResponse.json(
                 {
                     error: isLinkImport
@@ -973,8 +990,13 @@ export async function POST(req: Request) {
             );
         }
 
-        return NextResponse.json(buildResponse(parsed, restaurantId));
+        const response = NextResponse.json(buildResponse(parsed, restaurantId));
+        diagnostic.outcome = "success";
+        return response;
     } catch (error: unknown) {
+        if (diagnostic && !diagnostic.errorCode) {
+            diagnostic.errorCode = error instanceof MenuLinkError ? `link_http_${error.status}` : "scan_failed";
+        }
         const message =
             error instanceof Error ? error.message : "Erro desconhecido";
 
@@ -1017,5 +1039,10 @@ export async function POST(req: Request) {
             },
             { status: isQuotaError || isAuthError ? 503 : 500 }
         );
+    } finally {
+        if (diagnostic) {
+            diagnostic.elapsedMs = Date.now() - startedAt;
+            await recordMenuScan(diagnostic);
+        }
     }
 }
