@@ -380,9 +380,11 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
 
     const paymentMethod = order.payment_method || "";
     const paymentLabel = isCounterOrder && paymentMethod === "pix-entrega" ? "Pix" : paymentLabels[paymentMethod] || paymentMethod || "Pagamento";
-    const cashChangeObservation = order.order_items
-        .map((item) => item.observation?.match(CASH_CHANGE_OBSERVATION)?.[0].trim())
-        .find(Boolean);
+    const cashChangeObservation = paymentMethod === "dinheiro"
+        ? order.order_items
+            .map((item) => item.observation?.match(CASH_CHANGE_OBSERVATION)?.[0].trim())
+            .find(Boolean)
+        : undefined;
 
     const config = statusConfig[order.status] || statusConfig.pending_online_payment;
     const showBackButton = !deliveryOnly && ["preparing", "delivering", "done"].includes(order.status);
@@ -406,16 +408,16 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
     const deliveryEtaTooltip = !isScheduled && !isCounterOrder ? formatEtaRange(order.delivery_eta) : "";
     const paymentBadge = (
         <div
-            tabIndex={paymentMethod === "dinheiro" ? 0 : undefined}
-            aria-label={paymentMethod === "dinheiro" ? "Informações sobre troco" : undefined}
+            tabIndex={cashChangeObservation ? 0 : undefined}
+            aria-label={cashChangeObservation ? "Informações sobre troco" : undefined}
             className={`flex shrink-0 items-center text-xs -ml-1 px-2 py-0.5 rounded-full font-medium min-[1800px]:text-base min-[1800px]:px-3 min-[1800px]:py-1 ${
                 paymentMethod === "pix"
                     ? "bg-green-100 text-green-800"
                     : "bg-gray-200 text-gray-700"
-            } ${paymentMethod === "dinheiro" ? "cursor-help" : ""}`}
+            } ${cashChangeObservation ? "cursor-help" : ""}`}
         >
             <span>{paymentLabel}</span>
-            {paymentMethod === "dinheiro" && (
+            {cashChangeObservation && (
                 <span className="ml-1.5 inline-flex leading-none text-gray-500">
                     <FontAwesomeIcon icon={faCircleInfo} />
                 </span>
@@ -442,10 +444,8 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
                 </div>
                 <div className="panel-order-meta flex items-center gap-2">
                     {!isTableOrder && (
-                        paymentMethod === "dinheiro" ? (
-                            <CashChangeInfo text={cashChangeObservation
-                                ? withCashChangeAmount(cashChangeObservation, order.total_cents)
-                                : "Cliente não pediu troco"}>
+                        cashChangeObservation ? (
+                            <CashChangeInfo text={withCashChangeAmount(cashChangeObservation, order.total_cents)}>
                                 {paymentBadge}
                             </CashChangeInfo>
                         ) : paymentBadge
