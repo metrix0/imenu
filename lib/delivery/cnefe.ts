@@ -55,6 +55,17 @@ export async function lookupCnefe(address: Address, origin?: Coordinates): Promi
                 points = candidate;
             }
         }
+        if (!points.length && address.uf === "DF" && /^\d{8}$/.test(address.cep)) {
+            // Correios and the census use different names for Brasília's commercial blocks.
+            const block = /^(?:quadra )?(q[a-z]+ \d+[a-z]? conjunto [a-z0-9]+)(?: comercio)?$/.exec(street)?.[1];
+            if (block) {
+                const district = normalizeNeighborhoodName(address.bairro.split("(")[0]);
+                const selectBlock = db.prepare(
+                    "SELECT lat, lon, number, cep FROM points WHERE city = ? AND street IN (?, ?) AND bairro = ? AND cep = ? LIMIT ?",
+                );
+                points = selectBlock.all(city, `edf ${block} comercio`, `edf ${block}`, district, Number(address.cep), maximumPoints + 1) as IndexedPoint[];
+            }
+        }
         if (!points.length || points.length > maximumPoints) return null;
 
         const number = normalize(address.number).replace(/ /g, "").replace(/^0+(?=\d)/, "");

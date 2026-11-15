@@ -61,3 +61,28 @@ test("rejects another bairro and reports partial coverage", async () => {
     await rm(join(directory, "RS.sqlite"));
     expect(await checkCnefe()).toMatchObject({ state: "failed" });
 });
+
+test("matches a Brasília commercial block by its IBGE name and exact CEP", async () => {
+    await writeFile(join(directory, "municipalities.json"), '{"DF":{"brasilia":5300108}}');
+    const db = new DatabaseSync(join(directory, "DF.sqlite"));
+    try {
+        db.exec(`
+            CREATE TABLE points (city INTEGER, street TEXT, bairro TEXT, number TEXT, cep INTEGER, lat INTEGER, lon INTEGER);
+            INSERT INTO points VALUES
+                (5300108, 'edf qs 602 conjunto f comercio', 'samambaia norte', '1', 72322506, -15863013, -48091070),
+                (5300108, 'edf qs 602 conjunto f comercio', 'samambaia norte', '1', 72322507, -15890000, -48190000);
+        `);
+    } finally {
+        db.close();
+    }
+
+    const address = {
+        city: "Brasília", uf: "DF", street: "Quadra QS 602 Conjunto F",
+        bairro: "Samambaia Norte (Samambaia)", number: "1", cep: "72322506",
+    };
+    const origin = { latitude: -15.8752393, longitude: -48.0942183 };
+    const result = await lookupCnefe(address, origin);
+    expect(result?.point).toEqual({ latitude: -15.863013, longitude: -48.09107 });
+    expect(result?.range?.max).toBeLessThan(1.5);
+    expect(await lookupCnefe({ ...address, cep: "72322999" }, origin)).toBeNull();
+});

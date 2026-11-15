@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
 type RadiusRule = {
     radius_km: number;
     time_minutes: number;
-    fee_cents: number;
+    fee_cents: number | null;
 };
 function getDistanceInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
     const R = 6371; // Raio da Terra
@@ -72,7 +72,7 @@ export async function POST(request: Request) {
         let calculatedTime: number | null = null;
         for (const rule of rules) {
             if (distanceKm <= rule.radius_km) {
-                calculatedFee = rule.fee_cents;
+                calculatedFee = rule.fee_cents ?? 0;
                 calculatedTime = rule.time_minutes;
                 break; 
             }
