@@ -101,15 +101,13 @@ function RestaurantDetails({ restaurant: initialRestaurant, onLoaded }: { restau
     }
     if(!data&&!error&&!initialRestaurant.created_at)return <DevLoading/>;
     return <div className="space-y-6">
-        <div className="flex flex-wrap items-start justify-between gap-5">
-            <div className="min-w-0 flex-1 space-y-4">
-                <dl className={styles.crmDetails}>
-                    <div><dt>E-mail</dt><dd title={restaurant.email || undefined}>{restaurant.email || "—"}</dd></div>
-                    <div><dt>Celular loja</dt><dd><PhoneLink phone={restaurant.store_phone} /></dd></div>
-                    <div><dt>Celular dono</dt><dd><PhoneLink phone={restaurant.owner_phone || restaurant.phone} /></dd></div>
-                    <div><dt>Conta há</dt><dd>{accountAge(restaurant.created_at)}</dd></div>
-                </dl>
-            </div>
+        <div className="space-y-4">
+            <dl className={`${styles.crmDetails} max-w-4xl`}>
+                <div><dt>E-mail</dt><dd title={restaurant.email || undefined}>{restaurant.email || "—"}</dd></div>
+                <div><dt>Celular loja</dt><dd><PhoneLink phone={restaurant.store_phone} /></dd></div>
+                <div><dt>Celular dono</dt><dd><PhoneLink phone={restaurant.owner_phone || restaurant.phone} /></dd></div>
+                <div><dt>Conta há</dt><dd>{accountAge(restaurant.created_at)}</dd></div>
+            </dl>
             <div className="flex flex-wrap items-center gap-2">
                 <IaAssistantConversationsSection restaurant={{ restaurantId: restaurant.id, restaurantName: restaurant.name }} />
                 <Button variant="secondary" leftIcon={<MessageCircle size={16} aria-hidden="true" />} onClick={() => openConversation(restaurant.support_conversation_id ? { id: restaurant.support_conversation_id, mode: restaurant.support_mode === "human" ? "human" : "ai", restaurant_name: restaurant.name } : null, restaurant.name)}>Abrir conversa</Button>
