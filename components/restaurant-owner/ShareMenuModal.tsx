@@ -129,7 +129,7 @@ export default function ShareMenuModal({
     }
 
     return (
-        <Modal height={showQr ? 600 : 390} open={isOpen} onClose={handleClose} className="max-w-sm">
+        <Modal height={showQr ? 650 : 440} open={isOpen} onClose={handleClose} className="max-w-sm">
             <div className="p-6 text-center flex flex-col items-center">
                 <div className="w-12 h-12 bg-brand/10 text-brand rounded-full flex items-center justify-center mb-4">
                     <FontAwesomeIcon icon={icons.faLink} className="text-xl" />
@@ -177,7 +177,10 @@ export default function ShareMenuModal({
                     </div>
                 </div>
 
-                <Button onClick={handleClose} className="w-full" variant="secondary">
+                <Button type="button" onClick={handleOrder} className="w-full">
+                    Abrir cardápio
+                </Button>
+                <Button type="button" onClick={handleClose} className="mt-2 w-full" variant="secondary">
                     Fechar
                 </Button>
             </div>
