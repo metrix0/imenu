@@ -384,6 +384,15 @@ export default function PainelPedidosAtivosPage() {
                         Esta página recebe pedidos automaticamente, não é
                         necessário atualizar.
                     </p>
+                    <Button
+                        type="button"
+                        onClick={() => setIsShareModalOpen(true)}
+                        variant="secondary"
+                        className="mt-4"
+                        leftIcon={<FontAwesomeIcon icon={faShareAlt} />}
+                    >
+                        Compartilhe seu cardápio
+                    </Button>
                 </div>
             ) : (
                 <div className="panel-orders">
