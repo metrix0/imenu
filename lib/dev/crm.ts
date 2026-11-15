@@ -69,9 +69,9 @@ const LAST_SUPPORT_JOIN = `LEFT JOIN LATERAL (
 const ACCOUNT = "COALESCE(r.user_id,r.id)";
 const OWNED_ACCOUNT = "COALESCE(owned.user_id,owned.id)";
 const PURCHASE_DAY = "(o.created_at AT TIME ZONE 'America/Sao_Paulo')::date";
-const RECOVERY_AS_OF = "((date_trunc('day', NOW() AT TIME ZONE 'America/Sao_Paulo') + INTERVAL '20 hours') AT TIME ZONE 'America/Sao_Paulo')";
+const RECOVERY_AS_OF = "((date_trunc('day', NOW() AT TIME ZONE 'America/Sao_Paulo') + INTERVAL '19 hours') AT TIME ZONE 'America/Sao_Paulo')";
 // Use grouped account ID sets so pagination and counts do not run per-row scans.
-// The recovery sets match the daily 20:00 SP eligibility snapshot.
+// The recovery sets match the daily 19:00 SP eligibility snapshot.
 const ACCOUNT_PLUS = [
     ACCOUNT + " IN (SELECT " + OWNED_ACCOUNT + " FROM restaurant_addons addon",
     "JOIN restaurants owned ON owned.id=addon.restaurant_id",

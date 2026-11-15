@@ -1,6 +1,6 @@
 import {buildExpiryMessage} from "@/lib/services/addonExpiryMessage";
 import { PAYOUT_BLAST_AUTOMATIONS } from "@/lib/services/payoutAutomation";
-import { ABANDONED_BLAST_MESSAGE, PLUS_ABANDONED_BLAST_MESSAGE, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE, RECOVERY_DAILY_LIMIT } from "./abandonedBlast";
+import { ABANDONED_BLAST_MESSAGE, PLUS_ABANDONED_BLAST_MESSAGE, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE, CHURN_BLASTS } from "./abandonedBlast";
 import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGE, PLUS_FEEDBACK_DAILY_LIMIT } from "./plusFeedbackBlast";
 import { DID_NOT_ACTIVATE_BLAST_MESSAGE } from "./didNotActivateBlast";
 import { MESSAGE_ROWS_SQL } from "./messageHistory";
@@ -9,10 +9,7 @@ import { DEV_BLAST_PAGE_SIZE, devPage, paged } from "./pagination";
 
 // Existing campaign and send logs are the source of truth; no additional registry/table.
 export const AUTOMATED_BLASTS = [
-    {id:"recovery-plus",name:"Abandonados Plus",sender:"blast",message:PLUS_ABANDONED_BLAST_MESSAGE,criteria:"Plus ativo · pedidos em 2+ dias no último mês · 14 dias sem pedidos · maior GMV primeiro",trigger:"Cron diário às 19:00 (São Paulo)",limit:RECOVERY_DAILY_LIMIT},
-    {id:"recovery",name:"Abandonados iMenu",sender:"blast",message:ABANDONED_BLAST_MESSAGE,criteria:"iMenu sem Plus · pedidos em 2+ dias no último mês · 14 dias sem pedidos · maior GMV primeiro",trigger:"Cron diário às 19:00 (São Paulo)",limit:RECOVERY_DAILY_LIMIT},
-    {id:"single-order",name:"Um único dia de pedidos",sender:"blast",message:SINGLE_ORDER_DAY_RECOVERY_MESSAGE,criteria:"Cadastro completo · pedidos em apenas 1 dia nos últimos 14 dias",trigger:"Cron diário às 19:00 (São Paulo)",limit:RECOVERY_DAILY_LIMIT},
-    {id:"first-order",name:"Não ativados",sender:"blast",message:NO_FIRST_ORDER_RECOVERY_MESSAGE,criteria:"Cadastro completo há 24–48h · ainda sem primeiro pedido",trigger:"Cron diário às 19:00 (São Paulo)",limit:RECOVERY_DAILY_LIMIT},
+    ...CHURN_BLASTS,
     {id:"plus-feedback",name:"Feedback · 1º mês Plus",sender:"support",message:PLUS_FIRST_MONTH_FEEDBACK_MESSAGE,criteria:"7 dias antes da 1ª renovação/vencimento · Pix primeiro",trigger:"Cron diário às 19:00 (São Paulo)",limit:PLUS_FEEDBACK_DAILY_LIMIT},
     {id:"expiry",name:"Vencimento iMenu Plus · Pix",sender:"support",message:buildExpiryMessage({pix:["ia_plus"],card:[]}),criteria:"Plus Pix · 1 dia antes do fim do período pago",trigger:"Cron diário às 15:00 (São Paulo)",limit:null},
     {id:"expiry-card",name:"Cancelamento iMenu Plus · Cartão",sender:"support",message:buildExpiryMessage({pix:[],card:["ia_plus"]}),criteria:"Cartão cancelado · 1 dia antes do fim do período pago",trigger:"Cron diário às 15:00 (São Paulo)",limit:null},

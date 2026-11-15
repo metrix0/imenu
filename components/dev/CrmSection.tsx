@@ -13,7 +13,14 @@ import {useDevProfile,PhoneLink,CustomerBadge,type Restaurant} from "./DevProfil
 import {accountAge, formatCurrencyFromCents, formatDateTime} from "@/lib/dev/dashboardFormat";
 const empty = <T,>(): PageData<T> => ({ rows: [], page: 0, total: 0, pageCount: 1 });
 
-function CrmList({ search, plan, activity, onOpen }: { search: string; plan: string; activity: string; onOpen: (row: Restaurant) => void }) {
+export function CrmList({ search = "", plan = "all", activity, title, onTotalChange }: {
+    search?: string;
+    plan?: string;
+    activity: string;
+    title?: string;
+    onTotalChange?: (activity: string, total: number) => void;
+}) {
+    const { openProfile } = useDevProfile();
     const [page, setPage] = useState(0);
     const [sort, setSort] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
     const [data, setData] = useState(empty<Restaurant>);
@@ -38,16 +45,22 @@ function CrmList({ search, plan, activity, onOpen }: { search: string; plan: str
             params.set("direction", sort.direction);
         }
         void devJson<PageData<Restaurant>>(`/api/dev/restaurants?${params}`, { signal: controller.signal })
-            .then(result => { setData(result); setError(""); })
+            .then(result => {
+                if (controller.signal.aborted) return;
+                setData(result);
+                setError("");
+                onTotalChange?.(activity, result.total);
+            })
             .catch(e => { if (!controller.signal.aborted) setError(e.message); })
             .finally(() => { if (!controller.signal.aborted) setLoading(false); });
         return () => controller.abort();
-    }, [search, plan, activity, page, sort]);
-    return <section className={styles.tableSection}>
+    }, [search, plan, activity, page, sort, onTotalChange]);
+    return <section className={styles.tableSection} aria-label={title}>
+        {title && <h2>{title}</h2>}
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
         <div className={styles.crmTable}>
             <PagedTable pageSize={10} data={data} loading={loading} rowKey={r => r.id} onPage={setPage}
-                onRowClick={onOpen} sortKey={sort?.key} sortDirection={sort?.direction} onSort={onSort} columns={[
+                onRowClick={openProfile} sortKey={sort?.key} sortDirection={sort?.direction} onSort={onSort} columns={[
                 { key: "name", label: "Restaurante", sortable: true, render: r => <span className="block min-w-0 truncate whitespace-nowrap font-medium" title={r.name}>{r.name}</span> },
                 { key: "status", label: "Cliente", sortable: true, render: r => <CustomerBadge restaurant={r} /> },
                 { key: "store", label: "Celular loja", sortable: true, render: r => <PhoneLink phone={r.store_phone} /> },
@@ -62,7 +75,7 @@ function CrmList({ search, plan, activity, onOpen }: { search: string; plan: str
                         </Tooltip>
                     ) : "—",
                 },
-                { key: "open", label: "", render: r => <button type="button" title="Ver detalhes" aria-label={`Ver detalhes de ${r.name}`} onClick={e => { e.stopPropagation(); onOpen(r); }} className="cursor-pointer rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-brand"><Eye size={16} aria-hidden="true" /></button> },
+                { key: "open", label: "", render: r => <button type="button" title="Ver detalhes" aria-label={`Ver detalhes de ${r.name}`} onClick={e => { e.stopPropagation(); openProfile(r); }} className="cursor-pointer rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-brand"><Eye size={16} aria-hidden="true" /></button> },
             ]} />
         </div>
     </section>;
@@ -73,7 +86,6 @@ export default function CrmSection() {
     const [query, setQuery] = useState("");
     const [plan, setPlan] = useState("all");
     const [activity, setActivity] = useState("all");
-    const {openProfile}=useDevProfile();
     useEffect(() => { const timer = setTimeout(() => setQuery(search), 300); return () => clearTimeout(timer); }, [search]);
     return <div className="space-y-6">
         <div className="flex flex-wrap items-end gap-3">
@@ -91,6 +103,6 @@ export default function CrmSection() {
                 { value: "no_first_order", label: "Não ativados" },
             ]} /></div>
         </div>
-        <CrmList search={query} plan={plan} activity={activity} onOpen={openProfile} />
+        <CrmList search={query} plan={plan} activity={activity} />
     </div>;
 }
