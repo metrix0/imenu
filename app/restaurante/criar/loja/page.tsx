@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/database/supabaseClient";
-import { DEFAULT_RESTAURANT_NAME } from "@/lib/restaurantCreation";
+import { generateUnnamedRestaurantName } from "@/lib/restaurantCreation";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import StoreSettings, {
     type StoreSettingsRestaurant,
@@ -197,7 +197,7 @@ export default function LojaPage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     creation_step: 4,
-                    ...(!name.trim() ? { name: DEFAULT_RESTAURANT_NAME } : {}),
+                    ...(!name.trim() ? { name: generateUnnamedRestaurantName() } : {}),
                 }),
             });
             if (!response.ok) throw new Error("Não foi possível continuar.");

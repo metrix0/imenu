@@ -1,5 +1,5 @@
 import { query, withTransaction } from "@/lib/database/sql";
-import { DEFAULT_RESTAURANT_NAME } from "@/lib/restaurantCreation";
+import { generateUnnamedRestaurantName } from "@/lib/restaurantCreation";
 import { seedPizzaExample } from "@/lib/pizza/onboarding";
 import { NextResponse } from "next/server";
 
@@ -248,7 +248,7 @@ export async function PATCH(
                 let updated = await client.query(updateSql, values);
                 const restaurant = updated.rows[0];
                 if (restaurant && (!restaurant.name?.trim() || !restaurant.url_slug?.trim())) {
-                    const name = restaurant.name?.trim() ? restaurant.name : DEFAULT_RESTAURANT_NAME;
+                    const name = restaurant.name?.trim() ? restaurant.name : generateUnnamedRestaurantName();
                     const slug = restaurant.url_slug?.trim()
                         ? restaurant.url_slug
                         : await generateUniqueSlug(name, id, (sql, params) => client.query(sql, params));

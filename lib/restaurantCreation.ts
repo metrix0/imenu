@@ -1,4 +1,6 @@
-export const DEFAULT_RESTAURANT_NAME = "Sem Nome";
+export function generateUnnamedRestaurantName(): string {
+    return `Sem Nome ${Math.floor(1000 + Math.random() * 9000)}`;
+}
 
 export const CREATION_STEP_PATHS = {
     1: "/restaurante/criar/cardapio",
