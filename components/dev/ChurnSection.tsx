@@ -17,6 +17,7 @@ export default function ChurnSection() {
 
     return (
         <div className="min-w-0 max-w-full space-y-6 overflow-x-clip">
+            <p className="text-sm text-gray-600">Todas as janelas abaixo usam as 19h de hoje como referência (horário de São Paulo).</p>
             <dl className={styles.metricStrip} aria-label="Indicadores de churn">
                 {cohorts.map(([activity, { name, criteria }]) => (
                     <div key={activity}>
