@@ -56,11 +56,41 @@ test.each([4, 5])("finishing step %s preserves first completion and seeds once",
     expect(clientQuery.mock.calls[1][1]).toEqual(["restaurant", step, false]);
 });
 
+test("first completion opens a shop with empty hours until the next store midnight", async () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-11-15T23:45:00Z"));
+    try {
+        clientQuery
+            .mockResolvedValueOnce({ rows: [{ first_time: true }] })
+            .mockResolvedValueOnce({ rows: [{ ...row, availability_json: { 0: [], 1: [] } }] });
+
+        expect((await PATCH(request({ creation_step: 5, first_time: false }), context)).status).toBe(200);
+        expect(clientQuery).toHaveBeenCalledWith(
+            expect.stringContaining("SET is_closed = NULL, manual_open_until = $2::timestamptz"),
+            ["restaurant", "2026-11-16T03:00:00.000Z"],
+        );
+    } finally {
+        jest.useRealTimers();
+    }
+});
+
+test.each([
+    { availability_json: { 1: [{ open: "18:00", close: "22:00" }] } },
+    { availability_json: {}, preorder_only: true },
+])("first completion keeps the opening policy when the shop has hours or only takes preorders", async (settings) => {
+    clientQuery
+        .mockResolvedValueOnce({ rows: [{ first_time: true }] })
+        .mockResolvedValueOnce({ rows: [{ ...row, ...settings }] });
+
+    expect((await PATCH(request({ creation_step: 5, first_time: false }), context)).status).toBe(200);
+    expect(clientQuery).toHaveBeenCalledTimes(2);
+});
+
 test("repeated completion keeps the original completion date and does not reseed", async () => {
     clientQuery.mockImplementation(async (sql: string) =>
         ({ rows: sql.startsWith("SELECT") ? [{ first_time: false }] : [row] }));
     expect((await PATCH(request({ creation_step: 5, first_time: false }), context)).status).toBe(200);
     expect(seedPizzaExample).not.toHaveBeenCalled();
+    expect(clientQuery).toHaveBeenCalledTimes(2);
 });
 
 test("completing onboarding gives an unnamed restaurant a six-digit name and public link", async () => {

@@ -970,7 +970,6 @@ export default function MenuClientPage({
 
             {!readOnly && restaurant.preorder_only !== true && availabilityChecked && (!isRestaurantOpen || closedForToday) && (
                 <WarningBox icon={icons.faTriangleExclamation} className="mt-10 mx-5 md:mx-48 2xl:mx-80">
-                    {!closedForToday && !warningOpening && <>Restaurante fechado no momento.</>}
                     {closedForToday && (
                         <>
                             Hoje o restaurante está fechado no horário comum de funcionamento, devido à possíveis feriados ou eventos especiais.

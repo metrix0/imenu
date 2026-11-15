@@ -1,5 +1,7 @@
 import { query, withTransaction } from "@/lib/database/sql";
 import { DEFAULT_DELIVERY_RANGES } from "@/lib/delivery/defaultRanges";
+import { hasOrderHours } from "@/lib/menu/orderAvailability";
+import { nextStoreMidnight } from "@/lib/menu/storeHoursOverride";
 import { generateUnnamedRestaurantName } from "@/lib/restaurantCreation";
 import { seedPizzaExample } from "@/lib/pizza/onboarding";
 import { NextResponse } from "next/server";
@@ -250,7 +252,7 @@ export async function PATCH(
             UPDATE public.restaurants
             SET ${fieldsToUpdate.join(", ")}, updated_at = NOW()
             WHERE id = $1
-            RETURNING ${returnedFields}
+            RETURNING ${returnedFields}${completingOnboarding ? ", availability_json, preorder_only" : ""}
         `;
         const { rows } = completingOnboarding
             ? await withTransaction(async (client) => {
@@ -271,6 +273,13 @@ export async function PATCH(
                     );
                 }
                 if (previous && previous.first_time !== false) {
+                    if (restaurant && restaurant.preorder_only !== true && !hasOrderHours(restaurant.availability_json)) {
+                        await client.query(
+                            `UPDATE public.restaurants SET is_closed = NULL, manual_open_until = $2::timestamptz
+                             WHERE id = $1`,
+                            [id, nextStoreMidnight(new Date())],
+                        );
+                    }
                     await seedPizzaExample(client, id, previous.name, previous.pizza_settings);
                 }
                 return updated;
