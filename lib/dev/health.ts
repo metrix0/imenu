@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { query } from "@/lib/database/sql";
 
 export const INTEGRATIONS = [
@@ -32,9 +33,22 @@ export type DevAlertInput = {
     incidentKey?: string;
 };
 
+function isProductionAlertRuntime(): boolean {
+    try {
+        // The VPS release workflow writes this into the read-only standalone release.
+        return readFileSync(".imenu-deployment-environment", "utf8").trim() === "production";
+    } catch {
+        return false;
+    }
+}
+
 export async function recordDevAlert(input: DevAlertInput) {
     const source = input.source.trim() || "unknown";
     const severity = input.severity || "error";
+    if (!isProductionAlertRuntime()) {
+        console.warn("[DEV_HEALTH]", { source, severity, title: input.title.slice(0, 200) });
+        return { phoneNotified: false, deliveryError: null };
+    }
     const alarm = input.trigger === "alarm" ||
         (input.trigger === undefined && (severity === "critical" || /(?:ALARM TRIGGER|TRIGGER ALARM)/.test(input.title)));
     const trigger: AlertTrigger = input.trigger || (alarm ? "alarm" :
@@ -104,6 +118,7 @@ export async function recordDevAlert(input: DevAlertInput) {
 }
 
 export async function resolveDevIncident(incidentKey: string) {
+    if (!isProductionAlertRuntime()) return;
     try {
         await query(
             "UPDATE public.dev_alerts SET resolved_at=NOW(),last_seen_at=NOW() WHERE incident_key=$1 AND resolved_at IS NULL",
@@ -128,6 +143,7 @@ export async function recordGeminiMenuFallback(reason: string): Promise<void> {
             trigger: "none",
             operation: GEMINI_FALLBACK_OPERATION,
         });
+        if (!isProductionAlertRuntime()) return;
         const result = await query<{ total: number }>(
             "SELECT COUNT(*)::int AS total FROM public.dev_alerts WHERE source='gemini' AND operation=$1 AND severity='info' AND created_at >= NOW() - INTERVAL '1 hour'",
             [GEMINI_FALLBACK_OPERATION]
@@ -158,6 +174,7 @@ export type ProbeResult = {
 };
 
 export async function recordIntegrationProbe(result: ProbeResult) {
+    if (!isProductionAlertRuntime()) return result;
     try {
         const previous = await query<{ state: string | null; check_kind: string }>(
             "SELECT state,check_kind FROM public.dev_integration_status WHERE source=$1", [result.id]

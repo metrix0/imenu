@@ -166,6 +166,7 @@ jobs:
           if [[ "$TARGET" == production ]]; then
             cp deployment/vps/cron-schedule.json .next/standalone/.imenu-cron-schedule.json
           fi
+          printf '%s\n' "$TARGET" > .next/standalone/.imenu-deployment-environment
           printf '%s\n' "$TARGET_SHA" > .next/standalone/.imenu-commit-sha
           printf '%s\n' "$PUBLIC_CONFIG_HASH" > .next/standalone/.imenu-public-config-sha256
           python3 - <<'PYASSET'
