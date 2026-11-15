@@ -1,9 +1,11 @@
-import { alarmUnnotifiedPayoutFailures, notifyPayoutProblem } from "@/lib/services/payoutNotifications";
+import { alarmUnnotifiedPayoutFailures, notifyPayoutProblem, notifyUpcomingPayoutPixProblem } from "@/lib/services/payoutNotifications";
 import { getMercadoPagoPixPayment } from "@/lib/payments/mercadoPagoPix";
 import * as https from "node:https";
+import { setTimeout as delay } from "node:timers/promises";
 
 import { query, withTransaction } from "@/lib/database/sql";
 import { calculateOnePercentPayout } from "@/lib/services/payoutSafety";
+import { getPayoutPixProblem } from "@/lib/services/payoutAutomation";
 
 const ASAAS_BASE_URL = (
     process.env.ASAAS_API_BASE_URL?.trim() || "https://api.asaas.com/v3"
@@ -68,7 +70,6 @@ export type PayoutPlanItem = {
 export type PayoutPlan = {
     cutoffAt: Date;
     payables: PayableRestaurant[];
-    ambiguous: PayableRestaurant[];
     validationErrors: PayoutRestaurantError[];
     sendable: PayoutPlanItem[];
     grossCents: number;
@@ -178,7 +179,7 @@ async function asaasRequest<T>(
                             payload?.errors?.[0]?.description ||
                             payload?.error ||
                             `Asaas retornou HTTP ${status}.`;
-                        reject(new Error(message));
+                        reject(Object.assign(new Error(message), { status }));
                         return;
                     }
 
@@ -196,27 +197,6 @@ async function asaasRequest<T>(
     });
 }
 
-function inferPixKeyType(value: string | null): PixKeyType | null {
-    const raw = String(value || "").trim();
-    if (!raw) return null;
-
-    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(raw)) {
-        return "EVP";
-    }
-    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw)) return "EMAIL";
-    if (/^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/.test(raw)) return "CNPJ";
-    if (/^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(raw)) return "CPF";
-    if (/^\+55\D*\d{2}\D*\d{8,9}$/.test(raw) || /^\(\d{2}\)\s*\d{4,5}-?\d{4}$/.test(raw)) {
-        return "PHONE";
-    }
-
-    const digits = raw.replace(/\D/g, "");
-    if (digits.length === 14) return "CNPJ";
-    if (digits.length === 13 && digits.startsWith("55")) return "PHONE";
-
-    return null;
-}
-
 function normalizePixKey(value: string, type: PixKeyType): string {
     const raw = value.trim();
     if (type === "EMAIL" || type === "EVP") return raw;
@@ -226,12 +206,6 @@ function normalizePixKey(value: string, type: PixKeyType): string {
         digits = digits.slice(2);
     }
     return digits;
-}
-
-function resolvePixKeyType(
-    row: Pick<PayableRestaurant, "payment_info" | "payment_info_type">
-): PixKeyType | null {
-    return row.payment_info_type || inferPixKeyType(row.payment_info);
 }
 
 async function getPayables(
@@ -335,6 +309,93 @@ async function getPayables(
     }
 
     return { payables, validationErrors };
+}
+
+const PIX_KEY_FORMATS: Record<PixKeyType, RegExp> = {
+    CPF: /^(?:\d{11}|\d{3}\.\d{3}\.\d{3}-\d{2})$/,
+    CNPJ: /^(?:\d{14}|\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})$/,
+    EMAIL: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+    PHONE: /^(?:(?:\+55[ -]?)?(?:\(\d{2}\)|\d{2})[ -]?\d{4,5}-?\d{4}|55\d{10,11})$/,
+    EVP: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+};
+
+function getPixLookupParams(row: PayableRestaurant): URLSearchParams | null {
+    const type = row.payment_info_type;
+    const storedKey = row.payment_info?.trim();
+    if (!type || !storedKey || !Object.hasOwn(PIX_KEY_FORMATS, type) || !PIX_KEY_FORMATS[type].test(storedKey)) {
+        return null;
+    }
+    let key = normalizePixKey(storedKey, type);
+    if (type === "PHONE") {
+        key = "+55" + (key.length === 12 ? key.slice(2) : key);
+    }
+    return new URLSearchParams({ type, key });
+}
+
+function asaasRejectedPixKey(error: unknown): boolean {
+    if (!(error instanceof Error) || !("status" in error) || error.status !== 400) return false;
+    const message = error.message.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+    return /chave (?:pix|de enderecamento)(?: informada)? (?:nao (?:foi )?(?:encontrada|cadastrada|localizada)|(?:e )?invalida)/.test(message);
+}
+
+export async function warnAboutUpcomingPayoutPix(now = new Date()) {
+    // Check payments already confirmed before today's payout cutoff.
+    const { payables, validationErrors } = await getPayables(now);
+    const day = new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo" }).format(now);
+    const lookup = new Map<string, string[]>();
+    let invalid = 0;
+    let sent = 0;
+
+    for (const row of payables) {
+        const params = getPixLookupParams(row);
+        if (!params) {
+            invalid++;
+            if (await notifyUpcomingPayoutPixProblem(row.restaurant_id, day)) sent++;
+            continue;
+        }
+        const path = `/pix/addressKeys/external?${params}`;
+        const restaurantIds = lookup.get(path) ?? [];
+        restaurantIds.push(row.restaurant_id);
+        lookup.set(path, restaurantIds);
+    }
+
+    let remaining = 0;
+    let checked = 0;
+    if (lookup.size) {
+        try {
+            const bucket = await asaasRequest<{ remaining?: number }>("/pix/tokenBucket/addressKey");
+            remaining = bucket.remaining ?? 0;
+        } catch {
+            console.warn("[PAYOUT_PIX_WARNING] Não foi possível consultar o saldo de consultas Pix.");
+        }
+    }
+    for (const [path, restaurantIds] of lookup) {
+        // Asaas allows five lookups a minute and can charge 15 tokens for a rejected key.
+        if (remaining < 15) break;
+        if (checked > 0) await delay(15_000);
+
+        try {
+            const resolved = await asaasRequest<{ key?: string }>(path);
+            if (!resolved.key) break;
+            remaining--;
+        } catch (error) {
+            if (!asaasRejectedPixKey(error)) break;
+            remaining -= 15;
+            invalid += restaurantIds.length;
+            for (const restaurantId of restaurantIds) {
+                if (await notifyUpcomingPayoutPixProblem(restaurantId, day)) sent++;
+            }
+        }
+        checked++;
+    }
+
+    return {
+        eligible: payables.length,
+        invalid,
+        sent,
+        uncheckedKeys: lookup.size - checked,
+        unverifiedPayments: validationErrors.length,
+    };
 }
 
 type WaitingPayableRestaurant = Pick<
@@ -496,6 +557,7 @@ export async function reconcileProcessingPayouts(): Promise<void> {
         `
     );
 
+    const failedPayoutIds: string[] = [];
     if (rows.length > 0) {
         const oldest = new Date(rows[0].created_at);
         oldest.setDate(oldest.getDate() - 1);
@@ -524,19 +586,21 @@ export async function reconcileProcessingPayouts(): Promise<void> {
                     [payout.id, transfer.id || null]
                 );
             } else if (["CANCELLED", "FAILED", "REFUSED"].includes(transfer.status)) {
-                await query(
-                    `UPDATE public.payouts SET status = 'cancelled', asaas_transfer_id = COALESCE(asaas_transfer_id, $2), failure_reason=$3 WHERE id = $1 AND status = 'processing'`,
+                const { rows: cancelled } = await query<{ restaurant_id: string }>(
+                    `UPDATE public.payouts SET status = 'cancelled', asaas_transfer_id = COALESCE(asaas_transfer_id, $2), failure_reason=$3
+                     WHERE id = $1 AND status = 'processing' RETURNING restaurant_id`,
                     [payout.id, transfer.id || null, transfer.failReason || 'Transferência cancelada pelo Asaas.']
                 );
-                const owner = await query<{ restaurant_id: string }>("SELECT restaurant_id FROM payouts WHERE id=$1", [payout.id]);
-                if (owner.rows[0]) await notifyPayoutProblem(owner.rows[0].restaurant_id, false);
+                if (cancelled[0]) {
+                    await notifyPayoutProblem(cancelled[0].restaurant_id, "failed");
+                    failedPayoutIds.push(payout.id);
+                }
             }
         }
     }
 
+    if (failedPayoutIds.length > 0) await alarmUnnotifiedPayoutFailures(failedPayoutIds);
     await syncAutomationRuns();
-
-    await alarmUnnotifiedPayoutFailures();
 }
 
 export async function createPayoutPlan(input: {
@@ -568,14 +632,8 @@ export async function createPayoutPlan(input: {
             409
         );
     }
-    for (const row of payables) {
-        if (!row.payment_info?.trim()) await notifyPayoutProblem(row.restaurant_id, true);
-    }
-    const ambiguous = payables.filter(
-        (row) => row.payment_info && !resolvePixKeyType(row)
-    );
     const sendable = payables
-        .filter((row) => row.payment_info && resolvePixKeyType(row))
+        .filter((row) => !getPayoutPixProblem(row))
         .map((row) => {
             const grossCents = Number(row.gross_cents) || 0;
             const orderCount = Number(row.pix_order_count) || 0;
@@ -613,7 +671,6 @@ export async function createPayoutPlan(input: {
     return {
         cutoffAt: input.cutoffAt,
         payables,
-        ambiguous,
         validationErrors,
         sendable,
         grossCents: sendable.reduce((sum, item) => sum + item.grossCents, 0),
@@ -649,7 +706,7 @@ async function sendPayoutTransfer(input: {
                 `UPDATE public.payouts SET status = 'cancelled', asaas_transfer_id = $2, failure_reason=$3 WHERE id = $1 AND status = 'processing'`,
                 [input.payoutId, transfer.id || null, transfer.failReason || 'Transferência cancelada pelo Asaas.']
             );
-            await notifyPayoutProblem(input.restaurantId, false);
+            await notifyPayoutProblem(input.restaurantId, "failed");
             return {
                 restaurantId: input.restaurantId,
                 restaurantName: input.restaurantName,
@@ -692,7 +749,7 @@ async function sendPayoutTransfer(input: {
                 `UPDATE public.payouts SET status = 'failed', failure_reason=$2 WHERE id = $1 AND status = 'processing'`,
                 [input.payoutId, message.slice(0, 2000)]
             );
-            await notifyPayoutProblem(input.restaurantId, false);
+            await notifyPayoutProblem(input.restaurantId, "failed");
         }
 
         return {
@@ -786,9 +843,10 @@ export async function sendPayouts(input: {
     }
 
     const results: SendPayoutResult["results"] = [];
+    const failedPayoutIds: string[] = [];
 
     for (const item of plan.sendable) {
-        const keyType = resolvePixKeyType(item.row)!;
+        const keyType = item.row.payment_info_type!;
         const pixKey = normalizePixKey(item.row.payment_info!, keyType);
 
         const payoutInsert = await query<{ id: string }>(
@@ -860,24 +918,24 @@ export async function sendPayouts(input: {
             continue;
         }
 
-        results.push(
-            await sendPayoutTransfer({
-                payoutId,
-                restaurantId: item.row.restaurant_id,
-                restaurantName: item.row.restaurant_name,
-                amountCents: item.netCents,
-                pixKey,
-                keyType,
-            })
-        );
+        const result = await sendPayoutTransfer({
+            payoutId,
+            restaurantId: item.row.restaurant_id,
+            restaurantName: item.row.restaurant_name,
+            amountCents: item.netCents,
+            pixKey,
+            keyType,
+        });
+        results.push(result);
+        if (result.status === "failed") failedPayoutIds.push(payoutId);
     }
 
     const paidCount = results.filter((item) => item.status === "paid").length;
     const processingCount = results.filter((item) => item.status === "processing").length;
     const failedCount = results.filter((item) => item.status === "failed").length;
 
+    if (failedPayoutIds.length > 0) await alarmUnnotifiedPayoutFailures(failedPayoutIds);
     if (input.automationRunId) await syncAutomationRuns();
-    if (failedCount > 0) await alarmUnnotifiedPayoutFailures();
 
     return {
         cutoffAt: input.cutoffAt.toISOString(),
@@ -1075,11 +1133,11 @@ export async function retryFailedPayout(
         }
     }
 
-    const keyType = resolvePixKeyType(payout);
-    if (!payout.payment_info || !keyType) {
-        await notifyPayoutProblem(payout.restaurant_id, !payout.payment_info?.trim());
+    const pixProblem = getPayoutPixProblem(payout);
+    if (pixProblem) {
+        await notifyPayoutProblem(payout.restaurant_id, pixProblem.kind);
         throw new PayoutValidationError(
-            "O restaurante não possui uma chave PIX válida para o reenvio.",
+            pixProblem.reason,
             400
         );
     }
@@ -1145,7 +1203,8 @@ export async function retryFailedPayout(
         );
     }
 
-    const pixKey = normalizePixKey(payout.payment_info, keyType);
+    const keyType = payout.payment_info_type!;
+    const pixKey = normalizePixKey(payout.payment_info!, keyType);
     const reset = await query<{ id: string }>(
         `
         UPDATE public.payouts
@@ -1179,7 +1238,7 @@ export async function retryFailedPayout(
     });
 
     if (payout.automation_run_id) await syncAutomationRuns();
-    if (result.status === "failed") await alarmUnnotifiedPayoutFailures();
+    if (result.status === "failed") await alarmUnnotifiedPayoutFailures([payout.id]);
 
     return {
         cutoffAt: new Date().toISOString(),
@@ -1280,9 +1339,9 @@ export async function getPayoutDashboardData(options: { readOnly?: boolean } = {
                 grossCents: Number(row.gross_cents) || 0,
                 payzuFeeCents: row.provider_fee_cents,
                 pixKey: row.payment_info,
-                pixKeyType: resolvePixKeyType(row),
+                pixKeyType: row.payment_info_type,
                 pixKeyTypeStored: row.payment_info_type,
-                canSend: Boolean(row.payment_info && resolvePixKeyType(row)),
+                canSend: !getPayoutPixProblem(row),
                 waitingGrossCents: Number(waiting?.waiting_gross_cents) || 0,
                 nextEligibleAt: waiting?.next_eligible_at || null,
             };
@@ -1295,7 +1354,7 @@ export async function getPayoutDashboardData(options: { readOnly?: boolean } = {
                 grossCents: 0,
                 payzuFeeCents: 0,
                 pixKey: row.payment_info,
-                pixKeyType: resolvePixKeyType(row),
+                pixKeyType: row.payment_info_type,
                 pixKeyTypeStored: row.payment_info_type,
                 canSend: false,
                 waitingGrossCents: Number(row.waiting_gross_cents) || 0,

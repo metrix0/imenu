@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import {
     faCircleCheck,
@@ -42,6 +43,8 @@ import { formatPhone, getWhatsappUrl, statusPresentation } from "@/lib/dev/suppo
 import { useDevProfile, PhoneLink } from "./DevProfileProvider";
 import { formatResponseTime } from "@/lib/dev/dashboardFormat";
 import { devJson } from "@/lib/dev/client";
+
+const BlastSendsChart = dynamic(() => import("./BlastSendsChart"), { ssr: false });
 
 type WhatsAppConnectionKind = "support" | "blast";
 
@@ -719,6 +722,7 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                     <DataTable rows={data?.handedOff || []} rowKey={conversation => conversation.id} emptyMessage="Nenhuma conversa em atendimento humano." columns={[
                         { key: "restaurant", label: "Restaurante", render: conversation => <div className="flex min-w-0 items-center gap-2">{conversation.restaurant_id ? <button type="button" className={`${styles.profileLink} underline decoration-gray-400 hover:text-brand`} title="Abrir perfil do restaurante" onClick={() => openProfile({id:conversation.restaurant_id!,name:conversation.restaurant_name || "Restaurante"})}>{conversation.restaurant_name || "Restaurante"}</button> : <span>Restaurante não identificado</span>}{conversation.plus && <Badge variant="brand" className="shrink-0 whitespace-nowrap">iMenu Plus</Badge>}</div> },
                         { key: "attended", label: "Situação", render: conversation => <Badge variant={conversation.attended ? "success" : "danger"}>{conversation.attended ? "Atendido" : "Aguardando"}</Badge> },
+                        { key: "origin", label: "Origem", className: "w-[72px] max-sm:w-[56px] max-sm:px-1!", render: conversation => conversation.origin === "blast" ? "Blast" : "Suporte" },
                         { key: "owner", label: "Celular dono", render: conversation => <PhoneLink phone={conversation.owner_phone} /> },
                         { key: "store", label: "Celular restaurante", render: conversation => <PhoneLink phone={conversation.store_phone} /> },
                         {key:"context",label:"Última mensagem",render:conversation=><p className="truncate" title={conversation.last_message || undefined}>{conversation.last_message || "—"}</p>},
@@ -1307,6 +1311,7 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                         onAction={runAction}
                     />
                 )}
+                {section === "blast" && <BlastSendsChart refreshKey={blastRevision} />}
         </DevPage>
     );
 }

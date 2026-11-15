@@ -13,6 +13,7 @@ const confirmedPurchases = `
         SELECT payment.id::text AS id,
             addon.restaurant_id::text AS restaurant_id,
             restaurant.name AS restaurant_name,
+            restaurant.created_at AS restaurant_created_at,
             payment.paid_at,
             payment.amount_cents,
             addon.payment_provider,
@@ -49,6 +50,7 @@ type PurchaseRow = {
     restaurant_id: string;
     restaurant_name: string;
     paid_at: string;
+    purchase_elapsed_seconds: number | null;
     amount_cents: number | string;
     method: string;
     payment_provider: string | null;
@@ -82,6 +84,9 @@ export async function GET(request: Request) {
             `),
             query<PurchaseRow>(`${confirmedPurchases}
                 SELECT id, restaurant_id, restaurant_name, paid_at, amount_cents,
+                    CASE WHEN paid_at >= restaurant_created_at
+                        THEN EXTRACT(EPOCH FROM paid_at - restaurant_created_at)::double precision
+                    END AS purchase_elapsed_seconds,
                     method, payment_provider, purchase_rank, COUNT(*) OVER()::int AS total
                 FROM paid
                 ORDER BY paid_at DESC, id DESC
@@ -108,6 +113,7 @@ export async function GET(request: Request) {
                     restaurantId: row.restaurant_id,
                     restaurantName: row.restaurant_name,
                     paidAt: row.paid_at,
+                    purchaseElapsedSeconds: row.purchase_elapsed_seconds,
                     amountCents: Number(row.amount_cents),
                     method: row.method,
                     provider: row.payment_provider,

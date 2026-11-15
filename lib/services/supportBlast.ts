@@ -40,7 +40,7 @@ export async function createSupportBlast(input: {
     if ((!input.message.trim() && !input.imagePath) || !input.recipients.length || input.recipients.length > 10000) {
         throw new Error("Informe uma mensagem e de 1 a 10.000 destinatários.");
     }
-    // Recovery has one shared 13/day budget, regardless of caller-provided cadence.
+    // Recovery has one shared daily budget, regardless of caller-provided cadence.
     const dailyLimit = input.sender === "blast" && RECOVERY_MESSAGES.includes(input.message.trim())
         ? RECOVERY_DAILY_LIMIT : input.dailyLimit;
     if (dailyLimit !== null &&

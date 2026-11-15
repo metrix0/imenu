@@ -11,38 +11,30 @@ import { useDevProfile } from "./DevProfileProvider";
 import styles from "./dashboard.module.css";
 import { devJson } from "@/lib/dev/client";
 import { formatDateTime } from "@/lib/dev/dashboardFormat";
-import { formatPhone, statusPresentation } from "@/lib/dev/supportView";
-import type { Connection } from "@/lib/dev/supportTypes";
+import { formatPhone } from "@/lib/dev/supportView";
+import BlastAutomation, { BlastSender, type Automation, type Connections } from "./BlastAutomation";
+import { PAYOUT_BLAST_AUTOMATIONS } from "@/lib/services/payoutAutomation";
 
 type Target = { restaurant_id: string; name: string; kind: string };
 type Destination = { phone?: string | null; profiles?: Target[] };
 type Group = Destination & { id: string; created_at: string; message: string; sender: string; campaign_id: string | null; status?: string; total: number; sent: number; failed: number };
 type Recipient = Destination & { id: string; message: string; status: string; error: string | null; sent_at: string | null; scheduled_at?: string };
-type Automation = { id: string; name: string; message: string | null; sender: string; criteria: string; limit: number | null };
 type Data = PageData<Group> & { automations: Automation[] };
-type Connections = { support: Connection | null; blast: Connection | null };
 const empty = <T,>(): PageData<T> => ({ rows: [], total: 0, page: 0, pageCount: 1 });
 const compactButton = "!min-h-8 !px-3 !py-1.5 whitespace-nowrap";
 function groupLabel(row: Group) {
-    return row.id === "automation:recovery" ? "Recuperação e ativação" : row.id === "automation:plus-feedback" ? "Feedback · 1º mês Plus" : row.id.startsWith("congratulations:") ? "Boas-vindas iMenu Plus" : row.id.startsWith("followup:") ? "Follow-up" : row.id.startsWith("customer:") ? "Automação de clientes" : row.id.startsWith("payout:") ? "Problemas com repasse" : row.id.startsWith("expiry:") ? "Vencimento iMenu Plus" : null;
+    if (row.id.startsWith("payout-pix-warning:")) return "Aviso preventivo de Pix";
+    return row.id.startsWith("automation:recovery:") ? "Recuperação e ativação" : row.id === "automation:plus-feedback" ? "Feedback · 1º mês Plus" : row.id.startsWith("congratulations:") ? "Boas-vindas iMenu Plus" : row.id.startsWith("followup:") ? "Follow-up" : row.id.startsWith("customer:") ? "Automação de clientes" : row.id.startsWith("payout:") ? "Problemas com repasse" : row.id.startsWith("expiry:") ? "Vencimento iMenu Plus" : null;
 }
 function SendProgress({ row }: { row: Group }) {
     return <span className="whitespace-nowrap tabular-nums">{row.sent} / {row.total}</span>;
 }
-function Sender({ sender, connections }: { sender:string;connections:Connections }) {
- const connection=sender==="blast"?connections.blast:connections.support;
- const status=statusPresentation(connection);
- const healthy=connection?.desired_state==="connected"&&connection.status==="WORKING";
- return <span className="inline-flex max-w-full items-center gap-2 whitespace-nowrap" title={connection?.last_error||status.label}><span role="img" aria-label={status.label} className={`h-2 w-2 shrink-0 rounded-full ${healthy?"bg-green-600":connection?.status==="UNKNOWN"||!connection?"bg-gray-400":"bg-red-600"}`}/><span className="truncate">{sender==="blast"?"Blast":"Suporte"}</span></span>;
-}
-
 export default function BlastHistorySection({ refreshKey = 0, connections }: { refreshKey?: number; connections: Connections }) {
     const { openProfile } = useDevProfile();
     const [page, setPage] = useState(0);
-    const [automationPage, setAutomationPage] = useState(0);
     const [recipientPage, setRecipientPage] = useState(0);
     const [revision, setRevision] = useState(0);
-    const [data, setData] = useState<Data>({ ...empty<Group>(), automations: [] });
+    const [data, setData] = useState<Data | null>(null);
     const [recipients, setRecipients] = useState(empty<Recipient>);
     const [campaigns, setCampaigns] = useState(empty<Group>);
     const [selected, setSelected] = useState<Group | null>(null);
@@ -73,23 +65,21 @@ export default function BlastHistorySection({ refreshKey = 0, connections }: { r
     return <>
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
         <section className={`${styles.tableSection} ${styles.blastTable} ${styles.blastMain}`} aria-label="Blasts">
-            <PagedTable data={data} loading={loading} onPage={setPage} rowKey={r => r.id} onRowClick={openDetails} columns={[
+            <PagedTable data={data ?? empty<Group>()} loading={loading && data?.page !== page} onPage={setPage} rowKey={r => r.id} onRowClick={openDetails} columns={[
                 { key: "date", label: "Data", className: styles.dateCell, render: r => formatDateTime(r.created_at) },
                 { key: "message", label: "Blast", render: r => groupLabel(r) ? <Badge variant="neutral">{groupLabel(r)}</Badge> : <p className={styles.blastPreview}>{r.message}</p> },
                 { key: "destination", label: "Destino", render: r => destination(r, r) },
                 { key: "progress", label: "Envios", render: r => <SendProgress row={r} /> },
-                { key: "sender", label: "Remetente", render: r => <Sender sender={r.sender} connections={connections} /> },
+                { key: "sender", label: "Remetente", render: r => <BlastSender sender={r.sender} connections={connections} /> },
                 { key: "details", label: "", render: r => <button type="button" title="Ver detalhes" aria-label="Ver detalhes do blast" className="cursor-pointer rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-brand" onClick={event=>{event.stopPropagation();openDetails(r);}}><Eye size={16} aria-hidden="true"/></button> },
             ]} />
         </section>
-        <section className={`${styles.tableSection} ${styles.blastTable} ${styles.blastAutomations}`}><h2>Blasts automáticos</h2>
-            <PagedTable data={{ rows: data.automations.slice(automationPage * 25, (automationPage + 1) * 25), total: data.automations.length, page: automationPage, pageCount: Math.max(1, Math.ceil(data.automations.length / 25)) }} loading={loading} onPage={setAutomationPage} rowKey={r => r.id} columns={[
-                { key: "name", label: "Título", render: r => <span className="font-medium">{r.name}</span> },
-                { key: "criteria", label: "Critérios", render: r => <p className="max-w-80 text-xs leading-5 text-gray-600">{r.criteria}</p> },
-                { key: "limit", label: "Limite/dia", className: "whitespace-nowrap", render: r => r.limit === null ? "Sem limite" : `${r.limit} envios${["recovery-plus","recovery","single-order","first-order"].includes(r.id) ? " (compart.)" : ""}` },
-                { key: "message", label: "Mensagem", render: r => <p className={styles.blastMessage}>{r.message || "—"}</p> },
-                { key: "sender", label: "Remetente", render: r => <Sender sender={r.sender} connections={connections} /> },
-            ]} />
+        <section className={styles.tableSection}>
+            <h2>Blasts automáticos</h2>
+            <div className="space-y-3">
+                <BlastAutomation automations={Object.values(PAYOUT_BLAST_AUTOMATIONS)} connections={connections} group={{ label: "Payouts", defaultOpen: true }} />
+                <BlastAutomation automations={(data?.automations ?? []).filter(row => row.category !== "payouts")} connections={connections} loading={loading && !data} group={{ label: "Outros" }} />
+            </div>
         </section>
         <DevDialog title={selected ? groupLabel(selected) || "Detalhes do blast" : "Detalhes do blast"} open={Boolean(selected)} onClose={() => setSelected(null)}>
             <div className={`space-y-5 ${styles.blastTable}`}>

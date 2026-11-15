@@ -1,9 +1,11 @@
 import { isSupportContactExcluded } from "@/lib/services/supportExclusions";
 import { classifySupportFollowup, generateSupportReply } from "@/lib/services/supportAgent";
 import { query } from "@/lib/database/sql";
-import { resolveWahaChatPhone, sendWahaText } from "@/lib/services/wahaClient";
-import { isSecondaryBlastRecipient, releaseExpiredSupportHandoffs, sendTrackedSupportText } from "./supportWhatsApp";
+import { recordDevAlert, resolveDevIncident } from "@/lib/dev/health";
+import { resolveWahaChatPhone, sendWahaText, getWahaQrCode } from "@/lib/services/wahaClient";
+import { handleSupportSessionStatus, isSecondaryBlastRecipient, releaseExpiredSupportHandoffs, sendTrackedSupportText, type SupportConnectionRow } from "./supportWhatsApp";
 
+jest.mock("@/lib/dev/health", () => ({ recordDevAlert: jest.fn(), resolveDevIncident: jest.fn() }));
 jest.mock("@/lib/services/supportExclusions", () => ({ isSupportContactExcluded: jest.fn() }));
 jest.mock("@/lib/database/sql", () => ({
     query: jest.fn(),
@@ -17,6 +19,7 @@ jest.mock("@/lib/services/supportAgent", () => ({
 }));
 jest.mock("@/lib/services/wahaClient", () => ({
     resolveWahaChatPhone: jest.fn(),
+    getWahaQrCode: jest.fn().mockResolvedValue(null),
     sendWahaText: jest.fn(),
     startWahaTyping: jest.fn().mockResolvedValue(undefined),
     stopWahaTyping: jest.fn().mockResolvedValue(undefined),
@@ -27,6 +30,56 @@ beforeEach(() => {
     jest.clearAllMocks();
     (isSupportContactExcluded as jest.Mock).mockResolvedValue(false);
     (resolveWahaChatPhone as jest.Mock).mockResolvedValue("5511999999999");
+});
+
+describe("WhatsApp session alarms", () => {
+    const url = process.env.IMENU_SUPPORT_PUBLIC_URL;
+    const connection = {
+        id: "default",
+        session_name: "imenu-support",
+        desired_state: "connected",
+        last_connected_at: "2026-11-15T11:00:00Z",
+        last_restart_at: new Date().toISOString(),
+    } as SupportConnectionRow;
+
+    beforeEach(() => {
+        process.env.IMENU_SUPPORT_PUBLIC_URL = "https://www.imenuapp.com.br";
+        (query as jest.Mock).mockResolvedValue({ rows: [], rowCount: 1 });
+    });
+
+    afterEach(() => {
+        if (url === undefined) delete process.env.IMENU_SUPPORT_PUBLIC_URL;
+        else process.env.IMENU_SUPPORT_PUBLIC_URL = url;
+    });
+
+    test.each([
+        ["imenu-support", "FAILED", "Suporte"],
+        ["imenu-blast", "STOPPED", "Blast"],
+        ["imenu-blast", "SCAN_QR_CODE", "Blast"],
+    ])("alarms for %s in %s using a session-specific incident", async (session_name, status, label) => {
+        await handleSupportSessionStatus({ connection: { ...connection, session_name }, status, statusData: null });
+        expect(recordDevAlert).toHaveBeenCalledWith(expect.objectContaining({
+            title: `WhatsApp ${label} desconectado`,
+            severity: "critical",
+            trigger: "alarm",
+            incidentKey: `waha:session:${session_name}`,
+        }));
+        if (status === "SCAN_QR_CODE") expect(getWahaQrCode).toHaveBeenCalledWith(session_name);
+    });
+
+    test("resolves the incident when the session reconnects", async () => {
+        await handleSupportSessionStatus({ connection, status: "WORKING", statusData: null });
+        expect(resolveDevIncident).toHaveBeenCalledWith("waha:session:imenu-support");
+        expect(recordDevAlert).not.toHaveBeenCalled();
+    });
+
+    test("suppresses the alarm for initial pairing, intentional disconnect, and preview", async () => {
+        await handleSupportSessionStatus({ connection: { ...connection, last_connected_at: null }, status: "SCAN_QR_CODE", statusData: null });
+        await handleSupportSessionStatus({ connection: { ...connection, desired_state: "disconnected" }, status: "STOPPED", statusData: null });
+        process.env.IMENU_SUPPORT_PUBLIC_URL = "https://preview.imenuapp.com.br";
+        await handleSupportSessionStatus({ connection, status: "FAILED", statusData: null });
+        expect(recordDevAlert).not.toHaveBeenCalled();
+    });
 });
 
 test("only expires human handoffs after the first human reply", async () => {

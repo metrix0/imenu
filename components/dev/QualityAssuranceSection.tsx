@@ -167,7 +167,7 @@ export default function QualityAssuranceSection() {
                 </div>
             </section>
             <section className={styles.tableSection}>
-                <h2>Restaurantes sem análise <span className="font-normal text-gray-500">({data.missing.length})</span></h2>
+                <h2>Restaurantes Plus sem análise <span className="font-normal text-gray-500">({data.missing.length})</span></h2>
                 <div>
                     <PagedTable data={{ rows: data.missing.slice(missingPage * 10, (missingPage + 1) * 10), total: data.missing.length, page: missingPage, pageCount: Math.max(1, Math.ceil(data.missing.length / 10)) }}
                         rowKey={row => row.addonId}

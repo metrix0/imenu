@@ -1,4 +1,4 @@
-export const RECOVERY_DAILY_LIMIT = 13;
+export const RECOVERY_DAILY_LIMIT = 20;
 
 export const PLUS_ABANDONED_BLAST_MESSAGE = `Oi! Tudo bem? Sou o João, do iMenu 🍔
 

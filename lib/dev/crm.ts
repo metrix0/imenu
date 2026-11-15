@@ -4,6 +4,43 @@ import { SUPPORT_CONVERSATION_VISIBLE_SQL } from "@/lib/services/supportExclusio
 
 const CRM_PAGE_SIZE = 10;
 
+// Payouts store the cutoff and verified totals, but do not store the order IDs.
+const LAST_PAYOUT_ORDER = `(
+    SELECT CASE
+        WHEN modern.last_order_at IS NULL THEN legacy.last_order_at
+        WHEN legacy.last_order_at IS NULL OR modern.last_order_at = legacy.last_order_at
+            THEN modern.last_order_at
+    END
+    FROM (
+        SELECT COALESCE(MAX(previous.created_at), '-infinity'::timestamptz) AS cutoff_at
+        FROM payouts previous
+        WHERE previous.restaurant_id=p.restaurant_id AND previous.created_at<p.created_at
+    ) boundary
+    LEFT JOIN LATERAL (
+        SELECT MAX(o.created_at) AS last_order_at
+        FROM orders o
+        WHERE o.restaurant_id=p.restaurant_id
+          AND o.payment_method='pix' AND o.payment_ref ~ '^[0-9]+$'
+          AND o.status IN ('paid','preparing','delivering','done')
+          AND o.created_at <= p.created_at
+          AND GREATEST(o.created_at, COALESCE(o.payment_paid_at,o.created_at)) > boundary.cutoff_at
+          AND GREATEST(o.created_at, COALESCE(o.payment_paid_at,o.created_at)) <= p.created_at
+        HAVING COUNT(*)=p.order_count AND SUM(o.total_cents)=p.gross_cents
+    ) modern ON TRUE
+    -- Payzu batches used order creation time and a fixed fee of 10 cents per order.
+    LEFT JOIN LATERAL (
+        SELECT MAX(o.created_at) AS last_order_at
+        FROM orders o
+        WHERE p.payzu_fee_cents=p.order_count::bigint*10
+          AND o.restaurant_id=p.restaurant_id
+          AND o.payment_method='pix' AND o.payment_ref ~* '^(PAYZU|PIX)'
+          AND o.status IN ('paid','preparing','delivering','done')
+          AND o.created_at > boundary.cutoff_at AND o.created_at <= p.created_at
+        HAVING COUNT(*)=p.order_count AND SUM(o.total_cents)=p.gross_cents
+    ) legacy ON TRUE
+    WHERE p.order_count > 0 AND p.gross_cents > 0
+)`;
+
 const PAID = `EXISTS(SELECT 1 FROM restaurant_addons a JOIN restaurant_addon_payments p ON p.addon_id=a.id
     WHERE a.restaurant_id=r.id AND p.amount_cents>0 AND p.paid_at IS NOT NULL
     AND UPPER(p.status) IN ('CONFIRMED','RECEIVED','RECEIVED_IN_CASH','PAID','COMPLETED','APPROVED'))
@@ -97,7 +134,7 @@ export async function getCrm(params: URLSearchParams) {
         if (section === "payments" || section === "payouts") {
             const from = section === "payments" ? "restaurant_addon_payments p JOIN restaurant_addons a ON a.id=p.addon_id" : "payouts p";
             const condition = section === "payments" ? "a.restaurant_id=$1" : "p.restaurant_id=$1";
-            const columns = section === "payments" ? "p.id,p.amount_cents,p.status,p.paid_at,p.created_at,p.billing_type,a.product_key" : "p.id,p.amount_cents,p.status,p.paid_at,p.created_at,p.failure_reason";
+            const columns = section === "payments" ? "p.id,p.amount_cents,p.status,p.paid_at,p.created_at,p.billing_type,a.product_key" : `p.id,p.amount_cents,p.status,p.paid_at,p.created_at,p.failure_reason,${LAST_PAYOUT_ORDER} AS last_order_at`;
             const [rows, count] = await Promise.all([
                 query(`SELECT ${columns} FROM ${from} WHERE ${condition} ORDER BY p.created_at DESC,p.id LIMIT $2 OFFSET $3`, [id, CRM_PAGE_SIZE, page * CRM_PAGE_SIZE]),
                 query<{ total: number }>(`SELECT COUNT(*)::int total FROM ${from} WHERE ${condition}`, [id]),
@@ -145,7 +182,7 @@ export async function getCrm(params: URLSearchParams) {
     const sortKey = params.get("sort") || "";
     const sortColumn = Object.prototype.hasOwnProperty.call(sortColumns, sortKey) ? sortColumns[sortKey] : null;
     const direction = params.get("direction") === "asc" ? "ASC" : "DESC";
-    const orderBy = `(${PLUS}) DESC, ${sortColumn ? `${sortColumn} ${direction} NULLS LAST, r.id` : "r.created_at DESC,r.id"}`;
+    const orderBy = sortColumn ? `${sortColumn} ${direction} NULLS LAST, r.id` : "r.created_at DESC,r.id";
     const [rows, count] = await Promise.all([
         query(`SELECT r.id,r.name,r.url_slug,r.created_at,COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),r.phone) phone,r.store_whatsapp AS store_phone,
             COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),NULLIF(TRIM(r.phone),'')) AS owner_phone,(${PLUS_SINCE}) AS plus_since,u.email,(${PAID}) AS has_paid,(${PLUS}) AS plus,

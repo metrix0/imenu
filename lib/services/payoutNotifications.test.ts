@@ -1,6 +1,7 @@
 import { query } from "@/lib/database/sql";
 import { checkWahaPhoneExists, sendWahaText } from "@/lib/services/wahaClient";
-import { alarmUnnotifiedPayoutFailures, notifyPayoutProblem, payoutNotice } from "./payoutNotifications";
+import { alarmUnnotifiedPayoutFailures, notifyPayoutProblem, notifyUpcomingPayoutPixProblem } from "./payoutNotifications";
+import { MISSING_PIX_KEY_REASON, MISSING_PIX_TYPE_REASON, PAYOUT_BLAST_AUTOMATIONS } from "./payoutAutomation";
 import { sendNtfyNotification } from "@/lib/services/ntfy";
 
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn() }));
@@ -25,35 +26,52 @@ beforeEach(() => {
 });
 
 test("concurrent missing-key and failure notices share one daily atomic claim", async () => {
-    await Promise.all([notifyPayoutProblem("restaurant", true), notifyPayoutProblem("restaurant", false)]);
+    await Promise.all([notifyPayoutProblem("restaurant", "missing-key"), notifyPayoutProblem("restaurant", "failed")]);
     expect(sendWahaText).toHaveBeenCalledTimes(1);
     expect(query).toHaveBeenCalledWith(expect.stringContaining("ON CONFLICT(dedupe_key) DO NOTHING"), expect.arrayContaining(["support:payout:2026-11-04:restaurant"]));
 });
 
 test("a failed/uncertain WhatsApp attempt is not sent again the same day", async () => {
     (sendWahaText as jest.Mock).mockRejectedValue(new Error("timeout"));
-    await expect(notifyPayoutProblem("restaurant", false)).resolves.toBeUndefined();
-    await notifyPayoutProblem("restaurant", false);
+    await expect(notifyPayoutProblem("restaurant", "failed")).resolves.toBeUndefined();
+    await notifyPayoutProblem("restaurant", "failed");
     expect(sendWahaText).toHaveBeenCalledTimes(1);
     expect(query).toHaveBeenCalledWith(expect.stringContaining("status='failed'"), expect.arrayContaining(["timeout"]));
 });
 
 test("different restaurants have independent daily claims", async () => {
-    await notifyPayoutProblem("one", true); await notifyPayoutProblem("two", true);
+    await notifyPayoutProblem("one", "missing-key"); await notifyPayoutProblem("two", "missing-key");
     expect(sendWahaText).toHaveBeenCalledTimes(2);
 });
 
+test("sends the dedicated missing PIX type notice over the existing blast connection", async () => {
+    await notifyPayoutProblem("restaurant", "missing-type");
+    expect(sendWahaText).toHaveBeenCalledWith("blast", "5511999999999@c.us", PAYOUT_BLAST_AUTOMATIONS["missing-type"].message);
+});
+
+test("the evening warning has its own daily claim and uses the preventive message", async () => {
+    await Promise.all([
+        notifyUpcomingPayoutPixProblem("restaurant", "2026-11-04"),
+        notifyUpcomingPayoutPixProblem("restaurant", "2026-11-04"),
+    ]);
+    await notifyPayoutProblem("restaurant", "failed");
+
+    expect(sendWahaText).toHaveBeenCalledTimes(2);
+    expect(sendWahaText).toHaveBeenNthCalledWith(1, "blast", "5511999999999@c.us", PAYOUT_BLAST_AUTOMATIONS.preflight.message);
+    expect(sendWahaText).toHaveBeenNthCalledWith(2, "blast", "5511999999999@c.us", PAYOUT_BLAST_AUTOMATIONS.failed.message);
+});
+
 test("messages require the owner to edit Loja for safety and contain no actual PIX data", () => {
-    for (const missing of [true, false]) {
-        expect(payoutNotice(missing)).toContain("aba Loja");
-        expect(payoutNotice(missing)).toContain("Por segurança");
-        expect(payoutNotice(missing)).toContain("somente você");
+    for (const { message } of Object.values(PAYOUT_BLAST_AUTOMATIONS)) {
+        expect(message).toContain("aba Loja");
+        expect(message).toContain("Por segurança");
+        expect(message).toContain("somente você");
     }
 });
 
 test('does not alarm when there are no failed payouts lacking a confirmed notice', async () => {
     (query as jest.Mock).mockResolvedValueOnce({ rows: [] });
-    await alarmUnnotifiedPayoutFailures();
+    await alarmUnnotifiedPayoutFailures(["p1"]);
     expect(sendNtfyNotification).not.toHaveBeenCalled();
 });
 
@@ -62,7 +80,7 @@ test('alarms once per failed batch when the automatic restaurant notice was not 
         { id: 'p1', automation_run_id: 'run1', restaurant_name: 'CN Burger', amount_cents: 198, failure_reason: 'Falha Asaas', notice_status: null },
         { id: 'p2', automation_run_id: 'run1', restaurant_name: 'Restaurante 2', amount_cents: 500, failure_reason: null, notice_status: 'failed' },
     ] });
-    await alarmUnnotifiedPayoutFailures();
+    await alarmUnnotifiedPayoutFailures(["p1", "p2"]);
     expect(sendNtfyNotification).toHaveBeenCalledTimes(1);
     expect(sendNtfyNotification).toHaveBeenCalledWith(expect.objectContaining({
         trigger: 'alarm',
@@ -71,10 +89,19 @@ test('alarms once per failed batch when the automatic restaurant notice was not 
     }));
     const sql = (query as jest.Mock).mock.calls[0][0] as string;
     expect(sql).toContain("p.status IN ('failed','cancelled')");
+    expect(sql).toContain("p.id = ANY($6::uuid[])");
+    expect(sql).toContain("to_char(NOW() AT TIME ZONE 'America/Sao_Paulo'");
     expect(sql).toContain("notice.status IS DISTINCT FROM 'sent'");
     expect(sql).toContain("notice.status IS DISTINCT FROM 'sending'");
-    expect(sql).toContain("CASE WHEN p.failure_reason = 'Chave PIX não cadastrada.' THEN $2 ELSE $1 END");
-    expect((query as jest.Mock).mock.calls[0][1]).toEqual([payoutNotice(false), payoutNotice(true)]);
+    expect(sql).toContain("CASE p.failure_reason WHEN $4 THEN $2 WHEN $5 THEN $3 ELSE $1 END");
+    expect((query as jest.Mock).mock.calls[0][1]).toEqual([
+        PAYOUT_BLAST_AUTOMATIONS.failed.message,
+        PAYOUT_BLAST_AUTOMATIONS["missing-key"].message,
+        PAYOUT_BLAST_AUTOMATIONS["missing-type"].message,
+        MISSING_PIX_KEY_REASON,
+        MISSING_PIX_TYPE_REASON,
+        ["p1", "p2"],
+    ]);
 });
 
 test('does not block reconciliation when phone alarm delivery fails', async () => {
@@ -82,6 +109,6 @@ test('does not block reconciliation when phone alarm delivery fails', async () =
         { id: 'p3', automation_run_id: null, restaurant_name: 'R', amount_cents: 99, failure_reason: null, notice_status: 'failed' },
     ] });
     (sendNtfyNotification as jest.Mock).mockRejectedValueOnce(new Error('ntfy down'));
-    await expect(alarmUnnotifiedPayoutFailures()).resolves.toBeUndefined();
+    await expect(alarmUnnotifiedPayoutFailures(["p3"])).resolves.toBeUndefined();
     expect(sendNtfyNotification).toHaveBeenCalledWith(expect.objectContaining({ incidentKey: 'payout:unnotified:p3' }));
 });

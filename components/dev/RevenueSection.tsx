@@ -5,7 +5,7 @@ import { useDevProfile } from "./DevProfileProvider";
 import PagedTable, { type PageData } from "./PagedTable";
 import DevLoading from "./DevLoading";
 import { devJson } from "@/lib/dev/client";
-import { formatCount, formatCurrencyFromCents, formatDateTime, formatRatio } from "@/lib/dev/dashboardFormat";
+import { formatCount, formatCurrencyFromCents, formatDateTime, formatPurchaseElapsedTime, formatRatio } from "@/lib/dev/dashboardFormat";
 import styles from "./dashboard.module.css";
 
 type Purchase = {
@@ -13,6 +13,7 @@ type Purchase = {
     restaurantId: string;
     restaurantName: string;
     paidAt: string;
+    purchaseElapsedSeconds: number | null;
     amountCents: number;
     method: string;
     provider: string | null;
@@ -89,6 +90,7 @@ export default function RevenueSection() {
                         { key: "restaurant", label: "Restaurante", render: row => <button type="button" className={styles.profileLink} onClick={event => { event.stopPropagation(); openProfile({ id: row.restaurantId, name: row.restaurantName }); }} title={row.restaurantName}><span className="block max-w-72 truncate">{row.restaurantName}</span></button> },
                         { key: "type", label: "Tipo", className: "whitespace-nowrap", render: row => row.isRenewal ? "Renovação" : "Nova" },
                         { key: "paidAt", label: "Pagamento", className: styles.dateCell, render: row => formatDateTime(row.paidAt) },
+                        { key: "purchaseElapsedSeconds", label: "Tempo até compra", className: "whitespace-nowrap", render: row => formatPurchaseElapsedTime(row.purchaseElapsedSeconds) },
                         { key: "method", label: "Método", className: "whitespace-nowrap", render: row => row.method },
                         { key: "amount", label: "Valor", className: styles.numericCell, render: row => formatCurrencyFromCents(row.amountCents) },
                         { key: "provider", label: "Provedor", className: "whitespace-nowrap", render: row => providerLabel(row.provider) },

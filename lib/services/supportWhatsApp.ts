@@ -1,5 +1,6 @@
 import { isSupportContactExcluded } from "@/lib/services/supportExclusions";
 import { query, withAdvisoryLock } from "@/lib/database/sql";
+import { recordDevAlert, resolveDevIncident } from "@/lib/dev/health";
 import {
     analyzeSupportImage,
     generateSupportReply,
@@ -409,6 +410,23 @@ export async function handleSupportSessionStatus(input: {
         }
     }
 
+    const monitorConnection = connection.desired_state === "connected" &&
+        process.env.IMENU_SUPPORT_PUBLIC_URL?.trim().replace(/\/+$/, "") === "https://www.imenuapp.com.br";
+    const incidentKey = `waha:session:${connection.session_name}`;
+    const disconnected = ["FAILED", "STOPPED", "SCAN_QR_CODE", "PASSKEY_REQUIRED", "PASSKEY_CONFIRMATION_REQUIRED"].includes(status);
+    if (monitorConnection && connection.last_connected_at && disconnected) {
+        const label = connection.session_name === SUPPORT_WAHA_SESSION_NAME ? "Suporte" : "Blast";
+        await recordDevAlert({
+            source: "waha",
+            title: `WhatsApp ${label} desconectado`,
+            message: `A sessão de WhatsApp ${label} perdeu a conexão (WAHA: ${status}). Confira a conexão no painel.`,
+            severity: "critical",
+            trigger: "alarm",
+            operation: `Sessão WhatsApp ${label}`,
+            incidentKey,
+        });
+    }
+
     let qrCode: string | null = null;
     if (status === "SCAN_QR_CODE") {
         qrCode = await getWahaQrCode(connection.session_name);
@@ -427,6 +445,10 @@ export async function handleSupportSessionStatus(input: {
             connection.id,
         ]
     );
+
+    if (monitorConnection && status === "WORKING") {
+        await resolveDevIncident(incidentKey);
+    }
 
     if (
         (status === "FAILED" || status === "STOPPED") &&

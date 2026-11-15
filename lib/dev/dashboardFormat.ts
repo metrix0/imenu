@@ -162,7 +162,12 @@ export function accountAge(value?: string | null, now = new Date()): string {
     const start = new Date(value);
     if (!Number.isFinite(start.getTime()) || start > now) return "—";
     if (now >= monthAnniversary(start, 1)) return monthsSince(value, now);
-    const weeks = Math.max(1, Math.ceil((now.getTime() - start.getTime()) / (7 * 86400000)));
+    const elapsedDays = (now.getTime() - start.getTime()) / 86400000;
+    if (elapsedDays < 7) {
+        const days = Math.floor(elapsedDays);
+        return `${days} ${days === 1 ? "dia" : "dias"}`;
+    }
+    const weeks = Math.ceil(elapsedDays / 7);
     return `${weeks} ${weeks === 1 ? "semana" : "semanas"}`;
 }
 
@@ -172,4 +177,17 @@ export function formatResponseTime(seconds: number | null | undefined): string {
     if (total >= 3600) return `${Math.floor(total / 3600)}h ${Math.floor(total % 3600 / 60)}m`;
     if (total >= 60) return `${Math.floor(total / 60)}m ${total % 60}s`;
     return `${total}s`;
+}
+
+export function formatPurchaseElapsedTime(seconds: number | null | undefined): string {
+    if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return "—";
+    const totalMinutes = Math.round(seconds / 60);
+    const minutesPerDay = 24 * 60;
+    const minutesPerMonth = 30 * minutesPerDay;
+    if (totalMinutes >= minutesPerMonth) return `${Math.round(seconds / (60 * minutesPerMonth))}m`;
+    if (totalMinutes >= minutesPerDay) return `${Math.round(seconds / (60 * minutesPerDay))}d`;
+    if (totalMinutes < 60) return `${totalMinutes}min`;
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}min`;
 }

@@ -1,6 +1,6 @@
 import { query, withTransaction } from "@/lib/database/sql";
 import { getMercadoPagoPixPayment } from "@/lib/payments/mercadoPagoPix";
-import { createPayoutPlan, isAsaasTransferSafeToRetry, markPayoutPaidManually, retryFailedPayout } from "./payouts";
+import { createPayoutPlan, isAsaasTransferSafeToRetry, markPayoutPaidManually, reconcileProcessingPayouts, retryFailedPayout } from "./payouts";
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn(), withTransaction: jest.fn() }));
 jest.mock("@/lib/payments/mercadoPagoPix", () => ({ getMercadoPagoPixPayment: jest.fn() }));
 beforeEach(() => {
@@ -17,6 +17,17 @@ it("combines verified Mercado Pago fees without changing the 1% total deduction"
     expect(plan).toMatchObject({ grossCents: 10000, payzuFeeCents: 60, discountCents: 40, totalNetCents: 9900 });
     expect(getMercadoPagoPixPayment).toHaveBeenCalledTimes(2);
 });
+it("does not infer a missing PIX type when planning transfers", async () => {
+    (query as jest.Mock).mockResolvedValueOnce({ rows: [{
+        restaurant_id: "r", restaurant_name: "R", payment_info: "pix@example.com", payment_info_type: null,
+        payments: [{ id: "first", payment_ref: "123", total_cents: 5000 }],
+    }] });
+    const plan = await createPayoutPlan({ cutoffAt: new Date(), adjustToOnePercent: true });
+    expect(plan.payables).toHaveLength(1);
+    expect(plan.sendable).toHaveLength(0);
+    expect(plan.totalNetCents).toBe(0);
+});
+
 it("excludes only a Mercado Pago charge with an unconfirmed fee", async () => {
     (getMercadoPagoPixPayment as jest.Mock).mockImplementation(async ({ id }: { id: string }) => ({
         id, externalReference: id === "123" ? "first" : "second", status: "approved",
@@ -99,6 +110,23 @@ it("keeps another restaurant payable when one Mercado Pago payment is pending", 
     expect(plan.sendable).toHaveLength(1);
     expect(plan.sendable[0].row.restaurant_id).toBe("good");
     expect(plan.totalNetCents).toBe(4950);
+});
+
+it("reconciles automation runs without looking for old failures to re-alert", async () => {
+    const originalKey = process.env.ASAAS_API_KEY;
+    process.env.ASAAS_API_KEY = "test-key";
+    (query as jest.Mock).mockResolvedValue({ rows: [] });
+
+    try {
+        await reconcileProcessingPayouts();
+
+        expect(query).toHaveBeenCalledTimes(2);
+        expect(query).toHaveBeenNthCalledWith(1, expect.stringContaining("WHERE status = 'processing'"));
+        expect(query).toHaveBeenNthCalledWith(2, expect.stringContaining("UPDATE public.payout_automation_runs"));
+    } finally {
+        if (originalKey === undefined) delete process.env.ASAAS_API_KEY;
+        else process.env.ASAAS_API_KEY = originalKey;
+    }
 });
 
 describe("retry failed payouts", () => {

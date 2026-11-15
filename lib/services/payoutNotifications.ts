@@ -3,30 +3,34 @@ import { recordDevAlert } from "@/lib/dev/health";
 import { sendNtfyNotification } from "@/lib/services/ntfy";
 import { normalizeBlastPhone } from "@/lib/services/supportBlast";
 import { checkWahaPhoneExists, sendWahaText } from "@/lib/services/wahaClient";
-
-export function payoutNotice(missingKey: boolean): string {
-    return missingKey
-        ? "Seu repasse iMenu está pendente porque sua loja não tem uma chave PIX cadastrada. Cadastre sua chave na aba Loja do painel. Por segurança, somente você deve cadastrar ou alterar esses dados; não envie sua chave pelo suporte."
-        : "Não foi possível concluir seu repasse iMenu. Sua chave PIX pode estar cadastrada incorretamente. Confira e, se necessário, corrija seus dados na aba Loja do painel. Por segurança, somente você deve alterar esses dados; não envie sua chave pelo suporte.";
-}
+import { MISSING_PIX_KEY_REASON, MISSING_PIX_TYPE_REASON, PAYOUT_BLAST_AUTOMATIONS, type PayoutNoticeKind } from "@/lib/services/payoutAutomation";
 
 // Reuse the existing atomic outbound-message claim: one attempt per restaurant/business day.
-export async function notifyPayoutProblem(restaurantId: string, missingKey: boolean): Promise<void> {
+export async function notifyPayoutProblem(restaurantId: string, kind: PayoutNoticeKind): Promise<void> {
+    await sendPayoutNotice(restaurantId, kind);
+}
+
+export function notifyUpcomingPayoutPixProblem(restaurantId: string, day: string): Promise<boolean> {
+    return sendPayoutNotice(restaurantId, "preflight", day);
+}
+
+async function sendPayoutNotice(restaurantId: string, kind: PayoutNoticeKind | "preflight", day?: string): Promise<boolean> {
     try {
         const result = await query<{ phone: string | null; session_name: string; status: string; desired_state: string; day: string }>(
             `SELECT COALESCE(NULLIF(u.raw_user_meta_data->>'phone',''),NULLIF(r.phone,'')) phone,
-                c.session_name,c.status,c.desired_state,to_char(NOW() AT TIME ZONE 'America/Sao_Paulo','YYYY-MM-DD') day
+                c.session_name,c.status,c.desired_state,to_char(NOW() AT TIME ZONE 'America/Sao_Paulo','YYYY-MM-DD') AS day
              FROM restaurants r LEFT JOIN auth.users u ON u.id=r.user_id
              CROSS JOIN support_whatsapp_connection c WHERE r.id=$1 AND c.id='blast'`, [restaurantId]);
         const row = result.rows[0];
         const phone = normalizeBlastPhone(row?.phone || "");
-        if (!row || !phone || row.status !== "WORKING" || row.desired_state !== "connected") return;
-        const key = `support:payout:${row.day}:${restaurantId}`;
-        const message = payoutNotice(missingKey);
+        if (!row || !phone || row.status !== "WORKING" || row.desired_state !== "connected") return false;
+        const { id, name, message } = PAYOUT_BLAST_AUTOMATIONS[kind];
+        const namespace = kind === "preflight" ? id : "payout";
+        const key = `support:${namespace}:${day ?? row.day}:${restaurantId}`;
         const claim = await query(`INSERT INTO whatsapp_outbound_messages(dedupe_key,restaurant_id,chat_id,message_type,status,context,updated_at)
             VALUES($1,$2,$3,'text','sending',$4::jsonb,NOW()) ON CONFLICT(dedupe_key) DO NOTHING RETURNING dedupe_key`,
-            [key, restaurantId, phone + "@c.us", JSON.stringify({ message, sender: "blast", kind: "payout" })]);
-        if (!claim.rowCount) return;
+            [key, restaurantId, phone + "@c.us", JSON.stringify({ message, sender: "blast", kind: namespace })]);
+        if (!claim.rowCount) return false;
         try {
             const contact = await checkWahaPhoneExists(row.session_name, phone);
             if (!contact.numberExists) throw new Error("Número não existe no WhatsApp.");
@@ -35,10 +39,12 @@ export async function notifyPayoutProblem(restaurantId: string, missingKey: bool
             await query("UPDATE whatsapp_outbound_messages SET status='sent',sent_at=NOW(),updated_at=NOW(),chat_id=$2 WHERE dedupe_key=$1", [key, chatId]);
             await recordDevAlert({
                 source: "payouts", operation: "Aviso via WhatsApp",
-                title: missingKey ? "Aviso de chave PIX enviado" : "Aviso de repasse enviado",
+                title: kind === "preflight" ? `${name} enviado`
+                    : kind === "missing-type" ? "Aviso de tipo de PIX enviado" : kind === "missing-key" ? "Aviso de chave PIX enviado" : "Aviso de repasse enviado",
                 message: "Mensagem de repasse enviada ao restaurante.",
                 severity: "info", trigger: "blast",
             });
+            return true;
         } catch (error) {
             await query("UPDATE whatsapp_outbound_messages SET status='failed',last_error=$2,updated_at=NOW() WHERE dedupe_key=$1", [key, error instanceof Error ? error.message.slice(0, 500) : "Falha no envio."]);
         }
@@ -46,11 +52,13 @@ export async function notifyPayoutProblem(restaurantId: string, missingKey: bool
         // Sending a reminder must never alter the outcome or retry behavior of a payout.
         console.warn("[PAYOUT_NOTICE] Não foi possível registrar/enviar aviso.");
     }
+    return false;
 }
 
 // Alarm only when a payout failed and its failure notice has not been confirmed as sent.
-// A stable incident key prevents repeated alarms from the periodic reconciliation job.
-export async function alarmUnnotifiedPayoutFailures(): Promise<void> {
+// Only check payouts whose current failure the caller handled.
+export async function alarmUnnotifiedPayoutFailures(payoutIds: string[]): Promise<void> {
+    if (payoutIds.length === 0) return;
     type UnnotifiedFailure = {
         id: string; automation_run_id: string | null; restaurant_name: string;
         amount_cents: number; failure_reason: string | null; notice_status: string | null;
@@ -62,15 +70,20 @@ export async function alarmUnnotifiedPayoutFailures(): Promise<void> {
             FROM public.payouts p
             JOIN public.restaurants r ON r.id = p.restaurant_id
             LEFT JOIN public.whatsapp_outbound_messages notice ON notice.dedupe_key =
-                'support:payout:'||to_char(p.created_at AT TIME ZONE 'America/Sao_Paulo','YYYY-MM-DD')||':'||p.restaurant_id::text
-            WHERE p.status IN ('failed','cancelled')
-              AND p.created_at >= NOW() - INTERVAL '3 days'
+                'support:payout:'||to_char(NOW() AT TIME ZONE 'America/Sao_Paulo','YYYY-MM-DD')||':'||p.restaurant_id::text
+            WHERE p.id = ANY($6::uuid[]) AND p.status IN ('failed','cancelled')
               AND (notice.status IS DISTINCT FROM 'sent' OR notice.context->>'message' IS DISTINCT FROM
-                   CASE WHEN p.failure_reason = 'Chave PIX não cadastrada.' THEN $2 ELSE $1 END)
+                   CASE p.failure_reason WHEN $4 THEN $2 WHEN $5 THEN $3 ELSE $1 END)
               AND (notice.status IS DISTINCT FROM 'sending' OR notice.updated_at < NOW() - INTERVAL '2 minutes')
             ORDER BY p.created_at DESC
-            LIMIT 100
-        `, [payoutNotice(false), payoutNotice(true)]);
+        `, [
+            PAYOUT_BLAST_AUTOMATIONS.failed.message,
+            PAYOUT_BLAST_AUTOMATIONS["missing-key"].message,
+            PAYOUT_BLAST_AUTOMATIONS["missing-type"].message,
+            MISSING_PIX_KEY_REASON,
+            MISSING_PIX_TYPE_REASON,
+            payoutIds,
+        ]);
         const grouped = new Map<string, UnnotifiedFailure[]>();
         for (const row of rows) {
             const key = row.automation_run_id || row.id;

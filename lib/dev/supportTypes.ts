@@ -84,5 +84,5 @@ export type DashboardData = {
     stats: Stats;
     knowledge: KnowledgeEntry[];
     conversations: Conversation[];
-    handedOff: Conversation[];
+    handedOff: (Conversation & { origin: "blast" | "support" })[];
 };

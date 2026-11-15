@@ -1,6 +1,6 @@
 import { SUPPORT_CONVERSATION_VISIBLE_SQL } from "@/lib/services/supportExclusions";
 import { devPage } from "@/lib/dev/pagination";
-import { getBlastHistory } from "@/lib/dev/blastHistory";
+import { getBlastHistory, getDailyBlastSends } from "@/lib/dev/blastHistory";
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
@@ -14,6 +14,7 @@ import {
     setSupportBlastStatus, type BlastRecipientInput,
 } from "@/lib/services/supportBlast";
 import {
+    BLAST_WAHA_SESSION_NAME,
     checkWahaPhoneExists,
     ensureWahaBlastSession,
     ensureWahaSupportSession,
@@ -193,11 +194,15 @@ async function getDashboardData(params = new URLSearchParams()) {
             restaurant_name: string | null;
             mode: "ai" | "human";
             updated_at: string;
+            origin: "blast" | "support";
             human_started_at: string | null;
             last_human_reply_at: string | null;
             last_message: string | null;
         }>(
-            `SELECT c.id, c.phone, c.customer_name, c.restaurant_id, r.name AS restaurant_name, COALESCE(NULLIF(u.raw_user_meta_data->>'phone',''),r.phone) AS owner_phone, r.store_whatsapp AS store_phone, EXISTS(SELECT 1 FROM restaurant_addons a WHERE a.restaurant_id=r.id AND a.product_key='ia_plus' AND (a.status='active' OR (a.status IN ('canceled','past_due') AND a.current_period_ends_at>NOW()))) AS plus, c.mode, c.updated_at, c.human_started_at, c.last_human_reply_at, COALESCE(last_msg.direction='outbound' AND last_msg.model IS NULL AND (last_msg.dedupe_key IS NULL OR last_msg.dedupe_key LIKE 'support:human:%' OR last_msg.dedupe_key LIKE 'support:draft:%'),false) AS attended, last_msg.body AS last_message FROM support_conversations c LEFT JOIN restaurants r ON r.id = c.restaurant_id LEFT JOIN auth.users u ON u.id=r.user_id LEFT JOIN LATERAL (SELECT body,direction,model,dedupe_key FROM support_messages sm WHERE sm.conversation_id=c.id AND (sm.direction='inbound' OR sm.send_status='sent') ORDER BY sm.created_at DESC,sm.id DESC LIMIT 1) last_msg ON TRUE WHERE c.mode = 'human' AND ${SUPPORT_CONVERSATION_VISIBLE_SQL} ORDER BY plus DESC, attended ASC, COALESCE(c.last_human_reply_at, c.human_started_at, c.updated_at) DESC, c.id DESC LIMIT 25 OFFSET ${handoffPage * 25}`
+            `SELECT c.id, c.phone, c.customer_name, c.restaurant_id, r.name AS restaurant_name, COALESCE(NULLIF(u.raw_user_meta_data->>'phone',''),r.phone) AS owner_phone, r.store_whatsapp AS store_phone, EXISTS(SELECT 1 FROM restaurant_addons a WHERE a.restaurant_id=r.id AND a.product_key='ia_plus' AND (a.status='active' OR (a.status IN ('canceled','past_due') AND a.current_period_ends_at>NOW()))) AS plus, c.mode, c.updated_at,
+                    CASE WHEN starts_with(c.chat_id, $1) THEN 'blast' ELSE 'support' END AS origin,
+                    c.human_started_at, c.last_human_reply_at, COALESCE(last_msg.direction='outbound' AND last_msg.model IS NULL AND (last_msg.dedupe_key IS NULL OR last_msg.dedupe_key LIKE 'support:human:%' OR last_msg.dedupe_key LIKE 'support:draft:%'),false) AS attended, last_msg.body AS last_message FROM support_conversations c LEFT JOIN restaurants r ON r.id = c.restaurant_id LEFT JOIN auth.users u ON u.id=r.user_id LEFT JOIN LATERAL (SELECT body,direction,model,dedupe_key FROM support_messages sm WHERE sm.conversation_id=c.id AND (sm.direction='inbound' OR sm.send_status='sent') ORDER BY sm.created_at DESC,sm.id DESC LIMIT 1) last_msg ON TRUE WHERE c.mode = 'human' AND ${SUPPORT_CONVERSATION_VISIBLE_SQL} ORDER BY plus DESC, attended ASC, COALESCE(c.last_human_reply_at, c.human_started_at, c.updated_at) DESC, c.id DESC LIMIT 25 OFFSET ${handoffPage * 25}`,
+            [BLAST_WAHA_SESSION_NAME + ":"]
         ),
     ]);
 
@@ -241,6 +246,7 @@ export async function GET(request: Request) {
 
         const searchParams = new URL(request.url).searchParams;
         if (searchParams.get("section") === "blasts") return NextResponse.json(await getBlastHistory(searchParams));
+        if (searchParams.get("section") === "blast-sends") return NextResponse.json(await getDailyBlastSends());
         if (searchParams.get("blast_history") === "1") {
             return NextResponse.json({ campaigns: await listSupportBlasts() });
         }

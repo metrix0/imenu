@@ -166,12 +166,12 @@ test("recovery ignores stale and out-of-hours campaigns even when daily_limit is
     expect(claim![0]).toContain("TIME '08:00'");
     expect(claim![0]).toContain("TIME '21:00'");
     expect(claim![0]).toContain("c.daily_limit IS NULL");
-    expect(claim![1][1]).toBe(13);
+    expect(claim![1][1]).toBe(20);
     expect(result).toEqual({ sent: 0, failed: 0, skipped: 0, disconnected: false });
     expect(sendWahaText).not.toHaveBeenCalled();
 });
 
-test("automatic recovery always uses the shared 13/day cadence even when a caller provides 5", async () => {
+test("automatic recovery always uses the shared daily cadence even when a caller provides 5", async () => {
     const write = jest.fn().mockResolvedValue({ rowCount: 1 });
     (withTransaction as jest.Mock).mockImplementation(async (fn) => fn({ query: write }));
     (query as jest.Mock).mockResolvedValue({
@@ -184,8 +184,8 @@ test("automatic recovery always uses the shared 13/day cadence even when a calle
         recipients: [{ phone: "5511999999999", message: "Oi, Loja!" }],
     });
     expect(write).toHaveBeenCalledTimes(2);
-    expect(write.mock.calls[0][1][3]).toBe(13);
-    expect(write.mock.calls[1][1][2]).toBe(13);
+    expect(write.mock.calls[0][1][3]).toBe(20);
+    expect(write.mock.calls[1][1][2]).toBe(20);
 });
 
 test("manual support blast cadence remains unchanged", async () => {
