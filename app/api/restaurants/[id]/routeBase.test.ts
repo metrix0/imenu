@@ -1,4 +1,5 @@
 import { PATCH } from "./routeBase";
+import { DEFAULT_DELIVERY_RANGES } from "@/lib/delivery/defaultRanges";
 import { query, withTransaction } from "@/lib/database/sql";
 import { seedPizzaExample } from "@/lib/pizza/onboarding";
 import { getCreationStepPath, normalizeCreationStep } from "@/lib/restaurantCreation";
@@ -33,6 +34,17 @@ test("advancing to Plus persists step 5 without completing registration or seedi
     expect(withTransaction).not.toHaveBeenCalled();
     expect(seedPizzaExample).not.toHaveBeenCalled();
     expect((query as jest.Mock).mock.calls.at(-1)![0]).not.toContain("onboarding_completed_at");
+});
+
+test("skipping delivery setup advances to Plus and fills only missing radius ranges", async () => {
+    const response = await PATCH(request({ creation_step: 5, use_default_delivery_ranges: true }), context);
+    expect(response.status).toBe(200);
+    const [sql, values] = (query as jest.Mock).mock.calls.at(-1)!;
+    expect(sql).toContain("creation_step = $2");
+    expect(sql).toContain("delivery_fee_mode IS DISTINCT FROM 'neighborhood'");
+    expect(sql).toContain("delivery_fee_json IN ('null'::jsonb, '[]'::jsonb)");
+    expect(sql).toContain("ELSE delivery_fee_json");
+    expect(values).toEqual(["restaurant", 5, JSON.stringify(DEFAULT_DELIVERY_RANGES)]);
 });
 
 test.each([4, 5])("finishing step %s preserves first completion and seeds once", async step => {

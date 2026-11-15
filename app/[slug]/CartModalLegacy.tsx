@@ -1,6 +1,7 @@
 // app/[slug]/CartModal.tsx
 "use client";
 import CheckoutCustomerFields from "@/components/costumer/CheckoutCustomerFields";
+import { getOrderScheduleOptions } from "@/lib/menu/orderAvailability";
 
 import PromotionSummary from "@/components/costumer/PromotionSummary";
 import type { PromotionResult } from "@/lib/promotions/automatic";
@@ -79,9 +80,10 @@ export default function CartModal({
                                        restaurant,
     catalogItemsByCategory,
     selectedCouponCode, onSelectItem, tableOrder, selectedTableId,
-    selectedTableName, onTableChange, promotionResult, neighborhoodDeliveryRules, smallCityMode = false
+    selectedTableName, onTableChange, promotionResult, neighborhoodDeliveryRules, smallCityMode = false, requiresSchedule = false
                                    }: {
     promotionResult?: PromotionResult;
+    requiresSchedule?: boolean;
     onClose: () => void;
     restaurant: any;
     catalogItemsByCategory: ItemsByCategory;
@@ -148,7 +150,8 @@ export default function CartModal({
     const [loadingUpsells, setLoadingUpsells] = useState(false);
     const [showOptionalSchedule, setShowOptionalSchedule] = useState(false);
     const [scheduleDropdownOpen, setScheduleDropdownOpen] = useState(false);
-    const todayInput = formatDateInputValue(new Date());
+    const now = new Date();
+    const todayInput = formatDateInputValue(now);
     const preorderOnly = restaurant?.preorder_only === true && !isTableOrder;
     const minAdvanceDays = preorderOnly ? Math.max(0, Math.min(59, Number(restaurant?.preorder_min_days) || 0)) : 0;
     const allowFutureScheduling = restaurant?.allow_future_order_scheduling === true || preorderOnly;
@@ -161,8 +164,11 @@ export default function CartModal({
             closedDate.getMonth() === businessToday.getMonth() &&
             closedDate.getDate() === businessToday.getDate();
     })();
+    const availability = preorderOnly
+        ? restaurant?.preorder_availability_json
+        : restaurant?.availability_json;
     const scheduleDateOptions = Array.from({ length: 60 - minAdvanceDays }, (_, index) => {
-        const date = new Date();
+        const date = new Date(now);
         date.setHours(12, 0, 0, 0);
         date.setDate(date.getDate() + minAdvanceDays + index);
         const value = formatDateInputValue(date);
@@ -176,18 +182,18 @@ export default function CartModal({
             label: minAdvanceDays === 0 && index === 0 ? `Hoje • ${dateLabel}` : dateLabel,
         };
     });
-    const [scheduleDate, setScheduleDate] = useState(() => {
-        if (manuallyClosedToday && allowFutureScheduling) {
-            const nextOpenDate = scheduleDateOptions.find(({ value }) =>
-                value !== todayInput &&
-                (restaurant?.availability_json?.[dateFromInput(value).getDay()]?.length ?? 0) > 0
-            );
-            if (nextOpenDate) return nextOpenDate.value;
-        }
-        const firstDate = new Date();
-        firstDate.setDate(firstDate.getDate() + minAdvanceDays);
-        return formatDateInputValue(firstDate);
-    });
+    const availableScheduleDates = allowFutureScheduling
+        ? scheduleDateOptions.filter(({ value }) => {
+            if (value === todayInput) {
+                return getOrderScheduleOptions(availability, now, now, manuallyClosedToday).length > 0;
+            }
+            const slots = availability?.[dateFromInput(value).getDay()];
+            return Array.isArray(slots) && slots.length > 0;
+        })
+        : [];
+    const [requestedScheduleDate, setScheduleDate] = useState<string | null>(null);
+    const scheduleDate = availableScheduleDates.find(({ value }) => value === requestedScheduleDate)?.value
+        ?? availableScheduleDates[0]?.value ?? todayInput;
     const coupon_code = useCheckoutStore((s) => s.coupon_code);
     const coupon_type = useCheckoutStore((s) => s.coupon_type);
     const storedCouponDiscount = useCheckoutStore((s) => s.coupon_discount_cents);
@@ -195,98 +201,15 @@ export default function CartModal({
     const scheduled_for = useCheckoutStore((s) => s.scheduled_for);
     const troco = useCheckoutStore((s: any) => String(s.troco ?? ""));
 
-    const schedulingState = (() => {
-        const availability = preorderOnly
-            ? restaurant?.preorder_availability_json
-            : restaurant?.availability_json;
-        if (!availability) {
-            return {
-                options: [] as { value: string; label: string }[],
-                isOpenNow: false,
-            };
-        }
-
-        const now = new Date();
-        const targetDate = allowFutureScheduling
-            ? dateFromInput(scheduleDate)
-            : now;
-        const isToday = formatDateInputValue(targetDate) === todayInput;
-
-        if (isToday && manuallyClosedToday) {
-            return {
-                options: [] as { value: string; label: string }[],
-                isOpenNow: false,
-            };
-        }
-
-        const slots = availability[targetDate.getDay()] ?? [];
-        if (!Array.isArray(slots)) {
-            return {
-                options: [] as { value: string; label: string }[],
-                isOpenNow: false,
-            };
-        }
-
-        let isOpenNow = false;
-        const options: { value: string; label: string }[] = [];
-
-        for (const slot of slots) {
-            const [openH, openM] = String(slot.open).split(":").map(Number);
-            const [closeH, closeM] = String(slot.close).split(":").map(Number);
-            const openDate = new Date(targetDate);
-            openDate.setHours(openH, openM, 0, 0);
-            const closeDate = new Date(targetDate);
-            closeDate.setHours(closeH, closeM, 0, 0);
-
-            if (isToday && now >= openDate && now <= closeDate) {
-                isOpenNow = true;
-            }
-
-            if (isToday && closeDate <= now) continue;
-
-            let firstAvailable = new Date(openDate);
-            if (isToday && now >= openDate) {
-                firstAvailable = new Date(now);
-                firstAvailable.setSeconds(0, 0);
-                const minutes = firstAvailable.getMinutes();
-                const remainder = minutes % 15;
-                firstAvailable.setMinutes(
-                    remainder === 0
-                        ? minutes + 15
-                        : minutes + (15 - remainder),
-                    0,
-                    0
-                );
-            }
-
-            if (firstAvailable < openDate) {
-                firstAvailable = openDate;
-            }
-
-            for (
-                let cursor = new Date(firstAvailable);
-                cursor <= closeDate;
-                cursor = new Date(cursor.getTime() + 15 * 60_000)
-            ) {
-                options.push({
-                    value: cursor.toISOString(),
-                    label: cursor.toLocaleTimeString("pt-BR", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                    }),
-                });
-            }
-        }
-
-        return { options, isOpenNow };
-    })();
-    const scheduledOptions = schedulingState.options;
-    const selectedDateIsToday = scheduleDate === todayInput;
-    const mustSchedule = preorderOnly || manuallyClosedToday || (
-        selectedDateIsToday &&
-        scheduledOptions.length > 0 &&
-        !schedulingState.isOpenNow);
-    const hasSchedulingChoice = preorderOnly || allowFutureScheduling || scheduledOptions.length > 0;
+    const scheduledOptions = getOrderScheduleOptions(
+        availability,
+        allowFutureScheduling ? dateFromInput(scheduleDate) : now,
+        now,
+        manuallyClosedToday,
+    );
+    const mustSchedule = preorderOnly || manuallyClosedToday || requiresSchedule;
+    const hasSchedulingChoice = !isTableOrder && (mustSchedule ||
+        (allowFutureScheduling ? availableScheduleDates.length > 0 : scheduledOptions.length > 0));
     const showSchedulePicker =
         mustSchedule || showOptionalSchedule || (!mustSchedule && Boolean(scheduled_for));
     const scheduledOptionsKey = `${scheduleDate}|${scheduledOptions.map((option) => option.value).join("|")}`;
@@ -1482,9 +1405,7 @@ export default function CartModal({
                                                     custom
                                                     aria-label="Dia do agendamento"
                                                     value={scheduleDate}
-                                                    options={scheduleDateOptions.filter(({ value }) =>
-                                                        !preorderOnly || (restaurant?.preorder_availability_json?.[dateFromInput(value).getDay()]?.length ?? 0) > 0
-                                                    )}
+                                                    options={availableScheduleDates}
                                                     onChange={(event) => {
                                                         setShowOptionalSchedule(true);
                                                         setScheduleDate(event.target.value || todayInput);

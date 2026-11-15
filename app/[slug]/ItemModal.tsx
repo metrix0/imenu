@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { Restaurant, Item, Subitem, Subcategory, CartItem, PizzaCatalogItem, Category, ItemsByCategory } from "@/lib/types/types";
+import { hasOrderHours } from "@/lib/menu/orderAvailability";
 import { useCartStore } from "@/lib/stores/costumer/cartStore";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/utils/fontawesome";
@@ -301,10 +302,10 @@ export default function ItemModal({
     }, [selected, selectedQuantities, subcategories]);
 
     const canAdd = !loading && !error && !loadingFlavors && !missingRequired && !quoteError;
-    const canOrderNow =
-        isRestaurantOpen ||
-        canScheduleToday ||
-        restaurant.allow_future_order_scheduling === true;
+    const canOrderNow = channel !== "mesa" && restaurant.preorder_only === true
+        ? hasOrderHours(restaurant.preorder_availability_json)
+        : isRestaurantOpen || canScheduleToday ||
+            (restaurant.allow_future_order_scheduling === true && hasOrderHours(restaurant.availability_json));
     const disabledReason = !canOrderNow
         ? "O restaurante está fechado no momento."
         : missingRequired

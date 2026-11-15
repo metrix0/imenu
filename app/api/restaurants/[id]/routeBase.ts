@@ -1,4 +1,5 @@
 import { query, withTransaction } from "@/lib/database/sql";
+import { DEFAULT_DELIVERY_RANGES } from "@/lib/delivery/defaultRanges";
 import { generateUnnamedRestaurantName } from "@/lib/restaurantCreation";
 import { seedPizzaExample } from "@/lib/pizza/onboarding";
 import { NextResponse } from "next/server";
@@ -215,6 +216,18 @@ export async function PATCH(
 
             values.push(value);
             fieldsToUpdate.push(`${dbColumn} = $${values.length}`);
+        }
+
+        if (body.use_default_delivery_ranges === true &&
+            Number(body.creation_step) === 5 &&
+            !Object.prototype.hasOwnProperty.call(body, "delivery_fee_json")) {
+            values.push(JSON.stringify(DEFAULT_DELIVERY_RANGES));
+            fieldsToUpdate.push(`delivery_fee_json = CASE
+                WHEN delivery_fee_mode IS DISTINCT FROM 'neighborhood'
+                    AND (delivery_fee_json IS NULL OR delivery_fee_json IN ('null'::jsonb, '[]'::jsonb))
+                THEN $${values.length}::jsonb
+                ELSE delivery_fee_json
+            END`);
         }
 
         if (fieldsToUpdate.length === 0) {

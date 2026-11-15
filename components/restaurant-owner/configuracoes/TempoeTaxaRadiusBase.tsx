@@ -1,5 +1,6 @@
 "use client";
 import SaveStatus from "@/components/ui/SaveStatus";
+import { DEFAULT_DELIVERY_RANGES } from "@/lib/delivery/defaultRanges";
 
 import {
     forwardRef,
@@ -40,16 +41,6 @@ type DeliveryRulesProps = {
     initialRules?: unknown;
     initialMinOrder?: unknown;
 };
-
-const DEFAULT_RULES: RadiusRule[] = [
-    { radius_km: 0.5, time_minutes: 40, fee_cents: 800 },
-    { radius_km: 1, time_minutes: 40, fee_cents: 800 },
-    { radius_km: 1.5, time_minutes: 40, fee_cents: 800 },
-    { radius_km: 2, time_minutes: 40, fee_cents: 800 },
-    { radius_km: 3, time_minutes: 50, fee_cents: 800 },
-    { radius_km: 4, time_minutes: 50, fee_cents: 800 },
-    { radius_km: 5, time_minutes: 50, fee_cents: 800 },
-];
 
 const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
     ({ restaurantId, isNew }, ref) => {
@@ -138,7 +129,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                     }))
                 );
             } else if (isNew) {
-                setRules(DEFAULT_RULES);
+                setRules(DEFAULT_DELIVERY_RANGES);
             }
 
             if (

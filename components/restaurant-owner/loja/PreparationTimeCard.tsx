@@ -5,27 +5,13 @@ import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Toast from "@/components/ui/Toast";
 import type { SaveState } from "@/components/ui/SaveStatus";
+import { getPreparationTimeValidation, MIN_PREPARATION_TIME_GAP } from "@/lib/menu/preparationTime";
 
 interface PreparationTimeCardProps {
     restaurantId: string;
     initialMin?: number | null;
     initialMax?: number | null;
     onSaveStatusChange: (status: SaveState) => void;
-}
-
-function getValidationMessage(minimum: string, maximum: string): string {
-    const min = Number(minimum);
-    const max = Number(maximum);
-
-    if (!Number.isFinite(min) || !Number.isFinite(max) || min <= 0) {
-        return "Informe tempos válidos maiores que zero.";
-    }
-
-    if (max < min + 20) {
-        return "O tempo máximo deve ser pelo menos 20 minutos maior que o mínimo.";
-    }
-
-    return "";
 }
 
 export default function PreparationTimeCard({
@@ -41,7 +27,7 @@ export default function PreparationTimeCard({
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState(false);
     const [validationMessage, setValidationMessage] = useState(() =>
-        getValidationMessage(initialMinimum, initialMaximum)
+        getPreparationTimeValidation(Number(initialMinimum), Number(initialMaximum))
     );
     const [toast, setToast] = useState<{
         message: string;
@@ -57,7 +43,9 @@ export default function PreparationTimeCard({
     }, [validationMessage, saveError, saving, onSaveStatusChange]);
 
     useEffect(() => {
-        const validation = getValidationMessage(minimum, maximum);
+        const min = Number(minimum);
+        const max = Number(maximum);
+        const validation = getPreparationTimeValidation(min, max);
         setValidationMessage(validation);
 
         if (validation) {
@@ -65,8 +53,6 @@ export default function PreparationTimeCard({
             return;
         }
 
-        const min = Number(minimum);
-        const max = Number(maximum);
         const valueKey = `${min}:${max}`;
 
         if (valueKey === lastSavedRef.current) {
@@ -126,7 +112,7 @@ export default function PreparationTimeCard({
 
                 <p className="mb-5 text-sm text-gray-500">
                     Defina a estimativa exibida aos clientes. A diferença deve
-                    ser de pelo menos 20 minutos.
+                    ser de pelo menos {MIN_PREPARATION_TIME_GAP} minutos.
                 </p>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

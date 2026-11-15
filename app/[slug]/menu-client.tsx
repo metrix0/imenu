@@ -28,6 +28,7 @@ import PromotionBanner from "@/components/costumer/PromotionBanner";
 import { evaluateAutomaticPromotions, parseAutomaticPromotions, promotionAvailable, promotionCartSubtotal } from "@/lib/promotions/automatic";
 import { parseNeighborhoodDeliveryRules } from "@/lib/delivery/neighborhood";
 import { isCategoryAvailable } from "@/lib/menu/categorySchedule";
+import { hasOrderHours } from "@/lib/menu/orderAvailability";
 
 const RESTAURANT_INFO_DAYS = [
     { day: 1, label: "Segunda-feira" },
@@ -842,6 +843,17 @@ export default function MenuClientPage({
     })();
 
     const warningOpening = nextOpening ?? nextOpeningForWarning;
+    const hasOpeningHours = hasOrderHours(restaurant.availability_json);
+    const canScheduleFuture = restaurant.preorder_only === true
+        ? hasOrderHours(restaurant.preorder_availability_json)
+        : restaurant.allow_future_order_scheduling === true && (warningOpening !== null || isRestaurantOpen);
+    const requiresSchedule = !isTableOrder && (
+        restaurant.preorder_only === true || !isRestaurantOpen || closedForToday
+    );
+    const canOrderFromMenu = isTableOrder
+        ? !closedForToday && isRestaurantOpen
+        : canScheduleFuture ||
+            (restaurant.preorder_only !== true && !closedForToday && (isRestaurantOpen || canScheduleToday));
 
     const openingHoursSlots = (() => {
         if (closedForToday || !warningOpening) return todaySlots;
@@ -973,17 +985,20 @@ export default function MenuClientPage({
             </div>
             )}
 
-            {!readOnly && restaurant.preorder_only !== true && availabilityChecked && (!isRestaurantOpen || closedForToday) &&
-                (closedForToday || openingHoursSlots.length > 0 ||
-                    (warningOpening !== null && warningOpening.getTime() > Date.now())) && (
+            {!readOnly && restaurant.preorder_only !== true && availabilityChecked && (!isRestaurantOpen || closedForToday) && (
                 <WarningBox icon={icons.faTriangleExclamation} className="mt-10 mx-5 md:mx-48 2xl:mx-80">
                     {closedForToday && (
                         <>
                             Hoje o restaurante está fechado no horário comum de funcionamento, devido à possíveis feriados ou eventos especiais.
-                            {!isTableOrder && restaurant.allow_future_order_scheduling === true && (
+                            {!isTableOrder && canScheduleFuture && (
                                 <> <b>Você pode montar seu pedido e agendar para outro dia</b>.</>
                             )}
                         </>
+                    )}
+                    {!closedForToday && !warningOpening && (
+                        hasOpeningHours
+                            ? "Restaurante fechado no momento."
+                            : "Restaurante fechado no momento. A loja ainda não informou o horário de funcionamento."
                     )}
                     {!isTableOrder && canScheduleToday && nextOpening && (
                         <>
@@ -1283,10 +1298,7 @@ export default function MenuClientPage({
                 />
             )}
 
-            {!readOnly && (isTableOrder
-                ? !closedForToday && isRestaurantOpen
-                : restaurant.allow_future_order_scheduling === true ||
-                  (!closedForToday && (isRestaurantOpen || canScheduleToday))) && (
+            {!readOnly && canOrderFromMenu && (
                 <CartBar
                     promotionResult={promotionResult}
                     onOpenCartAction={() => {
@@ -1298,7 +1310,7 @@ export default function MenuClientPage({
                     cartOpen={cartOpen}
                     setCartOpenAction={setCartOpen}
                     restaurant={restaurant}
-                    manuallyClosedToday={closedForToday}
+                    requiresSchedule={requiresSchedule}
                     closeItemModalOpen={() => setOpenedItem(null)}
                     trackMeta={trackMeta}
                     slug={slug}
@@ -1311,9 +1323,10 @@ export default function MenuClientPage({
             )}
 
 
-            {!readOnly && cartOpen && (
+            {!readOnly && canOrderFromMenu && cartOpen && (
                 <CartModal
                     catalogItemsByCategory={itemsByCategory}
+                    requiresSchedule={requiresSchedule}
                     promotionResult={promotionResult}
                     restaurant={restaurant}
                     onClose={() => {
