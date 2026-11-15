@@ -1,3 +1,4 @@
+import { ok } from "node:assert/strict";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -39,9 +40,11 @@ afterEach(async () => {
 
 test("looks up the requested city, street and bairro despite a differing CEP", async () => {
     const match = await lookupCnefe(address, origin);
-    expect(match?.range?.min).toBeGreaterThan(7);
-    expect(match?.range?.max).toBeLessThan(8);
-    expect(match?.range?.min).toBeLessThan(match?.range?.max);
+    const range = match?.range;
+    ok(range, "Expected a distance range for the matched address");
+    expect(range.min).toBeGreaterThan(7);
+    expect(range.max).toBeLessThan(8);
+    expect(range.min).toBeLessThan(range.max);
 });
 
 test("prefers an exact number in the matching bairro", async () => {
