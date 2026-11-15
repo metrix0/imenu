@@ -173,3 +173,16 @@ export function formatResponseTime(seconds: number | null | undefined): string {
     if (total >= 60) return `${Math.floor(total / 60)}m ${total % 60}s`;
     return `${total}s`;
 }
+
+export function formatPurchaseElapsedTime(seconds: number | null | undefined): string {
+    if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return "—";
+    const totalMinutes = Math.round(seconds / 60);
+    const minutesPerDay = 24 * 60;
+    const minutesPerMonth = 30 * minutesPerDay;
+    if (totalMinutes >= minutesPerMonth) return `${Math.round(seconds / (60 * minutesPerMonth))}m`;
+    if (totalMinutes >= minutesPerDay) return `${Math.round(seconds / (60 * minutesPerDay))}d`;
+    if (totalMinutes < 60) return `${totalMinutes}min`;
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}min`;
+}

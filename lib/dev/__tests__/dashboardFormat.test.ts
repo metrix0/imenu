@@ -1,4 +1,4 @@
-import { conversion, formatCount, formatRatio, firstPhone, normalizeWhatsappNumber, accountAge, monthsSince, formatResponseTime } from "../dashboardFormat";
+import { conversion, formatCount, formatRatio, firstPhone, normalizeWhatsappNumber, accountAge, monthsSince, formatResponseTime, formatPurchaseElapsedTime } from "../dashboardFormat";
 
 describe("developer dashboard formatters", () => {
     it("preserves numeric and conversion formatting", () => {
@@ -36,4 +36,20 @@ test("Plus tenure rounds up months and handles short months",()=>{
 
 test.each([[170,"2m 50s"],[18240,"5h 4m"],[3599.8,"1h 0m"],[0,"0s"],[null,"—"],[NaN,"—"]])("formats response duration %s",(value,expected)=>{
  expect(formatResponseTime(value as number|null)).toBe(expected);
+});
+
+test.each([
+    [0, "0min"],
+    [690, "12min"],
+    [3599, "1h"],
+    [83520, "23h 12min"],
+    [86399, "1d"],
+    [2 * 86400, "2d"],
+    [2.75 * 86400, "3d"],
+    [30 * 86400, "1m"],
+    [62 * 86400, "2m"],
+    [null, "—"],
+    [-1, "—"],
+])("formats elapsed purchase time of %s seconds", (seconds, expected) => {
+    expect(formatPurchaseElapsedTime(seconds)).toBe(expected);
 });
