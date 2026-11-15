@@ -112,6 +112,7 @@ export default function PayoutsDashboard({
     const [payouts, setPayouts] = useState<Payout[]>([]);
     const [dueCents, setDueCents] = useState(0);
     const [dueOrderCount, setDueOrderCount] = useState(0);
+    const [testPayout, setTestPayout] = useState({ grossCents: 0, orderCount: 0 });
     const [lastPaidPayout, setLastPaidPayout] = useState<Payout | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -198,8 +199,32 @@ export default function PayoutsDashboard({
                     );
                 }
 
-                const dueOrdersResult = await dueOrdersQuery;
+                let testOrdersQuery = supabase
+                    .from("orders")
+                    .select("total_cents")
+                    .eq("restaurant_id", menuId)
+                    .eq("customer_name", "Pedido de teste QA — Pix Online")
+                    .eq("payment_method", "pix")
+                    .eq("status", "paid")
+                    .not("payment_paid_at", "is", null)
+                    .is("payment_ref", null);
+
+                if (startDate) {
+                    testOrdersQuery = testOrdersQuery.gte("created_at", `${startDate}T00:00:00-03:00`);
+                }
+
+                if (endDate) {
+                    testOrdersQuery = testOrdersQuery.lte("created_at", `${endDate}T23:59:59.999-03:00`);
+                }
+
+                const [dueOrdersResult, testOrdersResult] = await Promise.all([dueOrdersQuery, testOrdersQuery]);
                 if (dueOrdersResult.error) throw dueOrdersResult.error;
+
+                const testOrders = testOrdersResult.data || [];
+                setTestPayout({
+                    grossCents: testOrders.reduce((sum, order) => sum + Number(order.total_cents || 0), 0),
+                    orderCount: testOrders.length,
+                });
 
                 const dueOrders = dueOrdersResult.data || [];
                 const grossDueCents = dueOrders.reduce(
@@ -293,6 +318,18 @@ export default function PayoutsDashboard({
                     </p>
                 </Card>
             </div>
+
+            {testPayout.orderCount > 0 && (
+                <Card>
+                    <h2 className="!text-sm font-medium text-gray-500">Repasse simulado (teste)</h2>
+                    <p className="mt-2 text-3xl font-medium tabular-nums tracking-tight text-gray-900">
+                        {formatPrice(calculateOnePercentPayout(testPayout.grossCents, 0).netCents)}
+                    </p>
+                    <p className="mt-2 text-sm text-gray-500">
+                        {testPayout.orderCount} {testPayout.orderCount === 1 ? "pedido Pix de teste" : "pedidos Pix de teste"} · {formatPrice(testPayout.grossCents)} bruto
+                    </p>
+                </Card>
+            )}
 
             <Card>
                 <div className="mb-6">
