@@ -224,7 +224,7 @@ export async function PATCH(
             values.push(JSON.stringify(DEFAULT_DELIVERY_RANGES));
             fieldsToUpdate.push(`delivery_fee_json = CASE
                 WHEN delivery_fee_mode IS DISTINCT FROM 'neighborhood'
-                    AND (delivery_fee_json IS NULL OR delivery_fee_json IN ('null'::jsonb, '[]'::jsonb))
+                    AND (delivery_fee_json IS NULL OR delivery_fee_json IN ('null'::jsonb, '[]'::jsonb, '{}'::jsonb))
                 THEN $${values.length}::jsonb
                 ELSE delivery_fee_json
             END`);

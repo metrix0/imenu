@@ -42,7 +42,7 @@ test("skipping delivery setup advances to Plus and fills only missing radius ran
     const [sql, values] = (query as jest.Mock).mock.calls.at(-1)!;
     expect(sql).toContain("creation_step = $2");
     expect(sql).toContain("delivery_fee_mode IS DISTINCT FROM 'neighborhood'");
-    expect(sql).toContain("delivery_fee_json IN ('null'::jsonb, '[]'::jsonb)");
+    expect(sql).toContain("delivery_fee_json IN ('null'::jsonb, '[]'::jsonb, '{}'::jsonb)");
     expect(sql).toContain("ELSE delivery_fee_json");
     expect(values).toEqual(["restaurant", 5, JSON.stringify(DEFAULT_DELIVERY_RANGES)]);
 });
