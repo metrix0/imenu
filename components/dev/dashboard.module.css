@@ -292,6 +292,14 @@
 
 .crmTable.churnBlastTable :global(th:nth-child(1)){width:calc(18% - 48px)}
 .crmTable.churnBlastTable :global(th:nth-child(2)){width:14%}
-.crmTable.churnBlastTable :global(th:nth-child(3)),.crmTable.churnBlastTable :global(th:nth-child(4)){width:12%}
+.crmTable.churnBlastTable :global(th:nth-child(3)),.crmTable.churnBlastTable :global(th:nth-child(4)){width:10%}
+.crmTable.churnBlastTable :global(th:nth-child(6)){width:13%}
 .crmTable.churnBlastTable :global(th:nth-child(7)){width:15%}
 .crmTable.churnBlastTable :global(th:nth-child(8)){width:11%}
+
+.crmTable.churnBlastTable :global(:is(th, td)),
+.crmTable.churnBlastTable :global(:is(th, td) :is(button, a, span)) {
+    white-space: nowrap;
+    overflow-wrap: normal;
+    word-break: normal;
+}

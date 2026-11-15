@@ -168,8 +168,11 @@ test.each([
     expect(listSql).toContain("ELSE recipient.attempted_at");
     expect(listSql).toContain("churn_blast.error AS blast_error");
     expect(listSql).toContain(hasPeriod ? "ANY($6::text[])" : "ANY($4::text[])");
-    expect(listArgs.at(-2)[0]).toContain(message);
-    expect(listArgs.at(-1)[0]).toContain(message);
+    expect(listArgs.at(-4)[0]).toContain(message);
+    expect(listArgs.at(-3)[0]).toContain(message);
+    expect(listArgs.at(-2)).toEqual(expect.arrayContaining([expect.stringContaining("começou a receber pedidos")]));
+    expect(listSql).toContain("ORDER BY same_campaign DESC NULLS LAST, sort_at");
+    expect(listSql).toContain("churn_blast.same_campaign AS blast_same_campaign");
     expect(countSql).not.toContain("support_blast_recipients");
     expect(countArgs).toHaveLength(hasPeriod ? 3 : 1);
 });

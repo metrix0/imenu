@@ -30,6 +30,7 @@ type CrmRow = Restaurant & {
     blast_status?: keyof typeof blastStatus | null;
     blast_at?: string | null;
     blast_error?: string | null;
+    blast_same_campaign?: boolean | null;
 };
 
 export function CrmList({ search = "", plan = "all", activity, title, range, showBlast = false, onTotalChange }: {
@@ -92,7 +93,10 @@ export function CrmList({ search = "", plan = "all", activity, title, range, sho
                 { key: "store", label: "Celular loja", sortable: true, render: r => <PhoneLink phone={r.store_phone} /> },
                 { key: "owner", label: "Celular dono", sortable: true, render: r => <PhoneLink phone={r.owner_phone || r.phone} /> },
                 { key: "created", label: "Conta há", sortable: true, render: r => <span className="whitespace-nowrap">{accountAge(r.created_at)}</span> },
-                { key: "gmv", label: "GMV", sortable: true, className: styles.numericCell, render: r => formatCurrencyFromCents(Number(r.gmv_cents) || 0) },
+                { key: "gmv", label: "GMV", sortable: true, className: styles.numericCell, render: r => {
+                    const value = formatCurrencyFromCents(Number(r.gmv_cents) || 0);
+                    return showBlast ? <span className="block truncate" title={value}>{value}</span> : value;
+                } },
                 {
                     key: "last_message", label: "Última mensagem", sortable: true,
                     render: r => r.last_message ? (
@@ -105,11 +109,11 @@ export function CrmList({ search = "", plan = "all", activity, title, range, sho
                     key: "blast", label: "Blast",
                     render: (row: CrmRow) => {
                         const status = row.blast_status && blastStatus[row.blast_status];
-                        if (!status) return null;
+                        if (!status) return <Badge variant="neutral" title="Sem registro de blast de recuperação para esta conta.">Ignorado</Badge>;
                         const detail = row.blast_error || ("detail" in status ? status.detail : null);
                         const date = row.blast_at && row.blast_status !== "paused" ? formatDateTime(row.blast_at) : null;
                         return <Badge variant={status.variant}
-                            title={[detail, date].filter(Boolean).join("\n") || undefined}>
+                            title={[row.blast_same_campaign === false && "Outra campanha de recuperação.", detail, date].filter(Boolean).join("\n") || undefined}>
                             {status.label}
                         </Badge>;
                     },
