@@ -161,6 +161,7 @@ export default function PayoutsDashboard({
     endDate,
 }: PayoutsDashboardProps) {
     const [payouts, setPayouts] = useState<Payout[]>([]);
+    const [due, setDue] = useState({ cents: 0, orderCount: 0 });
     const [lastPaidPayout, setLastPaidPayout] = useState<Payout | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -256,6 +257,10 @@ export default function PayoutsDashboard({
                 }
 
                 setPayouts([...forecastPage, ...(historyResult.data ?? [])]);
+                setDue({
+                    cents: forecasts.reduce((total, payout) => total + payout.amount_cents, 0),
+                    orderCount: pendingOrders.length,
+                });
                 setTotalCount(rowCount);
                 setLastPaidPayout(lastPaidResult.data);
             } catch (caught) {
@@ -275,6 +280,9 @@ export default function PayoutsDashboard({
         return (
             <div className="space-y-4">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <Card>
+                        <ListLoader lines={2} />
+                    </Card>
                     <Card>
                         <ListLoader lines={2} />
                     </Card>
@@ -300,6 +308,20 @@ export default function PayoutsDashboard({
     return (
         <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Card>
+                    <h2 className="!text-sm font-medium text-gray-500">
+                        Repasse a receber
+                    </h2>
+                    <p className="mt-2 text-3xl font-medium tabular-nums tracking-tight text-gray-900">
+                        {formatPrice(due.cents)}
+                    </p>
+                    <p className="mt-2 text-sm text-gray-500">
+                        {due.orderCount > 0
+                            ? `${due.orderCount} ${due.orderCount === 1 ? "pedido via Pix aguardando" : "pedidos via Pix aguardando"} repasse.`
+                            : "Nenhum valor pendente para repasse."}
+                    </p>
+                </Card>
+
                 <Card>
                     <h2 className="!text-sm font-medium text-gray-500">
                         Último repasse
