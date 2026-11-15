@@ -29,9 +29,18 @@ export const PAYOUT_BLAST_AUTOMATIONS = {
         sender: "blast",
         category: "payouts",
     },
+    "preflight": {
+        id: "payout-pix-warning",
+        name: "Aviso preventivo de Pix",
+        criteria: "Diariamente às 23:20 · próximo repasse com chave Pix ausente, inválida ou sem tipo cadastrado",
+        message: "Identificamos um problema com a chave Pix do seu próximo repasse iMenu. Antes do repasse, confira se a chave está ativa e se o tipo está correto na aba Loja do painel. Se faltar algum dado, cadastre-o nessa mesma aba. Por segurança, somente você deve alterar esses dados. Não envie sua chave pelo suporte.",
+        limit: null,
+        sender: "blast",
+        category: "payouts",
+    },
 } as const;
 
-export type PayoutNoticeKind = keyof typeof PAYOUT_BLAST_AUTOMATIONS;
+export type PayoutNoticeKind = Exclude<keyof typeof PAYOUT_BLAST_AUTOMATIONS, "preflight">;
 
 export function getPayoutPixProblem(row: { payment_info: string | null; payment_info_type: string | null }) {
     if (!row.payment_info?.trim()) return { kind: "missing-key", reason: MISSING_PIX_KEY_REASON } as const;

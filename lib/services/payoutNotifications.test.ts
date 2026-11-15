@@ -1,6 +1,6 @@
 import { query } from "@/lib/database/sql";
 import { checkWahaPhoneExists, sendWahaText } from "@/lib/services/wahaClient";
-import { alarmUnnotifiedPayoutFailures, notifyPayoutProblem } from "./payoutNotifications";
+import { alarmUnnotifiedPayoutFailures, notifyPayoutProblem, notifyUpcomingPayoutPixProblem } from "./payoutNotifications";
 import { MISSING_PIX_KEY_REASON, MISSING_PIX_TYPE_REASON, PAYOUT_BLAST_AUTOMATIONS } from "./payoutAutomation";
 import { sendNtfyNotification } from "@/lib/services/ntfy";
 
@@ -47,6 +47,18 @@ test("different restaurants have independent daily claims", async () => {
 test("sends the dedicated missing PIX type notice over the existing blast connection", async () => {
     await notifyPayoutProblem("restaurant", "missing-type");
     expect(sendWahaText).toHaveBeenCalledWith("blast", "5511999999999@c.us", PAYOUT_BLAST_AUTOMATIONS["missing-type"].message);
+});
+
+test("the evening warning has its own daily claim and uses the preventive message", async () => {
+    await Promise.all([
+        notifyUpcomingPayoutPixProblem("restaurant", "2026-11-04"),
+        notifyUpcomingPayoutPixProblem("restaurant", "2026-11-04"),
+    ]);
+    await notifyPayoutProblem("restaurant", "failed");
+
+    expect(sendWahaText).toHaveBeenCalledTimes(2);
+    expect(sendWahaText).toHaveBeenNthCalledWith(1, "blast", "5511999999999@c.us", PAYOUT_BLAST_AUTOMATIONS.preflight.message);
+    expect(sendWahaText).toHaveBeenNthCalledWith(2, "blast", "5511999999999@c.us", PAYOUT_BLAST_AUTOMATIONS.failed.message);
 });
 
 test("messages require the owner to edit Loja for safety and contain no actual PIX data", () => {

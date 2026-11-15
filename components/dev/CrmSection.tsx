@@ -5,11 +5,12 @@ import Input from "@/components/ui/Input";
 import styles from "./dashboard.module.css";
 import { Search, Eye } from "lucide-react";
 import Dropdown from "@/components/ui/Dropdown";
+import Tooltip from "@/components/ui/Tooltip";
 import PagedTable, { type PageData } from "./PagedTable";
 import { devJson } from "@/lib/dev/client";
 
 import {useDevProfile,PhoneLink,CustomerBadge,type Restaurant} from "./DevProfileProvider";
-import {accountAge, formatCurrencyFromCents} from "@/lib/dev/dashboardFormat";
+import {accountAge, formatCurrencyFromCents, formatDateTime} from "@/lib/dev/dashboardFormat";
 const empty = <T,>(): PageData<T> => ({ rows: [], page: 0, total: 0, pageCount: 1 });
 
 function CrmList({ search, plan, activity, onOpen }: { search: string; plan: string; activity: string; onOpen: (row: Restaurant) => void }) {
@@ -53,7 +54,14 @@ function CrmList({ search, plan, activity, onOpen }: { search: string; plan: str
                 { key: "owner", label: "Celular dono", sortable: true, render: r => <PhoneLink phone={r.owner_phone || r.phone} /> },
                 { key: "created", label: "Conta há", sortable: true, render: r => <span className="whitespace-nowrap">{accountAge(r.created_at)}</span> },
                 { key: "gmv", label: "GMV", sortable: true, className: styles.numericCell, render: r => formatCurrencyFromCents(Number(r.gmv_cents) || 0) },
-                { key: "last_message", label: "Última mensagem", sortable: true, render: r => <span className="block truncate text-gray-600" title={r.last_message || undefined}>{r.last_message || "—"}</span> },
+                {
+                    key: "last_message", label: "Última mensagem", sortable: true,
+                    render: r => r.last_message ? (
+                        <Tooltip text={r.last_message_at ? formatDateTime(r.last_message_at) : ""} parentClassName="max-w-full" role="tooltip">
+                            <span className="block truncate text-gray-600">{r.last_message}</span>
+                        </Tooltip>
+                    ) : "—",
+                },
                 { key: "open", label: "", render: r => <button type="button" title="Ver detalhes" aria-label={`Ver detalhes de ${r.name}`} onClick={e => { e.stopPropagation(); onOpen(r); }} className="cursor-pointer rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-brand"><Eye size={16} aria-hidden="true" /></button> },
             ]} />
         </div>

@@ -1,6 +1,7 @@
-import { alarmUnnotifiedPayoutFailures, notifyPayoutProblem } from "@/lib/services/payoutNotifications";
+import { alarmUnnotifiedPayoutFailures, notifyPayoutProblem, notifyUpcomingPayoutPixProblem } from "@/lib/services/payoutNotifications";
 import { getMercadoPagoPixPayment } from "@/lib/payments/mercadoPagoPix";
 import * as https from "node:https";
+import { setTimeout as delay } from "node:timers/promises";
 
 import { query, withTransaction } from "@/lib/database/sql";
 import { calculateOnePercentPayout } from "@/lib/services/payoutSafety";
@@ -178,7 +179,7 @@ async function asaasRequest<T>(
                             payload?.errors?.[0]?.description ||
                             payload?.error ||
                             `Asaas retornou HTTP ${status}.`;
-                        reject(new Error(message));
+                        reject(Object.assign(new Error(message), { status }));
                         return;
                     }
 
@@ -308,6 +309,93 @@ async function getPayables(
     }
 
     return { payables, validationErrors };
+}
+
+const PIX_KEY_FORMATS: Record<PixKeyType, RegExp> = {
+    CPF: /^(?:\d{11}|\d{3}\.\d{3}\.\d{3}-\d{2})$/,
+    CNPJ: /^(?:\d{14}|\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})$/,
+    EMAIL: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+    PHONE: /^(?:(?:\+55[ -]?)?(?:\(\d{2}\)|\d{2})[ -]?\d{4,5}-?\d{4}|55\d{10,11})$/,
+    EVP: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+};
+
+function getPixLookupParams(row: PayableRestaurant): URLSearchParams | null {
+    const type = row.payment_info_type;
+    const storedKey = row.payment_info?.trim();
+    if (!type || !storedKey || !Object.hasOwn(PIX_KEY_FORMATS, type) || !PIX_KEY_FORMATS[type].test(storedKey)) {
+        return null;
+    }
+    let key = normalizePixKey(storedKey, type);
+    if (type === "PHONE") {
+        key = "+55" + (key.length === 12 ? key.slice(2) : key);
+    }
+    return new URLSearchParams({ type, key });
+}
+
+function asaasRejectedPixKey(error: unknown): boolean {
+    if (!(error instanceof Error) || !("status" in error) || error.status !== 400) return false;
+    const message = error.message.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+    return /chave (?:pix|de enderecamento)(?: informada)? (?:nao (?:foi )?(?:encontrada|cadastrada|localizada)|(?:e )?invalida)/.test(message);
+}
+
+export async function warnAboutUpcomingPayoutPix(now = new Date()) {
+    // The next morning's cutoff includes every payment already confirmed tonight.
+    const { payables, validationErrors } = await getPayables(now);
+    const day = new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo" }).format(now);
+    const lookup = new Map<string, string[]>();
+    let invalid = 0;
+    let sent = 0;
+
+    for (const row of payables) {
+        const params = getPixLookupParams(row);
+        if (!params) {
+            invalid++;
+            if (await notifyUpcomingPayoutPixProblem(row.restaurant_id, day)) sent++;
+            continue;
+        }
+        const path = `/pix/addressKeys/external?${params}`;
+        const restaurantIds = lookup.get(path) ?? [];
+        restaurantIds.push(row.restaurant_id);
+        lookup.set(path, restaurantIds);
+    }
+
+    let remaining = 0;
+    let checked = 0;
+    if (lookup.size) {
+        try {
+            const bucket = await asaasRequest<{ remaining?: number }>("/pix/tokenBucket/addressKey");
+            remaining = bucket.remaining ?? 0;
+        } catch {
+            console.warn("[PAYOUT_PIX_WARNING] Não foi possível consultar o saldo de consultas Pix.");
+        }
+    }
+    for (const [path, restaurantIds] of lookup) {
+        // Asaas allows five lookups a minute and can charge 15 tokens for a rejected key.
+        if (remaining < 15) break;
+        if (checked > 0) await delay(15_000);
+
+        try {
+            const resolved = await asaasRequest<{ key?: string }>(path);
+            if (!resolved.key) break;
+            remaining--;
+        } catch (error) {
+            if (!asaasRejectedPixKey(error)) break;
+            remaining -= 15;
+            invalid += restaurantIds.length;
+            for (const restaurantId of restaurantIds) {
+                if (await notifyUpcomingPayoutPixProblem(restaurantId, day)) sent++;
+            }
+        }
+        checked++;
+    }
+
+    return {
+        eligible: payables.length,
+        invalid,
+        sent,
+        uncheckedKeys: lookup.size - checked,
+        unverifiedPayments: validationErrors.length,
+    };
 }
 
 type WaitingPayableRestaurant = Pick<

@@ -7,6 +7,14 @@ import { MISSING_PIX_KEY_REASON, MISSING_PIX_TYPE_REASON, PAYOUT_BLAST_AUTOMATIO
 
 // Reuse the existing atomic outbound-message claim: one attempt per restaurant/business day.
 export async function notifyPayoutProblem(restaurantId: string, kind: PayoutNoticeKind): Promise<void> {
+    await sendPayoutNotice(restaurantId, kind);
+}
+
+export function notifyUpcomingPayoutPixProblem(restaurantId: string, day: string): Promise<boolean> {
+    return sendPayoutNotice(restaurantId, "preflight", day);
+}
+
+async function sendPayoutNotice(restaurantId: string, kind: PayoutNoticeKind | "preflight", day?: string): Promise<boolean> {
     try {
         const result = await query<{ phone: string | null; session_name: string; status: string; desired_state: string; day: string }>(
             `SELECT COALESCE(NULLIF(u.raw_user_meta_data->>'phone',''),NULLIF(r.phone,'')) phone,
@@ -15,13 +23,14 @@ export async function notifyPayoutProblem(restaurantId: string, kind: PayoutNoti
              CROSS JOIN support_whatsapp_connection c WHERE r.id=$1 AND c.id='blast'`, [restaurantId]);
         const row = result.rows[0];
         const phone = normalizeBlastPhone(row?.phone || "");
-        if (!row || !phone || row.status !== "WORKING" || row.desired_state !== "connected") return;
-        const key = `support:payout:${row.day}:${restaurantId}`;
-        const { message } = PAYOUT_BLAST_AUTOMATIONS[kind];
+        if (!row || !phone || row.status !== "WORKING" || row.desired_state !== "connected") return false;
+        const { id, name, message } = PAYOUT_BLAST_AUTOMATIONS[kind];
+        const namespace = kind === "preflight" ? id : "payout";
+        const key = `support:${namespace}:${day ?? row.day}:${restaurantId}`;
         const claim = await query(`INSERT INTO whatsapp_outbound_messages(dedupe_key,restaurant_id,chat_id,message_type,status,context,updated_at)
             VALUES($1,$2,$3,'text','sending',$4::jsonb,NOW()) ON CONFLICT(dedupe_key) DO NOTHING RETURNING dedupe_key`,
-            [key, restaurantId, phone + "@c.us", JSON.stringify({ message, sender: "blast", kind: "payout" })]);
-        if (!claim.rowCount) return;
+            [key, restaurantId, phone + "@c.us", JSON.stringify({ message, sender: "blast", kind: namespace })]);
+        if (!claim.rowCount) return false;
         try {
             const contact = await checkWahaPhoneExists(row.session_name, phone);
             if (!contact.numberExists) throw new Error("Número não existe no WhatsApp.");
@@ -30,10 +39,12 @@ export async function notifyPayoutProblem(restaurantId: string, kind: PayoutNoti
             await query("UPDATE whatsapp_outbound_messages SET status='sent',sent_at=NOW(),updated_at=NOW(),chat_id=$2 WHERE dedupe_key=$1", [key, chatId]);
             await recordDevAlert({
                 source: "payouts", operation: "Aviso via WhatsApp",
-                title: kind === "missing-type" ? "Aviso de tipo de PIX enviado" : kind === "missing-key" ? "Aviso de chave PIX enviado" : "Aviso de repasse enviado",
+                title: kind === "preflight" ? `${name} enviado`
+                    : kind === "missing-type" ? "Aviso de tipo de PIX enviado" : kind === "missing-key" ? "Aviso de chave PIX enviado" : "Aviso de repasse enviado",
                 message: "Mensagem de repasse enviada ao restaurante.",
                 severity: "info", trigger: "blast",
             });
+            return true;
         } catch (error) {
             await query("UPDATE whatsapp_outbound_messages SET status='failed',last_error=$2,updated_at=NOW() WHERE dedupe_key=$1", [key, error instanceof Error ? error.message.slice(0, 500) : "Falha no envio."]);
         }
@@ -41,6 +52,7 @@ export async function notifyPayoutProblem(restaurantId: string, kind: PayoutNoti
         // Sending a reminder must never alter the outcome or retry behavior of a payout.
         console.warn("[PAYOUT_NOTICE] Não foi possível registrar/enviar aviso.");
     }
+    return false;
 }
 
 // Alarm only when a payout failed and its failure notice has not been confirmed as sent.

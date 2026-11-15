@@ -182,7 +182,7 @@ export async function getCrm(params: URLSearchParams) {
     const sortKey = params.get("sort") || "";
     const sortColumn = Object.prototype.hasOwnProperty.call(sortColumns, sortKey) ? sortColumns[sortKey] : null;
     const direction = params.get("direction") === "asc" ? "ASC" : "DESC";
-    const orderBy = `(${PLUS}) DESC, ${sortColumn ? `${sortColumn} ${direction} NULLS LAST, r.id` : "r.created_at DESC,r.id"}`;
+    const orderBy = sortColumn ? `${sortColumn} ${direction} NULLS LAST, r.id` : "r.created_at DESC,r.id";
     const [rows, count] = await Promise.all([
         query(`SELECT r.id,r.name,r.url_slug,r.created_at,COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),r.phone) phone,r.store_whatsapp AS store_phone,
             COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),NULLIF(TRIM(r.phone),'')) AS owner_phone,(${PLUS_SINCE}) AS plus_since,u.email,(${PAID}) AS has_paid,(${PLUS}) AS plus,

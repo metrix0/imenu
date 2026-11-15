@@ -46,7 +46,7 @@ const visiblePhoneSql = (alias: string) => `NOT EXISTS (
 )`;
 
 const standaloneSender = `COALESCE(o.context->>'sender',CASE WHEN o.dedupe_key LIKE 'support:bulk:support:%' OR o.dedupe_key LIKE 'support:addon-expiry:%' THEN 'support' ELSE 'blast' END)`;
-const standaloneBlast = `(o.dedupe_key LIKE 'support:bulk:%' OR o.dedupe_key LIKE 'support:payout:%' OR o.dedupe_key LIKE 'support:addon-expiry:%')
+const standaloneBlast = `(o.dedupe_key LIKE 'support:bulk:%' OR o.dedupe_key LIKE 'support:payout:%' OR o.dedupe_key LIKE 'support:payout-pix-warning:%' OR o.dedupe_key LIKE 'support:addon-expiry:%')
     AND NOT EXISTS(SELECT 1 FROM support_blast_campaigns c WHERE c.id::text=split_part(o.dedupe_key,':',4))`;
 const legacyRecovery = `c.chat_id LIKE 'imenu-blast:%' AND m.direction='outbound'
     AND m.dedupe_key IS NULL AND regexp_replace(trim(m.body),'\\s+',' ','g') ~ANY($1::text[])
@@ -63,7 +63,8 @@ const EVENTS = `WITH notifications AS (${MESSAGE_ROWS_SQL}),recovery_days AS (${
     SELECT d.group_id,d.created_at,c.message,c.sender,c.status,NULL,NULL,c.id::text,NULL,d.total,d.sent,d.failed
     FROM recovery_days d JOIN support_blast_campaigns c ON c.id=d.campaign_id
     UNION ALL
-    SELECT CASE WHEN o.dedupe_key LIKE 'support:payout:%' THEN 'payout:'||split_part(o.dedupe_key,':',3)
+    SELECT CASE WHEN o.dedupe_key LIKE 'support:payout-pix-warning:%' THEN 'payout-pix-warning:'||split_part(o.dedupe_key,':',3)
+        WHEN o.dedupe_key LIKE 'support:payout:%' THEN 'payout:'||split_part(o.dedupe_key,':',3)
         WHEN o.dedupe_key LIKE 'support:addon-expiry:%' THEN 'expiry:'||split_part(o.dedupe_key,':',4) ELSE 'manual:'||split_part(o.dedupe_key,':',4) END,
         o.created_at,COALESCE(o.context->>'message','Texto não registrado no histórico antigo.'),
         ${standaloneSender},

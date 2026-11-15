@@ -22,6 +22,7 @@ type Data = PageData<Group> & { automations: Automation[] };
 const empty = <T,>(): PageData<T> => ({ rows: [], total: 0, page: 0, pageCount: 1 });
 const compactButton = "!min-h-8 !px-3 !py-1.5 whitespace-nowrap";
 function groupLabel(row: Group) {
+    if (row.id.startsWith("payout-pix-warning:")) return "Aviso preventivo de Pix";
     return row.id.startsWith("automation:recovery:") ? "Recuperação e ativação" : row.id === "automation:plus-feedback" ? "Feedback · 1º mês Plus" : row.id.startsWith("congratulations:") ? "Boas-vindas iMenu Plus" : row.id.startsWith("followup:") ? "Follow-up" : row.id.startsWith("customer:") ? "Automação de clientes" : row.id.startsWith("payout:") ? "Problemas com repasse" : row.id.startsWith("expiry:") ? "Vencimento iMenu Plus" : null;
 }
 function SendProgress({ row }: { row: Group }) {
