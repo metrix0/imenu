@@ -16,7 +16,7 @@ type FunnelCounts = {
     bought: number | null;
     sources: Record<string, number> | null;
 };
-const PLUS_SOURCES = ["sales_modal", "plus_page", "assistant_limit", "sales_section", "marketing_page", "legacy_pages"] as const;
+const PLUS_SOURCES = ["plus_page", "assistant_limit", "sales_section", "marketing_page", "onboarding_complete", "legacy_pages"] as const;
 
 function validDate(value: string | null): value is string {
     return Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value) &&
@@ -53,7 +53,7 @@ export async function GET(request: Request) {
         "uniqExactIf(distinct_id, event = 'imenu_plus_checkout_viewed') AS checkout_users " +
         "FROM events WHERE " + period + " GROUP BY range_label";
 
-    // Exposures share the five-surface 7-day deduplication definition of Plus traffic.
+    // Exposures share the visible-surface 7-day deduplication definition of Plus traffic.
     // Earlier panel pageviews are backfilled in-place, without creating synthetic events.
     // Old pageviews cannot prove that a specific Plus offer was visible.
     const exposuresSql = [
@@ -61,7 +61,7 @@ export async function GET(request: Request) {
         "if(event = 'imenu_plus_exposure_viewed', toString(properties.surface), 'legacy_pages') AS surface",
         "FROM events WHERE " + period,
         "AND ((event = 'imenu_plus_exposure_viewed' AND toString(properties.surface) IN",
-        "('sales_modal','plus_page','assistant_limit','sales_section','marketing_page'))",
+        "('sales_modal','plus_page','assistant_limit','sales_section','marketing_page','onboarding_complete'))",
         "OR (event = '$pageview' AND timestamp < toDateTime('2026-11-10 12:50:49', 'UTC')",
         "AND properties.$pathname IN ('/painel/marketing','/painel/marketing/',",
         "'/painel/vendas-ia','/painel/vendas-ia/',",
@@ -74,7 +74,7 @@ export async function GET(request: Request) {
         "arraySort(groupArray(toInt(toUnixTimestamp(timestamp)))),",
         "(toInt(0), toInt(-604800))), 1) AS visits",
         "FROM (SELECT range_label, distinct_id, timestamp,",
-        "arrayJoin(['exposures', concat('source:', surface)]) AS bucket",
+        "arrayJoin(if(surface = 'sales_modal', ['modal_views'], ['exposures', concat('source:', surface)])) AS bucket",
         "FROM touchpoints)",
         "GROUP BY range_label, bucket, distinct_id)",
         "GROUP BY range_label, bucket"
@@ -130,7 +130,7 @@ export async function GET(request: Request) {
             panelUsers: users.status === "fulfilled" ? Number(userRow?.[1] || 0) : null,
             exposures: exposures.status === "fulfilled" ? getExposure("exposures") : null,
             modalViews: exposures.status === "fulfilled" && (label === "current" ? endAt : startAt) > Date.parse("2026-11-10T12:50:49Z")
-                ? getExposure("source:sales_modal") : null,
+                ? getExposure("modal_views") : null,
             checkout: users.status === "fulfilled" ? Number(userRow?.[2] || 0) : null,
             bought: buyers.status === "fulfilled" ? Number(buyers.value.rows[0]?.[label === "current" ? "current_buyers" : "previous_buyers"] || 0) : null,
             sources,

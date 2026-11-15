@@ -179,6 +179,7 @@ type DashboardDetailsPayload = {
         step2Views: number | null;
         step3Views: number | null;
         step4Views: number | null;
+        step5Views: number | null;
         orderedConsumers: number | null;
     };
     monthlyRevenue: {
@@ -1180,6 +1181,7 @@ export default function DevDashboardPage() {
                                             "step_2",
                                             "step_3",
                                             "step_4",
+                                            "step_5",
                                         ].includes(step.key);
                                         const isSupabaseStep =
                                             isRegistrationComplete ||
@@ -1255,6 +1257,10 @@ export default function DevDashboardPage() {
                                         data.pipeline.find(
                                             (step) => step.key === "step_4"
                                         )?.value ?? null;
+                                    const step5 =
+                                        data.pipeline.find(
+                                            (step) => step.key === "step_5"
+                                        )?.value ?? null;
                                     const activatedUsers =
                                         data.pipeline.find(
                                             (step) => step.key === "activated_users"
@@ -1291,6 +1297,10 @@ export default function DevDashboardPage() {
                                         {
                                             label: "Registro completo → Passo 4",
                                             value: registrationToStep4,
+                                        },
+                                        {
+                                            label: "Registro completo → Passo 5 (opcional)",
+                                            value: conversion(step5, registrationComplete),
                                         },
                                         {
                                             label:

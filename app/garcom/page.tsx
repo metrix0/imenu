@@ -10,6 +10,7 @@ import {
     faChair,
     faEye,
     faLink,
+    faPenToSquare,
     faPlus,
 } from "@fortawesome/free-solid-svg-icons";
 
@@ -477,6 +478,16 @@ export default function GarcomPage() {
                                                                     aria-label={`Ver detalhes do pedido #${order.display_id || order.id.slice(0, 4)}`}
                                                                 >
                                                                     <FontAwesomeIcon icon={faEye} />
+                                                                </Button>
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="secondary"
+                                                                    className="h-9 w-9 shrink-0 px-0"
+                                                                    onClick={() => orderModalRef.current?.open(table, { id: order.id })}
+                                                                    title="Editar pedido"
+                                                                    aria-label={`Editar pedido #${order.display_id || order.id.slice(0, 4)}`}
+                                                                >
+                                                                    <FontAwesomeIcon icon={faPenToSquare} />
                                                                 </Button>
                                                             </div>
                                                         </div>

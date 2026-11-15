@@ -9,7 +9,7 @@ import { DEV_BLAST_PAGE_SIZE } from "@/lib/dev/pagination";
 import { statusPresentation } from "@/lib/dev/supportView";
 import type { Connection } from "@/lib/dev/supportTypes";
 
-export type Automation = { id: string; name: string; message: string | null; sender: string; criteria: string; trigger: string; limit: number | null; category?: "payouts" };
+export type Automation = { id: string; name: string; message: string | null; sender: string; criteria: string; trigger: string; limit: number | null; category?: "payouts" | "churn" };
 export type Connections = { support: Connection | null; blast: Connection | null };
 
 export function BlastSender({ sender, connections }: { sender: string; connections?: Connections }) {
@@ -43,17 +43,15 @@ export default function BlastAutomation({ automations, connections, loading, gro
         { key: "name", label: "Título", render: row => <span className="font-medium">{row.name}</span> },
         { key: "criteria", label: "Critérios", render: row => <p className="max-w-80 text-xs leading-5 text-gray-600">{row.criteria}</p> },
         { key: "trigger", label: "Trigger", render: row => <span className="text-xs leading-5 text-gray-600">{row.trigger}</span> },
-        { key: "limit", label: "Limite/dia", className: "whitespace-nowrap", render: row => row.limit === null ? "Sem limite" : `${row.limit} envios${["recovery-plus", "recovery", "single-order", "first-order"].includes(row.id) ? " (compart.)" : ""}` },
+        { key: "limit", label: "Limite/dia", className: "whitespace-nowrap", render: row => row.limit === null ? "Sem limite" : `${row.limit} envios${row.category === "churn" ? " (compart.)" : ""}` },
         { key: "message", label: "Mensagem", render: row => <p className={styles.blastMessage}>{row.message || "—"}</p> },
         { key: "sender", label: "Remetente", render: row => <BlastSender sender={row.sender} connections={connections} /> },
     ]} />;
     const className = `${styles.tableSection} ${styles.blastTable} ${styles.blastAutomations}`;
     if (group) {
         return <section className={className} aria-label={group.label}>
-            <button {...disclosure.triggerProps} className="mb-3 flex w-full cursor-pointer items-center rounded-lg border border-[#e2e5e9] bg-white px-4 py-3 text-left text-sm font-semibold">
-                <span className="relative flex h-5 w-4 shrink-0 items-center justify-center">
-                    <CollapsibleChevron expanded={disclosure.expanded} className="absolute" />
-                </span>
+            <button {...disclosure.triggerProps} className="mb-3 flex w-full cursor-pointer items-center gap-2 rounded-lg border border-[#e2e5e9] bg-white px-4 py-3 text-left text-sm font-semibold">
+                <CollapsibleChevron expanded={disclosure.expanded} size="sm" />
                 {group.label}
             </button>
             <CollapsibleContent id={disclosure.contentId} expanded={disclosure.expanded}>

@@ -28,6 +28,7 @@ export const PLUS_BONUS_ICONS: Record<string, LucideIcon> = {
 
 type ProductCardContent = {
     presentation?: "default" | "plans";
+    actionLabel?: string;
     name: string;
     logo: string;
     description: string;
@@ -174,7 +175,7 @@ export default function MenuProductCard(props: MenuProductCardProps) {
                 </div>
                 <div className="plans-plus-footer">
                     <Button type="button" variant={active ? "secondary" : "primary"} onClick={stopAndLearnMore} className="plans-plus-cta">
-                        {active ? "Conhecer meu plano" : "Conhecer o plano"}
+                        {props.actionLabel ?? (active ? "Conhecer meu plano" : "Conhecer o plano")}
                         <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" />
                     </Button>
                 </div>

@@ -46,6 +46,7 @@ type OnboardingFunnelRow = {
     step_2: number | string;
     step_3: number | string;
     step_4: number | string;
+    step_5: number | string;
 };
 
 type OrderCountRow = {
@@ -397,7 +398,10 @@ export async function GET(request: Request) {
                         COUNT(DISTINCT cohort.id) FILTER (
                             WHERE restaurant.creation_step >= 4
                                OR restaurant.first_time = false
-                        )::int AS step_4
+                        )::int AS step_4,
+                        COUNT(DISTINCT cohort.id) FILTER (
+                            WHERE restaurant.creation_step >= 5
+                        )::int AS step_5
                     FROM registration_cohort AS cohort
                     LEFT JOIN restaurants AS restaurant
                         ON restaurant.user_id = cohort.id
@@ -500,6 +504,7 @@ export async function GET(request: Request) {
             step2: Number(onboardingRow?.step_2) || 0,
             step3: Number(onboardingRow?.step_3) || 0,
             step4: Number(onboardingRow?.step_4) || 0,
+            step5: Number(onboardingRow?.step_5) || 0,
         };
 
         const historyResult = await query<OrderRow>(
@@ -833,6 +838,14 @@ export async function GET(request: Request) {
                 conversion: conversion(onboarding.step4, onboarding.step3),
                 available: true,
                 note: null,
+            },
+            {
+                key: "step_5",
+                label: "Passo 5 · iMenu Plus",
+                value: onboarding.step5,
+                conversion: conversion(onboarding.step5, onboarding.step4),
+                available: true,
+                note: "Etapa opcional alcançada após Localização; não implica compra. Exclui cadastros históricos sem etapa 5.",
             },
             {
                 key: "activated_users",

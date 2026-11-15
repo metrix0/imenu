@@ -9,6 +9,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
+import SaveStatus, { type SaveState } from "@/components/ui/SaveStatus";
 
 type Category = {
     id: string;
@@ -16,13 +17,17 @@ type Category = {
     position: number;
 };
 
-interface OrganizeCategoriesModalProps {
+type OrganizeCategoriesModalProps = {
     open: boolean;
     categories: Category[];
     saving?: boolean;
     onClose: () => void;
-    onSave: (categories: Category[]) => Promise<void> | void;
-}
+    title?: string;
+    description?: string;
+} & (
+    | { onSave: (categories: Category[]) => Promise<void> | void; onReorder?: never; status?: never; error?: never }
+    | { onSave?: never; onReorder: (categories: Category[]) => void; status: SaveState; error?: string }
+);
 
 export default function OrganizeCategoriesModal({
     open,
@@ -30,6 +35,11 @@ export default function OrganizeCategoriesModal({
     saving = false,
     onClose,
     onSave,
+    onReorder,
+    status = "idle",
+    error,
+    title = "Organizar categorias",
+    description = "Arraste as categorias para definir a ordem em que aparecem no cardápio.",
 }: OrganizeCategoriesModalProps) {
     const [orderedCategories, setOrderedCategories] = useState<Category[]>([]);
     const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -37,15 +47,15 @@ export default function OrganizeCategoriesModal({
     const pointerIdRef = useRef<number | null>(null);
     const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
     const pointerMovedRef = useRef(false);
+    const draftRef = useRef<Category[]>([]);
 
     useEffect(() => {
         if (!open) return;
-        setOrderedCategories(
-            categories.map((category, index) => ({
-                ...category,
-                position: index + 1,
-            }))
-        );
+        draftRef.current = categories.map((category, index) => ({
+            ...category,
+            position: index + 1,
+        }));
+        setOrderedCategories(draftRef.current);
         setDraggedId(null);
         draggedIdRef.current = null;
         pointerIdRef.current = null;
@@ -53,28 +63,22 @@ export default function OrganizeCategoriesModal({
         pointerMovedRef.current = false;
     }, [open, categories]);
 
+    const moveCategory = useCallback((from: number, to: number) => {
+        const next = [...draftRef.current];
+        const [moved] = next.splice(from, 1);
+        next.splice(to, 0, moved);
+        draftRef.current = next.map((category, index) => ({ ...category, position: index + 1 }));
+        setOrderedCategories(draftRef.current);
+    }, []);
+
     const reorderCategory = useCallback((targetId: string) => {
         const currentDraggedId = draggedIdRef.current;
         if (!currentDraggedId || currentDraggedId === targetId) return;
 
-        setOrderedCategories((current) => {
-            const draggedIndex = current.findIndex(
-                (category) => category.id === currentDraggedId
-            );
-            const targetIndex = current.findIndex(
-                (category) => category.id === targetId
-            );
-            if (draggedIndex === -1 || targetIndex === -1) return current;
-
-            const next = [...current];
-            const [moved] = next.splice(draggedIndex, 1);
-            next.splice(targetIndex, 0, moved);
-            return next.map((category, index) => ({
-                ...category,
-                position: index + 1,
-            }));
-        });
-    }, []);
+        const from = draftRef.current.findIndex(category => category.id === currentDraggedId);
+        const to = draftRef.current.findIndex(category => category.id === targetId);
+        if (from !== -1 && to !== -1) moveCategory(from, to);
+    }, [moveCategory]);
 
     useEffect(() => {
         if (!open) return;
@@ -117,6 +121,7 @@ export default function OrganizeCategoriesModal({
                 return;
             }
 
+            if (pointerMovedRef.current) onReorder?.(draftRef.current);
             pointerIdRef.current = null;
             pointerStartRef.current = null;
             pointerMovedRef.current = false;
@@ -135,21 +140,13 @@ export default function OrganizeCategoriesModal({
             window.removeEventListener("pointerup", finishPointerDrag);
             window.removeEventListener("pointercancel", finishPointerDrag);
         };
-    }, [open, reorderCategory]);
+    }, [open, onReorder, reorderCategory]);
 
-    const moveCategory = (index: number, delta: number) => {
+    const moveWithButton = (index: number, delta: number) => {
         const targetIndex = index + delta;
         if (targetIndex < 0 || targetIndex >= orderedCategories.length) return;
-
-        setOrderedCategories((current) => {
-            const next = [...current];
-            const [moved] = next.splice(index, 1);
-            next.splice(targetIndex, 0, moved);
-            return next.map((category, nextIndex) => ({
-                ...category,
-                position: nextIndex + 1,
-            }));
-        });
+        moveCategory(index, targetIndex);
+        onReorder?.(draftRef.current);
     };
 
     const startPointerDrag = (
@@ -174,19 +171,21 @@ export default function OrganizeCategoriesModal({
             fixedHeight
             open={open}
             onClose={() => {
-                if (!saving) onClose();
+                if (!saving && status !== "saving") onClose();
             }}
             className="max-w-lg !overflow-hidden"
             bodyClassName="flex min-h-0 flex-1 flex-col !overflow-hidden"
         >
             <div className="flex h-full min-h-0 flex-col p-5 sm:p-6">
                 <div className="mb-5 shrink-0">
-                    <h2 className="text-xl font-bold text-gray-900">
-                        Organizar categorias
-                    </h2>
+                    <div className="flex items-start justify-between gap-3">
+                        <h2 className="text-xl font-bold text-gray-900">{title}</h2>
+                        {onReorder && <SaveStatus status={status} />}
+                    </div>
                     <p className="mt-1 text-sm text-gray-500">
-                        Arraste as categorias para definir a ordem em que aparecem no cardápio.
+                        {description}
                     </p>
+                    {error && <p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}
                 </div>
 
                 <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
@@ -222,7 +221,7 @@ export default function OrganizeCategoriesModal({
                                     type="button"
                                     aria-label={`Mover ${category.name} para cima`}
                                     disabled={saving || index === 0}
-                                    onClick={() => moveCategory(index, -1)}
+                                    onClick={() => moveWithButton(index, -1)}
                                     className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-30"
                                 >
                                     <FontAwesomeIcon icon={faArrowUp} />
@@ -234,7 +233,7 @@ export default function OrganizeCategoriesModal({
                                         saving ||
                                         index === orderedCategories.length - 1
                                     }
-                                    onClick={() => moveCategory(index, 1)}
+                                    onClick={() => moveWithButton(index, 1)}
                                     className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-30"
                                 >
                                     <FontAwesomeIcon icon={faArrowDown} />
@@ -248,16 +247,16 @@ export default function OrganizeCategoriesModal({
                     <Button
                         variant="secondary"
                         onClick={onClose}
-                        disabled={saving}
+                        disabled={saving || status === "saving"}
                     >
-                        Cancelar
+                        {onReorder ? "Concluir" : "Cancelar"}
                     </Button>
-                    <Button
+                    {onSave && <Button
                         onClick={() => void onSave(orderedCategories)}
                         disabled={saving}
                     >
                         {saving ? "Salvando..." : "Salvar ordem"}
-                    </Button>
+                    </Button>}
                 </div>
             </div>
         </Modal>

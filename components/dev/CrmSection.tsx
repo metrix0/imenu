@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Input from "@/components/ui/Input";
+import Badge from "@/components/ui/Badge";
 import styles from "./dashboard.module.css";
 import { Search, Eye } from "lucide-react";
 import Dropdown from "@/components/ui/Dropdown";
 import Tooltip from "@/components/ui/Tooltip";
+import type { DateRange } from "@/lib/utils/dateRange";
 import PagedTable, { type PageData } from "./PagedTable";
 import { devJson } from "@/lib/dev/client";
 
@@ -13,10 +15,36 @@ import {useDevProfile,PhoneLink,CustomerBadge,type Restaurant} from "./DevProfil
 import {accountAge, formatCurrencyFromCents, formatDateTime} from "@/lib/dev/dashboardFormat";
 const empty = <T,>(): PageData<T> => ({ rows: [], page: 0, total: 0, pageCount: 1 });
 
-function CrmList({ search, plan, activity, onOpen }: { search: string; plan: string; activity: string; onOpen: (row: Restaurant) => void }) {
+const blastStatus = {
+    sent: { label: "Enviado", variant: "success" },
+    scheduled: { label: "Agendado", variant: "info" },
+    paused: { label: "Pausado", variant: "warning", detail: "A campanha está pausada e o contato segue na fila." },
+    processing: { label: "Em envio", variant: "info" },
+    failed: { label: "Falhou", variant: "danger" },
+    cancelled: { label: "Cancelado", variant: "neutral" },
+    skipped_60d: { label: "Ignorado", variant: "neutral", detail: "Bloqueio para evitar novo contato em até 60 dias." },
+    skipped_recent: { label: "Ignorado", variant: "neutral", detail: "O contato recebeu um disparo recente." },
+    skipped_reactivated: { label: "Ignorado", variant: "neutral", detail: "O contato deixou de atender aos critérios do disparo." },
+} as const;
+type CrmRow = Restaurant & {
+    blast_status?: keyof typeof blastStatus | null;
+    blast_at?: string | null;
+    blast_error?: string | null;
+};
+
+export function CrmList({ search = "", plan = "all", activity, title, range, showBlast = false, onTotalChange }: {
+    search?: string;
+    plan?: string;
+    activity: string;
+    title?: string;
+    range?: DateRange;
+    showBlast?: boolean;
+    onTotalChange?: (activity: string, total: number) => void;
+}) {
+    const { openProfile } = useDevProfile();
     const [page, setPage] = useState(0);
     const [sort, setSort] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
-    const [data, setData] = useState(empty<Restaurant>);
+    const [data, setData] = useState(empty<CrmRow>);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     useEffect(() => { setPage(0); }, [search, plan, activity]);
@@ -33,21 +61,32 @@ function CrmList({ search, plan, activity, onOpen }: { search: string; plan: str
         const controller = new AbortController();
         setLoading(true);
         const params = new URLSearchParams({ mode: "crm", q: search, plan, activity, page: String(page) });
+        if (showBlast) params.set("includeBlast", "1");
+        if (range) {
+            params.set("startDate", range.startDate);
+            params.set("endDate", range.endDate);
+        }
         if (sort) {
             params.set("sort", sort.key);
             params.set("direction", sort.direction);
         }
-        void devJson<PageData<Restaurant>>(`/api/dev/restaurants?${params}`, { signal: controller.signal })
-            .then(result => { setData(result); setError(""); })
+        void devJson<PageData<CrmRow>>(`/api/dev/restaurants?${params}`, { signal: controller.signal })
+            .then(result => {
+                if (controller.signal.aborted) return;
+                setData(result);
+                setError("");
+                onTotalChange?.(activity, result.total);
+            })
             .catch(e => { if (!controller.signal.aborted) setError(e.message); })
             .finally(() => { if (!controller.signal.aborted) setLoading(false); });
         return () => controller.abort();
-    }, [search, plan, activity, page, sort]);
-    return <section className={styles.tableSection}>
+    }, [search, plan, activity, page, sort, range, showBlast, onTotalChange]);
+    return <section className={styles.tableSection} aria-label={title}>
+        {title && <h2>{title}</h2>}
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-        <div className={styles.crmTable}>
+        <div className={showBlast ? `${styles.crmTable} ${styles.churnBlastTable}` : styles.crmTable}>
             <PagedTable pageSize={10} data={data} loading={loading} rowKey={r => r.id} onPage={setPage}
-                onRowClick={onOpen} sortKey={sort?.key} sortDirection={sort?.direction} onSort={onSort} columns={[
+                onRowClick={openProfile} sortKey={sort?.key} sortDirection={sort?.direction} onSort={onSort} columns={[
                 { key: "name", label: "Restaurante", sortable: true, render: r => <span className="block min-w-0 truncate whitespace-nowrap font-medium" title={r.name}>{r.name}</span> },
                 { key: "status", label: "Cliente", sortable: true, render: r => <CustomerBadge restaurant={r} /> },
                 { key: "store", label: "Celular loja", sortable: true, render: r => <PhoneLink phone={r.store_phone} /> },
@@ -62,7 +101,19 @@ function CrmList({ search, plan, activity, onOpen }: { search: string; plan: str
                         </Tooltip>
                     ) : "—",
                 },
-                { key: "open", label: "", render: r => <button type="button" title="Ver detalhes" aria-label={`Ver detalhes de ${r.name}`} onClick={e => { e.stopPropagation(); onOpen(r); }} className="cursor-pointer rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-brand"><Eye size={16} aria-hidden="true" /></button> },
+                ...(showBlast ? [{
+                    key: "blast", label: "Blast",
+                    render: (row: CrmRow) => {
+                        const status = row.blast_status && blastStatus[row.blast_status];
+                        const detail = row.blast_error || (status && "detail" in status ? status.detail : null);
+                        const date = row.blast_at && row.blast_status !== "paused" ? formatDateTime(row.blast_at) : null;
+                        return <Badge variant={status ? status.variant : "neutral"}
+                            title={[detail, date].filter(Boolean).join("\n") || undefined}>
+                            {status ? status.label : "Sem envio"}
+                        </Badge>;
+                    },
+                }] : []),
+                { key: "open", label: "", render: r => <button type="button" title="Ver detalhes" aria-label={`Ver detalhes de ${r.name}`} onClick={e => { e.stopPropagation(); openProfile(r); }} className="cursor-pointer rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-brand"><Eye size={16} aria-hidden="true" /></button> },
             ]} />
         </div>
     </section>;
@@ -73,7 +124,6 @@ export default function CrmSection() {
     const [query, setQuery] = useState("");
     const [plan, setPlan] = useState("all");
     const [activity, setActivity] = useState("all");
-    const {openProfile}=useDevProfile();
     useEffect(() => { const timer = setTimeout(() => setQuery(search), 300); return () => clearTimeout(timer); }, [search]);
     return <div className="space-y-6">
         <div className="flex flex-wrap items-end gap-3">
@@ -91,6 +141,6 @@ export default function CrmSection() {
                 { value: "no_first_order", label: "Não ativados" },
             ]} /></div>
         </div>
-        <CrmList search={query} plan={plan} activity={activity} onOpen={openProfile} />
+        <CrmList search={query} plan={plan} activity={activity} />
     </div>;
 }

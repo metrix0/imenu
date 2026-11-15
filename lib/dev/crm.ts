@@ -1,6 +1,14 @@
 import { query } from "@/lib/database/sql";
 import { devPage, paged } from "./pagination";
+import {
+    ABANDONED_BLAST_MESSAGE,
+    NO_FIRST_ORDER_RECOVERY_MESSAGE,
+    PLUS_ABANDONED_BLAST_MESSAGE,
+    SINGLE_ORDER_DAY_RECOVERY_MESSAGE,
+} from "./abandonedBlast";
+import { DID_NOT_ACTIVATE_BLAST_MESSAGE } from "./didNotActivateBlast";
 import { SUPPORT_CONVERSATION_VISIBLE_SQL } from "@/lib/services/supportExclusions";
+import { formatSignupOrigin } from "@/lib/analytics/signupOrigin";
 
 const CRM_PAGE_SIZE = 10;
 
@@ -69,9 +77,9 @@ const LAST_SUPPORT_JOIN = `LEFT JOIN LATERAL (
 const ACCOUNT = "COALESCE(r.user_id,r.id)";
 const OWNED_ACCOUNT = "COALESCE(owned.user_id,owned.id)";
 const PURCHASE_DAY = "(o.created_at AT TIME ZONE 'America/Sao_Paulo')::date";
-const RECOVERY_AS_OF = "((date_trunc('day', NOW() AT TIME ZONE 'America/Sao_Paulo') + INTERVAL '20 hours') AT TIME ZONE 'America/Sao_Paulo')";
+const RECOVERY_AS_OF = "((date_trunc('day', NOW() AT TIME ZONE 'America/Sao_Paulo') + INTERVAL '19 hours') AT TIME ZONE 'America/Sao_Paulo')";
 // Use grouped account ID sets so pagination and counts do not run per-row scans.
-// The recovery sets match the daily 20:00 SP eligibility snapshot.
+// The recovery sets match the daily 19:00 SP eligibility snapshot.
 const ACCOUNT_PLUS = [
     ACCOUNT + " IN (SELECT " + OWNED_ACCOUNT + " FROM restaurant_addons addon",
     "JOIN restaurants owned ON owned.id=addon.restaurant_id",
@@ -110,20 +118,184 @@ const ACTIVITY: Record<string, string> = {
     abandoned_imenu: "(" + ABANDONED + " AND NOT " + ACCOUNT_PLUS + ")",
     single_day: [
         ACCOUNT + " IN (SELECT " + OWNED_ACCOUNT + " FROM restaurants owned JOIN orders o ON o.restaurant_id=owned.id",
-        "WHERE owned.creation_step=4 AND owned.first_time=false",
+        "WHERE owned.creation_step>=4 AND owned.first_time=false",
         "AND o.table_id IS NULL AND o.created_at >= " + RECOVERY_AS_OF + " - INTERVAL '14 days'",
         "AND o.created_at < " + RECOVERY_AS_OF,
         "GROUP BY owned.id, " + OWNED_ACCOUNT + " HAVING COUNT(DISTINCT " + PURCHASE_DAY + ")=1)",
     ].join(" "),
     no_first_order: [
         ACCOUNT + " IN (SELECT " + OWNED_ACCOUNT + " FROM restaurants owned",
-        "WHERE owned.creation_step=4 AND owned.first_time=false",
+        "WHERE owned.creation_step>=4 AND owned.first_time=false",
         "AND owned.onboarding_completed_at >= " + RECOVERY_AS_OF + " - INTERVAL '48 hours'",
         "AND owned.onboarding_completed_at < " + RECOVERY_AS_OF + " - INTERVAL '24 hours'",
         "AND NOT EXISTS (SELECT 1 FROM orders o JOIN restaurants other ON other.id=o.restaurant_id",
         "WHERE COALESCE(other.user_id,other.id)=" + OWNED_ACCOUNT + "))",
     ].join(" "),
 };
+
+const CHURN_PERIOD_BOUNDS = `WITH churn_bounds AS (
+    SELECT $2::date::timestamp AT TIME ZONE 'America/Sao_Paulo' AS start_at,
+           LEAST(NOW(), ($3::date + 1)::timestamp AT TIME ZONE 'America/Sao_Paulo') AS end_at
+)`;
+
+const CHURN_ACTIVITY = {
+    churned_plus: `r.id IN (
+        SELECT DISTINCT ON (COALESCE(owned.user_id, owned.id)) owned.id
+        FROM restaurant_addons addon
+        JOIN restaurants owned ON owned.id = addon.restaurant_id
+        CROSS JOIN churn_bounds bounds
+        WHERE addon.product_key = 'ia_plus'
+          AND addon.current_period_ends_at >= bounds.start_at
+          AND addon.current_period_ends_at < bounds.end_at
+          AND (
+              EXISTS (
+                  SELECT 1 FROM restaurant_addon_payments payment
+                  WHERE payment.addon_id = addon.id
+                    AND payment.paid_at < addon.current_period_ends_at AND payment.amount_cents > 0
+                    AND UPPER(payment.status) IN ('CONFIRMED','RECEIVED','RECEIVED_IN_CASH','PAID','COMPLETED','APPROVED')
+              )
+              OR (addon.activated_at < addon.current_period_ends_at
+                  AND UPPER(addon.payzu_payment_status) IN ('PAID','COMPLETED','CONFIRMED'))
+          )
+          AND NOT EXISTS (
+              SELECT 1 FROM restaurant_addons renewed
+              JOIN restaurants other ON other.id = renewed.restaurant_id
+              WHERE COALESCE(other.user_id, other.id) = COALESCE(owned.user_id, owned.id)
+                AND renewed.product_key = 'ia_plus'
+                AND (renewed.status = 'active' OR renewed.status IN ('canceled','past_due'))
+                AND (renewed.current_period_ends_at >= bounds.end_at
+                     OR (renewed.status = 'active' AND renewed.current_period_ends_at IS NULL))
+          )
+        ORDER BY COALESCE(owned.user_id, owned.id), addon.current_period_ends_at DESC, owned.id
+    )`,
+    churned_imenu: `NOT ${ACCOUNT_PLUS} AND r.id IN (
+        WITH daily_orders AS (
+            SELECT DISTINCT ON (${OWNED_ACCOUNT}, ${PURCHASE_DAY})
+                ${OWNED_ACCOUNT} AS account_id, owned.id AS restaurant_id, o.created_at AS last_order_at,
+                MIN(o.created_at) OVER (PARTITION BY ${OWNED_ACCOUNT}, ${PURCHASE_DAY}) AS first_order_at
+            FROM orders o
+            JOIN restaurants owned ON owned.id = o.restaurant_id
+            CROSS JOIN churn_bounds bounds
+            WHERE o.table_id IS NULL AND o.status = 'done'
+              AND o.created_at >= bounds.start_at - INTERVAL '30 days'
+              AND o.created_at < bounds.end_at
+            ORDER BY ${OWNED_ACCOUNT}, ${PURCHASE_DAY}, o.created_at DESC, o.id
+        ), activity_gaps AS (
+            SELECT account_id, restaurant_id, last_order_at + INTERVAL '14 days' AS churned_at,
+                   LAG(last_order_at) OVER account_days AS previous_day_order,
+                   LEAD(first_order_at) OVER account_days AS next_order
+            FROM daily_orders
+            WINDOW account_days AS (PARTITION BY account_id ORDER BY last_order_at)
+        )
+        SELECT DISTINCT ON (account_id) restaurant_id
+        FROM activity_gaps CROSS JOIN churn_bounds bounds
+        WHERE churned_at >= bounds.start_at AND churned_at < bounds.end_at
+          AND previous_day_order >= churned_at - INTERVAL '30 days'
+          AND (next_order IS NULL OR next_order > churned_at)
+        ORDER BY account_id, churned_at DESC, restaurant_id
+    )`,
+    not_activated: `r.id IN (
+        SELECT DISTINCT ON (${OWNED_ACCOUNT}) owned.id
+        FROM restaurants owned CROSS JOIN churn_bounds bounds
+        WHERE owned.creation_step >= 4 AND owned.first_time = false
+          AND owned.onboarding_completed_at >= bounds.start_at
+          AND owned.onboarding_completed_at < bounds.end_at
+          AND owned.onboarding_completed_at < NOW() - INTERVAL '24 hours'
+          AND NOT EXISTS (
+              SELECT 1 FROM orders o JOIN restaurants other ON other.id = o.restaurant_id
+              WHERE COALESCE(other.user_id, other.id) = ${OWNED_ACCOUNT}
+          )
+        ORDER BY ${OWNED_ACCOUNT}, owned.onboarding_completed_at DESC, owned.id
+    )`,
+};
+
+function isCalendarDate(value: string): boolean {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const parsed = new Date(value + "T00:00:00Z");
+    return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+const CHURN_BLAST_TEMPLATES = {
+    churned_plus: [PLUS_ABANDONED_BLAST_MESSAGE],
+    churned_imenu: [ABANDONED_BLAST_MESSAGE],
+    single_day: [SINGLE_ORDER_DAY_RECOVERY_MESSAGE],
+    not_activated: [NO_FIRST_ORDER_RECOVERY_MESSAGE, DID_NOT_ACTIVATE_BLAST_MESSAGE],
+};
+
+function normalizedBlastMessage(message: string): string {
+    return message.trim().replace(/\s+/g, " ");
+}
+
+function blastMessagePattern(message: string): string {
+    return "^" + message.split("{{Nome Restaurante}}")
+        .map(part => part.replace(/[.*+?^$(){}|[\]\\]/g, "\\$&")).join(".{1,200}") + "$";
+}
+
+function churnBlastJoin(templatesParam: number, patternsParam: number): string {
+    return `LEFT JOIN LATERAL (
+    WITH contact_phones AS (
+        SELECT DISTINCT CASE
+            WHEN digits ~ '^55[0-9]{10,11}$' THEN digits
+            WHEN digits ~ '^0055[0-9]{10,11}$' THEN SUBSTRING(digits FROM 3)
+            WHEN digits ~ '^055[0-9]{10,11}$' THEN SUBSTRING(digits FROM 2)
+            WHEN digits ~ '^[0-9]{10,11}$' THEN '55' || digits
+        END AS phone
+        FROM restaurants owned
+        CROSS JOIN LATERAL (VALUES (owned.phone), (u.raw_user_meta_data->>'phone')) contact(raw)
+        CROSS JOIN LATERAL (SELECT regexp_replace(COALESCE(contact.raw, ''), '[^0-9]', '', 'g') AS digits) normalized
+        WHERE owned.id = r.id OR owned.user_id = r.user_id
+    ), matching_campaigns AS (
+        SELECT campaign.id, campaign.status
+        FROM support_blast_campaigns campaign
+        WHERE campaign.sender = 'blast'
+          AND regexp_replace(BTRIM(campaign.message), '\\s+', ' ', 'g') = ANY($${templatesParam}::text[])
+    ), history AS (
+        SELECT CASE
+            WHEN recipient.status = 'pending' AND campaign.status = 'paused' THEN 'paused'
+            WHEN recipient.status = 'pending' THEN 'scheduled'
+            ELSE recipient.status
+        END AS status,
+        CASE
+            WHEN recipient.status = 'sent' THEN recipient.sent_at
+            WHEN recipient.status = 'pending' THEN recipient.scheduled_at
+            ELSE recipient.attempted_at
+        END AS event_at,
+        COALESCE(recipient.sent_at, recipient.attempted_at, recipient.scheduled_at, recipient.created_at) AS sort_at,
+        recipient.error
+        FROM matching_campaigns campaign
+        JOIN support_blast_recipients recipient ON recipient.campaign_id = campaign.id
+        WHERE (
+            recipient.phone IN (SELECT phone FROM contact_phones)
+            OR EXISTS (
+                SELECT 1 FROM whatsapp_outbound_messages outbound
+                WHERE outbound.dedupe_key =
+                    'support:bulk:abandoned:' || campaign.id::text || ':' || COALESCE(r.user_id, r.id)::text
+                  AND outbound.chat_id = recipient.phone || '@c.us'
+            )
+        ) AND (
+            recipient.status IN ('sent', 'failed', 'cancelled', 'skipped_60d', 'skipped_recent', 'skipped_reactivated')
+            OR (recipient.status IN ('pending', 'processing') AND campaign.status IN ('running', 'paused'))
+        )
+        UNION ALL
+        SELECT 'sent', message.created_at, message.created_at, NULL::text
+        FROM support_messages message
+        JOIN support_conversations c ON c.id = message.conversation_id
+        WHERE c.chat_id LIKE 'imenu-blast:%' AND message.direction = 'outbound'
+          AND message.send_status = 'sent' AND message.dedupe_key IS NULL
+          AND regexp_replace(BTRIM(message.body), '\\s+', ' ', 'g') ~ ANY($${patternsParam}::text[])
+          AND (c.phone IN (SELECT phone FROM contact_phones)
+               OR EXISTS (
+                   SELECT 1 FROM restaurants contacted
+                   WHERE contacted.id = c.restaurant_id
+                     AND (contacted.id = r.id OR contacted.user_id = r.user_id)
+               ))
+    )
+    SELECT status, event_at, error
+    FROM history
+    ORDER BY sort_at DESC NULLS LAST, (status = 'sent') DESC
+    LIMIT 1
+) churn_blast ON TRUE`;
+}
 
 export async function getCrm(params: URLSearchParams) {
     const page = devPage(params);
@@ -145,7 +317,7 @@ export async function getCrm(params: URLSearchParams) {
             query(`SELECT r.id,r.name,r.url_slug,r.created_at,COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),r.phone) phone,r.store_whatsapp AS store_phone,
                 COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),NULLIF(TRIM(r.phone),'')) AS owner_phone,(${PLUS_SINCE}) AS plus_since,r.payment_info,r.payment_info_type,u.email,
                 r.creation_step,r.first_time,r.onboarding_completed_at,r.address->>'city' AS city,r.address->>'state' AS state,
-                r.pickup_enabled,r.delivery_disabled,r.preorder_only,
+                r.pickup_enabled,r.delivery_disabled,r.preorder_only,u.raw_app_meta_data->'signup_origin' AS signup_origin,
                 (${PAID}) AS has_paid,(${PLUS}) AS plus,support.conversation_id AS support_conversation_id,support.mode AS support_mode,support.last_message,support.last_message_at FROM restaurants r LEFT JOIN auth.users u ON u.id=r.user_id ${LAST_SUPPORT_JOIN} WHERE r.id=$1`, [id]),
             query(`SELECT COUNT(*)::int orders,COALESCE(SUM(total_cents),0)::bigint gmv_cents,
                 COALESCE(SUM(total_cents) FILTER(WHERE payment_method IN ('pix','cartao')),0)::bigint online_cents,
@@ -156,12 +328,32 @@ export async function getCrm(params: URLSearchParams) {
                 FROM ia_vendas_runs WHERE restaurant_id=$1 AND kind='analysis' AND status='completed'
                 ORDER BY created_at DESC LIMIT 1`, [id]),
         ]);
-        return { restaurant: restaurant.rows[0] || null, metrics: metrics.rows[0], analysis: analysis.rows[0] || null };
+        const row = restaurant.rows[0];
+        if (!row) return { restaurant: null, metrics: metrics.rows[0], analysis: analysis.rows[0] || null };
+        const { signup_origin, ...profile } = row;
+        return { restaurant: { ...profile, origin: formatSignupOrigin(signup_origin) }, metrics: metrics.rows[0], analysis: analysis.rows[0] || null };
     }
     const paidOnly = params.get("paid") === "1";
     const search = params.get("q")?.trim().slice(0, 200) || "";
     const plan = params.get("plan");
-    const activity = ACTIVITY[params.get("activity") || ""];
+    const activityKey = params.get("activity") || "";
+    const isChurn = Object.hasOwn(CHURN_ACTIVITY, activityKey);
+    const activity = isChurn ? CHURN_ACTIVITY[activityKey as keyof typeof CHURN_ACTIVITY]
+        : Object.hasOwn(ACTIVITY, activityKey) ? ACTIVITY[activityKey] : undefined;
+    const startDate = params.get("startDate") || "";
+    const endDate = params.get("endDate") || "";
+    if (isChurn && (!isCalendarDate(startDate) || !isCalendarDate(endDate) || startDate > endDate)) {
+        return paged([], 0, page, CRM_PAGE_SIZE);
+    }
+    const bounds = isChurn ? CHURN_PERIOD_BOUNDS : "";
+    const listParams = isChurn ? [search, startDate, endDate] : [search];
+    const limit = listParams.length + 1;
+    const offset = limit + 1;
+    const blastTemplates = params.get("includeBlast") === "1" && Object.hasOwn(CHURN_BLAST_TEMPLATES, activityKey)
+        ? CHURN_BLAST_TEMPLATES[activityKey as keyof typeof CHURN_BLAST_TEMPLATES].map(normalizedBlastMessage)
+        : null;
+    const rowParams: (string | number | string[])[] = [...listParams, CRM_PAGE_SIZE, page * CRM_PAGE_SIZE];
+    if (blastTemplates) rowParams.push(blastTemplates, blastTemplates.map(blastMessagePattern));
     const conditions = [
         `($1='' OR r.name ILIKE '%'||$1||'%' OR u.email ILIKE '%'||$1||'%' OR r.phone ILIKE '%'||$1||'%' OR r.store_whatsapp ILIKE '%'||$1||'%' OR u.raw_user_meta_data->>'phone' ILIKE '%'||$1||'%')`,
         ...(paidOnly ? [`(${PAID})`] : []),
@@ -184,9 +376,10 @@ export async function getCrm(params: URLSearchParams) {
     const direction = params.get("direction") === "asc" ? "ASC" : "DESC";
     const orderBy = sortColumn ? `${sortColumn} ${direction} NULLS LAST, r.id` : "r.created_at DESC,r.id";
     const [rows, count] = await Promise.all([
-        query(`SELECT r.id,r.name,r.url_slug,r.created_at,COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),r.phone) phone,r.store_whatsapp AS store_phone,
+        query(`${bounds} SELECT r.id,r.name,r.url_slug,r.created_at,COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),r.phone) phone,r.store_whatsapp AS store_phone,
             COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),NULLIF(TRIM(r.phone),'')) AS owner_phone,(${PLUS_SINCE}) AS plus_since,u.email,(${PAID}) AS has_paid,(${PLUS}) AS plus,
             COALESCE(gmv.gmv_cents,0) AS gmv_cents,support.conversation_id AS support_conversation_id,support.mode AS support_mode,support.last_message,support.last_message_at
+            ${blastTemplates ? ",churn_blast.status AS blast_status,churn_blast.event_at AS blast_at,churn_blast.error AS blast_error" : ""}
             FROM restaurants r LEFT JOIN auth.users u ON u.id=r.user_id
             LEFT JOIN LATERAL (
                 SELECT COALESCE(SUM(o.total_cents),0)::bigint AS gmv_cents
@@ -195,9 +388,10 @@ export async function getCrm(params: URLSearchParams) {
                   AND o.status IS DISTINCT FROM 'pending_online_payment'
             ) gmv ON true
             ${LAST_SUPPORT_JOIN}
+            ${blastTemplates ? churnBlastJoin(offset + 1, offset + 2) : ""}
             WHERE ${where}
-            ORDER BY ${orderBy} LIMIT $2 OFFSET $3`, [search, CRM_PAGE_SIZE, page * CRM_PAGE_SIZE]),
-        query<{ total: number }>(`SELECT COUNT(*)::int total FROM restaurants r LEFT JOIN auth.users u ON u.id=r.user_id WHERE ${where}`, [search]),
+            ORDER BY ${orderBy} LIMIT $${limit} OFFSET $${offset}`, rowParams),
+        query<{ total: number }>(`${bounds} SELECT COUNT(*)::int total FROM restaurants r LEFT JOIN auth.users u ON u.id=r.user_id WHERE ${where}`, listParams),
     ]);
     return paged(rows.rows, count.rows[0].total, page, CRM_PAGE_SIZE);
 }

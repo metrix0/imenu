@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/database/supabaseClient";
+import { generateUnnamedRestaurantName } from "@/lib/restaurantCreation";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import StoreSettings, {
     type StoreSettingsRestaurant,
@@ -191,13 +192,12 @@ export default function LojaPage() {
         if (!restaurant) return;
         setSkipping(true);
         try {
-            const fallbackName = `Sem Nome ${Math.floor(1000 + Math.random() * 9000)}`;
             const response = await fetch(`/api/restaurants/${restaurant.id}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     creation_step: 4,
-                    ...(!name.trim() ? { name: fallbackName } : {}),
+                    ...(!name.trim() ? { name: generateUnnamedRestaurantName() } : {}),
                 }),
             });
             if (!response.ok) throw new Error("Não foi possível continuar.");

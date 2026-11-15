@@ -10,8 +10,8 @@ export async function POST(request: Request) {
     const fields = ["city", "uf", "street", "bairro", "number", "cep"] as const;
     if (!address || !fields.every(field => typeof address[field] === "string" && address[field].length <= 200) ||
         !/^[A-Z]{2}$/.test(address.uf) || !/^(?:\d{8})?$/.test(address.cep) ||
-        !Number.isFinite(origin?.latitude) || !Number.isFinite(origin?.longitude) ||
-        origin.latitude < -34 || origin.latitude > 6 || origin.longitude < -74 || origin.longitude > -28) {
+        (origin !== undefined && (!Number.isFinite(origin?.latitude) || !Number.isFinite(origin?.longitude) ||
+            origin.latitude < -34 || origin.latitude > 6 || origin.longitude < -74 || origin.longitude > -28))) {
         return NextResponse.json(null, { status: 400 });
     }
     return NextResponse.json(await lookupCnefe(address, origin));

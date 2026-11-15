@@ -32,17 +32,23 @@ export function useCollapsible({ open, defaultOpen = false, onOpenChange }: {
     };
 }
 
-export function CollapsibleChevron({ expanded, className = "" }: {
+type ChevronSize = "sm" | "default";
+
+export function CollapsibleChevron({ expanded, size = "default", className = "" }: {
     expanded: boolean;
+    size?: ChevronSize;
     className?: string;
 }) {
+    const pixels = size === "sm" ? 12 : 24;
+    const dimensions = size === "sm" ? "!h-3 !w-3" : "!h-6 !w-6";
+
     return (
         <PanelIcon
             icon={faChevronDown}
             aria-hidden="true"
-            style={{ width: 24, height: 24 }}
+            style={{ width: pixels, height: pixels }}
             data-ui="disclosure-chevron"
-            className={`!h-6 !w-6 shrink-0 transition-transform duration-200 motion-reduce:transition-none ${expanded ? "rotate-180" : ""} ${className}`}
+            className={`${dimensions} shrink-0 transition-transform duration-200 motion-reduce:transition-none ${expanded ? "rotate-180" : ""} ${className}`}
         />
     );
 }
@@ -71,6 +77,7 @@ type CollapsibleSectionProps = {
     badge?: ReactNode;
     children: ReactNode;
     footer?: ReactNode;
+    chevronSize?: ChevronSize;
     className?: string;
     defaultOpen?: boolean;
     open?: boolean;
@@ -90,6 +97,7 @@ export default function CollapsibleSection({
     badge,
     children,
     footer,
+    chevronSize,
     className = "",
     defaultOpen = false,
     open,
@@ -141,7 +149,7 @@ export default function CollapsibleSection({
                             aria-label={`${expanded ? "Recolher" : "Expandir"} ${title}`}
                             className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-gray-500 hover:bg-gray-50"
                         >
-                            <CollapsibleChevron expanded={expanded} />
+                            <CollapsibleChevron expanded={expanded} size={chevronSize} />
                         </button>
                     </div>
                     {badge && <span className="sm:order-first">{badge}</span>}

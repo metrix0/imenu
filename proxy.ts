@@ -2,6 +2,7 @@ import { NextResponse, type NextFetchEvent } from "next/server";
 import { randomUUID } from "node:crypto";
 import { AFFILIATE_COOKIE, AFFILIATE_COOKIE_MAX_AGE, normalizeAffiliateCode, readAffiliateCookie } from "@/lib/analytics/affiliateCode";
 import { captureAffiliateEvent } from "@/lib/analytics/affiliateAttribution";
+import { getSignupOriginCookie } from "@/lib/analytics/signupOrigin";
 import { query } from "@/lib/database/sql";
 
 const NON_GOOGLE_INDEXING_CRAWLER =
@@ -39,6 +40,8 @@ export async function proxy(req: Request, event: NextFetchEvent) {
           httpOnly: true, sameSite: "lax", secure: !["localhost", "127.0.0.1"].includes(host),
           path: "/", maxAge: AFFILIATE_COOKIE_MAX_AGE,
         });
+        const origin = getSignupOriginCookie(req, url, host, code);
+        if (origin) response.cookies.set(origin);
         response.headers.set("Cache-Control", "private, no-store");
         if (isPreviewDomain) response.headers.set("X-Robots-Tag", "noindex, nofollow");
         event.waitUntil(captureAffiliateEvent("affiliate_link_visited", visitId, visitId, { af: code, referral_visit_id: visitId }));
@@ -49,9 +52,14 @@ export async function proxy(req: Request, event: NextFetchEvent) {
     }
   }
 
-  if (isPreviewDomain) {
+  const origin = isAffiliateHost ? getSignupOriginCookie(req, url, host, null) : null;
+  if (isPreviewDomain || origin) {
     const response = NextResponse.next();
-    response.headers.set("X-Robots-Tag", "noindex, nofollow");
+    if (isPreviewDomain) response.headers.set("X-Robots-Tag", "noindex, nofollow");
+    if (origin) {
+      response.cookies.set(origin);
+      response.headers.set("Cache-Control", "private, no-store");
+    }
     return response;
   }
 

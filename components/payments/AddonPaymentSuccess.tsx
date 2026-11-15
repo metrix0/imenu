@@ -22,6 +22,7 @@ const QR_TABLE_RETURN_PATHS = [
 ] as const;
 
 const IA_PLUS_RETURN_PATHS = [
+    "/restaurante/criar/plus",
     "/painel/assistente-ia",
     "/painel/vendas-ia",
     "/painel/configuracoes",

@@ -6,7 +6,7 @@ import {
 } from "@fortawesome/react-fontawesome";
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import {
-    HeartPulse, Headset, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Armchair, Banknote,
+    HeartPulse, Handshake, Headset, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Armchair, Banknote,
     Bell, BellOff, Bike, Trash2, CalendarDays, Camera, ChartNoAxesCombined,
     Megaphone,
     Check, Circle, CircleCheck, CircleHelp, Clock, CloudDownload, Copy,
@@ -17,7 +17,7 @@ import {
     Percent, Phone, Plus, Power, Printer, Puzzle, QrCode, Receipt,
     RotateCcw, RotateCw, Rocket, Route, Search, Send, Settings, Share2,
     ShoppingBag, Smartphone, Sparkles, Square, SquareCheck, Star,
-    Store, Target, TriangleAlert, TrendingUp, Truck, User, Users, Utensils,
+    Store, Target, TriangleAlert, TrendingDown, TrendingUp, Truck, User, Users, Utensils,
     Volume2, Zap, ZoomIn, ZoomOut, ChevronDown, ChevronLeft, ChevronRight,
     ChevronUp, X, Bot, ConciergeBell, createLucideIcon, type LucideIcon,
 } from "lucide-react";
@@ -37,7 +37,7 @@ export const faMotorRacingHelmet = {
 // Keep existing icon definitions and call sites; only the panel's visual glyph changes.
 const panelIcons: Record<string, LucideIcon> = {
     "arrow-down": ArrowDown, "arrow-left": ArrowLeft, "arrow-right": ArrowRight,
-    "arrow-up": ArrowUp, "arrow-trend-up": TrendingUp, "arrow-rotate-left": RotateCcw, "rotate-left": RotateCcw,
+    "arrow-up": ArrowUp, "arrow-trend-down": TrendingDown, "arrow-trend-up": TrendingUp, "arrow-rotate-left": RotateCcw, "rotate-left": RotateCcw,
     "bag-shopping": ShoppingBag, bars: Menu, bell: Bell, "bell-slash": BellOff,
     "bell-concierge": ConciergeBell, bolt: Zap, box: Package, "box-open": PackageOpen,
     bullseye: Target, bullhorn: Megaphone, "calendar-days": CalendarDays, camera: Camera, chair: Armchair,
@@ -50,7 +50,7 @@ const panelIcons: Record<string, LucideIcon> = {
     "pen-to-square": Pencil, envelope: Mail, "triangle-exclamation": TriangleAlert,
     "up-right-from-square": ExternalLink, eye: Eye, gear: Settings, gift: Gift,
     globe: Globe, "grip-lines": GripHorizontal, "grip-vertical": GripVertical,
-    "heart-pulse": HeartPulse, headset: Headset, house: House, image: Image, crown: Crown, "layer-group": Layers, link: Link,
+    handshake: Handshake, "heart-pulse": HeartPulse, headset: Headset, house: House, image: Image, crown: Crown, "layer-group": Layers, link: Link,
     "location-crosshairs": Crosshair, "location-dot": MapPin, lock: Lock,
     "magnifying-glass": Search, minus: Minus, "mobile-screen-button": Smartphone,
     "money-bill": Banknote, "money-bill-wave": Banknote, motorcycle: Bike,

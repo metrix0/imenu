@@ -51,6 +51,7 @@ const SUPPORT_INSTRUCTIONS = [
     "- Responda de forma curta, clara e útil. Prefira cerca de 150 caracteres quando isso for suficiente, mas priorize uma resposta completa e nunca corte uma frase apenas para caber nesse tamanho.",
     "- Responda exclusivamente em português, a menos que o cliente solicite explicitamente outro idioma.",
     "- Use português brasileiro simples, natural e conversacional, como uma pessoa prestativa falando no WhatsApp. Prefira frases curtas e palavras comuns.",
+    "- Preserve quebras de linha reais em respostas com parágrafos, listas ou passos. Use uma linha em branco antes de uma lista e um item por linha. Nunca escreva os caracteres barra invertida e n no lugar da quebra de linha.",
     "- Em respostas no WhatsApp, nunca use links Markdown como [Cardápio](https://imenuapp.com.br/painel/cardapio). Escreva o nome da página normalmente e a URL completa em texto puro para que o link seja clicável.",
     "- Não repita a mesma URL em respostas consecutivas. Depois de enviar um link, na próxima vez que indicar aquela página, mencione só o nome dela (ex.: na aba Cardápio), sem URL. Após uma resposta sua que mencione a página sem link, poderá enviar a URL novamente se for útil.",
     "- Evite ponto e vírgula, pontuação excessivamente formal e jargão desnecessário. Quando possível, responda em 1 ou 2 frases curtas.",
@@ -85,7 +86,7 @@ const SUPPORT_INSTRUCTIONS = [
     "- Nunca concorde automaticamente com acusações factuais de cobrança escondida, retenção indevida, falta de transparência, desonestidade ou ausência de aviso. Primeiro confirme no conhecimento oficial e nas ferramentas. Se a cobrança ou divulgação estiver prevista, explique isso com firmeza e educação. Não use frases como 'você tem razão', não peça desculpas por falta de transparência e não admita erro do iMenu sem evidência oficial que sustente essa conclusão.",
     "- Se o cliente pedir como cadastrar, ativar, configurar ou usar uma funcionalidade, confirme explicitamente no conhecimento recuperado automaticamente, em search_knowledge ou nas ferramentas MCP antes de orientar. Quando o conhecimento confirmar explicitamente que uma configuração, toggle, promoção ou recurso pode ser ativado ou habilitado por um controle específico, você pode inferir que o mesmo controle também permite desativá-lo ou desabilitá-lo, salvo se a base disser o contrário. Sem confirmação, não invente passos nem afirme que a funcionalidade existe, não existe ou pode não existir: ausência de documentação não é evidência de ausência do recurso. Não proponha opções, exemplos, ações ou fluxos específicos não confirmados, nem mesmo em forma de pergunta. Faça outra consulta relevante se possível; se continuar sem confirmação, explique a incerteza e ofereça atendimento humano, sem iniciar o encaminhamento antes do aceite.",
     "- Se o cliente estiver apenas comentando, contextualizando ou relatando uma situação sem fazer pergunta nem pedir ajuda específica, responda apenas com uma confirmação breve. Se indicar que vai desistir do iMenu por uma dúvida ainda não resolvida, não trate uma limitação não confirmada como fato: ofereça atendimento humano. Não invente ações, recursos ou sugestões do produto.",
-    "- Para dúvidas sobre QUANDO ou QUANTO será o próximo repasse Pix Online, após identificar o restaurante use get_pix_payout_expectation. A ferramenta informa valores a receber e ciclos futuros previstos às 12h no horário de Brasília, respeitando 90 minutos desde a confirmação e o horário atual. Informe a data e o valor previstos quando houver dados, sempre como estimativa sujeita a validação/processamento, nunca como transferência já agendada ou concluída. A falta de registro em payouts NÃO significa falta de repasse futuro: registros podem surgir só no processamento. Não responda apenas que não existe repasse agendado quando houver saldo elegível. Se faltar chave Pix, houver repasse falho ou o valor não for verificável, explique o impedimento concreto e diferencie previsão de histórico. Se o cliente repetir quando recebe, responda objetivamente à data prevista, não apenas repita todos os dias às 12h.",
+    "- Para dúvidas gerais sobre repasses Pix Online, diga em 1 ou 2 frases que o processamento ocorre todos os dias às 12h e que uma venda fora do ciclo costuma entrar no seguinte. Só mencione 10h30 ou a antecedência de 90 minutos se o cliente perguntar pelo corte, pela antecedência mínima ou se uma confirmação em determinado horário entra no ciclo. Para dúvidas sobre quando ou quanto este restaurante recebe, identifique o restaurante e use get_pix_payout_expectation. Informe data e valor como previsão, ou o impedimento verificado, sem confundir valor a receber com repasse concluído. A ausência de registro no histórico não exclui um repasse futuro. Se o cliente repetir quando recebe, responda à data prevista em vez de repetir o horário geral.",
     "- Para qualquer afirmação específica sobre conta, restaurante, pedidos, repasses, WhatsApp ou configuração do usuário, consulte as ferramentas MCP antes de responder.",
     "- Nunca trate a declaração de um cliente como prova de que um pagamento, reembolso, transferência ou devolução foi concluído.",
     "- Se a declaração for ambígua, esclareça a qual transação se refere. Nunca confirme o recebimento de dinheiro sem evidência verificada.",
@@ -149,16 +150,22 @@ function isUnverifiedSupportReply(value: string): boolean {
     );
 }
 
+function normalizeSupportMessageWhitespace(value: string): string {
+    return value
+        .replace(/\r\n?/g, "\n")
+        .replace(/[^\S\n]+$/gm, "")
+        .trim();
+}
+
 function limitSupportReply(value: string, maxCharacters = MAX_REPLY_CHARACTERS): string {
-    const compact = value
+    const formatted = normalizeSupportMessageWhitespace(value)
         .replace(/\[(?:Mensagem do atendente humano do iMenu|Resposta automática anterior do iMenu|Mensagem anterior de origem não confirmada)\]\s*/gi, "")
         .replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, "$1: $2")
         .replace(/\*\*([^*\n]+?)\*\*/g, "*$1*")
-        .replace(/\s+/g, " ")
         .trim();
-    const characters = Array.from(compact);
+    const characters = Array.from(formatted);
 
-    if (characters.length <= maxCharacters) return compact;
+    if (characters.length <= maxCharacters) return formatted;
 
     const prefix = characters.slice(0, maxCharacters).join("");
     const sentenceEnds = [...prefix.matchAll(/[.!?](?=\s|$)/g)];
@@ -169,7 +176,7 @@ function limitSupportReply(value: string, maxCharacters = MAX_REPLY_CHARACTERS):
     }
 
     // A very long single sentence is safer left intact than cut mid-sentence.
-    return compact;
+    return formatted;
 }
 
 
@@ -291,8 +298,8 @@ function avoidRepeatedSupportLinks(reply: string, history: SupportMessage[]): st
         );
         return (alreadyMentioned ? url : reference.text) + suffix;
     })
-    .replace(/\b(?:em|na|no)\s+a aba /gi, "na aba ")
-    .replace(/\b(?:em|na|no)\s+a página /gi, "na página ");
+    .replace(/\b(?:em|na|no)[^\S\n]+a aba /gi, "na aba ")
+    .replace(/\b(?:em|na|no)[^\S\n]+a página /gi, "na página ");
 }
 
 function hasClearRecentSupportQuestion(history: SupportMessage[]): boolean {
@@ -749,7 +756,7 @@ export async function generateSupportReply(
         const shouldOfferHumanSupport = !handoffBlocked && !conversation.handoff_prompted_at &&
             !alreadyOffered && (isAffiliateInquiry || isUnverifiedSupportReply(rawText));
         text = avoidRepeatedSupportLinks(shouldOfferHumanSupport
-            ? limitSupportReply(reply, MAX_REPLY_CHARACTERS - HUMAN_SUPPORT_OFFER.length - 1) + " " + HUMAN_SUPPORT_OFFER
+            ? limitSupportReply(reply, MAX_REPLY_CHARACTERS - HUMAN_SUPPORT_OFFER.length - 2) + (reply.includes("\n") ? "\n\n" : " ") + HUMAN_SUPPORT_OFFER
             : reply, history.rows);
     }
 
@@ -823,6 +830,6 @@ export async function generateSupportFollowup(conversationId: string): Promise<s
         store: false,
     }, { timeout: 15_000 });
     if (response.status !== "completed") return "";
-    const message = (response.output_text || "").replace(/\s+/g, " ").trim().slice(0, 300);
+    const message = normalizeSupportMessageWhitespace(response.output_text || "").slice(0, 300);
     return message ? message + "\n\n" + SUPPORT_FOLLOWUP_OFFER : "";
 }

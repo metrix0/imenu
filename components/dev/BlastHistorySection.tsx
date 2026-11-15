@@ -14,6 +14,7 @@ import { formatDateTime } from "@/lib/dev/dashboardFormat";
 import { formatPhone } from "@/lib/dev/supportView";
 import BlastAutomation, { BlastSender, type Automation, type Connections } from "./BlastAutomation";
 import { PAYOUT_BLAST_AUTOMATIONS } from "@/lib/services/payoutAutomation";
+import { CHURN_BLASTS } from "@/lib/dev/abandonedBlast";
 
 type Target = { restaurant_id: string; name: string; kind: string };
 type Destination = { phone?: string | null; profiles?: Target[] };
@@ -32,7 +33,7 @@ function SendProgress({ row }: { row: Group }) {
 export default function BlastHistorySection({ refreshKey = 0, connections }: { refreshKey?: number; connections: Connections }) {
     const { openProfile } = useDevProfile();
     const [page, setPage] = useState(0);
-    const [openAutomationGroup, setOpenAutomationGroup] = useState<"payouts" | "other" | null>("payouts");
+    const [openAutomationGroup, setOpenAutomationGroup] = useState<"payouts" | "churn" | "other" | null>("payouts");
     const [recipientPage, setRecipientPage] = useState(0);
     const [revision, setRevision] = useState(0);
     const [data, setData] = useState<Data | null>(null);
@@ -79,7 +80,8 @@ export default function BlastHistorySection({ refreshKey = 0, connections }: { r
             <h2>Blasts automáticos</h2>
             <div className="space-y-3">
                 <BlastAutomation automations={Object.values(PAYOUT_BLAST_AUTOMATIONS)} connections={connections} group={{ label: "Payouts", open: openAutomationGroup === "payouts", onOpenChange: open => setOpenAutomationGroup(open ? "payouts" : null) }} />
-                <BlastAutomation automations={(data?.automations ?? []).filter(row => row.category !== "payouts")} connections={connections} loading={loading && !data} group={{ label: "Outros", open: openAutomationGroup === "other", onOpenChange: open => setOpenAutomationGroup(open ? "other" : null) }} />
+                <BlastAutomation automations={CHURN_BLASTS} connections={connections} group={{ label: "Churn", open: openAutomationGroup === "churn", onOpenChange: open => setOpenAutomationGroup(open ? "churn" : null) }} />
+                <BlastAutomation automations={(data?.automations ?? []).filter(row => !row.category)} connections={connections} loading={loading && !data} group={{ label: "Outros", open: openAutomationGroup === "other", onOpenChange: open => setOpenAutomationGroup(open ? "other" : null) }} />
             </div>
         </section>
         <DevDialog title={selected ? groupLabel(selected) || "Detalhes do blast" : "Detalhes do blast"} open={Boolean(selected)} onClose={() => setSelected(null)}>

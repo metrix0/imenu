@@ -326,16 +326,22 @@ export async function fetchCoordinates(
         (!requireNeighborhoodMatch || (location.neighborhood === "match" && usable(location.point)))
     );
     if (nominatimStreet) return nominatimStreet.point;
-    if (streetFallback && state && wantedCity && wantedStreet && wantedNeighborhood) {
+    const city = cities.find(([name, uf]) => normalize(name) === normalize(wantedCity) && (!state || uf === state[0]));
+    if (state && wantedCity && wantedStreet && wantedNeighborhood) {
         try {
+            // The address index uses municipalities. A shop may enter its district as the city.
+            const postalAddress = !city && wantedCEP ? await fetchAddressByCEP(wantedCEP) : null;
+            const municipality = postalAddress && stateMatches(postalAddress.state)
+                ? postalAddress.city
+                : wantedCity;
             const response = await fetch("/api/checkout/geocode-ibge", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 signal: AbortSignal.timeout(1500),
                 body: JSON.stringify({
-                    origin: streetFallback.origin,
+                    origin: streetFallback?.origin,
                     address: {
-                        city: wantedCity, uf: state[0], street: wantedStreet,
+                        city: municipality, uf: state[0], street: wantedStreet,
                         bairro: wantedNeighborhood, number: wantedNumber, cep: wantedCEP,
                     },
                 }),
@@ -343,8 +349,8 @@ export async function fetchCoordinates(
             const result = response.ok ? await response.json() : null;
             const point = position(result?.point?.latitude, result?.point?.longitude);
             const range = result?.range;
-            if (point && Number.isFinite(range?.min) && Number.isFinite(range?.max) &&
-                range.min >= 0 && range.min <= range.max && streetFallback.acceptsRange(range)) {
+            if (point && (!streetFallback || (Number.isFinite(range?.min) && Number.isFinite(range?.max) &&
+                range.min >= 0 && range.min <= range.max && streetFallback.acceptsRange(range)))) {
                 return point;
             }
         } catch {
@@ -368,7 +374,6 @@ export async function fetchCoordinates(
 
     // This final reference is bundled with the app: outages, rejected credentials,
     // missing CEPs and unmapped streets must NEVER turn a complete address into null.
-    const city = cities.find(([name, uf]) => normalize(name) === normalize(wantedCity) && (!state || uf === state[0]));
     const reference = city || state;
     console.warn("[geocoding] using approximate offline reference", { city: wantedCity, state: wantedState, level: city ? "city" : state ? "state" : "country" });
     return reference

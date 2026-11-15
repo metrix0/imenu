@@ -857,7 +857,7 @@ function ScanModal({
                                 {isScanning && (
                                     <LoadingBar
                                         key={String(isScanning)}
-                                        durationSeconds={13}
+                                        durationSeconds={19}
                                         showLabel={true}
                                     />
                                 )}

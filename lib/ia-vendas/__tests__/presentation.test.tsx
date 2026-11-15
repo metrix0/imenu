@@ -179,13 +179,13 @@ test("locked Vendas IA keeps the action history button unlocked", () => {
 
 test("analysis proposals preview changes, keep Apply visible and retain a collapsed full diff", () => {
   const html = renderToStaticMarkup(<ActionCard action={action} refs={{}} disabled={false} onAction={jest.fn()} compact />);
-  expect(html).toMatch(/<details[^>]*><summary[^>]*>Ver alterações/);
-  expect(html).not.toMatch(/<details[^>]*open/);
+  expect(html).toMatch(/<button[^>]*aria-expanded="false"[^>]*>Ver alterações/);
+  expect(html).toMatch(/aria-hidden="true" inert=""/);
   expect(html).not.toContain("O que vai mudar");
   expect(html).toContain("Seleção mínima");
   expect(html).toContain("Antes:");
   expect(html).toContain("Depois:");
-  expect(html.indexOf(">Aplicar<")).toBeGreaterThan(html.indexOf("</details>"));
+  expect(html.indexOf(">Aplicar<")).toBeGreaterThan(html.indexOf(action.reason));
   const normal = renderToStaticMarkup(<ActionCard action={action} refs={{}} disabled={false} onAction={jest.fn()} />);
   expect(normal).not.toContain("Ver alterações");
   expect(normal).toContain(action.title);

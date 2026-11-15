@@ -1,4 +1,5 @@
 import { query, withTransaction } from "@/lib/database/sql";
+import { generateUnnamedRestaurantName } from "@/lib/restaurantCreation";
 import { seedPizzaExample } from "@/lib/pizza/onboarding";
 import { NextResponse } from "next/server";
 
@@ -42,8 +43,10 @@ function getPublicRestaurantLogoUrl(value: unknown): string {
     return `${supabaseUrl}/storage/v1/object/public/restaurant-logos/${encodedPath}`;
 }
 
-async function slugExists(slug: string, restaurantId: string): Promise<boolean> {
-    const { rows } = await query(
+type SlugQuery = (sql: string, params: string[]) => Promise<{ rows: unknown[] }>;
+
+async function slugExists(slug: string, restaurantId: string, execute: SlugQuery = query): Promise<boolean> {
+    const { rows } = await execute(
         `
         SELECT 1
         FROM public.restaurants
@@ -58,19 +61,20 @@ async function slugExists(slug: string, restaurantId: string): Promise<boolean> 
 
 async function generateUniqueSlug(
     source: string,
-    restaurantId: string
+    restaurantId: string,
+    execute: SlugQuery = query,
 ): Promise<string> {
     const base = normalizeSlug(source) || "restaurante";
-    if (!(await slugExists(base, restaurantId))) return base;
+    if (!(await slugExists(base, restaurantId, execute))) return base;
 
     for (let attempt = 0; attempt < 40; attempt += 1) {
         const suffix = Math.floor(1000 + Math.random() * 9000);
         const candidate = `${base}-${suffix}`;
-        if (!(await slugExists(candidate, restaurantId))) return candidate;
+        if (!(await slugExists(candidate, restaurantId, execute))) return candidate;
     }
 
     const fallback = `${base}-${Date.now().toString().slice(-7)}`;
-    if (!(await slugExists(fallback, restaurantId))) return fallback;
+    if (!(await slugExists(fallback, restaurantId, execute))) return fallback;
     throw new Error("Não foi possível gerar um endereço único para a loja.");
 }
 
@@ -205,7 +209,7 @@ export async function PATCH(
 
             if (dbColumn === "creation_step") {
                 const step = Number(value);
-                if (![1, 2, 3, 4].includes(step)) continue;
+                if (![1, 2, 3, 4, 5].includes(step)) continue;
                 value = step;
             }
 
@@ -220,27 +224,39 @@ export async function PATCH(
             );
         }
 
-        // Store the first successful completion of step 4 (not later profile edits).
-        if (body.creation_step === 4 && body.first_time === false) {
+        // Preserve legacy step-4 completion while new registrations finish after step 5.
+        const completingOnboarding = [4, 5].includes(Number(body.creation_step)) && body.first_time === false;
+        if (completingOnboarding) {
             fieldsToUpdate.push(
                 "onboarding_completed_at = CASE WHEN first_time IS DISTINCT FROM FALSE THEN NOW() ELSE onboarding_completed_at END"
             );
         }
 
+        const returnedFields = "id, name, url_slug, store_whatsapp, creation_step, first_time";
         const updateSql = `
             UPDATE public.restaurants
             SET ${fieldsToUpdate.join(", ")}, updated_at = NOW()
             WHERE id = $1
-            RETURNING id, url_slug, store_whatsapp, creation_step, first_time
+            RETURNING ${returnedFields}
         `;
-        const completingOnboarding = body.creation_step === 4 && body.first_time === false;
         const { rows } = completingOnboarding
             ? await withTransaction(async (client) => {
                 const { rows: [previous] } = await client.query<{ first_time: boolean | null; name: string | null; pizza_settings: unknown }>(
                     "SELECT first_time, name, pizza_settings FROM public.restaurants WHERE id = $1 FOR UPDATE",
                     [id],
                 );
-                const updated = await client.query(updateSql, values);
+                let updated = await client.query(updateSql, values);
+                const restaurant = updated.rows[0];
+                if (restaurant && (!restaurant.name?.trim() || !restaurant.url_slug?.trim())) {
+                    const name = restaurant.name?.trim() ? restaurant.name : generateUnnamedRestaurantName();
+                    const slug = restaurant.url_slug?.trim()
+                        ? restaurant.url_slug
+                        : await generateUniqueSlug(name, id, (sql, params) => client.query(sql, params));
+                    updated = await client.query(
+                        `UPDATE public.restaurants SET name = $2, url_slug = $3 WHERE id = $1 RETURNING ${returnedFields}`,
+                        [id, name, slug],
+                    );
+                }
                 if (previous && previous.first_time !== false) {
                     await seedPizzaExample(client, id, previous.name, previous.pizza_settings);
                 }

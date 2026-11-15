@@ -2,7 +2,7 @@ import { SeoPage } from "@/components/common/SeoPage";
 
 
 export const metadata = {
-    title: "Gestor de Pedidos para Restaurante | iMenu",
+    title: "Gestor de Pedidos Grátis com Cardápio Digital | iMenu",
     description:
         "Gestor de pedidos para restaurante: organize, acompanhe e gerencie pedidos com mais eficiência usando o iMenu.",
     alternates: {

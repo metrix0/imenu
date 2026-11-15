@@ -155,3 +155,21 @@ test("offers human support after answering an affiliate question", async () => {
     expect(reply.text).toBe("A comissão é de 50%. Quer que eu encaminhe para nossa equipe de suporte?");
     expect(reply.handoffState).toBeNull();
 });
+
+test("preserves paragraphs and list items in support replies with WhatsApp formatting", async () => {
+    mockMenuReply("Para conferir:\r\n\r\n- Abra **Repasses**.  \r\n- Confira o histórico.\r\n\r\nO valor a receber é uma previsão.");
+    const reply = await generateSupportReply("conversation-1");
+    expect(reply.text).toBe("Para conferir:\n\n- Abra *Repasses*.\n- Confira o histórico.\n\nO valor a receber é uma previsão.");
+});
+
+test("keeps the support offer out of the last list item", async () => {
+    mockMenuReply("Não consegui confirmar o status.\n\n- Veja o histórico.\n- Confira o valor.");
+    const reply = await generateSupportReply("conversation-1");
+    expect(reply.text).toBe("Não consegui confirmar o status.\n\n- Veja o histórico.\n- Confira o valor.\n\nQuer que eu encaminhe para nossa equipe de suporte?");
+});
+
+test("preserves line breaks in contextual follow-up messages", async () => {
+    create.mockResolvedValue({ status: "completed", output_text: "Conseguiu continuar?\r\n\r\nPosso ajudar por aqui." });
+    await expect(generateSupportFollowup("conversation-1"))
+        .resolves.toBe("Conseguiu continuar?\n\nPosso ajudar por aqui.\n\n" + SUPPORT_FOLLOWUP_OFFER);
+});

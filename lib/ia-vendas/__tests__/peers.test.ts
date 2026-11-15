@@ -8,6 +8,22 @@ describe("potential", () => {
     days: 28,
   };
 
+  test.each([[9, false], [10, true], [24, true]])(
+    "requires at least ten completed orders (orders=%i)",
+    (orders, available) => {
+      const result = potential(
+        { ...sales, orders, revenue_cents: orders * sales.ticket_cents },
+        { opportunities: [{ kind: "cart_addon", eligible_orders: orders, extra_cents: 600 }] },
+      );
+
+      expect(result.available).toBe(available);
+      if (available)
+        expect(result).toMatchObject({ min_cents: orders * 60, max_cents: orders * 120 });
+      else
+        expect(result.reason).toBe("Ainda não há pedidos suficientes para uma estimativa responsável.");
+    },
+  );
+
   test("combines common-sense ranges and does not sum the same overlap group twice", () => {
     const result = potential(sales, {
       days: 28,

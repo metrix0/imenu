@@ -64,6 +64,7 @@ export async function loadFunnelSummary(
     step2Views: number | null;
     step3Views: number | null;
     step4Views: number | null;
+    step5Views: number | null;
     orderedConsumers: number | null;
 }> {
     if (!getPostHogConfig()) {
@@ -73,6 +74,7 @@ export async function loadFunnelSummary(
             step2Views: null,
             step3Views: null,
             step4Views: null,
+            step5Views: null,
             orderedConsumers: null,
         };
     }
@@ -100,6 +102,10 @@ export async function loadFunnelSummary(
             countIf(
                 event = '$pageview'
                 AND properties.$pathname = '/restaurante/criar/localizacao'
+            ),
+            countIf(
+                event = '$pageview'
+                AND properties.$pathname = '/restaurante/criar/plus'
             )
         FROM events
         WHERE timestamp >= parseDateTimeBestEffort('${start}')
@@ -145,6 +151,7 @@ export async function loadFunnelSummary(
             step2Views: Number(onboardingRow[1]) || 0,
             step3Views: Number(onboardingRow[2]) || 0,
             step4Views: Number(onboardingRow[3]) || 0,
+            step5Views: Number(onboardingRow[4]) || 0,
             orderedConsumers: Number(orderedRows[0]?.[0]) || 0,
         };
     } catch (error) {
@@ -155,6 +162,7 @@ export async function loadFunnelSummary(
             step2Views: null,
             step3Views: null,
             step4Views: null,
+            step5Views: null,
             orderedConsumers: null,
         };
     }

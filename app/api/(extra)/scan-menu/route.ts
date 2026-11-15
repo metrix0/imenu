@@ -209,6 +209,8 @@ class GeminiHttpError extends Error {
     }
 }
 
+class GeminiFileProcessingTimeoutError extends Error {}
+
 class MenuJsonParseError extends Error {
     constructor(message: string) {
         super(message);
@@ -484,7 +486,7 @@ async function waitForGeminiFile(
     }
 
     if (current.state !== "ACTIVE") {
-        throw new Error(
+        throw new GeminiFileProcessingTimeoutError(
             "A API Gemini demorou demais para processar um dos arquivos."
         );
     }
@@ -807,8 +809,15 @@ Regras:
     return parseMenuJson(outputText);
 }
 
+function isGeminiTimeout(error: unknown): boolean {
+    return error instanceof GeminiFileProcessingTimeoutError ||
+        (typeof error === "object" && error !== null &&
+            "name" in error && error.name === "TimeoutError");
+}
+
 function geminiFallbackReason(error: unknown): string {
     if (error instanceof GeminiHttpError) return `Gemini HTTP ${error.status}`;
+    if (isGeminiTimeout(error)) return "Tempo limite do Gemini excedido";
     if (error instanceof MenuJsonParseError) return "Resposta Gemini com JSON inválido";
     const message = error instanceof Error ? error.message.toLowerCase() : "";
     if (/quota|rate limit|resource_exhausted/.test(message)) return "Limite de uso do Gemini";
@@ -817,11 +826,11 @@ function geminiFallbackReason(error: unknown): string {
 }
 
 function shouldUseOpenAIFallback(error: unknown): boolean {
-    if (error instanceof MenuJsonParseError) return true;
+    if (error instanceof MenuJsonParseError || isGeminiTimeout(error)) return true;
 
     if (
         error instanceof GeminiHttpError &&
-        [429, 500, 502, 503, 504].includes(error.status)
+        [408, 429, 500, 502, 503, 504].includes(error.status)
     ) {
         return true;
     }

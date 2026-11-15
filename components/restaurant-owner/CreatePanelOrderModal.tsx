@@ -1,6 +1,7 @@
 "use client";
 
 import { LegacyModalClose } from "@/components/ui/ModalCloseButton";
+import { CollapsibleChevron, CollapsibleContent, useCollapsible } from "@/components/ui/CollapsibleSection";
 import Textarea from "@/components/ui/Textarea";
 import Input from "@/components/ui/Input";
 import Dropdown from "@/components/ui/Dropdown";
@@ -112,7 +113,7 @@ export default function CreatePanelOrderModal({
     const [originalDeliveryType, setOriginalDeliveryType] = useState<string | null>(null);
     const [isOnlinePayment, setIsOnlinePayment] = useState(false);
     const [deliveryFeeInput, setDeliveryFeeInput] = useState("");
-    const [isOrderInfoCollapsed, setIsOrderInfoCollapsed] = useState(false);
+    const orderDetails = useCollapsible({ defaultOpen: true });
     const [mobileView, setMobileView] = useState<"menu" | "order">("menu");
     const [menuSearch, setMenuSearch] = useState("");
     const [toast, setToast] = useState<{
@@ -897,8 +898,7 @@ export default function CreatePanelOrderModal({
                         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-5">
                             <div className="mb-5 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
                                 <button
-                                    type="button"
-                                    onClick={() => setIsOrderInfoCollapsed((prev) => !prev)}
+                                    {...orderDetails.triggerProps}
                                     className="mb-3 flex w-full cursor-pointer items-center justify-between gap-3 text-left"
                                 >
                                     <div>
@@ -909,104 +909,93 @@ export default function CreatePanelOrderModal({
                                             Identifique o cliente e escolha como receber o pedido.
                                         </p>
                                     </div>
-                                    <FontAwesomeIcon
-                                        icon={icons.faChevronDown}
-                                        className={`text-gray-400 transition-transform duration-200 ${
-                                            isOrderInfoCollapsed ? "-rotate-90" : "rotate-0"
-                                        }`}
-                                    />
+                                    <span className="relative flex h-4 w-3.5 shrink-0 items-center justify-end">
+                                        <CollapsibleChevron expanded={orderDetails.expanded} className="absolute text-gray-400" />
+                                    </span>
                                 </button>
 
-                                <div
-                                    className={`grid transition-all duration-200 ${
-                                        isOrderInfoCollapsed
-                                            ? "grid-rows-[0fr] opacity-0"
-                                            : "grid-rows-[1fr] opacity-100"
-                                    }`}
-                                >
-                                    <div className="overflow-hidden">
-                                        <div className="space-y-3 pt-1">
-                                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                                                <Input
-                                                    value={customerName}
-                                                    onChange={(e) => setCustomerName(e.target.value)}
-                                                    label="Nome do cliente" placeholder="Nome do cliente (opcional)"
-                                                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/10"
-                                                />
+                                <CollapsibleContent id={orderDetails.contentId} expanded={orderDetails.expanded}>
+                                    <div className="space-y-3 pt-1">
+                                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                            <Input
+                                                value={customerName}
+                                                onChange={(e) => setCustomerName(e.target.value)}
+                                                label="Nome do cliente" placeholder="Nome do cliente (opcional)"
+                                                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/10"
+                                            />
 
-                                                <Input
-                                                    value={customerPhone}
-                                                    onChange={(e) => setCustomerPhone(e.target.value)}
-                                                    label="Telefone (opcional)" placeholder="Telefone (opcional)"
-                                                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/10"
-                                                />
+                                            <Input
+                                                value={customerPhone}
+                                                onChange={(e) => setCustomerPhone(e.target.value)}
+                                                label="Telefone (opcional)" placeholder="Telefone (opcional)"
+                                                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/10"
+                                            />
+                                        </div>
+
+                                        <div className="relative w-full">
+                                                <Dropdown
+                                                    label="Destino do pedido" value={selectedTableId}
+                                                    onChange={(e) => setSelectedTableId(e.target.value)}
+                                                    disabled={isOnlinePayment || Boolean(fixedTableId)}
+                                                    className="w-full appearance-none rounded-xl border border-gray-200 bg-white px-4 py-3 pr-10 text-gray-700 outline-none transition hover:border-gray-300 focus:border-brand focus:ring-2 focus:ring-brand/10"
+                                                >
+                                                    <option value="balcao">Balcão</option>
+                                                    <option value="">{editingOrder && originalDeliveryType === "retirada" ? "Retirada" : "Entrega"}</option>
+                                                    {tables.map((table) => (
+                                                        <option key={table.id} value={table.id}>
+                                                            {table.name}
+                                                        </option>
+                                                    ))}
+                                                </Dropdown>
+                                        </div>
+
+                                        {selectedTable ? (
+                                            <div className="rounded-xl border border-brand/20 bg-brand/5 px-4 py-3">
+                                                <p className="text-sm font-semibold text-gray-900">
+                                                    Pedido para {selectedTable.name}
+                                                </p>
+                                                <p className="mt-1 text-xs text-gray-500">
+                                                    Sem endereço, taxa de entrega ou forma de pagamento antecipada.
+                                                </p>
                                             </div>
+                                        ) : (
+                                            <>
+                                                {!isCounterOrder && <Input
+                                                    value={customerAddress}
+                                                    onChange={(e) => setCustomerAddress(e.target.value)}
+                                                    label="Endereço (opcional)" placeholder="Endereço (opcional)"
+                                                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/10"
+                                                />}
 
-                                            <div className="relative w-full">
-                                                    <Dropdown
-                                                        label="Destino do pedido" value={selectedTableId}
-                                                        onChange={(e) => setSelectedTableId(e.target.value)}
-                                                        disabled={isOnlinePayment || Boolean(fixedTableId)}
-                                                        className="w-full appearance-none rounded-xl border border-gray-200 bg-white px-4 py-3 pr-10 text-gray-700 outline-none transition hover:border-gray-300 focus:border-brand focus:ring-2 focus:ring-brand/10"
-                                                    >
-                                                        <option value="balcao">Balcão</option>
-                                                        <option value="">{editingOrder && originalDeliveryType === "retirada" ? "Retirada" : "Entrega"}</option>
-                                                        {tables.map((table) => (
-                                                            <option key={table.id} value={table.id}>
-                                                                {table.name}
-                                                            </option>
-                                                        ))}
-                                                    </Dropdown>
-                                            </div>
+                                                <div className={isCounterOrder ? "grid grid-cols-1" : "grid grid-cols-1 gap-3 md:grid-cols-2"}>
+                                                    <div className="relative w-full">
+                                                        <Dropdown
+                                                            label="Tipo de Pagamento" value={paymentMethod}
+                                                            disabled={isOnlinePayment}
+                                                            onChange={(e) =>
+                                                                setPaymentMethod(e.target.value as "dinheiro" | "trazer-maquininha" | "pix-entrega")
+                                                            }
+                                                            className="w-full appearance-none rounded-xl border border-gray-200 bg-white px-4 py-3 pr-10 text-gray-700 outline-none transition hover:border-gray-300 focus:border-brand focus:ring-2 focus:ring-brand/10"
+                                                        >
+                                                            {isOnlinePayment && <option value={paymentMethod}>Pagamento online (mantido)</option>}
+                                                            <option value="dinheiro">Dinheiro</option>
+                                                            <option value="trazer-maquininha">Cartão</option>
+                                                            <option value="pix-entrega">Pix</option>
+                                                        </Dropdown>
+                                                    </div>
 
-                                            {selectedTable ? (
-                                                <div className="rounded-xl border border-brand/20 bg-brand/5 px-4 py-3">
-                                                    <p className="text-sm font-semibold text-gray-900">
-                                                        Pedido para {selectedTable.name}
-                                                    </p>
-                                                    <p className="mt-1 text-xs text-gray-500">
-                                                        Sem endereço, taxa de entrega ou forma de pagamento antecipada.
-                                                    </p>
-                                                </div>
-                                            ) : (
-                                                <>
                                                     {!isCounterOrder && <Input
-                                                        value={customerAddress}
-                                                        onChange={(e) => setCustomerAddress(e.target.value)}
-                                                        label="Endereço (opcional)" placeholder="Endereço (opcional)"
+                                                        value={deliveryFeeInput}
+                                                        onChange={(e) => setDeliveryFeeInput(e.target.value)}
+                                                        label="Taxa de entrega (opcional)" placeholder="Taxa de entrega (opcional)"
+                                                        inputMode="decimal"
                                                         className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/10"
                                                     />}
-
-                                                    <div className={isCounterOrder ? "grid grid-cols-1" : "grid grid-cols-1 gap-3 md:grid-cols-2"}>
-                                                        <div className="relative w-full">
-                                                            <Dropdown
-                                                                label="Tipo de Pagamento" value={paymentMethod}
-                                                                disabled={isOnlinePayment}
-                                                                onChange={(e) =>
-                                                                    setPaymentMethod(e.target.value as "dinheiro" | "trazer-maquininha" | "pix-entrega")
-                                                                }
-                                                                className="w-full appearance-none rounded-xl border border-gray-200 bg-white px-4 py-3 pr-10 text-gray-700 outline-none transition hover:border-gray-300 focus:border-brand focus:ring-2 focus:ring-brand/10"
-                                                            >
-                                                                {isOnlinePayment && <option value={paymentMethod}>Pagamento online (mantido)</option>}
-                                                                <option value="dinheiro">Dinheiro</option>
-                                                                <option value="trazer-maquininha">Cartão</option>
-                                                                <option value="pix-entrega">Pix</option>
-                                                            </Dropdown>
-                                                        </div>
-
-                                                        {!isCounterOrder && <Input
-                                                            value={deliveryFeeInput}
-                                                            onChange={(e) => setDeliveryFeeInput(e.target.value)}
-                                                            label="Taxa de entrega (opcional)" placeholder="Taxa de entrega (opcional)"
-                                                            inputMode="decimal"
-                                                            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/10"
-                                                        />}
-                                                    </div>
-                                                </>
-                                            )}
-                                        </div>
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
-                                </div>
+                                </CollapsibleContent>
                             </div>
 
                             <div className="mb-2 flex items-center justify-between gap-3">

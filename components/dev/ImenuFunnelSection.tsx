@@ -15,6 +15,8 @@ type Counts = {
     cardapio: number;
     horarios: number;
     loja: number;
+    localizacao: number;
+    plus: number;
     finished: number;
     items: number;
     firstOrder: number;
@@ -53,8 +55,16 @@ const STEPS: Step[] = [
         info: "Contas da coorte que avançaram da etapa Loja (etapa 3/4): creation_step >= 4 ou primeiro acesso já concluído.",
     },
     {
-        key: "finished", base: "loja", title: "Cadastro finalizado", unit: "contas",
-        info: "Contas da coorte com first_time = false, após a etapa Localização (4/4).",
+        key: "localizacao", base: "loja", title: "Etapa Localização", unit: "contas",
+        info: "Contas da coorte que concluíram ou pularam Localização: creation_step >= 5 ou cadastro já finalizado. Inclui cadastros históricos com quatro etapas.",
+    },
+    {
+        key: "plus", base: "localizacao", title: "Etapa iMenu Plus", unit: "contas",
+        info: "Contas da coorte que concluíram a etapa opcional do Plus: creation_step = 5 e first_time = false. Continuar grátis ou pular também conclui; não representa compra. Cadastros antigos sem essa etapa não entram nesta contagem.",
+    },
+    {
+        key: "finished", base: "localizacao", title: "Cadastro finalizado", unit: "contas",
+        info: "Contas da coorte com first_time = false, após a etapa opcional iMenu Plus ou o fluxo histórico de quatro etapas.",
     },
     {
         key: "items", base: "finished", title: "Com produtos", unit: "contas",

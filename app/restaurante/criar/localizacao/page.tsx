@@ -26,7 +26,7 @@ const hasCompleteAddress = (address: Partial<AddressData>) =>
 
 export default function LocalizacaoPage() {
     const router = useRouter();
-    const { setRestaurantId, clear } = useCreationStore();
+    const { setRestaurantId } = useCreationStore();
     const [restaurantId, setId] = useState<string | null>(null);
     const [address, setAddress] = useState<Partial<AddressData>>({});
     const [editingAddress, setEditingAddress] = useState(false);
@@ -132,8 +132,7 @@ export default function LocalizacaoPage() {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    first_time: false,
-                    creation_step: 4,
+                    creation_step: 5,
                 }),
             });
             const payload = await response.json();
@@ -142,9 +141,8 @@ export default function LocalizacaoPage() {
             }
 
             const menuIdentifier = String(payload?.url_slug || restaurantId);
-            clear();
-            router.replace(
-                `/painel?onboarding=complete&menu=${encodeURIComponent(menuIdentifier)}`
+            router.push(
+                `/restaurante/criar/plus?menu=${encodeURIComponent(menuIdentifier)}`
             );
         } catch (caught) {
             setToast({
@@ -167,8 +165,7 @@ export default function LocalizacaoPage() {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    first_time: false,
-                    creation_step: 4,
+                    creation_step: 5,
                 }),
             });
             const payload = await response.json();
@@ -177,9 +174,8 @@ export default function LocalizacaoPage() {
             }
 
             const menuIdentifier = String(payload?.url_slug || restaurantId);
-            clear();
-            router.replace(
-                `/painel?onboarding=complete&menu=${encodeURIComponent(menuIdentifier)}`
+            router.push(
+                `/restaurante/criar/plus?menu=${encodeURIComponent(menuIdentifier)}`
             );
         } catch (caught) {
             setToast({

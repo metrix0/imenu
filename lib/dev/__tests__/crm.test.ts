@@ -63,7 +63,7 @@ test.each([
     ["active_customers", ["o.customer_phone", "COUNT(DISTINCT normalized.phone)", "INTERVAL '30 days'"]],
     ["abandoned_plus", ["MAX(o.created_at)", "INTERVAL '15 days'", "addon.product_key = 'ia_plus'"]],
     ["abandoned_imenu", ["MAX(o.created_at)", "INTERVAL '15 days'", "AND NOT "]],
-    ["single_day", ["owned.creation_step=4", "owned.first_time=false", "GROUP BY owned.id, "]],
+    ["single_day", ["owned.creation_step>=4", "owned.first_time=false", "GROUP BY owned.id, "]],
     ["no_first_order", ["owned.onboarding_completed_at", "INTERVAL '48 hours'", "INTERVAL '24 hours'", "NOT EXISTS"]],
 ])("CRM activity %s filters data and total before pagination", async (activity, parts) => {
     await getCrm(new URLSearchParams({ activity, page: "2", sort: "gmv", direction: "desc" }));
@@ -114,4 +114,67 @@ test("restaurant profile includes the same support conversation lookup", async (
     expect(sql).toContain("support.mode AS support_mode");
     expect(sql).toContain("c.restaurant_id=r.id");
     expect(params).toEqual([id]);
+});
+
+test.each([
+    ["churned_plus", "addon.current_period_ends_at >= bounds.start_at"],
+    ["churned_imenu", "last_order_at + INTERVAL '14 days' AS churned_at"],
+    ["not_activated", "owned.onboarding_completed_at >= bounds.start_at"],
+])("Churn %s filters the count and paginated list by the same date range", async (activity, predicate) => {
+    await getCrm(new URLSearchParams({
+        activity, startDate: "2026-11-09", endDate: "2026-11-15", page: "2",
+    }));
+    const [[listSql, listArgs], [countSql, countArgs]] = sqlQuery.mock.calls;
+    expect(listSql).toContain(predicate);
+    expect(countSql).toContain(predicate);
+    expect(listSql).toContain("LIMIT $4 OFFSET $5");
+    expect(listArgs).toEqual(["", "2026-11-09", "2026-11-15", 10, 20]);
+    expect(countArgs).toEqual(["", "2026-11-09", "2026-11-15"]);
+});
+
+test("the single-day cohort ignores the selected date range", async () => {
+    await getCrm(new URLSearchParams({
+        activity: "single_day", startDate: "2026-11-09", endDate: "2026-11-15",
+    }));
+    const [[sql, args]] = sqlQuery.mock.calls;
+    expect(sql).toContain("INTERVAL '14 days'");
+    expect(sql).not.toContain("churn_bounds");
+    expect(args).toEqual(["", 10, 0]);
+});
+
+test("invalid dates never reach the SQL query", async () => {
+    const result = await getCrm(new URLSearchParams({
+        activity: "churned_plus", startDate: "2026-02-30", endDate: "2026-03-07",
+    }));
+    expect(result).toMatchObject({ rows: [], total: 0 });
+    expect(sqlQuery).not.toHaveBeenCalled();
+});
+
+test.each([
+    ["churned_plus", "experiência com o iMenu Plus"],
+    ["churned_imenu", "alguns testes por lá"],
+    ["single_day", "começou a receber pedidos"],
+    ["not_activated", "primeiro pedido"],
+])("Churn %s includes the corresponding blast history only in the paginated result", async (activity, message) => {
+    const hasPeriod = activity !== "single_day";
+    await getCrm(new URLSearchParams({
+        activity, includeBlast: "1", startDate: "2026-11-09", endDate: "2026-11-15",
+    }));
+    const [[listSql, listArgs], [countSql, countArgs]] = sqlQuery.mock.calls;
+    expect(listSql).toContain("churn_blast.status AS blast_status");
+    expect(listSql).toContain("campaign.status IN ('running', 'paused')");
+    expect(listSql).toContain("recipient.status IN ('sent', 'failed', 'cancelled', 'skipped_60d', 'skipped_recent', 'skipped_reactivated')");
+    expect(listSql).toContain("WHEN recipient.status = 'pending' AND campaign.status = 'paused' THEN 'paused'");
+    expect(listSql).toContain("ELSE recipient.attempted_at");
+    expect(listSql).toContain("churn_blast.error AS blast_error");
+    expect(listSql).toContain(hasPeriod ? "ANY($6::text[])" : "ANY($4::text[])");
+    expect(listArgs.at(-2)[0]).toContain(message);
+    expect(listArgs.at(-1)[0]).toContain(message);
+    expect(countSql).not.toContain("support_blast_recipients");
+    expect(countArgs).toHaveLength(hasPeriod ? 3 : 1);
+});
+
+test("regular CRM results do not include recovery blast history", async () => {
+    await getCrm(new URLSearchParams({ activity: "single_day" }));
+    expect(sqlQuery.mock.calls[0][0]).not.toContain("churn_blast");
 });

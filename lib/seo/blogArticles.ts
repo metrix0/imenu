@@ -18,7 +18,7 @@ export type BlogArticleDefinition = {
 export const BLOG_ARTICLES: BlogArticleDefinition[] = [
     {
         slug: "programa-de-afiliados-imenu",
-        title: "Indique o iMenu e ganhe 50% de comissão recorrente",
+        title: "Programa de Afiliados iMenu: ganhe 50% de comissão recorrente",
         shortTitle: "Programa de Afiliados iMenu",
         metaTitle: "Programa de Afiliados iMenu | 50% de Comissão Recorrente",
         metaDescription: "Seja afiliado do iMenu e receba 50% de cada pagamento do iMenu Plus dos restaurantes que você indicar, incluindo as renovações.",

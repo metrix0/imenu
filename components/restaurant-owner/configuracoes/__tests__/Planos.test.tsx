@@ -106,7 +106,8 @@ test("active plans keep recurring cancellation and prepaid renewal with collapse
     expect(html.match(/Conhecer meu plano/g)).toHaveLength(1);
     expect(html.match(/Descadastrar do plano/g)).toHaveLength(1);
     expect(html).not.toContain(">Renovar<");
-    expect(html.match(/<details class="plans-payment-history">/g)).toHaveLength(1);
+    expect(html.match(/class="plans-payment-history"/g)).toHaveLength(1);
+    expect(html).toMatch(/<button[^>]*aria-expanded="false"[^>]*>.*?Histórico de pagamentos/);
     expect(html.match(/class="plans-subscription-card"/g)).toHaveLength(1);
     expect(html).not.toContain("iMenu QR Code Mesa");
     expect(html).toContain("plans-subscription-identity");
