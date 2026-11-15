@@ -117,29 +117,37 @@ test("restaurant profile includes the same support conversation lookup", async (
 });
 
 test.each([
-    ["churned_plus", "addon.current_period_ends_at >= bounds.start_at"],
-    ["churned_imenu", "last_order_at + INTERVAL '14 days' AS churned_at"],
-    ["not_activated", "owned.onboarding_completed_at >= bounds.start_at"],
-])("Churn %s filters the count and paginated list by the same date range", async (activity, predicate) => {
+    ["churned_plus", "addon.current_period_ends_at >= bounds.start_at", "addon.current_period_ends_at AS event_at"],
+    ["churned_imenu", "last_order_at + INTERVAL '14 days' AS churned_at", "churned_at AS event_at"],
+    ["not_activated", "owned.onboarding_completed_at >= bounds.start_at", "owned.onboarding_completed_at AS event_at"],
+])("Churn %s filters by the selected range and sorts by event before pagination", async (activity, predicate, eventDate) => {
     await getCrm(new URLSearchParams({
         activity, startDate: "2026-11-09", endDate: "2026-11-15", page: "2",
     }));
     const [[listSql, listArgs], [countSql, countArgs]] = sqlQuery.mock.calls;
     expect(listSql).toContain(predicate);
     expect(countSql).toContain(predicate);
-    expect(listSql).toContain("LIMIT $4 OFFSET $5");
+    expect(listSql).toContain(eventDate);
+    expect(listSql).toContain("ORDER BY churn.event_at DESC, r.id LIMIT $4 OFFSET $5");
     expect(listArgs).toEqual(["", "2026-11-09", "2026-11-15", 10, 20]);
     expect(countArgs).toEqual(["", "2026-11-09", "2026-11-15"]);
 });
 
 test("the single-day cohort ignores the selected date range", async () => {
     await getCrm(new URLSearchParams({
-        activity: "single_day", startDate: "2026-11-09", endDate: "2026-11-15",
+        activity: "single_day", includeBlast: "1", startDate: "2026-11-09", endDate: "2026-11-15",
     }));
     const [[sql, args]] = sqlQuery.mock.calls;
     expect(sql).toContain("INTERVAL '14 days'");
     expect(sql).not.toContain("churn_bounds");
-    expect(args).toEqual(["", 10, 0]);
+    expect(sql).toContain("MAX(o.created_at) AS event_at");
+    expect(sql).toContain("ORDER BY churn.event_at DESC, r.id LIMIT $2 OFFSET $3");
+    expect(args.slice(0, 3)).toEqual(["", 10, 0]);
+});
+
+test("explicit column sorting overrides the Churn default", async () => {
+    await getCrm(new URLSearchParams({ activity: "single_day", includeBlast: "1", sort: "gmv", direction: "asc" }));
+    expect(sqlQuery.mock.calls[0][0]).toContain("ORDER BY gmv.gmv_cents ASC NULLS LAST, r.id LIMIT $2 OFFSET $3");
 });
 
 test("invalid dates never reach the SQL query", async () => {
@@ -180,4 +188,5 @@ test.each([
 test("regular CRM results do not include recovery blast history", async () => {
     await getCrm(new URLSearchParams({ activity: "single_day" }));
     expect(sqlQuery.mock.calls[0][0]).not.toContain("churn_blast");
+    expect(sqlQuery.mock.calls[0][0]).toContain("ORDER BY r.created_at DESC,r.id LIMIT $2 OFFSET $3");
 });
