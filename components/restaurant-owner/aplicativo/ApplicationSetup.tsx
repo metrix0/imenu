@@ -3,10 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
+    faBars,
     faBell,
     faBellSlash,
     faCheckCircle,
     faCloudArrowDown,
+    faEllipsis,
+    faEllipsisVertical,
     faMobileScreenButton,
     faPaperPlane,
     faTriangleExclamation,
@@ -341,7 +344,7 @@ export default function ApplicationSetup() {
                 />
             )}
 
-            <Modal height={560}
+            <Modal height={420}
                 open={installInstructionsOpen}
                 onClose={() => setInstallInstructionsOpen(false)}
                 className="max-w-lg"
@@ -357,59 +360,38 @@ export default function ApplicationSetup() {
                     </button></LegacyModalClose>
 
                     <h2 className="pr-10 text-xl font-semibold text-gray-900">
-                        Adicionar o iMenu à tela inicial
+                        Adicionar aplicativo iMenu
                     </h2>
 
                     {ios ? (
-                        <>
-                            <p className="mt-2 text-sm leading-6 text-gray-600">
-                                Siga estes passos no iPhone ou iPad:
-                            </p>
-                            <ol className="mt-5 space-y-3 text-sm leading-6 text-gray-700">
-                                <li><strong>1.</strong> Abra o painel no <strong>Safari</strong>.</li>
-                                <li><strong>2.</strong> Toque no botão de compartilhar.</li>
-                                <li><strong>3.</strong> Caso a opção não apareça, toque em <strong>Mais opções</strong>.</li>
-                                <li><strong>4.</strong> Escolha <strong>Adicionar à Tela de Início</strong>.</li>
-                                <li><strong>5.</strong> Abra o novo ícone do iMenu e volte a esta página.</li>
-                                <li><strong>6.</strong> Toque em <strong>Ativar notificações</strong>.</li>
-                            </ol>
-                        </>
+                        <ol className="mt-5 list-decimal space-y-3 pl-5 text-sm leading-6 text-gray-700">
+                            <li>Abra esta página no <strong>Safari</strong>.</li>
+                            <li>
+                                Toque no menu <FontAwesomeIcon icon={faBars} aria-hidden="true" /> à esquerda do endereço
+                                (ou nos três pontos <FontAwesomeIcon icon={faEllipsis} aria-hidden="true" />) e escolha <strong>Compartilhar</strong>.
+                                Se <strong>Compartilhar</strong> já estiver na barra, toque nele.
+                            </li>
+                            <li>Role a lista e toque em <strong>Adicionar à Tela de Início</strong>.</li>
+                            <li>Se aparecer <strong>Abrir como App da Web</strong>, deixe ativado. Toque em <strong>Adicionar</strong>.</li>
+                        </ol>
+                    ) : installPrompt ? (
+                        <Button
+                            onClick={() => void installApplication()}
+                            loading={busyAction === "install"}
+                            className="mt-6 w-full"
+                        >
+                            <FontAwesomeIcon icon={faMobileScreenButton} className="mr-2" />
+                            Instalar aplicativo
+                        </Button>
                     ) : (
-                        <>
-                            <p className="mt-2 text-sm leading-6 text-gray-600">
-                                Siga estes passos no Android:
-                            </p>
-                            <ol className="mt-5 space-y-3 text-sm leading-6 text-gray-700">
-                                <li><strong>1.</strong> Abra o painel no Chrome.</li>
-                                {installPrompt ? (
-                                    <>
-                                        <li><strong>2.</strong> Toque em <strong>Instalar aplicativo</strong> abaixo.</li>
-                                        <li><strong>3.</strong> Confirme a instalação.</li>
-                                    </>
-                                ) : (
-                                    <>
-                                        <li><strong>2.</strong> Abra o menu de três pontos do Chrome.</li>
-                                        <li><strong>3.</strong> Escolha <strong>Adicionar à tela inicial</strong> ou <strong>Instalar app</strong>.</li>
-                                    </>
-                                )}
-                                <li><strong>4.</strong> Abra o novo ícone do iMenu.</li>
-                                <li><strong>5.</strong> Toque em <strong>Ativar notificações</strong> e depois em <strong>Enviar teste</strong>.</li>
-                            </ol>
-
-                            {installPrompt && (
-                                <Button
-                                    onClick={() => void installApplication()}
-                                    loading={busyAction === "install"}
-                                    className="mt-6 w-full"
-                                >
-                                    <FontAwesomeIcon
-                                        icon={faMobileScreenButton}
-                                        className="mr-2"
-                                    />
-                                    Instalar aplicativo
-                                </Button>
-                            )}
-                        </>
+                        <ol className="mt-5 list-decimal space-y-3 pl-5 text-sm leading-6 text-gray-700">
+                            <li>Abra esta página no <strong>Chrome</strong>.</li>
+                            <li>
+                                Toque no menu de três pontos <FontAwesomeIcon icon={faEllipsisVertical} aria-hidden="true" />
+                                {" "}e escolha <strong>Instalar e criar atalho</strong> ou <strong>Adicionar à tela inicial</strong>.
+                            </li>
+                            <li>Toque em <strong>Instalar</strong> e confirme.</li>
+                        </ol>
                     )}
 
                     <a
