@@ -8,7 +8,7 @@ export default function PosthogProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (pathname?.startsWith("/painel") || pathname?.startsWith("/afiliados/")) {
+    if (pathname?.startsWith("/painel")) {
       return;
     }
 

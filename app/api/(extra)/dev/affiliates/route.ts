@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { AFFILIATE_PAID_PURCHASES } from "@/lib/analytics/affiliateAttribution";
 import { normalizeAffiliateCode } from "@/lib/analytics/affiliateCode";
-import { affiliateDashboardToken } from "@/lib/analytics/affiliateDashboardAccess";
 import { query } from "@/lib/database/sql";
 import { authorize } from "@/lib/dev/authorize";
 import { devPage, paged } from "@/lib/dev/pagination";
@@ -46,9 +45,7 @@ export async function GET(request: Request) {
             ),
         ]);
         return NextResponse.json({
-            partners: paged(partners.rows.map(partner => ({
-                ...partner, dashboardToken: affiliateDashboardToken(partner.code),
-            })), totals.rows[0].partners, page, PAGE_SIZE),
+            partners: paged(partners.rows, totals.rows[0].partners, page, PAGE_SIZE),
             purchases: paged(purchases.rows, totals.rows[0].purchases, purchasePage, PAGE_SIZE),
         }, { headers: noStore });
     } catch (error) {

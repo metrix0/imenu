@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { AFFILIATE_PAID_PURCHASES } from "@/lib/analytics/affiliateAttribution";
 import { normalizeAffiliateCode } from "@/lib/analytics/affiliateCode";
-import { canViewAffiliateDashboard } from "@/lib/analytics/affiliateDashboardAccess";
 import { query } from "@/lib/database/sql";
 import { devPage, paged } from "@/lib/dev/pagination";
 
 const PAGE_SIZE = 10;
-const headers = { "Cache-Control": "private, no-store" };
+const headers = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow" };
+const unavailable = () => NextResponse.json({ error: "Painel de afiliado indisponível." }, { status: 404, headers });
 
 type DashboardRow = {
     referrals: number;
@@ -18,9 +18,7 @@ type DashboardRow = {
 
 export async function GET(request: Request, { params }: { params: Promise<{ code: string }> }) {
     const code = normalizeAffiliateCode((await params).code);
-    if (!code || !canViewAffiliateDashboard(code, request.headers.get("authorization"))) {
-        return NextResponse.json({ error: "Abra o link privado que a equipe do iMenu enviou para você." }, { status: 403, headers });
-    }
+    if (!code) return unavailable();
 
     const search = new URL(request.url).searchParams;
     const referralPage = devPage(search);
@@ -56,9 +54,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ code
              FROM public.affiliate_partners partner WHERE partner.code = $1`,
             [code, PAGE_SIZE, referralPage * PAGE_SIZE, purchasePage * PAGE_SIZE],
         );
-        if (!dashboard) {
-            return NextResponse.json({ error: "Painel de afiliado indisponível." }, { status: 404, headers });
-        }
+        if (!dashboard) return unavailable();
 
         return NextResponse.json({
             referrals: paged(dashboard.referral_rows, dashboard.referrals, referralPage, PAGE_SIZE),

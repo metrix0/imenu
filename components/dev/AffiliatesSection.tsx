@@ -6,12 +6,12 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import PagedTable, { type PageData } from "./PagedTable";
 import { useDevProfile } from "./DevProfileProvider";
-import { affiliateReferralLink } from "@/lib/analytics/affiliateCode";
+import { affiliateDashboardLink, affiliateReferralLink } from "@/lib/analytics/affiliateCode";
 import { devJson } from "@/lib/dev/client";
 import { formatCurrencyFromCents, formatDateTime } from "@/lib/dev/dashboardFormat";
 import styles from "./dashboard.module.css";
 
-type Partner = { code: string; name: string; purchases: number; dashboardToken: string | null };
+type Partner = { code: string; name: string; purchases: number };
 type Purchase = {
     id: string; name: string; code: string; restaurant_id: string; restaurant_name: string;
     paid_at: string; amount_cents: number;
@@ -66,12 +66,11 @@ export default function AffiliatesSection() {
     async function copy(partner: Partner, kind: "link" | "message") {
         setError("");
         const referralLink = affiliateReferralLink(partner.code);
-        const dashboardLink = `${window.location.origin}/afiliados/${partner.code}#${partner.dashboardToken}`;
         const message = [
             "Olá! Seu código de afiliado do iMenu já está ativo.",
             `Compartilhe este link com os restaurantes que você quer indicar:\n${referralLink}`,
             "Você recebe 50% de cada pagamento confirmado do iMenu Plus das contas que indicar, incluindo as renovações.",
-            `Acompanhe suas indicações e comissões pelo seu painel privado:\n${dashboardLink}`,
+            `Acompanhe suas indicações e comissões pelo seu painel:\n${affiliateDashboardLink(partner.code)}`,
         ].join("\n\n");
         try {
             await navigator.clipboard.writeText(kind === "link" ? referralLink : message);
@@ -97,7 +96,7 @@ export default function AffiliatesSection() {
                 { key: "link", label: "Link", render: row => <Button variant="secondary" leftIcon={<Copy size={14} />}
                     className="!min-h-8 !px-2 !py-1" onClick={() => void copy(row, "link")}>{copied === `link:${row.code}` ? "Copiado" : "Copiar"}</Button> },
                 { key: "message", label: "Mensagem pronta", render: row => <Button variant="secondary" leftIcon={<Copy size={14} />}
-                    className="!min-h-8 !px-2 !py-1" aria-label={`Copiar mensagem para ${row.name}`} disabled={!row.dashboardToken}
+                    className="!min-h-8 !px-2 !py-1" aria-label={`Copiar mensagem para ${row.name}`}
                     onClick={() => void copy(row, "message")}>{copied === `message:${row.code}` ? "Copiada" : "Copiar"}</Button> },
             ]} />
         </section>

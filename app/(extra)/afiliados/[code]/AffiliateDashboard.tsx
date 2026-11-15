@@ -26,20 +26,13 @@ export default function AffiliateDashboard({ code }: { code: string }) {
     const referralLink = affiliateReferralLink(code);
 
     useEffect(() => {
-        let activeRequest: AbortController | undefined;
+        const controller = new AbortController();
         async function load() {
-            activeRequest?.abort();
-            const controller = new AbortController();
-            activeRequest = controller;
             setLoading(true);
             setError("");
             try {
-                const token = window.location.hash.slice(1);
-                if (!/^[0-9a-f]{64}$/.test(token)) {
-                    throw new Error("Abra o link privado que a equipe do iMenu enviou para você.");
-                }
                 const response = await fetch(`/api/afiliados/${code}?page=${referralPage}&purchases=${purchasePage}`, {
-                    headers: { Authorization: `Bearer ${token}` }, signal: controller.signal, cache: "no-store",
+                    signal: controller.signal, cache: "no-store",
                 });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.error || "Não foi possível carregar o painel.");
@@ -54,11 +47,7 @@ export default function AffiliateDashboard({ code }: { code: string }) {
             }
         }
         void load();
-        window.addEventListener("hashchange", load);
-        return () => {
-            activeRequest?.abort();
-            window.removeEventListener("hashchange", load);
-        };
+        return () => controller.abort();
     }, [code, referralPage, purchasePage]);
 
     async function copyLink() {

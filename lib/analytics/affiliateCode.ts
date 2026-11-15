@@ -1,8 +1,13 @@
 export const AFFILIATE_COOKIE = "imenu_affiliate";
 export const AFFILIATE_COOKIE_MAX_AGE = 30 * 24 * 60 * 60;
+const IMENU_ORIGIN = "https://www.imenuapp.com.br";
 
 export function affiliateReferralLink(code: string): string {
-    return `https://www.imenuapp.com.br/?af=${encodeURIComponent(code)}`;
+    return `${IMENU_ORIGIN}/?af=${encodeURIComponent(code)}`;
+}
+
+export function affiliateDashboardLink(code: string): string {
+    return `${IMENU_ORIGIN}/afiliados/${encodeURIComponent(code)}`;
 }
 
 export function normalizeAffiliateCode(value: string | null | undefined): string | null {

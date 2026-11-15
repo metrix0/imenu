@@ -7,7 +7,6 @@ import AffiliateDashboard from "./AffiliateDashboard";
 export const metadata: Metadata = {
     title: "Painel do afiliado | iMenu",
     robots: { index: false, follow: false },
-    referrer: "no-referrer",
 };
 
 export default async function AffiliatePage({ params }: { params: Promise<{ code: string }> }) {
