@@ -63,7 +63,7 @@ test.each([
     ["active_customers", ["o.customer_phone", "COUNT(DISTINCT normalized.phone)", "INTERVAL '30 days'"]],
     ["abandoned_plus", ["MAX(o.created_at)", "INTERVAL '15 days'", "addon.product_key = 'ia_plus'"]],
     ["abandoned_imenu", ["MAX(o.created_at)", "INTERVAL '15 days'", "AND NOT "]],
-    ["single_day", ["owned.creation_step=4", "owned.first_time=false", "GROUP BY owned.id, "]],
+    ["single_day", ["owned.creation_step>=4", "owned.first_time=false", "GROUP BY owned.id, "]],
     ["no_first_order", ["owned.onboarding_completed_at", "INTERVAL '48 hours'", "INTERVAL '24 hours'", "NOT EXISTS"]],
 ])("CRM activity %s filters data and total before pagination", async (activity, parts) => {
     await getCrm(new URLSearchParams({ activity, page: "2", sort: "gmv", direction: "desc" }));

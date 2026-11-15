@@ -205,7 +205,7 @@ export async function PATCH(
 
             if (dbColumn === "creation_step") {
                 const step = Number(value);
-                if (![1, 2, 3, 4].includes(step)) continue;
+                if (![1, 2, 3, 4, 5].includes(step)) continue;
                 value = step;
             }
 
@@ -220,8 +220,9 @@ export async function PATCH(
             );
         }
 
-        // Store the first successful completion of step 4 (not later profile edits).
-        if (body.creation_step === 4 && body.first_time === false) {
+        // Preserve legacy step-4 completion while new registrations finish after step 5.
+        const completingOnboarding = [4, 5].includes(Number(body.creation_step)) && body.first_time === false;
+        if (completingOnboarding) {
             fieldsToUpdate.push(
                 "onboarding_completed_at = CASE WHEN first_time IS DISTINCT FROM FALSE THEN NOW() ELSE onboarding_completed_at END"
             );
@@ -233,7 +234,6 @@ export async function PATCH(
             WHERE id = $1
             RETURNING id, url_slug, store_whatsapp, creation_step, first_time
         `;
-        const completingOnboarding = body.creation_step === 4 && body.first_time === false;
         const { rows } = completingOnboarding
             ? await withTransaction(async (client) => {
                 const { rows: [previous] } = await client.query<{ first_time: boolean | null; name: string | null; pizza_settings: unknown }>(

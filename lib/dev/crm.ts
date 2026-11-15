@@ -110,14 +110,14 @@ const ACTIVITY: Record<string, string> = {
     abandoned_imenu: "(" + ABANDONED + " AND NOT " + ACCOUNT_PLUS + ")",
     single_day: [
         ACCOUNT + " IN (SELECT " + OWNED_ACCOUNT + " FROM restaurants owned JOIN orders o ON o.restaurant_id=owned.id",
-        "WHERE owned.creation_step=4 AND owned.first_time=false",
+        "WHERE owned.creation_step>=4 AND owned.first_time=false",
         "AND o.table_id IS NULL AND o.created_at >= " + RECOVERY_AS_OF + " - INTERVAL '14 days'",
         "AND o.created_at < " + RECOVERY_AS_OF,
         "GROUP BY owned.id, " + OWNED_ACCOUNT + " HAVING COUNT(DISTINCT " + PURCHASE_DAY + ")=1)",
     ].join(" "),
     no_first_order: [
         ACCOUNT + " IN (SELECT " + OWNED_ACCOUNT + " FROM restaurants owned",
-        "WHERE owned.creation_step=4 AND owned.first_time=false",
+        "WHERE owned.creation_step>=4 AND owned.first_time=false",
         "AND owned.onboarding_completed_at >= " + RECOVERY_AS_OF + " - INTERVAL '48 hours'",
         "AND owned.onboarding_completed_at < " + RECOVERY_AS_OF + " - INTERVAL '24 hours'",
         "AND NOT EXISTS (SELECT 1 FROM orders o JOIN restaurants other ON other.id=o.restaurant_id",

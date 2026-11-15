@@ -15,6 +15,8 @@ type CohortRow = {
     cardapio: number | string;
     horarios: number | string;
     loja: number | string;
+    localizacao: number | string;
+    plus: number | string;
     finished: number | string;
     items: number | string;
     first_order: number | string;
@@ -47,6 +49,10 @@ states AS (
             AND (r.creation_step >= 3 OR r.first_time = false)) AS horarios,
         EXISTS (SELECT 1 FROM restaurants r WHERE r.user_id = c.id
             AND (r.creation_step >= 4 OR r.first_time = false)) AS loja,
+        EXISTS (SELECT 1 FROM restaurants r WHERE r.user_id = c.id
+            AND (r.creation_step >= 5 OR r.first_time = false)) AS localizacao,
+        EXISTS (SELECT 1 FROM restaurants r WHERE r.user_id = c.id
+            AND r.creation_step = 5 AND r.first_time = false) AS plus,
         EXISTS (SELECT 1 FROM restaurants r WHERE r.user_id = c.id AND r.first_time = false) AS finished,
         EXISTS (SELECT 1 FROM restaurants r JOIN items i ON i.restaurant_id = r.id
             WHERE r.user_id = c.id) AS items,
@@ -68,6 +74,8 @@ SELECT period, COUNT(*)::int AS registered,
     COUNT(*) FILTER (WHERE cardapio)::int AS cardapio,
     COUNT(*) FILTER (WHERE horarios)::int AS horarios,
     COUNT(*) FILTER (WHERE loja)::int AS loja,
+    COUNT(*) FILTER (WHERE localizacao)::int AS localizacao,
+    COUNT(*) FILTER (WHERE plus)::int AS plus,
     COUNT(*) FILTER (WHERE finished)::int AS finished,
     COUNT(*) FILTER (WHERE items)::int AS items,
     COUNT(*) FILTER (WHERE first_order)::int AS first_order,
@@ -139,6 +147,8 @@ export async function GET(request: Request) {
             cardapio: num(row?.cardapio),
             horarios: num(row?.horarios),
             loja: num(row?.loja),
+            localizacao: num(row?.localizacao),
+            plus: num(row?.plus),
             finished: num(row?.finished),
             items: num(row?.items),
             firstOrder: num(row?.first_order),

@@ -6,7 +6,7 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
-import { faQrcode, faStore } from "@fortawesome/free-solid-svg-icons";
+import { faQrcode } from "@fortawesome/free-solid-svg-icons";
 
 interface ShareMenuModalProps {
     isOpen: boolean;
@@ -76,14 +76,26 @@ export default function ShareMenuModal({
                     </div>
 
                     <h3 className="mb-2 text-2xl font-bold text-gray-900">
-                        Sua loja está pronta!
+                        Seu cardápio está no ar!
                     </h3>
                     <p className="mb-6 max-w-sm text-sm leading-6 text-gray-500">
-                        Seu cardápio já está no ar. Compartilhe o link abaixo com seus clientes para começar a receber pedidos.
+                        Veja como seus clientes vão pedir. Abra o cardápio e faça seu primeiro pedido.
                     </p>
 
-                    <div className="mb-4 w-full rounded-xl border border-brand/20 bg-brand/[0.04] p-4 text-left">
-                        <p className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-brand">
+                    <Button type="button" onClick={handleOrder} className="w-full">
+                        Testar meu cardápio
+                    </Button>
+                    <Button
+                        type="button"
+                        onClick={handleClose}
+                        className="mt-2 w-full"
+                        variant="secondary"
+                    >
+                        Ir para o painel
+                    </Button>
+
+                    <div className="mt-6 w-full border-t border-gray-200 pt-5 text-left">
+                        <p className="mb-2 text-xs font-semibold text-gray-500">
                             Link do seu cardápio
                         </p>
                         <div className="flex w-full gap-2">
@@ -109,33 +121,7 @@ export default function ShareMenuModal({
                                 {copied ? "Copiado!" : "Copiar"}
                             </Button>
                         </div>
-                        <p className="mt-2 text-xs leading-5 text-gray-500">
-                            Use este link no WhatsApp, Instagram, Google ou onde seus clientes encontrarem sua loja.
-                        </p>
                     </div>
-
-                    <div className="mb-5 w-full rounded-xl bg-gray-50 p-3 text-left">
-                        <p className="text-sm leading-5 text-gray-600">
-                            Quer mudar esse endereço? Altere a qualquer momento na aba{" "}
-                            <span className="inline-flex items-center gap-1 font-semibold text-gray-900">
-                                <FontAwesomeIcon icon={faStore} className="text-brand" />
-                                Loja
-                            </span>
-                            .
-                        </p>
-                    </div>
-
-                    <Button type="button" onClick={handleOrder} className="w-full">
-                        Faça um pedido
-                    </Button>
-                    <Button
-                        type="button"
-                        onClick={handleClose}
-                        className="mt-2 w-full"
-                        variant="secondary"
-                    >
-                        Ir para o painel
-                    </Button>
                 </div>
             </Modal>
         );

@@ -40,7 +40,7 @@ test.each([true, false])("Plus includes historical pageviews only before the cut
     for (const path of ["/painel/assistente-ia", "/painel/vendas-ia", "/painel/marketing"]) {
         expect(hogql).toContain(path);
     }
-    for (const surface of ["sales_modal", "plus_page", "assistant_limit", "sales_section", "marketing_page"]) {
+    for (const surface of ["sales_modal", "plus_page", "assistant_limit", "sales_section", "marketing_page", "onboarding_complete"]) {
         expect(hogql).toContain(surface);
     }
     if (rolling) {

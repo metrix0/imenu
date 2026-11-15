@@ -230,7 +230,7 @@ export async function GET(request: Request) {
     JOIN orders o ON o.restaurant_id = r.id
     CROSS JOIN clock
     LEFT JOIN auth.users u ON u.id = r.user_id
-    WHERE r.creation_step = 4 AND r.first_time = false
+    WHERE r.creation_step >= 4 AND r.first_time = false
       AND o.table_id IS NULL
       AND o.created_at >= clock.as_of - INTERVAL '14 days'
       AND o.created_at < clock.as_of
@@ -254,7 +254,7 @@ SELECT DISTINCT ON (COALESCE(r.user_id, r.id))
 FROM restaurants r
 CROSS JOIN clock
 LEFT JOIN auth.users u ON u.id = r.user_id
-WHERE r.creation_step = 4 AND r.first_time = false
+WHERE r.creation_step >= 4 AND r.first_time = false
   AND r.onboarding_completed_at >= clock.as_of - INTERVAL '48 hours'
   AND r.onboarding_completed_at < clock.as_of - INTERVAL '24 hours'
   AND NOT EXISTS (

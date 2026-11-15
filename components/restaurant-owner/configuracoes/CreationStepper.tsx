@@ -9,14 +9,13 @@ const steps = [
   "/restaurante/criar/disponibilidade",
   "/restaurante/criar/loja",
   "/restaurante/criar/localizacao",
-  "/restaurante/criar/plus",
 ];
 
 export default function CreationStepper() {
   const pathname = usePathname();
-  const currentStepIndex = steps.findIndex(step =>
-    pathname.includes(step)
-  );
+  const currentStepIndex = pathname === "/restaurante/criar/plus"
+    ? steps.length - 1
+    : steps.findIndex(step => pathname.includes(step));
 
   return (
     <div className="bg-white pb-6 sm:pb-10 flex w-full justify-center">

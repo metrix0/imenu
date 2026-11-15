@@ -66,7 +66,9 @@ function RestaurantDetails({ restaurant: initialRestaurant, onLoaded }: { restau
     const restaurant=data?.restaurant || initialRestaurant;
     const pixKey = restaurant.payment_info?.trim();
     const pixKeyType = restaurant.payment_info_type?.trim();
-    const completedSteps = restaurant.first_time === false || restaurant.onboarding_completed_at ? 4 : normalizeCreationStep(restaurant.creation_step) - 1;
+    const completedSteps = restaurant.first_time === false || restaurant.onboarding_completed_at
+        ? (restaurant.creation_step === 5 ? 5 : 4)
+        : normalizeCreationStep(restaurant.creation_step) - 1;
     const [due, setDue] = useState<number | null>(null);
     const [error, setError] = useState("");
     const [entering, setEntering] = useState(false);
@@ -135,7 +137,7 @@ function RestaurantDetails({ restaurant: initialRestaurant, onLoaded }: { restau
                             {pixKey && <dd><span className="block break-all whitespace-normal">{pixKey}</span></dd>}
                         </div>
                     </dl>
-                    <div><p className="mb-2 text-xs text-gray-500">Etapas do cadastro · {completedSteps}/4</p><div className="flex flex-wrap gap-2" aria-label="Etapas do cadastro">{["Cardápio","Disponibilidade","Loja","Localização"].map((step,index)=><Badge key={step} variant={index < completedSteps ? "success" : "neutral"}>{index < completedSteps && <Check size={12} aria-hidden="true" className="mr-1" />}{step}</Badge>)}</div></div>
+                    <div><p className="mb-2 text-xs text-gray-500">Etapas do cadastro · {completedSteps}/5</p><div className="flex flex-wrap gap-2" aria-label="Etapas do cadastro">{["Cardápio","Disponibilidade","Loja","Localização","iMenu Plus (opcional)"].map((step,index)=><Badge key={step} variant={index < completedSteps ? "success" : "neutral"}>{index < completedSteps && <Check size={12} aria-hidden="true" className="mr-1" />}{step}</Badge>)}</div></div>
                 </div>
             </>}
         </section>

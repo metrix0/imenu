@@ -16,7 +16,7 @@ type FunnelCounts = {
     bought: number | null;
     sources: Record<string, number> | null;
 };
-const PLUS_SOURCES = ["sales_modal", "plus_page", "assistant_limit", "sales_section", "marketing_page", "legacy_pages"] as const;
+const PLUS_SOURCES = ["sales_modal", "plus_page", "assistant_limit", "sales_section", "marketing_page", "onboarding_complete", "legacy_pages"] as const;
 
 function validDate(value: string | null): value is string {
     return Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value) &&
@@ -49,11 +49,11 @@ export async function GET(request: Request) {
     const rangeLabel = "if(timestamp >= toDateTime('" + start + "', 'UTC'), 'current', 'previous')";
 
     const usersSql = "SELECT " + rangeLabel + " AS range_label, " +
-        "uniqExactIf(distinct_id, event IN ('panel_dashboard_viewed', 'panel_tab_opened')) AS panel_users, " +
+        "uniqExactIf(distinct_id, event IN ('panel_dashboard_viewed', 'panel_tab_opened') OR (event = '$pageview' AND properties.$pathname IN ('/restaurante/criar/plus','/restaurante/criar/plus/'))) AS panel_users, " +
         "uniqExactIf(distinct_id, event = 'imenu_plus_checkout_viewed') AS checkout_users " +
         "FROM events WHERE " + period + " GROUP BY range_label";
 
-    // Exposures share the five-surface 7-day deduplication definition of Plus traffic.
+    // Exposures share the visible-surface 7-day deduplication definition of Plus traffic.
     // Earlier panel pageviews are backfilled in-place, without creating synthetic events.
     // Old pageviews cannot prove that a specific Plus offer was visible.
     const exposuresSql = [
@@ -61,7 +61,7 @@ export async function GET(request: Request) {
         "if(event = 'imenu_plus_exposure_viewed', toString(properties.surface), 'legacy_pages') AS surface",
         "FROM events WHERE " + period,
         "AND ((event = 'imenu_plus_exposure_viewed' AND toString(properties.surface) IN",
-        "('sales_modal','plus_page','assistant_limit','sales_section','marketing_page'))",
+        "('sales_modal','plus_page','assistant_limit','sales_section','marketing_page','onboarding_complete'))",
         "OR (event = '$pageview' AND timestamp < toDateTime('2026-11-10 12:50:49', 'UTC')",
         "AND properties.$pathname IN ('/painel/marketing','/painel/marketing/',",
         "'/painel/vendas-ia','/painel/vendas-ia/',",

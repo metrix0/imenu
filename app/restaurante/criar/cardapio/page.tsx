@@ -124,7 +124,7 @@ export default function CriarCardapioPage() {
             <div className="mt-4 w-full max-w-4xl">
                 <div className="mb-8 text-center sm:text-left">
                     <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-brand">
-                        Etapa 1/5
+                        Etapa 1/4
                     </p>
                     <h1 className="text-3xl font-bold text-gray-900">Cardápio</h1>
                     <p className="mt-1 text-gray-500">
