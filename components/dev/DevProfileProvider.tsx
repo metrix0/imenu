@@ -114,12 +114,12 @@ function RestaurantDetails({ restaurant: initialRestaurant, onLoaded }: { restau
     }, [restaurant.id]);
     if(!data&&!error&&!initialRestaurant.created_at)return <DevLoading/>;
     return <div className="space-y-6">
-        <dl className={`${styles.crmDetails} ${styles.crmContacts} max-w-4xl`}>
+        <dl className={`${styles.crmDetails} ${styles.crmContacts}`}>
             <div><dt>E-mail</dt><dd title={restaurant.email || undefined}>{restaurant.email || "—"}</dd></div>
             <div><dt>Celular loja</dt><dd><PhoneLink phone={restaurant.store_phone} /></dd></div>
             <div><dt>Celular dono</dt><dd><PhoneLink phone={restaurant.owner_phone || restaurant.phone} /></dd></div>
             <div><dt>Conta há</dt><dd>{accountAge(restaurant.created_at)}</dd></div>
-            <div className="col-span-full"><dt>Origem</dt><dd className="!whitespace-normal break-all">{data?.restaurant?.origin || "—"}</dd></div>
+            <div><dt>Origem</dt><dd>{data?.restaurant?.origin || "—"}</dd></div>
         </dl>
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
         <section className={styles.crmDetailBlock}>

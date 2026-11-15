@@ -81,7 +81,10 @@
 .crmTable :global(td:last-child){padding-inline:8px;text-overflow:clip}
 .crmDetails dd{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal}
 .crmDetails dd .profileLink{display:block;overflow:hidden;text-overflow:ellipsis}
-.crmDetails.crmContacts > :first-child dd { white-space: normal; overflow-wrap: anywhere; }
+.crmContacts > :is(:first-child, :last-child) dd { white-space: normal; overflow-wrap: anywhere; }
+@media (min-width: 900px) {
+    .crmContacts { grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(0, 1.35fr); }
+}
 
 
 .payoutPayables, .payoutFailed { container-type: inline-size; }
