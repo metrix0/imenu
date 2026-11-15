@@ -6,6 +6,7 @@ import { analyzeSupportImage, classifySupportFollowup, generateSupportFollowup, 
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn() }));
 jest.mock("@/lib/services/supportMcp", () => ({
     createSupportMcpToken: jest.fn(),
+    SUPPORT_MENU_LINK_TOOL: "get_restaurant_menu_link",
     searchSupportKnowledge: jest.fn(),
 }));
 
@@ -91,4 +92,50 @@ test.each([
     expect(request.prompt_cache_options).toEqual(cacheOptions);
     expect(request.input[0].content.map((part: { type: string }) => part.type)).toEqual(["input_text", "input_image"]);
     expect(request.input[0].content.some((part: object) => "prompt_cache_breakpoint" in part)).toBe(false);
+});
+
+function mockMenuReply(outputText: string, toolOutput?: unknown) {
+    const conversation = { mode: "ai", handoff_prompted_at: null };
+    (query as jest.Mock)
+        .mockResolvedValueOnce({ rows: [{ direction: "inbound", body: "Qual o link do meu cardápio?" }] })
+        .mockResolvedValueOnce({ rows: [conversation] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [conversation] });
+    (searchSupportKnowledge as jest.Mock).mockResolvedValue([]);
+    create.mockResolvedValue({
+        status: "completed", output_text: outputText,
+        output: toolOutput === undefined ? [] : [{
+            type: "mcp_call", server_label: "imenu_support", name: "get_restaurant_menu_link",
+            output: JSON.stringify(toolOutput),
+        }],
+    });
+}
+
+test("never sends the invented imenu.com.br menu URL", async () => {
+    mockMenuReply("Seu link é: https://imenu.com.br/c-m-lanches");
+    const reply = await generateSupportReply("conversation-1");
+    expect(reply.text).toBe("Não consegui confirmar o link do cardápio. Qual é o nome da loja?");
+});
+
+test.each([
+    "Seu link é: [[MENU_URL]]",
+    "Seu link é: https://imenu.com.br/c-m-lanches",
+    "Seu link é: https://www.imenuapp.com.br/outra-loja",
+    "Seu link é: https://inventado.example/c-m-lanches",
+])("inserts only the verified menu URL for %s", async (draft) => {
+    mockMenuReply(draft, { menu_url: "https://www.imenuapp.com.br/c-m-lanches" });
+    const reply = await generateSupportReply("conversation-1");
+    expect(reply.text).toBe("Seu link é: https://www.imenuapp.com.br/c-m-lanches");
+});
+
+test("reports an unverified menu link when the lookup has no URL", async () => {
+    mockMenuReply("Seu link é: https://www.imenuapp.com.br/outra-loja", { menu_url: null });
+    const reply = await generateSupportReply("conversation-1");
+    expect(reply.text).toBe("Não consegui confirmar o link do cardápio.");
+});
+
+test("preserves links to the iMenu dashboard and the restaurant's WhatsApp", async () => {
+    const message = "Abra https://www.imenuapp.com.br/painel ou fale com a loja em https://wa.me/5511900000000.";
+    mockMenuReply(message);
+    await expect(generateSupportReply("conversation-1")).resolves.toMatchObject({ text: message });
 });
