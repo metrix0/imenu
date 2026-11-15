@@ -44,9 +44,15 @@ function payoutTimeOnUtcDay(date: Date) {
     return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), PAYOUT_HOUR_UTC, PAYOUT_MINUTE_UTC);
 }
 
+function payoutForecastAt(runAt: number) {
+    const date = new Date(runAt);
+    date.setUTCHours(15, 0, 0, 0); // 12:00 in São Paulo.
+    return date;
+}
+
 function forecastPayouts(orders: PendingPixOrder[], restaurantId: string, now: Date): Payout[] {
     const todaysRun = payoutTimeOnUtcDay(now);
-    const nextRun = todaysRun < now.getTime() ? todaysRun + DAY_MS : todaysRun;
+    const nextRun = payoutForecastAt(todaysRun).getTime() < now.getTime() ? todaysRun + DAY_MS : todaysRun;
     const batches = new Map<number, { grossCents: number; orderCount: number }>();
 
     for (const order of orders) {
@@ -68,7 +74,7 @@ function forecastPayouts(orders: PendingPixOrder[], restaurantId: string, now: D
             restaurant_id: restaurantId,
             amount_cents: netCents,
             status: "forecast",
-            created_at: new Date(time).toISOString(),
+            created_at: payoutForecastAt(time).toISOString(),
             paid_at: null,
             order_count: batch.orderCount,
             gross_cents: batch.grossCents,
@@ -345,7 +351,7 @@ export default function PayoutsDashboard({
                         Repasses
                     </h2>
                     <p className="text-sm text-gray-500 2xl:text-base">
-                        Pedidos confirmados após o horário de corte entram no repasse do dia seguinte. O filtro de datas se aplica ao histórico.
+                        Repasses diários às 12:00. Veja o horário, status e composição de cada repasse.
                     </p>
                 </div>
 
