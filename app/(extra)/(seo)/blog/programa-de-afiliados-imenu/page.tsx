@@ -40,7 +40,7 @@ export default function AffiliateProgramPage() {
             action={
                 <a href={applicationLink} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand px-5 py-3 font-semibold text-white transition hover:bg-brand/90">
                     <FontAwesomeIcon icon={faWhatsapp} className="h-5 w-5" aria-hidden="true" />
-                    Quero ser afiliado no WhatsApp
+                    Quero ser um afiliado
                 </a>
             }
             takeaways={[
