@@ -39,15 +39,20 @@ afterEach(async () => {
 
 test("looks up the requested city, street and bairro despite a differing CEP", async () => {
     const match = await lookupCnefe(address, origin);
-    expect(match?.range.min).toBeGreaterThan(7);
-    expect(match?.range.max).toBeLessThan(8);
-    expect(match?.range.min).toBeLessThan(match!.range.max);
+    expect(match?.range?.min).toBeGreaterThan(7);
+    expect(match?.range?.max).toBeLessThan(8);
+    expect(match?.range?.min).toBeLessThan(match?.range?.max);
 });
 
 test("prefers an exact number in the matching bairro", async () => {
     const match = await lookupCnefe({ ...address, number: "570" }, origin);
     expect(match?.point).toEqual({ latitude: -27.612958, longitude: -52.225898 });
-    expect(match?.range.min).toBe(match?.range.max);
+    expect(match?.range?.min).toBe(match?.range?.max);
+});
+
+test("returns a mapped point for a store without a delivery origin", async () => {
+    const match = await lookupCnefe({ ...address, number: "570" });
+    expect(match).toEqual({ point: { latitude: -27.612958, longitude: -52.225898 } });
 });
 
 test("rejects another bairro and reports partial coverage", async () => {

@@ -270,6 +270,20 @@ describe("IBGE street fallback", () => {
         }) as typeof fetch;
     }
 
+    test("uses IBGE for a store address without a delivery origin", async () => {
+        mockFallbackProviders();
+        expect(await fetchCoordinates(input)).toEqual(point);
+        const [, options] = (global.fetch as jest.Mock).mock.calls.find(([url]) => url === "/api/checkout/geocode-ibge")!;
+        expect(JSON.parse(options.body)).not.toHaveProperty("origin");
+    });
+
+    test("looks up the municipality by CEP when the store entered its district as the city", async () => {
+        mockFallbackProviders();
+        expect(await fetchCoordinates(input.replace("Erechim", "Distrito"))).toEqual(point);
+        const [, options] = (global.fetch as jest.Mock).mock.calls.find(([url]) => url === "/api/checkout/geocode-ibge")!;
+        expect(JSON.parse(options.body)).toMatchObject({ address: { city: "Erechim", uf: "RS" } });
+    });
+
     test("uses a consistent IBGE range before the CEP fallback", async () => {
         mockFallbackProviders();
         const acceptsRange = jest.fn(() => true);

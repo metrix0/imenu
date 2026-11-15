@@ -21,14 +21,14 @@ type IndexedPoint = { lat: number; lon: number; number: string; cep: number };
 
 export type CnefeMatch = {
     point: Coordinates;
-    range: { min: number; max: number };
+    range?: { min: number; max: number };
 };
 
 async function readMunicipalities(root: string): Promise<Municipalities> {
     return JSON.parse(await readFile(join(root, "municipalities.json"), "utf8"));
 }
 
-export async function lookupCnefe(address: Address, origin: Coordinates): Promise<CnefeMatch | null> {
+export async function lookupCnefe(address: Address, origin?: Coordinates): Promise<CnefeMatch | null> {
     const root = directory();
     if (!states.includes(address.uf)) return null;
     const cityName = normalize(address.city);
@@ -61,10 +61,22 @@ export async function lookupCnefe(address: Address, origin: Coordinates): Promis
         const exact = number ? points.filter(point => point.number === number) : [];
         const postal = address.cep ? exact.filter(point => point.cep === Number(address.cep)) : [];
         const matches = postal.length ? postal : exact.length ? exact : points;
+        const locations = matches.map(row => ({ latitude: row.lat / 1_000_000, longitude: row.lon / 1_000_000 }));
+        if (!origin) {
+            const center = {
+                latitude: locations.reduce((sum, point) => sum + point.latitude, 0) / locations.length,
+                longitude: locations.reduce((sum, point) => sum + point.longitude, 0) / locations.length,
+            };
+            const distanceFromCenter = (point: Coordinates) =>
+                calculateDistanceKm(center.latitude, center.longitude, point.latitude, point.longitude);
+            const point = locations.reduce((best, candidate) =>
+                distanceFromCenter(candidate) < distanceFromCenter(best) ? candidate : best);
+            return { point };
+        }
+
         let min = Infinity;
         let max = -Infinity;
-        const distances = matches.map(row => {
-            const point = { latitude: row.lat / 1_000_000, longitude: row.lon / 1_000_000 };
+        const distances = locations.map(point => {
             const distance = calculateDistanceKm(origin.latitude, origin.longitude, point.latitude, point.longitude);
             min = Math.min(min, distance);
             max = Math.max(max, distance);
