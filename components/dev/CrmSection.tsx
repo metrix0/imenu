@@ -18,6 +18,7 @@ const empty = <T,>(): PageData<T> => ({ rows: [], page: 0, total: 0, pageCount: 
 const blastStatus = {
     sent: { label: "Enviado", variant: "success" },
     scheduled: { label: "Agendado", variant: "info" },
+    predicted: { label: "Agendado", variant: "info", detail: "Envio previsto para hoje. A fila abre às 19h." },
     paused: { label: "Agendado", variant: "info", detail: "A campanha está pausada e o contato segue na fila." },
     processing: { label: "Agendado", variant: "info", detail: "Envio em andamento." },
     failed: { label: "Falha", variant: "danger" },

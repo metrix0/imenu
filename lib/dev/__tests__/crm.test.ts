@@ -1,7 +1,12 @@
 import { query } from "@/lib/database/sql";
 import { getCrm } from "../crm";
+import { getTodayRecoveryForecast } from "../abandonedBlastPlan";
 
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn() }));
+jest.mock("../abandonedBlastPlan", () => ({
+    ...jest.requireActual("../abandonedBlastPlan"),
+    getTodayRecoveryForecast: jest.fn().mockResolvedValue(null),
+}));
 const sqlQuery = query as jest.Mock;
 
 beforeEach(() => {
@@ -159,7 +164,7 @@ test("invalid dates never reach the SQL query", async () => {
 });
 
 test.each([
-    ["churned_plus", "experiência com o iMenu Plus"],
+    ["churned_plus", "chegou ao fim"],
     ["churned_imenu", "alguns testes por lá"],
     ["single_day", "começou a receber pedidos"],
     ["not_activated", "primeiro pedido"],
@@ -183,6 +188,28 @@ test.each([
     expect(listSql).toContain("ORDER BY sort_at DESC NULLS LAST");
     expect(countSql).not.toContain("support_blast_recipients");
     expect(countArgs).toHaveLength(hasPeriod ? 3 : 1);
+});
+
+test("Churn displays a forecast without replacing today's confirmed delivery status", async () => {
+    (getTodayRecoveryForecast as jest.Mock).mockResolvedValueOnce({
+        day: "2026-11-15", accounts: new Set(["account-a", "account-b"]),
+    });
+    sqlQuery.mockReset()
+        .mockResolvedValueOnce({ rows: [
+            { id: "a", blast_account_id: "account-a", blast_status: null },
+            { id: "b", blast_account_id: "account-b", blast_status: "sent", blast_at: "2026-11-15T18:00:00Z" },
+            { id: "c", blast_account_id: "account-c", blast_status: null },
+        ] })
+        .mockResolvedValueOnce({ rows: [{ total: 3 }] });
+    const page = await getCrm(new URLSearchParams({
+        activity: "churned_plus", includeBlast: "1", startDate: "2026-11-09", endDate: "2026-11-15",
+    }));
+    expect(page).toMatchObject({ rows: [
+        { id: "a", blast_status: "predicted" },
+        { id: "b", blast_status: "sent" },
+        { id: "c", blast_status: null },
+    ] });
+    expect("rows" in page && page.rows[0]).not.toHaveProperty("blast_account_id");
 });
 
 test("regular CRM results do not include recovery blast history", async () => {

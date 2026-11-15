@@ -1,4 +1,6 @@
 import { GET } from "./route";
+import { getTodayRecoveryForecast } from "@/lib/dev/abandonedBlastPlan";
+import { PLUS_ABANDONED_BLAST_MESSAGE } from "@/lib/dev/abandonedBlast";
 import { query } from "@/lib/database/sql";
 import { createSupportBlast } from "@/lib/services/supportBlast";
 
@@ -60,12 +62,15 @@ test("recovery selects only the 20 highest-GMV accounts across Plus and iMenu", 
     mockQuery.mockImplementation(async (sql: string) => {
         if (sql.includes("AS total FROM support_blast_recipients")) return { rows: [{ total: 0 }] };
         if (sql.includes("WITH first_month AS")) return { rows: [] };
-        if (sql.includes("completed AS (")) return { rows: Array.from({ length: 22 }, (_, i) => ({
-            account_id: `account-${i + 1}`,
-            restaurant_name: `Loja ${i + 1}`,
-            owner_phone: `551199999${String(i + 1).padStart(4, "0")}`,
-            has_plus: i < 12,
-        })) };
+        if (sql.includes("completed AS (") || sql.includes("WITH churn_bounds AS")) {
+            const rows = Array.from({ length: 22 }, (_, i) => ({
+                account_id: `account-${i + 1}`,
+                restaurant_name: `Loja ${i + 1}`,
+                owner_phone: `551199999${String(i + 1).padStart(4, "0")}`,
+                has_plus: false,
+            }));
+            return { rows: sql.includes("WITH churn_bounds AS") ? rows.slice(0, 12) : rows.slice(12) };
+        }
         if (sql.includes("AS gmv_cents")) return { rows: Array.from({ length: 22 }, (_, i) => ({
             account_id: `account-${i + 1}`, gmv_cents: (i + 1) * 10000,
         })) };
@@ -81,6 +86,31 @@ test("recovery selects only the 20 highest-GMV accounts across Plus and iMenu", 
     const allMessages = calls.flatMap(arg => arg.recipients.map((row: { message: string }) => row.message));
     expect(allMessages.some(message => message.includes("Loja 22"))).toBe(true);
     expect(allMessages.some(message => message.includes("Loja 1."))).toBe(false);
+});
+
+test("Plus forecast and enqueue use expiration eligibility without order activity", async () => {
+    mockQuery.mockImplementation(async (sql: string) => {
+        if (sql.includes("WITH churn_bounds AS")) {
+            return { rows: [{ account_id: "expired-plus", restaurant_name: "Loja", owner_phone: phone }] };
+        }
+        return { rows: [] };
+    });
+    jest.setSystemTime(new Date("2026-10-22T20:00:00Z"));
+    expect(await getTodayRecoveryForecast("churned_plus")).toEqual({
+        day: "2026-10-22", accounts: new Set(["expired-plus"]),
+    });
+    expect(mockBlast).not.toHaveBeenCalled();
+
+    jest.setSystemTime(new Date("2026-10-22T22:00:00Z"));
+    expect(await (await GET(request())).json()).toMatchObject({ queued: 1 });
+    expect(mockBlast).toHaveBeenCalledWith(expect.objectContaining({
+        message: PLUS_ABANDONED_BLAST_MESSAGE,
+        recipients: [{ phone, message: expect.stringContaining("O iMenu Plus da sua loja, Loja, chegou ao fim") }],
+    }));
+    const [sql] = mockQuery.mock.calls.find(([sql]) => sql.includes("WITH churn_bounds AS"))!;
+    expect(sql).toContain("addon.current_period_ends_at >= bounds.start_at");
+    expect(sql).toContain("renewed.current_period_ends_at >= bounds.end_at");
+    expect(sql).not.toContain("FROM orders");
 });
 
 test("recovery does not replenish its daily limit after campaigns are queued", async () => {

@@ -7,6 +7,8 @@ import {
     SINGLE_ORDER_DAY_RECOVERY_MESSAGE,
 } from "./abandonedBlast";
 import { SUPPORT_CONVERSATION_VISIBLE_SQL } from "@/lib/services/supportExclusions";
+import { brazilClock, getTodayRecoveryForecast } from "./abandonedBlastPlan";
+import { PLUS_CHURN_EVENTS, RECOVERY_CUTOFF } from "./plusChurn";
 import { formatSignupOrigin } from "@/lib/analytics/signupOrigin";
 
 const CRM_PAGE_SIZE = 10;
@@ -76,7 +78,6 @@ const LAST_SUPPORT_JOIN = `LEFT JOIN LATERAL (
 const ACCOUNT = "COALESCE(r.user_id,r.id)";
 const OWNED_ACCOUNT = "COALESCE(owned.user_id,owned.id)";
 const PURCHASE_DAY = "(o.created_at AT TIME ZONE 'America/Sao_Paulo')::date";
-const RECOVERY_AS_OF = "((date_trunc('day', NOW() AT TIME ZONE 'America/Sao_Paulo') + INTERVAL '19 hours') AT TIME ZONE 'America/Sao_Paulo')";
 // Use grouped account ID sets so pagination and counts do not run per-row scans.
 // The recovery sets match the daily 19:00 SP eligibility snapshot.
 const ACCOUNT_PLUS = [
@@ -91,17 +92,17 @@ const doneOrders = (asOf: string, having: string) => [
     "AND o.created_at >= " + asOf + " - INTERVAL '30 days' AND o.created_at < " + asOf,
     "GROUP BY " + OWNED_ACCOUNT + " HAVING " + having + ")",
 ].join(" ");
-const ABANDONED = doneOrders(RECOVERY_AS_OF, [
+const ABANDONED = doneOrders(RECOVERY_CUTOFF, [
     "COUNT(DISTINCT " + PURCHASE_DAY + ") >= 2",
-    "AND MAX(o.created_at) >= " + RECOVERY_AS_OF + " - INTERVAL '15 days'",
-    "AND MAX(o.created_at) < " + RECOVERY_AS_OF + " - INTERVAL '14 days'",
+    "AND MAX(o.created_at) >= " + RECOVERY_CUTOFF + " - INTERVAL '15 days'",
+    "AND MAX(o.created_at) < " + RECOVERY_CUTOFF + " - INTERVAL '14 days'",
 ].join(" "));
 const SINGLE_DAY_ACTIVITY = `
     SELECT ${OWNED_ACCOUNT} AS account_id, MAX(o.created_at) AS event_at
     FROM restaurants owned JOIN orders o ON o.restaurant_id=owned.id
     WHERE owned.creation_step>=4 AND owned.first_time=false
-      AND o.table_id IS NULL AND o.created_at >= ${RECOVERY_AS_OF} - INTERVAL '14 days'
-      AND o.created_at < ${RECOVERY_AS_OF}
+      AND o.table_id IS NULL AND o.created_at >= ${RECOVERY_CUTOFF} - INTERVAL '14 days'
+      AND o.created_at < ${RECOVERY_CUTOFF}
     GROUP BY owned.id, ${OWNED_ACCOUNT}
     HAVING COUNT(DISTINCT ${PURCHASE_DAY})=1
 `;
@@ -128,8 +129,8 @@ const ACTIVITY: Record<string, string> = {
     no_first_order: [
         ACCOUNT + " IN (SELECT " + OWNED_ACCOUNT + " FROM restaurants owned",
         "WHERE owned.creation_step>=4 AND owned.first_time=false",
-        "AND owned.onboarding_completed_at >= " + RECOVERY_AS_OF + " - INTERVAL '48 hours'",
-        "AND owned.onboarding_completed_at < " + RECOVERY_AS_OF + " - INTERVAL '24 hours'",
+        "AND owned.onboarding_completed_at >= " + RECOVERY_CUTOFF + " - INTERVAL '48 hours'",
+        "AND owned.onboarding_completed_at < " + RECOVERY_CUTOFF + " - INTERVAL '24 hours'",
         "AND NOT EXISTS (SELECT 1 FROM orders o JOIN restaurants other ON other.id=o.restaurant_id",
         "WHERE COALESCE(other.user_id,other.id)=" + OWNED_ACCOUNT + "))",
     ].join(" "),
@@ -141,36 +142,7 @@ const CHURN_PERIOD_BOUNDS = `WITH churn_bounds AS (
 )`;
 
 const CHURN_ACTIVITY = {
-    churned_plus: `
-        SELECT DISTINCT ON (COALESCE(owned.user_id, owned.id))
-               owned.id AS restaurant_id, addon.current_period_ends_at AS event_at
-        FROM restaurant_addons addon
-        JOIN restaurants owned ON owned.id = addon.restaurant_id
-        CROSS JOIN churn_bounds bounds
-        WHERE addon.product_key = 'ia_plus'
-          AND addon.current_period_ends_at >= bounds.start_at
-          AND addon.current_period_ends_at < bounds.end_at
-          AND (
-              EXISTS (
-                  SELECT 1 FROM restaurant_addon_payments payment
-                  WHERE payment.addon_id = addon.id
-                    AND payment.paid_at < addon.current_period_ends_at AND payment.amount_cents > 0
-                    AND UPPER(payment.status) IN ('CONFIRMED','RECEIVED','RECEIVED_IN_CASH','PAID','COMPLETED','APPROVED')
-              )
-              OR (addon.activated_at < addon.current_period_ends_at
-                  AND UPPER(addon.payzu_payment_status) IN ('PAID','COMPLETED','CONFIRMED'))
-          )
-          AND NOT EXISTS (
-              SELECT 1 FROM restaurant_addons renewed
-              JOIN restaurants other ON other.id = renewed.restaurant_id
-              WHERE COALESCE(other.user_id, other.id) = COALESCE(owned.user_id, owned.id)
-                AND renewed.product_key = 'ia_plus'
-                AND (renewed.status = 'active' OR renewed.status IN ('canceled','past_due'))
-                AND (renewed.current_period_ends_at >= bounds.end_at
-                     OR (renewed.status = 'active' AND renewed.current_period_ends_at IS NULL))
-          )
-        ORDER BY COALESCE(owned.user_id, owned.id), addon.current_period_ends_at DESC, owned.id
-    `,
+    churned_plus: PLUS_CHURN_EVENTS,
     churned_imenu: `
         WITH daily_orders AS (
             SELECT DISTINCT ON (${OWNED_ACCOUNT}, ${PURCHASE_DAY})
@@ -390,11 +362,11 @@ export async function getCrm(params: URLSearchParams) {
     const orderBy = sortColumn ? `${sortColumn} ${direction} NULLS LAST, r.id`
         : churnJoin ? "churn.event_at DESC, r.id" : "r.created_at DESC,r.id";
     const from = `FROM restaurants r LEFT JOIN auth.users u ON u.id=r.user_id ${churnJoin}`;
-    const [rows, count] = await Promise.all([
+    const [rows, count, forecast] = await Promise.all([
         query(`${bounds} SELECT r.id,r.name,r.url_slug,r.created_at,COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),r.phone) phone,r.store_whatsapp AS store_phone,
             COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),NULLIF(TRIM(r.phone),'')) AS owner_phone,(${PLUS_SINCE}) AS plus_since,u.email,(${PAID}) AS has_paid,(${PLUS}) AS plus,
             COALESCE(gmv.gmv_cents,0) AS gmv_cents,support.conversation_id AS support_conversation_id,support.mode AS support_mode,support.last_message,support.last_message_at
-            ${blastTemplate ? ",churn_blast.status AS blast_status,churn_blast.event_at AS blast_at,churn_blast.error AS blast_error" : ""}
+            ${blastTemplate ? ",churn_blast.status AS blast_status,churn_blast.event_at AS blast_at,churn_blast.error AS blast_error,COALESCE(r.user_id,r.id)::text AS blast_account_id" : ""}
             ${from}
             LEFT JOIN LATERAL (
                 SELECT COALESCE(SUM(o.total_cents),0)::bigint AS gmv_cents
@@ -407,6 +379,16 @@ export async function getCrm(params: URLSearchParams) {
             WHERE ${where}
             ORDER BY ${orderBy} LIMIT $${limit} OFFSET $${offset}`, rowParams),
         query<{ total: number }>(`${bounds} SELECT COUNT(*)::int total ${from} WHERE ${where}`, listParams),
+        blastTemplate ? getTodayRecoveryForecast(activityKey).catch(error => {
+            console.error("[CHURN_BLAST_FORECAST]", error);
+            return null;
+        }) : null,
     ]);
-    return paged(rows.rows, count.rows[0].total, page, CRM_PAGE_SIZE);
+    const results = blastTemplate ? rows.rows.map(({ blast_account_id, ...row }) => {
+        const hasTodayStatus = row.blast_at && brazilClock(new Date(row.blast_at)).day === forecast?.day;
+        return forecast?.accounts.has(blast_account_id) && !hasTodayStatus
+            ? { ...row, blast_status: "predicted", blast_at: null, blast_error: null }
+            : row;
+    }) : rows.rows;
+    return paged(results, count.rows[0].total, page, CRM_PAGE_SIZE);
 }

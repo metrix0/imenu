@@ -1,6 +1,7 @@
 import { isSupportContactExcluded } from "@/lib/services/supportExclusions";
 import { randomUUID } from "node:crypto";
-import { ABANDONED_BLAST_MESSAGE, PLUS_ABANDONED_BLAST_MESSAGE, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE, RECOVERY_DAILY_LIMIT } from "@/lib/dev/abandonedBlast";
+import { ABANDONED_BLAST_MESSAGE, LEGACY_PLUS_ABANDONED_BLAST_MESSAGE, PLUS_ABANDONED_BLAST_MESSAGE, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE, RECOVERY_DAILY_LIMIT } from "@/lib/dev/abandonedBlast";
+import { ACTIVE_PLUS_FOR_ACCOUNT, PLUS_CHURN_EVENTS, RECOVERY_CUTOFF } from "@/lib/dev/plusChurn";
 import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGE, PLUS_FEEDBACK_DAILY_LIMIT } from "@/lib/dev/plusFeedbackBlast";
 import { query, withTransaction } from "@/lib/database/sql";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
@@ -14,7 +15,7 @@ import {
 export type BlastRecipientInput = { phone: string; message: string };
 
 const RECOVERY_MESSAGES = [
-    ABANDONED_BLAST_MESSAGE, PLUS_ABANDONED_BLAST_MESSAGE,
+    ABANDONED_BLAST_MESSAGE, PLUS_ABANDONED_BLAST_MESSAGE, LEGACY_PLUS_ABANDONED_BLAST_MESSAGE,
     SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE,
 ];
 
@@ -362,7 +363,7 @@ async function sendRecipient(item: ClaimedRecipient): Promise<"sent" | "skipped"
 
     // A restaurant that resumed ordering after scheduling must not be contacted.
     if (item.campaign_message === ABANDONED_BLAST_MESSAGE ||
-        item.campaign_message === PLUS_ABANDONED_BLAST_MESSAGE) {
+        item.campaign_message === LEGACY_PLUS_ABANDONED_BLAST_MESSAGE) {
         const reactivated = await query(
             `SELECT 1 FROM orders WHERE restaurant_id = ANY($1::uuid[])
               AND table_id IS NULL AND status = 'done'
@@ -370,6 +371,22 @@ async function sendRecipient(item: ClaimedRecipient): Promise<"sent" | "skipped"
             [restaurantIds]
         );
         if (reactivated.rowCount) {
+            await finishRecipient(item.id, "skipped_reactivated");
+            return "skipped";
+        }
+    }
+
+    if (item.campaign_message === PLUS_ABANDONED_BLAST_MESSAGE) {
+        const stillChurned = await query(`WITH churn_bounds AS (
+            SELECT ${RECOVERY_CUTOFF} - INTERVAL '1 day' AS start_at,
+                   ${RECOVERY_CUTOFF} AS end_at
+        )
+        SELECT 1 FROM (${PLUS_CHURN_EVENTS}) churn
+        JOIN restaurants r ON r.id = churn.restaurant_id
+        WHERE COALESCE(r.user_id, r.id)::text = ANY($1::text[])
+          AND NOT EXISTS (${ACTIVE_PLUS_FOR_ACCOUNT()} AND COALESCE(owned.user_id, owned.id) = COALESCE(r.user_id, r.id))
+        LIMIT 1`, [matched.rows.map(row => row.account_id)]);
+        if (!stillChurned.rowCount) {
             await finishRecipient(item.id, "skipped_reactivated");
             return "skipped";
         }
@@ -403,11 +420,7 @@ LIMIT 1`, [accountIds]);
         }
     }
 
-    const isAbandonedBlast =
-        item.campaign_message === ABANDONED_BLAST_MESSAGE ||
-        item.campaign_message === PLUS_ABANDONED_BLAST_MESSAGE ||
-        item.campaign_message === SINGLE_ORDER_DAY_RECOVERY_MESSAGE ||
-        item.campaign_message === NO_FIRST_ORDER_RECOVERY_MESSAGE;
+    const isAbandonedBlast = RECOVERY_MESSAGES.includes(item.campaign_message);
     // Do not send a stale first-month check-in if the subscription has changed.
     if (item.campaign_message === PLUS_FIRST_MONTH_FEEDBACK_MESSAGE) {
         const stillFirstMonth = await query(
