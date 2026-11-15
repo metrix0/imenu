@@ -1,12 +1,11 @@
 "use client";
 import { usePlusExposure } from "@/lib/analytics/plusExposure";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faCalendarDays,
     faCreditCard,
-    faChevronDown,
     faExternalLinkAlt,
     faQrcode,
     faWandMagicSparkles,
@@ -17,6 +16,7 @@ import IaPlusProductCard from "@/components/restaurant-owner/ia-vendas/IaPlusPro
 import MenuProductCards from "@/components/restaurant-owner/mesas/MenuProductCards";
 import QrCodeMesaCheckoutModal from "@/components/restaurant-owner/mesas/QrCodeMesaCheckoutModal";
 import QrCodeMesaSalesModal from "@/components/restaurant-owner/mesas/QrCodeMesaSalesModal";
+import { CollapsibleChevron, CollapsibleContent, useCollapsible } from "@/components/ui/CollapsibleSection";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -147,6 +147,38 @@ function planLabel(addon: Addon | null): string {
     }
 
     return formatMoney(addon.price_cents);
+}
+
+function PaymentHistory({ count, inPlans, children }: {
+    count: number;
+    inPlans: boolean;
+    children: ReactNode;
+}) {
+    const history = useCollapsible();
+    if (!inPlans) return (
+        <details className="pt-5" open>
+            <summary className="flex items-center justify-between gap-3 font-semibold text-gray-900">
+                <span>Histórico de pagamentos</span>
+            </summary>
+            {children}
+        </details>
+    );
+    return (
+        <div className="plans-payment-history">
+            <button {...history.triggerProps} className="plans-payment-history-trigger flex w-full items-center justify-between gap-3 text-left font-semibold text-gray-900">
+                <span>Histórico de pagamentos</span>
+                <span className="flex items-center gap-3 text-xs text-gray-500">
+                    {count} {count === 1 ? "pagamento" : "pagamentos"}
+                    <span className="relative flex h-3 w-3 shrink-0 items-center justify-center">
+                        <CollapsibleChevron expanded={history.expanded} className="absolute" />
+                    </span>
+                </span>
+            </button>
+            <CollapsibleContent id={history.contentId} expanded={history.expanded}>
+                {children}
+            </CollapsibleContent>
+        </div>
+    );
 }
 
 export default function QrCodeMesaSettingsSection({
@@ -524,16 +556,7 @@ export default function QrCodeMesaSettingsSection({
                                         </div>
                                     </div>
 
-                                    <details className={presentation === "plans" ? "plans-payment-history" : "pt-5"} open={presentation === "plans" ? undefined : true}>
-                                        <summary className="flex items-center justify-between gap-3 font-semibold text-gray-900">
-                                            <span>Histórico de pagamentos</span>
-                                            {presentation === "plans" && (
-                                                <span className="flex items-center gap-3 text-xs text-gray-500">
-                                                    {item.payments.length} {item.payments.length === 1 ? "pagamento" : "pagamentos"}
-                                                    <FontAwesomeIcon icon={faChevronDown} className="plans-history-chevron" />
-                                                </span>
-                                            )}
-                                        </summary>
+                                    <PaymentHistory count={item.payments.length} inPlans={presentation === "plans"}>
                                         {item.payments.length ? (
                                             <div className="mt-4 overflow-x-auto rounded-xl border border-gray-200">
                                                 <table className="w-full min-w-[620px] text-left text-sm">
@@ -605,7 +628,7 @@ export default function QrCodeMesaSettingsSection({
                                                 Nenhum pagamento registrado ainda.
                                             </p>
                                         )}
-                                    </details>
+                                    </PaymentHistory>
 
                                 </section>
                             );

@@ -1,12 +1,31 @@
 "use client";
 import Image from "next/image";
 import type { ReactNode } from "react";
-import { ArrowUpRight, ChevronDown, Lock, TrendingUp } from "lucide-react";
+import { ArrowUpRight, Lock, TrendingUp } from "lucide-react";
+import { CollapsibleChevron, CollapsibleContent, useCollapsible } from "@/components/ui/CollapsibleSection";
 import styles from "./AnalysisReport.module.css";
 import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
 import { IA_PLUS_FEATURE_MESSAGE } from "@/lib/addons/products";
 import type { Action, Data, Operation } from "@/lib/ia-vendas/types";
+export function SalesDisclosure({ label, children }: { label: string; children: ReactNode }) {
+  const disclosure = useCollapsible();
+
+  return (
+    <div className={styles.disclosure}>
+      <button {...disclosure.triggerProps} className={styles.disclosureTrigger}>
+        {label}
+        <span className="relative flex h-[13px] w-[13px] shrink-0 items-center justify-center">
+          <CollapsibleChevron expanded={disclosure.expanded} className="absolute" />
+        </span>
+      </button>
+      <CollapsibleContent id={disclosure.contentId} expanded={disclosure.expanded}>
+        {children}
+      </CollapsibleContent>
+    </div>
+  );
+}
+
 const labels: Record<string, string> = {
   name: "Nome",
   description: "Descrição",
@@ -1097,14 +1116,13 @@ export function ActionCard({
         <ActionPeek action={{ ...action, image_jobs: pendingImageJobs, operations: [] }} refs={refs} />
       )}
       {!imagePreview && (
-        <details className={styles.disclosure}>
-          <summary>{imageBatch ? "Ver detalhes" : action.operations.length > 2 ? `Ver todas as ${action.operations.length} alterações` : "Ver alterações"}<ChevronDown size={13} aria-hidden="true" /></summary>
+        <SalesDisclosure label={imageBatch ? "Ver detalhes" : action.operations.length > 2 ? `Ver todas as ${action.operations.length} alterações` : "Ver alterações"}>
           <div className={styles.fullPreview}>
             <h4 className="text-sm font-medium">{action.title}</h4>
             <p>{action.reason}</p>
             <ActionPreview action={action} refs={refs} showAllDetails flat />
           </div>
-        </details>
+        </SalesDisclosure>
       )}
       {generatedPreviewCards}
       {action.error && <p role="status" className="mt-3 text-xs text-red-700">{action.error}</p>}
@@ -1177,13 +1195,12 @@ export function DataCard({ card, expanded = false, presentation = "chat" }: { ca
           {Number.isFinite(minPercent) && Number.isFinite(maxPercent) && <p className={styles.growth}>
             <strong><TrendingUp size={14} aria-hidden="true" />+{minPercent.toLocaleString("pt-BR", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 })}{maxPercent > minPercent ? ` a ${maxPercent.toLocaleString("pt-BR", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 })}` : ""}</strong><span>de receita estimada</span>
           </p>}
-          <details className={styles.disclosure}>
-            <summary>Como estimamos<ChevronDown size={13} aria-hidden="true" /></summary>
+          <SalesDisclosure label="Como estimamos">
             <div className={styles.calculation}>
               {!!card.breakdown?.length && <ul>{card.breakdown.map((item: Data, index: number) => <li key={index}><strong>{item.label}:</strong> {item.basis}</li>)}</ul>}
               <p>{[card.assumptions || card.formula, card.note].filter(Boolean).join(" ")}</p>
             </div>
-          </details>
+          </SalesDisclosure>
         </> : <><p className={styles.gain}>Ainda sem estimativa</p><p className={styles.comparisonNote}>{card.reason || "Faltam dados para estimar o ganho com segurança."}</p></>}
       </div>
     );

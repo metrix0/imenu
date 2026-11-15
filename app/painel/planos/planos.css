@@ -95,11 +95,8 @@
 .panel-essencial .plans-subscription-meta > div { padding: 0; background: transparent; border-radius: 0; }
 .panel-essencial .plans-subscription-meta .panel-icon { color: var(--panel-muted); font-size: 16px; }
 .panel-essencial .plans-payment-history { margin-top: 16px; border-top: 1px solid var(--panel-border); padding-top: 12px; }
-.panel-essencial .plans-payment-history summary { min-height: 36px; cursor: pointer; list-style: none; font-size: 13px; }
-.panel-essencial .plans-payment-history summary::-webkit-details-marker { display: none; }
-.panel-essencial .plans-payment-history summary:focus-visible { outline: 2px solid var(--panel-action); outline-offset: 4px; border-radius: 4px; }
-.panel-essencial .plans-history-chevron { transition: transform 150ms; }
-.panel-essencial .plans-payment-history[open] .plans-history-chevron { transform: rotate(180deg); }
+.panel-essencial .plans-payment-history-trigger { min-height: 36px; cursor: pointer; font-size: 13px; }
+.panel-essencial .plans-payment-history-trigger:focus-visible { outline: 2px solid var(--panel-action); outline-offset: 4px; border-radius: 4px; }
 .panel-essencial .plans-subscription-empty { display: flex; align-items: center; gap: 16px; padding: 28px; }
 .panel-essencial .plans-subscription-empty .plans-subscription-icon { background: var(--panel-soft); color: var(--panel-muted); }
 @container (min-width: 760px) {
@@ -274,5 +271,5 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .panel-essencial .plans-product, .panel-essencial .plans-history-chevron { transition: none; }
+    .panel-essencial .plans-product { transition: none; }
 }

@@ -1,14 +1,14 @@
 "use client";
 import { useLayoutEffect, useRef } from "react";
 import Image from "next/image";
-import { ChevronDown, CircleHelp, ClipboardList, History, MessageSquare, Rocket, Sparkles, Target } from "lucide-react";
+import { CircleHelp, ClipboardList, History, MessageSquare, Rocket, Sparkles, Target } from "lucide-react";
 import Tooltip from "@/components/ui/Tooltip";
 import { IA_PLUS_FEATURE_MESSAGE, IA_PLUS_PRICE_LABEL } from "@/lib/addons/products";
 import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import Dropdown from "@/components/ui/Dropdown";
 import SalesMarkdown from "./SalesMarkdown";
-import { ActionCard, DataCard } from "./SalesWidgets";
+import { ActionCard, DataCard, SalesDisclosure } from "./SalesWidgets";
 import type { Action, Data } from "@/lib/ia-vendas/types";
 import styles from "./AnalysisReport.module.css";
 
@@ -188,8 +188,7 @@ export default function AnalysisReport({
       });
   };
   const renderEvidence = (entry: Data, assessment = false) => entry.evidence?.length || assessment ? (
-    <details className={styles.disclosure}>
-      <summary>Ver evidências<ChevronDown size={13} aria-hidden="true" /></summary>
+    <SalesDisclosure label="Ver evidências">
       <div className={styles.evidence}>
         {assessment && <dl className={styles.assessment}>
           <div><dt>Impacto esperado</dt><dd>{levels[entry.impact]}</dd></div>
@@ -199,7 +198,7 @@ export default function AnalysisReport({
         </dl>}
         {!!entry.evidence?.length && <ul>{entry.evidence.map((e: Data, i: number) => <li key={i}>{e.detail}</li>)}</ul>}
       </div>
-    </details>
+    </SalesDisclosure>
   ) : null;
   const discuss = (entry: Data) => gate(<button type="button" className={styles.discuss} disabled={!locked && disabled}
     aria-pressed={activeOpportunityId === entry.id} onClick={() => onDiscuss(entry)}>

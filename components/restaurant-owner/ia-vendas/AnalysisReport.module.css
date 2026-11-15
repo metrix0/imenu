@@ -46,14 +46,9 @@
 .range { font-size: clamp(30px, 4cqi, 44px); }
 .growth { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; color: var(--panel-muted); font-size: 13px; }
 .growth strong { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 6px; background: color-mix(in srgb, var(--color-green) 10%, transparent); color: var(--color-green); font-weight: 500; }
-.disclosure { margin-top: 14px; color: var(--panel-muted); font-size: 13px; line-height: 1.6; interpolate-size: allow-keywords; }
-.disclosure summary { display: flex; width: fit-content; min-height: 28px; align-items: center; gap: 6px; cursor: pointer; list-style: none; }
-.disclosure summary::-webkit-details-marker { display: none; }
-.disclosure summary:hover { color: var(--panel-text); }
-.disclosure summary > svg:last-child { transition: transform 180ms ease; }
-.disclosure[open] > summary > svg:last-child { transform: rotate(180deg); }
-.disclosure::details-content { block-size: 0; overflow: hidden; opacity: 0; transition: block-size 220ms ease, opacity 160ms ease, content-visibility 220ms allow-discrete; }
-.disclosure[open]::details-content { block-size: auto; opacity: 1; }
+.disclosure { margin-top: 14px; color: var(--panel-muted); font-size: 13px; line-height: 1.6; }
+.disclosureTrigger { display: flex; width: fit-content; min-height: 28px; align-items: center; gap: 6px; cursor: pointer; text-align: left; }
+.disclosureTrigger:hover { color: var(--panel-text); }
 .calculation { max-width: 660px; margin-top: 12px; padding-left: 12px; border-left: 2px solid var(--panel-border); }
 .calculation ul { display: grid; gap: 8px; margin-bottom: 8px; }
 .summary { display: grid; gap: 8px; margin-block: 8px; padding: 0; }
@@ -175,9 +170,6 @@
   .reviewSummary h2 { font-size: 20px; }
   .opportunityActive::before { left: -8px; }
   .action { padding: 14px; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .disclosure summary > svg:last-child, .disclosure::details-content { transition: none; }
 }
 
 .reportLocked { position: relative; padding-bottom: 0; }
