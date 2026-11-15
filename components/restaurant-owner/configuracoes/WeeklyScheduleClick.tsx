@@ -305,11 +305,11 @@ export default function WeeklyScheduleClick({
                         Adicionar horário
                     </Button>
                 </div>
-                <ul className="divide-y divide-gray-100">
+                <ul className="divide-y divide-gray-200">
                     {DAYS.map((day) => {
                         const slots = value[day.key] || [];
                         return (
-                            <li key={day.key} className="grid min-h-12 grid-cols-[4.75rem_minmax(0,1fr)] items-center gap-2 py-1.5">
+                            <li key={day.key} className="grid min-h-12 grid-cols-[4.25rem_minmax(0,1fr)] items-center gap-1.5 py-2.5">
                                 <span className="text-sm font-medium text-gray-900">{day.label}</span>
                                 {slots.length ? (
                                     <div className="flex min-w-0 flex-wrap gap-1.5">
@@ -318,7 +318,7 @@ export default function WeeklyScheduleClick({
                                                 key={`${slot.open}-${slot.close}-${index}`}
                                                 type="button"
                                                 variant="secondary"
-                                                className="min-h-11 whitespace-nowrap border-transparent! bg-gray-50 px-2.5 py-1 text-gray-900 tabular-nums hover:bg-gray-100"
+                                                className="min-h-11 whitespace-nowrap border-transparent! bg-gray-50 px-2 py-1 text-gray-900 tabular-nums hover:bg-gray-100"
                                                 aria-label={`Editar horário de ${day.label}, ${slot.open} às ${slot.close === "24:00" ? "00:00" : slot.close}`}
                                                 rightIcon={<FontAwesomeIcon icon={faPen} className="text-xs" />}
                                                 disabled={isSavingMobileSlot}

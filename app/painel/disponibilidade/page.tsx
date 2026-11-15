@@ -224,7 +224,7 @@ export default function DisponibilidadePage() {
             </div>
 </PageSaveHeader>
 
-            {!preorderOnly && <div role="region" aria-label="Horários da semana" className="bg-white border border-gray-200 rounded-xl py-4 pl-3 pr-4 sm:py-6 sm:pl-5 sm:pr-6 -mx-2 sm:mx-0">
+            {!preorderOnly && <div role="region" aria-label="Horários da semana" className="bg-white border border-gray-200 rounded-xl p-5 sm:py-6 sm:pr-6">
                 <WeeklyScheduleClick value={availability} onChange={handleScheduleChange} />
             </div>}
             <Card className="mt-6 border border-gray-200 shadow-sm">
