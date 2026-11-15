@@ -726,8 +726,19 @@ async function scanWithOpenAI(
               }
     );
 
+    const model = process.env.OPENAI_MENU_SCAN_MODEL?.trim() || "gpt-6-luna";
+    const useLuna = model === "gpt-6-luna" || /^gpt-6-luna-\d{4}-\d{2}-\d{2}$/.test(model);
     const response = await client.responses.create({
-        model: process.env.OPENAI_MENU_SCAN_MODEL || "gpt-4.1",
+        model,
+        ...(useLuna ? { reasoning: { effort: "none" as const } } : {}),
+        text: {
+            format: {
+                type: "json_schema",
+                name: "menu_scan",
+                strict: true,
+                schema: MENU_RESPONSE_SCHEMA,
+            },
+        },
         input: [
             {
                 role: "system",

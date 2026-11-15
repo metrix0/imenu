@@ -42,15 +42,20 @@ const setExistingItems = (itemCount: number) => {
     });
 };
 
+const configuredMenuModel = process.env.OPENAI_MENU_SCAN_MODEL;
+
 beforeEach(() => {
     jest.resetAllMocks();
     (requireRestaurantOwner as jest.Mock).mockResolvedValue({});
     process.env.OPENAI_API_KEY = "test-only-key";
+    delete process.env.OPENAI_MENU_SCAN_MODEL;
 });
 
 afterEach(() => {
     delete process.env.OPENAI_API_KEY;
     delete process.env.GEMINI_API_KEY;
+    if (configuredMenuModel === undefined) delete process.env.OPENAI_MENU_SCAN_MODEL;
+    else process.env.OPENAI_MENU_SCAN_MODEL = configuredMenuModel;
     jest.restoreAllMocks();
 });
 
@@ -129,14 +134,30 @@ it("retries a hydrated public menu with OpenAI when Gemini returns no products",
         expect(readPublicMenuLink).toHaveBeenCalledTimes(1);
         expect(geminiFetch).toHaveBeenCalledTimes(1);
         expect(mockOpenAiCreate).toHaveBeenCalledTimes(1);
+        expect(mockOpenAiCreate).toHaveBeenCalledWith(expect.objectContaining({
+            model: "gpt-6-luna",
+            reasoning: { effort: "none" },
+            text: {
+                format: {
+                    type: "json_schema",
+                    name: "menu_scan",
+                    strict: true,
+                    schema: expect.objectContaining({
+                        required: ["items", "categories"],
+                        additionalProperties: false,
+                    }),
+                },
+            },
+        }));
         expect(recordGeminiMenuFallback).toHaveBeenCalledWith("Gemini não identificou produtos");
     } finally {
         global.fetch = previousFetch;
     }
 });
 
-it("records missing Gemini key when an import uses OpenAI directly", async () => {
+it("honors the OpenAI model override when Gemini is unavailable", async () => {
     setExistingItems(0);
+    process.env.OPENAI_MENU_SCAN_MODEL = "gpt-4.1";
     mockOpenAiCreate.mockResolvedValue({
         output_text: JSON.stringify({
             items: [{ name: "Suco", description: null, price_cents: 900,
@@ -148,6 +169,10 @@ it("records missing Gemini key when an import uses OpenAI directly", async () =>
     const response = await POST(post());
     expect(response.status).toBe(200);
     expect(recordGeminiMenuFallback).toHaveBeenCalledWith("GEMINI_API_KEY ausente");
+    const [request] = mockOpenAiCreate.mock.calls[0];
+    expect(request.model).toBe("gpt-4.1");
+    expect(request).not.toHaveProperty("reasoning");
+    expect(request.text.format.strict).toBe(true);
 });
 
 it("records a Gemini rate-limit fallback without exposing the response body", async () => {

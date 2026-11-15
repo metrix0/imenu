@@ -61,7 +61,8 @@ function usageForLineItem(lineItem: string): string {
         { model: process.env.OPENAI_SUPPORT_MODEL?.trim() || "gpt-5.6-luna", feature: "Suporte Chatbot IA — Chat e visão de imagens" },
         { model: process.env.OPENAI_SUPPORT_FOLLOWUP_MODEL?.trim() || "gpt-4o-mini", feature: "Suporte Chatbot IA — Acompanhamento" },
         { model: "gpt-4o-mini-transcribe", feature: "Suporte Chatbot IA — Transcrever áudios" },
-        { model: process.env.OPENAI_MENU_SCAN_MODEL?.trim() || "gpt-4.1", feature: "Importação de Cardápio — Leitura IA" },
+        { model: process.env.OPENAI_MENU_SCAN_MODEL?.trim() || "gpt-6-luna", feature: "Importação de Cardápio — Leitura IA" },
+        { model: "gpt-4.1", feature: "Importação de Cardápio — Leitura IA" },
     ];
     const matched = uses
         .filter(({ model }) => lineItemMatchesModel(lineItem, model))
