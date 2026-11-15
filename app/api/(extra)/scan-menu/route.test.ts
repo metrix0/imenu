@@ -210,6 +210,39 @@ it("records a Gemini rate-limit fallback without exposing the response body", as
     }
 });
 
+it("falls back to OpenAI when the Gemini request times out", async () => {
+    setExistingItems(0);
+    process.env.GEMINI_API_KEY = "test-gemini-key";
+    (readPublicMenuLink as jest.Mock).mockResolvedValue("Suco R$ 9,00");
+    const geminiFetch = jest.spyOn(globalThis, "fetch").mockRejectedValue(
+        new DOMException("The operation was aborted due to timeout", "TimeoutError"),
+    );
+    mockOpenAiCreate.mockResolvedValue({
+        output_text: JSON.stringify({
+            items: [{
+                name: "Suco", description: null, price_cents: 900, image_path: null,
+                category_name: "Bebidas", is_pizza_flavor: false, pizza_sizes: [], pizza_crusts: [],
+            }],
+            categories: [{ name: "Bebidas" }],
+        }),
+    });
+
+    try {
+        const response = await POST(submitLink());
+        expect(response.status).toBe(200);
+        expect((await response.json()).items).toEqual([
+            expect.objectContaining({ name: "Suco", price_cents: 900 }),
+        ]);
+        expect(mockOpenAiCreate).toHaveBeenCalledTimes(1);
+        expect(recordGeminiMenuFallback).toHaveBeenCalledWith("Tempo limite do Gemini excedido");
+        expect(diagnostics()[0][1].slice(2, 6)).toEqual([
+            "success", null, "Tempo limite do Gemini excedido", 1,
+        ]);
+    } finally {
+        geminiFetch.mockRestore();
+    }
+});
+
 it("records short extracted text on link failure and redacts contact and URL details", async () => {
     setExistingItems(0);
     (readPublicMenuLink as jest.Mock).mockImplementation(async (_url, onExtracted) => {
