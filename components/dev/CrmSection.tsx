@@ -18,10 +18,10 @@ const empty = <T,>(): PageData<T> => ({ rows: [], page: 0, total: 0, pageCount: 
 const blastStatus = {
     sent: { label: "Enviado", variant: "success" },
     scheduled: { label: "Agendado", variant: "info" },
-    paused: { label: "Pausado", variant: "warning", detail: "A campanha está pausada e o contato segue na fila." },
-    processing: { label: "Em envio", variant: "info" },
-    failed: { label: "Falhou", variant: "danger" },
-    cancelled: { label: "Cancelado", variant: "neutral" },
+    paused: { label: "Agendado", variant: "info", detail: "A campanha está pausada e o contato segue na fila." },
+    processing: { label: "Agendado", variant: "info", detail: "Envio em andamento." },
+    failed: { label: "Falha", variant: "danger" },
+    cancelled: { label: "Ignorado", variant: "neutral", detail: "O envio foi cancelado." },
     skipped_60d: { label: "Ignorado", variant: "neutral", detail: "Bloqueio para evitar novo contato em até 60 dias." },
     skipped_recent: { label: "Ignorado", variant: "neutral", detail: "O contato recebeu um disparo recente." },
     skipped_reactivated: { label: "Ignorado", variant: "neutral", detail: "O contato deixou de atender aos critérios do disparo." },
@@ -105,11 +105,12 @@ export function CrmList({ search = "", plan = "all", activity, title, range, sho
                     key: "blast", label: "Blast",
                     render: (row: CrmRow) => {
                         const status = row.blast_status && blastStatus[row.blast_status];
-                        const detail = row.blast_error || (status && "detail" in status ? status.detail : null);
+                        if (!status) return null;
+                        const detail = row.blast_error || ("detail" in status ? status.detail : null);
                         const date = row.blast_at && row.blast_status !== "paused" ? formatDateTime(row.blast_at) : null;
-                        return <Badge variant={status ? status.variant : "neutral"}
+                        return <Badge variant={status.variant}
                             title={[detail, date].filter(Boolean).join("\n") || undefined}>
-                            {status ? status.label : "Sem envio"}
+                            {status.label}
                         </Badge>;
                     },
                 }] : []),
