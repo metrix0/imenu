@@ -38,6 +38,7 @@ type Missing = {
 type MenuScans = {
     restaurantsTried: number;
     restaurantsCompleted: number;
+    fallbackAttempts: number;
     history: PageData<{
         id: string;
         restaurant_id: string;
@@ -230,7 +231,6 @@ export default function QualityAssuranceSection() {
             </section>
             <section className={`${styles.tableSection} ${styles.fitTable}`}>
                 <h2>Scans de cardápio</h2>
-                <p className="text-xs text-gray-500">Últimos 14 dias</p>
                 {scanError ? <p role="alert" className="my-4 text-sm text-red-700">Não foi possível carregar os scans.</p>
                     : scans === null ? <DevLoading /> : <>
                         <dl className={styles.metricStrip}>
@@ -239,12 +239,12 @@ export default function QualityAssuranceSection() {
                                 <dd>{formatCount(scans.restaurantsTried)}</dd>
                             </div>
                             <div>
-                                <dt>Restaurantes com produtos</dt>
-                                <dd>{formatCount(scans.restaurantsCompleted)}</dd>
+                                <dt>Taxa de sucesso por restaurante</dt>
+                                <dd>{scans.restaurantsTried ? formatRatio(100 * scans.restaurantsCompleted / scans.restaurantsTried) : "—"}</dd>
                             </div>
                             <div>
-                                <dt>Taxa de conclusão</dt>
-                                <dd>{scans.restaurantsTried ? formatRatio(100 * scans.restaurantsCompleted / scans.restaurantsTried) : "—"}</dd>
+                                <dt>Taxa de fallback</dt>
+                                <dd>{scans.history.total ? formatRatio(100 * scans.fallbackAttempts / scans.history.total) : "—"}</dd>
                             </div>
                         </dl>
                         <PagedTable data={scans.history} loading={scanLoading} onPage={setScanPage}

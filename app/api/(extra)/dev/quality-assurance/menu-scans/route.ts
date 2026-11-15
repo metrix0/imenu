@@ -15,6 +15,7 @@ const scansSql = `
         WHERE created_at >= NOW() - INTERVAL '14 days'
     ), summary AS (
         SELECT COUNT(*)::int AS total,
+            COUNT(*) FILTER (WHERE openai_items IS NOT NULL OR openai_error IS NOT NULL)::int AS fallback_attempts,
             COUNT(DISTINCT restaurant_id)::int AS restaurants_tried,
             COUNT(DISTINCT restaurant_id) FILTER (WHERE outcome = 'success')::int AS restaurants_completed
         FROM recent
@@ -39,6 +40,7 @@ const scansSql = `
 
 type ScanHistoryResult = {
     total: number;
+    fallback_attempts: number;
     restaurants_tried: number;
     restaurants_completed: number;
     rows: {
@@ -63,6 +65,7 @@ export async function GET(request: Request) {
         return NextResponse.json({
             restaurantsTried: result.restaurants_tried,
             restaurantsCompleted: result.restaurants_completed,
+            fallbackAttempts: result.fallback_attempts,
             history: paged(result.rows, result.total, page, PAGE_SIZE),
         }, { headers: { "Cache-Control": "no-store" } });
     } catch (error) {
