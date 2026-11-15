@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Eye, RotateCcw, Send } from "lucide-react";
+import { Check, Eye, Info, RotateCcw, Send } from "lucide-react";
 import { useDevProfile } from "./DevProfileProvider";
 import styles from "./dashboard.module.css";
 import Badge from "@/components/ui/Badge";
@@ -35,8 +35,9 @@ const statusLabels: Record<string, string> = { failed: "Falhou", cancelled: "Can
 const nullableMoney = (value: number | null | undefined) => value == null ? "—" : money(value);
 const payoutFigure = (cents: number) => (cents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const runDate = (value?: string) => value ? value.slice(0, 10).split("-").reverse().join("/") : "—";
-function PayoutStatus({ status }: { status?: string }) {
-    return <Badge variant={status === "failed" || status === "cancelled" || status === "canceled" || status === "blocked" ? "danger" : status === "partial" ? "warning" : status === "paid" || status === "completed" ? "success" : status === "running" || status === "processing" ? "info" : "neutral"}>{status ? statusLabels[status] || status : "—"}</Badge>;
+function PayoutStatus({ status, showInfo = false }: { status?: string; showInfo?: boolean }) {
+    const label = status ? statusLabels[status] || status : "—";
+    return <Badge variant={status === "failed" || status === "cancelled" || status === "canceled" || status === "blocked" ? "danger" : status === "partial" ? "warning" : status === "paid" || status === "completed" ? "success" : status === "running" || status === "processing" ? "info" : "neutral"}>{showInfo ? <><span className="truncate">{label}</span><Info size={12} className="shrink-0" aria-hidden="true" /></> : label}</Badge>;
 }
 
 function payablePix(row: Payable) {
@@ -63,6 +64,29 @@ function PayoutDetails({ name, text, className }: { name: string; text: string; 
         <Button variant="secondary" aria-label={`Detalhes do repasse de ${name}`}>
             <Eye size={16} aria-hidden="true" />
         </Button>
+    </Tooltip>;
+}
+
+function FailedPayoutStatus({ payout }: { payout: History }) {
+    const pixIssue = !payout.pix_key || payout.alert_message?.includes("não tem uma chave PIX")
+        ? "Pix não cadastrado"
+        : payout.failure_reason === MISSING_PIX_TYPE_REASON ? "Sem tipo de PIX"
+        : payout.alert_message?.includes("incorretamente") || /pix.*(invalid|incorret)|invalid.*pix/i.test(payout.failure_reason || "") ? "Pix incorreto" : null;
+    const details = [
+        `Data: ${formatDateTime(payout.created_at)}`,
+        `Status: ${statusLabels[payout.status] || payout.status}`,
+        `Motivo: ${payout.failure_reason || "Motivo não registrado."}`,
+        `Alerta: ${payoutAlertLabel(payout.alert_status)}${payout.alert_error ? ` · ${payout.alert_error}` : ""}`,
+        `PIX atual: ${payout.pix_key || "Não cadastrado"}${pixIssue ? ` · ${pixIssue}` : ""}`,
+        `Bruto: ${nullableMoney(payout.gross_cents)} · Gateway: ${nullableMoney(payout.payzu_fee_cents)}`,
+        `Desconto: ${payout.gross_cents == null ? "—" : money(payout.gross_cents - payout.amount_cents)} · Lucro: ${nullableMoney(payout.discount_cents)}`,
+    ].join("\n");
+    return <Tooltip parentClassName={styles.payoutStatusDetails} size="medium" position="bottom" showOnClick
+        text={<div className="whitespace-pre-line [overflow-wrap:anywhere]">{details}</div>}>
+        <button type="button" className="block max-w-full cursor-pointer rounded-full focus-visible:outline-2"
+            aria-label={`${statusLabels[payout.status] || payout.status}: detalhes do repasse de ${payout.restaurant_name}`}>
+            <PayoutStatus status={payout.status} showInfo />
+        </button>
     </Tooltip>;
 }
 
@@ -104,33 +128,17 @@ function HistoryTable({ section, revision, onRetry, onMarkPaid, busy = false, ca
             } },
         ] : []),
         { key: "amount", label: failed ? "Valor" : "Valor do repasse", className: styles.numericCell, render: r => <span title={money(r.amount_cents)}>{money(r.amount_cents)}</span> },
-        { key: "status", label: "Status", render: r => <PayoutStatus status={r.status} /> },
+        { key: "status", label: "Status", render: r => failed ? <FailedPayoutStatus payout={r} /> : <PayoutStatus status={r.status} /> },
         ...(failed ? [
             { key: "alert", label: "Alerta", render: (r: History) => <Badge variant={r.alert_status === "sent" ? "success" : r.alert_status === "failed" ? "danger" : "neutral"}>{payoutAlertLabel(r.alert_status)}</Badge> },
-            { key: "actions", label: "", render: (r: History) => {
-                const pixIssue = !r.pix_key || r.alert_message?.includes("não tem uma chave PIX")
-                    ? "Pix não cadastrado"
-                    : r.failure_reason === MISSING_PIX_TYPE_REASON ? "Sem tipo de PIX"
-                    : r.alert_message?.includes("incorretamente") || /pix.*(invalid|incorret)|invalid.*pix/i.test(r.failure_reason || "") ? "Pix incorreto" : null;
-                const details = [
-                    `Data: ${formatDateTime(r.created_at)}`,
-                    `Status: ${statusLabels[r.status] || r.status}`,
-                    `Motivo: ${r.failure_reason || "Motivo não registrado."}`,
-                    `Alerta: ${payoutAlertLabel(r.alert_status)}${r.alert_error ? ` · ${r.alert_error}` : ""}`,
-                    `PIX atual: ${r.pix_key || "Não cadastrado"}${pixIssue ? ` · ${pixIssue}` : ""}`,
-                    `Bruto: ${nullableMoney(r.gross_cents)} · Gateway: ${nullableMoney(r.payzu_fee_cents)}`,
-                    `Desconto: ${r.gross_cents == null ? "—" : money(r.gross_cents - r.amount_cents)} · Lucro: ${nullableMoney(r.discount_cents)}`,
-                ].join("\n");
-                return <div className={styles.payoutRowActions}>
-                    <PayoutDetails name={r.restaurant_name} text={details} />
+            { key: "actions", label: "", render: (r: History) => <div className={styles.payoutRowActions}>
                     <Button variant="secondary" title="Tentar novamente" aria-label={`Tentar novamente o repasse de ${r.restaurant_name}`} disabled={busy || !canRetry} onClick={() => onRetry(r)}>
                         <RotateCcw className={styles.payoutActionIcon} size={16} aria-hidden="true" /><span>Reenviar</span>
                     </Button>
                     <Button variant="secondary" title="Marcar como pago" aria-label={`Marcar repasse de ${r.restaurant_name} como pago`} disabled={busy} onClick={() => onMarkPaid?.(r)}>
                         <Check className={styles.payoutActionIcon} size={16} aria-hidden="true" /><span>Marcar pago</span>
                     </Button>
-                </div>;
-            } },
+                </div> },
         ] : []),
     ];
     return <>
