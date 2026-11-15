@@ -192,7 +192,8 @@ const SubitemPriceInput = ({ priceCents, onChange }: { priceCents: number; onCha
 
     return (
         <Input inline
-            className="w-full pl-2 pr-1 py-1 text-sm 2xl:text-base text-right border rounded border-gray-200 focus:border-brand focus:outline-none"
+            className="min-w-0 w-full pl-2 pr-1 py-1 text-sm 2xl:text-base text-right border rounded border-gray-200 focus:border-brand focus:outline-none"
+            aria-label="Preço do complemento"
             type="text"
             inputMode="decimal"
             value={localValue}
@@ -615,8 +616,8 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
     return (
         <>
         <Modal height={760} open={isOpen} onClose={closeDetails}>
-            <div inert={Boolean(organizerGroups)} className="panel-complements w-full max-w-2xl bg-white rounded-lg flex flex-col max-h-[85vh]">
-                <div className="p-6 border-b border-gray-100 flex justify-between items-center gap-3 shrink-0">
+            <div inert={Boolean(organizerGroups)} className="panel-complements panel-item-complements w-full max-w-2xl bg-white rounded-lg flex flex-col max-h-[85vh]">
+                <div className="panel-item-complements-header p-6 border-b border-gray-100 flex justify-between items-center gap-3 shrink-0">
                     <div className="min-w-0 flex-1">
                         <h2 className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xl font-bold text-gray-900 2xl:text-2xl">
                             <span>Complementos</span>
@@ -629,7 +630,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                     </button></LegacyModalClose>
                 </div>
 
-                <div className="p-6 overflow-y-auto flex-1 space-y-6 2xl:text-base">
+                <div className="panel-item-complements-body p-6 overflow-y-auto flex-1 space-y-6 2xl:text-base">
                     {!isLoading && groups.length > 1 && (
                         <div className="flex justify-end">
                             <Button type="button" variant="secondary" disabled={groupOrder.status === "saving"} onClick={() => setOrganizerGroups(groups)}>
@@ -644,35 +645,36 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                     {groups.map((group) => (
                         <div 
                             key={group.id} 
-                            className="bg-gray-50 rounded-xl border border-gray-200 p-4 transition-all"
+                            className="panel-complement-group bg-gray-50 rounded-xl border border-gray-200 p-4 transition-all"
                             draggable={allowGroupDragId === group.id}
                             onDragStart={(e) => handleGroupDragStart(e, group.id)}
                             onDragOver={(e) => handleGroupDragOver(e, group.id)}
                             onDragEnd={handleGroupDragEnd}
                         >
                             {/* Header do Grupo */}
-                            <div className="mb-4 border-b border-gray-200 pb-4">
-                                <div className="flex items-start gap-3">
-                                    <div className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 p-1"
+                            <div className="panel-complement-group-header mb-4 border-b border-gray-200 pb-4">
+                                <div className="panel-complement-group-layout flex items-start gap-3">
+                                    <div className="panel-complement-grip cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 p-1"
                                         onMouseEnter={() => setAllowGroupDragId(group.id)}
                                         onMouseLeave={() => setAllowGroupDragId(null)}
                                         onTouchStart={() => setAllowGroupDragId(group.id)}>
                                         <FontAwesomeIcon icon={faGripVertical} className="text-sm" />
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex min-w-0 items-center gap-2">
+                                    <div className="panel-complement-group-content flex-1 min-w-0">
+                                        <div className="panel-complement-group-title flex min-w-0 items-center gap-2">
                                             <Input inline
                                                 className="min-w-0 flex-1 !bg-transparent pl-3 font-bold text-gray-800 text-lg 2xl:text-xl focus:outline-none focus:border-b focus:border-brand"
+                                                aria-label="Nome do grupo de complementos"
                                                 value={group.name}
                                                 onChange={(e) => updateGroupLocally(group.id, { name: e.target.value })}
                                                 onBlur={(e) => handleUpdateGroup(group.id, { name: e.currentTarget.value })}
                                                 onMouseDown={e => e.stopPropagation()} 
                                             />
-                                            <button onClick={() => handleDeleteGroupClick(group.id)} className="shrink-0 cursor-pointer text-gray-400 hover:text-red-600 px-2">
+                                            <button type="button" aria-label={`Excluir grupo ${group.name}`} onClick={() => handleDeleteGroupClick(group.id)} className="panel-complement-delete shrink-0 cursor-pointer text-gray-400 hover:text-red-600 px-2">
                                                 <FontAwesomeIcon icon={faTrash} />
                                             </button>
                                         </div>
-                                        <div className="flex flex-wrap gap-x-4 gap-y-2 mt-2 text-sm 2xl:text-base text-gray-600">
+                                        <div className="panel-complement-settings flex flex-wrap gap-x-4 gap-y-2 mt-2 text-sm 2xl:text-base text-gray-600">
                                             <label className="flex items-center gap-2 cursor-pointer select-none shrink-0">
                                                 <input 
                                                     type="checkbox" 
@@ -687,6 +689,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                                                     <span>Mínimo:</span>
                                                     <Input inline
                                                         type="number"
+                                                        aria-label="Mínimo de complementos"
                                                         min={1}
                                                         max={group.max_select}
                                                         className="w-12 p-1 text-center rounded border border-gray-300 text-sm 2xl:text-base"
@@ -701,6 +704,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                                                 <span>Até:</span>
                                                 <Input inline
                                                     type="number"
+                                                    aria-label="Máximo de complementos"
                                                     min={group.min_select > 0 ? group.min_select : 1}
                                                     className="w-12 p-1 text-center rounded border border-gray-300 text-sm 2xl:text-base"
                                                     value={group.max_select}
@@ -709,7 +713,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                                                     onMouseDown={e => e.stopPropagation()}
                                                 />
                                             </div>
-                                            <div className="flex basis-full min-w-0 items-center gap-2 sm:basis-auto">
+                                            <div className="panel-complement-repeat flex basis-full min-w-0 items-center gap-2 sm:basis-auto">
                                                 <input
                                                     type="checkbox"
                                                     aria-label="Mais de uma unidade por complemento"
@@ -729,7 +733,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                                                 </Tooltip>
                                             </div>
                                             {group.allow_multiple_units === true && (
-                                                <label className="flex items-center gap-2">
+                                                <label className="panel-complement-option-limit flex items-center gap-2">
                                                     <span>Máximo por opção:</span>
                                                     <Input inline
                                                         type="number"
@@ -771,25 +775,26 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                                         onDragEnd={handleSubitemDragEnd}
                                         onDragOver={(e) => handleSubitemDragOver(e, group.id, sub.id)}
                                     >
-                                        <div className="cursor-grab text-gray-300 p-1 2xl:p-2" onMouseEnter={() => setAllowDragId(sub.id)}
+                                        <div className="panel-complement-grip cursor-grab text-gray-300 p-1 2xl:p-2" onMouseEnter={() => setAllowDragId(sub.id)}
                                         onMouseLeave={() => setAllowDragId(null)}
                                         // Suporte mobile simples (opcional, mas recomendado)
                                         onTouchStart={() => setAllowDragId(sub.id)}><FontAwesomeIcon icon={faGripVertical} className="text-xs 2xl:text-base" /></div>
                                         <Input inline
-                                            className="min-w-0 flex-1 truncate text-sm 2xl:text-base text-gray-700 focus:outline-none bg-transparent"
+                                            className="panel-complement-option-name min-w-0 flex-1 truncate text-sm 2xl:text-base text-gray-700 focus:outline-none bg-transparent"
+                                            aria-label="Nome do complemento"
                                             value={sub.name}
                                             onChange={(e) => updateSubitemLocally(sub.id, { name: e.target.value })}
                                             onBlur={(e) => handleUpdateSubitem(sub.id, { name: e.currentTarget.value })}
                                             onMouseDown={e => e.stopPropagation()}
                                         />
-                                        <div className="relative flex w-20 shrink-0 items-center gap-1 sm:w-32">
+                                        <div className="panel-complement-option-price relative flex w-20 shrink-0 items-center gap-1 sm:w-32">
                                             <span className="text-xs text-gray-400 2xl:text-base">R$</span>
                                             <SubitemPriceInput 
                                                 priceCents={sub.price_cents}
                                                 onChange={(newCents) => handleUpdateSubitem(sub.id, { price_cents: newCents })}
                                             />
                                         </div>
-                                        <button onClick={() => handleDeleteSubitem(sub.id)} className="cursor-pointer text-gray-400 hover:text-red-500 w-6">
+                                        <button type="button" aria-label={`Excluir complemento ${sub.name}`} onClick={() => handleDeleteSubitem(sub.id)} className="panel-complement-delete cursor-pointer text-gray-400 hover:text-red-500 w-6">
                                             <FontAwesomeIcon icon={faTrash} className="text-xs 2xl:text-lg" />
                                         </button>
                                     </div>
@@ -914,7 +919,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                     )}
                 </div>
 
-                <div className="p-6 border-t border-gray-100 flex items-center gap-4 shrink-0">
+                <div className="panel-item-complements-footer p-6 border-t border-gray-100 flex items-center gap-4 shrink-0">
                     {onOpenBulkComplements && (
                         <button
                             type="button"
