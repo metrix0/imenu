@@ -9,6 +9,7 @@ import { CHART_BRAND, CHART_CATEGORY_AXIS, CHART_VALUE_AXIS, STANDARD_CHART_TOOL
 import Badge from "@/components/ui/Badge";
 import PagedTable, { type PageData } from "./PagedTable";
 import DevLoading from "./DevLoading";
+import DevDialog from "./DevDialog";
 import { devJson } from "@/lib/dev/client";
 import { formatCurrencyFromCents, formatDateTime, formatCount, formatRatio } from "@/lib/dev/dashboardFormat";
 import { useDevProfile } from "./DevProfileProvider";
@@ -49,6 +50,17 @@ type MenuScans = {
         items: number | null;
         provider: "Gemini" | "OpenAI" | null;
     }>;
+};
+
+type MenuScanRow = MenuScans["history"]["rows"][number];
+type MenuScanDetails = {
+    sourceUrl: string | null;
+    linkDomain: string | null;
+    files: { name: string; url: string | null }[];
+    elapsedMs: number;
+    geminiError: string | null;
+    openAiError: string | null;
+    excerpt: string | null;
 };
 
 const scanOutcomes = {
@@ -114,6 +126,7 @@ export default function QualityAssuranceSection() {
     const [scans, setScans] = useState<MenuScans | null>(null);
     const [scanLoading, setScanLoading] = useState(true);
     const [scanError, setScanError] = useState(false);
+    const [selectedScan, setSelectedScan] = useState<MenuScanRow | null>(null);
     const [data, setData] = useState<QualityAssurance | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -249,10 +262,14 @@ export default function QualityAssuranceSection() {
                         </dl>
                         <PagedTable data={scans.history} loading={scanLoading} onPage={setScanPage}
                             rowKey={row => row.id}
-                            onRowClick={row => openRestaurant(row.restaurant_id, row.restaurant_name)}
+                            onRowClick={setSelectedScan}
                             columns={[
                                 { key: "date", label: "Data", render: row => formatDateTime(row.created_at) },
-                                { key: "restaurant", label: "Restaurante", render: row => <span title={row.restaurant_name} className="block truncate font-medium">{row.restaurant_name}</span> },
+                                { key: "restaurant", label: "Restaurante", render: row => <button type="button"
+                                    title={row.restaurant_name} className="block max-w-full cursor-pointer truncate text-left font-medium hover:underline"
+                                    onClick={event => { event.stopPropagation(); openRestaurant(row.restaurant_id, row.restaurant_name); }}>
+                                    {row.restaurant_name}
+                                </button> },
                                 { key: "input", label: "Origem", render: row => row.input_type === "link" ? "Link" : "Foto / PDF" },
                                 { key: "outcome", label: "Resultado", render: row => <Badge variant={scanOutcomes[row.outcome].variant}>{scanOutcomes[row.outcome].label}</Badge> },
                                 { key: "items", label: "Produtos", render: row => row.items == null ? "—" : formatCount(row.items) },
@@ -260,6 +277,7 @@ export default function QualityAssuranceSection() {
                             ]} />
                     </>}
             </section>
+            {selectedScan && <MenuScanDialog key={selectedScan.id} scan={selectedScan} onClose={() => setSelectedScan(null)} />}
             <section className={`${styles.tableSection} ${styles.fitTable}`}>
                 <h2>Gastos OpenAI</h2>
                 {costs === null ? <div className={styles.section}><div className="p-6"><DevLoading /></div></div>
@@ -342,4 +360,55 @@ export default function QualityAssuranceSection() {
             </section>
         </>}
     </div>;
+}
+
+function MenuScanDialog({ scan, onClose }: { scan: MenuScanRow; onClose: () => void }) {
+    const [details, setDetails] = useState<MenuScanDetails | null>(null);
+    const [failed, setFailed] = useState(false);
+
+    useEffect(() => {
+        const controller = new AbortController();
+        void devJson<MenuScanDetails>("/api/dev/quality-assurance/menu-scans?scanId=" + encodeURIComponent(scan.id), {
+            signal: controller.signal,
+        }).then(result => {
+            if (!controller.signal.aborted) setDetails(result);
+        }).catch(() => {
+            if (!controller.signal.aborted) setFailed(true);
+        });
+        return () => controller.abort();
+    }, [scan.id]);
+
+    return <DevDialog open onClose={onClose} title="Detalhes do scan"
+        description={scan.restaurant_name + " · " + formatDateTime(scan.created_at)}>
+        <div className="space-y-4 text-sm">
+            <div className="flex flex-wrap items-center gap-2">
+                <Badge variant={scanOutcomes[scan.outcome].variant}>{scanOutcomes[scan.outcome].label}</Badge>
+                <span>{scan.input_type === "link" ? "Link" : "Foto / PDF"}</span>
+                {scan.items != null && <span>· {formatCount(scan.items)} produtos</span>}
+                {scan.provider && <span>· {scan.provider}</span>}
+                {details && <span>· {(details.elapsedMs / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} s</span>}
+            </div>
+            {failed ? <p role="alert" className="text-red-700">Não foi possível carregar os detalhes do scan.</p>
+                : !details ? <DevLoading /> : <>
+                    <section className="space-y-2">
+                        <h3 className="font-semibold">Fonte do scan</h3>
+                        {details.sourceUrl ? <a href={details.sourceUrl} target="_blank" rel="noopener noreferrer"
+                            className="break-all text-brand underline">{details.sourceUrl}</a>
+                            : details.files.length > 0 ? <ul className="space-y-2">{details.files.map((file, index) =>
+                                <li key={index} className="break-all">
+                                    {file.url ? <a href={file.url} target="_blank" rel="noopener noreferrer"
+                                        className="text-brand underline">{file.name}</a>
+                                        : <span className="text-gray-500">{file.name} · Arquivo indisponível</span>}
+                                </li>)}</ul>
+                                : <p className="text-gray-500">Fonte original indisponível{details.linkDomain ? " · " + details.linkDomain : ""}.</p>}
+                    </section>
+                    {details.geminiError && <p className="break-words"><strong>Gemini</strong> · {details.geminiError}</p>}
+                    {details.openAiError && <p className="break-words"><strong>OpenAI</strong> · {details.openAiError}</p>}
+                    {details.excerpt && <section className="space-y-2">
+                        <h3 className="font-semibold">Trecho extraído</h3>
+                        <p className="break-words text-gray-600">{details.excerpt}</p>
+                    </section>}
+                </>}
+        </div>
+    </DevDialog>;
 }

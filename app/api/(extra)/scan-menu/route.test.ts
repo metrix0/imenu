@@ -104,9 +104,10 @@ it("does not disclose access for another restaurant owner", async () => {
 it("retries a hydrated public menu with OpenAI when Gemini returns no products", async () => {
     setExistingItems(0);
     process.env.GEMINI_API_KEY = "test-gemini-key";
-    (readPublicMenuLink as jest.Mock).mockResolvedValue(
-        "Churros tradicionais: Nutella (Original) R$ 19,00"
-    );
+    (readPublicMenuLink as jest.Mock).mockImplementationOnce(async (_url, _onExtracted, onSource) => {
+        onSource("https://example.test/menu");
+        return "Churros tradicionais: Nutella (Original) R$ 19,00";
+    });
 
     const previousFetch = global.fetch;
     const geminiFetch = jest.fn().mockResolvedValue({
@@ -139,6 +140,7 @@ it("retries a hydrated public menu with OpenAI when Gemini returns no products",
         expect(readPublicMenuLink).toHaveBeenCalledTimes(1);
         expect(diagnostics()).toHaveLength(1);
         expect(diagnostics()[0][1].slice(0,7)).toEqual([restaurantId, "link", "success", 0, null, 1, null]);
+        expect(diagnostics()[0][1][12]).toEqual({ url: "https://example.test/menu" });
         expect(geminiFetch).toHaveBeenCalledTimes(1);
         expect(mockOpenAiCreate).toHaveBeenCalledTimes(1);
         expect(mockOpenAiCreate).toHaveBeenCalledWith(expect.objectContaining({
@@ -293,4 +295,22 @@ it("preserves the import response when writing diagnostics fails", async () => {
     (readPublicMenuLink as jest.Mock).mockRejectedValue(new MenuLinkError("Link inacessível."));
     expect((await POST(submitLink())).status).toBe(422);
     expect(diagnostics()).toHaveLength(1);
+});
+
+it("keeps only references to files in the menu upload bucket", async () => {
+    const { menuScanFilePaths } = await import("@/lib/menu/scanDiagnostics");
+    const previous = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://storage.example.test";
+    const path = "00000000-0000-4000-8000-000000000001-cardapio.pdf";
+    const base = "https://storage.example.test/storage/v1/object/public/full-menu-images-ai/";
+    try {
+        expect(menuScanFilePaths([
+            base + path,
+            base + "%2F" + path,
+            "https://other.example.test/storage/v1/object/public/full-menu-images-ai/" + path,
+        ])).toEqual([path]);
+    } finally {
+        if (previous === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+        else process.env.NEXT_PUBLIC_SUPABASE_URL = previous;
+    }
 });

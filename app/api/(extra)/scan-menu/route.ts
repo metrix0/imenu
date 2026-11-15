@@ -5,7 +5,7 @@ import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/res
 import { readPublicMenuLink, MenuLinkError } from "@/lib/menu/readPublicMenuLink";
 import { query } from "@/lib/database/sql";
 import { recordGeminiMenuFallback } from "@/lib/dev/health";
-import { menuScanLinkDomain, recordMenuScan, type MenuScanDiagnostics } from "@/lib/menu/scanDiagnostics";
+import { menuScanFilePaths, menuScanLinkDomain, recordMenuScan, type MenuScanDiagnostics } from "@/lib/menu/scanDiagnostics";
 
 export const runtime = "nodejs";
 
@@ -932,7 +932,11 @@ export async function POST(req: Request) {
             }
             diagnostic.linkDomain = menuScanLinkDomain(menuUrl);
             const linkDiagnostic = diagnostic;
-            pageText = await readPublicMenuLink(menuUrl, text => { linkDiagnostic.extractedText = text; });
+            pageText = await readPublicMenuLink(
+                menuUrl,
+                text => { linkDiagnostic.extractedText = text; },
+                url => { linkDiagnostic.source = { url }; },
+            );
         } else if (
             !Array.isArray(urls) ||
             urls.length === 0 ||
@@ -943,6 +947,9 @@ export async function POST(req: Request) {
                 { error: "Envie ao menos uma imagem ou PDF válido." },
                 { status: 400 }
             );
+        } else {
+            const files = menuScanFilePaths(urls);
+            if (files.length > 0) diagnostic.source = { files };
         }
 
         let parsed: ParsedMenu | undefined;

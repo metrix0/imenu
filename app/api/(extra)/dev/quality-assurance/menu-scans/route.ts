@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { authorize } from "@/lib/dev/authorize";
 import { query } from "@/lib/database/sql";
 import { devPage, paged } from "@/lib/dev/pagination";
+import { MENU_SCAN_BUCKET, MENU_SCAN_BUCKET_PATH } from "@/lib/menu/scanDiagnostics";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,12 +56,63 @@ type ScanHistoryResult = {
     }[];
 };
 
+type ScanDetails = {
+    link_domain: string | null;
+    source_url: string | null;
+    files: { path: string; available: boolean }[];
+    elapsed_ms: number;
+    gemini_error: string | null;
+    openai_error: string | null;
+    excerpt: string | null;
+};
+
+const scanDetailsSql = `
+    SELECT scan.link_domain, scan.source->>'url' AS source_url, scan.elapsed_ms,
+        scan.gemini_error, scan.openai_error, scan.excerpt,
+        COALESCE((
+            SELECT jsonb_agg(jsonb_build_object('path', file.path, 'available', object.id IS NOT NULL)
+                ORDER BY file.position)
+            FROM jsonb_array_elements_text(scan.source->'files') WITH ORDINALITY file(path, position)
+            LEFT JOIN storage.objects object ON object.bucket_id = '${MENU_SCAN_BUCKET}' AND object.name = file.path
+        ), '[]'::jsonb) AS files
+    FROM public.menu_scan_events scan
+    WHERE scan.id = $1::bigint AND scan.created_at >= NOW() - INTERVAL '14 days'
+`;
+
+async function getScanDetails(scanId: string) {
+    if (!/^\d{1,19}$/.test(scanId) || BigInt(scanId) > BigInt("9223372036854775807")) {
+        return NextResponse.json({ error: "Scan inválido." }, { status: 400 });
+    }
+    const { rows: [scan] } = await query<ScanDetails>(scanDetailsSql, [scanId]);
+    if (!scan) return NextResponse.json({ error: "Scan indisponível." }, { status: 404 });
+
+    const storageUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+    return NextResponse.json({
+        sourceUrl: scan.source_url,
+        linkDomain: scan.link_domain,
+        files: scan.files.map(({ path, available }) => ({
+            name: path.slice(37),
+            url: available && storageUrl
+                ? storageUrl.replace(/\/+$/, "") + MENU_SCAN_BUCKET_PATH + encodeURIComponent(path)
+                : null,
+        })),
+        elapsedMs: scan.elapsed_ms,
+        geminiError: scan.gemini_error,
+        openAiError: scan.openai_error,
+        excerpt: scan.excerpt,
+    }, { headers: { "Cache-Control": "no-store" } });
+}
+
 export async function GET(request: Request) {
     try {
         const denied = await authorize(request);
         if (denied) return denied;
 
-        const page = devPage(new URL(request.url).searchParams);
+        const params = new URL(request.url).searchParams;
+        const scanId = params.get("scanId");
+        if (scanId !== null) return await getScanDetails(scanId);
+
+        const page = devPage(params);
         const { rows: [result] } = await query<ScanHistoryResult>(scansSql, [PAGE_SIZE, page * PAGE_SIZE]);
         return NextResponse.json({
             restaurantsTried: result.restaurants_tried,
