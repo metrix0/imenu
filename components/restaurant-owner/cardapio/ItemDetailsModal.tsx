@@ -11,6 +11,9 @@ import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
 import { faTrash, faPlus, faGripLines, faGripVertical, faDownload, faSearch } from "@fortawesome/free-solid-svg-icons";
 import ConfirmModal from "@/components/ui/ConfirmModal";
+import SaveStatus from "@/components/ui/SaveStatus";
+import { useAutoSave } from "@/lib/utils/useAutoSave";
+import OrganizeCategoriesModal from "./OrganizeCategoriesModal";
 
 interface ItemDetailsModalProps {
     isOpen: boolean;
@@ -213,6 +216,23 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
 
     const [isLoading, setIsLoading] = useState(false);
     const [groups, setGroups] = useState<Subcategory[]>([]);
+    const nextGroupPosition = groups.reduce((next, group) => Math.max(next, group.position + 1), 0);
+    const [organizerGroups, setOrganizerGroups] = useState<Subcategory[] | null>(null);
+    const [dragStartOrder, setDragStartOrder] = useState<string[]>([]);
+    const groupOrder = useAutoSave<string[]>(item?.id ?? null, async (groupIds) => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error("Entre novamente para salvar a ordem dos grupos.");
+
+        const response = await fetch(`/api/items/${item?.id}/subcategories`, {
+            method: "PATCH",
+            headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ groupIds }),
+        });
+        if (!response.ok) {
+            const result = await response.json().catch(() => null);
+            throw new Error(result?.error || "Não foi possível salvar a ordem dos grupos.");
+        }
+    });
     
     // Estados de Criação
     const [isAddingGroup, setIsAddingGroup] = useState(false);
@@ -242,6 +262,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
         } else {
             clearGroupsTimer = setTimeout(() => setGroups([]), 200);
         }
+        setOrganizerGroups(null);
 
         return () => {
             if (clearGroupsTimer) clearTimeout(clearGroupsTimer);
@@ -332,7 +353,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
     };
 
     // --- FUNÇÃO AUXILIAR DE IMPORTAÇÃO (REUTILIZÁVEL) ---
-    const importGroupInternal = async (groupToImport: ImportableGroup, currentGroupsLength: number) => {
+    const importGroupInternal = async (groupToImport: ImportableGroup, position: number) => {
         if (!item) return;
 
         // 1. Copia o Grupo
@@ -343,7 +364,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
             max_select: groupToImport.original_data.max_select,
             max_per_option: groupToImport.original_data.max_per_option ?? null,
             allow_multiple_units: Boolean(groupToImport.original_data.allow_multiple_units),
-            position: currentGroupsLength // Usa a posição calculada dinamicamente
+            position
         }).select().single();
         
         if (grpErr || !newGroup) throw grpErr;
@@ -368,7 +389,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
     const handleImportSingle = async (groupToImport: ImportableGroup) => {
         setImportLoading(true);
         try {
-            await importGroupInternal(groupToImport, groups.length);
+            await importGroupInternal(groupToImport, nextGroupPosition);
             setIsImporting(false);
             loadComplements();
         } catch (err) {
@@ -391,7 +412,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                 max_select: groupToImport.original_data.max_select,
                 max_per_option: groupToImport.original_data.max_per_option ?? null,
                 allow_multiple_units: Boolean(groupToImport.original_data.allow_multiple_units),
-                position: groups.length
+                position: nextGroupPosition
             }).select().single();
             
             if (grpErr || !newGroup) throw grpErr;
@@ -464,15 +485,41 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
         setGroups(newGroups);
     };
 
+    const saveGroupOrder = (groupIds: string[]) => {
+        groupOrder.schedule(groupIds);
+        setGroups(current => {
+            const positions = new Map(groupIds.map((id, position) => [id, position]));
+            return current.map(group => ({ ...group, position: positions.get(group.id) ?? group.position }))
+                .sort((a, b) => a.position - b.position);
+        });
+    };
+
+    const closeOrganizer = () => {
+        setOrganizerGroups(null);
+        if (groupOrder.status === "error") {
+            groupOrder.reset();
+            void loadComplements();
+        }
+    };
+
+    const closeDetails = () => {
+        if (!organizerGroups && groupOrder.status !== "saving") {
+            groupOrder.reset();
+            onClose();
+        }
+    };
+
     const handleGroupDragStart = (e: React.DragEvent, groupId: string) => {
         setDraggedGroup(groupId);
+        setDragStartOrder(groups.map(group => group.id));
         setTimeout(() => (e.target as HTMLElement).style.opacity = "0.4", 0);
     };
     const handleGroupDragEnd = (e: React.DragEvent) => {
         (e.target as HTMLElement).style.opacity = "1";
+        if (!draggedGroup) return;
         setDraggedGroup(null);
-        const updates = groups.map((g, i) => supabase.from("item_subcategories").update({ position: i }).eq("id", g.id));
-        Promise.all(updates);
+        const groupIds = groups.map(group => group.id);
+        if (groupIds.some((id, index) => id !== dragStartOrder[index])) saveGroupOrder(groupIds);
     };
     const handleGroupDragOver = (e: React.DragEvent, targetGroupId: string) => {
         e.preventDefault();
@@ -490,7 +537,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
     const handleAddGroup = async () => {
         if (!newGroupName.trim() || !item) return;
         try {
-            await supabase.from("item_subcategories").insert({ item_id: item.id, name: newGroupName, min_select: 0, max_select: 1, position: groups.length });
+            await supabase.from("item_subcategories").insert({ item_id: item.id, name: newGroupName, min_select: 0, max_select: 1, position: nextGroupPosition });
             setNewGroupName(""); setIsAddingGroup(false); loadComplements();
         } catch (err) { alert("Erro ao criar grupo."); }
     };
@@ -567,21 +614,32 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
 
     return (
         <>
-        <Modal height={760} open={isOpen} onClose={onClose}>
-            <div className="panel-complements w-full max-w-2xl bg-white rounded-lg flex flex-col max-h-[85vh]">
-                <div className="p-6 border-b border-gray-100 flex justify-between items-center shrink-0">
-                    <div>
+        <Modal height={760} open={isOpen} onClose={closeDetails}>
+            <div inert={Boolean(organizerGroups)} className="panel-complements w-full max-w-2xl bg-white rounded-lg flex flex-col max-h-[85vh]">
+                <div className="p-6 border-b border-gray-100 flex justify-between items-center gap-3 shrink-0">
+                    <div className="min-w-0 flex-1">
                         <h2 className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xl font-bold text-gray-900 2xl:text-2xl">
                             <span>Complementos</span>
                             <span className="text-sm font-normal text-gray-400 2xl:text-base">{item?.name}</span>
                         </h2>
                     </div>
-                    <LegacyModalClose><button onClick={onClose} className="cursor-pointer text-gray-400 hover:text-gray-600">
+                    {!organizerGroups && <SaveStatus status={groupOrder.status} />}
+                    <LegacyModalClose><button onClick={closeDetails} className="cursor-pointer text-gray-400 hover:text-gray-600">
                         <FontAwesomeIcon icon={icons.faTimes} className="text-xl" />
                     </button></LegacyModalClose>
                 </div>
 
                 <div className="p-6 overflow-y-auto flex-1 space-y-6 2xl:text-base">
+                    {!isLoading && groups.length > 1 && (
+                        <div className="flex justify-end">
+                            <Button type="button" variant="secondary" disabled={groupOrder.status === "saving"} onClick={() => setOrganizerGroups(groups)}>
+                                Organizar grupos de complementos
+                            </Button>
+                        </div>
+                    )}
+                    {!organizerGroups && groupOrder.error && (
+                        <p role="alert" className="text-sm text-red-700">{groupOrder.error}</p>
+                    )}
                     {/* LISTA DE GRUPOS ATUAIS */}
                     {groups.map((group) => (
                         <div 
@@ -861,16 +919,32 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                         <button
                             type="button"
                             onClick={onOpenBulkComplements}
+                            disabled={groupOrder.status === "saving"}
                             className="cursor-pointer text-left text-sm 2xl:text-base"
                         >
                             <span className="font-bold text-brand underline">Modificar complementos</span>
                             <span className="text-gray-600"> em massa (e desativar/ativar)</span>
                         </button>
                     )}
-                    <button onClick={onClose} className="ml-auto cursor-pointer bg-brand text-white px-6 py-2 rounded-md font-medium hover:bg-orange-600 transition-colors">Concluir</button>
+                    <button onClick={closeDetails} disabled={groupOrder.status === "saving"} className="ml-auto cursor-pointer bg-brand text-white px-6 py-2 rounded-md font-medium hover:bg-orange-600 transition-colors disabled:opacity-50">Concluir</button>
                 </div>
             </div>
         </Modal>
+        {organizerGroups && (
+            <OrganizeCategoriesModal
+                open={isOpen}
+                categories={organizerGroups}
+                title="Organizar grupos de complementos"
+                description="Arraste os grupos para definir a ordem em que aparecem neste item."
+                status={groupOrder.status}
+                error={groupOrder.error}
+                onClose={closeOrganizer}
+                onReorder={ordered => {
+                    const groupIds = ordered.map(group => group.id);
+                    if (groupIds.some((id, index) => id !== groups[index]?.id)) saveGroupOrder(groupIds);
+                }}
+            />
+        )}
         {/* 6. RENDERIZAR O CONFIRM MODAL (FORA DO MODAL PRINCIPAL PARA EVITAR Z-INDEX ISSUES) */}
         <ConfirmModal 
             open={!!groupToDelete}
