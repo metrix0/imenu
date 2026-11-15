@@ -55,13 +55,14 @@ export default function SignupConfirmationHandler({
             setRestaurantSlug(restaurant.url_slug);
             window.localStorage.removeItem(PENDING_EMAIL_KEY);
 
+            const emailChange = force && new URLSearchParams(window.location.search).get("next") === "atualizando-email";
             router.replace(
-                restaurant.first_time === false
+                emailChange ? "/painel/configuracoes/atualizando-email" : restaurant.first_time === false
                     ? "/painel"
                     : getCreationStepPath(restaurant.creation_step)
             );
         },
-        [router, setEmail, setRestaurantId, setRestaurantSlug]
+        [force, router, setEmail, setRestaurantId, setRestaurantSlug]
     );
 
     useEffect(() => {

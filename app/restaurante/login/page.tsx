@@ -34,6 +34,7 @@ type RestaurantRecord = {
     creation_step: number | null;
 };
 
+const EMAIL_CHANGE_PATH = "/painel/configuracoes/atualizando-email";
 const PENDING_EMAIL_KEY = "imenu-pending-signup-email";
 
 function isEmailNotConfirmed(error: AuthFailure | null): boolean {
@@ -115,7 +116,7 @@ export default function AdminLogin() {
             typeof window !== "undefined"
                 ? new URLSearchParams(window.location.search).get("next")
                 : null;
-        const target =
+        const target = requestedNext === "atualizando-email" ? EMAIL_CHANGE_PATH :
             restaurant.first_time === false
                 ? requestedNext === "/garcom" || requestedNext === "/motoboy"
                     ? requestedNext
@@ -161,7 +162,8 @@ export default function AdminLogin() {
                     return data.session.user;
                 })();
             } else {
-                callbackSessionPromise.current = supabase.auth
+                const freshSignIn = new URLSearchParams(window.location.search).get("next") === "atualizando-email";
+                callbackSessionPromise.current = freshSignIn ? Promise.resolve(null) : supabase.auth
                     .getSession()
                     .then(({ data }) => data.session?.user ?? null);
             }
@@ -263,10 +265,12 @@ export default function AdminLogin() {
         setGoogleLoading(true);
         setError("");
 
+        const freshSignIn = new URLSearchParams(window.location.search).get("next") === "atualizando-email";
         const { error: oauthError } = await supabase.auth.signInWithOAuth({
             provider: "google",
             options: {
-                redirectTo: `${window.location.origin}/restaurante/confirmar-email`,
+                redirectTo: `${window.location.origin}/restaurante/confirmar-email${freshSignIn ? "?next=atualizando-email" : ""}`,
+                ...(freshSignIn ? { queryParams: { prompt: "select_account" } } : {}),
             },
         });
 
