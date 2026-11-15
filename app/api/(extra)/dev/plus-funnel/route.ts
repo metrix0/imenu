@@ -16,7 +16,7 @@ type FunnelCounts = {
     bought: number | null;
     sources: Record<string, number> | null;
 };
-const PLUS_SOURCES = ["sales_modal", "plus_page", "assistant_limit", "sales_section", "marketing_page", "onboarding_complete", "legacy_pages"] as const;
+const PLUS_SOURCES = ["plus_page", "assistant_limit", "sales_section", "marketing_page", "onboarding_complete", "legacy_pages"] as const;
 
 function validDate(value: string | null): value is string {
     return Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value) &&
@@ -49,7 +49,7 @@ export async function GET(request: Request) {
     const rangeLabel = "if(timestamp >= toDateTime('" + start + "', 'UTC'), 'current', 'previous')";
 
     const usersSql = "SELECT " + rangeLabel + " AS range_label, " +
-        "uniqExactIf(distinct_id, event IN ('panel_dashboard_viewed', 'panel_tab_opened') OR (event = '$pageview' AND properties.$pathname IN ('/restaurante/criar/plus','/restaurante/criar/plus/'))) AS panel_users, " +
+        "uniqExactIf(distinct_id, event IN ('panel_dashboard_viewed', 'panel_tab_opened')) AS panel_users, " +
         "uniqExactIf(distinct_id, event = 'imenu_plus_checkout_viewed') AS checkout_users " +
         "FROM events WHERE " + period + " GROUP BY range_label";
 
@@ -74,7 +74,7 @@ export async function GET(request: Request) {
         "arraySort(groupArray(toInt(toUnixTimestamp(timestamp)))),",
         "(toInt(0), toInt(-604800))), 1) AS visits",
         "FROM (SELECT range_label, distinct_id, timestamp,",
-        "arrayJoin(['exposures', concat('source:', surface)]) AS bucket",
+        "arrayJoin(if(surface = 'sales_modal', ['modal_views'], ['exposures', concat('source:', surface)])) AS bucket",
         "FROM touchpoints)",
         "GROUP BY range_label, bucket, distinct_id)",
         "GROUP BY range_label, bucket"
@@ -130,7 +130,7 @@ export async function GET(request: Request) {
             panelUsers: users.status === "fulfilled" ? Number(userRow?.[1] || 0) : null,
             exposures: exposures.status === "fulfilled" ? getExposure("exposures") : null,
             modalViews: exposures.status === "fulfilled" && (label === "current" ? endAt : startAt) > Date.parse("2026-11-10T12:50:49Z")
-                ? getExposure("source:sales_modal") : null,
+                ? getExposure("modal_views") : null,
             checkout: users.status === "fulfilled" ? Number(userRow?.[2] || 0) : null,
             bought: buyers.status === "fulfilled" ? Number(buyers.value.rows[0]?.[label === "current" ? "current_buyers" : "previous_buyers"] || 0) : null,
             sources,

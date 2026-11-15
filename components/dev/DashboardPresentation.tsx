@@ -189,7 +189,7 @@ export type PlusExposureBreakdown = { exposures: number | null; sources: Record<
 export function ProductOverviewSections({ metrics, previousMetrics, productsOnly, compact = false, plusExposureData }: { metrics: ProductOverview; previousMetrics?: ProductOverview; productsOnly?: (keyof ProductOverview)[]; compact?: boolean; plusExposureData?: PlusExposureBreakdown | null }) {
     const products = [
         { key: "imenu", name: "iMenu", paths: "/", price: "-", priceInfo: "Referência do dashboard: sem mensalidade.", },
-        { key: "ia_plus", name: "iMenu Plus", paths: "Modal de venda + Planos + Limite IA + Vendas IA + Marketing + Cadastro", price: "R$ 49,99/m", priceInfo: "Marketing, Assistente IA e Vendas IA.", },
+        { key: "ia_plus", name: "iMenu Plus", paths: "Planos + Limite IA + Vendas IA + Marketing + Cadastro", price: "R$ 49,99/m", priceInfo: "Marketing, Assistente IA e Vendas IA.", },
         { key: "qr_code_mesa", name: "iMenu QR", paths: "/painel/mesas", price: "Grátis", priceInfo: "QR Code Mesa gratuito; pagamentos antigos são apenas históricos.", },
     ] as const;
     const difference = (current: number | null | undefined, previous: number | null | undefined, rate = false) => {
@@ -207,7 +207,7 @@ export function ProductOverviewSections({ metrics, previousMetrics, productsOnly
                 const sameTrafficSource = previous?.trafficSource === metric.trafficSource;
                 const trafficUnit = metric.trafficSource === "plus_exposures" ? "Usuários únicos (7 dias)" : metric.trafficSource === "pageviews" ? "Views (Unique)" : "Aberturas da aba";
                 const trafficInfo = metric.trafficSource === "plus_exposures"
-                    ? "PostHog · Desde 10/11/2026: exposições visíveis no modal de venda, Planos, aviso de limite gratuito do Assistente IA, Vendas IA, Marketing e etapa opcional do cadastro. Antes disso: histórico aproximado por pageviews de Assistente IA, Vendas IA e Marketing; modais, Planos e avisos antigos não eram medidos. Deduplicação por ID a cada 7 dias; na transição, IDs antigos e novos podem diferir."
+                    ? "PostHog · Desde 10/11/2026: exposições visíveis em Planos, no aviso de limite gratuito do Assistente IA, em Vendas IA, em Marketing e na etapa opcional do cadastro. Antes disso: histórico aproximado por pageviews de Assistente IA, Vendas IA e Marketing. Deduplicação por ID a cada 7 dias; na transição, IDs antigos e novos podem diferir."
                     : metric.trafficSource === "pageviews"
                         ? `PostHog · ${product.key === "imenu" ? "Página inicial" : "Página Mesas"}. Uma visita por pessoa a cada 7 dias; após 7 dias, conta novamente.`
                         : "PostHog · Aberturas de abas; não são visitantes únicos.";
@@ -388,7 +388,6 @@ export function MetricCard({
 }
 
 const PLUS_EXPOSURE_SOURCES = [
-    { key: "sales_modal", label: "Modal de venda" },
     { key: "plus_page", label: "Planos" },
     { key: "assistant_limit", label: "Limite Assistente IA" },
     { key: "sales_section", label: "Vendas IA" },

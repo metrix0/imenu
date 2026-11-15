@@ -58,16 +58,16 @@ export default function PlusFunnelSection({ range, onDataLoaded }: { range: Date
             onToggle={() => setMatured(value => !value)} />
         {error && <p role="alert" className="mb-3 text-sm text-red-700">{error}</p>}
         {loading ? <DevLoading /> : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-            <MetricCard inlineChange truncateTitle title="Painel e etapa Plus"
+            <MetricCard inlineChange truncateTitle title="Painel"
                 value={raw(data?.panelUsers)}
                 {...periodChange(data?.panelUsers ?? null, prior?.panelUsers ?? null)}
-                info="Contas distintas que acessaram o painel ou a etapa opcional do Plus no cadastro no período, medidas por eventos PostHog. Antes da instrumentação, visitas diretas podem estar subcontadas." />
+                info="Contas distintas que acessaram o painel no período, medidas por eventos PostHog. Antes da instrumentação, visitas diretas podem estar subcontadas." />
             <PlusExposureMetricCard title="Exposições ao Plus"
                 value={exposureRate === null ? "—" : formatRatio(exposureRate)}
                 description={raw(data?.exposures) + " exposições"}
                 {...periodChange(exposureRate, percentage(prior?.exposures, prior?.panelUsers))}
                 exposureData={data ? { exposures: data.exposures, sources: data.sources } : null}
-                info="Exposições ao Plus ÷ contas no painel ou na etapa opcional do cadastro. Inclui modal de venda, Planos, limite IA, Vendas IA, Marketing e a etapa opcional do cadastro. Antes de 10/11, os dados usam pageviews históricos estimados, sem origem detalhada. Uma pessoa pode contar novamente após 7 dias." />
+                info="Exposições ao Plus ÷ contas no painel. Inclui Planos, limite IA, Vendas IA, Marketing e a etapa opcional do cadastro. Antes de 10/11, os dados usam pageviews históricos estimados, sem origem detalhada. Uma pessoa pode contar novamente após 7 dias." />
             <MetricCard inlineChange truncateTitle title="Modal Views"
                 value={modalRate === null ? "—" : formatRatio(modalRate)}
                 description={raw(data?.modalViews) + " visualizações"}
