@@ -23,25 +23,25 @@ export const CHURN_BLAST_AUTOMATIONS = {
         id: "recovery-plus",
         name: "Churned iMenu Plus",
         message: PLUS_ABANDONED_BLAST_MESSAGE,
-        criteria: "Plus ativo. Pedidos concluídos fora de mesa em pelo menos 2 dias dos últimos 30. Completou 14 dias sem pedidos concluídos fora de mesa entre ontem às 19h e hoje às 19h.",
+        criteria: "Plus ativo · pedidos em 2+ dias no último mês · cruzou 14 dias sem pedidos",
     },
     abandoned_imenu: {
         id: "recovery",
         name: "Churned iMenu users",
         message: ABANDONED_BLAST_MESSAGE,
-        criteria: "Sem Plus ativo. Pedidos concluídos fora de mesa em pelo menos 2 dias dos últimos 30. Completou 14 dias sem pedidos concluídos fora de mesa entre ontem às 19h e hoje às 19h.",
+        criteria: "iMenu sem Plus · pedidos em 2+ dias no último mês · cruzou 14 dias sem pedidos",
     },
     single_day: {
         id: "single-order",
         name: "Um único dia de pedidos",
         message: SINGLE_ORDER_DAY_RECOVERY_MESSAGE,
-        criteria: "Cadastro concluído. Em uma mesma loja, pedidos fora de mesa em exatamente 1 dos últimos 14 dias, em qualquer status.",
+        criteria: "Cadastro completo · pedidos em apenas 1 dia nos últimos 14 dias",
     },
     no_first_order: {
         id: "first-order",
         name: "Não ativados",
         message: NO_FIRST_ORDER_RECOVERY_MESSAGE,
-        criteria: "Cadastro concluído há mais de 24 h e até 48 h. Nenhuma das lojas da conta jamais registrou um pedido.",
+        criteria: "Cadastro completo há 24–48h · ainda sem primeiro pedido",
     },
 } as const;
 
