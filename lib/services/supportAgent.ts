@@ -1,4 +1,5 @@
 import OpenAI, { toFile } from "openai";
+import { cacheDeveloperInstructions, explicitPromptCache, supportsExplicitPromptCache } from "@/lib/api/openAiPromptCache";
 import { openAiAlertFetch } from "@/lib/services/openAiAlerts";
 
 import { query } from "@/lib/database/sql";
@@ -337,6 +338,7 @@ export async function analyzeSupportImage(
     const response = await client.responses.create(
         {
             model,
+            ...(supportsExplicitPromptCache(model) ? explicitPromptCache : {}),
             instructions:
                 "Analise a imagem como contexto para outro agente de suporte do iMenu. Descreva somente o que for útil para resolver o problema. Preserve textos visíveis importantes, mensagens de erro, valores, nomes de telas e estados da interface. Não invente nada. Responda em português e seja conciso.",
             input: [
@@ -556,10 +558,10 @@ export async function generateSupportReply(
 
     const handoffBlocked = conversation.blocked_handoff;
 
-    let instructions = SUPPORT_INSTRUCTIONS;
+    let contextInstructions = "";
 
     if (automaticKnowledge.length > 0) {
-        instructions +=
+        contextInstructions +=
             "\n\nConhecimento oficial do iMenu recuperado automaticamente para esta resposta:\n" +
             automaticKnowledge
                 .map(
@@ -571,22 +573,23 @@ export async function generateSupportReply(
     }
 
     if (incidentResult.rows[0]?.has_known_incident) {
-        instructions +=
+        contextInstructions +=
             "\n- Contexto verificado desta conversa: houve recentemente o erro de cota de egress/cache da infraestrutura do iMenu. Preserve esse diagnóstico nas mensagens seguintes e não volte a tratar o caso como senha, cadastro ou configuração do restaurante.";
     }
 
     if (conversation.handoff_prompted_at) {
-        instructions +=
+        contextInstructions +=
             "\n- O aviso inicial de atendimento humano já foi enviado nesta conversa. Se a nova mensagem confirmar positivamente ou reiterar que quer humano, use request_human_handoff uma vez neste turno.";
     }
 
     if (handoffBlocked) {
-        instructions +=
+        contextInstructions +=
             "\n- Para este contato específico, handoff é proibido. Nunca use request_human_handoff e nunca diga que fez encaminhamento.";
     }
 
     const model =
         process.env.OPENAI_SUPPORT_MODEL?.trim() || "gpt-5.6-luna";
+    const cacheSupport = supportsExplicitPromptCache(model);
     const client = new OpenAI({ apiKey, fetch: openAiAlertFetch("Suporte IA") });
     const serverUrl =
         getSupportMcpBaseUrl() +
@@ -596,20 +599,23 @@ export async function generateSupportReply(
     const response = await client.responses.create(
         {
             model,
-            instructions,
-            input: history.rows.map((message) => ({
-                role:
-                    message.direction === "inbound"
-                        ? ("user" as const)
-                        : ("assistant" as const),
-                content: message.direction === "inbound"
-                    ? message.body
-                    : (message.sender === "human"
-                        ? "[Mensagem do atendente humano do iMenu]\n"
-                        : message.sender === "automated"
-                          ? "[Resposta automática anterior do iMenu]\n"
-                          : "[Mensagem anterior de origem não confirmada]\n") + message.body,
-            })),
+            ...(cacheSupport ? explicitPromptCache : { instructions: SUPPORT_INSTRUCTIONS + contextInstructions }),
+            input: [
+                ...(cacheSupport ? [cacheDeveloperInstructions(SUPPORT_INSTRUCTIONS, contextInstructions)] : []),
+                ...history.rows.map((message) => ({
+                    role:
+                        message.direction === "inbound"
+                            ? ("user" as const)
+                            : ("assistant" as const),
+                    content: message.direction === "inbound"
+                        ? message.body
+                        : (message.sender === "human"
+                            ? "[Mensagem do atendente humano do iMenu]\n"
+                            : message.sender === "automated"
+                              ? "[Resposta automática anterior do iMenu]\n"
+                              : "[Mensagem anterior de origem não confirmada]\n") + message.body,
+                })),
+            ],
             tools: [
                 {
                     type: "mcp",
