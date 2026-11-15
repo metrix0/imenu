@@ -72,12 +72,83 @@ async function waha(): Promise<ProbeResult> {
         { "X-Api-Key": key, Accept: "application/json" });
 }
 
+const OPENAI_DAILY_COST_ALARM_USD = 2;
+const OPENAI_BILLING_DAY_SECONDS = 86_400;
+
+async function checkOpenAiDailySpend(): Promise<void> {
+    const adminKey = configured("OPENAI_ADMIN_KEY");
+    if (!adminKey) return;
+
+    const now = Math.floor(Date.now() / 1000);
+    const today = Math.floor(now / OPENAI_BILLING_DAY_SECONDS) * OPENAI_BILLING_DAY_SECONDS;
+    // Include yesterday because late costs can arrive after UTC midnight.
+    const yesterday = today - OPENAI_BILLING_DAY_SECONDS;
+    const url = new URL("https://api.openai.com/v1/organization/costs");
+    url.search = new URLSearchParams({
+        start_time: String(yesterday),
+        end_time: String(now),
+        bucket_width: "1d",
+        limit: "2",
+    }).toString();
+
+    try {
+        const response = await fetch(url, {
+            headers: { Authorization: `Bearer ${adminKey}`, Accept: "application/json" },
+            cache: "no-store",
+            signal: AbortSignal.timeout(8000),
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const payload = await response.json() as {
+            data?: { start_time: number; results?: { amount?: { value?: number; currency?: string } }[] }[];
+            has_more?: boolean;
+        };
+        if (!Array.isArray(payload.data) || payload.has_more !== false) throw new Error("Resposta incompleta.");
+
+        const daily = new Map<number, number>();
+        for (const bucket of payload.data) {
+            if ((bucket.start_time !== yesterday && bucket.start_time !== today) ||
+                daily.has(bucket.start_time) || !Array.isArray(bucket.results)) {
+                throw new Error("Dia de cobrança inválido.");
+            }
+            let usd = 0;
+            for (const item of bucket.results) {
+                const amount = item.amount;
+                if (amount?.currency?.toLowerCase() !== "usd" || !Number.isFinite(amount.value)) {
+                    throw new Error("Valor de cobrança inválido.");
+                }
+                usd += Number(amount.value);
+            }
+            daily.set(bucket.start_time, usd);
+        }
+
+        for (const [start, usd] of daily) {
+            if (usd < OPENAI_DAILY_COST_ALARM_USD) continue;
+            const date = new Date(start * 1000).toISOString().slice(0, 10);
+            await recordDevAlert({
+                source: "openai",
+                title: "ALARM TRIGGER",
+                message: `iMenu: a OpenAI registrou US$ ${usd.toFixed(2)} em ${date} (UTC). Limite diário: US$ 2,00.`,
+                severity: "critical",
+                trigger: "alarm",
+                operation: "Gasto diário OpenAI",
+                incidentKey: `openai:daily-cost:${date}`,
+            });
+        }
+    } catch (error) {
+        console.warn("[OPENAI_DAILY_SPEND]", error instanceof Error ? error.message : "Consulta indisponível.");
+    }
+}
+
 async function openai(): Promise<ProbeResult> {
     const key = configured("OPENAI_API_KEY");
-    if (!key) return missing("openai", "Modelos");
     // Listing models does not generate model tokens or images.
-    return remote("openai", "Modelos", "https://api.openai.com/v1/models",
-        { Authorization: `Bearer ${key}` });
+    const [probe] = await Promise.all([
+        key ? remote("openai", "Modelos", "https://api.openai.com/v1/models", {
+            Authorization: `Bearer ${key}`,
+        }) : missing("openai", "Modelos"),
+        checkOpenAiDailySpend(),
+    ]);
+    return probe;
 }
 
 const GEMINI_COST_ALERT_USD = 2;
