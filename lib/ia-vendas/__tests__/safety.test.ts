@@ -104,8 +104,20 @@ describe("grounded projections", () => {
     ticket_cents: 1000,
     days: 28,
   };
-  test("withholds weak-data headline", () =>
-    expect(potential({ ...sales, orders: 20 }, {}).available).toBe(false));
+  test.each([
+    [9, false],
+    [10, true],
+  ])("projection availability with %i completed orders is %s", (orders, available) =>
+    expect(
+      potential(
+        { ...sales, orders },
+        {
+          eligible_orders: orders,
+          adoption_rate: 0.25,
+          extra_cents: 1000,
+        },
+      ).available,
+    ).toBe(available));
   test("calculates one capped four-week scenario", () =>
     expect(
       potential(sales, {
