@@ -2,14 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { faChevronDown } from "@fortawesome/free-solid-svg-icons";
-import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import Dropdown from "@/components/ui/Dropdown";
-import Switch from "@/components/ui/Switch";
+import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import Loader from "@/components/ui/Loader";
 import type { SaveState } from "@/components/ui/SaveStatus";
 import { useAutoSave } from "@/lib/utils/useAutoSave";
@@ -26,7 +24,6 @@ export default function DeliveryIntegrations({ restaurantId, onSaveState }: Prop
     const [failures, setFailures] = useState<Failure[]>([]);
     const [retrying, setRetrying] = useState("");
     const [loadVersion, setLoadVersion] = useState(0);
-    const [expanded, setExpanded] = useState({ machine: false });
     const autosave = useAutoSave<DeliveryConfig>(restaurantId, async value => {
         const response = await qrTableAuthenticatedFetch("/api/integrations/delivery", {
             method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ restaurantId, config: { machine: value.machine } }),
@@ -91,64 +88,38 @@ export default function DeliveryIntegrations({ restaurantId, onSaveState }: Prop
                     </div>
                 </div>
             </section>
-            <section className="border-t border-gray-200 pt-6" aria-labelledby="machine-title">
-                <div className="flex items-start gap-3 sm:gap-4">
-                    <button
-                        type="button"
-                        aria-expanded={expanded.machine}
-                        aria-controls="machine-integration-settings"
-                        onClick={() => setExpanded(previous => ({ ...previous, machine: !previous.machine }))}
-                        className="flex min-h-12 min-w-0 flex-1 cursor-pointer items-start gap-3 text-left sm:gap-4"
-                    >
-                        <Image src="/logos/machine.svg" alt="" width={36} height={36} className="mt-0.5 h-9 w-9 shrink-0 object-contain" />
-                        <span className="min-w-0 flex-1">
-                            <span id="machine-title" className="block text-sm font-medium text-gray-900">Machine (Chama Delivery)</span>
-                            <span className="mt-1 block text-sm text-gray-500">Solicite um entregador automaticamente ao aceitar pedidos de entrega.</span>
-                        </span>
-                    </button>
-                    <div className="flex h-9 shrink-0 items-center gap-2 sm:gap-3">
-                        {config.machine.enabled && !complete.machine && <Badge variant="warning">Não configurado</Badge>}
-                        <Switch aria-label="Ativar integração Machine" checked={config.machine.enabled} disabled={!available} onClick={() => change("machine", "enabled", !config.machine.enabled)} />
-                        <button
-                            type="button"
-                            aria-label={`${expanded.machine ? "Recolher" : "Expandir"} integração Machine`}
-                            aria-expanded={expanded.machine}
-                            aria-controls="machine-integration-settings"
-                            onClick={() => setExpanded(previous => ({ ...previous, machine: !previous.machine }))}
-                            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-gray-500 hover:bg-gray-50"
-                        >
-                            <FontAwesomeIcon icon={faChevronDown} style={{ width: 24, height: 24 }} className={`shrink-0 transition-transform duration-200 motion-reduce:transition-none ${expanded.machine ? "rotate-180" : ""}`} />
-                        </button>
+            <CollapsibleSection
+                className="border-t border-gray-200 pt-6"
+                title="Machine (Chama Delivery)"
+                description="Solicite um entregador automaticamente ao aceitar pedidos de entrega."
+                icon={<Image src="/logos/machine.svg" alt="" width={36} height={36} className="h-9 w-9 object-contain" />}
+                badge={config.machine.enabled && !complete.machine && <Badge variant="warning">Não configurado</Badge>}
+                toggle={{
+                    label: "Ativar integração Machine",
+                    checked: config.machine.enabled,
+                    disabled: !available,
+                    onChange: checked => change("machine", "enabled", checked),
+                }}
+                footer={failures.map(failure => (
+                    <div key={failure.order_id} role="alert" className="mt-4 flex flex-col gap-3 rounded-lg border border-red-200 p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                        <p>Pedido #{failure.display_id}: {failure.state === "failed" ? failure.error : "Confira a solicitação na Machine antes de solicitar outro entregador."}</p>
+                        {failure.state === "failed" && <Button variant="secondary" loading={retrying === failure.order_id} disabled={Boolean(retrying)} onClick={() => void retry(failure.order_id)}>Tentar novamente</Button>}
                     </div>
+                ))}
+            >
+                <p className="text-sm text-gray-500">Retirada, consumo no local e pedidos importados do iFood não acionam entregadores.</p>
+                <Input disabled={!available} label="Chave API Machine" type="password" autoComplete="new-password" placeholder={configured.machine ? "Credencial salva" : "Informe a chave"} value={config.machine.apiKey} onChange={event => change("machine", "apiKey", event.target.value)} />
+                <div className="grid gap-4 sm:grid-cols-2">
+                    <Input disabled={!available} label="Usuário Machine" autoComplete="off" value={config.machine.username} onChange={event => change("machine", "username", event.target.value)} />
+                    <Input disabled={!available} label="Senha Machine" type="password" autoComplete="new-password" placeholder={configured.machine ? "Credencial salva" : "Informe a senha"} value={config.machine.password} onChange={event => change("machine", "password", event.target.value)} />
+                    <Input disabled={!available} label="ID da empresa na Machine" inputMode="numeric" value={config.machine.companyId} onChange={event => change("machine", "companyId", event.target.value)} />
+                    <Input disabled={!available} label="ID da categoria (opcional)" inputMode="numeric" value={config.machine.categoryId} onChange={event => change("machine", "categoryId", event.target.value)} />
                 </div>
-                <div
-                    id="machine-integration-settings"
-                    aria-hidden={!expanded.machine}
-                    inert={!expanded.machine}
-                    className={`grid transition-[grid-template-rows,opacity] duration-200 ease-in-out motion-reduce:transition-none ${expanded.machine ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
-                >
-                    <div className="min-h-0 overflow-hidden">
-                        <div className="space-y-4 pt-4 sm:pl-[52px]">
-                            <p className="text-sm text-gray-500">Retirada, consumo no local e pedidos importados do iFood não acionam entregadores.</p>
-                            <Input disabled={!available} label="Chave API Machine" type="password" autoComplete="new-password" placeholder={configured.machine ? "Credencial salva" : "Informe a chave"} value={config.machine.apiKey} onChange={event => change("machine", "apiKey", event.target.value)} />
-                            <div className="grid gap-4 sm:grid-cols-2">
-                                <Input disabled={!available} label="Usuário Machine" autoComplete="off" value={config.machine.username} onChange={event => change("machine", "username", event.target.value)} />
-                                <Input disabled={!available} label="Senha Machine" type="password" autoComplete="new-password" placeholder={configured.machine ? "Credencial salva" : "Informe a senha"} value={config.machine.password} onChange={event => change("machine", "password", event.target.value)} />
-                                <Input disabled={!available} label="ID da empresa na Machine" inputMode="numeric" value={config.machine.companyId} onChange={event => change("machine", "companyId", event.target.value)} />
-                                <Input disabled={!available} label="ID da categoria (opcional)" inputMode="numeric" value={config.machine.categoryId} onChange={event => change("machine", "categoryId", event.target.value)} />
-                            </div>
-                            <Dropdown disabled={!available} label="Pagamento do serviço de entrega" value={config.machine.payment} options={[
-                                { value: "", label: "Selecione" }, { value: "F", label: "Faturado" }, { value: "R", label: "Carteira de créditos" },
-                                { value: "D", label: "Dinheiro" }, { value: "B", label: "Débito" }, { value: "C", label: "Crédito" }, { value: "X", label: "Pix" },
-                            ]} onChange={event => change("machine", "payment", event.target.value)} />
-                        </div>
-                    </div>
-                </div>
-                {failures.map(failure => <div key={failure.order_id} role="alert" className="mt-4 flex flex-col gap-3 rounded-lg border border-red-200 p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-                    <p>Pedido #{failure.display_id}: {failure.state === "failed" ? failure.error : "Confira a solicitação na Machine antes de solicitar outro entregador."}</p>
-                    {failure.state === "failed" && <Button variant="secondary" loading={retrying === failure.order_id} disabled={Boolean(retrying)} onClick={() => void retry(failure.order_id)}>Tentar novamente</Button>}
-                </div>)}
-            </section>
+                <Dropdown disabled={!available} label="Pagamento do serviço de entrega" value={config.machine.payment} options={[
+                    { value: "", label: "Selecione" }, { value: "F", label: "Faturado" }, { value: "R", label: "Carteira de créditos" },
+                    { value: "D", label: "Dinheiro" }, { value: "B", label: "Débito" }, { value: "C", label: "Crédito" }, { value: "X", label: "Pix" },
+                ]} onChange={event => change("machine", "payment", event.target.value)} />
+            </CollapsibleSection>
         </>}
     </Card>;
 }
