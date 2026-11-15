@@ -1,3 +1,4 @@
+import { recordAffiliatePurchase } from "@/lib/analytics/affiliateAttribution";
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 
@@ -241,6 +242,7 @@ async function processEvent(payload: AsaasWebhook): Promise<void> {
         if (payment) {
             await savePayment(addon.id, payment, event);
             if (payment.id) {
+                if (addon.product_key === "ia_plus") await recordAffiliatePurchase(addon.id, payment.id);
                 await sendAddonPurchaseWhatsApp({
                     addonId: addon.id,
                     paymentId: payment.id,
@@ -279,6 +281,7 @@ async function processEvent(payload: AsaasWebhook): Promise<void> {
         }
         await activateAddon(addon.id, payment);
         if (payment.id) {
+            if (addon.product_key === "ia_plus") await recordAffiliatePurchase(addon.id, payment.id);
             await sendAddonPurchaseWhatsApp({
                 addonId: addon.id,
                 paymentId: payment.id,

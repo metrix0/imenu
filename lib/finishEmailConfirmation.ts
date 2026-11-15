@@ -31,9 +31,13 @@ export async function getOrCreateOnboardingRestaurant(
         return existing as OnboardingRestaurant;
     }
 
+    const { data: { session } } = await supabase.auth.getSession();
     const response = await fetch("/api/restaurants/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+            "Content-Type": "application/json",
+            ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify({
             userId: user.id,
             phone: user.user_metadata?.phone || "",

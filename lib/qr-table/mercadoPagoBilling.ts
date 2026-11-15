@@ -1,3 +1,4 @@
+import { recordAffiliatePurchase } from "@/lib/analytics/affiliateAttribution";
 import { query } from "@/lib/database/sql";
 import { QR_TABLE_PRICE_CENTS } from "@/lib/qr-table/payzuBilling";
 import { sendAddonPurchaseWhatsApp } from "@/lib/services/addonPurchaseWhatsApp";
@@ -129,6 +130,10 @@ export async function activateMercadoPagoQrTablePrepaid(input: {
             input.paidAt || null,
         ]
     );
+
+    if (input.status.toUpperCase() === "APPROVED") {
+        await recordAffiliatePurchase(input.addonId, input.paymentId);
+    }
 
     // Reconciliation may observe the same approved payment many times.
     // Only the request that actually activated it should send a welcome.

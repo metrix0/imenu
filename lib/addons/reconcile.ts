@@ -1,4 +1,5 @@
 import type { AddonProduct } from "@/lib/addons/products";
+import { recordAffiliatePurchase } from "@/lib/analytics/affiliateAttribution";
 import { PROMO_QR_CODE, PROMO_QR_PRICE_CENTS } from "@/lib/addons/promoQr";
 import { getMercadoPagoPixPayment, isMercadoPagoPixFailureStatus, MercadoPagoPixApiError } from "@/lib/payments/mercadoPagoPix";
 import { activateMercadoPagoQrTablePrepaid, saveMercadoPagoQrTablePayment, markMercadoPagoQrTablePaymentFailure } from "@/lib/qr-table/mercadoPagoBilling";
@@ -271,6 +272,7 @@ async function reconcileAsaasPayments(
 
     await activateAsaasAddon(addon.id, confirmedPayment);
     if (confirmedPayment.id) {
+        if (addon.product_key === "ia_plus") await recordAffiliatePurchase(addon.id, confirmedPayment.id);
         await sendAddonPurchaseWhatsApp({
             addonId: addon.id,
             paymentId: confirmedPayment.id,

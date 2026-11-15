@@ -1,10 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextFetchEvent } from "next/server";
+import { randomUUID } from "node:crypto";
+import { AFFILIATE_COOKIE, AFFILIATE_COOKIE_MAX_AGE, normalizeAffiliateCode, readAffiliateCookie } from "@/lib/analytics/affiliateCode";
+import { captureAffiliateEvent } from "@/lib/analytics/affiliateAttribution";
 import { query } from "@/lib/database/sql";
 
 const NON_GOOGLE_INDEXING_CRAWLER =
   /(bytespider|adidxbot|bingpreview|duckduckbot|baiduspider|yandexbot|yandeximages|applebot|petalbot|seznambot|sogou|exabot|qwantify|ahrefsbot|semrushbot|mj12bot|dotbot|serpstatbot|ccbot|gptbot|claudebot|anthropic-ai|perplexitybot|cohere-ai|amazonbot|omgilibot|diffbot|imagesiftbot)/i;
 
-export async function proxy(req: Request) {
+export async function proxy(req: Request, event: NextFetchEvent) {
   const url = new URL(req.url);
   const host = (req.headers.get("host") ?? "").split(":")[0].toLowerCase();
   const pathname = url.pathname;
@@ -22,6 +25,28 @@ export async function proxy(req: Request) {
         "X-Robots-Tag": "noindex, nofollow",
       },
     });
+  }
+
+  const code = normalizeAffiliateCode(url.searchParams.get("af"));
+  const isAffiliateHost = [ "imenuapp.com.br", "www.imenuapp.com.br", "preview.imenuapp.com.br", "localhost", "127.0.0.1" ].includes(host);
+  if (req.method === "GET" && code && isAffiliateHost && !readAffiliateCookie(req)) {
+    try {
+      const { rows } = await query("SELECT 1 FROM public.affiliate_partners WHERE code = $1", [code]);
+      if (rows.length) {
+        const visitId = randomUUID();
+        const response = NextResponse.next();
+        response.cookies.set(AFFILIATE_COOKIE, `${code}.${visitId}`, {
+          httpOnly: true, sameSite: "lax", secure: !["localhost", "127.0.0.1"].includes(host),
+          path: "/", maxAge: AFFILIATE_COOKIE_MAX_AGE,
+        });
+        response.headers.set("Cache-Control", "private, no-store");
+        if (isPreviewDomain) response.headers.set("X-Robots-Tag", "noindex, nofollow");
+        event.waitUntil(captureAffiliateEvent("affiliate_link_visited", visitId, visitId, { af: code, referral_visit_id: visitId }));
+        return response;
+      }
+    } catch (error) {
+      console.warn("[AFFILIATE] Could not resolve code:", error instanceof Error ? error.name : "unknown");
+    }
   }
 
   if (isPreviewDomain) {
