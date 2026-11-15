@@ -9,6 +9,7 @@ const steps = [
   "/restaurante/criar/disponibilidade",
   "/restaurante/criar/loja",
   "/restaurante/criar/localizacao",
+  "/restaurante/criar/plus",
 ];
 
 export default function CreationStepper() {

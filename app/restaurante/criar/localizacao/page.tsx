@@ -144,7 +144,7 @@ export default function LocalizacaoPage() {
             const menuIdentifier = String(payload?.url_slug || restaurantId);
             clear();
             router.replace(
-                `/painel?onboarding=complete&menu=${encodeURIComponent(menuIdentifier)}`
+                `/restaurante/criar/plus?menu=${encodeURIComponent(menuIdentifier)}`
             );
         } catch (caught) {
             setToast({
@@ -179,7 +179,7 @@ export default function LocalizacaoPage() {
             const menuIdentifier = String(payload?.url_slug || restaurantId);
             clear();
             router.replace(
-                `/painel?onboarding=complete&menu=${encodeURIComponent(menuIdentifier)}`
+                `/restaurante/criar/plus?menu=${encodeURIComponent(menuIdentifier)}`
             );
         } catch (caught) {
             setToast({
@@ -207,7 +207,7 @@ export default function LocalizacaoPage() {
         <main className="mx-auto w-full max-w-6xl px-4 pb-32 pt-8 sm:px-6 [&_h2>div.relative]:ml-2">
             <div className="mb-8 text-center sm:text-left">
                 <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-brand">
-                    Etapa 4/4
+                    Etapa 4/5
                 </p>
                 <h1 className="text-3xl font-bold text-gray-900">
                     Configurações de Entrega

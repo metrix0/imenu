@@ -18,6 +18,7 @@ export default function CreationLayout({
     const pathname = usePathname();
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(true);
+    const isPlusPage = pathname === "/restaurante/criar/plus";
     const isConfirmationPage = pathname?.includes("/info/otp");
 
     useEffect(() => {
@@ -42,7 +43,7 @@ export default function CreationLayout({
                 .eq("user_id", session.user.id)
                 .maybeSingle();
 
-            if (restaurant?.first_time === false) {
+            if (restaurant?.first_time === false && !isPlusPage) {
                 router.replace("/painel");
                 return;
             }
@@ -51,7 +52,7 @@ export default function CreationLayout({
         };
 
         void checkStatus();
-    }, [isConfirmationPage, router]);
+    }, [isConfirmationPage, isPlusPage, router]);
 
     if (isLoading) {
         return (

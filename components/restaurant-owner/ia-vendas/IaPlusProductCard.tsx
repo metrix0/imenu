@@ -4,10 +4,11 @@ import MenuProductCard from "@/components/restaurant-owner/mesas/MenuProductCard
 import { IA_PLUS_PRICE_LABEL, IA_PLUS_BENEFITS, IA_PLUS_BONUSES } from "@/lib/addons/products";
 import { PROMO_QR_PRICE_LABEL } from "@/lib/addons/promoQr";
 
-export default function IaPlusProductCard({ active, onLearnMore, presentation = "default", promo = false }: { active: boolean; onLearnMore: () => void; presentation?: "default" | "plans"; promo?: boolean }) {
+export default function IaPlusProductCard({ active, onLearnMore, presentation = "default", promo = false, actionLabel }: { active: boolean; onLearnMore: () => void; presentation?: "default" | "plans"; promo?: boolean; actionLabel?: string }) {
     return (
         <MenuProductCard
             presentation={presentation}
+            actionLabel={actionLabel}
             variant="addon"
             cardClickable={false}
             name="iMenu Plus"

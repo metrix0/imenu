@@ -1,10 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Sparkles } from "lucide-react";
-import { IA_PLUS_BENEFITS, IA_PLUS_PRICE_LABEL } from "@/lib/addons/products";
-import { PLUS_FEATURE_ICONS } from "@/components/restaurant-owner/mesas/MenuProductCard";
-import { usePlusExposure } from "@/lib/analytics/plusExposure";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -18,7 +14,6 @@ interface ShareMenuModalProps {
     restaurantId: string;
     restaurantSlug?: string;
     variant?: "share" | "welcome";
-    onPlus?: () => void;
 }
 
 export default function ShareMenuModal({
@@ -27,13 +22,11 @@ export default function ShareMenuModal({
     restaurantId,
     restaurantSlug,
     variant = "share",
-    onPlus,
 }: ShareMenuModalProps) {
     const [copied, setCopied] = useState(false);
     const [showQr, setShowQr] = useState(false);
     const welcomeLinkRef = useRef<HTMLInputElement>(null);
     const isWelcome = variant === "welcome";
-    const exposureRef = usePlusExposure("onboarding_complete", isWelcome && isOpen && Boolean(onPlus));
 
     const identifier = restaurantSlug || restaurantId;
     const origin = typeof window !== "undefined" ? window.location.origin : "";
@@ -72,24 +65,21 @@ export default function ShareMenuModal({
     if (isWelcome) {
         return (
             <Modal
-                height={onPlus ? 760 : "100dvh"}
-                fixedHeight={Boolean(onPlus)}
-                bodyClassName={onPlus ? "flex min-h-0 flex-1 flex-col !overflow-hidden" : undefined}
+                height="100dvh"
                 open={isOpen}
                 onClose={handleClose}
                 className="max-w-md"
             >
-                <div className={onPlus ? "flex min-h-0 flex-1 flex-col" : ""}>
-                <div className={`flex min-h-0 flex-col items-center overflow-y-auto p-6 text-center sm:p-7 ${onPlus ? "flex-1" : ""}`}>
-                    <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-brand/10 text-brand">
+                <div className="flex flex-col items-center p-6 text-center sm:p-7">
+                    <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-brand/10 text-brand">
                         <FontAwesomeIcon icon={icons.faCheck} className="text-xl" />
                     </div>
 
                     <h3 className="mb-2 text-2xl font-bold text-gray-900">
                         Sua loja está pronta!
                     </h3>
-                    <p className="mb-4 max-w-sm text-sm leading-6 text-gray-500">
-                        {onPlus ? "Seu cardápio já está no ar. Dê o próximo passo para vender mais." : "Seu cardápio já está no ar. Compartilhe o link abaixo com seus clientes para começar a receber pedidos."}
+                    <p className="mb-6 max-w-sm text-sm leading-6 text-gray-500">
+                        Seu cardápio já está no ar. Compartilhe o link abaixo com seus clientes para começar a receber pedidos.
                     </p>
 
                     <div className="mb-4 w-full rounded-xl border border-brand/20 bg-brand/[0.04] p-4 text-left">
@@ -119,26 +109,15 @@ export default function ShareMenuModal({
                                 {copied ? "Copiado!" : "Copiar"}
                             </Button>
                         </div>
-                        <p hidden={Boolean(onPlus)} className="mt-2 text-xs leading-5 text-gray-500">
+                        <a href={menuUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex w-full items-center justify-center rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-50">
+                            Ver meu cardápio
+                        </a>
+                        <p className="mt-2 text-xs leading-5 text-gray-500">
                             Use este link no WhatsApp, Instagram, Google ou onde seus clientes encontrarem sua loja.
                         </p>
                     </div>
 
-                    {onPlus ? (
-                        <section ref={exposureRef} className="mb-5 w-full border-t border-gray-200 pt-5 text-left" aria-label="iMenu Plus">
-                            <h4 className="text-xl font-bold text-gray-900">Venda mais com iMenu Plus.</h4>
-                            <ul className="mt-4 space-y-4">
-                                {IA_PLUS_BENEFITS.map(benefit => {
-                                    const Icon = PLUS_FEATURE_ICONS[benefit.title] ?? Sparkles;
-                                    return <li key={benefit.title} className="flex gap-3">
-                                        <Icon size={20} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" />
-                                        <div><h5 className="text-sm font-semibold text-gray-900">{benefit.title}</h5><p className="mt-1 text-xs leading-5 text-gray-500">{benefit.description}</p></div>
-                                    </li>;
-                                })}
-                            </ul>
-
-                        </section>
-                    ) : <div className="mb-5 w-full rounded-xl bg-gray-50 p-3 text-left">
+                    <div className="mb-5 w-full rounded-xl bg-gray-50 p-3 text-left">
                         <p className="text-sm leading-5 text-gray-600">
                             Quer mudar esse endereço? Altere a qualquer momento na aba{" "}
                             <span className="inline-flex items-center gap-1 font-semibold text-gray-900">
@@ -149,15 +128,8 @@ export default function ShareMenuModal({
                         </p>
                     </div>
 
-                    }
-                </div>
-                <div className="shrink-0 bg-white px-6 pb-6 text-center sm:px-7 sm:pb-7">
-                    {onPlus && <div className="mb-3 pt-3 text-left">
-                        <p className="text-sm text-gray-600"><strong className="text-2xl text-gray-900">{IA_PLUS_PRICE_LABEL}</strong> /mês</p>
-                        <p className="mt-1 text-xs leading-5 text-gray-500">Pix ou cartão · Cancele quando quiser</p>
-                    </div>}
-                    <Button type="button" onClick={onPlus ?? handleOrder} className="w-full" rightIcon={onPlus ? <ArrowRight size={16} aria-hidden="true" /> : undefined}>
-                        {onPlus ? "Ativar iMenu Plus" : "Faça um pedido"}
+                    <Button type="button" onClick={handleOrder} className="w-full">
+                        Faça um pedido
                     </Button>
                     <Button
                         type="button"
@@ -165,9 +137,8 @@ export default function ShareMenuModal({
                         className="mt-2 w-full"
                         variant="secondary"
                     >
-                        {onPlus ? "Continuar grátis" : "Ir para o painel"}
+                        Ir para o painel
                     </Button>
-                </div>
                 </div>
             </Modal>
         );

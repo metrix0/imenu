@@ -11,9 +11,6 @@ import {
 } from "@/components/common/AutoPopupProvider";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
-import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
-import { qrTableAuthenticatedFetch } from "@/lib/qr-table/clientApi";
-import { capturePosthogLightweight } from "@/lib/api/instrumentation-client";
 import ShareMenuModal from "@/components/restaurant-owner/ShareMenuModal";
 import { supabase } from "@/lib/database/supabaseClient";
 
@@ -57,39 +54,6 @@ export default function ApplicationInstallPrompt() {
     const [onboardingMenuIdentifier, setOnboardingMenuIdentifier] = useState<
         string | null
     >(null);
-
-    const [plusRestaurantId, setPlusRestaurantId] = useState<string | null>(null);
-    const [plusCheckout, setPlusCheckout] = useState(false);
-
-    useEffect(() => {
-        if (!onboardingMenuIdentifier) return;
-        let canceled = false;
-        setPlusRestaurantId(null);
-        setPlusCheckout(false);
-        void (async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) return;
-            const { data: restaurant, error } = await supabase.from("restaurants")
-                .select("id").eq("user_id", session.user.id).maybeSingle();
-            if (error || !restaurant?.id || canceled) return;
-            const response = await qrTableAuthenticatedFetch(`/api/addons/billing?restaurantId=${encodeURIComponent(restaurant.id)}`);
-            if (!response.ok) return;
-            const billing = await response.json();
-            if (canceled || !Array.isArray(billing.addons)) return;
-            const active = billing.addons.some((item: { addon: { product_key: string }; active: boolean }) =>
-                item.addon?.product_key === "ia_plus" && item.active);
-            if (!active) setPlusRestaurantId(restaurant.id);
-        })().catch(() => undefined);
-        return () => { canceled = true; };
-    }, [onboardingMenuIdentifier]);
-
-    const trackOnboardingPlus = (action: "checkout" | "skip") => {
-        void supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session?.user?.id) capturePosthogLightweight("imenu_plus_onboarding_action", session.user.id, {
-                action, restaurant_id: plusRestaurantId, surface: "onboarding_complete",
-            });
-        }).catch(() => undefined);
-    };
 
     const onboardingPopup = useAutoPopup({
         id: `onboarding-welcome:${onboardingMenuIdentifier || "none"}`,
@@ -178,8 +142,6 @@ export default function ApplicationInstallPrompt() {
     };
 
     const closeOnboardingWelcome = () => {
-        if (plusRestaurantId) trackOnboardingPlus("skip");
-        setPlusCheckout(false);
         onboardingPopup.dismiss();
         setOnboardingMenuIdentifier(null);
 
@@ -197,28 +159,10 @@ export default function ApplicationInstallPrompt() {
         <>
             {onboardingMenuIdentifier && (
                 <ShareMenuModal
-                    isOpen={onboardingPopup.open && !plusCheckout}
+                    isOpen={onboardingPopup.open}
                     onClose={closeOnboardingWelcome}
                     restaurantId={onboardingMenuIdentifier}
                     variant="welcome"
-                    onPlus={plusRestaurantId ? () => {
-                        trackOnboardingPlus("checkout");
-                        setPlusCheckout(true);
-                    } : undefined}
-                />
-            )}
-
-            {plusRestaurantId && (
-                <IaPlusSalesModal
-                    open={onboardingPopup.open && plusCheckout}
-                    checkout
-                    restaurantId={plusRestaurantId}
-                    source="onboarding"
-                    onClose={() => setPlusCheckout(false)}
-                    onPaid={() => {
-                        setPlusRestaurantId(null);
-                        setPlusCheckout(false);
-                    }}
                 />
             )}
 
