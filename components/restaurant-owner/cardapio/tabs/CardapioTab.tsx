@@ -459,6 +459,7 @@ export default function CardapioTab({
                     <Button
                         variant="secondary"
                         onClick={onNewCategory}
+                        leftIcon={<FontAwesomeIcon icon={faPlus} aria-hidden="true" />}
                         className="w-full min-w-0 whitespace-normal"
                     >
                         Adicionar categoria
@@ -466,6 +467,7 @@ export default function CardapioTab({
                     <Button
                         variant="secondary"
                         onClick={openOrganizer}
+                        leftIcon={<FontAwesomeIcon icon={faGripVertical} aria-hidden="true" />}
                         className="w-full min-w-0 whitespace-normal"
                     >
                         Organizar categorias
@@ -492,6 +494,7 @@ export default function CardapioTab({
                     <Button
                         variant="secondary"
                         onClick={onNewCategory}
+                        leftIcon={<FontAwesomeIcon icon={faPlus} aria-hidden="true" />}
                         className="whitespace-nowrap"
                     >
                         Adicionar categoria
@@ -499,6 +502,7 @@ export default function CardapioTab({
                     <Button
                         variant="secondary"
                         onClick={openOrganizer}
+                        leftIcon={<FontAwesomeIcon icon={faGripVertical} aria-hidden="true" />}
                         className="whitespace-nowrap"
                     >
                         Organizar categorias
