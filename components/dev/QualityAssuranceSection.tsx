@@ -10,7 +10,7 @@ import Badge from "@/components/ui/Badge";
 import PagedTable, { type PageData } from "./PagedTable";
 import DevLoading from "./DevLoading";
 import { devJson } from "@/lib/dev/client";
-import { formatCurrencyFromCents, formatDateTime, formatCount } from "@/lib/dev/dashboardFormat";
+import { formatCurrencyFromCents, formatDateTime, formatCount, formatRatio } from "@/lib/dev/dashboardFormat";
 import { useDevProfile } from "./DevProfileProvider";
 import styles from "./dashboard.module.css";
 
@@ -35,6 +35,27 @@ type Missing = {
     alertCount: number;
     latestAlarmAt: string | null;
 };
+type MenuScans = {
+    restaurantsTried: number;
+    restaurantsCompleted: number;
+    history: PageData<{
+        id: string;
+        restaurant_id: string;
+        restaurant_name: string;
+        created_at: string;
+        input_type: "link" | "files";
+        outcome: "success" | "empty" | "failed";
+        items: number | null;
+        provider: "Gemini" | "OpenAI" | null;
+    }>;
+};
+
+const scanOutcomes = {
+    success: { label: "Concluído", variant: "success" },
+    empty: { label: "Sem produtos", variant: "warning" },
+    failed: { label: "Falhou", variant: "danger" },
+} as const;
+
 type OpenAiCosts =
     | { status: "unconfigured" | "unavailable" }
     | {
@@ -88,6 +109,10 @@ const attemptLabel: Record<string, string> = {
 export default function QualityAssuranceSection() {
     const [page, setPage] = useState(0);
     const [missingPage, setMissingPage] = useState(0);
+    const [scanPage, setScanPage] = useState(0);
+    const [scans, setScans] = useState<MenuScans | null>(null);
+    const [scanLoading, setScanLoading] = useState(true);
+    const [scanError, setScanError] = useState(false);
     const [data, setData] = useState<QualityAssurance | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -104,6 +129,17 @@ export default function QualityAssuranceSection() {
             .finally(() => { if (!controller.signal.aborted) setLoading(false); });
         return () => controller.abort();
     }, [page]);
+
+    useEffect(() => {
+        const controller = new AbortController();
+        setScanLoading(true);
+        setScanError(false);
+        void devJson<MenuScans>("/api/dev/quality-assurance/menu-scans?page=" + scanPage, { signal: controller.signal })
+            .then(result => { if (!controller.signal.aborted) setScans(result); })
+            .catch(() => { if (!controller.signal.aborted) setScanError(true); })
+            .finally(() => { if (!controller.signal.aborted) setScanLoading(false); });
+        return () => controller.abort();
+    }, [scanPage]);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -191,6 +227,38 @@ export default function QualityAssuranceSection() {
                             { key: "lastAlarm", label: "Último alarme", className: "whitespace-nowrap", render: row => formatDateTime(row.latestAlarmAt) },
                         ]} />
                 </div>
+            </section>
+            <section className={`${styles.tableSection} ${styles.fitTable}`}>
+                <h2>Scans de cardápio</h2>
+                <p className="text-xs text-gray-500">Últimos 14 dias</p>
+                {scanError ? <p role="alert" className="my-4 text-sm text-red-700">Não foi possível carregar os scans.</p>
+                    : scans === null ? <DevLoading /> : <>
+                        <dl className={styles.metricStrip}>
+                            <div>
+                                <dt>Restaurantes que tentaram</dt>
+                                <dd>{formatCount(scans.restaurantsTried)}</dd>
+                            </div>
+                            <div>
+                                <dt>Restaurantes com produtos</dt>
+                                <dd>{formatCount(scans.restaurantsCompleted)}</dd>
+                            </div>
+                            <div>
+                                <dt>Taxa de conclusão</dt>
+                                <dd>{scans.restaurantsTried ? formatRatio(100 * scans.restaurantsCompleted / scans.restaurantsTried) : "—"}</dd>
+                            </div>
+                        </dl>
+                        <PagedTable data={scans.history} loading={scanLoading} onPage={setScanPage}
+                            rowKey={row => row.id}
+                            onRowClick={row => openRestaurant(row.restaurant_id, row.restaurant_name)}
+                            columns={[
+                                { key: "date", label: "Data", render: row => formatDateTime(row.created_at) },
+                                { key: "restaurant", label: "Restaurante", render: row => <span title={row.restaurant_name} className="block truncate font-medium">{row.restaurant_name}</span> },
+                                { key: "input", label: "Origem", render: row => row.input_type === "link" ? "Link" : "Foto / PDF" },
+                                { key: "outcome", label: "Resultado", render: row => <Badge variant={scanOutcomes[row.outcome].variant}>{scanOutcomes[row.outcome].label}</Badge> },
+                                { key: "items", label: "Produtos", render: row => row.items == null ? "—" : formatCount(row.items) },
+                                { key: "provider", label: "IA", render: row => row.provider ?? "—" },
+                            ]} />
+                    </>}
             </section>
             <section className={`${styles.tableSection} ${styles.fitTable}`}>
                 <h2>Gastos OpenAI</h2>
