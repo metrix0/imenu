@@ -33,6 +33,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 
 import ConfirmModal from "@/components/ui/ConfirmModal";
+import { isManualOpeningActive, isStoreManuallyClosed } from "@/lib/menu/storeHoursOverride";
 import Loader from "@/components/ui/Loader";
 import { useSalesStore } from "@/lib/stores/restaurant-owner/iaVendasStore";
 import SupportButton, {
@@ -106,10 +107,11 @@ export default function PainelLayout({
     const supportButtonRef = useRef<SupportButtonRef>(null);
     const productPageViewRef = useRef<string | null>(null);
 
-    const [isStoreClosed, setIsStoreClosed] = useState(false);
+    const [storeOverride, setStoreOverride] = useState<{ is_closed: string | null; manual_open_until: string | null } | null>(null);
+    const storeChangeVersion = useRef(0);
     const [availability, setAvailability] = useState<Availability | null>(null);
     const [scheduleNow, setScheduleNow] = useState(() => new Date());
-    const [showCloseModal, setShowCloseModal] = useState(false);
+    const [showStoreModal, setShowStoreModal] = useState(false);
     const [isTogglingStore, setIsTogglingStore] = useState(false);
     const [isChecking, setIsChecking] = useState(true);
     const [isPasswordRecoveryFlow, setIsPasswordRecoveryFlow] = useState(false);
@@ -210,66 +212,35 @@ export default function PainelLayout({
     }, []);
 
     useEffect(() => {
-        const fetchContext = async () => {
-            if (!targetRestaurantId) return;
-
-            try {
-                const restaurantResult = await supabase
-                    .from("restaurants")
-                    .select("is_closed, availability_json")
-                    .eq("id", targetRestaurantId)
-                    .single();
-
-                setAvailability(
-                    (restaurantResult.data?.availability_json as Availability | null) ?? null
-                );
-
-                const closedDate = restaurantResult.data?.is_closed;
-                if (!closedDate) {
-                    setIsStoreClosed(false);
-                    return;
-                }
-
-                const today = new Date().toISOString().split("T")[0];
-                const savedDate = new Date(closedDate)
-                    .toISOString()
-                    .split("T")[0];
-
-                if (savedDate === today) {
-                    setIsStoreClosed(true);
-                    return;
-                }
-
-                await fetch(`/api/restaurants/${targetRestaurantId}`, {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ is_closed: null }),
-                });
-                setIsStoreClosed(false);
-            } catch (error) {
-                console.error("Erro no layout:", error);
-            }
-        };
-
-        void fetchContext();
+        if (!targetRestaurantId) return;
+        let active = true;
+        const version = storeChangeVersion.current;
+        void supabase.from("restaurants")
+            .select("is_closed, manual_open_until, availability_json")
+            .eq("id", targetRestaurantId)
+            .single()
+            .then(({ data, error }) => {
+                if (!active || error || !data) return;
+                setAvailability((data.availability_json as Availability | null) ?? null);
+                if (version === storeChangeVersion.current) setStoreOverride(data);
+            });
+        return () => { active = false; };
     }, [targetRestaurantId, pathname]);
 
     useEffect(() => {
-        const updateScheduleNow = () => setScheduleNow(previous => {
-            const next = new Date();
-            return isStoreOpenBySchedule(availability, previous) === isStoreOpenBySchedule(availability, next)
-                ? previous
-                : next;
-        });
-        updateScheduleNow();
-        const interval = window.setInterval(updateScheduleNow, 30_000);
-        window.addEventListener("focus", updateScheduleNow);
+        const update = () => setScheduleNow(new Date());
+        update();
+        const interval = window.setInterval(update, 30_000);
+        const expiresIn = Date.parse(storeOverride?.manual_open_until ?? "") - Date.now();
+        const expiryTimer = expiresIn > 0 ? window.setTimeout(update, expiresIn) : undefined;
+        window.addEventListener("focus", update);
 
         return () => {
             window.clearInterval(interval);
-            window.removeEventListener("focus", updateScheduleNow);
+            if (expiryTimer !== undefined) window.clearTimeout(expiryTimer);
+            window.removeEventListener("focus", update);
         };
-    }, [availability]);
+    }, [storeOverride?.manual_open_until]);
 
     useEffect(() => {
         const checkAuth = async () => {
@@ -309,29 +280,26 @@ export default function PainelLayout({
         void checkAuth();
     }, [pathname, router]);
 
-    const handleStoreToggle = async (action: "open" | "close") => {
-        if (!targetRestaurantId) return;
+    const handleStoreToggle = async (action: "open" | "close" | "resume") => {
+        if (!targetRestaurantId || isTogglingStore) return;
 
+        storeChangeVersion.current += 1;
         setIsTogglingStore(true);
         try {
-            const response = await fetch(
-                `/api/restaurants/${targetRestaurantId}`,
-                {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        is_closed:
-                            action === "close"
-                                ? new Date().toISOString()
-                                : null,
-                    }),
-                }
-            );
-
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error("Sessão expirada");
+            const response = await fetch(`/api/restaurants/${targetRestaurantId}/store-hours-override`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+                body: JSON.stringify({ action }),
+            });
             if (!response.ok) throw new Error("Falha ao atualizar");
 
-            setIsStoreClosed(action === "close");
-            if (action === "close") setShowCloseModal(false);
+            const updatedOverride = await response.json();
+            storeChangeVersion.current += 1;
+            setStoreOverride(updatedOverride);
+            setScheduleNow(new Date());
+            setShowStoreModal(false);
         } catch (error) {
             console.error("Erro ao alterar status da loja:", error);
             window.alert("Erro ao alterar status da loja.");
@@ -404,23 +372,21 @@ export default function PainelLayout({
         return <main className="min-h-screen bg-gray-50">{children}</main>;
     }
 
-    const storeStatus = isStoreClosed
-        ? "manual"
-        : isStoreOpenBySchedule(availability, scheduleNow)
-          ? "open"
-          : "scheduled-closed";
+    const manuallyOpen = isManualOpeningActive(storeOverride?.manual_open_until, scheduleNow);
+    const storeStatus = manuallyOpen ? "open"
+        : isStoreManuallyClosed(storeOverride?.is_closed, scheduleNow) ? "manual"
+        : isStoreOpenBySchedule(availability, scheduleNow) ? "open" : "scheduled-closed";
+    const storeStatusLabel = manuallyOpen ? "Aberta manualmente até 23h59"
+        : storeStatus === "manual" ? "Fechada manualmente"
+        : storeStatus === "open" ? "Loja aberta" : "Loja fechada";
 
     const storeStatusButton = (fullWidth: boolean) => (
         <button
             type="button"
-            onClick={() =>
-                isStoreClosed
-                    ? void handleStoreToggle("open")
-                    : setShowCloseModal(true)
-            }
+            onClick={() => setShowStoreModal(true)}
             disabled={isTogglingStore}
-            className={`panel-store-status flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-                fullWidth ? "w-full" : ""
+            className={`panel-store-status flex cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                fullWidth ? "w-full whitespace-normal" : "whitespace-nowrap"
             } ${
                 storeStatus === "manual"
                     ? "border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
@@ -438,11 +404,7 @@ export default function PainelLayout({
                           : faClock
                 }
             />
-            {storeStatus === "manual"
-                ? "Fechada manualmente"
-                : storeStatus === "open"
-                  ? "Loja aberta"
-                  : "Loja fechada"}
+            {storeStatusLabel}
         </button>
     );
 
@@ -451,20 +413,19 @@ export default function PainelLayout({
         <OrderSoundProvider>
             <OrderMilestonePlusPopup />
             <ConfirmModal
-                open={showCloseModal}
-                onClose={() => setShowCloseModal(false)}
-                onConfirm={() => void handleStoreToggle("close")}
-                title="Fechar Loja Hoje?"
-                description="Isso fechará a loja temporariamente. Ela abrirá automaticamente amanhã ou você pode reabri-la manualmente a qualquer momento."
-                descriptionAfter={
-                    <span className="inline-flex items-center justify-center gap-1.5">
-                        Você pode abrir sua loja definindo horários na aba
-                        <FontAwesomeIcon icon={faClock} />
-                        Horários.
-                    </span>
-                }
-                confirmLabel="Fechar Loja"
-                variant="danger"
+                open={showStoreModal}
+                onClose={() => { if (!isTogglingStore) setShowStoreModal(false); }}
+                onConfirm={() => void handleStoreToggle(storeStatus === "manual" ? "open" : "close")}
+                title="Horário da loja hoje"
+                description={manuallyOpen
+                    ? "Sua loja está aberta manualmente até 23h59 (horário de Brasília)."
+                    : "Abra ou feche a loja temporariamente. A abertura manual vale até 23h59 (horário de Brasília)."}
+                confirmLabel={storeStatus === "manual" ? "Abrir loja hoje" : "Fechar loja hoje"}
+                variant={storeStatus === "manual" ? "primary" : "danger"}
+                extraAction={{
+                    label: manuallyOpen || storeStatus === "manual" ? "Voltar aos horários normais" : "Abrir loja hoje",
+                    onClick: () => void handleStoreToggle(manuallyOpen || storeStatus === "manual" ? "resume" : "open"),
+                }}
                 isLoading={isTogglingStore}
             />
 
@@ -478,13 +439,7 @@ export default function PainelLayout({
                 collapsedStatus={
                             <div
                                 className="mt-2 flex h-[30px] items-center justify-center"
-                                title={
-                                    storeStatus === "manual"
-                                        ? "Fechada manualmente"
-                                        : storeStatus === "open"
-                                          ? "Loja aberta"
-                                          : "Loja fechada"
-                                }
+                                title={storeStatusLabel}
                             >
                                 <div
                                     className={`relative h-3 w-3 rounded-full ${
@@ -504,19 +459,9 @@ export default function PainelLayout({
                 headerAction={
                     <button
                         type="button"
-                        onClick={() =>
-                            isStoreClosed
-                                ? void handleStoreToggle("open")
-                                : setShowCloseModal(true)
-                        }
+                        onClick={() => setShowStoreModal(true)}
                         disabled={isTogglingStore}
-                        title={
-                            storeStatus === "manual"
-                                ? "Fechada manualmente"
-                                : storeStatus === "open"
-                                  ? "Loja aberta"
-                                  : "Loja fechada"
-                        }
+                        title={storeStatusLabel}
                         className={`flex h-10 items-center gap-2 rounded-lg border px-3 text-xs font-medium ${
                             storeStatus === "manual"
                                 ? "border-red-200 bg-red-50 text-red-600"
@@ -534,7 +479,7 @@ export default function PainelLayout({
                                       : "bg-gray-400"
                             }`}
                         />
-                        {storeStatus === "manual"
+                        {manuallyOpen ? "Aberta manualmente" : storeStatus === "manual"
                             ? "Manual"
                             : storeStatus === "open"
                               ? "Aberta"
@@ -551,4 +496,5 @@ export default function PainelLayout({
         </OrderSoundProvider>
     );
 }
+
 

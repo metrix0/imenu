@@ -216,6 +216,7 @@ export default async function Page({
     latitude: restaurantData.latitude,
     longitude: restaurantData.longitude,
     is_closed: restaurantData.is_closed,
+    manual_open_until: restaurantData.manual_open_until,
     allowed_payment_methods: restaurantData.allowed_payment_methods,
     address: restaurantData.address,
     pickup_enabled: restaurantData.pickup_enabled === true,
@@ -483,3 +484,4 @@ export default async function Page({
     </div>
   );
 }
+

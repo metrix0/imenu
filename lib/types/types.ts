@@ -31,6 +31,7 @@ export type Restaurant = {
     latitude: number;
     longitude: number;
     is_closed: any;
+    manual_open_until?: string | null;
     url_slug?: string;
     phone?: string | null;
     store_whatsapp?: string | null;
@@ -211,3 +212,4 @@ export type LoyaltyBalance = {
     total_lifetime_count: number;
     last_order_at: string | null;
 };
+

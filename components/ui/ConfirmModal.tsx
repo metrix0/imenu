@@ -16,6 +16,7 @@ interface ConfirmModalProps {
     confirmLabel?: string;
     cancelLabel?: string;
     isLoading?: boolean;
+    extraAction?: { label: string; onClick: () => void };
     variant?: "danger" | "primary";
 }
 
@@ -29,6 +30,7 @@ export default function ConfirmModal({
     confirmLabel = "Confirmar",
     cancelLabel = "Cancelar",
     isLoading = false,
+    extraAction,
     variant = "danger"
 }: ConfirmModalProps) {
     const descriptionLength = description?.trim().length ?? 0;
@@ -37,7 +39,7 @@ export default function ConfirmModal({
             ? Children.toArray(descriptionAfter.props.children)
             : [descriptionAfter]
         : [];
-    const height = descriptionAfter
+    const height = extraAction ? 380 : descriptionAfter
         ? 370
         : !description
           ? 260
@@ -80,7 +82,7 @@ export default function ConfirmModal({
                     </p>
                 )}
 
-                <div className="flex flex-col sm:flex-row justify-center gap-3">
+                <div className={`flex flex-col sm:flex-row justify-center gap-3 ${extraAction ? "sm:flex-wrap" : ""}`}>
                     <Button 
                         variant="secondary" 
                         onClick={onClose} 
@@ -98,8 +100,14 @@ export default function ConfirmModal({
                     >
                         {confirmLabel}
                     </Button>
+                    {extraAction && (
+                        <Button variant="secondary" onClick={extraAction.onClick} disabled={isLoading} className="w-full sm:w-auto">
+                            {extraAction.label}
+                        </Button>
+                    )}
                 </div>
             </div>
         </Modal>
     );
 }
+

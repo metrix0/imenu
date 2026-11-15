@@ -80,10 +80,11 @@ export default function CartModal({
                                        restaurant,
     catalogItemsByCategory,
     selectedCouponCode, onSelectItem, tableOrder, selectedTableId,
-    selectedTableName, onTableChange, promotionResult, neighborhoodDeliveryRules, smallCityMode = false, requiresSchedule = false
+    selectedTableName, onTableChange, promotionResult, neighborhoodDeliveryRules, smallCityMode = false, requiresSchedule = false, manuallyClosedToday: closedToday
                                    }: {
     promotionResult?: PromotionResult;
     requiresSchedule?: boolean;
+    manuallyClosedToday: boolean;
     onClose: () => void;
     restaurant: any;
     catalogItemsByCategory: ItemsByCategory;
@@ -155,15 +156,7 @@ export default function CartModal({
     const preorderOnly = restaurant?.preorder_only === true && !isTableOrder;
     const minAdvanceDays = preorderOnly ? Math.max(0, Math.min(59, Number(restaurant?.preorder_min_days) || 0)) : 0;
     const allowFutureScheduling = restaurant?.allow_future_order_scheduling === true || preorderOnly;
-    const manuallyClosedToday = (() => {
-        if (isTableOrder || preorderOnly || !restaurant?.is_closed) return false;
-        const closedDate = new Date(restaurant.is_closed);
-        const businessToday = new Date();
-        if (businessToday.getHours() < 4) businessToday.setDate(businessToday.getDate() - 1);
-        return closedDate.getFullYear() === businessToday.getFullYear() &&
-            closedDate.getMonth() === businessToday.getMonth() &&
-            closedDate.getDate() === businessToday.getDate();
-    })();
+    const manuallyClosedToday = !isTableOrder && !preorderOnly && closedToday;
     const availability = preorderOnly
         ? restaurant?.preorder_availability_json
         : restaurant?.availability_json;
