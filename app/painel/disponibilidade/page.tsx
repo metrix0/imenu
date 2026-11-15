@@ -197,32 +197,29 @@ export default function DisponibilidadePage() {
 
     return (
         <div className="max-w-6xl min-[1800px]:max-w-[100rem] min-[1800px]:w-full mx-auto pb-20 px-4 sm:px-6 pt-8">
-            <PageSaveHeader>
-<div className="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4 px-2">
-                <div>
-                    <div className="flex items-center gap-2">
-                        <h1 className="text-3xl font-bold text-gray-900">Horários de Funcionamento</h1>
+            <div className="mb-4 px-2 sm:mb-8">
+                <PageSaveHeader>
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <h1 className="text-3xl font-bold text-gray-900">Horários de Funcionamento</h1>
+                        </div>
+                        <p className="text-gray-500 mt-1 min-[1800px]:text-lg">
+                            Defina quando sua loja estará aberta para receber pedidos. Trabalha só com encomendas?{" "}
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    document.getElementById("preorder-mode")?.scrollIntoView({ behavior: "smooth", block: "center" });
+                                    if (!preorderOnly) window.setTimeout(() => setOpenPreorderConfirmationSignal((value) => value + 1), 400);
+                                }}
+                                className="cursor-pointer font-medium text-brand underline hover:underline"
+                            >
+                                Clique aqui
+                            </button>
+                        </p>
                     </div>
-                    <p className="text-gray-500 mt-1 min-[1800px]:text-lg">
-                        Defina quando sua loja estará aberta para receber pedidos. Trabalha só com encomendas?{" "}
-                        <button
-                            type="button"
-                            onClick={() => {
-                                document.getElementById("preorder-mode")?.scrollIntoView({ behavior: "smooth", block: "center" });
-                                if (!preorderOnly) window.setTimeout(() => setOpenPreorderConfirmationSignal((value) => value + 1), 400);
-                            }}
-                            className="cursor-pointer font-medium text-brand underline hover:underline"
-                        >
-                            Clique aqui
-                        </button>
-                    </p>
-                </div>
-                
-                <div className="text-sm font-medium h-6 flex items-center">
                     <SaveStatus status={saveError || schedulingSaveError ? "error" : isSaving || isSavingOrderScheduling ? "saving" : "saved"} />
-                </div>
+                </PageSaveHeader>
             </div>
-</PageSaveHeader>
 
             {!preorderOnly && <div role="region" aria-label="Horários da semana" className="bg-white border border-gray-200 rounded-xl p-5 sm:py-6 sm:pr-6">
                 <WeeklyScheduleClick value={availability} onChange={handleScheduleChange} />
