@@ -113,7 +113,7 @@ export async function loadPostHogMetrics(
     const plusExposure = `event = 'imenu_plus_exposure_viewed'
         AND timestamp >= toDateTime('2026-11-10 12:50:49', 'UTC')
         AND toString(properties.surface) IN (
-            'plus_page', 'assistant_limit', 'sales_section', 'marketing_page', 'onboarding_complete'
+            'plus_page', 'assistant_limit', 'sales_section', 'marketing_page', 'onboarding_complete', 'sales_modal'
         )`;
 
     // A visitor cannot qualify for a second visit inside a <=7-day window.

@@ -18,7 +18,7 @@ afterAll(() => {
     }
 });
 
-test.each([true, false])("Plus includes historical pageviews only before the cutover (rolling=%s)", async rolling => {
+test.each([true, false])("Plus counts the sales modal and only uses historical pageviews before the cutover (rolling=%s)", async rolling => {
     const request = jest.fn(async (_url: string, _options: RequestInit) => ({
         ok: true,
         json: async () => ({ results: [[0, 0, 0, 0, 0, 0, 42, 0, 0]] }),
@@ -40,8 +40,7 @@ test.each([true, false])("Plus includes historical pageviews only before the cut
     for (const path of ["/painel/assistente-ia", "/painel/vendas-ia", "/painel/marketing"]) {
         expect(hogql).toContain(path);
     }
-    expect(hogql).not.toContain("sales_modal");
-    for (const surface of ["plus_page", "assistant_limit", "sales_section", "marketing_page", "onboarding_complete"]) {
+    for (const surface of ["plus_page", "assistant_limit", "sales_section", "marketing_page", "onboarding_complete", "sales_modal"]) {
         expect(hogql).toContain(surface);
     }
     if (rolling) {
