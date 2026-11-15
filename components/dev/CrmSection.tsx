@@ -6,6 +6,7 @@ import styles from "./dashboard.module.css";
 import { Search, Eye } from "lucide-react";
 import Dropdown from "@/components/ui/Dropdown";
 import Tooltip from "@/components/ui/Tooltip";
+import type { DateRange } from "@/lib/utils/dateRange";
 import PagedTable, { type PageData } from "./PagedTable";
 import { devJson } from "@/lib/dev/client";
 
@@ -13,11 +14,12 @@ import {useDevProfile,PhoneLink,CustomerBadge,type Restaurant} from "./DevProfil
 import {accountAge, formatCurrencyFromCents, formatDateTime} from "@/lib/dev/dashboardFormat";
 const empty = <T,>(): PageData<T> => ({ rows: [], page: 0, total: 0, pageCount: 1 });
 
-export function CrmList({ search = "", plan = "all", activity, title, onTotalChange }: {
+export function CrmList({ search = "", plan = "all", activity, title, range, onTotalChange }: {
     search?: string;
     plan?: string;
     activity: string;
     title?: string;
+    range?: DateRange;
     onTotalChange?: (activity: string, total: number) => void;
 }) {
     const { openProfile } = useDevProfile();
@@ -40,6 +42,10 @@ export function CrmList({ search = "", plan = "all", activity, title, onTotalCha
         const controller = new AbortController();
         setLoading(true);
         const params = new URLSearchParams({ mode: "crm", q: search, plan, activity, page: String(page) });
+        if (range) {
+            params.set("startDate", range.startDate);
+            params.set("endDate", range.endDate);
+        }
         if (sort) {
             params.set("sort", sort.key);
             params.set("direction", sort.direction);
@@ -54,7 +60,7 @@ export function CrmList({ search = "", plan = "all", activity, title, onTotalCha
             .catch(e => { if (!controller.signal.aborted) setError(e.message); })
             .finally(() => { if (!controller.signal.aborted) setLoading(false); });
         return () => controller.abort();
-    }, [search, plan, activity, page, sort, onTotalChange]);
+    }, [search, plan, activity, page, sort, range, onTotalChange]);
     return <section className={styles.tableSection} aria-label={title}>
         {title && <h2>{title}</h2>}
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}

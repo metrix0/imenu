@@ -126,6 +126,88 @@ const ACTIVITY: Record<string, string> = {
     ].join(" "),
 };
 
+const CHURN_PERIOD_BOUNDS = `WITH churn_bounds AS (
+    SELECT $2::date::timestamp AT TIME ZONE 'America/Sao_Paulo' AS start_at,
+           LEAST(NOW(), ($3::date + 1)::timestamp AT TIME ZONE 'America/Sao_Paulo') AS end_at
+)`;
+
+const CHURN_ACTIVITY = {
+    churned_plus: `r.id IN (
+        SELECT DISTINCT ON (COALESCE(owned.user_id, owned.id)) owned.id
+        FROM restaurant_addons addon
+        JOIN restaurants owned ON owned.id = addon.restaurant_id
+        CROSS JOIN churn_bounds bounds
+        WHERE addon.product_key = 'ia_plus'
+          AND addon.current_period_ends_at >= bounds.start_at
+          AND addon.current_period_ends_at < bounds.end_at
+          AND (
+              EXISTS (
+                  SELECT 1 FROM restaurant_addon_payments payment
+                  WHERE payment.addon_id = addon.id
+                    AND payment.paid_at < addon.current_period_ends_at AND payment.amount_cents > 0
+                    AND UPPER(payment.status) IN ('CONFIRMED','RECEIVED','RECEIVED_IN_CASH','PAID','COMPLETED','APPROVED')
+              )
+              OR (addon.activated_at < addon.current_period_ends_at
+                  AND UPPER(addon.payzu_payment_status) IN ('PAID','COMPLETED','CONFIRMED'))
+          )
+          AND NOT EXISTS (
+              SELECT 1 FROM restaurant_addons renewed
+              JOIN restaurants other ON other.id = renewed.restaurant_id
+              WHERE COALESCE(other.user_id, other.id) = COALESCE(owned.user_id, owned.id)
+                AND renewed.product_key = 'ia_plus'
+                AND (renewed.status = 'active' OR renewed.status IN ('canceled','past_due'))
+                AND (renewed.current_period_ends_at >= bounds.end_at
+                     OR (renewed.status = 'active' AND renewed.current_period_ends_at IS NULL))
+          )
+        ORDER BY COALESCE(owned.user_id, owned.id), addon.current_period_ends_at DESC, owned.id
+    )`,
+    churned_imenu: `NOT ${ACCOUNT_PLUS} AND r.id IN (
+        WITH daily_orders AS (
+            SELECT DISTINCT ON (${OWNED_ACCOUNT}, ${PURCHASE_DAY})
+                ${OWNED_ACCOUNT} AS account_id, owned.id AS restaurant_id, o.created_at AS last_order_at,
+                MIN(o.created_at) OVER (PARTITION BY ${OWNED_ACCOUNT}, ${PURCHASE_DAY}) AS first_order_at
+            FROM orders o
+            JOIN restaurants owned ON owned.id = o.restaurant_id
+            CROSS JOIN churn_bounds bounds
+            WHERE o.table_id IS NULL AND o.status = 'done'
+              AND o.created_at >= bounds.start_at - INTERVAL '30 days'
+              AND o.created_at < bounds.end_at
+            ORDER BY ${OWNED_ACCOUNT}, ${PURCHASE_DAY}, o.created_at DESC, o.id
+        ), activity_gaps AS (
+            SELECT account_id, restaurant_id, last_order_at + INTERVAL '14 days' AS churned_at,
+                   LAG(last_order_at) OVER account_days AS previous_day_order,
+                   LEAD(first_order_at) OVER account_days AS next_order
+            FROM daily_orders
+            WINDOW account_days AS (PARTITION BY account_id ORDER BY last_order_at)
+        )
+        SELECT DISTINCT ON (account_id) restaurant_id
+        FROM activity_gaps CROSS JOIN churn_bounds bounds
+        WHERE churned_at >= bounds.start_at AND churned_at < bounds.end_at
+          AND previous_day_order >= churned_at - INTERVAL '30 days'
+          AND (next_order IS NULL OR next_order > churned_at)
+        ORDER BY account_id, churned_at DESC, restaurant_id
+    )`,
+    not_activated: `r.id IN (
+        SELECT DISTINCT ON (${OWNED_ACCOUNT}) owned.id
+        FROM restaurants owned CROSS JOIN churn_bounds bounds
+        WHERE owned.creation_step >= 4 AND owned.first_time = false
+          AND owned.onboarding_completed_at >= bounds.start_at
+          AND owned.onboarding_completed_at < bounds.end_at
+          AND owned.onboarding_completed_at < NOW() - INTERVAL '24 hours'
+          AND NOT EXISTS (
+              SELECT 1 FROM orders o JOIN restaurants other ON other.id = o.restaurant_id
+              WHERE COALESCE(other.user_id, other.id) = ${OWNED_ACCOUNT}
+          )
+        ORDER BY ${OWNED_ACCOUNT}, owned.onboarding_completed_at DESC, owned.id
+    )`,
+};
+
+function isCalendarDate(value: string): boolean {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const parsed = new Date(value + "T00:00:00Z");
+    return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
 export async function getCrm(params: URLSearchParams) {
     const page = devPage(params);
     const id = params.get("restaurant_id");
@@ -165,7 +247,19 @@ export async function getCrm(params: URLSearchParams) {
     const paidOnly = params.get("paid") === "1";
     const search = params.get("q")?.trim().slice(0, 200) || "";
     const plan = params.get("plan");
-    const activity = ACTIVITY[params.get("activity") || ""];
+    const activityKey = params.get("activity") || "";
+    const isChurn = Object.hasOwn(CHURN_ACTIVITY, activityKey);
+    const activity = isChurn ? CHURN_ACTIVITY[activityKey as keyof typeof CHURN_ACTIVITY]
+        : Object.hasOwn(ACTIVITY, activityKey) ? ACTIVITY[activityKey] : undefined;
+    const startDate = params.get("startDate") || "";
+    const endDate = params.get("endDate") || "";
+    if (isChurn && (!isCalendarDate(startDate) || !isCalendarDate(endDate) || startDate > endDate)) {
+        return paged([], 0, page, CRM_PAGE_SIZE);
+    }
+    const bounds = isChurn ? CHURN_PERIOD_BOUNDS : "";
+    const listParams = isChurn ? [search, startDate, endDate] : [search];
+    const limit = listParams.length + 1;
+    const offset = limit + 1;
     const conditions = [
         `($1='' OR r.name ILIKE '%'||$1||'%' OR u.email ILIKE '%'||$1||'%' OR r.phone ILIKE '%'||$1||'%' OR r.store_whatsapp ILIKE '%'||$1||'%' OR u.raw_user_meta_data->>'phone' ILIKE '%'||$1||'%')`,
         ...(paidOnly ? [`(${PAID})`] : []),
@@ -188,7 +282,7 @@ export async function getCrm(params: URLSearchParams) {
     const direction = params.get("direction") === "asc" ? "ASC" : "DESC";
     const orderBy = sortColumn ? `${sortColumn} ${direction} NULLS LAST, r.id` : "r.created_at DESC,r.id";
     const [rows, count] = await Promise.all([
-        query(`SELECT r.id,r.name,r.url_slug,r.created_at,COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),r.phone) phone,r.store_whatsapp AS store_phone,
+        query(`${bounds} SELECT r.id,r.name,r.url_slug,r.created_at,COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),r.phone) phone,r.store_whatsapp AS store_phone,
             COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),NULLIF(TRIM(r.phone),'')) AS owner_phone,(${PLUS_SINCE}) AS plus_since,u.email,(${PAID}) AS has_paid,(${PLUS}) AS plus,
             COALESCE(gmv.gmv_cents,0) AS gmv_cents,support.conversation_id AS support_conversation_id,support.mode AS support_mode,support.last_message,support.last_message_at
             FROM restaurants r LEFT JOIN auth.users u ON u.id=r.user_id
@@ -200,8 +294,8 @@ export async function getCrm(params: URLSearchParams) {
             ) gmv ON true
             ${LAST_SUPPORT_JOIN}
             WHERE ${where}
-            ORDER BY ${orderBy} LIMIT $2 OFFSET $3`, [search, CRM_PAGE_SIZE, page * CRM_PAGE_SIZE]),
-        query<{ total: number }>(`SELECT COUNT(*)::int total FROM restaurants r LEFT JOIN auth.users u ON u.id=r.user_id WHERE ${where}`, [search]),
+            ORDER BY ${orderBy} LIMIT $${limit} OFFSET $${offset}`, [...listParams, CRM_PAGE_SIZE, page * CRM_PAGE_SIZE]),
+        query<{ total: number }>(`${bounds} SELECT COUNT(*)::int total FROM restaurants r LEFT JOIN auth.users u ON u.id=r.user_id WHERE ${where}`, listParams),
     ]);
     return paged(rows.rows, count.rows[0].total, page, CRM_PAGE_SIZE);
 }

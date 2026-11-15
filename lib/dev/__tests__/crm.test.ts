@@ -115,3 +115,37 @@ test("restaurant profile includes the same support conversation lookup", async (
     expect(sql).toContain("c.restaurant_id=r.id");
     expect(params).toEqual([id]);
 });
+
+test.each([
+    ["churned_plus", "addon.current_period_ends_at >= bounds.start_at"],
+    ["churned_imenu", "last_order_at + INTERVAL '14 days' AS churned_at"],
+    ["not_activated", "owned.onboarding_completed_at >= bounds.start_at"],
+])("Churn %s filters the count and paginated list by the same date range", async (activity, predicate) => {
+    await getCrm(new URLSearchParams({
+        activity, startDate: "2026-11-09", endDate: "2026-11-15", page: "2",
+    }));
+    const [[listSql, listArgs], [countSql, countArgs]] = sqlQuery.mock.calls;
+    expect(listSql).toContain(predicate);
+    expect(countSql).toContain(predicate);
+    expect(listSql).toContain("LIMIT $4 OFFSET $5");
+    expect(listArgs).toEqual(["", "2026-11-09", "2026-11-15", 10, 20]);
+    expect(countArgs).toEqual(["", "2026-11-09", "2026-11-15"]);
+});
+
+test("the single-day cohort ignores the selected date range", async () => {
+    await getCrm(new URLSearchParams({
+        activity: "single_day", startDate: "2026-11-09", endDate: "2026-11-15",
+    }));
+    const [[sql, args]] = sqlQuery.mock.calls;
+    expect(sql).toContain("INTERVAL '14 days'");
+    expect(sql).not.toContain("churn_bounds");
+    expect(args).toEqual(["", 10, 0]);
+});
+
+test("invalid dates never reach the SQL query", async () => {
+    const result = await getCrm(new URLSearchParams({
+        activity: "churned_plus", startDate: "2026-02-30", endDate: "2026-03-07",
+    }));
+    expect(result).toMatchObject({ rows: [], total: 0 });
+    expect(sqlQuery).not.toHaveBeenCalled();
+});
