@@ -65,5 +65,5 @@ function ChurnTable({ activity, title, range, onTotalChange }: {
     const reportTotal = useCallback((key: string, total: number) => {
         onTotalChange(range ? range.startDate + "|" + range.endDate + "|" + key : key, total);
     }, [range, onTotalChange]);
-    return <CrmList activity={activity} title={title} range={range} onTotalChange={reportTotal} />;
+    return <CrmList activity={activity} title={title} range={range} showBlast onTotalChange={reportTotal} />;
 }

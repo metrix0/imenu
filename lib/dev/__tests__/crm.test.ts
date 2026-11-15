@@ -149,3 +149,29 @@ test("invalid dates never reach the SQL query", async () => {
     expect(result).toMatchObject({ rows: [], total: 0 });
     expect(sqlQuery).not.toHaveBeenCalled();
 });
+
+test.each([
+    ["churned_plus", "experiência com o iMenu Plus"],
+    ["churned_imenu", "alguns testes por lá"],
+    ["single_day", "começou a receber pedidos"],
+    ["not_activated", "primeiro pedido"],
+])("Churn %s includes the corresponding blast history only in the paginated result", async (activity, message) => {
+    const hasPeriod = activity !== "single_day";
+    await getCrm(new URLSearchParams({
+        activity, includeBlast: "1", startDate: "2026-11-09", endDate: "2026-11-15",
+    }));
+    const [[listSql, listArgs], [countSql, countArgs]] = sqlQuery.mock.calls;
+    expect(listSql).toContain("churn_blast.status AS blast_status");
+    expect(listSql).toContain("campaign.status IN ('running', 'paused')");
+    expect(listSql).toContain("COALESCE(recipient.sent_at, recipient.scheduled_at)");
+    expect(listSql).toContain(hasPeriod ? "ANY($6::text[])" : "ANY($4::text[])");
+    expect(listArgs.at(-2)[0]).toContain(message);
+    expect(listArgs.at(-1)[0]).toContain(message);
+    expect(countSql).not.toContain("support_blast_recipients");
+    expect(countArgs).toHaveLength(hasPeriod ? 3 : 1);
+});
+
+test("regular CRM results do not include recovery blast history", async () => {
+    await getCrm(new URLSearchParams({ activity: "single_day" }));
+    expect(sqlQuery.mock.calls[0][0]).not.toContain("churn_blast");
+});

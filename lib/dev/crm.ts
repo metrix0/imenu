@@ -1,5 +1,12 @@
 import { query } from "@/lib/database/sql";
 import { devPage, paged } from "./pagination";
+import {
+    ABANDONED_BLAST_MESSAGE,
+    NO_FIRST_ORDER_RECOVERY_MESSAGE,
+    PLUS_ABANDONED_BLAST_MESSAGE,
+    SINGLE_ORDER_DAY_RECOVERY_MESSAGE,
+} from "./abandonedBlast";
+import { DID_NOT_ACTIVATE_BLAST_MESSAGE } from "./didNotActivateBlast";
 import { SUPPORT_CONVERSATION_VISIBLE_SQL } from "@/lib/services/supportExclusions";
 import { formatSignupOrigin } from "@/lib/analytics/signupOrigin";
 
@@ -208,6 +215,82 @@ function isCalendarDate(value: string): boolean {
     return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
 
+const CHURN_BLAST_TEMPLATES = {
+    churned_plus: [PLUS_ABANDONED_BLAST_MESSAGE],
+    churned_imenu: [ABANDONED_BLAST_MESSAGE],
+    single_day: [SINGLE_ORDER_DAY_RECOVERY_MESSAGE],
+    not_activated: [NO_FIRST_ORDER_RECOVERY_MESSAGE, DID_NOT_ACTIVATE_BLAST_MESSAGE],
+};
+
+function normalizedBlastMessage(message: string): string {
+    return message.trim().replace(/\s+/g, " ");
+}
+
+function blastMessagePattern(message: string): string {
+    return "^" + message.split("{{Nome Restaurante}}")
+        .map(part => part.replace(/[.*+?^$(){}|[\]\\]/g, "\\$&")).join(".{1,200}") + "$";
+}
+
+function churnBlastJoin(templatesParam: number, patternsParam: number): string {
+    return `LEFT JOIN LATERAL (
+    WITH contact_phones AS (
+        SELECT DISTINCT CASE
+            WHEN digits ~ '^55[0-9]{10,11}$' THEN digits
+            WHEN digits ~ '^0055[0-9]{10,11}$' THEN SUBSTRING(digits FROM 3)
+            WHEN digits ~ '^055[0-9]{10,11}$' THEN SUBSTRING(digits FROM 2)
+            WHEN digits ~ '^[0-9]{10,11}$' THEN '55' || digits
+        END AS phone
+        FROM restaurants owned
+        CROSS JOIN LATERAL (VALUES (owned.phone), (u.raw_user_meta_data->>'phone')) contact(raw)
+        CROSS JOIN LATERAL (SELECT regexp_replace(COALESCE(contact.raw, ''), '[^0-9]', '', 'g') AS digits) normalized
+        WHERE owned.id = r.id OR owned.user_id = r.user_id
+    ), matching_campaigns AS (
+        SELECT campaign.id, campaign.status
+        FROM support_blast_campaigns campaign
+        WHERE campaign.sender = 'blast'
+          AND regexp_replace(BTRIM(campaign.message), '\\s+', ' ', 'g') = ANY($${templatesParam}::text[])
+    ), history AS (
+        SELECT CASE
+            WHEN recipient.status = 'sent' THEN 'sent'
+            WHEN campaign.status = 'paused' THEN 'paused'
+            WHEN recipient.status = 'processing' THEN 'processing'
+            ELSE 'scheduled'
+        END AS status, COALESCE(recipient.sent_at, recipient.scheduled_at) AS event_at
+        FROM matching_campaigns campaign
+        JOIN support_blast_recipients recipient ON recipient.campaign_id = campaign.id
+        WHERE (
+            recipient.phone IN (SELECT phone FROM contact_phones)
+            OR EXISTS (
+                SELECT 1 FROM whatsapp_outbound_messages outbound
+                WHERE outbound.dedupe_key =
+                    'support:bulk:abandoned:' || campaign.id::text || ':' || COALESCE(r.user_id, r.id)::text
+                  AND outbound.chat_id = recipient.phone || '@c.us'
+            )
+        ) AND (
+            (recipient.status = 'sent' AND recipient.sent_at IS NOT NULL)
+            OR (recipient.status IN ('pending', 'processing') AND campaign.status IN ('running', 'paused'))
+        )
+        UNION ALL
+        SELECT 'sent', message.created_at
+        FROM support_messages message
+        JOIN support_conversations c ON c.id = message.conversation_id
+        WHERE c.chat_id LIKE 'imenu-blast:%' AND message.direction = 'outbound'
+          AND message.send_status = 'sent' AND message.dedupe_key IS NULL
+          AND regexp_replace(BTRIM(message.body), '\\s+', ' ', 'g') ~ ANY($${patternsParam}::text[])
+          AND (c.phone IN (SELECT phone FROM contact_phones)
+               OR EXISTS (
+                   SELECT 1 FROM restaurants contacted
+                   WHERE contacted.id = c.restaurant_id
+                     AND (contacted.id = r.id OR contacted.user_id = r.user_id)
+               ))
+    )
+    SELECT status, event_at
+    FROM history
+    ORDER BY event_at DESC, (status = 'sent') DESC
+    LIMIT 1
+) churn_blast ON TRUE`;
+}
+
 export async function getCrm(params: URLSearchParams) {
     const page = devPage(params);
     const id = params.get("restaurant_id");
@@ -260,6 +343,11 @@ export async function getCrm(params: URLSearchParams) {
     const listParams = isChurn ? [search, startDate, endDate] : [search];
     const limit = listParams.length + 1;
     const offset = limit + 1;
+    const blastTemplates = params.get("includeBlast") === "1" && Object.hasOwn(CHURN_BLAST_TEMPLATES, activityKey)
+        ? CHURN_BLAST_TEMPLATES[activityKey as keyof typeof CHURN_BLAST_TEMPLATES].map(normalizedBlastMessage)
+        : null;
+    const rowParams: (string | number | string[])[] = [...listParams, CRM_PAGE_SIZE, page * CRM_PAGE_SIZE];
+    if (blastTemplates) rowParams.push(blastTemplates, blastTemplates.map(blastMessagePattern));
     const conditions = [
         `($1='' OR r.name ILIKE '%'||$1||'%' OR u.email ILIKE '%'||$1||'%' OR r.phone ILIKE '%'||$1||'%' OR r.store_whatsapp ILIKE '%'||$1||'%' OR u.raw_user_meta_data->>'phone' ILIKE '%'||$1||'%')`,
         ...(paidOnly ? [`(${PAID})`] : []),
@@ -285,6 +373,7 @@ export async function getCrm(params: URLSearchParams) {
         query(`${bounds} SELECT r.id,r.name,r.url_slug,r.created_at,COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),r.phone) phone,r.store_whatsapp AS store_phone,
             COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),NULLIF(TRIM(r.phone),'')) AS owner_phone,(${PLUS_SINCE}) AS plus_since,u.email,(${PAID}) AS has_paid,(${PLUS}) AS plus,
             COALESCE(gmv.gmv_cents,0) AS gmv_cents,support.conversation_id AS support_conversation_id,support.mode AS support_mode,support.last_message,support.last_message_at
+            ${blastTemplates ? ",churn_blast.status AS blast_status,churn_blast.event_at AS blast_at" : ""}
             FROM restaurants r LEFT JOIN auth.users u ON u.id=r.user_id
             LEFT JOIN LATERAL (
                 SELECT COALESCE(SUM(o.total_cents),0)::bigint AS gmv_cents
@@ -293,8 +382,9 @@ export async function getCrm(params: URLSearchParams) {
                   AND o.status IS DISTINCT FROM 'pending_online_payment'
             ) gmv ON true
             ${LAST_SUPPORT_JOIN}
+            ${blastTemplates ? churnBlastJoin(offset + 1, offset + 2) : ""}
             WHERE ${where}
-            ORDER BY ${orderBy} LIMIT $${limit} OFFSET $${offset}`, [...listParams, CRM_PAGE_SIZE, page * CRM_PAGE_SIZE]),
+            ORDER BY ${orderBy} LIMIT $${limit} OFFSET $${offset}`, rowParams),
         query<{ total: number }>(`${bounds} SELECT COUNT(*)::int total FROM restaurants r LEFT JOIN auth.users u ON u.id=r.user_id WHERE ${where}`, listParams),
     ]);
     return paged(rows.rows, count.rows[0].total, page, CRM_PAGE_SIZE);

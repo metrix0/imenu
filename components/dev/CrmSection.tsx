@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Input from "@/components/ui/Input";
+import Badge from "@/components/ui/Badge";
 import styles from "./dashboard.module.css";
 import { Search, Eye } from "lucide-react";
 import Dropdown from "@/components/ui/Dropdown";
@@ -14,18 +15,27 @@ import {useDevProfile,PhoneLink,CustomerBadge,type Restaurant} from "./DevProfil
 import {accountAge, formatCurrencyFromCents, formatDateTime} from "@/lib/dev/dashboardFormat";
 const empty = <T,>(): PageData<T> => ({ rows: [], page: 0, total: 0, pageCount: 1 });
 
-export function CrmList({ search = "", plan = "all", activity, title, range, onTotalChange }: {
+const blastStatus = {
+    sent: { label: "Enviado", variant: "success" },
+    scheduled: { label: "Agendado", variant: "info" },
+    paused: { label: "Pausado", variant: "warning" },
+    processing: { label: "Em envio", variant: "info" },
+} as const;
+type CrmRow = Restaurant & { blast_status?: keyof typeof blastStatus | null; blast_at?: string | null };
+
+export function CrmList({ search = "", plan = "all", activity, title, range, showBlast = false, onTotalChange }: {
     search?: string;
     plan?: string;
     activity: string;
     title?: string;
     range?: DateRange;
+    showBlast?: boolean;
     onTotalChange?: (activity: string, total: number) => void;
 }) {
     const { openProfile } = useDevProfile();
     const [page, setPage] = useState(0);
     const [sort, setSort] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
-    const [data, setData] = useState(empty<Restaurant>);
+    const [data, setData] = useState(empty<CrmRow>);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     useEffect(() => { setPage(0); }, [search, plan, activity]);
@@ -42,6 +52,7 @@ export function CrmList({ search = "", plan = "all", activity, title, range, onT
         const controller = new AbortController();
         setLoading(true);
         const params = new URLSearchParams({ mode: "crm", q: search, plan, activity, page: String(page) });
+        if (showBlast) params.set("includeBlast", "1");
         if (range) {
             params.set("startDate", range.startDate);
             params.set("endDate", range.endDate);
@@ -50,7 +61,7 @@ export function CrmList({ search = "", plan = "all", activity, title, range, onT
             params.set("sort", sort.key);
             params.set("direction", sort.direction);
         }
-        void devJson<PageData<Restaurant>>(`/api/dev/restaurants?${params}`, { signal: controller.signal })
+        void devJson<PageData<CrmRow>>(`/api/dev/restaurants?${params}`, { signal: controller.signal })
             .then(result => {
                 if (controller.signal.aborted) return;
                 setData(result);
@@ -60,11 +71,11 @@ export function CrmList({ search = "", plan = "all", activity, title, range, onT
             .catch(e => { if (!controller.signal.aborted) setError(e.message); })
             .finally(() => { if (!controller.signal.aborted) setLoading(false); });
         return () => controller.abort();
-    }, [search, plan, activity, page, sort, range, onTotalChange]);
+    }, [search, plan, activity, page, sort, range, showBlast, onTotalChange]);
     return <section className={styles.tableSection} aria-label={title}>
         {title && <h2>{title}</h2>}
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-        <div className={styles.crmTable}>
+        <div className={showBlast ? `${styles.crmTable} ${styles.churnBlastTable}` : styles.crmTable}>
             <PagedTable pageSize={10} data={data} loading={loading} rowKey={r => r.id} onPage={setPage}
                 onRowClick={openProfile} sortKey={sort?.key} sortDirection={sort?.direction} onSort={onSort} columns={[
                 { key: "name", label: "Restaurante", sortable: true, render: r => <span className="block min-w-0 truncate whitespace-nowrap font-medium" title={r.name}>{r.name}</span> },
@@ -81,6 +92,16 @@ export function CrmList({ search = "", plan = "all", activity, title, range, onT
                         </Tooltip>
                     ) : "—",
                 },
+                ...(showBlast ? [{
+                    key: "blast", label: "Blast",
+                    render: (row: CrmRow) => {
+                        const status = row.blast_status && blastStatus[row.blast_status];
+                        return <Badge variant={status ? status.variant : "neutral"}
+                            title={row.blast_at ? formatDateTime(row.blast_at) : undefined}>
+                            {status ? status.label : "Sem envio"}
+                        </Badge>;
+                    },
+                }] : []),
                 { key: "open", label: "", render: r => <button type="button" title="Ver detalhes" aria-label={`Ver detalhes de ${r.name}`} onClick={e => { e.stopPropagation(); openProfile(r); }} className="cursor-pointer rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-brand"><Eye size={16} aria-hidden="true" /></button> },
             ]} />
         </div>
