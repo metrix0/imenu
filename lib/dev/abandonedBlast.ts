@@ -12,13 +12,23 @@ O iMenu Plus da sua loja, {{Nome Restaurante}}, chegou ao fim. Queria entender s
 
 Se quiser voltar ao Plus, o atendimento exclusivo pode ajudar a configurar os recursos e aplicar melhorias no seu cardápio com você. O que você gostaria de melhorar na sua loja?`;
 
-export const PLUS_ABANDONED_BLAST_MESSAGE = `Oi! Aqui é o João, do iMenu 🍔
+const PRIOR_PLUS_EXPIRY_BLAST_MESSAGE = `Oi! Aqui é o João, do iMenu 🍔
 
 Vi que o iMenu Plus da loja {{Nome Restaurante}} venceu. Se você quiser voltar, a gente pode configurar os recursos pra você pelo atendimento exclusivo do Plus.
 
 Posso te ajudar a colocar o robô do WhatsApp no ar, ativar os avisos de pedido pros clientes ou montar sugestões de adicionais no cardápio. Qual desses você quer deixar pronto primeiro?`;
 
-export const PLUS_EXPIRY_BLAST_MESSAGES = [PLUS_ABANDONED_BLAST_MESSAGE, PREVIOUS_PLUS_EXPIRY_BLAST_MESSAGE];
+export const PLUS_ABANDONED_BLAST_MESSAGE = `Oi! Aqui é o João, do iMenu 🍔
+
+Vi que o iMenu Plus da loja {{Nome Restaurante}} venceu! Somos gratos pelo período em que confiou em nós!
+
+Gostaria de frisar o bônus de atendimento especial, do qual seu restaurante pode requisitar modificações e melhorias. Queria saber, há algo que podemos melhorar para trazê-los de volta ao Plus?`;
+
+export const PLUS_EXPIRY_BLAST_MESSAGES = [
+    PLUS_ABANDONED_BLAST_MESSAGE,
+    PRIOR_PLUS_EXPIRY_BLAST_MESSAGE,
+    PREVIOUS_PLUS_EXPIRY_BLAST_MESSAGE,
+];
 
 export const ABANDONED_BLAST_MESSAGE = `Oi! Tudo bem? Sou o João, do iMenu 🍔
 

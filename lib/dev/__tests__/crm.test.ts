@@ -183,7 +183,7 @@ test.each([
     expect(listSql).toContain(`regexp_replace(BTRIM(campaign.message), '\\s+', ' ', 'g') = ANY($${hasPeriod ? 6 : 4}::text[])`);
     expect(listSql).toContain(`regexp_replace(BTRIM(message.body), '\\s+', ' ', 'g') ~ ANY($${hasPeriod ? 7 : 5}::text[])`);
     expect(listArgs).toHaveLength(hasPeriod ? 7 : 5);
-    const expectedCopy = activity === "churned_plus" ? [message, "chegou ao fim"] : [message];
+    const expectedCopy = activity === "churned_plus" ? [message, "atendimento exclusivo", "chegou ao fim"] : [message];
     for (const copy of expectedCopy) {
         expect(listArgs.at(-2)).toContainEqual(expect.stringContaining(copy));
         expect(listArgs.at(-1)).toContainEqual(expect.stringContaining(copy));
