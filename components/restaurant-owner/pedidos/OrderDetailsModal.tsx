@@ -13,6 +13,7 @@ import ListLoader from "@/components/ui/ListLoader";
 import PromotionSummary from "@/components/costumer/PromotionSummary";
 import type { AppliedPromotion } from "@/lib/promotions/automatic";
 import { Order } from "./OrdersTable"; 
+import { withCashChangeAmount } from "./cashChange";
 
 interface OrderDetailsModalProps {
     isOpen: boolean;
@@ -417,7 +418,11 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                                     <div className="flex min-w-0 flex-col">
                                                         <span className="text-gray-800 font-medium 2xl:text-lg">{item.name}</span>
                                                         {item.observation && item.observation.trim() !== "" && (
-                                                            <span className="mt-1 text-xs 2xl:text-sm text-gray-600 italic">Obs: {item.observation}</span>
+                                                            <span className="mt-1 text-xs 2xl:text-sm text-gray-600 italic">
+                                                                Obs: {details.payment_method === "dinheiro"
+                                                                    ? withCashChangeAmount(item.observation, details.total_cents)
+                                                                    : item.observation}
+                                                            </span>
                                                         )}
                                                         {item.order_item_subitems?.length > 0 && (
                                                             <div className="mt-2 space-y-1">

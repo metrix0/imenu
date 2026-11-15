@@ -20,6 +20,7 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Tooltip from "@/components/ui/Tooltip";
 import { supabase } from "@/lib/database/supabaseClient";
+import { CASH_CHANGE_OBSERVATION, withCashChangeAmount } from "./pedidos/cashChange";
 
 const futureSchedulingByRestaurant = new Map<string, PromiseLike<boolean>>();
 
@@ -85,9 +86,8 @@ function CashChangeInfo({ text, children }: { text: string; children: React.Reac
             text={text}
             parentClassName="shrink-0"
             position="bottom"
-            size="medium"
             portal
-            tooltipClassName="max-w-[280px] text-center"
+            tooltipClassName="w-max text-center"
         >
             {children}
         </Tooltip>
@@ -381,9 +381,8 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
     const paymentMethod = order.payment_method || "";
     const paymentLabel = isCounterOrder && paymentMethod === "pix-entrega" ? "Pix" : paymentLabels[paymentMethod] || paymentMethod || "Pagamento";
     const cashChangeObservation = order.order_items
-        .map((item) => String(item.observation ?? ""))
-        .map((observation) => observation.match(/Troco\s+para\s*:\s*[^\r\n]*/i)?.[0]?.trim())
-        .find(Boolean) || "Cliente não pediu troco";
+        .map((item) => item.observation?.match(CASH_CHANGE_OBSERVATION)?.[0].trim())
+        .find(Boolean);
 
     const config = statusConfig[order.status] || statusConfig.pending_online_payment;
     const showBackButton = !deliveryOnly && ["preparing", "delivering", "done"].includes(order.status);
@@ -444,7 +443,9 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
                 <div className="panel-order-meta flex items-center gap-2">
                     {!isTableOrder && (
                         paymentMethod === "dinheiro" ? (
-                            <CashChangeInfo text={cashChangeObservation}>
+                            <CashChangeInfo text={cashChangeObservation
+                                ? withCashChangeAmount(cashChangeObservation, order.total_cents)
+                                : "Cliente não pediu troco"}>
                                 {paymentBadge}
                             </CashChangeInfo>
                         ) : paymentBadge
