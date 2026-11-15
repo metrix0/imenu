@@ -3,7 +3,7 @@ import { createSupportBlast, processSupportBlastQueue } from "./supportBlast";
 import { query, withTransaction } from "@/lib/database/sql";
 import { checkWahaPhoneExists, sendWahaImage, sendWahaText } from "@/lib/services/wahaClient";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
-import { PLUS_ABANDONED_BLAST_MESSAGE, SINGLE_ORDER_DAY_RECOVERY_MESSAGE } from "@/lib/dev/abandonedBlast";
+import { PLUS_EXPIRY_BLAST_MESSAGES, SINGLE_ORDER_DAY_RECOVERY_MESSAGE } from "@/lib/dev/abandonedBlast";
 
 jest.mock("@/lib/services/supportExclusions", () => ({ isSupportContactExcluded: jest.fn() }));
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn(), withTransaction: jest.fn() }));
@@ -66,7 +66,10 @@ test("dispatch checks a 60-day history, including sends before the policy change
     expect(skipCall?.[1]).toEqual([7, "skipped_60d", null]);
 });
 
-test.each([true, false])("Plus churn rechecks the expired subscription before sending (eligible=%s)", async (stillChurned) => {
+test.each(PLUS_EXPIRY_BLAST_MESSAGES.flatMap((message, version) => [
+    { message, version, stillChurned: true },
+    { message, version, stillChurned: false },
+]))("Plus churn rechecks expiry before sending (template $version, eligible $stillChurned)", async ({ message, stillChurned }) => {
     let claimed = false;
     (query as jest.Mock).mockImplementation(async (sql: string) => {
         if (sql.includes("WITH claimed AS")) {
@@ -74,7 +77,7 @@ test.each([true, false])("Plus churn rechecks the expired subscription before se
             claimed = true;
             return { rows: [{
                 id: 7, campaign_id: "campaign", phone: "5511999999999", message: "Plus acabou",
-                sender: "blast", skip_recent: true, campaign_message: PLUS_ABANDONED_BLAST_MESSAGE,
+                sender: "blast", skip_recent: true, campaign_message: message,
             }], rowCount: 1 };
         }
         if (sql.includes("FROM support_whatsapp_connection")) {

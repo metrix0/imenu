@@ -164,7 +164,7 @@ test("invalid dates never reach the SQL query", async () => {
 });
 
 test.each([
-    ["churned_plus", "chegou ao fim"],
+    ["churned_plus", "iMenu Plus da loja"],
     ["churned_imenu", "alguns testes por lá"],
     ["single_day", "começou a receber pedidos"],
     ["not_activated", "primeiro pedido"],
@@ -180,11 +180,16 @@ test.each([
     expect(listSql).toContain("WHEN recipient.status = 'pending' AND campaign.status = 'paused' THEN 'paused'");
     expect(listSql).toContain("ELSE recipient.attempted_at");
     expect(listSql).toContain("churn_blast.error AS blast_error");
-    expect(listSql).toContain(`regexp_replace(BTRIM(campaign.message), '\\s+', ' ', 'g') = $${hasPeriod ? 6 : 4}::text`);
-    expect(listSql).toContain(`regexp_replace(BTRIM(message.body), '\\s+', ' ', 'g') ~ $${hasPeriod ? 7 : 5}::text`);
+    expect(listSql).toContain(`regexp_replace(BTRIM(campaign.message), '\\s+', ' ', 'g') = ANY($${hasPeriod ? 6 : 4}::text[])`);
+    expect(listSql).toContain(`regexp_replace(BTRIM(message.body), '\\s+', ' ', 'g') ~ ANY($${hasPeriod ? 7 : 5}::text[])`);
     expect(listArgs).toHaveLength(hasPeriod ? 7 : 5);
-    expect(listArgs.at(-2)).toContain(message);
-    expect(listArgs.at(-1)).toContain(message);
+    const expectedCopy = activity === "churned_plus" ? [message, "chegou ao fim"] : [message];
+    for (const copy of expectedCopy) {
+        expect(listArgs.at(-2)).toContainEqual(expect.stringContaining(copy));
+        expect(listArgs.at(-1)).toContainEqual(expect.stringContaining(copy));
+    }
+    expect(listArgs.at(-2)).toHaveLength(expectedCopy.length);
+    expect(listArgs.at(-1)).toHaveLength(expectedCopy.length);
     expect(listSql).toContain("ORDER BY sort_at DESC NULLS LAST");
     expect(countSql).not.toContain("support_blast_recipients");
     expect(countArgs).toHaveLength(hasPeriod ? 3 : 1);

@@ -1,6 +1,6 @@
 import { isSupportContactExcluded } from "@/lib/services/supportExclusions";
 import { randomUUID } from "node:crypto";
-import { ABANDONED_BLAST_MESSAGE, LEGACY_PLUS_ABANDONED_BLAST_MESSAGE, PLUS_ABANDONED_BLAST_MESSAGE, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE, RECOVERY_DAILY_LIMIT } from "@/lib/dev/abandonedBlast";
+import { ABANDONED_BLAST_MESSAGE, LEGACY_PLUS_ABANDONED_BLAST_MESSAGE, PLUS_EXPIRY_BLAST_MESSAGES, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE, RECOVERY_DAILY_LIMIT } from "@/lib/dev/abandonedBlast";
 import { ACTIVE_PLUS_FOR_ACCOUNT, PLUS_CHURN_EVENTS, RECOVERY_CUTOFF } from "@/lib/dev/plusChurn";
 import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGE, PLUS_FEEDBACK_DAILY_LIMIT } from "@/lib/dev/plusFeedbackBlast";
 import { query, withTransaction } from "@/lib/database/sql";
@@ -15,7 +15,7 @@ import {
 export type BlastRecipientInput = { phone: string; message: string };
 
 const RECOVERY_MESSAGES = [
-    ABANDONED_BLAST_MESSAGE, PLUS_ABANDONED_BLAST_MESSAGE, LEGACY_PLUS_ABANDONED_BLAST_MESSAGE,
+    ABANDONED_BLAST_MESSAGE, ...PLUS_EXPIRY_BLAST_MESSAGES, LEGACY_PLUS_ABANDONED_BLAST_MESSAGE,
     SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE,
 ];
 
@@ -376,7 +376,7 @@ async function sendRecipient(item: ClaimedRecipient): Promise<"sent" | "skipped"
         }
     }
 
-    if (item.campaign_message === PLUS_ABANDONED_BLAST_MESSAGE) {
+    if (PLUS_EXPIRY_BLAST_MESSAGES.includes(item.campaign_message)) {
         const stillChurned = await query(`WITH churn_bounds AS (
             SELECT ${RECOVERY_CUTOFF} - INTERVAL '1 day' AS start_at,
                    ${RECOVERY_CUTOFF} AS end_at

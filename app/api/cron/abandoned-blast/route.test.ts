@@ -105,7 +105,7 @@ test("Plus forecast and enqueue use expiration eligibility without order activit
     expect(await (await GET(request())).json()).toMatchObject({ queued: 1 });
     expect(mockBlast).toHaveBeenCalledWith(expect.objectContaining({
         message: PLUS_ABANDONED_BLAST_MESSAGE,
-        recipients: [{ phone, message: expect.stringContaining("O iMenu Plus da sua loja, Loja, chegou ao fim") }],
+        recipients: [{ phone, message: expect.stringContaining("o iMenu Plus da loja Loja venceu") }],
     }));
     const [sql] = mockQuery.mock.calls.find(([sql]) => sql.includes("WITH churn_bounds AS"))!;
     expect(sql).toContain("addon.current_period_ends_at >= bounds.start_at");

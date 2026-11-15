@@ -3,7 +3,7 @@ import { devPage, paged } from "./pagination";
 import {
     ABANDONED_BLAST_MESSAGE,
     NO_FIRST_ORDER_RECOVERY_MESSAGE,
-    PLUS_ABANDONED_BLAST_MESSAGE,
+    PLUS_EXPIRY_BLAST_MESSAGES,
     SINGLE_ORDER_DAY_RECOVERY_MESSAGE,
 } from "./abandonedBlast";
 import { SUPPORT_CONVERSATION_VISIBLE_SQL } from "@/lib/services/supportExclusions";
@@ -192,10 +192,10 @@ function isCalendarDate(value: string): boolean {
 }
 
 const CHURN_BLAST_TEMPLATES = {
-    churned_plus: PLUS_ABANDONED_BLAST_MESSAGE,
-    churned_imenu: ABANDONED_BLAST_MESSAGE,
-    single_day: SINGLE_ORDER_DAY_RECOVERY_MESSAGE,
-    not_activated: NO_FIRST_ORDER_RECOVERY_MESSAGE,
+    churned_plus: PLUS_EXPIRY_BLAST_MESSAGES,
+    churned_imenu: [ABANDONED_BLAST_MESSAGE],
+    single_day: [SINGLE_ORDER_DAY_RECOVERY_MESSAGE],
+    not_activated: [NO_FIRST_ORDER_RECOVERY_MESSAGE],
 };
 
 function normalizedBlastMessage(message: string): string {
@@ -207,7 +207,7 @@ function blastMessagePattern(message: string): string {
         .map(part => part.replace(/[.*+?^$(){}|[\]\\]/g, "\\$&")).join(".{1,200}") + "$";
 }
 
-function churnBlastJoin(templateParam: number, patternParam: number): string {
+function churnBlastJoin(templatesParam: number, patternsParam: number): string {
     return `LEFT JOIN LATERAL (
     WITH contact_phones AS (
         SELECT DISTINCT CASE
@@ -224,7 +224,7 @@ function churnBlastJoin(templateParam: number, patternParam: number): string {
         SELECT campaign.id, campaign.status
         FROM support_blast_campaigns campaign
         WHERE campaign.sender = 'blast'
-          AND regexp_replace(BTRIM(campaign.message), '\\s+', ' ', 'g') = $${templateParam}::text
+          AND regexp_replace(BTRIM(campaign.message), '\\s+', ' ', 'g') = ANY($${templatesParam}::text[])
     ), history AS (
         SELECT CASE
             WHEN recipient.status = 'pending' AND campaign.status = 'paused' THEN 'paused'
@@ -258,7 +258,7 @@ function churnBlastJoin(templateParam: number, patternParam: number): string {
         JOIN support_conversations c ON c.id = message.conversation_id
         WHERE c.chat_id LIKE 'imenu-blast:%' AND message.direction = 'outbound'
           AND message.send_status = 'sent' AND message.dedupe_key IS NULL
-          AND regexp_replace(BTRIM(message.body), '\\s+', ' ', 'g') ~ $${patternParam}::text
+          AND regexp_replace(BTRIM(message.body), '\\s+', ' ', 'g') ~ ANY($${patternsParam}::text[])
           AND (c.phone IN (SELECT phone FROM contact_phones)
                OR EXISTS (
                    SELECT 1 FROM restaurants contacted
@@ -334,11 +334,11 @@ export async function getCrm(params: URLSearchParams) {
     const listParams = isChurn ? [search, startDate, endDate] : [search];
     const limit = listParams.length + 1;
     const offset = limit + 1;
-    const blastTemplate = includeBlast && Object.hasOwn(CHURN_BLAST_TEMPLATES, activityKey)
-        ? normalizedBlastMessage(CHURN_BLAST_TEMPLATES[activityKey as keyof typeof CHURN_BLAST_TEMPLATES])
+    const blastTemplates = includeBlast && Object.hasOwn(CHURN_BLAST_TEMPLATES, activityKey)
+        ? CHURN_BLAST_TEMPLATES[activityKey as keyof typeof CHURN_BLAST_TEMPLATES].map(normalizedBlastMessage)
         : null;
-    const rowParams = [...listParams, CRM_PAGE_SIZE, page * CRM_PAGE_SIZE];
-    if (blastTemplate) rowParams.push(blastTemplate, blastMessagePattern(blastTemplate));
+    const rowParams: (string | number | string[])[] = [...listParams, CRM_PAGE_SIZE, page * CRM_PAGE_SIZE];
+    if (blastTemplates) rowParams.push(blastTemplates, blastTemplates.map(blastMessagePattern));
     const conditions = [
         `($1='' OR r.name ILIKE '%'||$1||'%' OR u.email ILIKE '%'||$1||'%' OR r.phone ILIKE '%'||$1||'%' OR r.store_whatsapp ILIKE '%'||$1||'%' OR u.raw_user_meta_data->>'phone' ILIKE '%'||$1||'%')`,
         ...(paidOnly ? [`(${PAID})`] : []),
@@ -366,7 +366,7 @@ export async function getCrm(params: URLSearchParams) {
         query(`${bounds} SELECT r.id,r.name,r.url_slug,r.created_at,COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),r.phone) phone,r.store_whatsapp AS store_phone,
             COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),NULLIF(TRIM(r.phone),'')) AS owner_phone,(${PLUS_SINCE}) AS plus_since,u.email,(${PAID}) AS has_paid,(${PLUS}) AS plus,
             COALESCE(gmv.gmv_cents,0) AS gmv_cents,support.conversation_id AS support_conversation_id,support.mode AS support_mode,support.last_message,support.last_message_at
-            ${blastTemplate ? ",churn_blast.status AS blast_status,churn_blast.event_at AS blast_at,churn_blast.error AS blast_error,COALESCE(r.user_id,r.id)::text AS blast_account_id" : ""}
+            ${blastTemplates ? ",churn_blast.status AS blast_status,churn_blast.event_at AS blast_at,churn_blast.error AS blast_error,COALESCE(r.user_id,r.id)::text AS blast_account_id" : ""}
             ${from}
             LEFT JOIN LATERAL (
                 SELECT COALESCE(SUM(o.total_cents),0)::bigint AS gmv_cents
@@ -375,16 +375,16 @@ export async function getCrm(params: URLSearchParams) {
                   AND o.status IS DISTINCT FROM 'pending_online_payment'
             ) gmv ON true
             ${LAST_SUPPORT_JOIN}
-            ${blastTemplate ? churnBlastJoin(offset + 1, offset + 2) : ""}
+            ${blastTemplates ? churnBlastJoin(offset + 1, offset + 2) : ""}
             WHERE ${where}
             ORDER BY ${orderBy} LIMIT $${limit} OFFSET $${offset}`, rowParams),
         query<{ total: number }>(`${bounds} SELECT COUNT(*)::int total ${from} WHERE ${where}`, listParams),
-        blastTemplate ? getTodayRecoveryForecast(activityKey).catch(error => {
+        blastTemplates ? getTodayRecoveryForecast(activityKey).catch(error => {
             console.error("[CHURN_BLAST_FORECAST]", error);
             return null;
         }) : null,
     ]);
-    const results = blastTemplate ? rows.rows.map(({ blast_account_id, ...row }) => {
+    const results = blastTemplates ? rows.rows.map(({ blast_account_id, ...row }) => {
         const hasTodayStatus = row.blast_at && brazilClock(new Date(row.blast_at)).day === forecast?.day;
         return forecast?.accounts.has(blast_account_id) && !hasTodayStatus
             ? { ...row, blast_status: "predicted", blast_at: null, blast_error: null }
