@@ -15,8 +15,8 @@ export function SalesDisclosure({ label, children }: { label: string; children: 
     <div className={styles.disclosure}>
       <button {...disclosure.triggerProps} className={styles.disclosureTrigger}>
         {label}
-        <span className="relative flex h-[13px] w-[13px] shrink-0 items-center justify-center">
-          <CollapsibleChevron expanded={disclosure.expanded} className="absolute" />
+        <span className="flex h-[13px] w-[13px] shrink-0 items-center justify-center">
+          <CollapsibleChevron expanded={disclosure.expanded} size="sm" />
         </span>
       </button>
       <CollapsibleContent id={disclosure.contentId} expanded={disclosure.expanded}>
