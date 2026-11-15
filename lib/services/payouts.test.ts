@@ -1,6 +1,6 @@
 import { query, withTransaction } from "@/lib/database/sql";
 import { getMercadoPagoPixPayment } from "@/lib/payments/mercadoPagoPix";
-import { createPayoutPlan, isAsaasTransferSafeToRetry, markPayoutPaidManually, retryFailedPayout } from "./payouts";
+import { createPayoutPlan, isAsaasTransferSafeToRetry, markPayoutPaidManually, reconcileProcessingPayouts, retryFailedPayout } from "./payouts";
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn(), withTransaction: jest.fn() }));
 jest.mock("@/lib/payments/mercadoPagoPix", () => ({ getMercadoPagoPixPayment: jest.fn() }));
 beforeEach(() => {
@@ -99,6 +99,23 @@ it("keeps another restaurant payable when one Mercado Pago payment is pending", 
     expect(plan.sendable).toHaveLength(1);
     expect(plan.sendable[0].row.restaurant_id).toBe("good");
     expect(plan.totalNetCents).toBe(4950);
+});
+
+it("reconciles automation runs without looking for old failures to re-alert", async () => {
+    const originalKey = process.env.ASAAS_API_KEY;
+    process.env.ASAAS_API_KEY = "test-key";
+    (query as jest.Mock).mockResolvedValue({ rows: [] });
+
+    try {
+        await reconcileProcessingPayouts();
+
+        expect(query).toHaveBeenCalledTimes(2);
+        expect(query).toHaveBeenNthCalledWith(1, expect.stringContaining("WHERE status = 'processing'"));
+        expect(query).toHaveBeenNthCalledWith(2, expect.stringContaining("UPDATE public.payout_automation_runs"));
+    } finally {
+        if (originalKey === undefined) delete process.env.ASAAS_API_KEY;
+        else process.env.ASAAS_API_KEY = originalKey;
+    }
 });
 
 describe("retry failed payouts", () => {

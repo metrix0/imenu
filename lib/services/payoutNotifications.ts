@@ -49,8 +49,9 @@ export async function notifyPayoutProblem(restaurantId: string, missingKey: bool
 }
 
 // Alarm only when a payout failed and its failure notice has not been confirmed as sent.
-// A stable incident key prevents repeated alarms from the periodic reconciliation job.
-export async function alarmUnnotifiedPayoutFailures(): Promise<void> {
+// Only check payouts whose current failure the caller handled.
+export async function alarmUnnotifiedPayoutFailures(payoutIds: string[]): Promise<void> {
+    if (payoutIds.length === 0) return;
     type UnnotifiedFailure = {
         id: string; automation_run_id: string | null; restaurant_name: string;
         amount_cents: number; failure_reason: string | null; notice_status: string | null;
@@ -62,15 +63,13 @@ export async function alarmUnnotifiedPayoutFailures(): Promise<void> {
             FROM public.payouts p
             JOIN public.restaurants r ON r.id = p.restaurant_id
             LEFT JOIN public.whatsapp_outbound_messages notice ON notice.dedupe_key =
-                'support:payout:'||to_char(p.created_at AT TIME ZONE 'America/Sao_Paulo','YYYY-MM-DD')||':'||p.restaurant_id::text
-            WHERE p.status IN ('failed','cancelled')
-              AND p.created_at >= NOW() - INTERVAL '3 days'
+                'support:payout:'||to_char(NOW() AT TIME ZONE 'America/Sao_Paulo','YYYY-MM-DD')||':'||p.restaurant_id::text
+            WHERE p.id = ANY($3::uuid[]) AND p.status IN ('failed','cancelled')
               AND (notice.status IS DISTINCT FROM 'sent' OR notice.context->>'message' IS DISTINCT FROM
                    CASE WHEN p.failure_reason = 'Chave PIX não cadastrada.' THEN $2 ELSE $1 END)
               AND (notice.status IS DISTINCT FROM 'sending' OR notice.updated_at < NOW() - INTERVAL '2 minutes')
             ORDER BY p.created_at DESC
-            LIMIT 100
-        `, [payoutNotice(false), payoutNotice(true)]);
+        `, [payoutNotice(false), payoutNotice(true), payoutIds]);
         const grouped = new Map<string, UnnotifiedFailure[]>();
         for (const row of rows) {
             const key = row.automation_run_id || row.id;

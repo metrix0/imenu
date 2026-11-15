@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { query } from "@/lib/database/sql";
 import { sendNtfyNotification } from "@/lib/services/ntfy";
 import type { AlertTrigger } from "@/lib/dev/health";
 
@@ -24,7 +25,7 @@ async function notify(
 
     const title =
         typeof input.title === "string" ? input.title.trim() : "";
-    const message =
+    let message =
         typeof input.message === "string" ? input.message.trim() : "";
 
     if (!message) {
@@ -41,9 +42,36 @@ async function notify(
         );
     }
 
+    const source = typeof input.source === "string" && input.source.trim()
+        ? input.source.trim().slice(0, 100) : "api/notify";
+    if (source === "vps-monitor" && title === "TRIGGER ALARM · iMenu: critical alert") {
+        // The payout job reports customer-impacting failures directly.
+        const lines = message.split("\n");
+        const checks = lines.filter(line =>
+            !/^(?:cron_failed:daily-payout|operation:payout_failed_today)(?: \(\d+\))?$/.test(line.trim())
+        );
+        if (checks.length < lines.length) {
+            try {
+                const { rowCount } = await query(`
+                    SELECT 1 FROM public.payout_automation_runs
+                    WHERE run_date = (NOW() AT TIME ZONE 'America/Sao_Paulo')::date
+                      AND (finished_at IS NOT NULL OR payout_step_status = 'processing')
+                `);
+                if (rowCount) {
+                    if (checks.every(line => !line.trim() || line.trim() === "TRIGGER ALARM")) {
+                        return NextResponse.json({ success: true });
+                    }
+                    message = checks.join("\n");
+                }
+            } catch (error) {
+                console.error("[NOTIFY] Falha ao verificar execução do repasse", error);
+            }
+        }
+    }
+
     try {
         await sendNtfyNotification({
-            source: typeof input.source === "string" && input.source.trim() ? input.source.trim().slice(0,100) : "api/notify",
+            source,
             severity: typeof input.severity === "string" && ["info","warning","error","critical"].includes(input.severity) ? input.severity : undefined,
             title: title || "iMenu",
             trigger: ["notification","alarm","blast","none"].includes(String(input.trigger)) ? input.trigger as AlertTrigger : undefined,

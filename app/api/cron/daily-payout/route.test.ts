@@ -63,6 +63,9 @@ beforeEach(() => {
         if (sql.includes("INSERT INTO public.payout_automation_runs")) {
             return { rows: [{ id: "run-1" }] };
         }
+        if (sql.includes("INSERT INTO public.payouts")) {
+            return { rows: [{ id: "missing-payout" }], rowCount: 1 };
+        }
         return { rows: [], rowCount: 1 };
     });
     (getAsaasBalance as jest.Mock).mockResolvedValue(100000);
@@ -97,8 +100,9 @@ test("records missing PIX as a failed, retryable payout and checks unnotified fa
     expect(record?.[0]).toContain("'failed'");
     expect(record?.[1]).toEqual(["missing", 8979, 9070, 54, 37, cutoff, 1, "run-1", "Chave PIX não cadastrada."]);
     expect(alarmUnnotifiedPayoutFailures).toHaveBeenCalledTimes(1);
+    expect(alarmUnnotifiedPayoutFailures).toHaveBeenCalledWith(["missing-payout"]);
     expect(sendNtfyNotification).toHaveBeenCalledWith(expect.objectContaining({
-        trigger: "notification", title: "iMenu: repasse automático não concluído",
+        trigger: "none", title: "iMenu: repasse automático não concluído",
     }));
     expect(sendPayouts).not.toHaveBeenCalled();
     expect(transferMercadoPagoToAsaas).not.toHaveBeenCalled();
@@ -125,7 +129,36 @@ test("counts missing PIX alongside successful transfers without skipping or fund
         automationRunId: "run-1", expectedTotalCents: 9900,
     }));
     expect(alarmUnnotifiedPayoutFailures).toHaveBeenCalledTimes(1);
+    expect(alarmUnnotifiedPayoutFailures).toHaveBeenCalledWith(["missing-payout"]);
     expect(sendNtfyNotification).toHaveBeenCalledWith(expect.objectContaining({
-        trigger: "notification", title: "iMenu: repasse automático não concluído",
+        trigger: "none", title: "iMenu: repasse automático não concluído",
     }));
+});
+
+test("alarms immediately when an intended payout is skipped", async () => {
+    (createPayoutPlan as jest.Mock).mockResolvedValue({
+        payables: [valid], sendable: [], validationErrors: [],
+        grossCents: 0, payzuFeeCents: 0, discountCents: 0, totalNetCents: 0,
+    });
+
+    const response = await GET(request());
+
+    expect(await response.json()).toMatchObject({ blocked: true, success: false });
+    expect(sendNtfyNotification).toHaveBeenCalledTimes(1);
+    expect(sendNtfyNotification).toHaveBeenCalledWith(expect.objectContaining({
+        trigger: "alarm", incidentKey: "payout:unnotified:run-1",
+        title: "ALARM TRIGGER - iMenu: repasse automático bloqueado",
+    }));
+});
+
+test("records an empty payout day without raising an alarm", async () => {
+    (createPayoutPlan as jest.Mock).mockResolvedValue({
+        payables: [], sendable: [], validationErrors: [],
+        grossCents: 0, payzuFeeCents: 0, discountCents: 0, totalNetCents: 0,
+    });
+
+    await GET(request());
+
+    expect(sendNtfyNotification).toHaveBeenCalledTimes(1);
+    expect(sendNtfyNotification).toHaveBeenCalledWith(expect.objectContaining({ trigger: "none" }));
 });

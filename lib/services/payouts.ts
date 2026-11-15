@@ -496,6 +496,7 @@ export async function reconcileProcessingPayouts(): Promise<void> {
         `
     );
 
+    const failedPayoutIds: string[] = [];
     if (rows.length > 0) {
         const oldest = new Date(rows[0].created_at);
         oldest.setDate(oldest.getDate() - 1);
@@ -524,19 +525,21 @@ export async function reconcileProcessingPayouts(): Promise<void> {
                     [payout.id, transfer.id || null]
                 );
             } else if (["CANCELLED", "FAILED", "REFUSED"].includes(transfer.status)) {
-                await query(
-                    `UPDATE public.payouts SET status = 'cancelled', asaas_transfer_id = COALESCE(asaas_transfer_id, $2), failure_reason=$3 WHERE id = $1 AND status = 'processing'`,
+                const { rows: cancelled } = await query<{ restaurant_id: string }>(
+                    `UPDATE public.payouts SET status = 'cancelled', asaas_transfer_id = COALESCE(asaas_transfer_id, $2), failure_reason=$3
+                     WHERE id = $1 AND status = 'processing' RETURNING restaurant_id`,
                     [payout.id, transfer.id || null, transfer.failReason || 'Transferência cancelada pelo Asaas.']
                 );
-                const owner = await query<{ restaurant_id: string }>("SELECT restaurant_id FROM payouts WHERE id=$1", [payout.id]);
-                if (owner.rows[0]) await notifyPayoutProblem(owner.rows[0].restaurant_id, false);
+                if (cancelled[0]) {
+                    await notifyPayoutProblem(cancelled[0].restaurant_id, false);
+                    failedPayoutIds.push(payout.id);
+                }
             }
         }
     }
 
+    if (failedPayoutIds.length > 0) await alarmUnnotifiedPayoutFailures(failedPayoutIds);
     await syncAutomationRuns();
-
-    await alarmUnnotifiedPayoutFailures();
 }
 
 export async function createPayoutPlan(input: {
@@ -786,6 +789,7 @@ export async function sendPayouts(input: {
     }
 
     const results: SendPayoutResult["results"] = [];
+    const failedPayoutIds: string[] = [];
 
     for (const item of plan.sendable) {
         const keyType = resolvePixKeyType(item.row)!;
@@ -860,24 +864,24 @@ export async function sendPayouts(input: {
             continue;
         }
 
-        results.push(
-            await sendPayoutTransfer({
-                payoutId,
-                restaurantId: item.row.restaurant_id,
-                restaurantName: item.row.restaurant_name,
-                amountCents: item.netCents,
-                pixKey,
-                keyType,
-            })
-        );
+        const result = await sendPayoutTransfer({
+            payoutId,
+            restaurantId: item.row.restaurant_id,
+            restaurantName: item.row.restaurant_name,
+            amountCents: item.netCents,
+            pixKey,
+            keyType,
+        });
+        results.push(result);
+        if (result.status === "failed") failedPayoutIds.push(payoutId);
     }
 
     const paidCount = results.filter((item) => item.status === "paid").length;
     const processingCount = results.filter((item) => item.status === "processing").length;
     const failedCount = results.filter((item) => item.status === "failed").length;
 
+    if (failedPayoutIds.length > 0) await alarmUnnotifiedPayoutFailures(failedPayoutIds);
     if (input.automationRunId) await syncAutomationRuns();
-    if (failedCount > 0) await alarmUnnotifiedPayoutFailures();
 
     return {
         cutoffAt: input.cutoffAt.toISOString(),
@@ -1178,8 +1182,8 @@ export async function retryFailedPayout(
         keyType,
     });
 
+    if (result.status === "failed") await alarmUnnotifiedPayoutFailures([payout.id]);
     if (payout.automation_run_id) await syncAutomationRuns();
-    if (result.status === "failed") await alarmUnnotifiedPayoutFailures();
 
     return {
         cutoffAt: new Date().toISOString(),

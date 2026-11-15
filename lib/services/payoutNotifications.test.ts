@@ -53,7 +53,7 @@ test("messages require the owner to edit Loja for safety and contain no actual P
 
 test('does not alarm when there are no failed payouts lacking a confirmed notice', async () => {
     (query as jest.Mock).mockResolvedValueOnce({ rows: [] });
-    await alarmUnnotifiedPayoutFailures();
+    await alarmUnnotifiedPayoutFailures(["p1"]);
     expect(sendNtfyNotification).not.toHaveBeenCalled();
 });
 
@@ -62,7 +62,7 @@ test('alarms once per failed batch when the automatic restaurant notice was not 
         { id: 'p1', automation_run_id: 'run1', restaurant_name: 'CN Burger', amount_cents: 198, failure_reason: 'Falha Asaas', notice_status: null },
         { id: 'p2', automation_run_id: 'run1', restaurant_name: 'Restaurante 2', amount_cents: 500, failure_reason: null, notice_status: 'failed' },
     ] });
-    await alarmUnnotifiedPayoutFailures();
+    await alarmUnnotifiedPayoutFailures(["p1", "p2"]);
     expect(sendNtfyNotification).toHaveBeenCalledTimes(1);
     expect(sendNtfyNotification).toHaveBeenCalledWith(expect.objectContaining({
         trigger: 'alarm',
@@ -74,7 +74,9 @@ test('alarms once per failed batch when the automatic restaurant notice was not 
     expect(sql).toContain("notice.status IS DISTINCT FROM 'sent'");
     expect(sql).toContain("notice.status IS DISTINCT FROM 'sending'");
     expect(sql).toContain("CASE WHEN p.failure_reason = 'Chave PIX não cadastrada.' THEN $2 ELSE $1 END");
-    expect((query as jest.Mock).mock.calls[0][1]).toEqual([payoutNotice(false), payoutNotice(true)]);
+    expect(sql).toContain("p.id = ANY($3::uuid[])");
+    expect(sql).toContain("to_char(NOW() AT TIME ZONE 'America/Sao_Paulo'");
+    expect((query as jest.Mock).mock.calls[0][1]).toEqual([payoutNotice(false), payoutNotice(true), ["p1", "p2"]]);
 });
 
 test('does not block reconciliation when phone alarm delivery fails', async () => {
@@ -82,6 +84,6 @@ test('does not block reconciliation when phone alarm delivery fails', async () =
         { id: 'p3', automation_run_id: null, restaurant_name: 'R', amount_cents: 99, failure_reason: null, notice_status: 'failed' },
     ] });
     (sendNtfyNotification as jest.Mock).mockRejectedValueOnce(new Error('ntfy down'));
-    await expect(alarmUnnotifiedPayoutFailures()).resolves.toBeUndefined();
+    await expect(alarmUnnotifiedPayoutFailures(["p3"])).resolves.toBeUndefined();
     expect(sendNtfyNotification).toHaveBeenCalledWith(expect.objectContaining({ incidentKey: 'payout:unnotified:p3' }));
 });
