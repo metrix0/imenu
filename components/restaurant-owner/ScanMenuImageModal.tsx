@@ -855,10 +855,11 @@ function ScanModal({
 
                             <div className="h-10 px-4" aria-live="polite">
                                 {isScanning && (
-                                    <>
-                                        <LoadingBar indeterminate label="Analisando cardápio" />
-                                        <p className="mt-2 text-sm text-gray-600">Analisando cardápio…</p>
-                                    </>
+                                    <LoadingBar
+                                        key={String(isScanning)}
+                                        durationSeconds={13}
+                                        showLabel={true}
+                                    />
                                 )}
                             </div>
 
