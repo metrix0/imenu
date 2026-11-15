@@ -60,8 +60,33 @@ function PaymentHistory({ id, kind }: { id: string; kind: "payments" | "payouts"
     ]} /></div>;
 }
 
-function RestaurantDetails({ restaurant: initialRestaurant, onLoaded }: { restaurant: Restaurant; onLoaded:(restaurant:Restaurant)=>void }) {
+function RestaurantActions({ restaurant }: { restaurant: Restaurant }) {
     const { openConversation } = useDevProfile();
+    const [error, setError] = useState("");
+    const [entering, setEntering] = useState(false);
+
+    async function enter() {
+        const target = window.open("", "_blank");
+        if (!target) { setError("Permita pop-ups para abrir o restaurante."); return; }
+        target.opener = null; setEntering(true);
+        try {
+            const origin = window.location.origin;
+            const targetOrigin = origin === "https://preview.imenuapp.com.br" ? "https://imenuapp.com.br" : origin.startsWith("https://imenuapp.com.br") || origin === "https://www.imenuapp.com.br" ? "https://preview.imenuapp.com.br" : origin;
+            const result = await devJson<{ action_link: string }>("/api/dev/restaurants", { method: "POST", body: JSON.stringify({ restaurantId: restaurant.id, targetOrigin }) });
+            target.location.replace(result.action_link);
+        } catch (e) { target.close(); setError((e as Error).message); } finally { setEntering(false); }
+    }
+    return <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2 md:flex-nowrap">
+            <IaAssistantConversationsSection restaurant={{ restaurantId: restaurant.id, restaurantName: restaurant.name }} />
+            <Button variant="secondary" leftIcon={<MessageCircle size={16} aria-hidden="true" />} onClick={() => openConversation(restaurant.support_conversation_id ? { id: restaurant.support_conversation_id, mode: restaurant.support_mode === "human" ? "human" : "ai", restaurant_name: restaurant.name } : null, restaurant.name)}>Abrir conversa</Button>
+            <Button leftIcon={<LogIn size={16} aria-hidden="true" />} loading={entering} onClick={() => void enter()}>Entrar no restaurante</Button>
+        </div>
+        {error && <div role="alert" className="mt-2 text-sm text-red-700">{error}</div>}
+    </div>;
+}
+
+function RestaurantDetails({ restaurant: initialRestaurant, onLoaded }: { restaurant: Restaurant; onLoaded:(restaurant:Restaurant)=>void }) {
     const [data, setData] = useState<Details | null>(null);
     const restaurant=data?.restaurant || initialRestaurant;
     const pixKey = restaurant.payment_info?.trim();
@@ -71,7 +96,6 @@ function RestaurantDetails({ restaurant: initialRestaurant, onLoaded }: { restau
         : normalizeCreationStep(restaurant.creation_step) - 1;
     const [due, setDue] = useState<number | null>(null);
     const [error, setError] = useState("");
-    const [entering, setEntering] = useState(false);
     useEffect(() => {
         let active = true;
         void devJson<Details>(`/api/dev/restaurants?mode=crm&restaurant_id=${restaurant.id}`)
@@ -88,34 +112,14 @@ function RestaurantDetails({ restaurant: initialRestaurant, onLoaded }: { restau
             }).catch(e => { if (active) setError(e.message); });
         return () => { active = false; };
     }, [restaurant.id]);
-    async function enter() {
-        const target = window.open("", "_blank");
-        if (!target) { setError("Permita pop-ups para abrir o restaurante."); return; }
-        target.opener = null; setEntering(true);
-        try {
-            const origin = window.location.origin;
-            const targetOrigin = origin === "https://preview.imenuapp.com.br" ? "https://imenuapp.com.br" : origin.startsWith("https://imenuapp.com.br") || origin === "https://www.imenuapp.com.br" ? "https://preview.imenuapp.com.br" : origin;
-            const result = await devJson<{ action_link: string }>("/api/dev/restaurants", { method: "POST", body: JSON.stringify({ restaurantId: restaurant.id, targetOrigin }) });
-            target.location.replace(result.action_link);
-        } catch (e) { target.close(); setError((e as Error).message); } finally { setEntering(false); }
-    }
     if(!data&&!error&&!initialRestaurant.created_at)return <DevLoading/>;
     return <div className="space-y-6">
-        <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_auto]">
-            <div className="min-w-0">
-                <dl className={styles.crmDetails}>
-                    <div><dt>E-mail</dt><dd title={restaurant.email || undefined}>{restaurant.email || "—"}</dd></div>
-                    <div><dt>Celular loja</dt><dd><PhoneLink phone={restaurant.store_phone} /></dd></div>
-                    <div><dt>Celular dono</dt><dd><PhoneLink phone={restaurant.owner_phone || restaurant.phone} /></dd></div>
-                    <div><dt>Conta há</dt><dd>{accountAge(restaurant.created_at)}</dd></div>
-                </dl>
-            </div>
-            <div className="flex max-w-full flex-wrap items-center gap-2 md:shrink-0 md:flex-nowrap">
-                <IaAssistantConversationsSection restaurant={{ restaurantId: restaurant.id, restaurantName: restaurant.name }} />
-                <Button variant="secondary" leftIcon={<MessageCircle size={16} aria-hidden="true" />} onClick={() => openConversation(restaurant.support_conversation_id ? { id: restaurant.support_conversation_id, mode: restaurant.support_mode === "human" ? "human" : "ai", restaurant_name: restaurant.name } : null, restaurant.name)}>Abrir conversa</Button>
-                <Button leftIcon={<LogIn size={16} aria-hidden="true" />} loading={entering} onClick={() => void enter()}>Entrar no restaurante</Button>
-            </div>
-        </div>
+        <dl className={`${styles.crmDetails} ${styles.crmContacts} max-w-4xl`}>
+            <div><dt>E-mail</dt><dd title={restaurant.email || undefined}>{restaurant.email || "—"}</dd></div>
+            <div><dt>Celular loja</dt><dd><PhoneLink phone={restaurant.store_phone} /></dd></div>
+            <div><dt>Celular dono</dt><dd><PhoneLink phone={restaurant.owner_phone || restaurant.phone} /></dd></div>
+            <div><dt>Conta há</dt><dd>{accountAge(restaurant.created_at)}</dd></div>
+        </dl>
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
         <section className={styles.crmDetailBlock}>
             <h3>Visão geral</h3>
@@ -161,7 +165,7 @@ export default function DevProfileProvider({children}:{children:ReactNode}){
  };
  return <ProfileContext.Provider value={{openProfile:setSelected,openConversation}}>
   {children}
-  <DevDialog wide title={selected?.name||"Restaurante"} description={selected?.plus !== undefined ? <CustomerBadge restaurant={selected}/> : undefined} open={Boolean(selected)} onClose={()=>setSelected(null)}>{selected&&<RestaurantDetails key={selected.id} restaurant={selected} onLoaded={setSelected}/>}</DevDialog>
+  <DevDialog wide title={selected?.name||"Restaurante"} description={selected?.plus !== undefined ? <CustomerBadge restaurant={selected}/> : undefined} headerActions={selected ? <RestaurantActions key={selected.id} restaurant={selected} /> : undefined} open={Boolean(selected)} onClose={()=>setSelected(null)}>{selected&&<RestaurantDetails key={selected.id} restaurant={selected} onLoaded={setSelected}/>}</DevDialog>
   <SupportConversationDialog active={activeConversation} onClose={()=>setActiveConversation(null)} />
  </ProfileContext.Provider>;
 }

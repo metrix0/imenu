@@ -18,6 +18,11 @@
 }
 .dialog :global(.panel-modal-body).dialogLayout { height: auto; padding: 0; }
 .dialogHeader h2 { padding-right: 0; line-height: 1.4; }
+
+.dialogHeaderWithActions { display: grid; align-items: center; gap: 12px 20px; }
+@media (min-width: 1024px) {
+    .dialogHeaderWithActions { grid-template-columns: minmax(0, 1fr) auto; }
+}
 .dialogBody > :global(.p-4),
 .dialogBody > :global(.p-5),
 .dialogBody > :global(.p-6) { padding: 0 !important; }
@@ -76,6 +81,7 @@
 .crmTable :global(td:last-child){padding-inline:8px;text-overflow:clip}
 .crmDetails dd{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal}
 .crmDetails dd .profileLink{display:block;overflow:hidden;text-overflow:ellipsis}
+.crmDetails.crmContacts > :first-child dd { white-space: normal; overflow-wrap: anywhere; }
 
 
 .payoutPayables, .payoutFailed { container-type: inline-size; }
