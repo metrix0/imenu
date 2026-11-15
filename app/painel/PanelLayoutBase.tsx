@@ -425,14 +425,15 @@ export default function PainelLayout({
                         {manuallyOpen
                             ? "Sua loja está aberta manualmente até 23h59."
                             : "Abra ou feche a loja temporariamente. A abertura manual vale até 23h59."}
-                        <span className="-mx-4 mt-3 block text-xs leading-5 max-sm:text-[11px] max-sm:[&_a]:!gap-0.5 max-sm:[&_a]:!px-1 max-sm:[&_a_svg]:!size-3">
-                            Você pode abrir sua loja definindo horários <span className="whitespace-nowrap">na aba <PanelTabCard tab="horarios" inline />.</span>
+                        <span className="mt-3 block [&_a]:![font-size:inherit]">
+                            Você pode abrir sua loja definindo horários <span className="whitespace-nowrap">na aba <PanelTabCard tab="horarios" inline /></span>
                         </span>
                     </>
                 }
                 confirmLabel={hasManualClosure ? "Abrir loja hoje" : "Fechar loja hoje"}
                 variant="neutral"
                 confirmTone={hasManualClosure ? "success" : "danger"}
+                inlineActions
                 extraAction={canResumeSchedule
                     ? { label: "Voltar aos horários cadastrados", onClick: () => void handleStoreToggle("resume") }
                     : { label: "Abrir loja hoje", onClick: () => void handleStoreToggle("open"), tone: "success" }}
