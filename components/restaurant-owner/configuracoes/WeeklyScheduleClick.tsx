@@ -305,7 +305,7 @@ export default function WeeklyScheduleClick({
                         Adicionar horário
                     </Button>
                 </div>
-                <ul className="divide-y divide-gray-200 border-y border-gray-200">
+                <ul className="divide-y divide-gray-100">
                     {DAYS.map((day) => {
                         const slots = value[day.key] || [];
                         return (
@@ -318,7 +318,7 @@ export default function WeeklyScheduleClick({
                                                 key={`${slot.open}-${slot.close}-${index}`}
                                                 type="button"
                                                 variant="secondary"
-                                                className="min-h-11 whitespace-nowrap px-2.5 py-1 tabular-nums"
+                                                className="min-h-11 whitespace-nowrap border-transparent! bg-gray-50 px-2.5 py-1 text-gray-900 tabular-nums hover:bg-gray-100"
                                                 aria-label={`Editar horário de ${day.label}, ${slot.open} às ${slot.close === "24:00" ? "00:00" : slot.close}`}
                                                 rightIcon={<FontAwesomeIcon icon={faPen} className="text-xs" />}
                                                 disabled={isSavingMobileSlot}
