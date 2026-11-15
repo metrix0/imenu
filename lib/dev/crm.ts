@@ -251,11 +251,17 @@ function churnBlastJoin(templatesParam: number, patternsParam: number): string {
           AND regexp_replace(BTRIM(campaign.message), '\\s+', ' ', 'g') = ANY($${templatesParam}::text[])
     ), history AS (
         SELECT CASE
-            WHEN recipient.status = 'sent' THEN 'sent'
-            WHEN campaign.status = 'paused' THEN 'paused'
-            WHEN recipient.status = 'processing' THEN 'processing'
-            ELSE 'scheduled'
-        END AS status, COALESCE(recipient.sent_at, recipient.scheduled_at) AS event_at
+            WHEN recipient.status = 'pending' AND campaign.status = 'paused' THEN 'paused'
+            WHEN recipient.status = 'pending' THEN 'scheduled'
+            ELSE recipient.status
+        END AS status,
+        CASE
+            WHEN recipient.status = 'sent' THEN recipient.sent_at
+            WHEN recipient.status = 'pending' THEN recipient.scheduled_at
+            ELSE recipient.attempted_at
+        END AS event_at,
+        COALESCE(recipient.sent_at, recipient.attempted_at, recipient.scheduled_at, recipient.created_at) AS sort_at,
+        recipient.error
         FROM matching_campaigns campaign
         JOIN support_blast_recipients recipient ON recipient.campaign_id = campaign.id
         WHERE (
@@ -267,11 +273,11 @@ function churnBlastJoin(templatesParam: number, patternsParam: number): string {
                   AND outbound.chat_id = recipient.phone || '@c.us'
             )
         ) AND (
-            (recipient.status = 'sent' AND recipient.sent_at IS NOT NULL)
+            recipient.status IN ('sent', 'failed', 'cancelled', 'skipped_60d', 'skipped_recent', 'skipped_reactivated')
             OR (recipient.status IN ('pending', 'processing') AND campaign.status IN ('running', 'paused'))
         )
         UNION ALL
-        SELECT 'sent', message.created_at
+        SELECT 'sent', message.created_at, message.created_at, NULL::text
         FROM support_messages message
         JOIN support_conversations c ON c.id = message.conversation_id
         WHERE c.chat_id LIKE 'imenu-blast:%' AND message.direction = 'outbound'
@@ -284,9 +290,9 @@ function churnBlastJoin(templatesParam: number, patternsParam: number): string {
                      AND (contacted.id = r.id OR contacted.user_id = r.user_id)
                ))
     )
-    SELECT status, event_at
+    SELECT status, event_at, error
     FROM history
-    ORDER BY event_at DESC, (status = 'sent') DESC
+    ORDER BY sort_at DESC NULLS LAST, (status = 'sent') DESC
     LIMIT 1
 ) churn_blast ON TRUE`;
 }
@@ -373,7 +379,7 @@ export async function getCrm(params: URLSearchParams) {
         query(`${bounds} SELECT r.id,r.name,r.url_slug,r.created_at,COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),r.phone) phone,r.store_whatsapp AS store_phone,
             COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),NULLIF(TRIM(r.phone),'')) AS owner_phone,(${PLUS_SINCE}) AS plus_since,u.email,(${PAID}) AS has_paid,(${PLUS}) AS plus,
             COALESCE(gmv.gmv_cents,0) AS gmv_cents,support.conversation_id AS support_conversation_id,support.mode AS support_mode,support.last_message,support.last_message_at
-            ${blastTemplates ? ",churn_blast.status AS blast_status,churn_blast.event_at AS blast_at" : ""}
+            ${blastTemplates ? ",churn_blast.status AS blast_status,churn_blast.event_at AS blast_at,churn_blast.error AS blast_error" : ""}
             FROM restaurants r LEFT JOIN auth.users u ON u.id=r.user_id
             LEFT JOIN LATERAL (
                 SELECT COALESCE(SUM(o.total_cents),0)::bigint AS gmv_cents

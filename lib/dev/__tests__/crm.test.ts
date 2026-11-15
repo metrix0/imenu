@@ -163,7 +163,10 @@ test.each([
     const [[listSql, listArgs], [countSql, countArgs]] = sqlQuery.mock.calls;
     expect(listSql).toContain("churn_blast.status AS blast_status");
     expect(listSql).toContain("campaign.status IN ('running', 'paused')");
-    expect(listSql).toContain("COALESCE(recipient.sent_at, recipient.scheduled_at)");
+    expect(listSql).toContain("recipient.status IN ('sent', 'failed', 'cancelled', 'skipped_60d', 'skipped_recent', 'skipped_reactivated')");
+    expect(listSql).toContain("WHEN recipient.status = 'pending' AND campaign.status = 'paused' THEN 'paused'");
+    expect(listSql).toContain("ELSE recipient.attempted_at");
+    expect(listSql).toContain("churn_blast.error AS blast_error");
     expect(listSql).toContain(hasPeriod ? "ANY($6::text[])" : "ANY($4::text[])");
     expect(listArgs.at(-2)[0]).toContain(message);
     expect(listArgs.at(-1)[0]).toContain(message);
