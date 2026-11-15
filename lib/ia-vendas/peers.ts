@@ -116,7 +116,7 @@ export async function benchmark(restaurant: string, ai: OpenAI) {
 }
 export function potential(sales: Data, input: Data, items?: Data[]) {
   const days = input.days === undefined ? 28 : Number(input.days);
-  if (sales.orders < 30)
+  if (sales.orders < 10)
     return {
       available: false,
       reason:
