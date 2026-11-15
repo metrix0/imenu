@@ -339,7 +339,7 @@ function asaasRejectedPixKey(error: unknown): boolean {
 }
 
 export async function warnAboutUpcomingPayoutPix(now = new Date()) {
-    // The next morning's cutoff includes every payment already confirmed tonight.
+    // Check payments already confirmed before today's payout cutoff.
     const { payables, validationErrors } = await getPayables(now);
     const day = new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo" }).format(now);
     const lookup = new Map<string, string[]>();

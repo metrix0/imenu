@@ -13,6 +13,7 @@ import { devJson } from "@/lib/dev/client";
 import { formatDateTime } from "@/lib/dev/dashboardFormat";
 import { formatPhone } from "@/lib/dev/supportView";
 import BlastAutomation, { BlastSender, type Automation, type Connections } from "./BlastAutomation";
+import { PAYOUT_BLAST_AUTOMATIONS } from "@/lib/services/payoutAutomation";
 
 type Target = { restaurant_id: string; name: string; kind: string };
 type Destination = { phone?: string | null; profiles?: Target[] };
@@ -76,7 +77,7 @@ export default function BlastHistorySection({ refreshKey = 0, connections }: { r
         <section className={styles.tableSection}>
             <h2>Blasts automáticos</h2>
             <div className="space-y-3">
-                <BlastAutomation automations={(data?.automations ?? []).filter(row => row.category === "payouts")} connections={connections} loading={loading && !data} group={{ label: "Payouts", defaultOpen: true }} />
+                <BlastAutomation automations={Object.values(PAYOUT_BLAST_AUTOMATIONS)} connections={connections} group={{ label: "Payouts", defaultOpen: true }} />
                 <BlastAutomation automations={(data?.automations ?? []).filter(row => row.category !== "payouts")} connections={connections} loading={loading && !data} group={{ label: "Outros" }} />
             </div>
         </section>

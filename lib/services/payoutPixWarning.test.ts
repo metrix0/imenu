@@ -12,7 +12,7 @@ jest.mock("@/lib/database/sql", () => ({ query: jest.fn() }));
 jest.mock("@/lib/payments/mercadoPagoPix", () => ({ getMercadoPagoPixPayment: jest.fn() }));
 jest.mock("./payoutNotifications", () => ({ notifyUpcomingPayoutPixProblem: jest.fn() }));
 
-const runAt = new Date("2026-11-16T02:20:00Z");
+const runAt = new Date("2026-11-15T09:00:00Z");
 
 function restaurant(id: string, payment_info: string | null, payment_info_type: string | null) {
     return {
