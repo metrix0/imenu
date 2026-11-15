@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Eye, Send } from "lucide-react";
+import { Check, Eye, RotateCcw, Send } from "lucide-react";
 import { useDevProfile } from "./DevProfileProvider";
 import styles from "./dashboard.module.css";
 import Badge from "@/components/ui/Badge";
 import Tabs from "@/components/ui/Tabs";
-import { formatPhone, getWhatsappUrl } from "@/lib/dev/supportView";
+import Tooltip from "@/components/ui/Tooltip";
 import Button from "@/components/ui/Button";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import DataTable, { type TableColumn } from "@/components/ui/DataTable";
@@ -19,12 +19,12 @@ import { calculateOnePercentPayout, summarizeOnePercentPayouts } from "@/lib/ser
 
 type Payable = { restaurantId: string; restaurantName: string; grossCents: number; payzuFeeCents: number; waitingGrossCents: number; canSend: boolean; pixKey: string | null; pixKeyType: string | null; nextEligibleAt: string | null };
 type PayoutRestaurantError = { restaurantId: string; restaurantName: string; orderId: string; paymentRef: string; grossCents: number; message: string };
-type Dashboard = { asaasBalanceCents: number | null; asaasConfigured: boolean; asaasError: string | null; cutoffAt: string; payables: Payable[]; validationErrors: PayoutRestaurantError[]; ownerPhones:Record<string,string> };
+type Dashboard = { asaasBalanceCents: number | null; asaasConfigured: boolean; asaasError: string | null; cutoffAt: string; payables: Payable[]; validationErrors: PayoutRestaurantError[] };
 type TroubledPayout = { id: string; restaurant_name: string; amount_cents: number; status: string; failure_reason: string | null; alert_status: string | null };
 type History = {
     id: string; restaurant_id: string; alert_status?: string | null; alert_message?: string | null; alert_error?: string | null; restaurant_name: string; created_at: string; amount_cents: number; status: string; failure_reason: string | null;
     run_date?: string; payout_cents?: number; restaurant_count?: number; failed_count?: number; paid_count?: number; processing_count?: number; troubled_payouts?: TroubledPayout[];
-    pix_key?: string | null; pix_key_type?: string | null; pix_address_key?: string | null; owner_phone?: string | null; asaas_transfer_id?: string | null;
+    pix_key?: string | null; pix_key_type?: string | null; pix_address_key?: string | null; asaas_transfer_id?: string | null;
     gross_cents?: number | null; payzu_fee_cents?: number | null; discount_cents?: number | null; paid_profit_cents?: number | null;
     transferred_cents?: number | null; asaas_balance_before_payout_cents?: number | null; difference_cents?: number | null;
     payzu_step_status?: string; adjustment_step_status?: string; comparison_step_status?: string; payout_step_status?: string; error_message?: string | null;
@@ -35,6 +35,33 @@ const payoutFigure = (cents: number) => (cents / 100).toLocaleString("pt-BR", { 
 const runDate = (value?: string) => value ? value.slice(0, 10).split("-").reverse().join("/") : "—";
 function PayoutStatus({ status }: { status?: string }) {
     return <Badge variant={status === "failed" || status === "cancelled" || status === "canceled" || status === "blocked" ? "danger" : status === "partial" ? "warning" : status === "paid" || status === "completed" ? "success" : status === "running" || status === "processing" ? "info" : "neutral"}>{status ? statusLabels[status] || status : "—"}</Badge>;
+}
+
+function payablePix(row: Payable) {
+    return row.pixKey ? [row.pixKeyType, row.pixKey].filter(Boolean).join(" · ") : "Não cadastrado";
+}
+
+function payableWaiting(row: Payable) {
+    const amount = money(row.waitingGrossCents);
+    return row.waitingGrossCents > 0 && row.nextEligibleAt
+        ? `${amount} · Até ${formatDateTime(row.nextEligibleAt)}`
+        : amount;
+}
+
+function payoutAlertLabel(status?: string | null) {
+    if (status === "sent") return "Enviado";
+    if (status === "failed") return "Falhou";
+    if (status === "sending") return "Enviando";
+    return "Não enviado";
+}
+
+function PayoutDetails({ name, text, className }: { name: string; text: string; className?: string }) {
+    return <Tooltip parentClassName={className} size="medium" position="bottom" showOnClick
+        text={<div className="whitespace-pre-line [overflow-wrap:anywhere]">{text}</div>}>
+        <Button variant="secondary" aria-label={`Detalhes do repasse de ${name}`}>
+            <Eye size={16} aria-hidden="true" />
+        </Button>
+    </Tooltip>;
 }
 
 function HistoryTable({ section, revision, onRetry, onMarkPaid, busy = false, canRetry = false }: { section: "failed" | "history" | "runs"; revision: number; onRetry: (payout: History) => void; onMarkPaid?: (payout: History) => void; busy?: boolean; canRetry?: boolean }) {
@@ -50,6 +77,7 @@ function HistoryTable({ section, revision, onRetry, onMarkPaid, busy = false, ca
             .then(result => { setData(result); setError(""); }).catch(e => { if (!controller.signal.aborted) setError(e.message); }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
         return () => controller.abort();
     }, [section, page, revision]);
+    const failed = section === "failed";
     const columns: TableColumn<History>[] = section === "runs" ? [
         { key: "date", label: "Dia", className: styles.dateCell, render: r => runDate(r.run_date) },
         { key: "amount", label: "Planejado", className: styles.numericCell, render: r => nullableMoney(r.payout_cents) },
@@ -58,17 +86,52 @@ function HistoryTable({ section, revision, onRetry, onMarkPaid, busy = false, ca
         { key: "error", label: "Erro", render: r => <p className="min-w-0 max-w-64 break-words text-xs text-red-700">{r.error_message || "—"}</p> },
         { key: "details", label: "", render: r => <button type="button" title="Ver detalhes" aria-label="Ver detalhes da execução" className="cursor-pointer rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-brand" onClick={event => { event.stopPropagation(); setSelectedRun(r); }}><Eye size={16} aria-hidden="true" /></button> },
     ] : [
-        { key: "name", label: "Restaurante", render: r => <div className="min-w-0"><button type="button" className={styles.profileLink} onClick={event => {event.stopPropagation();openProfile({id:r.restaurant_id,name:r.restaurant_name});}}>{r.restaurant_name}</button>{section !== "failed" && r.owner_phone && <a className="text-xs text-[#c43700]" href={getWhatsappUrl(r.owner_phone)||undefined} target="_blank" rel="noopener noreferrer">{formatPhone(r.owner_phone)}</a>}</div> },
-        { key: "date", label: "Data", className: styles.dateCell, render: r => formatDateTime(r.created_at) },
-        { key: "pix", label: section === "failed" ? "PIX atual" : "PIX", render: r => <p className="min-w-0 max-w-40 break-all text-xs">{(section === "history" && r.pix_address_key) || r.pix_key || "Não cadastrado"}</p> },
-        { key: "breakdown", label: "Bruto / Gateway / Desconto / Lucro", render: r => <span className={styles.payoutBreakdown}>{r.gross_cents == null ? "—" : `R$ ${payoutFigure(r.gross_cents)}`} / {r.payzu_fee_cents == null ? "—" : payoutFigure(r.payzu_fee_cents)} / {r.gross_cents == null ? "—" : payoutFigure(r.gross_cents - r.amount_cents)} / {r.discount_cents == null ? "—" : payoutFigure(r.discount_cents)}</span> },
-        { key: "amount", label: section === "history" ? "Valor do repasse" : "Valor", className: styles.numericCell, render: r => money(r.amount_cents) },
-        { key: "status", label: "Status", render: r => <div><PayoutStatus status={r.status}/>{section === "failed" && <p className="mt-2 min-w-0 max-w-64 text-xs text-gray-500">{r.failure_reason || "Motivo não registrado."}</p>}</div> },
-        ...(section === "failed" ? [{ key: "alert", label: "Alerta", render: (r: History) => <div className="flex flex-wrap gap-1" title={r.alert_error || undefined}><Badge variant={r.alert_status === "sent" ? "success" : r.alert_status === "failed" ? "danger" : "neutral"}>{r.alert_status === "sent" ? "Enviado" : r.alert_status === "failed" ? "Falhou" : r.alert_status === "sending" ? "Enviando" : "Não enviado"}</Badge>{(!r.pix_key || r.alert_message?.includes("não tem uma chave PIX")) ? <Badge variant="warning">Pix não cadastrado</Badge> : (r.alert_message?.includes("incorretamente") || /pix.*(invalid|incorret)|invalid.*pix/i.test(r.failure_reason || "")) ? <Badge variant="warning">Pix incorreto</Badge> : null}</div> }] : []),
-        ...(section === "failed" ? [{ key: "actions", label: "", render: (r: History) => <div className={styles.payoutRowActions}><Button variant="secondary" disabled={busy || !canRetry} onClick={() => onRetry(r)}>Tentar novamente</Button><Button variant="secondary" disabled={busy} onClick={() => onMarkPaid?.(r)}>Marcar como pago</Button></div> }] : []),
+        { key: "name", label: "Restaurante", render: r => <button type="button" title={r.restaurant_name} className={styles.profileLink} onClick={() => openProfile({ id: r.restaurant_id, name: r.restaurant_name })}>{r.restaurant_name}</button> },
+        { key: "date", label: "Data", className: styles.dateCell, render: r => {
+            const date = formatDateTime(r.created_at);
+            return <span title={date}>{date}</span>;
+        } },
+        ...(!failed ? [
+            { key: "pix", label: "PIX", render: (r: History) => {
+                const pix = r.pix_address_key || r.pix_key || "Não cadastrado";
+                return <span className="block truncate text-xs" title={pix}>{pix}</span>;
+            } },
+            { key: "breakdown", label: "Bruto / Gateway / Desconto / Lucro", render: (r: History) => {
+                const figures = `${r.gross_cents == null ? "—" : `R$ ${payoutFigure(r.gross_cents)}`} / ${r.payzu_fee_cents == null ? "—" : payoutFigure(r.payzu_fee_cents)} / ${r.gross_cents == null ? "—" : payoutFigure(r.gross_cents - r.amount_cents)} / ${r.discount_cents == null ? "—" : payoutFigure(r.discount_cents)}`;
+                return <span className={styles.payoutBreakdown} title={figures}>{figures}</span>;
+            } },
+        ] : []),
+        { key: "amount", label: failed ? "Valor" : "Valor do repasse", className: styles.numericCell, render: r => <span title={money(r.amount_cents)}>{money(r.amount_cents)}</span> },
+        { key: "status", label: "Status", render: r => <PayoutStatus status={r.status} /> },
+        ...(failed ? [
+            { key: "alert", label: "Alerta", render: (r: History) => <Badge variant={r.alert_status === "sent" ? "success" : r.alert_status === "failed" ? "danger" : "neutral"}>{payoutAlertLabel(r.alert_status)}</Badge> },
+            { key: "actions", label: "", render: (r: History) => {
+                const pixIssue = !r.pix_key || r.alert_message?.includes("não tem uma chave PIX")
+                    ? "Pix não cadastrado"
+                    : r.alert_message?.includes("incorretamente") || /pix.*(invalid|incorret)|invalid.*pix/i.test(r.failure_reason || "") ? "Pix incorreto" : null;
+                const details = [
+                    `Data: ${formatDateTime(r.created_at)}`,
+                    `Status: ${statusLabels[r.status] || r.status}`,
+                    `Motivo: ${r.failure_reason || "Motivo não registrado."}`,
+                    `Alerta: ${payoutAlertLabel(r.alert_status)}${r.alert_error ? ` · ${r.alert_error}` : ""}`,
+                    `PIX atual: ${r.pix_key || "Não cadastrado"}${pixIssue ? ` · ${pixIssue}` : ""}`,
+                    `Bruto: ${nullableMoney(r.gross_cents)} · Gateway: ${nullableMoney(r.payzu_fee_cents)}`,
+                    `Desconto: ${r.gross_cents == null ? "—" : money(r.gross_cents - r.amount_cents)} · Lucro: ${nullableMoney(r.discount_cents)}`,
+                ].join("\n");
+                return <div className={styles.payoutRowActions}>
+                    <PayoutDetails name={r.restaurant_name} text={details} />
+                    <Button variant="secondary" title="Tentar novamente" aria-label={`Tentar novamente o repasse de ${r.restaurant_name}`} disabled={busy || !canRetry} onClick={() => onRetry(r)}>
+                        <RotateCcw className={styles.payoutActionIcon} size={16} aria-hidden="true" /><span>Reenviar</span>
+                    </Button>
+                    <Button variant="secondary" title="Marcar como pago" aria-label={`Marcar repasse de ${r.restaurant_name} como pago`} disabled={busy} onClick={() => onMarkPaid?.(r)}>
+                        <Check className={styles.payoutActionIcon} size={16} aria-hidden="true" /><span>Marcar pago</span>
+                    </Button>
+                </div>;
+            } },
+        ] : []),
     ];
     return <>
-        <section className={`${styles.tableSection} ${styles.payoutTable} ${section === "failed" ? styles.payoutFailed : ""}`} aria-label={section === "failed" ? "Repasses com falha" : section === "runs" ? "Histórico" : "Histórico por restaurante"}>
+        <section className={`${styles.tableSection} ${styles.payoutTable} ${failed ? styles.payoutFailed : ""}`} aria-label={section === "failed" ? "Repasses com falha" : section === "runs" ? "Histórico" : "Histórico por restaurante"}>
             {section === "failed" && <div className="mb-3.5 flex items-center gap-3"><h2 className="text-lg font-semibold">Repasses com falha</h2>{data.total > 0 && <Badge variant="danger">{data.total} registro(s)</Badge>}</div>}
             {error && <p role="alert" className="text-red-700">{error}</p>}
             <PagedTable pageSize={10} data={data} loading={loading} rowKey={r => r.id} onPage={setPage} columns={columns} onRowClick={section === "runs" ? setSelectedRun : undefined}/>
@@ -175,18 +238,36 @@ export default function PayoutsSection() {
                     { key: "error", label: "Motivo", render: row => <p className="max-w-xl break-words text-xs text-red-700">{row.message}</p> },
                 ]} />
             </section>}
-            <section className={`${styles.tableSection} ${styles.payoutTable} ${styles.payoutPayables}`}><div className="mb-3.5 flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-semibold">Valores por restaurante</h2><div className="flex w-full flex-wrap items-center gap-3 md:w-auto"><label className="inline-flex items-center gap-2 text-sm text-[#626973] md:hidden"><input type="checkbox" checked={eligible.length > 0 && selectedForBatch.length === eligible.length} ref={element=>{if(element)element.indeterminate=selectedForBatch.length > 0 && selectedForBatch.length < eligible.length;}} disabled={sending || !eligible.length} onChange={event=>setSelectedRestaurantIds(event.target.checked ? eligible.map(row=>row.restaurantId) : [])} className="h-4 w-4 cursor-pointer accent-brand disabled:cursor-not-allowed disabled:opacity-40" />Selecionar todos os elegíveis</label><Button className="min-w-0 w-full md:w-auto" leftIcon={<Send size={16} aria-hidden="true" />} disabled={sending || !data.asaasConfigured || !selectedForBatch.length} onClick={() => setConfirmation({ids:selectedForBatch.map(row=>row.restaurantId)})}>Enviar selecionados — {money(selectedTotal)}</Button></div></div>
+            <section className={`${styles.tableSection} ${styles.payoutTable} ${styles.payoutPayables}`}><div className="mb-3.5 flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-semibold">Valores por restaurante</h2><div className="flex w-full flex-wrap items-center gap-3 md:w-auto"><Button className="min-w-0 w-full md:w-auto" leftIcon={<Send size={16} aria-hidden="true" />} disabled={sending || !data.asaasConfigured || !selectedForBatch.length} onClick={() => setConfirmation({ids:selectedForBatch.map(row=>row.restaurantId)})}>Enviar selecionados — {money(selectedTotal)}</Button></div></div>
                 <PagedTable pageSize={10} data={{ rows: payables.slice(page * 10, (page + 1) * 10), total: payables.length, page, pageCount: Math.ceil(payables.length / 10) }} onPage={setPage} rowKey={r => r.restaurantId} columns={[
                     {key:"select",label:"Selecionar",header:<input type="checkbox" aria-label="Selecionar todos os restaurantes elegíveis" checked={eligible.length > 0 && selectedForBatch.length === eligible.length} ref={element=>{if(element)element.indeterminate=selectedForBatch.length > 0 && selectedForBatch.length < eligible.length;}} disabled={sending || !eligible.length} onChange={event=>setSelectedRestaurantIds(event.target.checked ? eligible.map(row=>row.restaurantId) : [])} className="h-4 w-4 cursor-pointer accent-brand disabled:cursor-not-allowed disabled:opacity-40" />,render:r=><input type="checkbox" aria-label={`Selecionar ${r.restaurantName}`} checked={selectedRestaurantIds.includes(r.restaurantId)} disabled={sending || !r.canSend || r.grossCents <= 0} onChange={event=>setSelectedRestaurantIds(current=>event.target.checked ? [...current.filter(id=>id!==r.restaurantId),r.restaurantId] : current.filter(id=>id!==r.restaurantId))} className="h-4 w-4 cursor-pointer accent-brand disabled:cursor-not-allowed disabled:opacity-40" />},
-                    { key: "name", label: "Restaurante", render: r => <div className="min-w-0"><button type="button" className={styles.profileLink} onClick={event => {event.stopPropagation();openProfile({id:r.restaurantId,name:r.restaurantName});}}>{r.restaurantName}</button>{data.ownerPhones[r.restaurantId] && <a className="text-xs text-[#c43700]" href={getWhatsappUrl(data.ownerPhones[r.restaurantId])||undefined} target="_blank" rel="noopener noreferrer">{formatPhone(data.ownerPhones[r.restaurantId])}</a>}</div> },
-                    { key: "pix", label: "PIX", render: r => <p className="min-w-0 max-w-40 break-all text-xs">{r.pixKey ? <>{r.pixKeyType && <span className="text-gray-500">{r.pixKeyType} · </span>}{r.pixKey}</> : <span className="text-red-700">Não cadastrado</span>}</p> },
+                    { key: "name", label: "Restaurante", render: r => <button type="button" title={r.restaurantName} className={styles.profileLink} onClick={() => openProfile({ id: r.restaurantId, name: r.restaurantName })}>{r.restaurantName}</button> },
+                    { key: "pix", label: "PIX", render: r => <span className="block truncate text-xs" title={payablePix(r)}>{r.pixKey ? <>{r.pixKeyType && <span className="text-gray-500">{r.pixKeyType} · </span>}{r.pixKey}</> : <span className="text-red-700">Não cadastrado</span>}</span> },
                     { key: "breakdown", label: "Bruto / Gateway / Desconto / Lucro", render: r => {
                         const payout = calculateOnePercentPayout(r.grossCents, r.payzuFeeCents);
-                        return <span className={styles.payoutBreakdown}>R$ {payoutFigure(r.grossCents)} / {payoutFigure(r.payzuFeeCents)} / {payoutFigure(r.grossCents - payout.netCents)} / {payoutFigure(payout.discountCents)}</span>;
+                        const figures = `R$ ${payoutFigure(r.grossCents)} / ${payoutFigure(r.payzuFeeCents)} / ${payoutFigure(r.grossCents - payout.netCents)} / ${payoutFigure(payout.discountCents)}`;
+                        return <span className={styles.payoutBreakdown} title={figures}>{figures}</span>;
                     } },
-                    { key: "net", label: "Repasse líquido", className: styles.numericCell, render: r => <span className="font-semibold">{money(net(r))}</span> },
-                    { key: "waiting", label: "A liberar", className: styles.numericCell, render: r => <div><span>{money(r.waitingGrossCents)}</span>{r.waitingGrossCents > 0 && r.nextEligibleAt && <p className="mt-1 text-xs text-gray-500">Até {formatDateTime(r.nextEligibleAt)}</p>}</div> },
-                    { key: "send", label: "", render: r => <div className={styles.payoutRowActions}><Button variant="secondary" disabled={sending || !data.asaasConfigured || !r.canSend || r.grossCents <= 0} onClick={() => setConfirmation({ ids: [r.restaurantId] })}>Enviar repasse</Button><Button variant="secondary" aria-label={`Marcar repasse de ${r.restaurantName} como pago`} disabled={sending || r.grossCents <= 0} onClick={() => setManualPayment({ payable: r })}>Marcar pago</Button></div> },
+                    { key: "net", label: "Repasse líquido", className: styles.numericCell, render: r => <span className="font-semibold" title={money(net(r))}>{money(net(r))}</span> },
+                    { key: "waiting", label: "A liberar", className: styles.numericCell, render: r => <span title={payableWaiting(r)}>{money(r.waitingGrossCents)}</span> },
+                    { key: "send", label: "", render: r => {
+                        const payout = calculateOnePercentPayout(r.grossCents, r.payzuFeeCents);
+                        const details = [
+                            `PIX: ${payablePix(r)}`,
+                            `Bruto: ${money(r.grossCents)} · Gateway: ${money(r.payzuFeeCents)}`,
+                            `Desconto: ${money(r.grossCents - payout.netCents)} · Lucro: ${money(payout.discountCents)}`,
+                            `A liberar: ${payableWaiting(r)}`,
+                        ].join("\n");
+                        return <div className={styles.payoutRowActions}>
+                            <PayoutDetails name={r.restaurantName} text={details} className={styles.payoutCompactDetails} />
+                            <Button variant="secondary" title="Enviar repasse" aria-label={`Enviar repasse de ${r.restaurantName}`} disabled={sending || !data.asaasConfigured || !r.canSend || r.grossCents <= 0} onClick={() => setConfirmation({ ids: [r.restaurantId] })}>
+                                <Send className={styles.payoutActionIcon} size={16} aria-hidden="true" /><span>Enviar repasse</span>
+                            </Button>
+                            <Button variant="secondary" title="Marcar como pago" aria-label={`Marcar repasse de ${r.restaurantName} como pago`} disabled={sending || r.grossCents <= 0} onClick={() => setManualPayment({ payable: r })}>
+                                <Check className={styles.payoutActionIcon} size={16} aria-hidden="true" /><span>Marcar pago</span>
+                            </Button>
+                        </div>;
+                    } },
                 ]} />
             </section>
         </>}

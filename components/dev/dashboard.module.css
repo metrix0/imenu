@@ -79,17 +79,60 @@
 .crmDetails dd .profileLink{display:block;overflow:hidden;text-overflow:ellipsis}
 @media(max-width:639px){.crmTable :global(th:first-child){width:calc(31% - 48px)}.crmTable :global(th:last-child){width:48px}.crmTable :global([data-ui="table"]){overflow-x:auto}.crmTable :global(table){min-width:540px}}
 
-.payoutPayables :global(th:first-child){width:40px}.payoutPayables :global(th:nth-child(2)){width:17%}
-.payoutPayables :global(th:nth-child(4)){width:23%;white-space:normal;text-align:center}
-.payoutPayables :global(th:nth-child(6)){width:11%}
-.payoutPayables :global(th:last-child){width:244px}
-.payoutPayables :global(td:last-child){padding-left:18px}
-.payoutBreakdown{display:block;white-space:nowrap;text-align:center;font-size:12px;font-variant-numeric:tabular-nums}
-.payoutRowActions{display:flex;flex-wrap:nowrap;align-items:center;justify-content:flex-start;gap:8px}
-.payoutRowActions :global(button){flex:0 0 auto;padding-inline:9px;white-space:nowrap}
-@media(min-width:768px){.payoutFailed :global([data-ui="table"]){overflow-x:auto}.payoutFailed :global(table){min-width:1240px}.payoutFailed :global(th:nth-child(4)){width:23%;white-space:normal;text-align:center}.payoutFailed :global(td:nth-child(4)){padding-inline:6px}.payoutFailed :global(th:last-child){width:244px}}
-@media(min-width:768px){.payoutPayables :global(th:nth-child(4)),.payoutPayables :global(td:nth-child(4)){padding-inline:6px}}
+.payoutPayables, .payoutFailed { container-type: inline-size; }
+.payoutPayables :global(th), .payoutPayables :global(td),
+.payoutFailed :global(th), .payoutFailed :global(td) {
+    padding-inline: 10px;
+    white-space: nowrap;
+    overflow-wrap: normal;
+}
+.payoutFailed :global([data-ui="badge"]) { display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.payoutPayables :global(th:first-child) { width: 40px; }
+.payoutPayables :global(th:nth-child(2)) { width: 17%; }
+.payoutPayables :global(th:nth-child(4)) { width: 23%; text-align: center; }
+.payoutPayables :global(th:nth-child(6)) { width: 11%; }
+.payoutPayables :global(th:last-child) { width: 244px; }
+.payoutFailed :global(th:first-child) { width: auto; }
+.payoutFailed :global(th:nth-child(2)) { width: 128px; }
+.payoutFailed :global(th:nth-child(3)) { width: 104px; }
+.payoutFailed :global(th:nth-child(4)), .payoutFailed :global(th:nth-child(5)) { width: 112px; }
+.payoutFailed :global(th:last-child) { width: 258px; }
+.payoutBreakdown { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; font-size: 12px; font-variant-numeric: tabular-nums; }
+.payoutRowActions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.payoutRowActions :global(button) { flex: none; padding-inline: 9px; white-space: nowrap; }
+.payoutActionIcon, .payoutCompactDetails { display: none; }
 
+@container (max-width: 830px) {
+    .payoutPayables :global(th:nth-child(3)), .payoutPayables :global(td[data-label="PIX"]),
+    .payoutPayables :global(th:nth-child(4)), .payoutPayables :global(td[data-label="Bruto / Gateway / Desconto / Lucro"]) { display: none; }
+    .payoutPayables :global(th:nth-child(2)) { width: auto; }
+    .payoutPayables :global(th:nth-child(5)), .payoutPayables :global(th:nth-child(6)) { width: 112px; }
+    .payoutPayables :global(th:last-child) { width: 272px; }
+    .payoutCompactDetails { display: inline-block; }
+}
+@container (max-width: 810px) {
+    .payoutFailed :global(th:nth-child(2)), .payoutFailed :global(td[data-label="Data"]) { display: none; }
+}
+@container (max-width: 700px) {
+    .payoutFailed :global(th:nth-child(5)), .payoutFailed :global(td[data-label="Alerta"]) { display: none; }
+}
+@container (max-width: 625px) {
+    .payoutPayables :global(th:nth-child(6)), .payoutPayables :global(td[data-label="A liberar"]) { display: none; }
+    .payoutPayables :global(th), .payoutPayables :global(td),
+    .payoutFailed :global(th), .payoutFailed :global(td) { padding-inline: 6px; }
+    .payoutPayables :global(th:first-child) { width: 30px; }
+    .payoutPayables :global(th:nth-child(5)), .payoutFailed :global(th:nth-child(3)) { width: 93px; }
+    .payoutFailed :global(th:nth-child(4)) { width: 88px; }
+    .payoutPayables :global(th:last-child), .payoutFailed :global(th:last-child) { width: 124px; }
+    .payoutRowActions { gap: 5px; }
+    .payoutRowActions :global(button) { width: 34px; padding-inline: 0; }
+    .payoutRowActions :global(button > span) { display: none; }
+    .payoutActionIcon { display: block; }
+}
+@container (max-width: 420px) {
+    .payoutFailed :global(th:nth-child(3)) { width: 84px; }
+    .payoutFailed :global(th:nth-child(4)), .payoutFailed :global(td[data-label="Status"]) { display: none; }
+}
 
 .supportHandoffs :global(th:last-child){width:136px}.supportHandoffs :global(th:first-child){width:26%}
 
@@ -137,25 +180,19 @@
 
 /* Payout data stays readable and actionable instead of squeezing nine columns on phones. */
 @media (max-width: 767px) {
-    .payoutTable :global([data-ui="table"]) { overflow-x: visible; }
-    .payoutTable :global(table), .payoutTable :global(tbody) { display: block; width: 100%; table-layout: auto; }
-    .payoutTable :global(thead) { display: none; }
-    .payoutTable :global(tbody tr) { display: block; }
-    .payoutTable :global(tbody tr:not(:last-child)) { border-bottom: 1px solid #e2e5e9; }
-    .payoutTable :global(tbody tr:has(td:not([colspan]))) { padding: 5px 12px; }
-    .payoutTable :global(tbody td:not([colspan])) { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; width: 100%; padding: 10px 0; overflow: visible; border: 0; text-align: right; white-space: normal; }
-    .payoutTable :global(tbody td:not([colspan]) + td:not([colspan])) { border-top: 1px solid #f1f3f5; }
-    .payoutTable :global(tbody td:not([colspan])::before) { content: attr(data-label); flex: 0 0 40%; font-size: 12px; font-weight: 500; color: #626973; text-align: left; }
-    .payoutTable :global(tbody td[data-label=""]::before) { display: none; }
-    .payoutTable :global(tbody td[data-label=""]) { justify-content: flex-end; }
-    .payoutTable :global(tbody td:not([colspan]) > *) { min-width: 0; }
-    .payoutTable :global(tbody td[colspan]) { display: block; width: 100%; }
-    .payoutTable :global(tbody td) :global(button) { max-width: 100%; white-space: normal; }
-    .payoutTable .profileLink { white-space: normal; overflow-wrap: anywhere; }
-    .payoutPayables :global(tbody td:nth-child(4):not([colspan])) { flex-wrap: wrap; justify-content: flex-start; }
-    .payoutPayables :global(tbody td:nth-child(4):not([colspan]))::before { flex-basis: 100%; }
-    .payoutPayables :global(tbody td:nth-child(4):not([colspan])) > .payoutBreakdown { width: 100%; }
-    .payoutPayables :global(tbody td:last-child:not([colspan])) { justify-content: stretch; padding-left: 0; }
-    .payoutRowActions { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .payoutRowActions :global(button) { min-width: 0; width: 100%; white-space:normal; }
+    .payoutTable:not(.payoutPayables):not(.payoutFailed) :global([data-ui="table"]) { overflow-x: visible; }
+    .payoutTable:not(.payoutPayables):not(.payoutFailed) :global(table), .payoutTable:not(.payoutPayables):not(.payoutFailed) :global(tbody) { display: block; width: 100%; table-layout: auto; }
+    .payoutTable:not(.payoutPayables):not(.payoutFailed) :global(thead) { display: none; }
+    .payoutTable:not(.payoutPayables):not(.payoutFailed) :global(tbody tr) { display: block; }
+    .payoutTable:not(.payoutPayables):not(.payoutFailed) :global(tbody tr:not(:last-child)) { border-bottom: 1px solid #e2e5e9; }
+    .payoutTable:not(.payoutPayables):not(.payoutFailed) :global(tbody tr:has(td:not([colspan]))) { padding: 5px 12px; }
+    .payoutTable:not(.payoutPayables):not(.payoutFailed) :global(tbody td:not([colspan])) { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; width: 100%; padding: 10px 0; overflow: visible; border: 0; text-align: right; white-space: normal; }
+    .payoutTable:not(.payoutPayables):not(.payoutFailed) :global(tbody td:not([colspan]) + td:not([colspan])) { border-top: 1px solid #f1f3f5; }
+    .payoutTable:not(.payoutPayables):not(.payoutFailed) :global(tbody td:not([colspan])::before) { content: attr(data-label); flex: 0 0 40%; font-size: 12px; font-weight: 500; color: #626973; text-align: left; }
+    .payoutTable:not(.payoutPayables):not(.payoutFailed) :global(tbody td[data-label=""]::before) { display: none; }
+    .payoutTable:not(.payoutPayables):not(.payoutFailed) :global(tbody td[data-label=""]) { justify-content: flex-end; }
+    .payoutTable:not(.payoutPayables):not(.payoutFailed) :global(tbody td:not([colspan]) > *) { min-width: 0; }
+    .payoutTable:not(.payoutPayables):not(.payoutFailed) :global(tbody td[colspan]) { display: block; width: 100%; }
+    .payoutTable:not(.payoutPayables):not(.payoutFailed) :global(tbody td) :global(button) { max-width: 100%; white-space: normal; }
+    .payoutTable:not(.payoutPayables):not(.payoutFailed) .profileLink { white-space: normal; overflow-wrap: anywhere; }
 }
