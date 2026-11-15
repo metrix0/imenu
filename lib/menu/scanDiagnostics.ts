@@ -1,3 +1,4 @@
+import { isIP } from "node:net";
 import { query } from "@/lib/database/sql";
 
 export const MENU_SCAN_BUCKET = "full-menu-images-ai";
@@ -39,6 +40,30 @@ export function menuScanLinkDomain(raw: string): string | undefined {
     try {
         const url = new URL(raw.trim());
         return url.protocol === "https:" || url.protocol === "http:" ? url.hostname : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+export function menuScanSourceUrl(raw: string): string | undefined {
+    const submitted = raw.trim();
+    if (!submitted || submitted.length > 2048) return undefined;
+
+    try {
+        const input = /^[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:[/?#]|$)/i.test(submitted)
+            ? "https://" + submitted
+            : submitted;
+        const url = new URL(input);
+        const host = url.hostname.replace(/\.$/, "");
+        if (!["http:", "https:"].includes(url.protocol) || url.username || url.password ||
+            (url.port && !["80", "443"].includes(url.port)) ||
+            !host.includes(".") || isIP(host) || /\.(local|localhost|internal)$/i.test(host) ||
+            [...url.searchParams.keys()].some(key => /token|secret|signature|password|credential|api.?key|auth|^key$|^sig$|^code$/i.test(key))) {
+            return undefined;
+        }
+
+        url.hash = "";
+        return url.toString();
     } catch {
         return undefined;
     }

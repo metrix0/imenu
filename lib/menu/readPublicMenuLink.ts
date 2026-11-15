@@ -295,9 +295,7 @@ async function renderPublicPage(url: URL): Promise<string> {
     }
 }
 
-export async function readPublicMenuLink(
-    raw: string, onExtracted?: (text: string) => void, onSource?: (url: string) => void,
-): Promise<string> {
+export async function readPublicMenuLink(raw: string, onExtracted?: (text: string) => void): Promise<string> {
     let url = validateUrl(raw.trim());
 
     for (let redirect = 0; redirect <= 3; redirect++) {
@@ -309,14 +307,6 @@ export async function readPublicMenuLink(
             throw new MenuLinkError(
                 "Não foi possível acessar este site. Use fotos ou PDF do cardápio."
             );
-        }
-        if (redirect === 0 && onSource) {
-            const source = new URL(url);
-            source.hash = "";
-            // Skip URLs with common credential parameters.
-            if (![...source.searchParams.keys()].some(key => /token|secret|signature|password|credential|api.?key|auth|^key$|^sig$|^code$/i.test(key))) {
-                onSource(source.toString());
-            }
         }
         if (response.status >= 300 && response.status < 400 && response.location) {
             url = validateUrl(new URL(response.location, url).toString());
