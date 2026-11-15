@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tempfile
 
 OPS = Path('/opt/imenu-migration/ops')
@@ -14,10 +15,13 @@ CONFIG = OPS / 'job-config'
 REGISTRY = CONFIG / 'managed-jobs.json'
 DEPLOYED_SHA = OPS / 'production-deploy-state/deployed-sha'
 RELEASES = OPS / 'production-releases'
+APPLIED = CONFIG / 'release-schedule.json'
+LEGACY = CONFIG / 'legacy-schedule.json'
+MANIFEST = '.imenu-cron-schedule.json'
 BUILTINS = frozenset(('daily-payout', 'reconcile-payouts', 'addon-expiry-whatsapp',
                       'ia-vendas-analysis', 'storage-cleanup'))
 NAME = re.compile(r'[a-z][a-z0-9]*(?:-[a-z0-9]+)*\Z')
-CALENDAR = re.compile(r'[A-Za-z0-9*.:,_+/\- ]+\Z')
+CALENDAR = re.compile(r'[A-Za-z0-9*.:,_+/~\- ]+\Z')
 
 def valid_name(value):
     if not isinstance(value, str) or len(value) > 60 or not NAME.fullmatch(value):
@@ -33,7 +37,7 @@ def run(argv, timeout=12, allow_failure=False):
 def verify_calendar(value):
     if not isinstance(value, str) or not 1 <= len(value) <= 120 or not CALENDAR.fullmatch(value):
         raise ValueError('Invalid systemd calendar expression')
-    run(['/usr/bin/systemd-analyze', 'calendar', '--iterations=1', value])
+    run(['/usr/bin/systemd-analyze', 'calendar', '--iterations=1', '--', value])
     return value
 
 def path_for(name, suffix):
@@ -54,12 +58,13 @@ def verify_service(name):
         raise ValueError('Refusing to manage a nonstandard iMenu job service')
     return path
 
-def deployed_route(name):
+def deployed_route(name, sha=None):
     """Validate the active compiled production release, not the obsolete source checkout."""
     valid_name(name)
-    if DEPLOYED_SHA.is_symlink() or not DEPLOYED_SHA.is_file():
-        raise ValueError('Production release identity unavailable')
-    sha = DEPLOYED_SHA.read_text().strip()
+    if sha is None:
+        if DEPLOYED_SHA.is_symlink() or not DEPLOYED_SHA.is_file():
+            raise ValueError('Production release identity unavailable')
+        sha = DEPLOYED_SHA.read_text().strip()
     if not re.fullmatch(r'[a-f0-9]{40}', sha):
         raise ValueError('Invalid deployed release identity')
     server = RELEASES / sha / '.next/server'
@@ -111,6 +116,11 @@ def exclusive():
         except BlockingIOError:
             raise ValueError('Another timer change is in progress')
         yield
+
+def unit_active(name):
+    _, code = run(['systemctl', 'is-active', 'imenu-job-' + name + '.timer'], allow_failure=True)
+    return code == 0
+
 
 def current_enabled(name):
     output, code = run(['systemctl', 'is-enabled', 'imenu-job-' + name + '.timer'], allow_failure=True)
@@ -178,6 +188,113 @@ def change_enabled(args):
             set_enabled(name, enabled)
         return unit_status(name)
 
+def timer_snapshot(name):
+    timer = path_for(name, '.timer')
+    service = path_for(name, '.service')
+    if timer.exists() != service.exists():
+        raise ValueError('Timer and service must either both exist or both be absent')
+    if not timer.is_file():
+        return None, None, False, False
+    verify_service(name)
+    return timer.read_text(), service.read_text(), current_enabled(name), unit_active(name)
+
+
+def write_timer(name, calendar, snapshot):
+    old_timer, _, _, _ = snapshot
+    timer = path_for(name, '.timer')
+    if old_timer is not None:
+        schedules = [line for line in old_timer.splitlines() if line.startswith('OnCalendar=')]
+        if len(schedules) != 1:
+            raise ValueError('Only single-schedule timers can be edited')
+        new_timer = old_timer.replace(schedules[0], 'OnCalendar=' + calendar, 1)
+    else:
+        new_timer = ('[Unit]\nDescription=iMenu ' + name + ' schedule\n'
+                     '[Timer]\nOnCalendar=' + calendar + '\nPersistent=false\n'
+                     '[Install]\nWantedBy=timers.target\n')
+        service = ('[Unit]\nDescription=iMenu ' + name + '\nAfter=docker.service\n'
+                   'ConditionPathExists=/opt/imenu-migration/ops/PRODUCTION_JOBS_ENABLED\n'
+                   '[Service]\nType=oneshot\n'
+                   'ExecStart=/usr/bin/python3 /opt/imenu-migration/ops/run_job.py ' + name + '\n'
+                   'TimeoutStartSec=25min\nUMask=0077\n')
+        atomic_write(path_for(name, '.service'), service, 0o644)
+    if old_timer == new_timer:
+        return False
+    atomic_write(timer, new_timer, 0o644)
+    return True
+
+
+def apply_timers(desired, enable=True, save=False, stage=False):
+    with exclusive():
+        previous = read_schedule(APPLIED) if save and APPLIED.exists() else {}
+        removed = previous.keys() - desired.keys()
+        jobs = read_registry()
+        old_registry = REGISTRY.read_text()
+        snapshots = {name: timer_snapshot(name) for name in sorted(desired.keys() | removed)}
+        changed = set()
+        touched = []
+        try:
+            registered = set(jobs) | (desired.keys() - BUILTINS)
+            if registered != set(jobs):
+                atomic_write(REGISTRY, json.dumps({'jobs': sorted(registered)}) + '\n', 0o600)
+            for name, calendar in desired.items():
+                touched.append(name)
+                if write_timer(name, calendar, snapshots[name]):
+                    changed.add(name)
+            if changed:
+                run(['systemctl', 'daemon-reload'], timeout=20)
+            for name in removed:
+                if snapshots[name][2] or snapshots[name][3]:
+                    touched.append(name)
+                    set_enabled(name, False)
+                    changed.add(name)
+            for name in desired:
+                _, _, was_enabled, was_active = snapshots[name]
+                if stage:
+                    continue
+                if (enable and not was_enabled) or (not enable and (was_enabled or was_active)):
+                    set_enabled(name, enable)
+                    changed.add(name)
+                elif enable and (name in changed or not was_active):
+                    run(['systemctl', 'restart', 'imenu-job-' + name + '.timer'], timeout=20)
+                    changed.add(name)
+            if save:
+                atomic_write(APPLIED, json.dumps(desired, sort_keys=True) + '\n', 0o600)
+            return changed
+        except Exception:
+            rollback_errors = []
+            for name in touched:
+                timer, service, _, _ = snapshots[name]
+                try:
+                    if timer is None:
+                        if path_for(name, '.timer').exists():
+                            set_enabled(name, False)
+                        path_for(name, '.timer').unlink(missing_ok=True)
+                        path_for(name, '.service').unlink(missing_ok=True)
+                    else:
+                        atomic_write(path_for(name, '.timer'), timer, 0o644)
+                        atomic_write(path_for(name, '.service'), service, 0o644)
+                except Exception as error:
+                    rollback_errors.append(str(error))
+            try:
+                atomic_write(REGISTRY, old_registry, 0o600)
+                run(['systemctl', 'daemon-reload'], timeout=20)
+            except Exception as error:
+                rollback_errors.append(str(error))
+            for name in touched:
+                timer, _, was_enabled, was_active = snapshots[name]
+                if timer is None:
+                    continue
+                try:
+                    unit = 'imenu-job-' + name + '.timer'
+                    run(['systemctl', 'enable' if was_enabled else 'disable', unit], timeout=20)
+                    run(['systemctl', 'restart' if was_active else 'stop', unit], timeout=20)
+                except Exception as error:
+                    rollback_errors.append(str(error))
+            if rollback_errors:
+                print('Timer recovery failed: ' + '; '.join(rollback_errors), file=sys.stderr)
+            raise
+
+
 def upsert_timer(args):
     require_confirm(args)
     name = valid_name(args.get('name'))
@@ -186,65 +303,52 @@ def upsert_timer(args):
     if type(enabled) is not bool:
         raise ValueError('enabled must be a boolean')
     deployed_route(name)
-    with exclusive():
-        timer_path = path_for(name, '.timer')
-        service_path = path_for(name, '.service')
-        if timer_path.exists() != service_path.exists():
-            raise ValueError('Timer and service must either both exist or both be absent')
-        existing = timer_path.is_file()
-        if existing:
-            verify_service(name)
-        old_timer = timer_path.read_text() if existing else None
-        old_service = service_path.read_text() if existing else None
-        old_registry = REGISTRY.read_text()
-        jobs = read_registry()
-        old_enabled = current_enabled(name) if existing else False
-        if existing:
-            schedules = [s for s in old_timer.splitlines() if s.startswith('OnCalendar=')]
-            if len(schedules) != 1:
-                raise ValueError('Only single-schedule timers can be edited')
-            new_timer = old_timer.replace(schedules[0], 'OnCalendar=' + calendar, 1)
-        else:
-            new_timer = ('[Unit]\nDescription=iMenu ' + name + ' schedule\n'
-                         '[Timer]\nOnCalendar=' + calendar + '\nPersistent=false\n'
-                         '[Install]\nWantedBy=timers.target\n')
-        new_service = ('[Unit]\nDescription=iMenu ' + name + '\nAfter=docker.service\n'
-                       'ConditionPathExists=/opt/imenu-migration/ops/PRODUCTION_JOBS_ENABLED\n'
-                       '[Service]\nType=oneshot\n'
-                       'ExecStart=/usr/bin/python3 /opt/imenu-migration/ops/run_job.py ' + name + '\n'
-                       'TimeoutStartSec=25min\nUMask=0077\n')
-        if existing and old_timer == new_timer and old_enabled == enabled:
-            return {'changed': False, **unit_status(name)}
-        try:
-            if not existing:
-                if name not in BUILTINS and name not in jobs:
-                    atomic_write(REGISTRY, json.dumps({'jobs': sorted(jobs + [name])}) + '\n', 0o600)
-                atomic_write(service_path, new_service, 0o644)
-            if not existing or old_timer != new_timer:
-                atomic_write(timer_path, new_timer, 0o644)
-                run(['systemctl', 'daemon-reload'], timeout=20)
-            if enabled != old_enabled:
-                set_enabled(name, enabled)
-            elif enabled and old_timer != new_timer:
-                run(['systemctl', 'restart', 'imenu-job-' + name + '.timer'], timeout=20)
-            return {'changed': True, 'created': not existing, **unit_status(name)}
-        except Exception:
-            if old_timer is None:
-                try:
-                    set_enabled(name, False)
-                except Exception:
-                    pass
-                timer_path.unlink(missing_ok=True)
-                service_path.unlink(missing_ok=True)
-            else:
-                atomic_write(timer_path, old_timer, 0o644)
-                atomic_write(service_path, old_service, 0o644)
-            atomic_write(REGISTRY, old_registry, 0o600)
-            run(['systemctl', 'daemon-reload'], allow_failure=True)
-            if existing:
-                try:
-                    set_enabled(name, old_enabled)
-                except Exception:
-                    pass
-            raise
+    created = not path_for(name, '.timer').is_file()
+    changed = apply_timers({name: calendar}, enable=enabled)
+    return {'changed': name in changed, 'created': created, **unit_status(name)}
 
+
+def read_schedule(path):
+    if path.is_symlink() or not path.is_file() or path.stat().st_size > 65536:
+        raise ValueError('Cron schedule must be a regular JSON file')
+    def unique_jobs(pairs):
+        jobs = dict(pairs)
+        if len(jobs) != len(pairs):
+            raise ValueError('Duplicate job name in cron schedule')
+        return jobs
+
+    schedule = json.loads(path.read_text(), object_pairs_hook=unique_jobs)
+    if not isinstance(schedule, dict):
+        raise ValueError('Cron schedule must map job names to calendars')
+    return {valid_name(name): verify_calendar(calendar) for name, calendar in schedule.items()}
+
+
+def release_schedule(sha, validate_only=False, stage=False):
+    if not re.fullmatch(r'[a-f0-9]{40}', sha):
+        raise ValueError('Invalid release identity')
+    release = RELEASES / sha
+    if not release.is_dir():
+        raise ValueError('Release directory unavailable')
+    manifest = release / MANIFEST
+    source = manifest if manifest.exists() or manifest.is_symlink() else LEGACY
+    if source == LEGACY and not LEGACY.exists():
+        return
+    schedule = read_schedule(source)
+    for name in schedule:
+        deployed_route(name, sha)
+    if validate_only:
+        return
+    # Keep the cutover/rollback inventory separate from manually managed jobs.
+    changed = apply_timers(schedule, save=not stage, stage=stage)
+    operation = 'prepared' if stage else 'reconciled'
+    print(f'Production cron schedule {operation}: ' + (', '.join(sorted(changed)) or 'already current'))
+
+
+if __name__ == '__main__':
+    try:
+        if len(sys.argv) != 3 or sys.argv[1] not in {'validate-release', 'prepare-release', 'sync-release'}:
+            raise ValueError('Expected validate-release, prepare-release or sync-release followed by a release SHA')
+        release_schedule(sys.argv[2], validate_only=sys.argv[1] == 'validate-release',
+                         stage=sys.argv[1] == 'prepare-release')
+    except (ValueError, OSError, subprocess.SubprocessError) as error:
+        sys.exit(str(error))

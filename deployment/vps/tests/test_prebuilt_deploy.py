@@ -76,6 +76,31 @@ CODE
   self.assertEqual((self.state/'rollback-release.yml').read_text().strip(),'OLD_FULL_CONFIG')
   r=self.run_script('rollback');self.assertEqual(r.returncode,0,r.stdout+r.stderr)
   self.assertEqual((self.state/'deployed-sha').read_text().strip(),OLD)
+ def test_sync_runs_after_activation_and_restores_with_rollback(self):
+  manifest=self.releases/SHA/'.imenu-cron-schedule.json'
+  manifest.write_text('{}')
+  old_release=self.releases/OLD; old_release.mkdir()
+  (old_release/'.imenu-cron-schedule.json').write_text('{}')
+  manager=self.base/'ops/deploy-mcp/job_timers.py'; manager.parent.mkdir()
+  manager.write_text(
+   "import os, pathlib, sys\n"
+   "root=pathlib.Path(os.environ['FIXTURE'])\n"
+   "with (root/'cron-calls').open('a') as f:\n"
+   " f.write(' '.join(sys.argv[1:])+' '+(root/'active').read_text()+'\\n')\n"
+   "if os.environ.get('FAIL_SYNC') and sys.argv[1]=='sync-release' and sys.argv[2]=='a'*40: sys.exit(1)\n"
+  )
+  r=self.run_script('verify'); self.assertEqual(r.returncode,0,r.stdout+r.stderr)
+  r=self.run_script('activate',FAIL_SYNC='1'); self.assertNotEqual(r.returncode,0)
+  self.assertEqual((self.state/'deployed-sha').read_text().strip(),OLD)
+  self.assertEqual((self.root/'active').read_text(),'old')
+  r=self.run_script('retry'); self.assertEqual(r.returncode,0,r.stdout+r.stderr)
+  r=self.run_script('rollback'); self.assertEqual(r.returncode,0,r.stdout+r.stderr)
+  self.assertEqual((self.root/'cron-calls').read_text().splitlines(),[
+   f'validate-release {SHA} old', f'validate-release {SHA} old',
+   f'sync-release {SHA} new', f'sync-release {OLD} old',
+   f'validate-release {SHA} old', f'sync-release {SHA} new',
+   f'validate-release {OLD} new', f'sync-release {OLD} old',
+  ])
  def test_failed_handoff_leaves_live_untouched(self):
   r=self.run_script('activate',FAIL_HANDOFF='1');self.assertNotEqual(r.returncode,0)
   calls=(self.root/'calls').read_text()

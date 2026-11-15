@@ -108,6 +108,14 @@ for item in manifest:
 if mode=='prepare':print('READY' if ready else 'FULL')
 PY
 }
+release_schedule() {
+  [[ "$target" == production && -n "$2" ]] || return 0
+  [[ "$2" =~ ^[a-f0-9]{40}$ ]] || return 1
+  if [[ ! -e "$RELEASES/$2/.imenu-cron-schedule.json" && ! -L "$RELEASES/$2/.imenu-cron-schedule.json" && ! -f "$BASE/ops/job-config/legacy-schedule.json" ]]; then
+    return 0
+  fi
+  python3 "$BASE/ops/deploy-mcp/job_timers.py" "$1" "$2"
+}
 case "$action" in
   assets-ready) [[ $# -eq 0 ]] || exit 2; public_assets prepare; exit 0 ;;
   public-build-env) [[ $# -eq 0 ]] || exit 2; public_config; exit 0 ;;
@@ -225,9 +233,11 @@ compose_up() {
 if [[ "$action" == check-rollback || "$action" == rollback ]]; then
   [[ -f "$STATE/rollback-release.yml" ]] || { echo 'No standalone rollback saved' >&2; exit 1; }
   docker compose -f "$STATE/rollback-release.yml" config -q
+  rollback_sha="$(cat "$STATE/rollback-sha" 2>/dev/null || true)"
+  release_schedule validate-release "$rollback_sha"
   [[ "$action" == check-rollback ]] && { echo 'Previous application rollback configuration available'; exit 0; }
   cp "$STATE/active-release.yml" "$STATE/before-manual-rollback.yml"
-  if compose_up "$STATE/rollback-release.yml" && health "$CONTAINER"; then
+  if compose_up "$STATE/rollback-release.yml" && health "$CONTAINER" && release_schedule sync-release "$rollback_sha"; then
     cp "$STATE/rollback-release.yml" "$STATE/active-release.yml"
     if [[ -f "$STATE/rollback-sha" ]]; then cp "$STATE/rollback-sha" "$STATE/deployed-sha"; else rm -f "$STATE/deployed-sha"; fi
     echo 'Previous application restored and healthy; database unchanged'
@@ -239,6 +249,7 @@ if [[ "$action" == check-rollback || "$action" == rollback ]]; then
 fi
 [[ -d "$RELEASES/$sha" && "$(cat "$RELEASES/$sha/.imenu-commit-sha")" == "$sha" ]] || exit 1
 [[ "$(cat "$RELEASES/$sha/.imenu-public-config-sha256")" == "$(public_config hash)" ]] || exit 1
+release_schedule validate-release "$sha"
 python3 - "$RUN_ENV" "$EXPECTED_API" <<'PY'
 import pathlib,sys
 v=dict(l.split('=',1) for l in pathlib.Path(sys.argv[1]).read_text().splitlines() if l.startswith('NEXT_PUBLIC_') and '=' in l)
@@ -312,7 +323,11 @@ fi
 remote_sha="$(git -c http.version=HTTP/1.1 ls-remote "$REMOTE" refs/heads/"$BRANCH" | cut -f1)"
 [[ "$remote_sha" =~ ^[0-9a-f]{40}$ ]] || exit 1
 [[ "$remote_sha" == "$sha" ]] || { echo "Skipping obsolete $sha; $BRANCH is $remote_sha"; exit 0; }
-if [[ "$(cat "$STATE/deployed-sha" 2>/dev/null || true)" == "$sha" && "$(docker inspect "$CONTAINER" --format '{{.State.Health.Status}}')" == healthy ]]; then echo 'Already deployed and healthy'; exit 0; fi
+if [[ "$(cat "$STATE/deployed-sha" 2>/dev/null || true)" == "$sha" && "$(docker inspect "$CONTAINER" --format '{{.State.Health.Status}}')" == healthy ]]; then
+  release_schedule sync-release "$sha"
+  echo 'Already deployed and healthy'
+  exit 0
+fi
 if [[ "$action" != retry && "$(cat "$STATE/failed-sha" 2>/dev/null || true)" == "$sha" ]]; then echo 'Previously failed; explicit retry required' >&2; exit 1; fi
 
 # Preserve the previous fixed-name container configuration for automatic rollback.
@@ -336,6 +351,7 @@ cp -p "$proxy_file" "$proxy_backup"
 route_state=stable
 recreated=false
 handoff_started=false
+sync_attempted=false
 started=$SECONDS
 
 proxy_route() {
@@ -384,6 +400,9 @@ finish() {
       echo "Restoring previous application while handoff serves requests" >&2
       printf '%s\n' "$sha" > "$STATE/failed-sha"
       if compose_up "$STATE/restore-release.yml" && health "$CONTAINER"; then
+        if [[ "$sync_attempted" == true ]]; then
+          release_schedule sync-release "$previous_sha" || echo 'CRITICAL: previous cron schedule recovery failed' >&2
+        fi
         echo "Previous application restored and healthy" >&2
       else
         echo "CRITICAL: previous application recovery failed" >&2
@@ -424,6 +443,9 @@ health "$CONTAINER" || { echo "New application unhealthy" >&2; exit 1; }
 [[ "$(docker exec "$CONTAINER" cat /app/release/.imenu-commit-sha)" == "$sha" ]] || exit 1
 proxy_route stable
 route_state=stable
+previous_sha="$(cat "$STATE/deployed-sha" 2>/dev/null || true)"
+sync_attempted=true
+release_schedule sync-release "$sha"
 
 cp "$STATE/restore-release.yml" "$STATE/rollback-release.yml"
 if [[ -f "$STATE/deployed-sha" ]]; then cp "$STATE/deployed-sha" "$STATE/rollback-sha"; fi
