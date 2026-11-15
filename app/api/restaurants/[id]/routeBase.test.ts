@@ -51,19 +51,19 @@ test("repeated completion keeps the original completion date and does not reseed
     expect(seedPizzaExample).not.toHaveBeenCalled();
 });
 
-test("completing onboarding gives an unnamed restaurant a numbered name and public link", async () => {
+test("completing onboarding gives an unnamed restaurant a six-digit name and public link", async () => {
     const random = jest.spyOn(Math, "random").mockReturnValueOnce(0.25);
     clientQuery
         .mockResolvedValueOnce({ rows: [{ first_time: true, name: null, pizza_settings: null }] })
         .mockResolvedValueOnce({ rows: [{ ...row, name: null, url_slug: null }] })
         .mockResolvedValueOnce({ rows: [] })
-        .mockResolvedValueOnce({ rows: [{ ...row, name: "Sem Nome 3250", url_slug: "sem-nome-3250" }] });
+        .mockResolvedValueOnce({ rows: [{ ...row, name: "Sem Nome 325000", url_slug: "sem-nome-325000" }] });
 
     const response = await PATCH(request({ creation_step: 5, first_time: false }), context);
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ url_slug: "sem-nome-3250" });
-    expect(clientQuery.mock.calls[2][1]).toEqual(["sem-nome-3250", "restaurant"]);
-    expect(clientQuery.mock.calls[3][1]).toEqual(["restaurant", "Sem Nome 3250", "sem-nome-3250"]);
+    expect(await response.json()).toMatchObject({ url_slug: "sem-nome-325000" });
+    expect(clientQuery.mock.calls[2][1]).toEqual(["sem-nome-325000", "restaurant"]);
+    expect(clientQuery.mock.calls[3][1]).toEqual(["restaurant", "Sem Nome 325000", "sem-nome-325000"]);
     random.mockRestore();
 });

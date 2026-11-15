@@ -1,5 +1,5 @@
 export function generateUnnamedRestaurantName(): string {
-    return `Sem Nome ${Math.floor(1000 + Math.random() * 9000)}`;
+    return `Sem Nome ${Math.floor(100_000 + Math.random() * 900_000)}`;
 }
 
 export const CREATION_STEP_PATHS = {
