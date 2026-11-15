@@ -106,7 +106,7 @@ export default function FinanceiroPage() {
                 />
             </section>
 
-            <PanelFeatureCallout feature="analytics" />
+            <PanelFeatureCallout feature="vendas-ia" />
         </div>
     );
 }
