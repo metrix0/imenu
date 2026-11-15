@@ -1,5 +1,6 @@
 // app/[slug]/CartModal.tsx
 "use client";
+import { getMenuItemImageUrl } from "@/lib/menu/itemImages";
 import CheckoutCustomerFields from "@/components/costumer/CheckoutCustomerFields";
 import { getOrderScheduleOptions } from "@/lib/menu/orderAvailability";
 
@@ -291,16 +292,6 @@ export default function CartModal({
             return null;
         }
     }
-
-    const getPublicUrl = (
-        supabase: any,
-        bucket: string,
-        path: string | null
-    ) => {
-        if (!path) return null;
-        const { data } = supabase.storage.from(bucket).getPublicUrl(path);
-        return data?.publicUrl || null;
-    };
 
     const missingDeliveryRanges = !neighborhoodMode && !isTableOrder && !isPickup && (() => {
         const configured = getDeliveryTiers();
@@ -690,11 +681,7 @@ export default function CartModal({
 
                     return {
                         ...item,
-                        image_public_url: getPublicUrl(
-                            supabase,
-                            "menu-images",
-                            item.image_path
-                        ),
+                        image_public_url: getMenuItemImageUrl(supabase, item.image_path),
                     };
                 })
                 .filter((i): i is Item => i !== null);

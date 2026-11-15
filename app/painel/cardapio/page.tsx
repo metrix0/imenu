@@ -1,5 +1,6 @@
 "use client";
 
+import { getMenuItemImageUrl } from "@/lib/menu/itemImages";
 import { PageSaveHeader } from "@/components/ui/SaveStatus";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
@@ -68,11 +69,7 @@ export default function MenuManagerPage() {
             setCategories(catsRes.data || []);
 
             const itemsWithUrls = (itemsRes.data || []).map((item: any) => {
-                const publicUrl = item.image_path
-                    ? supabase.storage
-                          .from("menu-images")
-                          .getPublicUrl(item.image_path).data.publicUrl
-                    : null;
+                const publicUrl = getMenuItemImageUrl(supabase, item.image_path);
 
                 return { ...item, image_url: publicUrl };
             });

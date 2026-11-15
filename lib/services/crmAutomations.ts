@@ -1,3 +1,4 @@
+import { getMenuItemImageUrl } from "@/lib/menu/itemImages";
 import { createHash } from "node:crypto";
 import { query, withTransaction } from "@/lib/database/sql";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
@@ -398,10 +399,12 @@ export async function processCustomerAutomations() {
           let delivered = false;
           try {
             if (kind === "cart" && c.image_path) {
-              const { data } = createSupabaseServerClient()
-                .storage.from("menu-images")
-                .getPublicUrl(c.image_path);
-              await sendWahaImage(r.session_name, chat, data.publicUrl, text);
+              const imageUrl = getMenuItemImageUrl(createSupabaseServerClient(), c.image_path);
+              if (imageUrl) {
+                await sendWahaImage(r.session_name, chat, new URL(imageUrl, getIMenuPublicUrl()).href, text);
+              } else {
+                await sendWahaText(r.session_name, chat, text);
+              }
             } else await sendWahaText(r.session_name, chat, text);
             delivered = true;
             await query(

@@ -1,3 +1,4 @@
+import { getMenuItemImageUrl } from "@/lib/menu/itemImages";
 // app/api/items/[id]/route.ts
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse, NextRequest } from "next/server";
@@ -6,13 +7,11 @@ import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient"
 export const runtime = "nodejs";
 
 
-const getPublicUrl = (supabase: any, bucket: string, path: string | null) => {
-    if (!path) return null;
-    if (path.startsWith("http") || path.startsWith("data:image")) return path;
+const getItemImageUrl = (supabase: ReturnType<typeof createSupabaseServerClient>, path: string | null) => {
+    if (path?.startsWith("http") || path?.startsWith("data:image")) return path;
     try {
-        const { data } = supabase.storage.from(bucket).getPublicUrl(path);
-        return data?.publicUrl ?? null;
-    } catch (err) {
+        return getMenuItemImageUrl(supabase, path);
+    } catch {
         return null;
     }
 };
@@ -87,7 +86,7 @@ export async function GET(
         const itemWithImage: Item = {
             ...itemRaw,
             category: normalizedCategory, // Sobrescreve a categoria
-            image_public_url: getPublicUrl(supabase, "menu-images", itemRaw.image_path),
+            image_public_url: getItemImageUrl(supabase, itemRaw.image_path),
         };
         // --- FIM DA CORREÇÃO ---
 

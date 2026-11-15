@@ -1,3 +1,4 @@
+import { isMenuExampleImage } from "@/lib/menu/itemImages";
 import { NextResponse } from "next/server";
 import { query } from "@/lib/database/sql";
 
@@ -181,12 +182,12 @@ export async function POST(request: Request) {
                 subitemsResult.rows;
         }
 
-        const supabaseUrl =
-            process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const rewardItemImage =
-            program.reward_item_image_path &&
-            supabaseUrl
-                ? `${supabaseUrl}/storage/v1/object/public/menu-images/${program.reward_item_image_path}`
+        const imagePath = program.reward_item_image_path;
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const rewardItemImage = imagePath && isMenuExampleImage(imagePath)
+            ? imagePath
+            : imagePath && supabaseUrl
+                ? `${supabaseUrl}/storage/v1/object/public/menu-images/${imagePath}`
                 : null;
 
         return NextResponse.json(

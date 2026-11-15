@@ -1,3 +1,4 @@
+import { getMenuItemImageUrl } from "@/lib/menu/itemImages";
 import { isItemAvailableForChannel } from "@/lib/menu/itemAvailability";
 import { NextResponse } from "next/server";
 import { query } from "@/lib/database/sql";
@@ -19,7 +20,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
             id: item.id, name: item.name, description: item.description, price_cents: item.price_cents,
             is_available: item.is_available, position: item.position, category: item.category,
             category_id: item.category_id, promotion: item.promotion, image_path: item.image_path,
-            image_public_url: item.image_path ? supabase.storage.from("menu-images").getPublicUrl(item.image_path).data.publicUrl : null,
+            image_public_url: getMenuItemImageUrl(supabase, item.image_path),
             subcategories: item.subcategories,
             pizza_same_category_only: settings.same_category_only,
         })) }, { headers: { "Cache-Control": "no-store" } });

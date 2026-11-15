@@ -3,6 +3,7 @@ import { DEFAULT_DELIVERY_RANGES } from "@/lib/delivery/defaultRanges";
 import { hasOrderHours } from "@/lib/menu/orderAvailability";
 import { nextStoreMidnight } from "@/lib/menu/storeHoursOverride";
 import { generateUnnamedRestaurantName } from "@/lib/restaurantCreation";
+import { seedEmptyMenuExample } from "@/lib/menu/onboarding";
 import { seedPizzaExample } from "@/lib/pizza/onboarding";
 import { NextResponse } from "next/server";
 
@@ -281,6 +282,7 @@ export async function PATCH(
                         );
                     }
                     await seedPizzaExample(client, id, previous.name, previous.pizza_settings);
+                    await seedEmptyMenuExample(client, id);
                 }
                 return updated;
             })

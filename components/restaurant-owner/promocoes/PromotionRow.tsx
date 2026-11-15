@@ -1,5 +1,6 @@
 "use client";
 
+import { getMenuItemImageUrl } from "@/lib/menu/itemImages";
 import { useEffect, useState } from "react";
 import { BadgeX } from "lucide-react";
 import { Item, Promotion } from "@/lib/types/types";
@@ -29,7 +30,7 @@ export default function PromotionRow({ item, checked, onToggle, onChange }: {
     const finalPrice = item.price_cents - (type === "percent" ? Math.round(item.price_cents * safeValue / 100) : Math.round(safeValue * 100));
     const hasPromo = value > 0;
     const formatBRL = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-    const imageUrl = item.image_path ? supabase.storage.from("menu-images").getPublicUrl(item.image_path).data.publicUrl : "/placeholders/item.png";
+    const imageUrl = getMenuItemImageUrl(supabase, item.image_path) || "/placeholders/item.png";
     const now = new Date();
     const status = !hasPromo ? "Sem desconto" : startsAt && new Date(startsAt) > now ? "Programada" : endsAt && new Date(endsAt) < now ? "Encerrada" : "Ativa";
 

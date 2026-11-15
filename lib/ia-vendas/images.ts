@@ -1,4 +1,7 @@
 import sharp from "sharp";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { isMenuExampleImage } from "@/lib/menu/itemImages";
 import { imageAllowed, approvedImageStyles, resolveImageStyle } from "./imagePolicy";
 import OpenAI, { toFile } from "openai";
 import { openAiAlertFetch } from "@/lib/services/openAiAlerts";
@@ -63,9 +66,14 @@ export async function analysisPhotos(ctx: Data): Promise<any[]> {
           } else if (path.includes(":") || path.startsWith("//")) {
             throw new Error("Unsupported photo source");
           }
-          const { data, error } = await storage.download(path);
-          if (error || !data) throw new Error("Photo unavailable");
-          const bytes = Buffer.from(await data.arrayBuffer());
+          let bytes: Buffer;
+          if (isMenuExampleImage(path)) {
+            bytes = await readFile(join(process.cwd(), "public", path));
+          } else {
+            const { data, error } = await storage.download(path);
+            if (error || !data) throw new Error("Photo unavailable");
+            bytes = Buffer.from(await data.arrayBuffer());
+          }
           const image = sharp(bytes, { limitInputPixels: 40_000_000 });
           const metadata = await image.metadata();
           const prepared = await image

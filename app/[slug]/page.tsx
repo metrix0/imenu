@@ -1,3 +1,4 @@
+import { getMenuItemImageUrl } from "@/lib/menu/itemImages";
 import { isItemAvailableForChannel } from "@/lib/menu/itemAvailability";
 // app/[slug]/page.tsx
 
@@ -353,7 +354,7 @@ export default async function Page({
     .filter((item: any) => item.is_available === true && (readOnly || isItemAvailableForChannel(item, tableOrder ? "mesa" : "entrega")))
     .map((item: any) => ({
       ...item,
-      image_public_url: getPublicUrl(supabase, "menu-images", item.image_path),
+      image_public_url: getMenuItemImageUrl(supabase, item.image_path),
     }));
 
   // ======================
