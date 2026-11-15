@@ -162,7 +162,12 @@ export function accountAge(value?: string | null, now = new Date()): string {
     const start = new Date(value);
     if (!Number.isFinite(start.getTime()) || start > now) return "—";
     if (now >= monthAnniversary(start, 1)) return monthsSince(value, now);
-    const weeks = Math.max(1, Math.ceil((now.getTime() - start.getTime()) / (7 * 86400000)));
+    const elapsedDays = (now.getTime() - start.getTime()) / 86400000;
+    if (elapsedDays < 7) {
+        const days = Math.floor(elapsedDays);
+        return `${days} ${days === 1 ? "dia" : "dias"}`;
+    }
+    const weeks = Math.ceil(elapsedDays / 7);
     return `${weeks} ${weeks === 1 ? "semana" : "semanas"}`;
 }
 
