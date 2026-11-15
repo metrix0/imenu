@@ -3,7 +3,7 @@
 import Dropdown from "@/components/ui/Dropdown";
 import { useEffect, useRef, useState } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import { faChevronDown, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faPen, faPlus, faTrash } from "@fortawesome/free-solid-svg-icons";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import ConfirmModal from "@/components/ui/ConfirmModal";
@@ -45,6 +45,8 @@ const TIME_OPTIONS = [
     ...Array.from({ length: 96 }, (_, i) => minToTime(i * 15)),
     "23:59",
 ];
+const timeOptionsFor = (time: string) =>
+    TIME_OPTIONS.includes(time) ? TIME_OPTIONS : [...TIME_OPTIONS, time].sort();
 
 type DragMode = "move" | "resize-start" | "resize-end";
 type DragState = {
@@ -75,6 +77,9 @@ export default function WeeklyScheduleClick({
     });
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [selectedDays, setSelectedDays] = useState<string[] | null>(null);
+    const [isSavingMobileSlot, setIsSavingMobileSlot] = useState(false);
+    const [editorError, setEditorError] = useState("");
 
     useEffect(() => {
         const handleMove = (event: PointerEvent) => {
@@ -158,6 +163,8 @@ export default function WeeklyScheduleClick({
     };
 
     const openEmpty = (event: React.MouseEvent, dayKey: string) => {
+        setSelectedDays(null);
+        setEditorError("");
         const rect = event.currentTarget.getBoundingClientRect();
         const start = clamp(
             snap(((event.clientY - rect.top) / PX_PER_HOUR) * 60),
@@ -172,14 +179,28 @@ export default function WeeklyScheduleClick({
             endTime: minToTime(start + 60),
         });
     };
+    const openMobileAdd = () => {
+        setSelectedDays([]);
+        setEditorError("");
+        setEditModal({
+            isOpen: true,
+            dayKey: "0",
+            slotIndex: null,
+            startTime: "18:00",
+            endTime: "23:00",
+        });
+    };
     const openSlot = (
         event: React.MouseEvent,
         dayKey: string,
         index: number,
         slot: TimeSlot,
+        mobile = false,
     ) => {
         event.stopPropagation();
         if (ignoreClickRef.current) return;
+        setSelectedDays(mobile ? [dayKey] : null);
+        setEditorError("");
         setEditModal({
             isOpen: true,
             dayKey,
@@ -191,13 +212,16 @@ export default function WeeklyScheduleClick({
                     : slot.close,
         });
     };
-    const saveSlot = () => {
+    const saveSlot = async () => {
+        if (isSavingMobileSlot || selectedDays?.length === 0) return;
         const start = timeToMin(editModal.startTime);
         const end = closeTimeToMin(editModal.endTime);
         if (start >= end) {
-            return alert("O horário de término deve ser depois do início.");
+            const message = "O horário de término deve ser depois do início.";
+            if (selectedDays) setEditorError(message);
+            else alert(message);
+            return;
         }
-        const slots = [...(value[editModal.dayKey] || [])];
         const nextSlot = {
             open: editModal.startTime,
             close:
@@ -205,15 +229,31 @@ export default function WeeklyScheduleClick({
                     ? "23:59"
                     : editModal.endTime,
         };
-        if (editModal.slotIndex === null) slots.push(nextSlot);
-        else slots[editModal.slotIndex] = nextSlot;
-        onChange({
-            ...value,
-            [editModal.dayKey]: slots.sort(
-                (a, b) => timeToMin(a.open) - timeToMin(b.open),
-            ),
-        });
+        const nextValue = { ...value };
+        let changed = false;
+        for (const dayKey of selectedDays ?? [editModal.dayKey]) {
+            const slots = [...(value[dayKey] || [])];
+            if (editModal.slotIndex === null) {
+                if (selectedDays && slots.some((slot) => timeToMin(slot.open) === start && closeTimeToMin(slot.close) === end)) continue;
+                slots.push(nextSlot);
+            } else {
+                slots[editModal.slotIndex] = nextSlot;
+            }
+            nextValue[dayKey] = slots.sort((a, b) => timeToMin(a.open) - timeToMin(b.open));
+            changed = true;
+        }
         setEditModal((prev) => ({ ...prev, isOpen: false }));
+        if (!changed) return;
+        if (!selectedDays) {
+            void onChange(nextValue);
+            return;
+        }
+        setIsSavingMobileSlot(true);
+        try {
+            await onChange(nextValue);
+        } finally {
+            setIsSavingMobileSlot(false);
+        }
     };
     const openDeleteModal = () => {
         setEditModal((prev) => ({ ...prev, isOpen: false }));
@@ -248,9 +288,53 @@ export default function WeeklyScheduleClick({
     const gridHours = Array.from({ length: 12 }, (_, i) => i * 2);
     const dayName = (key: string) =>
         DAYS.find((day) => day.key === key)?.label || "Dia";
+    const isMobileEditor = selectedDays !== null;
+    const isMobileAdd = isMobileEditor && editModal.slotIndex === null;
 
     return (
-        <div className="relative flex min-w-[720px] flex-col select-none">
+        <div className="@container min-w-0">
+            <div className="@min-[720px]:hidden">
+                <div className="mb-4 flex justify-end">
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        leftIcon={<FontAwesomeIcon icon={faPlus} />}
+                        disabled={isSavingMobileSlot}
+                        onClick={openMobileAdd}
+                    >
+                        Adicionar horário
+                    </Button>
+                </div>
+                <ul className="divide-y divide-gray-200 border-y border-gray-200">
+                    {DAYS.map((day) => {
+                        const slots = value[day.key] || [];
+                        return (
+                            <li key={day.key} className="grid min-h-12 grid-cols-[4.75rem_minmax(0,1fr)] items-center gap-2 py-1.5">
+                                <span className="text-sm font-medium text-gray-900">{day.label}</span>
+                                {slots.length ? (
+                                    <div className="flex min-w-0 flex-wrap gap-1.5">
+                                        {slots.map((slot, index) => (
+                                            <Button
+                                                key={`${slot.open}-${slot.close}-${index}`}
+                                                type="button"
+                                                variant="secondary"
+                                                className="min-h-11 whitespace-nowrap px-2.5 py-1 tabular-nums"
+                                                aria-label={`Editar horário de ${day.label}, ${slot.open} às ${slot.close === "24:00" ? "00:00" : slot.close}`}
+                                                rightIcon={<FontAwesomeIcon icon={faPen} className="text-xs" />}
+                                                disabled={isSavingMobileSlot}
+                                                onClick={(event) => openSlot(event, day.key, index, slot, true)}
+                                            >
+                                                {slot.open}–{slot.close === "24:00" ? "00:00" : slot.close}
+                                            </Button>
+                                        ))}
+                                    </div>
+                                ) : <span className="text-sm text-gray-500">Fechada</span>}
+                            </li>
+                        );
+                    })}
+                </ul>
+            </div>
+            <div className="relative hidden select-none flex-col @min-[720px]:flex">
             <div className="flex pb-4">
                 <div className="w-10 shrink-0" />
                 {DAYS.map((day) => (
@@ -387,7 +471,8 @@ export default function WeeklyScheduleClick({
                     ))}
                 </div>
             </div>
-            <Modal height={290}
+            </div>
+            <Modal height={isMobileAdd ? 370 : 290}
                 open={editModal.isOpen}
                 onClose={() =>
                     setEditModal((prev) => ({ ...prev, isOpen: false }))
@@ -395,46 +480,75 @@ export default function WeeklyScheduleClick({
             >
                 <div className="p-6 text-left">
                     <h3 className="mb-6 text-xl font-bold text-gray-900">
-                        {dayName(editModal.dayKey)}
+                        {isMobileAdd ? "Novo horário" : dayName(editModal.dayKey)}
                     </h3>
-                    <div className="mb-8 flex items-end gap-4">
-                        <div className="flex-1">
+                    {isMobileAdd && (
+                        <fieldset className="mb-5 min-w-0">
+                            <legend className="mb-2 text-sm font-medium text-gray-500">Dias da semana</legend>
+                            <div className="grid grid-cols-7 gap-1">
+                                {DAYS.map((day) => {
+                                    const checked = selectedDays.includes(day.key);
+                                    return (
+                                        <Button
+                                            key={day.key}
+                                            type="button"
+                                            aria-label={day.label}
+                                            aria-pressed={checked}
+                                            variant={checked ? "primary" : "secondary"}
+                                            className="min-h-11 min-w-0 px-0 py-1"
+                                            onClick={() => setSelectedDays((days) => days?.includes(day.key)
+                                                ? days.filter((key) => key !== day.key)
+                                                : [...(days ?? []), day.key])}
+                                        >
+                                            {day.label.slice(0, 3)}
+                                        </Button>
+                                    );
+                                })}
+                            </div>
+                        </fieldset>
+                    )}
+                    <div className={`flex items-end ${isMobileEditor ? "mb-5 gap-2" : "mb-8 gap-4"}`}>
+                        <div className="min-w-0 flex-1">
                             <label className="mb-1 block text-sm font-medium text-gray-500">
                                 Das
                             </label>
                             <div className="relative">
                                 <Dropdown
+                                    aria-label="Das"
                                     value={editModal.startTime}
-                                    onChange={(e) =>
-                                        setEditModal((p) => ({
-                                            ...p,
-                                            startTime: e.target.value,
-                                        }))
-                                    }
+                                    onChange={(event) => {
+                                        setEditorError("");
+                                        setEditModal((prev) => ({
+                                            ...prev,
+                                            startTime: event.target.value,
+                                        }));
+                                    }}
                                     className="w-full appearance-none rounded-lg border border-gray-300 bg-white py-3 pl-3 pr-10"
                                 >
-                                    {TIME_OPTIONS.map((t) => (
+                                    {timeOptionsFor(editModal.startTime).map((t) => (
                                         <option key={t}>{t}</option>
                                     ))}
                                 </Dropdown>
                             </div>
                         </div>
-                        <div className="flex-1">
+                        <div className="min-w-0 flex-1">
                             <label className="mb-1 block text-sm font-medium text-gray-500">
                                 Até
                             </label>
                             <div className="relative">
                                 <Dropdown
+                                    aria-label="Até"
                                     value={editModal.endTime}
-                                    onChange={(e) =>
-                                        setEditModal((p) => ({
-                                            ...p,
-                                            endTime: e.target.value,
-                                        }))
-                                    }
+                                    onChange={(event) => {
+                                        setEditorError("");
+                                        setEditModal((prev) => ({
+                                            ...prev,
+                                            endTime: event.target.value,
+                                        }));
+                                    }}
                                     className="w-full appearance-none rounded-lg border border-gray-300 bg-white py-3 pl-3 pr-10"
                                 >
-                                    {TIME_OPTIONS.map((t) => (
+                                    {timeOptionsFor(editModal.endTime).map((t) => (
                                         <option key={t}>{t}</option>
                                     ))}
                                 </Dropdown>
@@ -443,6 +557,7 @@ export default function WeeklyScheduleClick({
                         {editModal.slotIndex !== null && (
                             <button
                                 type="button"
+                                aria-label="Excluir horário"
                                 onClick={openDeleteModal}
                                 className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg text-brand transition-colors hover:bg-red-50 hover:text-red-700"
                             >
@@ -450,6 +565,7 @@ export default function WeeklyScheduleClick({
                             </button>
                         )}
                     </div>
+                    {editorError && <p role="alert" className="mb-3 text-sm text-red-700">{editorError}</p>}
                     <div className="flex justify-end gap-3">
                         <Button
                             variant="secondary"
@@ -459,7 +575,7 @@ export default function WeeklyScheduleClick({
                         >
                             Cancelar
                         </Button>
-                        <Button onClick={saveSlot}>
+                        <Button onClick={saveSlot} disabled={isSavingMobileSlot || selectedDays?.length === 0}>
                             {editModal.slotIndex === null
                                 ? "Adicionar"
                                 : "Salvar"}

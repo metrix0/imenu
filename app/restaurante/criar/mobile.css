@@ -50,16 +50,6 @@
         gap: 1rem;
     }
 
-    .creation-mobile-content[data-creation-path^="/restaurante/criar/disponibilidade"] > div > div:first-child {
-        overflow-x: auto;
-        overscroll-behavior-x: contain;
-        -webkit-overflow-scrolling: touch;
-    }
-
-    .creation-mobile-content[data-creation-path^="/restaurante/criar/disponibilidade"] .flex.flex-col.select-none.relative {
-        min-width: 720px;
-    }
-
     .creation-mobile-content[data-creation-path^="/restaurante/criar/cardapio"] .flex.justify-between.items-center.mb-4 {
         flex-direction: column;
         align-items: stretch;
