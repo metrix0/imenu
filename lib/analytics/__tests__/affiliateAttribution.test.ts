@@ -51,7 +51,7 @@ test("validates the link format and stores one referral for an authenticated buy
 
 test("captures linked visit and confirmed purchase events", async () => {
     await captureAffiliateEvent("affiliate_link_visited", visitId, visitId, { af: "partner-a" });
-    db.mockResolvedValueOnce({ rows: [], rowCount: 1 }).mockResolvedValueOnce({ rows: [purchase], rowCount: 1 });
+    db.mockResolvedValueOnce({ rows: [purchase], rowCount: 1 });
     await recordAffiliatePurchase("addon", "provider-payment");
 
     const events = (global.fetch as jest.Mock).mock.calls.map(([, init]) => JSON.parse(init.body));
@@ -61,16 +61,16 @@ test("captures linked visit and confirmed purchase events", async () => {
         timestamp: purchase.paid_at.toISOString(),
         properties: { af: "partner-a", referral_visit_id: visitId, amount_cents: 4999 },
     });
-    expect(db).toHaveBeenLastCalledWith(expect.stringContaining("SET posthog_sent_at = now()"), [purchase.id]);
+    expect(db).toHaveBeenLastCalledWith(expect.stringContaining("INSERT INTO public.affiliate_purchase_events"), [purchase.id]);
     await recordAffiliatePurchase("addon", "provider-payment");
     expect(global.fetch).toHaveBeenCalledTimes(2);
 });
 
 test("keeps attribution available for retry when PostHog is unavailable", async () => {
     (global.fetch as jest.Mock).mockResolvedValue(new Response(null, { status: 503 }));
-    db.mockResolvedValueOnce({ rows: [], rowCount: 1 }).mockResolvedValueOnce({ rows: [purchase], rowCount: 1 });
+    db.mockResolvedValueOnce({ rows: [purchase], rowCount: 1 });
     await recordAffiliatePurchase("addon", "provider-payment");
-    expect(db).toHaveBeenCalledTimes(2);
+    expect(db).toHaveBeenCalledTimes(1);
 });
 
 
@@ -97,4 +97,19 @@ test("sets a 30-day cookie and captures visits for valid codes only", async () =
     const unknown = await proxy(new Request("https://www.imenuapp.com.br/?af=unknown", { headers }), event);
     expect(unknown?.headers.get("set-cookie")).toBeFalsy();
     expect(waitUntil).toHaveBeenCalledTimes(1);
+});
+
+
+test("captures a later Plus payment for the same affiliate", async () => {
+    const renewal = { ...purchase, id: "33333333-3333-4333-8333-333333333333", paid_at: new Date("2026-12-15T15:00:00Z") };
+    db.mockResolvedValueOnce({ rows: [purchase], rowCount: 1 })
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 })
+        .mockResolvedValueOnce({ rows: [renewal], rowCount: 1 });
+    await recordAffiliatePurchase("addon", "first-payment");
+    await recordAffiliatePurchase("addon", "renewal");
+    const events = (global.fetch as jest.Mock).mock.calls.map(([, init]) => JSON.parse(init.body));
+    expect(events.map(event => [event.uuid, event.properties.af])).toEqual([
+        [purchase.id, "partner-a"],
+        [renewal.id, "partner-a"],
+    ]);
 });

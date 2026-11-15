@@ -1,7 +1,21 @@
 import { query } from "@/lib/database/sql";
 import { readAffiliateCookie } from "./affiliateCode";
 
-const CONFIRMED = "('CONFIRMED', 'RECEIVED', 'RECEIVED_IN_CASH', 'PAID', 'COMPLETED', 'APPROVED')";
+export const CONFIRMED_AFFILIATE_PAYMENT_STATUSES = "('CONFIRMED', 'RECEIVED', 'RECEIVED_IN_CASH', 'PAID', 'COMPLETED', 'APPROVED')";
+
+// Use the same eligibility rules for PostHog and the developer purchase history.
+export const AFFILIATE_PAID_PURCHASES = `
+    SELECT payment.id, referral.user_id, referral.affiliate_code, referral.visit_id,
+           addon.id AS addon_id, payment.asaas_payment_id, addon.restaurant_id,
+           restaurant.name AS restaurant_name, payment.amount_cents, payment.paid_at
+    FROM public.affiliate_referrals referral
+    JOIN public.restaurants restaurant ON restaurant.user_id = referral.user_id
+    JOIN public.restaurant_addons addon ON addon.restaurant_id = restaurant.id AND addon.product_key = 'ia_plus'
+    JOIN public.restaurant_addon_payments payment ON payment.addon_id = addon.id
+    WHERE payment.paid_at IS NOT NULL AND payment.amount_cents > 0
+      AND UPPER(payment.status) IN ${CONFIRMED_AFFILIATE_PAYMENT_STATUSES}
+      AND (payment.id = referral.purchase_id OR GREATEST(payment.paid_at, payment.created_at) >= referral.referred_at)
+`;
 
 export async function captureAffiliateEvent(
     event: "affiliate_link_visited" | "imenu_plus_affiliate_purchase",
@@ -45,7 +59,7 @@ export async function rememberAffiliateReferral(request: Request, userId: string
                  JOIN public.restaurant_addons addon ON addon.restaurant_id = restaurant.id AND addon.product_key = 'ia_plus'
                  JOIN public.restaurant_addon_payments payment ON payment.addon_id = addon.id
                  WHERE restaurant.user_id = $1 AND payment.paid_at IS NOT NULL AND payment.amount_cents > 0
-                   AND UPPER(payment.status) IN ${CONFIRMED}
+                   AND UPPER(payment.status) IN ${CONFIRMED_AFFILIATE_PAYMENT_STATUSES}
                )
              ON CONFLICT (user_id) DO NOTHING`,
             [userId, referral.code, referral.visitId]
@@ -57,46 +71,17 @@ export async function rememberAffiliateReferral(request: Request, userId: string
 
 export async function recordAffiliatePurchase(addonId: string, providerPaymentId: string): Promise<void> {
     try {
-        // Compare all Plus payments for the buyer, including purchases at another restaurant.
-        await query(
-            `UPDATE public.affiliate_referrals referral SET purchase_id = payment.id
-             FROM public.restaurant_addon_payments payment
-             JOIN public.restaurant_addons addon ON addon.id = payment.addon_id AND addon.product_key = 'ia_plus'
-             JOIN public.restaurants restaurant ON restaurant.id = addon.restaurant_id
-             WHERE addon.id = $1 AND payment.asaas_payment_id = $2
-               AND referral.user_id = restaurant.user_id AND referral.purchase_id IS NULL
-               AND payment.paid_at IS NOT NULL AND payment.amount_cents > 0 AND UPPER(payment.status) IN ${CONFIRMED}
-               AND GREATEST(payment.paid_at, payment.created_at) >= referral.referred_at
-               AND NOT EXISTS (
-                   SELECT 1 FROM public.restaurants earlier_restaurant
-                   JOIN public.restaurant_addons earlier_addon
-                     ON earlier_addon.restaurant_id = earlier_restaurant.id AND earlier_addon.product_key = 'ia_plus'
-                   JOIN public.restaurant_addon_payments earlier ON earlier.addon_id = earlier_addon.id
-                   WHERE earlier_restaurant.user_id = referral.user_id
-                     AND earlier.amount_cents > 0 AND UPPER(earlier.status) IN ${CONFIRMED}
-                     AND (earlier.paid_at, earlier.id) < (payment.paid_at, payment.id)
-               )`,
-            [addonId, providerPaymentId]
-        );
-
         const { rows: [purchase] } = await query<{
             id: string; user_id: string; affiliate_code: string; visit_id: string;
             restaurant_id: string; amount_cents: number; paid_at: Date;
         }>(
-            `SELECT payment.id, referral.user_id, referral.affiliate_code, referral.visit_id,
-                    addon.restaurant_id, payment.amount_cents, payment.paid_at
-             FROM public.restaurant_addon_payments payment
-             JOIN public.affiliate_referrals referral ON referral.purchase_id = payment.id
-             JOIN public.restaurant_addons addon ON addon.id = payment.addon_id
-             WHERE referral.posthog_sent_at IS NULL AND payment.paid_at IS NOT NULL
-               AND UPPER(payment.status) IN ${CONFIRMED}
-               AND EXISTS (
-                   SELECT 1 FROM public.restaurant_addons current_addon
-                   JOIN public.restaurants current_restaurant ON current_restaurant.id = current_addon.restaurant_id
-                   WHERE current_addon.id = $1 AND current_addon.product_key = 'ia_plus'
-                     AND current_restaurant.user_id = referral.user_id
+            `WITH attributed AS (${AFFILIATE_PAID_PURCHASES})
+             SELECT attributed.* FROM attributed
+             WHERE addon_id = $1 AND asaas_payment_id = $2
+               AND NOT EXISTS (
+                   SELECT 1 FROM public.affiliate_purchase_events event WHERE event.payment_id = attributed.id
                )`,
-            [addonId]
+            [addonId, providerPaymentId]
         );
         if (!purchase) return;
         if (await captureAffiliateEvent("imenu_plus_affiliate_purchase", purchase.user_id, purchase.id, {
@@ -106,7 +91,10 @@ export async function recordAffiliatePurchase(addonId: string, providerPaymentId
             payment_id: purchase.id,
             amount_cents: Number(purchase.amount_cents),
         }, purchase.paid_at)) {
-            await query("UPDATE public.affiliate_referrals SET posthog_sent_at = now() WHERE purchase_id = $1", [purchase.id]);
+            await query(
+                "INSERT INTO public.affiliate_purchase_events (payment_id) VALUES ($1) ON CONFLICT DO NOTHING",
+                [purchase.id]
+            );
         }
     } catch (error) {
         console.warn("[AFFILIATE] Could not record purchase:", error instanceof Error ? error.name : "unknown");

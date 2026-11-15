@@ -139,3 +139,19 @@ test("preserves links to the iMenu dashboard and the restaurant's WhatsApp", asy
     mockMenuReply(message);
     await expect(generateSupportReply("conversation-1")).resolves.toMatchObject({ text: message });
 });
+
+
+test("offers human support after answering an affiliate question", async () => {
+    (query as jest.Mock)
+        .mockResolvedValueOnce({ rows: [{ direction: "inbound", body: "Quanto ganha um afiliado?" }] })
+        .mockResolvedValueOnce({ rows: [{ mode: "ai", handoff_prompted_at: null }] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [{ mode: "ai", handoff_prompted_at: null }] });
+    (searchSupportKnowledge as jest.Mock).mockResolvedValue([]);
+    create.mockResolvedValue({ status: "completed", output_text: "A comissão é de 50%." });
+
+    const reply = await generateSupportReply("conversation-1");
+
+    expect(reply.text).toBe("A comissão é de 50%. Quer que eu encaminhe para nossa equipe de suporte?");
+    expect(reply.handoffState).toBeNull();
+});

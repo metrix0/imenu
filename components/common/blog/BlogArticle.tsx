@@ -41,7 +41,9 @@ type BlogArticleProps = {
     sections: ArticleSectionLink[];
     faq: ArticleFaq[];
     relatedSlugs: string[];
-    ctaTitle: string;
+    ctaTitle?: string;
+    action?: React.ReactNode;
+    guideLabel?: string;
     canonicalUrl?: string;
     children: React.ReactNode;
 };
@@ -127,6 +129,8 @@ export default function BlogArticle({
     faq,
     relatedSlugs,
     ctaTitle,
+    action,
+    guideLabel = "Guia prático para restaurantes",
     canonicalUrl,
     children,
 }: BlogArticleProps) {
@@ -205,7 +209,7 @@ export default function BlogArticle({
 
                         <p className="mt-7 inline-flex items-center gap-2 rounded-full border border-brand/15 bg-white/80 px-3 py-1.5 text-sm font-semibold text-brand shadow-sm">
                             <FontAwesomeIcon icon={icon} className="h-3.5 w-3.5" />
-                            Guia prático para restaurantes
+                            {guideLabel}
                         </p>
                         <h1 className="mt-5 max-w-4xl text-4xl font-extrabold leading-[1.08] tracking-tight text-gray-950 md:text-5xl">
                             {article.title}
@@ -213,6 +217,7 @@ export default function BlogArticle({
                         <p className="mt-6 max-w-3xl text-lg leading-8 text-gray-600">
                             {article.excerpt}
                         </p>
+                        {action && <div className="mt-7">{action}</div>}
                         <div className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-gray-500">
                             <span>Por Equipe iMenu</span>
                             <span className="inline-flex items-center gap-2">
@@ -345,9 +350,11 @@ export default function BlogArticle({
                         </section>
                     )}
 
-                    <div className="mt-16">
-                        <RestaurantToolsCta title={ctaTitle} href="/cardapio-digital" />
-                    </div>
+                    {ctaTitle && (
+                        <div className="mt-16">
+                            <RestaurantToolsCta title={ctaTitle} href="/cardapio-digital" />
+                        </div>
+                    )}
                 </div>
             </div>
         </article>

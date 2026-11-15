@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { AFFILIATE_PAID_PURCHASES } from "@/lib/analytics/affiliateAttribution";
 import { normalizeAffiliateCode } from "@/lib/analytics/affiliateCode";
 import { query } from "@/lib/database/sql";
 import { authorize } from "@/lib/dev/authorize";
@@ -20,27 +21,27 @@ export async function GET(request: Request) {
         const purchasePage = devPage(params, "purchases");
         const [partners, purchases, totals] = await Promise.all([
             query<{ code: string; name: string; purchases: number }>(
-                `SELECT partner.code, partner.name, COUNT(referral.purchase_id)::int purchases
+                `WITH attributed AS (${AFFILIATE_PAID_PURCHASES})
+                 SELECT partner.code, partner.name, COUNT(attributed.id)::int purchases
                  FROM public.affiliate_partners partner
-                 LEFT JOIN public.affiliate_referrals referral ON referral.affiliate_code = partner.code
+                 LEFT JOIN attributed ON attributed.affiliate_code = partner.code
                  GROUP BY partner.code
                  ORDER BY partner.created_at DESC, partner.code LIMIT $1 OFFSET $2`,
                 [PAGE_SIZE, page * PAGE_SIZE]
             ),
             query<{ id: string; name: string; code: string; restaurant_id: string; restaurant_name: string; paid_at: string; amount_cents: number }>(
-                `SELECT payment.id, partner.name, partner.code, restaurant.id AS restaurant_id,
-                    restaurant.name AS restaurant_name, payment.paid_at, payment.amount_cents
-                 FROM public.affiliate_referrals referral
-                 JOIN public.affiliate_partners partner ON partner.code = referral.affiliate_code
-                 JOIN public.restaurant_addon_payments payment ON payment.id = referral.purchase_id
-                 JOIN public.restaurant_addons addon ON addon.id = payment.addon_id
-                 JOIN public.restaurants restaurant ON restaurant.id = addon.restaurant_id
-                 ORDER BY payment.paid_at DESC, payment.id DESC LIMIT $1 OFFSET $2`,
+                `WITH attributed AS (${AFFILIATE_PAID_PURCHASES})
+                 SELECT attributed.id, partner.name, partner.code,
+                    attributed.restaurant_id, attributed.restaurant_name, attributed.paid_at, attributed.amount_cents
+                 FROM attributed
+                 JOIN public.affiliate_partners partner ON partner.code = attributed.affiliate_code
+                 ORDER BY attributed.paid_at DESC, attributed.id DESC LIMIT $1 OFFSET $2`,
                 [PAGE_SIZE, purchasePage * PAGE_SIZE]
             ),
             query<{ partners: number; purchases: number }>(
-                `SELECT (SELECT COUNT(*)::int FROM public.affiliate_partners) AS partners,
-                         (SELECT COUNT(purchase_id)::int FROM public.affiliate_referrals) AS purchases`
+                `WITH attributed AS (${AFFILIATE_PAID_PURCHASES})
+                 SELECT (SELECT COUNT(*)::int FROM public.affiliate_partners) AS partners,
+                        (SELECT COUNT(*)::int FROM attributed) AS purchases`
             ),
         ]);
         return NextResponse.json({

@@ -57,6 +57,7 @@ const SUPPORT_INSTRUCTIONS = [
     "- Antes de tratar alguém como cliente final de um restaurante, confirme que a pessoa é cliente final. Se isso não estiver explícito na mensagem ou no histórico, pergunte: Você é cliente do restaurante ou proprietário/gestor? Aguarde a resposta antes de seguir o fluxo de cliente final.",
     "- Se a pessoa for cliente final de um restaurante e quiser fazer um pedido ou pedir informações ou alterações sobre um pedido existente, como status, entrega, cancelamento ou item faltando, não tente atender o pedido pelo suporte do iMenu. Se o restaurante não estiver identificado, pergunte apenas qual é o restaurante.",
     "- Quando o restaurante estiver identificado nesse caso, use find_restaurant_public_contact e envie o WhatsApp público da loja (store_whatsapp). Nunca use telefone do proprietário, telefone da conta ou outro número. Explique brevemente que o iMenu fornece a plataforma e o atendimento do pedido é feito pelo restaurante. Se não houver store_whatsapp, diga apenas que não encontrou um WhatsApp público da loja. Não use list_my_restaurants para esse fluxo de cliente final.",
+    "- Sempre ofereça atendimento humano quando o assunto for o Programa de Afiliados iMenu, mesmo que possa responder à dúvida sobre comissão, rastreamento ou pagamento. A equipe cuida da inscrição, do link e de consultas individuais. Após o aceite, use o fluxo existente de encaminhamento.",
     "- Nunca inicie um handoff sem o cliente pedir atendimento humano ou confirmar claramente que quer seguir com ele.",
     "- Se uma dúvida legítima sobre o iMenu ou sobre a conta não puder ser respondida com segurança, tente primeiro outra consulta relevante à base de conhecimento ou às ferramentas MCP disponíveis, conforme o assunto. Respeite os limites de acesso e não repita consultas iguais sem informação nova.",
     "- Se ainda não conseguir confirmar a resposta ou resolver a dúvida, explique brevemente o que não conseguiu verificar e ofereça atendimento humano, por exemplo: Não consegui encontrar informações suficientes para explicar isso. Quer que eu encaminhe para nossa equipe de suporte? Essa oferta não é um encaminhamento: não chame request_human_handoff, não informe o prazo e não diga que a equipe assumiu até o cliente aceitar a oferta.",
@@ -148,7 +149,7 @@ function isUnverifiedSupportReply(value: string): boolean {
     );
 }
 
-function limitSupportReply(value: string): string {
+function limitSupportReply(value: string, maxCharacters = MAX_REPLY_CHARACTERS): string {
     const compact = value
         .replace(/\[(?:Mensagem do atendente humano do iMenu|Resposta automática anterior do iMenu|Mensagem anterior de origem não confirmada)\]\s*/gi, "")
         .replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, "$1: $2")
@@ -157,9 +158,9 @@ function limitSupportReply(value: string): string {
         .trim();
     const characters = Array.from(compact);
 
-    if (characters.length <= MAX_REPLY_CHARACTERS) return compact;
+    if (characters.length <= maxCharacters) return compact;
 
-    const prefix = characters.slice(0, MAX_REPLY_CHARACTERS).join("");
+    const prefix = characters.slice(0, maxCharacters).join("");
     const sentenceEnds = [...prefix.matchAll(/[.!?](?=\s|$)/g)];
     const lastSentenceEnd = sentenceEnds.at(-1)?.index;
 
@@ -733,28 +734,24 @@ export async function generateSupportReply(
         throw new Error("The support model returned an empty response.");
     }
 
-    const shouldOfferHumanSupport =
-        !handoffBlocked &&
-        !conversation.handoff_prompted_at &&
-        isUnverifiedSupportReply(rawText) &&
-        !/\b(?:encaminh\w*|atendimento humano|suporte humano)\b/i.test(normalizeUiGuidanceText(rawText));
-    const text =
-        handoffState === "handed_off"
-            ? hasClearRecentSupportQuestion(history.rows)
-                ? HANDOFF_CONFIRMED_MESSAGE
-                : HANDOFF_QUESTION_MESSAGE
-            : handoffState === "prompted"
-              ? FIRST_HUMAN_REQUEST_MESSAGE
-              : avoidRepeatedSupportLinks(
-                    resolveSupportMenuLink(
-                        limitSupportReply(shouldOfferHumanSupport
-                            ? rawText + " " + HUMAN_SUPPORT_OFFER
-                            : rawText),
-                        automaticKnowledgeQuery,
-                        response.output || []
-                    ),
-                    history.rows
-                );
+    let text: string;
+    if (handoffState === "handed_off") {
+        text = hasClearRecentSupportQuestion(history.rows) ? HANDOFF_CONFIRMED_MESSAGE : HANDOFF_QUESTION_MESSAGE;
+    } else if (handoffState === "prompted") {
+        text = FIRST_HUMAN_REQUEST_MESSAGE;
+    } else {
+        const reply = resolveSupportMenuLink(limitSupportReply(rawText), automaticKnowledgeQuery, response.output || []);
+        const isAffiliateInquiry = /\b(?:afiliad[oa]s?|afiliacao|affiliate|comissao (?:de|por) indicacao)\b/.test(
+            normalizeUiGuidanceText(automaticKnowledgeQuery + " " + contextualKnowledgeQuery)
+        );
+        const alreadyOffered = /\b(?:encaminh\w*|atendimento humano|suporte humano|falar com (?:a |nossa )?equipe)\b[^.!?]*\?/i
+            .test(normalizeUiGuidanceText(reply));
+        const shouldOfferHumanSupport = !handoffBlocked && !conversation.handoff_prompted_at &&
+            !alreadyOffered && (isAffiliateInquiry || isUnverifiedSupportReply(rawText));
+        text = avoidRepeatedSupportLinks(shouldOfferHumanSupport
+            ? limitSupportReply(reply, MAX_REPLY_CHARACTERS - HUMAN_SUPPORT_OFFER.length - 1) + " " + HUMAN_SUPPORT_OFFER
+            : reply, history.rows);
+    }
 
     return {
         text,
