@@ -148,7 +148,7 @@ export default function QualityAssuranceSection() {
                     </p>
                 </div>
             </dl>
-            <section className={styles.tableSection}>
+            <section className={`${styles.tableSection} ${styles.fitTable}`}>
                 <h2>Análises Vendas IA <span className="font-normal text-gray-500">({data.analyses.total})</span></h2>
                 <p className="mb-4 text-xs text-gray-500">Últimos 90 dias · GMV registrado no relatório, sem frete. Uma linha por análise concluída.</p>
                 <div>
@@ -156,7 +156,7 @@ export default function QualityAssuranceSection() {
                         rowKey={row => row.id}
                         onRowClick={row => openRestaurant(row.restaurantId, row.restaurantName)}
                         columns={[
-                            { key: "restaurant", label: "Restaurante", render: row => <span title={row.restaurantName} className="block min-w-44 max-w-64 truncate whitespace-nowrap font-medium">{row.restaurantName}</span> },
+                            { key: "restaurant", label: "Restaurante", render: row => <span title={row.restaurantName} className="block max-w-64 truncate whitespace-nowrap font-medium">{row.restaurantName}</span> },
                             { key: "saved", label: "Salvo em", className: "whitespace-nowrap", render: row => formatDateTime(row.finishedAt) },
                             { key: "potential", label: "Potencial estimado", className: "whitespace-nowrap", render: row => row.potentialCents === null ? "—" : formatCurrencyFromCents(row.potentialCents) },
                             { key: "gmv", label: "GMV no relatório", className: "whitespace-nowrap", render: row => row.snapshotGmvCents === null ? "—" : formatCurrencyFromCents(row.snapshotGmvCents) },
@@ -166,7 +166,7 @@ export default function QualityAssuranceSection() {
                         ]} />
                 </div>
             </section>
-            <section className={styles.tableSection}>
+            <section className={`${styles.tableSection} ${styles.fitTable}`}>
                 <h2>Restaurantes Plus sem análise <span className="font-normal text-gray-500">({data.missing.length})</span></h2>
                 <div>
                     <PagedTable data={{ rows: data.missing.slice(missingPage * 10, (missingPage + 1) * 10), total: data.missing.length, page: missingPage, pageCount: Math.max(1, Math.ceil(data.missing.length / 10)) }}
@@ -174,7 +174,7 @@ export default function QualityAssuranceSection() {
                         onPage={setMissingPage}
                         onRowClick={row => openRestaurant(row.restaurantId, row.restaurantName)}
                         columns={[
-                            { key: "restaurant", label: "Restaurante", render: row => <span title={row.restaurantName} className="block min-w-44 max-w-64 truncate whitespace-nowrap font-medium">{row.restaurantName}</span> },
+                            { key: "restaurant", label: "Restaurante", render: row => <span title={row.restaurantName} className="block max-w-64 truncate whitespace-nowrap font-medium">{row.restaurantName}</span> },
                             { key: "activated", label: "Plus ativado em", className: "whitespace-nowrap", render: row => formatDateTime(row.activatedAt) },
                             { key: "waiting", label: "Aguardando há", className: "whitespace-nowrap", render: row => duration(row.waitingSeconds / 60) },
                             { key: "lastAttempt", label: "Última tentativa", className: "whitespace-nowrap", render: row => formatDateTime(row.latestAttemptAt) },
@@ -185,7 +185,7 @@ export default function QualityAssuranceSection() {
                         ]} />
                 </div>
             </section>
-            <section className={styles.tableSection}>
+            <section className={`${styles.tableSection} ${styles.fitTable}`}>
                 <h2>Gastos OpenAI</h2>
                 {costs === null ? <div className={styles.section}><div className="p-6"><DevLoading /></div></div>
                     : costs.status !== "ok" ? <div className={styles.section}>

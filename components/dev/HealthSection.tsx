@@ -38,7 +38,7 @@ export default function HealthSection({range}:{range:DateRange}) {
         {error && <p role="alert" className="text-red-700">{error}</p>}
         {!data ? error ? null : <DevLoading /> : <>
             <section className={styles.externalSection}><h2>Uso do VPS</h2><div className={`${styles.section} ${styles.chartGrid}`}>{([['CPU','cpu_percent',sample?.cpu_used_percent],['Memória','memory_percent',sample?.memory_used_percent],['Disco','disk_percent',sample?.disk_used_percent]] as const).map(([title,key,value])=><MetricChart embedded key={key} title={title} value={value == null ? "—" : `${Number(value).toLocaleString("pt-BR",{maximumFractionDigits:1})}%`} color="#d93d00" percentage series={data.history.filter(row=>row[key]!==null).map(row=>({label:new Date(row.reported_at).toLocaleString("pt-BR",range.startDate===range.endDate?{hour:"2-digit",minute:"2-digit"}:{day:"2-digit",month:"2-digit"}),value:Number(row[key])}))}/>)}</div></section>
-            <section className={styles.externalSection}><h2>Conexões</h2>
+            <section className={`${styles.externalSection} ${styles.fitTable}`}><h2>Conexões</h2>
                 <DataTable rows={data.connections} rowKey={row => row.id} columns={[
                     { key: "name", label: "Integração", render: row => <div><div>{row.name}</div>{row.observation?.operation && <div className="mt-1 text-xs text-gray-500">{row.observation.operation}</div>}</div> },
                     { key: "priority", label: "Prioridade", render: row => row.priority === 1 ? "Crítica" : row.priority === 2 ? "Alta" : "Normal" },

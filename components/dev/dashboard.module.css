@@ -57,15 +57,15 @@
 .crmTable :global([data-ui="badge"]){white-space:nowrap}
 
 .tableSection{min-width:0}.tableSection>h2{font-size:18px;font-weight:600;margin-bottom:14px}
-.crmTable :global([data-ui="table"]){max-width:100%;overflow-x:auto}.blastTable :global([data-ui="table"]){max-width:100%;overflow-x:hidden}
-.crmTable :global(table),.blastTable :global(table){width:100%;table-layout:fixed}.crmTable :global(table){min-width:960px}
+.blastTable :global([data-ui="table"]){max-width:100%;overflow-x:hidden}
+.crmTable :global(table),.blastTable :global(table){width:100%;table-layout:fixed}
 .crmTable :global(th),.crmTable :global(td),.blastTable :global(th),.blastTable :global(td){overflow:hidden;text-overflow:ellipsis}
 .crmTable :global(th:nth-child(1)){width:20%}.crmTable :global(th:nth-child(2)){width:17%}.crmTable :global(th:nth-child(3)),.crmTable :global(th:nth-child(4)){width:13%}.crmTable :global(th:nth-child(5)),.crmTable :global(th:nth-child(6)){width:9%}.crmTable :global(th:nth-child(7)){width:19%}.crmTable :global(th:last-child){width:48px}
 .crmTable :global(td>span),.crmTable :global(td>a){max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .blastMain :global(th:nth-child(1)){width:14%}.blastMain :global(th:nth-child(2)){width:29%}.blastMain :global(th:nth-child(3)){width:26%}.blastMain :global(th:nth-child(4)){width:12%}.blastMain :global(th:nth-child(5)){width:13%}.blastMain :global(th:last-child){width:6%}
 .blastAutomations :global(th:nth-child(1)){width:15%}.blastAutomations :global(th:nth-child(2)){width:18%}.blastAutomations :global(th:nth-child(3)){width:16%}.blastAutomations :global(th:nth-child(4)){width:12%}.blastAutomations :global(th:nth-child(5)){width:28%}.blastAutomations :global(th:nth-child(6)){width:11%}
 .blastPreview,.blastMessage{max-width:100%;overflow-wrap:anywhere}.blastTable .profileLink{min-width:0;overflow:hidden;max-width:100%}.blastTable .profileLink>span:first-child{min-width:0}
-@media(max-width:639px){.crmTable :global(th),.crmTable :global(td),.blastTable :global(th),.blastTable :global(td){padding-inline:8px}.crmTable :global(th:nth-child(3)),.crmTable :global(td:nth-child(3)),.crmTable :global(th:nth-child(4)),.crmTable :global(td:nth-child(4)){display:none}.crmTable :global(th:nth-child(1)){width:31%}.crmTable :global(th:nth-child(2)){width:24%}.crmTable :global(th:nth-child(5)){width:12%}.crmTable :global(th:nth-child(6)){width:13%}.crmTable :global(th:nth-child(7)){width:20%}.crmTable :global(th:last-child){width:48px}.blastMain :global(th:first-child),.blastMain :global(td:first-child){display:none}.blastMain :global(th:nth-child(2)){width:28%}.blastMain :global(th:nth-child(3)){width:31%}.blastMain :global(th:nth-child(4)){width:14%}.blastMain :global(th:nth-child(5)){width:17%}.blastMain :global(th:last-child){width:10%}.blastAutomations :global([data-ui="table"]){overflow-x:auto}.blastAutomations :global(table){min-width:840px}}
+@media(max-width:639px){.blastTable :global(th),.blastTable :global(td){padding-inline:8px}.blastMain :global(th:first-child),.blastMain :global(td:first-child){display:none}.blastMain :global(th:nth-child(2)){width:28%}.blastMain :global(th:nth-child(3)){width:31%}.blastMain :global(th:nth-child(4)){width:14%}.blastMain :global(th:nth-child(5)){width:17%}.blastMain :global(th:last-child){width:10%}}
 
 .payoutTable{min-width:0}.payoutTable :global([data-ui="table"]){max-width:100%;overflow-x:hidden}.payoutTable :global(table){width:100%;table-layout:fixed}.payoutTable :global(th),.payoutTable :global(td){overflow:hidden;text-overflow:ellipsis;overflow-wrap:anywhere;padding-inline:10px}.payoutTable :global(th){white-space:nowrap}.payoutTable :global(th:first-child){width:18%}.payoutTable :global(td) :global(button){max-width:100%}.payoutTable .profileLink{display:block;overflow:hidden;text-overflow:ellipsis}.payoutTable :global([data-ui="badge"]){max-width:100%;white-space:normal}
 
@@ -76,7 +76,7 @@
 .crmTable :global(td:last-child){padding-inline:8px;text-overflow:clip}
 .crmDetails dd{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal}
 .crmDetails dd .profileLink{display:block;overflow:hidden;text-overflow:ellipsis}
-@media(max-width:639px){.crmTable :global(th:first-child){width:calc(31% - 48px)}.crmTable :global(th:last-child){width:48px}.crmTable :global([data-ui="table"]){overflow-x:auto}.crmTable :global(table){min-width:540px}}
+
 
 .payoutPayables, .payoutFailed { container-type: inline-size; }
 .payoutPayables :global(th), .payoutPayables :global(td),
@@ -201,4 +201,82 @@
     .payoutTable:not(.payoutPayables):not(.payoutFailed) :global(tbody td[colspan]) { display: block; width: 100%; }
     .payoutTable:not(.payoutPayables):not(.payoutFailed) :global(tbody td) :global(button) { max-width: 100%; white-space: normal; }
     .payoutTable:not(.payoutPayables):not(.payoutFailed) .profileLink { white-space: normal; overflow-wrap: anywhere; }
+}
+
+/* Keep all fields readable when the available width cannot fit the columns. */
+:is(.fitTable, .crmTable, .blastAutomations, .dialogBody) :global([data-ui="table"]),
+.fitLegacyTable {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: clip;
+    container: dev-table / inline-size;
+}
+:is(.fitTable, .crmTable, .blastAutomations, .dialogBody, .fitLegacyTable) :global(:is(th, td)) {
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+:is(.fitTable, .crmTable, .blastAutomations, .dialogBody, .fitLegacyTable) :global(:is(th, td) :is(button, a, span, input, select)) {
+    max-width: 100%;
+    white-space: normal;
+}
+:is(.fitTable, .crmTable, .blastAutomations, .dialogBody, .fitLegacyTable) :global(:is(th, td) .truncate) {
+    white-space: nowrap;
+}
+.fitLegacyTable :global(td input) { min-width: 0; }
+.fitLegacyTable :global(table) { table-layout: fixed; }
+.fitLegacyTable :global(:is(th, td)) { padding-inline: 8px; }
+
+@container dev-table (max-width: 640px) {
+    :is(.fitTable, .crmTable, .blastAutomations, .dialogBody, .fitLegacyTable) :global(:is(table, tbody)) {
+        display: block;
+        width: 100%;
+    }
+    :is(.fitTable, .crmTable, .blastAutomations, .dialogBody, .fitLegacyTable) :global(thead) {
+        position: absolute;
+        clip-path: inset(50%);
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+    }
+    :is(.fitTable, .crmTable, .blastAutomations, .dialogBody, .fitLegacyTable) :global(tbody > tr) {
+        display: block;
+    }
+    :is(.fitTable, .crmTable, .blastAutomations, .dialogBody, .fitLegacyTable) :global(tbody > tr:not(:last-child)) {
+        border-bottom: 1px solid #e2e5e9;
+    }
+    :is(.fitTable, .crmTable, .blastAutomations, .dialogBody, .fitLegacyTable) :global(tbody > tr > td) {
+        position: relative;
+        display: block;
+        width: 100%;
+        border-bottom: 0;
+    }
+    :is(.fitTable, .crmTable, .blastAutomations, .dialogBody, .fitLegacyTable) :global(tbody > tr > td[data-label]:not([data-label=""])) {
+        min-height: 38px;
+        padding: 8px 12px 8px calc(40% + 12px);
+        text-align: left;
+    }
+    :is(.fitTable, .crmTable, .blastAutomations, .dialogBody, .fitLegacyTable) :global(td[data-label]:not([data-label=""])::before) {
+        content: attr(data-label);
+        position: absolute;
+        inset-inline-start: 12px;
+        width: calc(40% - 12px);
+        color: #626973;
+        font-weight: 500;
+    }
+    .crmTable :global(td:first-child > span), .fitTable .profileLink :global(.truncate), .fitLegacyTable :global(td.truncate) {
+        white-space: normal;
+    }
+    .crmTable :global(tbody td:last-child) { text-align: right; }
+    .fitLegacyTable :global(thead:has([data-table-select-all])) {
+        position: static;
+        display: block;
+        width: 100%;
+        height: auto;
+        clip-path: none;
+    }
+    .fitLegacyTable :global(thead:has([data-table-select-all]) th:not([data-table-select-all])) {
+        position: absolute;
+        clip-path: inset(50%);
+    }
 }
