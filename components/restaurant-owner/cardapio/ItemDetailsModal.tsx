@@ -615,9 +615,9 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
 
     return (
         <>
-        <Modal height={760} open={isOpen} onClose={closeDetails}>
+        <Modal height={760} open={isOpen} onClose={closeDetails} className="panel-item-complements-dialog">
             <div inert={Boolean(organizerGroups)} className="panel-complements panel-item-complements w-full max-w-2xl bg-white rounded-lg flex flex-col max-h-[85vh]">
-                <div className="panel-item-complements-header p-6 border-b border-gray-100 flex justify-between items-center gap-3 shrink-0">
+                <div className="panel-item-complements-header px-6 py-3 border-b border-gray-100 flex justify-between items-center gap-3 shrink-0">
                     <div className="min-w-0 flex-1">
                         <h2 className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xl font-bold text-gray-900 2xl:text-2xl">
                             <span>Complementos</span>
@@ -919,7 +919,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                     )}
                 </div>
 
-                <div className="panel-item-complements-footer p-6 border-t border-gray-100 flex items-center gap-4 shrink-0">
+                <div className="panel-item-complements-footer px-6 py-2.5 flex items-center gap-4 shrink-0">
                     {onOpenBulkComplements && (
                         <button
                             type="button"
