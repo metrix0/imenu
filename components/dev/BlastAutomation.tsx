@@ -50,10 +50,8 @@ export default function BlastAutomation({ automations, connections, loading, gro
     const className = `${styles.tableSection} ${styles.blastTable} ${styles.blastAutomations}`;
     if (group) {
         return <section className={className} aria-label={group.label}>
-            <button {...disclosure.triggerProps} className="mb-3 flex w-full cursor-pointer items-center rounded-lg border border-[#e2e5e9] bg-white px-4 py-3 text-left text-sm font-semibold">
-                <span className="relative flex h-5 w-4 shrink-0 items-center justify-center">
-                    <CollapsibleChevron expanded={disclosure.expanded} className="absolute" />
-                </span>
+            <button {...disclosure.triggerProps} className="mb-3 flex w-full cursor-pointer items-center gap-2 rounded-lg border border-[#e2e5e9] bg-white px-4 py-3 text-left text-sm font-semibold">
+                <CollapsibleChevron expanded={disclosure.expanded} size="sm" />
                 {group.label}
             </button>
             <CollapsibleContent id={disclosure.contentId} expanded={disclosure.expanded}>
