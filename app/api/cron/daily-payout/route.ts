@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 
 import { query } from "@/lib/database/sql";
 import { calculateOnePercentPayout } from "@/lib/services/payoutSafety";
+import { getPayoutPixProblem } from "@/lib/services/payoutAutomation";
 import {
     createPayoutPlan,
     failRecentPendingPayouts,
@@ -215,7 +216,7 @@ export async function GET(request: Request) {
                 failedPendingPayouts.length - 10
             );
 
-            for (const payout of failedPendingPayouts) await notifyPayoutProblem(payout.restaurant_id, false);
+            for (const payout of failedPendingPayouts) await notifyPayoutProblem(payout.restaurant_id, "failed");
             await alarmUnnotifiedPayoutFailures(failedPendingPayouts.map(payout => payout.id));
             await notifyPayoutAlarm({
                 runId,
@@ -242,11 +243,12 @@ export async function GET(request: Request) {
             discountPercent: 1,
             adjustToOnePercent: true,
         });
-        // Record unpaid verified amounts for restaurants without PIX, without transferring funds.
+        // Reserve verified amounts with incomplete PIX details as retryable failures.
         const missingPixFailures: SendPayoutResult["results"] = [];
         const missingPixPayoutIds: string[] = [];
         for (const row of plan.payables) {
-            if (row.payment_info?.trim()) continue;
+            const pixProblem = getPayoutPixProblem(row);
+            if (!pixProblem) continue;
             const grossCents = Number(row.gross_cents) || 0;
             const orderCount = Number(row.pix_order_count) || 0;
             const { netCents, payzuFeeCents, discountCents } = calculateOnePercentPayout(
@@ -260,15 +262,18 @@ export async function GET(request: Request) {
                 ON CONFLICT (automation_run_id, restaurant_id)
                     WHERE automation_run_id IS NOT NULL DO NOTHING RETURNING id`,
                 [row.restaurant_id, netCents, grossCents, payzuFeeCents, discountCents,
-                    cutoffAt.toISOString(), orderCount, runId, "Chave PIX não cadastrada."]
+                    cutoffAt.toISOString(), orderCount, runId, pixProblem.reason]
             );
-            if (rows[0]) missingPixPayoutIds.push(rows[0].id);
+            if (rows[0]) {
+                missingPixPayoutIds.push(rows[0].id);
+                await notifyPayoutProblem(row.restaurant_id, pixProblem.kind);
+            }
             missingPixFailures.push({
                 restaurantId: row.restaurant_id,
                 restaurantName: row.restaurant_name,
                 amountCents: netCents,
                 status: "failed",
-                message: "Chave PIX não cadastrada.",
+                message: pixProblem.reason,
             });
         }
         if (missingPixPayoutIds.length > 0) await alarmUnnotifiedPayoutFailures(missingPixPayoutIds);
@@ -289,7 +294,7 @@ export async function GET(request: Request) {
         if (plan.sendable.length === 0) {
             const hasMissingPixFailures = missingPixFailedCount > 0;
             const message = [
-                hasMissingPixFailures ? `${missingPixFailedCount} restaurante(s) sem chave PIX cadastrada.` : "",
+                hasMissingPixFailures ? `${missingPixFailedCount} restaurante(s) com chave ou tipo de PIX pendente.` : "",
                 validationSummary,
             ].filter(Boolean).join(" | ") || "Nenhum restaurante com valor e chave PIX válidos para pagar.";
             await query(

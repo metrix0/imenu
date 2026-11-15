@@ -1,5 +1,5 @@
 import {buildExpiryMessage} from "@/lib/services/addonExpiryMessage";
-import {payoutNotice} from "@/lib/services/payoutNotifications";
+import { PAYOUT_BLAST_AUTOMATIONS } from "@/lib/services/payoutAutomation";
 import { ABANDONED_BLAST_MESSAGE, PLUS_ABANDONED_BLAST_MESSAGE, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE, RECOVERY_DAILY_LIMIT } from "./abandonedBlast";
 import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGE, PLUS_FEEDBACK_DAILY_LIMIT } from "./plusFeedbackBlast";
 import { DID_NOT_ACTIVATE_BLAST_MESSAGE } from "./didNotActivateBlast";
@@ -16,8 +16,7 @@ export const AUTOMATED_BLASTS = [
     {id:"plus-feedback",name:"Feedback · 1º mês Plus",sender:"support",message:PLUS_FIRST_MONTH_FEEDBACK_MESSAGE,criteria:"7 dias antes da 1ª renovação/vencimento · Pix primeiro",limit:PLUS_FEEDBACK_DAILY_LIMIT},
     {id:"expiry",name:"Vencimento iMenu Plus · Pix",sender:"support",message:buildExpiryMessage({pix:["ia_plus"],card:[]}),criteria:"Plus Pix · 1 dia antes do fim do período pago",limit:null},
     {id:"expiry-card",name:"Cancelamento iMenu Plus · Cartão",sender:"support",message:buildExpiryMessage({pix:[],card:["ia_plus"]}),criteria:"Cartão cancelado · 1 dia antes do fim do período pago",limit:null},
-    {id:"payout",name:"Problemas com repasse",sender:"blast",message:payoutNotice(false),criteria:"Repasse com falha",limit:null},
-    {id:"payout-key",name:"Repasse sem chave PIX",sender:"blast",message:payoutNotice(true),criteria:"Repasse sem chave Pix cadastrada",limit:null},
+    ...Object.values(PAYOUT_BLAST_AUTOMATIONS),
     {id:"followup",name:"Follow-ups",sender:"support",message:null,criteria:"Suporte aguardando resposta há 1h ou mais",limit:null},
     {id:"congratulations",name:"Boas-vindas iMenu Plus",sender:"support",message:null,criteria:"Compra iMenu Plus confirmada",limit:null},
 ] as const;

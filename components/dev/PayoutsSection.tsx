@@ -13,9 +13,11 @@ import DataTable, { type TableColumn } from "@/components/ui/DataTable";
 import DevDialog from "./DevDialog";
 import DevLoading from "./DevLoading";
 import PagedTable, { type PageData } from "./PagedTable";
+import BlastAutomation from "./BlastAutomation";
 import { devJson } from "@/lib/dev/client";
 import { formatCurrencyFromCents as money, formatDateTime } from "@/lib/dev/dashboardFormat";
 import { calculateOnePercentPayout, summarizeOnePercentPayouts } from "@/lib/services/payoutSafety";
+import { MISSING_PIX_TYPE_REASON, PAYOUT_BLAST_AUTOMATIONS } from "@/lib/services/payoutAutomation";
 
 type Payable = { restaurantId: string; restaurantName: string; grossCents: number; payzuFeeCents: number; waitingGrossCents: number; canSend: boolean; pixKey: string | null; pixKeyType: string | null; nextEligibleAt: string | null };
 type PayoutRestaurantError = { restaurantId: string; restaurantName: string; orderId: string; paymentRef: string; grossCents: number; message: string };
@@ -38,7 +40,7 @@ function PayoutStatus({ status }: { status?: string }) {
 }
 
 function payablePix(row: Payable) {
-    return row.pixKey ? [row.pixKeyType, row.pixKey].filter(Boolean).join(" · ") : "Não cadastrado";
+    return row.pixKey ? `${row.pixKeyType || "Sem tipo de PIX"} · ${row.pixKey}` : "Não cadastrado";
 }
 
 function payableWaiting(row: Payable) {
@@ -108,6 +110,7 @@ function HistoryTable({ section, revision, onRetry, onMarkPaid, busy = false, ca
             { key: "actions", label: "", render: (r: History) => {
                 const pixIssue = !r.pix_key || r.alert_message?.includes("não tem uma chave PIX")
                     ? "Pix não cadastrado"
+                    : r.failure_reason === MISSING_PIX_TYPE_REASON ? "Sem tipo de PIX"
                     : r.alert_message?.includes("incorretamente") || /pix.*(invalid|incorret)|invalid.*pix/i.test(r.failure_reason || "") ? "Pix incorreto" : null;
                 const details = [
                     `Data: ${formatDateTime(r.created_at)}`,
@@ -242,7 +245,7 @@ export default function PayoutsSection() {
                 <PagedTable pageSize={10} data={{ rows: payables.slice(page * 10, (page + 1) * 10), total: payables.length, page, pageCount: Math.ceil(payables.length / 10) }} onPage={setPage} rowKey={r => r.restaurantId} columns={[
                     {key:"select",label:"Selecionar",header:<input type="checkbox" aria-label="Selecionar todos os restaurantes elegíveis" checked={eligible.length > 0 && selectedForBatch.length === eligible.length} ref={element=>{if(element)element.indeterminate=selectedForBatch.length > 0 && selectedForBatch.length < eligible.length;}} disabled={sending || !eligible.length} onChange={event=>setSelectedRestaurantIds(event.target.checked ? eligible.map(row=>row.restaurantId) : [])} className="h-4 w-4 cursor-pointer accent-brand disabled:cursor-not-allowed disabled:opacity-40" />,render:r=><input type="checkbox" aria-label={`Selecionar ${r.restaurantName}`} checked={selectedRestaurantIds.includes(r.restaurantId)} disabled={sending || !r.canSend || r.grossCents <= 0} onChange={event=>setSelectedRestaurantIds(current=>event.target.checked ? [...current.filter(id=>id!==r.restaurantId),r.restaurantId] : current.filter(id=>id!==r.restaurantId))} className="h-4 w-4 cursor-pointer accent-brand disabled:cursor-not-allowed disabled:opacity-40" />},
                     { key: "name", label: "Restaurante", render: r => <button type="button" title={r.restaurantName} className={styles.profileLink} onClick={() => openProfile({ id: r.restaurantId, name: r.restaurantName })}>{r.restaurantName}</button> },
-                    { key: "pix", label: "PIX", render: r => <span className="block truncate text-xs" title={payablePix(r)}>{r.pixKey ? <>{r.pixKeyType && <span className="text-gray-500">{r.pixKeyType} · </span>}{r.pixKey}</> : <span className="text-red-700">Não cadastrado</span>}</span> },
+                    { key: "pix", label: "PIX", render: r => <span className="block truncate text-xs" title={payablePix(r)}>{r.pixKey ? <><span className={r.pixKeyType ? "text-gray-500" : "text-red-700"}>{r.pixKeyType || "Sem tipo de PIX"} · </span>{r.pixKey}</> : <span className="text-red-700">Não cadastrado</span>}</span> },
                     { key: "breakdown", label: "Bruto / Gateway / Desconto / Lucro", render: r => {
                         const payout = calculateOnePercentPayout(r.grossCents, r.payzuFeeCents);
                         const figures = `R$ ${payoutFigure(r.grossCents)} / ${payoutFigure(r.payzuFeeCents)} / ${payoutFigure(r.grossCents - payout.netCents)} / ${payoutFigure(payout.discountCents)}`;
@@ -272,6 +275,7 @@ export default function PayoutsSection() {
             </section>
         </>}
         <Tabs tabs={["Histórico","Histórico por restaurante"]} active={historyTab} onChange={setHistoryTab}/><HistoryTable key={historyTab} section={historyTab==="Histórico"?"runs":"history"} revision={revision} onRetry={()=>undefined}/>
+        <BlastAutomation automations={Object.values(PAYOUT_BLAST_AUTOMATIONS)} />
         <ConfirmModal open={Boolean(confirmation)} onClose={() => { if (!sending) setConfirmation(null); }} onConfirm={() => void send()} isLoading={sending} variant="primary" title={confirmation?.retry ? "Confirmar reenvio do Pix" : "Confirmar repasse"} description={confirmation?.retry ? `Reenviar ${money(confirmation.retry.amount_cents)} para ${confirmation.retry.restaurant_name} usando os dados PIX atuais da loja? Antes do envio, o Asaas será consultado para confirmar que a transferência anterior não foi concluída.` : `Enviar ${money(selected.reduce((sum, row) => sum + net(row), 0))} para ${selected.length} restaurante(s), com desconto total de 1% do bruto.`} confirmLabel={confirmation?.retry ? "Confirmar reenvio" : "Confirmar e enviar"} />
         <ConfirmModal open={Boolean(manualPayment)} onClose={() => { if (!sending) setManualPayment(null); }} onConfirm={() => void markPaid()} isLoading={sending} variant="primary" title="Marcar repasse como pago?" description={`Confirma que ${manualName} já recebeu ${money(manualAmount)}? Essa ação registra o pagamento, sem enviar Pix pelo iMenu.`} confirmLabel="Sim, marcar como pago" />
     </>;

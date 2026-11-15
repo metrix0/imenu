@@ -17,6 +17,17 @@ it("combines verified Mercado Pago fees without changing the 1% total deduction"
     expect(plan).toMatchObject({ grossCents: 10000, payzuFeeCents: 60, discountCents: 40, totalNetCents: 9900 });
     expect(getMercadoPagoPixPayment).toHaveBeenCalledTimes(2);
 });
+it("does not infer a missing PIX type when planning transfers", async () => {
+    (query as jest.Mock).mockResolvedValueOnce({ rows: [{
+        restaurant_id: "r", restaurant_name: "R", payment_info: "pix@example.com", payment_info_type: null,
+        payments: [{ id: "first", payment_ref: "123", total_cents: 5000 }],
+    }] });
+    const plan = await createPayoutPlan({ cutoffAt: new Date(), adjustToOnePercent: true });
+    expect(plan.payables).toHaveLength(1);
+    expect(plan.sendable).toHaveLength(0);
+    expect(plan.totalNetCents).toBe(0);
+});
+
 it("excludes only a Mercado Pago charge with an unconfirmed fee", async () => {
     (getMercadoPagoPixPayment as jest.Mock).mockImplementation(async ({ id }: { id: string }) => ({
         id, externalReference: id === "123" ? "first" : "second", status: "approved",
