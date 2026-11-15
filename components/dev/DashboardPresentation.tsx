@@ -22,7 +22,8 @@ export function lineOptions(
     currency = false,
     percentage = false,
     decimal = false,
-    showLegend = false
+    showLegend = false,
+    labelTooltip = false
 ) {
     return {
         responsive: true,
@@ -37,7 +38,8 @@ export function lineOptions(
                         const value = Number(context.parsed.y) || 0;
                         if (percentage) return formatRatio(value);
                         if (decimal) return formatAverage(value);
-                        return currency ? formatCurrency(value) : formatCount(value);
+                        const formatted = currency ? formatCurrency(value) : formatCount(value);
+                        return labelTooltip ? `${context.dataset.label}: ${formatted}` : formatted;
                     },
                 },
             },
@@ -440,7 +442,7 @@ export function MetricChart({
     secondaryLabel,
     secondaryColor,
     actionLabel,
-    onAction, embedded = false, value, change,
+    onAction, embedded = false, value, change, labelTooltip = false,
 }: { embedded?: boolean; value?: string; change?: number | null;
     title: string;
     series: SeriesPoint[];
@@ -454,6 +456,7 @@ export function MetricChart({
     secondaryColor?: string;
     actionLabel?: string;
     onAction?: () => void;
+    labelTooltip?: boolean;
 }) {
     const chartData = {
         labels: (series.length ? series : secondarySeries || []).map(
@@ -513,7 +516,8 @@ export function MetricChart({
                             currency,
                             percentage,
                             decimal,
-                            Boolean(secondarySeries?.length)
+                            Boolean(secondarySeries?.length),
+                            labelTooltip
                         )}
                     />
                 ) : (

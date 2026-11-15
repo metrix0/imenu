@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import {
     faCircleCheck,
@@ -42,6 +43,8 @@ import { formatPhone, getWhatsappUrl, statusPresentation } from "@/lib/dev/suppo
 import { useDevProfile, PhoneLink } from "./DevProfileProvider";
 import { formatResponseTime } from "@/lib/dev/dashboardFormat";
 import { devJson } from "@/lib/dev/client";
+
+const BlastSendsChart = dynamic(() => import("./BlastSendsChart"), { ssr: false });
 
 type WhatsAppConnectionKind = "support" | "blast";
 
@@ -1308,6 +1311,7 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                         onAction={runAction}
                     />
                 )}
+                {section === "blast" && <BlastSendsChart refreshKey={blastRevision} />}
         </DevPage>
     );
 }

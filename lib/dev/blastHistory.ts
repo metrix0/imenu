@@ -45,6 +45,14 @@ const visiblePhoneSql = (alias: string) => `NOT EXISTS (
         'UTF8')), 'hex')
 )`;
 
+const standaloneSender = `COALESCE(o.context->>'sender',CASE WHEN o.dedupe_key LIKE 'support:bulk:support:%' OR o.dedupe_key LIKE 'support:addon-expiry:%' THEN 'support' ELSE 'blast' END)`;
+const standaloneBlast = `(o.dedupe_key LIKE 'support:bulk:%' OR o.dedupe_key LIKE 'support:payout:%' OR o.dedupe_key LIKE 'support:addon-expiry:%')
+    AND NOT EXISTS(SELECT 1 FROM support_blast_campaigns c WHERE c.id::text=split_part(o.dedupe_key,':',4))`;
+const legacyRecovery = `c.chat_id LIKE 'imenu-blast:%' AND m.direction='outbound'
+    AND m.dedupe_key IS NULL AND regexp_replace(trim(m.body),'\\s+',' ','g') ~ANY($1::text[])
+    AND NOT EXISTS(SELECT 1 FROM support_blast_recipients r WHERE r.phone=c.phone AND r.message=m.body AND ABS(EXTRACT(EPOCH FROM r.sent_at-m.created_at))<300)
+    AND NOT EXISTS(SELECT 1 FROM whatsapp_outbound_messages o WHERE o.context->>'message'=m.body AND (split_part(o.chat_id,'@',1)=c.phone OR o.restaurant_id=c.restaurant_id) AND ABS(EXTRACT(EPOCH FROM o.updated_at-m.created_at))<300)`;
+
 const EVENTS = `WITH notifications AS (${MESSAGE_ROWS_SQL}),recovery_days AS (${RECOVERY_CAMPAIGN_DAYS}),events_raw AS (
     SELECT ${campaignGroup} AS group_id,c.created_at,c.message,c.sender,c.status,
         NULL::text AS phone,NULL::text AS error,c.id::text campaign_id,NULL::uuid restaurant_id,
@@ -58,24 +66,57 @@ const EVENTS = `WITH notifications AS (${MESSAGE_ROWS_SQL}),recovery_days AS (${
     SELECT CASE WHEN o.dedupe_key LIKE 'support:payout:%' THEN 'payout:'||split_part(o.dedupe_key,':',3)
         WHEN o.dedupe_key LIKE 'support:addon-expiry:%' THEN 'expiry:'||split_part(o.dedupe_key,':',4) ELSE 'manual:'||split_part(o.dedupe_key,':',4) END,
         o.created_at,COALESCE(o.context->>'message','Texto não registrado no histórico antigo.'),
-        COALESCE(o.context->>'sender',CASE WHEN o.dedupe_key LIKE 'support:bulk:support:%' OR o.dedupe_key LIKE 'support:addon-expiry:%' THEN 'support' ELSE 'blast' END),
+        ${standaloneSender},
         o.status,split_part(o.chat_id,'@',1),o.last_error,NULL,o.restaurant_id,
         1,(o.status='sent')::int,(o.status='failed')::int
     FROM whatsapp_outbound_messages o
-    WHERE (o.dedupe_key LIKE 'support:bulk:%' OR o.dedupe_key LIKE 'support:payout:%' OR o.dedupe_key LIKE 'support:addon-expiry:%')
-      AND NOT EXISTS(SELECT 1 FROM support_blast_campaigns c WHERE c.id::text=split_part(o.dedupe_key,':',4))
+    WHERE ${standaloneBlast}
     UNION ALL
     SELECT ${recoveryGroup("m.created_at")},m.created_at,m.body,'blast',m.send_status,c.phone,m.error,NULL,c.restaurant_id,
         1,(m.send_status='sent')::int,(m.send_status='failed')::int
     FROM support_messages m JOIN support_conversations c ON c.id=m.conversation_id
-    WHERE c.chat_id LIKE 'imenu-blast:%' AND m.direction='outbound'
-      AND m.dedupe_key IS NULL AND regexp_replace(trim(m.body),'\\s+',' ','g') ~ANY($1::text[])
-      AND NOT EXISTS(SELECT 1 FROM support_blast_recipients r WHERE r.phone=c.phone AND r.message=m.body AND ABS(EXTRACT(EPOCH FROM r.sent_at-m.created_at))<300)
-      AND NOT EXISTS(SELECT 1 FROM whatsapp_outbound_messages o WHERE o.context->>'message'=m.body AND (split_part(o.chat_id,'@',1)=c.phone OR o.restaurant_id=c.restaurant_id) AND ABS(EXTRACT(EPOCH FROM o.updated_at-m.created_at))<300)
+    WHERE ${legacyRecovery}
     UNION ALL SELECT CASE WHEN n.category='automation' THEN 'customer:'||n.subtype||':'||(n.created_at AT TIME ZONE 'America/Sao_Paulo')::date::text ELSE n.id END,
     COALESCE(n.sent_at,n.created_at),COALESCE(n.message,'Texto não registrado no histórico antigo.'),CASE WHEN n.category='automation' THEN 'restaurant' ELSE 'support' END,n.status,n.phone,n.error,NULL,n.restaurant_id,1,(n.status='sent')::int,(n.status='failed')::int
     FROM notifications n WHERE n.category <> 'automation'
 ),events AS (SELECT * FROM events_raw e WHERE e.phone IS NULL OR ${visiblePhoneSql('e')})`;
+
+export async function getDailyBlastSends() {
+    const { rows } = await query<{ label: string; support: number; blast: number }>(`
+        WITH period AS (
+            SELECT (NOW() AT TIME ZONE 'America/Sao_Paulo')::date AS today
+        ), sends AS (
+            SELECT c.sender, r.sent_at, r.phone
+            FROM support_blast_recipients r JOIN support_blast_campaigns c ON c.id = r.campaign_id
+            WHERE r.status = 'sent' AND r.sent_at IS NOT NULL
+            UNION ALL
+            SELECT CASE WHEN o.dedupe_key LIKE 'support:addon-purchase:%' THEN 'support' ELSE ${standaloneSender} END,
+                COALESCE(o.sent_at, o.updated_at), split_part(o.chat_id, '@', 1)
+            FROM whatsapp_outbound_messages o
+            WHERE o.status = 'sent' AND (o.dedupe_key LIKE 'support:addon-purchase:%' OR (${standaloneBlast}))
+            UNION ALL
+            SELECT CASE WHEN m.dedupe_key LIKE 'support:followup:%' THEN 'support' ELSE 'blast' END,
+                m.created_at, c.phone
+            FROM support_messages m JOIN support_conversations c ON c.id = m.conversation_id
+            WHERE m.direction = 'outbound' AND m.send_status = 'sent'
+                AND (m.dedupe_key LIKE 'support:followup:%' OR (${legacyRecovery}))
+        ), daily AS (
+            SELECT (s.sent_at AT TIME ZONE 'America/Sao_Paulo')::date AS day,
+                COUNT(*) FILTER (WHERE s.sender = 'support')::int AS support,
+                COUNT(*) FILTER (WHERE s.sender = 'blast')::int AS blast
+            FROM sends s CROSS JOIN period p
+            WHERE s.sent_at >= ((p.today - 29)::timestamp AT TIME ZONE 'America/Sao_Paulo')
+                AND s.sent_at < ((p.today + 1)::timestamp AT TIME ZONE 'America/Sao_Paulo')
+                AND (s.phone IS NULL OR ${visiblePhoneSql('s')})
+            GROUP BY 1
+        )
+        SELECT to_char(p.today - days.ago, 'DD/MM') AS label,
+            COALESCE(d.support, 0) AS support, COALESCE(d.blast, 0) AS blast
+        FROM period p CROSS JOIN generate_series(0, 29) AS days(ago)
+        LEFT JOIN daily d ON d.day = p.today - days.ago
+        ORDER BY days.ago DESC`, [patterns]);
+    return rows;
+}
 
 
 type ProfileTarget={restaurant_id:string;name:string;kind:string};

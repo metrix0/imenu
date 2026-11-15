@@ -1,6 +1,6 @@
 import { SUPPORT_CONVERSATION_VISIBLE_SQL } from "@/lib/services/supportExclusions";
 import { devPage } from "@/lib/dev/pagination";
-import { getBlastHistory } from "@/lib/dev/blastHistory";
+import { getBlastHistory, getDailyBlastSends } from "@/lib/dev/blastHistory";
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
@@ -246,6 +246,7 @@ export async function GET(request: Request) {
 
         const searchParams = new URL(request.url).searchParams;
         if (searchParams.get("section") === "blasts") return NextResponse.json(await getBlastHistory(searchParams));
+        if (searchParams.get("section") === "blast-sends") return NextResponse.json(await getDailyBlastSends());
         if (searchParams.get("blast_history") === "1") {
             return NextResponse.json({ campaigns: await listSupportBlasts() });
         }
