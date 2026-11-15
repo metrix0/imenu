@@ -37,10 +37,14 @@ test("leaves a populated menu alone, including an unavailable product", async ()
     expect(query.mock.calls[0][0]).not.toContain("is_available");
 });
 
-test("the disabled pizza example receives a photo and prevents a fallback drink", async () => {
+test.each([
+    { items: [], expectedAvailability: true },
+    { items: [{ is_available: false }, { is_available: null }], expectedAvailability: true },
+    { items: [{ is_available: false }, { is_available: true }], expectedAvailability: false },
+])("the pizza example is active only without other active items (%#) and prevents a fallback drink", async ({ items, expectedAvailability }) => {
     const query = jest.fn()
         .mockResolvedValueOnce({ rows: [] })
-        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: items.map(item => ({ ...item, name: "Produto", category_id: "other-category" })) })
         .mockResolvedValueOnce({ rows: [{ id: "pizza-category" }] })
         .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({ rows: [{ id: "pizza" }] })
@@ -55,7 +59,7 @@ test("the disabled pizza example receives a photo and prevents a fallback drink"
     await seedEmptyMenuExample(client, "restaurant");
 
     expect(query).toHaveBeenCalledTimes(10);
-    expect(query).toHaveBeenNthCalledWith(5, expect.stringContaining("3000, $5, FALSE, 0"), [
-        "restaurant", "pizza-category", "Pizza de Exemplo", expect.any(String), MENU_EXAMPLE_IMAGES.pizza,
+    expect(query).toHaveBeenNthCalledWith(5, expect.stringContaining("3000, $5, $6, 0"), [
+        "restaurant", "pizza-category", "Pizza de Exemplo", "Escolha o tamanho e a borda da pizza.", MENU_EXAMPLE_IMAGES.pizza, expectedAvailability,
     ]);
 });

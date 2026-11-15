@@ -46,8 +46,8 @@ export async function seedPizzaExample(
         "SELECT id, name FROM public.categories WHERE restaurant_id = $1 ORDER BY position, id",
         [restaurantId],
     );
-    const itemResult = await client.query<MenuItem>(
-        "SELECT name, category_id FROM public.items WHERE restaurant_id = $1",
+    const itemResult = await client.query<MenuItem & { is_available: boolean | null }>(
+        "SELECT name, category_id, is_available FROM public.items WHERE restaurant_id = $1",
         [restaurantId],
     );
 
@@ -69,9 +69,10 @@ export async function seedPizzaExample(
     );
 
     if (!existingItem.rows.length) {
+        const isAvailable = !itemResult.rows.some(item => item.is_available === true);
         const item = await client.query<{ id: string }>(
-            "INSERT INTO public.items (restaurant_id, category_id, name, description, price_cents, image_path, is_available, position) VALUES ($1, $2, $3, $4, 3000, $5, FALSE, 0) RETURNING id",
-            [restaurantId, categoryId, EXAMPLE_ITEM, "Exemplo desativado: edite os tamanhos, as bordas e os preços antes de disponibilizar esta pizza.", MENU_EXAMPLE_IMAGES.pizza],
+            "INSERT INTO public.items (restaurant_id, category_id, name, description, price_cents, image_path, is_available, position) VALUES ($1, $2, $3, $4, 3000, $5, $6, 0) RETURNING id",
+            [restaurantId, categoryId, EXAMPLE_ITEM, "Escolha o tamanho e a borda da pizza.", MENU_EXAMPLE_IMAGES.pizza, isAvailable],
         );
         const itemId = item.rows[0].id;
         const groups = await client.query<{ id: string; name: string }>(
