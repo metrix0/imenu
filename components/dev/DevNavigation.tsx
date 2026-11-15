@@ -11,11 +11,11 @@ const sections: PanelMenuItem[] = [
     { label: "CRM", href: "/dev/crm", icon: faUsers },
     { label: "Blast", href: "/dev/blast", icon: faBullhorn },
     { label: "Revenue", href: "/dev/revenue", icon: faDollarSign },
-    { label: "Affiliates", href: "/dev/affiliates", icon: faHandshake },
     { label: "Payouts", href: "/dev/payouts", icon: faMoneyBillWave },
     { label: "Support", href: "/dev/support", icon: faHeadset },
     { label: "Analytics", href: "/dev/analytics", icon: faChartLine },
     { label: "Quality Assurance", href: "/dev/quality-assurance", icon: faShieldHalved },
+    { label: "Affiliates", href: "/dev/affiliates", icon: faHandshake },
 ];
 
 export default function DevNavigation({ children }: { children: ReactNode }) {
