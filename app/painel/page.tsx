@@ -396,7 +396,7 @@ export default function PainelPedidosAtivosPage() {
                         <Button
                             type="button"
                             onClick={() => window.open(`/${restaurantSlug || restaurantId}`, "_blank", "noopener,noreferrer")}
-                            variant="secondary"
+                            variant="primary"
                         >
                             Abrir cardápio
                         </Button>
