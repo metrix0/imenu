@@ -14,7 +14,7 @@ test("seeds one available illustrated Coca-Cola in a new drinks category", async
     expect(query).toHaveBeenCalledTimes(4);
     expect(query).toHaveBeenNthCalledWith(3, expect.stringContaining("INSERT INTO public.categories"), ["restaurant", "Bebidas"]);
     expect(query).toHaveBeenNthCalledWith(4, expect.stringContaining("$5, $6, TRUE, 0"), [
-        "restaurant", "created-category", "Coca-Cola 350 ml", "Coca-Cola Original em lata de 350 ml.", 600, MENU_EXAMPLE_IMAGES.cola,
+        "restaurant", "created-category", "Coca-Cola 350 ml", "Coca-Cola Original em lata de 350 ml.", 1500, MENU_EXAMPLE_IMAGES.cola,
     ]);
 });
 

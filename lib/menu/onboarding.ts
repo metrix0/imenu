@@ -25,6 +25,6 @@ export async function seedEmptyMenuExample(client: Pick<PoolClient, "query">, re
 
     await client.query(
         "INSERT INTO public.items (restaurant_id, category_id, name, description, price_cents, image_path, is_available, position) VALUES ($1, $2, $3, $4, $5, $6, TRUE, 0)",
-        [restaurantId, categoryId, "Coca-Cola 350 ml", "Coca-Cola Original em lata de 350 ml.", 600, MENU_EXAMPLE_IMAGES.cola],
+        [restaurantId, categoryId, "Coca-Cola 350 ml", "Coca-Cola Original em lata de 350 ml.", 1500, MENU_EXAMPLE_IMAGES.cola],
     );
 }
