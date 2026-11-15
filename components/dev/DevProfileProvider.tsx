@@ -19,9 +19,12 @@ import { normalizeCreationStep } from "@/lib/restaurantCreation";
 import { devJson } from "@/lib/dev/client";
 import { formatCurrencyFromCents, formatDateTime, monthsSince, accountAge } from "@/lib/dev/dashboardFormat";
 
-export type Restaurant = { id: string; name: string; email?: string | null; phone?: string | null; store_phone?: string | null; owner_phone?: string | null; created_at?: string; plus_since?: string | null; has_paid?: boolean; plus?: boolean; gmv_cents?: number | string | null; payment_info?: string | null; url_slug?: string | null; creation_step?: number | null; first_time?: boolean | null; onboarding_completed_at?: string | null; city?: string | null; state?: string | null; pickup_enabled?: boolean | null; delivery_disabled?: boolean | null; preorder_only?: boolean | null; support_conversation_id?: string | null; support_mode?: "ai" | "human" | null; last_message?: string | null; last_message_at?: string | null };
-type Payment = { id: string; amount_cents: number; status: string; created_at: string; product_key?: string; failure_reason?: string | null; billing_type?: string | null };
+export type Restaurant = { id: string; name: string; email?: string | null; phone?: string | null; store_phone?: string | null; owner_phone?: string | null; created_at?: string; plus_since?: string | null; has_paid?: boolean; plus?: boolean; gmv_cents?: number | string | null; payment_info?: string | null; payment_info_type?: string | null; url_slug?: string | null; creation_step?: number | null; first_time?: boolean | null; onboarding_completed_at?: string | null; city?: string | null; state?: string | null; pickup_enabled?: boolean | null; delivery_disabled?: boolean | null; preorder_only?: boolean | null; support_conversation_id?: string | null; support_mode?: "ai" | "human" | null; last_message?: string | null; last_message_at?: string | null };
+type Payment = { id: string; amount_cents: number; status: string; created_at: string; product_key?: string; failure_reason?: string | null; billing_type?: string | null; last_order_at?: string | null };
 type Details = { restaurant: Restaurant; metrics: { gmv_cents: number; orders: number; online_cents: number; monthly_gmv_cents: number }; analysis: { potential: { cents?: number; assumptions?: string; reason?: string; available?: boolean }; summary: string } | null };
+const PIX_KEY_TYPE_LABELS: Record<string, string> = {
+    CPF: "CPF", CNPJ: "CNPJ", EMAIL: "E-mail", PHONE: "Telefone", EVP: "Chave aleatória",
+};
 const empty = <T,>(): PageData<T> => ({rows:[],total:0,page:0,pageCount:1});
 export function PhoneLink({ phone }: { phone?: string | null }) {
     const href = getWhatsappUrl(phone || "");
@@ -47,6 +50,10 @@ function PaymentHistory({ id, kind }: { id: string; kind: "payments" | "payouts"
     }, [id, kind, page]);
     return <div>{error && <p role="alert">{error}</p>}<PagedTable pageSize={10} data={data} onPage={setPage} loading={loading} rowKey={r => r.id} columns={[
         { key: "date", label: "Data", render: r => formatDateTime(r.created_at) },
+        ...(kind === "payouts" ? [{
+            key: "last_order", label: "Último pedido do repasse",
+            render: (r: Payment) => formatDateTime(r.last_order_at ?? null),
+        }] : []),
         { key: "amount", label: "Valor", render: r => formatCurrencyFromCents(r.amount_cents) },
         ...(kind === "payments" ? [{key:"type",label:"Tipo",render:(r:Payment)=>({PIX:"Pix",CREDIT_CARD:"Cartão de crédito",DEBIT_CARD:"Cartão de débito",BOLETO:"Boleto",UNDEFINED:"Não informado"} as Record<string,string>)[r.billing_type || ""] || r.billing_type || "—"}] : []),
         { key: "status", label: "Status", render: r => <Tooltip text={r.failure_reason || ""} showOnClick><span>{r.status}</span></Tooltip> },
@@ -57,6 +64,8 @@ function RestaurantDetails({ restaurant: initialRestaurant, onLoaded }: { restau
     const { openConversation } = useDevProfile();
     const [data, setData] = useState<Details | null>(null);
     const restaurant=data?.restaurant || initialRestaurant;
+    const pixKey = restaurant.payment_info?.trim();
+    const pixKeyType = restaurant.payment_info_type?.trim();
     const completedSteps = restaurant.first_time === false || restaurant.onboarding_completed_at ? 4 : normalizeCreationStep(restaurant.creation_step) - 1;
     const [due, setDue] = useState<number | null>(null);
     const [error, setError] = useState("");
@@ -118,8 +127,13 @@ function RestaurantDetails({ restaurant: initialRestaurant, onLoaded }: { restau
                         <div><dt>Data de criação</dt><dd>{formatDateTime(restaurant.created_at || null)}</dd></div>
                         <div><dt>Cidade / UF</dt><dd title={[restaurant.city,restaurant.state].filter(Boolean).join(" / ")}>{[restaurant.city,restaurant.state].filter(Boolean).join(" / ") || "—"}</dd></div>
                         <div><dt>Cardápio</dt><dd>{restaurant.url_slug ? <a className={styles.profileLink} href={`/${restaurant.url_slug}`} target="_blank" rel="noopener noreferrer" title={`/${restaurant.url_slug}`}>/{restaurant.url_slug}</a> : "—"}</dd></div>
-                        <div><dt>Chave PIX</dt><dd>{restaurant.payment_info?.trim() ? "Cadastrada" : "Não cadastrada"}</dd></div>
-                        <div className="col-span-full"><dt>Modalidades</dt><dd>{[restaurant.delivery_disabled ? null : "Delivery",restaurant.pickup_enabled ? "Retirada" : null,restaurant.preorder_only ? "Somente encomendas" : null].filter(Boolean).join(" · ") || "—"}</dd></div>
+                        <div>
+                            <dt>Chave PIX</dt>
+                            <dd className="text-gray-500">{pixKey
+                                ? (pixKeyType && PIX_KEY_TYPE_LABELS[pixKeyType]) || "Tipo não cadastrado"
+                                : "Não cadastrada"}</dd>
+                            {pixKey && <dd><span className="block break-all whitespace-normal">{pixKey}</span></dd>}
+                        </div>
                     </dl>
                     <div><p className="mb-2 text-xs text-gray-500">Etapas do cadastro · {completedSteps}/4</p><div className="flex flex-wrap gap-2" aria-label="Etapas do cadastro">{["Cardápio","Disponibilidade","Loja","Localização"].map((step,index)=><Badge key={step} variant={index < completedSteps ? "success" : "neutral"}>{index < completedSteps && <Check size={12} aria-hidden="true" className="mr-1" />}{step}</Badge>)}</div></div>
                 </div>
