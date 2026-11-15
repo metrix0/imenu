@@ -10,6 +10,7 @@ import PagedTable, { type PageData } from "./PagedTable";
 import { useDevProfile } from "./DevProfileProvider";
 import styles from "./dashboard.module.css";
 import { devJson } from "@/lib/dev/client";
+import { DEV_BLAST_PAGE_SIZE, paged } from "@/lib/dev/pagination";
 import { formatDateTime } from "@/lib/dev/dashboardFormat";
 import { formatPhone, statusPresentation } from "@/lib/dev/supportView";
 import type { Connection } from "@/lib/dev/supportTypes";
@@ -24,7 +25,7 @@ type Connections = { support: Connection | null; blast: Connection | null };
 const empty = <T,>(): PageData<T> => ({ rows: [], total: 0, page: 0, pageCount: 1 });
 const compactButton = "!min-h-8 !px-3 !py-1.5 whitespace-nowrap";
 function groupLabel(row: Group) {
-    return row.id === "automation:recovery" ? "Recuperação e ativação" : row.id === "automation:plus-feedback" ? "Feedback · 1º mês Plus" : row.id.startsWith("congratulations:") ? "Boas-vindas iMenu Plus" : row.id.startsWith("followup:") ? "Follow-up" : row.id.startsWith("customer:") ? "Automação de clientes" : row.id.startsWith("payout:") ? "Problemas com repasse" : row.id.startsWith("expiry:") ? "Vencimento iMenu Plus" : null;
+    return row.id.startsWith("automation:recovery:") ? "Recuperação e ativação" : row.id === "automation:plus-feedback" ? "Feedback · 1º mês Plus" : row.id.startsWith("congratulations:") ? "Boas-vindas iMenu Plus" : row.id.startsWith("followup:") ? "Follow-up" : row.id.startsWith("customer:") ? "Automação de clientes" : row.id.startsWith("payout:") ? "Problemas com repasse" : row.id.startsWith("expiry:") ? "Vencimento iMenu Plus" : null;
 }
 function SendProgress({ row }: { row: Group }) {
     return <span className="whitespace-nowrap tabular-nums">{row.sent} / {row.total}</span>;
@@ -42,7 +43,7 @@ export default function BlastHistorySection({ refreshKey = 0, connections }: { r
     const [automationPage, setAutomationPage] = useState(0);
     const [recipientPage, setRecipientPage] = useState(0);
     const [revision, setRevision] = useState(0);
-    const [data, setData] = useState<Data>({ ...empty<Group>(), automations: [] });
+    const [data, setData] = useState<Data | null>(null);
     const [recipients, setRecipients] = useState(empty<Recipient>);
     const [campaigns, setCampaigns] = useState(empty<Group>);
     const [selected, setSelected] = useState<Group | null>(null);
@@ -70,10 +71,13 @@ export default function BlastHistorySection({ refreshKey = 0, connections }: { r
     }
     const campaignActions = (row: Group) => <div className="flex gap-2" onClick={e => e.stopPropagation()}>{row.status === "running" && <Button variant="secondary" className={compactButton} loading={action === row.id} onClick={() => void changeStatus(row, "pause")}>Pausar</Button>}{row.status === "paused" && <Button variant="secondary" className={compactButton} loading={action === row.id} onClick={() => void changeStatus(row, "resume")}>Retomar</Button>}{["running", "paused"].includes(row.status || "") && <Button variant="secondary" className={compactButton} loading={action === row.id} onClick={() => void changeStatus(row, "cancel")}>Parar</Button>}</div>;
     const destination = (row: Destination, group?: Group) => row.profiles?.length ? <div className="flex flex-wrap gap-x-3 gap-y-1">{row.profiles.map(target => <button key={target.restaurant_id} className={styles.profileLink} title={target.name} onClick={event => { event.stopPropagation(); setSelected(null); openProfile({ id: target.restaurant_id, name: target.name }); }}><span className="max-w-40 truncate">{target.name}</span><Badge variant="neutral" className="shrink-0 whitespace-nowrap">{target.kind === "Dono e loja" ? "Dono/loja" : target.kind}</Badge></button>)}</div> : row.phone ? <span className="whitespace-nowrap">{formatPhone(row.phone)}</span> : group ? <button className={styles.profileLink} onClick={event=>{event.stopPropagation();openDetails(group);}}>{group.total} destinatário(s)</button> : "—";
+    const automations = data?.automations ?? [];
+    const automationOffset = automationPage * DEV_BLAST_PAGE_SIZE;
+    const automationRows = automations.slice(automationOffset, automationOffset + DEV_BLAST_PAGE_SIZE);
     return <>
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
         <section className={`${styles.tableSection} ${styles.blastTable} ${styles.blastMain}`} aria-label="Blasts">
-            <PagedTable data={data} loading={loading} onPage={setPage} rowKey={r => r.id} onRowClick={openDetails} columns={[
+            <PagedTable data={data ?? empty<Group>()} loading={loading && data?.page !== page} onPage={setPage} rowKey={r => r.id} onRowClick={openDetails} columns={[
                 { key: "date", label: "Data", className: styles.dateCell, render: r => formatDateTime(r.created_at) },
                 { key: "message", label: "Blast", render: r => groupLabel(r) ? <Badge variant="neutral">{groupLabel(r)}</Badge> : <p className={styles.blastPreview}>{r.message}</p> },
                 { key: "destination", label: "Destino", render: r => destination(r, r) },
@@ -83,7 +87,7 @@ export default function BlastHistorySection({ refreshKey = 0, connections }: { r
             ]} />
         </section>
         <section className={`${styles.tableSection} ${styles.blastTable} ${styles.blastAutomations}`}><h2>Blasts automáticos</h2>
-            <PagedTable data={{ rows: data.automations.slice(automationPage * 25, (automationPage + 1) * 25), total: data.automations.length, page: automationPage, pageCount: Math.max(1, Math.ceil(data.automations.length / 25)) }} loading={loading} onPage={setAutomationPage} rowKey={r => r.id} columns={[
+            <PagedTable data={paged(automationRows, automations.length, automationPage, DEV_BLAST_PAGE_SIZE)} loading={loading && !data} onPage={setAutomationPage} rowKey={r => r.id} columns={[
                 { key: "name", label: "Título", render: r => <span className="font-medium">{r.name}</span> },
                 { key: "criteria", label: "Critérios", render: r => <p className="max-w-80 text-xs leading-5 text-gray-600">{r.criteria}</p> },
                 { key: "limit", label: "Limite/dia", className: "whitespace-nowrap", render: r => r.limit === null ? "Sem limite" : `${r.limit} envios${["recovery-plus","recovery","single-order","first-order"].includes(r.id) ? " (compart.)" : ""}` },

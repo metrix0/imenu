@@ -1,4 +1,5 @@
 export const DEV_PAGE_SIZE = 25;
+export const DEV_BLAST_PAGE_SIZE = 10;
 
 export function devPage(params: URLSearchParams, key = "page"): number {
     const value = Number(params.get(key));
