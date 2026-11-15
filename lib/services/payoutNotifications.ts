@@ -10,7 +10,7 @@ export async function notifyPayoutProblem(restaurantId: string, kind: PayoutNoti
     try {
         const result = await query<{ phone: string | null; session_name: string; status: string; desired_state: string; day: string }>(
             `SELECT COALESCE(NULLIF(u.raw_user_meta_data->>'phone',''),NULLIF(r.phone,'')) phone,
-                c.session_name,c.status,c.desired_state,to_char(NOW() AT TIME ZONE 'America/Sao_Paulo','YYYY-MM-DD') day
+                c.session_name,c.status,c.desired_state,to_char(NOW() AT TIME ZONE 'America/Sao_Paulo','YYYY-MM-DD') AS day
              FROM restaurants r LEFT JOIN auth.users u ON u.id=r.user_id
              CROSS JOIN support_whatsapp_connection c WHERE r.id=$1 AND c.id='blast'`, [restaurantId]);
         const row = result.rows[0];
