@@ -1,3 +1,5 @@
+export const DEFAULT_RESTAURANT_NAME = "Sem Nome";
+
 export const CREATION_STEP_PATHS = {
     1: "/restaurante/criar/cardapio",
     2: "/restaurante/criar/disponibilidade",

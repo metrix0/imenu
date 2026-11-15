@@ -16,8 +16,8 @@ import { getCreationStepPath } from "@/lib/restaurantCreation";
 import "../../../painel/planos/planos.css";
 
 type Restaurant = { id: string; url_slug: string | null; first_time: boolean; creation_step: number };
-const panelUrl = (store: Restaurant) =>
-    `/painel?onboarding=complete&menu=${encodeURIComponent(store.url_slug || store.id)}`;
+const panelUrl = (slug: string) =>
+    `/painel?onboarding=complete&menu=${encodeURIComponent(slug)}`;
 
 export default function OnboardingPlusPage() {
     const router = useRouter();
@@ -39,8 +39,10 @@ export default function OnboardingPlusPage() {
             body: JSON.stringify({ first_time: false, creation_step: 5 }),
         });
         if (!response.ok) throw new Error("Não foi possível concluir o cadastro. Tente novamente.");
+        const { url_slug } = await response.json() as { url_slug: string | null };
+        if (!url_slug) throw new Error("Não foi possível gerar o link do seu cardápio. Tente novamente.");
         clear();
-        router.replace(panelUrl(store));
+        router.replace(panelUrl(url_slug));
     }, [clear, router]);
 
     useEffect(() => {
@@ -53,11 +55,15 @@ export default function OnboardingPlusPage() {
                 .select("id,url_slug,first_time,creation_step").eq("user_id", session.user.id).maybeSingle();
             if (canceled) return;
             if (loadError || !data) throw new Error("Não foi possível carregar seu restaurante. Tente novamente.");
-            if (data.first_time === false) { router.replace(panelUrl(data)); return; }
+            if (data.first_time === false && data.url_slug) { router.replace(panelUrl(data.url_slug)); return; }
             if (data.creation_step !== 5) { router.replace(getCreationStepPath(data.creation_step)); return; }
             setRestaurant(data);
             setRestaurantId(data.id);
             setUserId(session.user.id);
+            if (data.first_time === false) {
+                await finish(data);
+                return;
+            }
             let active = false;
             try {
                 const response = await qrTableAuthenticatedFetch(`/api/addons/billing?restaurantId=${encodeURIComponent(data.id)}`);

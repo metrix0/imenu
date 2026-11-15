@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -72,7 +73,7 @@ export default function ShareMenuModal({
             >
                 <div className="flex flex-col items-center p-6 text-center sm:p-7">
                     <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-brand/10 text-brand">
-                        <FontAwesomeIcon icon={icons.faCheck} className="text-xl" />
+                        <Image src="/images/party_popper_emoji.png" alt="" width={42} height={42} className="h-[42px] w-[42px] object-contain" />
                     </div>
 
                     <h3 className="mb-2 text-2xl font-bold text-gray-900">
