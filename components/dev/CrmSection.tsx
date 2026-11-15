@@ -92,7 +92,7 @@ export function CrmList({ search = "", plan = "all", activity, title, range, sho
                 { key: "status", label: "Cliente", sortable: true, render: r => <CustomerBadge restaurant={r} /> },
                 { key: "store", label: "Celular loja", sortable: true, render: r => <PhoneLink phone={r.store_phone} /> },
                 { key: "owner", label: "Celular dono", sortable: true, render: r => <PhoneLink phone={r.owner_phone || r.phone} /> },
-                { key: "created", label: "Conta há", sortable: true, render: r => <span className="whitespace-nowrap">{accountAge(r.created_at)}</span> },
+                { key: "created", label: "Conta há", sortable: true, className: styles.crmAgeColumn, render: r => <span className="whitespace-nowrap">{accountAge(r.created_at)}</span> },
                 { key: "gmv", label: "GMV", sortable: true, className: styles.numericCell, render: r => {
                     const value = formatCurrencyFromCents(Number(r.gmv_cents) || 0);
                     return showBlast ? <span className="block truncate" title={value}>{value}</span> : value;

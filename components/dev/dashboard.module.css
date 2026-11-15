@@ -229,6 +229,15 @@
     max-width: 100%;
     white-space: normal;
 }
+.crmTable th.crmAgeColumn :global(button > span) {
+    white-space: nowrap;
+    overflow-wrap: normal;
+}
+
+@container dev-table (max-width: 900px) {
+    .crmTable th.crmAgeColumn { padding-inline: 8px; }
+}
+
 :is(.fitTable, .crmTable, .blastAutomations, .dialogBody, .fitLegacyTable) :global(:is(th, td) .truncate) {
     white-space: nowrap;
 }
