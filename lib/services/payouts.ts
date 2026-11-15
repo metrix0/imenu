@@ -4,7 +4,7 @@ import * as https from "node:https";
 import { setTimeout as delay } from "node:timers/promises";
 
 import { query, withTransaction } from "@/lib/database/sql";
-import { calculateOnePercentPayout } from "@/lib/services/payoutSafety";
+import { calculateOnePercentPayout, PAYOUT_MARGIN_MINUTES } from "@/lib/services/payoutSafety";
 import { getPayoutPixProblem } from "@/lib/services/payoutAutomation";
 
 const ASAAS_BASE_URL = (
@@ -110,8 +110,6 @@ export class PayoutValidationError extends Error {
         this.details = details;
     }
 }
-
-const PAYOUT_MARGIN_MINUTES = 90;
 
 // Use a rolling margin instead of a fixed daily cutoff for confirmed Pix orders.
 export function getPayoutCutoffAt(referenceAt: Date = new Date()): Date {
