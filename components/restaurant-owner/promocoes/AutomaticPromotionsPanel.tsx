@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { CollapsibleChevron, CollapsibleContent, useCollapsible } from "@/components/ui/CollapsibleSection";
+
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -17,7 +19,6 @@ import {
   faTag,
   faTrash,
   faPen,
-  faChevronDown,
   faGear,
 } from "@fortawesome/free-solid-svg-icons";
 import {
@@ -78,7 +79,7 @@ export default function AutomaticPromotionsPanel({
   const [deleting, setDeleting] = useState<AutomaticPromotion | null>(null);
   const [error, setError] = useState("");
   const [advancedOptions, setAdvancedOptions] = useState(false);
-  const advancedOptionsId = useId();
+  const advanced = useCollapsible({ open: advancedOptions, onOpenChange: setAdvancedOptions });
 
   async function api(method: string, data?: unknown) {
     const {
@@ -581,61 +582,48 @@ export default function AutomaticPromotionsPanel({
               </div>
             )}
             <button
-              type="button"
-              aria-expanded={advancedOptions}
-              aria-controls={advancedOptionsId}
-              onClick={() => setAdvancedOptions((open) => !open)}
+              {...advanced.triggerProps}
               className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-3 text-left font-semibold"
             >
               <span className="flex items-center gap-2">
                 <FontAwesomeIcon icon={faGear} className="text-gray-500" />
                 Configurações avançadas
               </span>
-              <FontAwesomeIcon
-                icon={faChevronDown}
-                className={`text-xs transition-transform duration-300 motion-reduce:transition-none ${advancedOptions ? "rotate-180" : ""}`}
-              />
+              <CollapsibleChevron expanded={advanced.expanded} />
             </button>
-            <div
-              id={advancedOptionsId}
-              aria-hidden={!advancedOptions}
-              inert={!advancedOptions}
-              className={`grid transition-[grid-template-rows,opacity,transform] duration-300 ease-out motion-reduce:transition-none ${advancedOptions ? "grid-rows-[1fr] translate-y-0 opacity-100" : "pointer-events-none grid-rows-[0fr] -translate-y-1 opacity-0"}`}
-            >
-              <div className="min-h-0 overflow-hidden">
-                <div className="space-y-2 pt-2">
+            <CollapsibleContent id={advanced.contentId} expanded={advanced.expanded}>
+              <div className="space-y-2 pt-2">
+                <Toggle
+                  label="Permitir acumular com cupom"
+                  checked={editing.allow_coupon}
+                  onChange={(value) =>
+                    setEditing({ ...editing, allow_coupon: value })
+                  }
+                />
+                <p className="text-xs leading-relaxed text-gray-500">
+                  Entre promoções automáticas, vale a de maior desconto. Se o
+                  cupom for melhor, ele é mantido. Percentuais são calculados
+                  sobre o saldo após os outros descontos. Horário de Brasília.
+                </p>
+                <div className="mt-4 border-t border-gray-200 pt-3">
+                  <h3 className="mb-2 font-semibold">Ativar para</h3>
                   <Toggle
-                    label="Permitir acumular com cupom"
-                    checked={editing.allow_coupon}
+                    label="Delivery e Retirada"
+                    checked={editing.delivery}
                     onChange={(value) =>
-                      setEditing({ ...editing, allow_coupon: value })
+                      setEditing({ ...editing, delivery: value })
                     }
                   />
-                  <p className="text-xs leading-relaxed text-gray-500">
-                    Entre promoções automáticas, vale a de maior desconto. Se o
-                    cupom for melhor, ele é mantido. Percentuais são calculados
-                    sobre o saldo após os outros descontos. Horário de Brasília.
-                  </p>
-                  <div className="mt-4 border-t border-gray-200 pt-3">
-                    <h3 className="mb-2 font-semibold">Ativar para</h3>
-                    <Toggle
-                      label="Delivery e Retirada"
-                      checked={editing.delivery}
-                      onChange={(value) =>
-                        setEditing({ ...editing, delivery: value })
-                      }
-                    />
-                    <Toggle
-                      label="Mesa"
-                      checked={editing.mesa}
-                      onChange={(value) =>
-                        setEditing({ ...editing, mesa: value })
-                      }
-                    />
-                  </div>
+                  <Toggle
+                    label="Mesa"
+                    checked={editing.mesa}
+                    onChange={(value) =>
+                      setEditing({ ...editing, mesa: value })
+                    }
+                  />
                 </div>
               </div>
-            </div>
+            </CollapsibleContent>
           </Card>
           {error && (
             <p role="alert" className="text-sm text-red-600">

@@ -1,5 +1,7 @@
 "use client";
 
+import { CollapsibleChevron, CollapsibleContent } from "@/components/ui/CollapsibleSection";
+
 import { PageSaveHeader } from "@/components/ui/SaveStatus";
 import {
     useEffect,
@@ -9,7 +11,6 @@ import {
 } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
-    faChevronDown,
     faPlus,
     faPowerOff,
     faQrcode,
@@ -584,57 +585,43 @@ export default function RoboWhatsAppPage() {
                             </span>
                         )}
                     </span>
-                    <FontAwesomeIcon
-                        icon={faChevronDown}
-                        className={`text-gray-400 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`}
-                    />
+                    <CollapsibleChevron expanded={isOpen} className="text-gray-400" />
                 </button>}
 
-                <div
-                    className={`grid transition-[grid-template-rows,opacity,transform] duration-300 ease-out ${
-                        isOpen
-                            ? "grid-rows-[1fr] translate-y-0 opacity-100"
-                            : "pointer-events-none grid-rows-[0fr] -translate-y-1 opacity-0"
-                    }`}
-                    id={`template-${field.key}`}
-                    aria-hidden={!isOpen}
-                    inert={!isOpen}
-                >
-                    <div className="min-h-0 overflow-hidden">
-                        <div className={field.key === "status_notification" ? "pt-4" : "border-t border-gray-100 px-4 pb-5 pt-4"}>
-                            <TemplateEditor
-                                ref={(editor) => {
-                                    editorRefs.current[field.key] = editor;
-                                }}
-                                value={templates[field.key]}
-                                variables={variables}
-                                ariaLabel={`Mensagem: ${field.key === "status_notification" ? "Atualização automática do pedido" : field.title}`}
-                                onChange={(value) => updateTemplate(field.key, value)}
-                            />
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    setOpenVariables(
-                                        openVariables === field.key ? null : field.key
-                                    )
-                                }
-                                className="mt-3 cursor-pointer rounded-md border border-brand/20 px-3 py-2 text-sm font-medium text-brand transition-colors hover:bg-brand/5"
-                            >
-                                <FontAwesomeIcon icon={faPlus} className="mr-2" />
-                                Adicionar variável
-                            </button>
-                            <VariablePicker
-                                allowedVariables={field.variables}
-                                variables={variables}
-                                open={openVariables === field.key}
-                                onSelect={(variable) => {
-                                    editorRefs.current[field.key]?.insertVariable(variable);
-                                    setOpenVariables(null);
-                                }}
-                            />
-                        </div>
+                <CollapsibleContent id={`template-${field.key}`} expanded={isOpen}>
+                    <div className={field.key === "status_notification" ? "pt-4" : "border-t border-gray-100 px-4 pb-5 pt-4"}>
+                        <TemplateEditor
+                            ref={(editor) => {
+                                editorRefs.current[field.key] = editor;
+                            }}
+                            value={templates[field.key]}
+                            variables={variables}
+                            ariaLabel={`Mensagem: ${field.key === "status_notification" ? "Atualização automática do pedido" : field.title}`}
+                            onChange={(value) => updateTemplate(field.key, value)}
+                        />
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setOpenVariables(
+                                    openVariables === field.key ? null : field.key
+                                )
+                            }
+                            className="mt-3 cursor-pointer rounded-md border border-brand/20 px-3 py-2 text-sm font-medium text-brand transition-colors hover:bg-brand/5"
+                        >
+                            <FontAwesomeIcon icon={faPlus} className="mr-2" />
+                            Adicionar variável
+                        </button>
+                        <VariablePicker
+                            allowedVariables={field.variables}
+                            variables={variables}
+                            open={openVariables === field.key}
+                            onSelect={(variable) => {
+                                editorRefs.current[field.key]?.insertVariable(variable);
+                                setOpenVariables(null);
+                            }}
+                        />
                     </div>
-                </div>
+                </CollapsibleContent>
             </div>
         );
     };

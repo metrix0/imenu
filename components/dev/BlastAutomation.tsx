@@ -1,5 +1,7 @@
 "use client";
 
+import { CollapsibleChevron, CollapsibleContent, useCollapsible } from "@/components/ui/CollapsibleSection";
+
 import { useState } from "react";
 import PagedTable from "./PagedTable";
 import styles from "./dashboard.module.css";
@@ -27,9 +29,10 @@ export default function BlastAutomation({ automations, connections, loading, gro
     automations: readonly Automation[];
     connections?: Connections;
     loading?: boolean;
-    group?: { label: string; defaultOpen?: boolean };
+    group?: { label: string; open: boolean; onOpenChange: (open: boolean) => void };
 }) {
     const [page, setPage] = useState(0);
+    const disclosure = useCollapsible(group);
     const pageSize = DEV_BLAST_PAGE_SIZE;
     const pageCount = Math.max(1, Math.ceil(automations.length / pageSize));
     const currentPage = Math.min(page, pageCount - 1);
@@ -46,10 +49,17 @@ export default function BlastAutomation({ automations, connections, loading, gro
     ]} />;
     const className = `${styles.tableSection} ${styles.blastTable} ${styles.blastAutomations}`;
     if (group) {
-        return <details className={className} name="blast-automation" open={group.defaultOpen}>
-            <summary className="mb-3 cursor-pointer rounded-lg border border-[#e2e5e9] bg-white px-4 py-3 text-sm font-semibold">{group.label}</summary>
-            {table}
-        </details>;
+        return <section className={className} aria-label={group.label}>
+            <button {...disclosure.triggerProps} className="mb-3 flex w-full cursor-pointer items-center rounded-lg border border-[#e2e5e9] bg-white px-4 py-3 text-left text-sm font-semibold">
+                <span className="relative flex h-5 w-4 shrink-0 items-center justify-center">
+                    <CollapsibleChevron expanded={disclosure.expanded} className="absolute" />
+                </span>
+                {group.label}
+            </button>
+            <CollapsibleContent id={disclosure.contentId} expanded={disclosure.expanded}>
+                {table}
+            </CollapsibleContent>
+        </section>;
     }
     return <section className={className}><h2>Blasts automáticos</h2>{table}</section>;
 }

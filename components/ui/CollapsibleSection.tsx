@@ -5,6 +5,65 @@ import { faChevronDown } from "@fortawesome/free-solid-svg-icons";
 import { PanelIcon } from "@/components/ui/PanelIcon";
 import Switch from "@/components/ui/Switch";
 
+export function useCollapsible({ open, defaultOpen = false, onOpenChange }: {
+    open?: boolean;
+    defaultOpen?: boolean;
+    onOpenChange?: (open: boolean) => void;
+} = {}) {
+    const id = useId();
+    const contentId = `${id}-content`;
+    const [internalOpen, setInternalOpen] = useState(defaultOpen);
+    const expanded = open ?? internalOpen;
+
+    function setExpanded(next: boolean) {
+        if (next === expanded) return;
+        if (open === undefined) setInternalOpen(next);
+        onOpenChange?.(next);
+    }
+
+    return {
+        id, contentId, expanded, setExpanded,
+        triggerProps: {
+            type: "button" as const,
+            "aria-expanded": expanded,
+            "aria-controls": contentId,
+            onClick: () => setExpanded(!expanded),
+        },
+    };
+}
+
+export function CollapsibleChevron({ expanded, className = "" }: {
+    expanded: boolean;
+    className?: string;
+}) {
+    return (
+        <PanelIcon
+            icon={faChevronDown}
+            aria-hidden="true"
+            style={{ width: 24, height: 24 }}
+            data-ui="disclosure-chevron"
+            className={`!h-6 !w-6 shrink-0 transition-transform duration-200 motion-reduce:transition-none ${expanded ? "rotate-180" : ""} ${className}`}
+        />
+    );
+}
+
+export function CollapsibleContent({ id, expanded, children }: {
+    id: string;
+    expanded: boolean;
+    children: ReactNode;
+}) {
+    return (
+        <div
+            id={id}
+            aria-hidden={!expanded}
+            inert={!expanded}
+            className={`grid transition-[grid-template-rows,opacity] duration-200 ease-in-out motion-reduce:transition-none ${expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+        >
+            <div className="min-h-0 overflow-hidden">{children}</div>
+        </div>
+    );
+}
+
 type CollapsibleSectionProps = {
     title: string;
     description?: string;
@@ -37,36 +96,24 @@ export default function CollapsibleSection({
     onOpenChange,
     toggle,
 }: CollapsibleSectionProps) {
-    const id = useId();
+    const { id, contentId, expanded, setExpanded, triggerProps } = useCollapsible({ open, defaultOpen, onOpenChange });
     const titleId = `${id}-title`;
-    const contentId = `${id}-content`;
     const descriptionId = `${id}-description`;
-    const [internalOpen, setInternalOpen] = useState(defaultOpen);
-    const expanded = open ?? internalOpen;
-
-    function changeOpen(next: boolean) {
-        if (next === expanded) return;
-        if (open === undefined) setInternalOpen(next);
-        onOpenChange?.(next);
-    }
 
     function changeToggle() {
         if (!toggle) return;
         const next = !toggle.checked;
         toggle.onChange(next);
-        if (next) changeOpen(true);
+        if (next) setExpanded(true);
     }
 
     return (
         <section className={className} aria-labelledby={titleId}>
             <div className="flex items-start gap-3 sm:gap-4">
                 <button
-                    type="button"
-                    aria-expanded={expanded}
-                    aria-controls={contentId}
+                    {...triggerProps}
                     aria-labelledby={titleId}
                     aria-describedby={description ? descriptionId : undefined}
-                    onClick={() => changeOpen(!expanded)}
                     className="flex min-h-12 min-w-0 flex-1 cursor-pointer items-start gap-3 text-left sm:gap-4"
                 >
                     {icon && (
@@ -90,34 +137,19 @@ export default function CollapsibleSection({
                             />
                         )}
                         <button
-                            type="button"
+                            {...triggerProps}
                             aria-label={`${expanded ? "Recolher" : "Expandir"} ${title}`}
-                            aria-expanded={expanded}
-                            aria-controls={contentId}
-                            onClick={() => changeOpen(!expanded)}
                             className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-gray-500 hover:bg-gray-50"
                         >
-                            <PanelIcon
-                                icon={faChevronDown}
-                                aria-hidden="true"
-                                style={{ width: 24, height: 24 }}
-                                className={`shrink-0 transition-transform duration-200 motion-reduce:transition-none ${expanded ? "rotate-180" : ""}`}
-                            />
+                            <CollapsibleChevron expanded={expanded} />
                         </button>
                     </div>
                     {badge && <span className="sm:order-first">{badge}</span>}
                 </div>
             </div>
-            <div
-                id={contentId}
-                aria-hidden={!expanded}
-                inert={!expanded}
-                className={`grid transition-[grid-template-rows,opacity] duration-200 ease-in-out motion-reduce:transition-none ${expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
-            >
-                <div className="min-h-0 overflow-hidden">
-                    <div className={`space-y-4 pt-4 ${icon ? "sm:pl-[52px]" : ""}`}>{children}</div>
-                </div>
-            </div>
+            <CollapsibleContent id={contentId} expanded={expanded}>
+                <div className={`space-y-4 pt-4 ${icon ? "sm:pl-[52px]" : ""}`}>{children}</div>
+            </CollapsibleContent>
             {footer}
         </section>
     );

@@ -1,5 +1,7 @@
 "use client";
 
+import { CollapsibleChevron, CollapsibleContent, useCollapsible } from "@/components/ui/CollapsibleSection";
+
 import styles from "./dashboard.module.css";
 import DataTable from "@/components/ui/DataTable";
 import Button from "@/components/ui/Button";
@@ -7,8 +9,7 @@ import { formatRangeDate, type DateRange } from "@/lib/utils/dateRange";
 import { CHART_CATEGORY_AXIS, CHART_VALUE_AXIS, STANDARD_CHART_TOOLTIP, createBrandAreaGradient } from "@/components/restaurant-owner/exibicoes/chartStyles";
 import { Chart as ChartJS, Filler } from "chart.js";
 import { Line } from "react-chartjs-2";
-import { useState, type ReactNode } from "react";
-import { ChevronDown } from "lucide-react";
+import type { ReactNode } from "react";
 import type { ProductOverview } from "@/lib/analytics/productOverview";
 import { formatAverage, formatCount, formatCurrency, formatRatio, conversion } from "@/lib/dev/dashboardFormat";
 import InfoTooltip from "@/components/ui/Tooltip";
@@ -406,27 +407,30 @@ export function PlusExposureMetricCard({
     info: string;
     exposureData?: PlusExposureBreakdown | null;
 }) {
-    const [expanded, setExpanded] = useState(false);
+    const disclosure = useCollapsible();
     return <MetricCard inlineChange truncateTitle title={title} value={value} change={change}
         changeLabel={changeLabel} description={description} info={info}
-        footerAction={<button type="button" aria-label={expanded ? "Recolher origens do Plus" : "Expandir origens do Plus"}
-            aria-expanded={expanded} onClick={() => setExpanded(previous => !previous)}
+        footerAction={<button {...disclosure.triggerProps} aria-label={disclosure.expanded ? "Recolher origens do Plus" : "Expandir origens do Plus"}
             className="inline-flex h-6 w-6 items-center justify-center rounded text-gray-400 hover:bg-gray-50 hover:text-brand">
-            <ChevronDown size={16} className={"transition-transform duration-200 " + (expanded ? "rotate-180" : "")} />
+            <CollapsibleChevron expanded={disclosure.expanded} />
         </button>}>
-        {expanded && <div className="mt-3 space-y-2 border-t border-gray-100 pt-3 pb-6">
-            {PLUS_EXPOSURE_SOURCES.filter(source => source.key !== "legacy_pages" ||
-                (exposureData?.sources?.legacy_pages ?? 0) > 0).map(source => {
-                const count = exposureData?.sources?.[source.key];
-                const rate = conversion(count ?? null, exposureData?.exposures ?? null);
-                return <div key={source.key} className="flex min-w-0 items-baseline justify-between gap-2 text-xs">
-                    <span className="min-w-0 text-gray-500">{source.label}</span>
-                    <span className="shrink-0 whitespace-nowrap font-semibold tabular-nums text-gray-800">
-                        {rate == null ? "—" : formatRatio(rate)} {count == null ? "" : "(" + formatCount(count) + ")"}
-                    </span>
-                </div>;
-            })}
-        </div>}
+        <CollapsibleContent id={disclosure.contentId} expanded={disclosure.expanded}>
+            <div className="pt-3">
+                <div className="space-y-2 border-t border-gray-100 pt-3 pb-6">
+                    {PLUS_EXPOSURE_SOURCES.filter(source => source.key !== "legacy_pages" ||
+                        (exposureData?.sources?.legacy_pages ?? 0) > 0).map(source => {
+                        const count = exposureData?.sources?.[source.key];
+                        const rate = conversion(count ?? null, exposureData?.exposures ?? null);
+                        return <div key={source.key} className="flex min-w-0 items-baseline justify-between gap-2 text-xs">
+                            <span className="min-w-0 text-gray-500">{source.label}</span>
+                            <span className="shrink-0 whitespace-nowrap font-semibold tabular-nums text-gray-800">
+                                {rate == null ? "—" : formatRatio(rate)} {count == null ? "" : "(" + formatCount(count) + ")"}
+                            </span>
+                        </div>;
+                    })}
+                </div>
+            </div>
+        </CollapsibleContent>
     </MetricCard>;
 }
 

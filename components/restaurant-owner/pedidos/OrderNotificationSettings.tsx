@@ -1,5 +1,7 @@
 "use client";
 
+import { CollapsibleChevron, CollapsibleContent, useCollapsible } from "@/components/ui/CollapsibleSection";
+
 import { useState, type ReactNode } from "react";
 import { faCheck, faLock } from "@fortawesome/free-solid-svg-icons";
 import Card from "@/components/ui/Card";
@@ -17,6 +19,9 @@ export default function OrderNotificationSettings({ restaurantId, plus, initialE
     const descriptionId = ai ? "whatsapp-ai-description" : "order-notification-description";
     const [enabled, setEnabled] = useState(initialEnabled);
     const [sales, setSales] = useState(false);
+    const [detailsOpen, setDetailsOpen] = useState(initialEnabled);
+    const canExpand = !ai && Boolean(children) && plus && enabled;
+    const details = useCollapsible({ open: canExpand && detailsOpen, onOpenChange: setDetailsOpen });
     const save = useAutoSave<boolean>(restaurantId, async (value) => {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) throw new Error("Sessão expirada.");
@@ -39,6 +44,7 @@ export default function OrderNotificationSettings({ restaurantId, plus, initialE
         }
         const next = !enabled;
         setEnabled(next);
+        setDetailsOpen(next);
         save.schedule(next);
     };
 
@@ -58,7 +64,7 @@ export default function OrderNotificationSettings({ restaurantId, plus, initialE
                     </p>
                     {save.status === "error" && <p role="alert" className="mt-2 text-sm text-red-600">{save.error}</p>}
                 </div>
-                <div className="flex shrink-0 items-center gap-3">
+                <div className={`relative flex shrink-0 items-center gap-3 ${!ai && children ? "sm:pl-9" : ""}`}>
                     <SaveStatus status={status} />
                     <Tooltip
                         text={!plus ? (ai ? "Disponível com iMenu Plus. Assine o plano para ativar o Robô com IA." : "Disponível com iMenu Plus. Assine o plano para ativar as atualizações automáticas de pedidos.") : ""}
@@ -72,20 +78,20 @@ export default function OrderNotificationSettings({ restaurantId, plus, initialE
                             onClick={toggle}
                         />
                     </Tooltip>
+                    {!ai && children && (
+                        <button {...details.triggerProps}
+                            aria-label={`${details.expanded ? "Recolher" : "Expandir"} mensagem automática do pedido`}
+                            disabled={!canExpand}
+                            className="flex h-[22px] w-6 shrink-0 cursor-pointer items-center justify-center rounded text-gray-500 disabled:cursor-not-allowed disabled:opacity-50 sm:absolute sm:left-0">
+                            <CollapsibleChevron expanded={details.expanded} />
+                        </button>
+                    )}
                 </div>
             </div>
-            {children && (
-                <div
-                    className={`grid transition-[grid-template-rows,opacity,transform] duration-300 ease-out motion-reduce:transition-none ${plus && enabled
-                        ? "grid-rows-[1fr] translate-y-0 opacity-100"
-                        : "pointer-events-none grid-rows-[0fr] -translate-y-1 opacity-0"}`}
-                    aria-hidden={!plus || !enabled}
-                    inert={!plus || !enabled}
-                >
-                    <div className="min-h-0 overflow-hidden">
-                        <div className="pt-5">{children}</div>
-                    </div>
-                </div>
+            {!ai && children && (
+                <CollapsibleContent id={details.contentId} expanded={details.expanded}>
+                    <div className="pt-5">{children}</div>
+                </CollapsibleContent>
             )}
             <IaPlusSalesModal
                 open={sales}
