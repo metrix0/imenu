@@ -21,7 +21,7 @@ import { formatCurrencyFromCents, formatDateTime, monthsSince, accountAge } from
 
 export type Restaurant = { id: string; name: string; email?: string | null; phone?: string | null; store_phone?: string | null; owner_phone?: string | null; created_at?: string; plus_since?: string | null; has_paid?: boolean; plus?: boolean; gmv_cents?: number | string | null; payment_info?: string | null; payment_info_type?: string | null; url_slug?: string | null; creation_step?: number | null; first_time?: boolean | null; onboarding_completed_at?: string | null; city?: string | null; state?: string | null; pickup_enabled?: boolean | null; delivery_disabled?: boolean | null; preorder_only?: boolean | null; support_conversation_id?: string | null; support_mode?: "ai" | "human" | null; last_message?: string | null; last_message_at?: string | null };
 type Payment = { id: string; amount_cents: number; status: string; created_at: string; product_key?: string; failure_reason?: string | null; billing_type?: string | null; last_order_at?: string | null };
-type Details = { restaurant: Restaurant; metrics: { gmv_cents: number; orders: number; online_cents: number; monthly_gmv_cents: number }; analysis: { potential: { cents?: number; assumptions?: string; reason?: string; available?: boolean }; summary: string } | null };
+type Details = { restaurant: Restaurant & { origin?: string | null }; metrics: { gmv_cents: number; orders: number; online_cents: number; monthly_gmv_cents: number }; analysis: { potential: { cents?: number; assumptions?: string; reason?: string; available?: boolean }; summary: string } | null };
 const PIX_KEY_TYPE_LABELS: Record<string, string> = {
     CPF: "CPF", CNPJ: "CNPJ", EMAIL: "E-mail", PHONE: "Telefone", EVP: "Chave aleatória",
 };
@@ -119,6 +119,7 @@ function RestaurantDetails({ restaurant: initialRestaurant, onLoaded }: { restau
             <div><dt>Celular loja</dt><dd><PhoneLink phone={restaurant.store_phone} /></dd></div>
             <div><dt>Celular dono</dt><dd><PhoneLink phone={restaurant.owner_phone || restaurant.phone} /></dd></div>
             <div><dt>Conta há</dt><dd>{accountAge(restaurant.created_at)}</dd></div>
+            <div className="col-span-full"><dt>Origem</dt><dd className="!whitespace-normal break-all">{data?.restaurant?.origin || "—"}</dd></div>
         </dl>
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
         <section className={styles.crmDetailBlock}>

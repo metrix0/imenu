@@ -1,6 +1,7 @@
 import { query } from "@/lib/database/sql";
 import { devPage, paged } from "./pagination";
 import { SUPPORT_CONVERSATION_VISIBLE_SQL } from "@/lib/services/supportExclusions";
+import { formatSignupOrigin } from "@/lib/analytics/signupOrigin";
 
 const CRM_PAGE_SIZE = 10;
 
@@ -145,7 +146,7 @@ export async function getCrm(params: URLSearchParams) {
             query(`SELECT r.id,r.name,r.url_slug,r.created_at,COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),r.phone) phone,r.store_whatsapp AS store_phone,
                 COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),NULLIF(TRIM(r.phone),'')) AS owner_phone,(${PLUS_SINCE}) AS plus_since,r.payment_info,r.payment_info_type,u.email,
                 r.creation_step,r.first_time,r.onboarding_completed_at,r.address->>'city' AS city,r.address->>'state' AS state,
-                r.pickup_enabled,r.delivery_disabled,r.preorder_only,
+                r.pickup_enabled,r.delivery_disabled,r.preorder_only,u.raw_app_meta_data->'signup_origin' AS signup_origin,
                 (${PAID}) AS has_paid,(${PLUS}) AS plus,support.conversation_id AS support_conversation_id,support.mode AS support_mode,support.last_message,support.last_message_at FROM restaurants r LEFT JOIN auth.users u ON u.id=r.user_id ${LAST_SUPPORT_JOIN} WHERE r.id=$1`, [id]),
             query(`SELECT COUNT(*)::int orders,COALESCE(SUM(total_cents),0)::bigint gmv_cents,
                 COALESCE(SUM(total_cents) FILTER(WHERE payment_method IN ('pix','cartao')),0)::bigint online_cents,
@@ -156,7 +157,10 @@ export async function getCrm(params: URLSearchParams) {
                 FROM ia_vendas_runs WHERE restaurant_id=$1 AND kind='analysis' AND status='completed'
                 ORDER BY created_at DESC LIMIT 1`, [id]),
         ]);
-        return { restaurant: restaurant.rows[0] || null, metrics: metrics.rows[0], analysis: analysis.rows[0] || null };
+        const row = restaurant.rows[0];
+        if (!row) return { restaurant: null, metrics: metrics.rows[0], analysis: analysis.rows[0] || null };
+        const { signup_origin, ...profile } = row;
+        return { restaurant: { ...profile, origin: formatSignupOrigin(signup_origin) }, metrics: metrics.rows[0], analysis: analysis.rows[0] || null };
     }
     const paidOnly = params.get("paid") === "1";
     const search = params.get("q")?.trim().slice(0, 200) || "";
