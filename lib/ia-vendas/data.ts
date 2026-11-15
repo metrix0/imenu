@@ -1,3 +1,4 @@
+import { isMenuExampleImage } from "@/lib/menu/itemImages";
 import type { PoolClient } from "pg";
 import { query, withTransaction } from "@/lib/database/sql";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
@@ -9,7 +10,7 @@ import { hasIMenuPlusAccess } from "@/lib/addons/access";
 import { readAutomationSettings } from "@/lib/services/crmRules";
 export function imageUrl(path: string | null, bucket = "menu-images") {
   if (!path) return null;
-  if (/^https:\/\//.test(path)) return path;
+  if (isMenuExampleImage(path) || /^https:\/\//.test(path)) return path;
   if (path.includes("://")) return null;
   return createSupabaseServerClient().storage.from(bucket).getPublicUrl(path)
     .data.publicUrl;

@@ -1,4 +1,5 @@
 // app/api/menu/delete-item/route.ts
+import { isMenuExampleImage } from "@/lib/menu/itemImages";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -28,7 +29,7 @@ export async function POST(req: Request) {
         if (rpcErr) return NextResponse.json({ error: "Erro ao deletar item no DB", detail: rpcErr }, { status: 500 });
 
         // Preserve files still shared by other menu items.
-        if (item?.image_path) {
+        if (item?.image_path && !isMenuExampleImage(item.image_path)) {
             const { count, error: refsErr } = await supabaseAdmin
                 .from("items")
                 .select("id", { count: "exact", head: true })

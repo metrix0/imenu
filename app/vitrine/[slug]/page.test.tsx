@@ -37,14 +37,15 @@ jest.mock("@/lib/database/supabaseServerClient", () => ({ createSupabaseServerCl
 
 const restaurant: any = {
     id: "restaurant", name: "Test Restaurant", logo_url: null, banner_url: null,
-    rating: null, min_order_cents: 0, availability_json: {}, delivery_fee_json: {},
+    rating: null, min_order_cents: 0,
+    availability_json: { 1: [{ open: "18:00", close: "22:00" }] }, delivery_fee_json: {},
     latitude: 0, longitude: 0, is_closed: null, allow_future_order_scheduling: true,
 };
 const item: any = { id: "item", name: "Açaí", description: "Açaí cremoso", price_cents: 1500, is_available: true };
 const subcategories: any[] = [{ id: "group", name: "Adicionais", min_select: 1, max_select: 3, subitems: [{ id: "extra", name: "Leite em pó", price_cents: 200 }]}];
 
-function renderMenu(readOnly?: boolean) {
-    return renderToStaticMarkup(<MenuClientPage readOnly={readOnly} slug="test" restaurant={restaurant} categories={[]} itemsByCategory={{}} />);
+function renderMenu(readOnly?: boolean, availability = restaurant.availability_json) {
+    return renderToStaticMarkup(<MenuClientPage readOnly={readOnly} slug="test" restaurant={{ ...restaurant, availability_json: availability }} categories={[]} itemsByCategory={{}} />);
 }
 function renderItem(readOnly?: boolean) {
     return renderToStaticMarkup(<ItemModal readOnly={readOnly} restaurant={restaurant} item={item} subcategories={subcategories} loading={false} onClose={() => {}} deliveryTax={null} deliveryTime={null} />);
@@ -79,6 +80,10 @@ test("Vitrine hides an existing delivery cart, even when future orders are enabl
     expect(renderMenu(true)).not.toContain("CART_CONTROL");
     expect(renderMenu(true)).not.toContain("CHECKOUT_CONTROL");
     expect(renderMenu()).toContain("CART_CONTROL");
+});
+
+test("an empty availability calendar does not expose a delivery cart", () => {
+    expect(renderMenu(false, {})).not.toContain("CART_CONTROL");
 });
 
 test("disabled Vitrine returns not found while the delivery menu still renders", async () => {

@@ -162,10 +162,8 @@ export default function PreorderModeToggle({ restaurantId, enabled, onChange, op
                     <div>
                         <h2 className="mb-1 text-lg font-medium text-gray-900">Horários em que encomendas são feitas</h2>
                         <p className="mb-3 text-sm text-gray-500">Defina os dias e horários disponíveis para agendar entregas ou retiradas de encomendas.</p>
-                        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white px-3 py-4 sm:p-5">
-                            <div className="min-w-[700px]">
-                                <WeeklyScheduleClick value={preorderHours} onChange={saveHours} />
-                            </div>
+                        <div className="rounded-xl border border-gray-200 bg-white p-5">
+                            <WeeklyScheduleClick value={preorderHours} onChange={saveHours} />
                         </div>
                     </div>
                     <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">

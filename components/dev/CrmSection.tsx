@@ -18,10 +18,11 @@ const empty = <T,>(): PageData<T> => ({ rows: [], page: 0, total: 0, pageCount: 
 const blastStatus = {
     sent: { label: "Enviado", variant: "success" },
     scheduled: { label: "Agendado", variant: "info" },
-    paused: { label: "Pausado", variant: "warning", detail: "A campanha está pausada e o contato segue na fila." },
-    processing: { label: "Em envio", variant: "info" },
-    failed: { label: "Falhou", variant: "danger" },
-    cancelled: { label: "Cancelado", variant: "neutral" },
+    predicted: { label: "Agendado", variant: "info", detail: "Envio previsto para hoje. A fila abre às 19h." },
+    paused: { label: "Agendado", variant: "info", detail: "A campanha está pausada e o contato segue na fila." },
+    processing: { label: "Agendado", variant: "info", detail: "Envio em andamento." },
+    failed: { label: "Falha", variant: "danger" },
+    cancelled: { label: "Ignorado", variant: "neutral", detail: "O envio foi cancelado." },
     skipped_60d: { label: "Ignorado", variant: "neutral", detail: "Bloqueio para evitar novo contato em até 60 dias." },
     skipped_recent: { label: "Ignorado", variant: "neutral", detail: "O contato recebeu um disparo recente." },
     skipped_reactivated: { label: "Ignorado", variant: "neutral", detail: "O contato deixou de atender aos critérios do disparo." },
@@ -91,8 +92,11 @@ export function CrmList({ search = "", plan = "all", activity, title, range, sho
                 { key: "status", label: "Cliente", sortable: true, render: r => <CustomerBadge restaurant={r} /> },
                 { key: "store", label: "Celular loja", sortable: true, render: r => <PhoneLink phone={r.store_phone} /> },
                 { key: "owner", label: "Celular dono", sortable: true, render: r => <PhoneLink phone={r.owner_phone || r.phone} /> },
-                { key: "created", label: "Conta há", sortable: true, render: r => <span className="whitespace-nowrap">{accountAge(r.created_at)}</span> },
-                { key: "gmv", label: "GMV", sortable: true, className: styles.numericCell, render: r => formatCurrencyFromCents(Number(r.gmv_cents) || 0) },
+                { key: "created", label: "Conta há", sortable: true, className: styles.crmAgeColumn, render: r => <span className="whitespace-nowrap">{accountAge(r.created_at)}</span> },
+                { key: "gmv", label: "GMV", sortable: true, className: styles.numericCell, render: r => {
+                    const value = formatCurrencyFromCents(Number(r.gmv_cents) || 0);
+                    return showBlast ? <span className="block truncate" title={value}>{value}</span> : value;
+                } },
                 {
                     key: "last_message", label: "Última mensagem", sortable: true,
                     render: r => r.last_message ? (
@@ -105,11 +109,12 @@ export function CrmList({ search = "", plan = "all", activity, title, range, sho
                     key: "blast", label: "Blast",
                     render: (row: CrmRow) => {
                         const status = row.blast_status && blastStatus[row.blast_status];
-                        const detail = row.blast_error || (status && "detail" in status ? status.detail : null);
+                        if (!status) return <Badge variant="neutral" title="Sem registro deste Blast para esta conta.">Ignorado</Badge>;
+                        const detail = row.blast_error || ("detail" in status ? status.detail : null);
                         const date = row.blast_at && row.blast_status !== "paused" ? formatDateTime(row.blast_at) : null;
-                        return <Badge variant={status ? status.variant : "neutral"}
+                        return <Badge variant={status.variant}
                             title={[detail, date].filter(Boolean).join("\n") || undefined}>
-                            {status ? status.label : "Sem envio"}
+                            {status.label}
                         </Badge>;
                     },
                 }] : []),

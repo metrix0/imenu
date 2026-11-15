@@ -3,7 +3,7 @@ import { createSupportBlast, processSupportBlastQueue } from "./supportBlast";
 import { query, withTransaction } from "@/lib/database/sql";
 import { checkWahaPhoneExists, sendWahaImage, sendWahaText } from "@/lib/services/wahaClient";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
-import { SINGLE_ORDER_DAY_RECOVERY_MESSAGE } from "@/lib/dev/abandonedBlast";
+import { PLUS_EXPIRY_BLAST_MESSAGES, SINGLE_ORDER_DAY_RECOVERY_MESSAGE } from "@/lib/dev/abandonedBlast";
 
 jest.mock("@/lib/services/supportExclusions", () => ({ isSupportContactExcluded: jest.fn() }));
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn(), withTransaction: jest.fn() }));
@@ -64,6 +64,39 @@ test("dispatch checks a 60-day history, including sends before the policy change
         params?.[0] === 7
     );
     expect(skipCall?.[1]).toEqual([7, "skipped_60d", null]);
+});
+
+test.each(PLUS_EXPIRY_BLAST_MESSAGES.flatMap((message, version) => [
+    { message, version, stillChurned: true },
+    { message, version, stillChurned: false },
+]))("Plus churn rechecks expiry before sending (template $version, eligible $stillChurned)", async ({ message, stillChurned }) => {
+    let claimed = false;
+    (query as jest.Mock).mockImplementation(async (sql: string) => {
+        if (sql.includes("WITH claimed AS")) {
+            if (claimed) return { rows: [], rowCount: 0 };
+            claimed = true;
+            return { rows: [{
+                id: 7, campaign_id: "campaign", phone: "5511999999999", message: "Plus acabou",
+                sender: "blast", skip_recent: true, campaign_message: message,
+            }], rowCount: 1 };
+        }
+        if (sql.includes("FROM support_whatsapp_connection")) {
+            return { rows: [{ session_name: "imenu-blast", status: "WORKING", desired_state: "connected" }], rowCount: 1 };
+        }
+        if (sql.includes("SELECT DISTINCT r.id AS restaurant_id")) {
+            return { rows: [{ restaurant_id: "restaurant", account_id: "account" }], rowCount: 1 };
+        }
+        if (sql.includes("WITH churn_bounds AS")) return { rows: [], rowCount: Number(stillChurned) };
+        if (sql.includes("SELECT 1 FROM whatsapp_outbound_messages")) return { rows: [], rowCount: 0 };
+        return { rows: [], rowCount: 1 };
+    });
+    (checkWahaPhoneExists as jest.Mock).mockResolvedValue({ numberExists: true, chatId: "5511999999999@c.us" });
+    (sendWahaText as jest.Mock).mockResolvedValue(undefined);
+
+    const result = await processSupportBlastQueue();
+    expect(result).toMatchObject({ sent: Number(stillChurned), skipped: Number(!stillChurned) });
+    expect(sendWahaText).toHaveBeenCalledTimes(Number(stillChurned));
+    expect((query as jest.Mock).mock.calls.some(([sql]) => sql.includes("SELECT 1 FROM orders"))).toBe(false);
 });
 
 test("paces up to three sends 3–5 seconds apart in one worker run", async () => {

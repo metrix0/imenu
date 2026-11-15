@@ -20,6 +20,7 @@ import { isPizzaItem, parsePizzaSettings, pricePizza } from "@/lib/pizza/pricing
 
 type Props = {
     readOnly?: boolean;
+    canOrder?: boolean;
     channel?: "delivery" | "mesa";
     restaurant: Restaurant;
     item: Item;
@@ -43,7 +44,7 @@ export default function ItemModal({
                                       onClose,
                                         deliveryTax,
                                       deliveryTime,
-    onAdd, trackMeta, slug, error, onRetry, readOnly = false, channel = "delivery"
+    onAdd, trackMeta, slug, error, onRetry, readOnly = false, canOrder = false, channel = "delivery"
                                   }: Props) {
     const [qty, setQty] = useState(1);
     const [observation, setObservation] = useState("");
@@ -51,8 +52,6 @@ export default function ItemModal({
     const [selected, setSelected] = useState<Record<string, Set<string>>>({});
     const [selectedQuantities, setSelectedQuantities] = useState<Record<string, Record<string, number>>>({});
     const addToCart = useCartStore((s) => s.addItem);
-    const [isRestaurantOpen, setIsRestaurantOpen] = useState(false);
-    const [canScheduleToday, setCanScheduleToday] = useState(false);
     const pizzaSettings = parsePizzaSettings(restaurant.pizza_settings);
     const eligibleForPizza = !readOnly && isPizzaItem(item, pizzaSettings);
     const [flavorCount, setFlavorCount] = useState(1);
@@ -88,57 +87,6 @@ export default function ItemModal({
             item_price_cents: item.price_cents,
         });
     }, [item.id, item.name, item.price_cents, restaurant.id, slug]);
-
-    useEffect(() => {
-        if (!restaurant.availability_json) {
-            setIsRestaurantOpen(false);
-            setCanScheduleToday(false);
-            return;
-        }
-        const avail = restaurant.availability_json;
-        const today = new Date().getDay();
-        const slots = avail[today] ?? [];
-
-        const now = new Date();
-        let isOpen = false;
-        let hasFutureSlotToday = false;
-
-        for (let slot of slots) {
-            const [openH, openM] = slot.open.split(":").map(Number);
-            const [closeH, closeM] = slot.close.split(":").map(Number);
-
-            const openT = new Date();
-            openT.setHours(openH, openM, 0, 0);
-
-            const closeT = new Date();
-            closeT.setHours(closeH, closeM, 0, 0);
-
-            if (now >= openT && now <= closeT) {
-                isOpen = true;
-                break;
-            }
-
-            if (now < openT) {
-                hasFutureSlotToday = true;
-            }
-        }
-
-        let manuallyClosedToday = false;
-        if (restaurant.is_closed) {
-            const closedDate = new Date(restaurant.is_closed);
-            const businessToday = new Date();
-            if (businessToday.getHours() < 4) {
-                businessToday.setDate(businessToday.getDate() - 1);
-            }
-            manuallyClosedToday =
-                closedDate.getFullYear() === businessToday.getFullYear() &&
-                closedDate.getMonth() === businessToday.getMonth() &&
-                closedDate.getDate() === businessToday.getDate();
-        }
-
-        setIsRestaurantOpen(isOpen && !manuallyClosedToday);
-        setCanScheduleToday(!isOpen && hasFutureSlotToday && !manuallyClosedToday);
-    }, [restaurant]);
 
     const closeWithAnimation = () => {
         setOpen(false);
@@ -301,11 +249,7 @@ export default function ItemModal({
     }, [selected, selectedQuantities, subcategories]);
 
     const canAdd = !loading && !error && !loadingFlavors && !missingRequired && !quoteError;
-    const canOrderNow =
-        isRestaurantOpen ||
-        canScheduleToday ||
-        restaurant.allow_future_order_scheduling === true;
-    const disabledReason = !canOrderNow
+    const disabledReason = !canOrder
         ? "O restaurante está fechado no momento."
         : missingRequired
             ? "Selecione os adicionais obrigatórios antes de adicionar."
@@ -326,7 +270,7 @@ export default function ItemModal({
     };
 
     const handleAdd = () => {
-        if (readOnly || !canAdd || !canOrderNow) return;
+        if (readOnly || !canAdd || !canOrder) return;
         if (needsNextFlavor) { void showFlavorSearch(); return; }
 
 
@@ -756,10 +700,10 @@ export default function ItemModal({
                     tooltipClassName="text-center"
                 >
                     <button
-                        aria-disabled={!canAdd || !canOrderNow}
+                        aria-disabled={!canAdd || !canOrder}
                         onClick={handleAdd}
                         className={`cursor-pointer w-full 2xl:text-lg rounded-xl px-5 py-3 flex items-center justify-between text-[15px] font-semibold ${
-                            !canOrderNow
+                            !canOrder
                                 ? "bg-[var(--im-menu-raised,#e5e7eb)] text-[var(--im-menu-subtle,#9ca3af)]"
                                 : canAdd
                                     ? "bg-[var(--im-menu-action,#f14400)] text-white"

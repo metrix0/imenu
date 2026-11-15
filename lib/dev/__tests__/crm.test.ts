@@ -1,7 +1,12 @@
 import { query } from "@/lib/database/sql";
 import { getCrm } from "../crm";
+import { getTodayRecoveryForecast } from "../abandonedBlastPlan";
 
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn() }));
+jest.mock("../abandonedBlastPlan", () => ({
+    ...jest.requireActual("../abandonedBlastPlan"),
+    getTodayRecoveryForecast: jest.fn().mockResolvedValue(null),
+}));
 const sqlQuery = query as jest.Mock;
 
 beforeEach(() => {
@@ -117,29 +122,37 @@ test("restaurant profile includes the same support conversation lookup", async (
 });
 
 test.each([
-    ["churned_plus", "addon.current_period_ends_at >= bounds.start_at"],
-    ["churned_imenu", "last_order_at + INTERVAL '14 days' AS churned_at"],
-    ["not_activated", "owned.onboarding_completed_at >= bounds.start_at"],
-])("Churn %s filters the count and paginated list by the same date range", async (activity, predicate) => {
+    ["churned_plus", "addon.current_period_ends_at >= bounds.start_at", "addon.current_period_ends_at AS event_at"],
+    ["churned_imenu", "last_order_at + INTERVAL '14 days' AS churned_at", "churned_at AS event_at"],
+    ["not_activated", "owned.onboarding_completed_at >= bounds.start_at", "owned.onboarding_completed_at AS event_at"],
+])("Churn %s filters by the selected range and sorts by event before pagination", async (activity, predicate, eventDate) => {
     await getCrm(new URLSearchParams({
         activity, startDate: "2026-11-09", endDate: "2026-11-15", page: "2",
     }));
     const [[listSql, listArgs], [countSql, countArgs]] = sqlQuery.mock.calls;
     expect(listSql).toContain(predicate);
     expect(countSql).toContain(predicate);
-    expect(listSql).toContain("LIMIT $4 OFFSET $5");
+    expect(listSql).toContain(eventDate);
+    expect(listSql).toContain("ORDER BY churn.event_at DESC, r.id LIMIT $4 OFFSET $5");
     expect(listArgs).toEqual(["", "2026-11-09", "2026-11-15", 10, 20]);
     expect(countArgs).toEqual(["", "2026-11-09", "2026-11-15"]);
 });
 
 test("the single-day cohort ignores the selected date range", async () => {
     await getCrm(new URLSearchParams({
-        activity: "single_day", startDate: "2026-11-09", endDate: "2026-11-15",
+        activity: "single_day", includeBlast: "1", startDate: "2026-11-09", endDate: "2026-11-15",
     }));
     const [[sql, args]] = sqlQuery.mock.calls;
     expect(sql).toContain("INTERVAL '14 days'");
     expect(sql).not.toContain("churn_bounds");
-    expect(args).toEqual(["", 10, 0]);
+    expect(sql).toContain("MAX(o.created_at) AS event_at");
+    expect(sql).toContain("ORDER BY churn.event_at DESC, r.id LIMIT $2 OFFSET $3");
+    expect(args.slice(0, 3)).toEqual(["", 10, 0]);
+});
+
+test("explicit column sorting overrides the Churn default", async () => {
+    await getCrm(new URLSearchParams({ activity: "single_day", includeBlast: "1", sort: "gmv", direction: "asc" }));
+    expect(sqlQuery.mock.calls[0][0]).toContain("ORDER BY gmv.gmv_cents ASC NULLS LAST, r.id LIMIT $2 OFFSET $3");
 });
 
 test("invalid dates never reach the SQL query", async () => {
@@ -151,7 +164,7 @@ test("invalid dates never reach the SQL query", async () => {
 });
 
 test.each([
-    ["churned_plus", "experiência com o iMenu Plus"],
+    ["churned_plus", "iMenu Plus da loja"],
     ["churned_imenu", "alguns testes por lá"],
     ["single_day", "começou a receber pedidos"],
     ["not_activated", "primeiro pedido"],
@@ -167,14 +180,45 @@ test.each([
     expect(listSql).toContain("WHEN recipient.status = 'pending' AND campaign.status = 'paused' THEN 'paused'");
     expect(listSql).toContain("ELSE recipient.attempted_at");
     expect(listSql).toContain("churn_blast.error AS blast_error");
-    expect(listSql).toContain(hasPeriod ? "ANY($6::text[])" : "ANY($4::text[])");
-    expect(listArgs.at(-2)[0]).toContain(message);
-    expect(listArgs.at(-1)[0]).toContain(message);
+    expect(listSql).toContain(`regexp_replace(BTRIM(campaign.message), '\\s+', ' ', 'g') = ANY($${hasPeriod ? 6 : 4}::text[])`);
+    expect(listSql).toContain(`regexp_replace(BTRIM(message.body), '\\s+', ' ', 'g') ~ ANY($${hasPeriod ? 7 : 5}::text[])`);
+    expect(listArgs).toHaveLength(hasPeriod ? 7 : 5);
+    const expectedCopy = activity === "churned_plus" ? [message, "atendimento exclusivo", "chegou ao fim"] : [message];
+    for (const copy of expectedCopy) {
+        expect(listArgs.at(-2)).toContainEqual(expect.stringContaining(copy));
+        expect(listArgs.at(-1)).toContainEqual(expect.stringContaining(copy));
+    }
+    expect(listArgs.at(-2)).toHaveLength(expectedCopy.length);
+    expect(listArgs.at(-1)).toHaveLength(expectedCopy.length);
+    expect(listSql).toContain("ORDER BY sort_at DESC NULLS LAST");
     expect(countSql).not.toContain("support_blast_recipients");
     expect(countArgs).toHaveLength(hasPeriod ? 3 : 1);
+});
+
+test("Churn displays a forecast without replacing today's confirmed delivery status", async () => {
+    (getTodayRecoveryForecast as jest.Mock).mockResolvedValueOnce({
+        day: "2026-11-15", accounts: new Set(["account-a", "account-b"]),
+    });
+    sqlQuery.mockReset()
+        .mockResolvedValueOnce({ rows: [
+            { id: "a", blast_account_id: "account-a", blast_status: null },
+            { id: "b", blast_account_id: "account-b", blast_status: "sent", blast_at: "2026-11-15T18:00:00Z" },
+            { id: "c", blast_account_id: "account-c", blast_status: null },
+        ] })
+        .mockResolvedValueOnce({ rows: [{ total: 3 }] });
+    const page = await getCrm(new URLSearchParams({
+        activity: "churned_plus", includeBlast: "1", startDate: "2026-11-09", endDate: "2026-11-15",
+    }));
+    expect(page).toMatchObject({ rows: [
+        { id: "a", blast_status: "predicted" },
+        { id: "b", blast_status: "sent" },
+        { id: "c", blast_status: null },
+    ] });
+    expect("rows" in page && page.rows[0]).not.toHaveProperty("blast_account_id");
 });
 
 test("regular CRM results do not include recovery blast history", async () => {
     await getCrm(new URLSearchParams({ activity: "single_day" }));
     expect(sqlQuery.mock.calls[0][0]).not.toContain("churn_blast");
+    expect(sqlQuery.mock.calls[0][0]).toContain("ORDER BY r.created_at DESC,r.id LIMIT $2 OFFSET $3");
 });

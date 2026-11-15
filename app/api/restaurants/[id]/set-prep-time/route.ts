@@ -1,6 +1,7 @@
 // app/api/restaurants/[id]/set-prep-time/route.ts
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getPreparationTimeValidation } from "@/lib/menu/preparationTime";
 
 const SUPABASE_URL =
     process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -38,8 +39,9 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
         if (source === "manual") {
             const min = Number(body.min ?? NaN);
             const max = Number(body.max ?? NaN);
-            if (isNaN(min) || isNaN(max)) {
-                return NextResponse.json({ error: "min and max are required for manual source." }, { status: 400 });
+            const validation = getPreparationTimeValidation(min, max);
+            if (validation) {
+                return NextResponse.json({ error: validation }, { status: 400 });
             }
 
             // Atualiza prep_time_* para manual

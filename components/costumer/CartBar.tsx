@@ -23,7 +23,7 @@ export default function CartBar({
                                     restaurant,
                                     setCartOpenAction,
     closeItemModalOpen, trackMeta, slug, tableOrder, selectedTableId,
-    selectedTableName, promotionResult, manuallyClosedToday = false
+    selectedTableName, promotionResult, requiresSchedule = false
                                 }: {
     onOpenCartAction: () => void,
     cartOpen: boolean,
@@ -36,7 +36,7 @@ export default function CartBar({
     selectedTableId?: string | null;
     selectedTableName?: string | null;
     promotionResult?: PromotionResult;
-    manuallyClosedToday?: boolean;
+    requiresSchedule?: boolean;
 }) {
     const router = useRouter();
     const items = useCartStore((s) => s.items);
@@ -325,7 +325,7 @@ export default function CartBar({
     async function createOrder() {
         const cart = useCartStore.getState();
         const checkout = useCheckoutStore.getState();
-        if (!isTableOrder && (restaurant.preorder_only === true || manuallyClosedToday) && !checkout.scheduled_for) {
+        if (!isTableOrder && (restaurant.preorder_only === true || requiresSchedule) && !checkout.scheduled_for) {
             setOrderWarning({ message: "Selecione a data e o horário do agendamento." });
             return;
         }

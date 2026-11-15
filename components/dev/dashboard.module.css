@@ -229,6 +229,15 @@
     max-width: 100%;
     white-space: normal;
 }
+.crmTable th.crmAgeColumn :global(button > span) {
+    white-space: nowrap;
+    overflow-wrap: normal;
+}
+
+@container dev-table (max-width: 900px) {
+    .crmTable th.crmAgeColumn { padding-inline: 8px; }
+}
+
 :is(.fitTable, .crmTable, .blastAutomations, .dialogBody, .fitLegacyTable) :global(:is(th, td) .truncate) {
     white-space: nowrap;
 }
@@ -290,8 +299,18 @@
     }
 }
 
-.crmTable.churnBlastTable :global(th:nth-child(1)){width:calc(18% - 48px)}
+.crmTable.churnBlastTable { --churn-gmv-extra-width: max(0px, 144px - 13cqw); }
+.crmTable.churnBlastTable :global(th:nth-child(1)){width:calc(18% - 48px - var(--churn-gmv-extra-width) / 2)}
 .crmTable.churnBlastTable :global(th:nth-child(2)){width:14%}
-.crmTable.churnBlastTable :global(th:nth-child(3)),.crmTable.churnBlastTable :global(th:nth-child(4)){width:12%}
-.crmTable.churnBlastTable :global(th:nth-child(7)){width:15%}
+.crmTable.churnBlastTable :global(th:nth-child(3)),.crmTable.churnBlastTable :global(th:nth-child(4)){width:10%}
+.crmTable.churnBlastTable th.numericCell { width: max(13cqw, 144px); }
+.crmTable.churnBlastTable .numericCell { padding-inline: 8px; white-space: nowrap; overflow-wrap: normal; }
+.crmTable.churnBlastTable :global(th:nth-child(7)){width:calc(15% - var(--churn-gmv-extra-width) / 2)}
 .crmTable.churnBlastTable :global(th:nth-child(8)){width:11%}
+
+.crmTable.churnBlastTable :global(:is(th, td)),
+.crmTable.churnBlastTable :global(:is(th, td) :is(button, a, span)) {
+    white-space: nowrap;
+    overflow-wrap: normal;
+    word-break: normal;
+}

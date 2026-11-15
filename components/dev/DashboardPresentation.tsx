@@ -189,7 +189,7 @@ export type PlusExposureBreakdown = { exposures: number | null; sources: Record<
 export function ProductOverviewSections({ metrics, previousMetrics, productsOnly, compact = false, plusExposureData }: { metrics: ProductOverview; previousMetrics?: ProductOverview; productsOnly?: (keyof ProductOverview)[]; compact?: boolean; plusExposureData?: PlusExposureBreakdown | null }) {
     const products = [
         { key: "imenu", name: "iMenu", paths: "/", price: "-", priceInfo: "Referência do dashboard: sem mensalidade.", },
-        { key: "ia_plus", name: "iMenu Plus", paths: "Planos + Limite IA + Vendas IA + Marketing + Cadastro", price: "R$ 49,99/m", priceInfo: "Marketing, Assistente IA e Vendas IA.", },
+        { key: "ia_plus", name: "iMenu Plus", paths: "Planos + Limite IA + Vendas IA + Marketing + Cadastro + Modal", price: "R$ 49,99/m", priceInfo: "Marketing, Assistente IA e Vendas IA.", },
         { key: "qr_code_mesa", name: "iMenu QR", paths: "/painel/mesas", price: "Grátis", priceInfo: "QR Code Mesa gratuito; pagamentos antigos são apenas históricos.", },
     ] as const;
     const difference = (current: number | null | undefined, previous: number | null | undefined, rate = false) => {
@@ -207,7 +207,7 @@ export function ProductOverviewSections({ metrics, previousMetrics, productsOnly
                 const sameTrafficSource = previous?.trafficSource === metric.trafficSource;
                 const trafficUnit = metric.trafficSource === "plus_exposures" ? "Usuários únicos (7 dias)" : metric.trafficSource === "pageviews" ? "Views (Unique)" : "Aberturas da aba";
                 const trafficInfo = metric.trafficSource === "plus_exposures"
-                    ? "PostHog · Desde 10/11/2026: exposições visíveis em Planos, no aviso de limite gratuito do Assistente IA, em Vendas IA, em Marketing e na etapa opcional do cadastro. Antes disso: histórico aproximado por pageviews de Assistente IA, Vendas IA e Marketing. Deduplicação por ID a cada 7 dias; na transição, IDs antigos e novos podem diferir."
+                    ? "PostHog · Desde 10/11/2026: exposições visíveis em Planos, no aviso de limite gratuito do Assistente IA, em Vendas IA, em Marketing, na etapa opcional do cadastro e no modal de venda. Antes disso: histórico aproximado por pageviews de Assistente IA, Vendas IA e Marketing. Deduplicação por ID a cada 7 dias; na transição, IDs antigos e novos podem diferir."
                     : metric.trafficSource === "pageviews"
                         ? `PostHog · ${product.key === "imenu" ? "Página inicial" : "Página Mesas"}. Uma visita por pessoa a cada 7 dias; após 7 dias, conta novamente.`
                         : "PostHog · Aberturas de abas; não são visitantes únicos.";
@@ -215,11 +215,11 @@ export function ProductOverviewSections({ metrics, previousMetrics, productsOnly
                 return <section key={product.key} aria-label={product.name} className="space-y-3">
                     <h2 className="text-base font-semibold text-gray-900">{product.name}</h2>
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                        {product.key === "ia_plus" ? <PlusExposureMetricCard title="Exposições ao Plus"
+                        {product.key === "ia_plus" ? <PlusExposureMetricCard title="Exposições ao Plus + Modal"
                             value={metric.pageViews === null ? "—" : formatCount(metric.pageViews)}
                             description={trafficUnit}
                             info={trafficInfo}
-                            exposureData={plusExposureData}
+                            exposureData={plusExposureData ? { ...plusExposureData, exposures: metric.pageViews } : null}
                             {...(sameTrafficSource ? difference(metric.pageViews, previous?.pageViews) : {})} />
                         : <MetricCard inlineChange truncateTitle title="Tráfego"
                             value={metric.pageViews === null ? "—" : formatCount(metric.pageViews)}
@@ -393,6 +393,7 @@ const PLUS_EXPOSURE_SOURCES = [
     { key: "sales_section", label: "Vendas IA" },
     { key: "marketing_page", label: "Marketing" },
     { key: "onboarding_complete", label: "Cadastro · iMenu Plus" },
+    { key: "sales_modal", label: "Modal de venda" },
     { key: "legacy_pages", label: "Páginas (histórico)" },
 ] as const;
 
@@ -408,7 +409,7 @@ export function PlusExposureMetricCard({
     exposureData?: PlusExposureBreakdown | null;
 }) {
     const disclosure = useCollapsible();
-    return <MetricCard inlineChange truncateTitle title={title} value={value} change={change}
+    return <MetricCard inlineChange title={title} value={value} change={change}
         changeLabel={changeLabel} description={description} info={info}
         footerAction={<button {...disclosure.triggerProps} aria-label={disclosure.expanded ? "Recolher origens do Plus" : "Expandir origens do Plus"}
             className="inline-flex h-6 w-6 items-center justify-center rounded text-gray-400 hover:bg-gray-50 hover:text-brand">
@@ -417,8 +418,10 @@ export function PlusExposureMetricCard({
         <CollapsibleContent id={disclosure.contentId} expanded={disclosure.expanded}>
             <div className="pt-3">
                 <div className="space-y-2 border-t border-gray-100 pt-3 pb-6">
-                    {PLUS_EXPOSURE_SOURCES.filter(source => source.key !== "legacy_pages" ||
-                        (exposureData?.sources?.legacy_pages ?? 0) > 0).map(source => {
+                    {PLUS_EXPOSURE_SOURCES.filter(({ key }) => {
+                        if (key === "sales_modal") return exposureData?.sources?.sales_modal != null;
+                        return key !== "legacy_pages" || (exposureData?.sources?.legacy_pages ?? 0) > 0;
+                    }).map(source => {
                         const count = exposureData?.sources?.[source.key];
                         const rate = conversion(count ?? null, exposureData?.exposures ?? null);
                         return <div key={source.key} className="flex min-w-0 items-baseline justify-between gap-2 text-xs">

@@ -1,10 +1,34 @@
 export const RECOVERY_DAILY_LIMIT = 20;
 
-export const PLUS_ABANDONED_BLAST_MESSAGE = `Oi! Tudo bem? Sou o João, do iMenu 🍔
+export const LEGACY_PLUS_ABANDONED_BLAST_MESSAGE = `Oi! Tudo bem? Sou o João, do iMenu 🍔
 
 Percebi que o {{Nome Restaurante}} não tem recebido novos pedidos pelo iMenu há alguns dias.
 
 Como tem sido sua experiência com o iMenu Plus? Se algo estiver dificultando o uso, posso te ajudar por aqui.`;
+
+const PREVIOUS_PLUS_EXPIRY_BLAST_MESSAGE = `Oi! Tudo bem? Sou o João, do iMenu 🍔
+
+O iMenu Plus da sua loja, {{Nome Restaurante}}, chegou ao fim. Queria entender se faltou algo ou se alguma configuração ficou difícil de colocar em prática.
+
+Se quiser voltar ao Plus, o atendimento exclusivo pode ajudar a configurar os recursos e aplicar melhorias no seu cardápio com você. O que você gostaria de melhorar na sua loja?`;
+
+const PRIOR_PLUS_EXPIRY_BLAST_MESSAGE = `Oi! Aqui é o João, do iMenu 🍔
+
+Vi que o iMenu Plus da loja {{Nome Restaurante}} venceu. Se você quiser voltar, a gente pode configurar os recursos pra você pelo atendimento exclusivo do Plus.
+
+Posso te ajudar a colocar o robô do WhatsApp no ar, ativar os avisos de pedido pros clientes ou montar sugestões de adicionais no cardápio. Qual desses você quer deixar pronto primeiro?`;
+
+export const PLUS_ABANDONED_BLAST_MESSAGE = `Oi! Aqui é o João, do iMenu 🍔
+
+Vi que o iMenu Plus da loja {{Nome Restaurante}} venceu! Somos gratos pelo período em que confiou em nós!
+
+Gostaria de frisar o bônus de atendimento especial, do qual seu restaurante pode requisitar modificações e melhorias. Queria saber, há algo que podemos melhorar para trazê-los de volta ao Plus?`;
+
+export const PLUS_EXPIRY_BLAST_MESSAGES = [
+    PLUS_ABANDONED_BLAST_MESSAGE,
+    PRIOR_PLUS_EXPIRY_BLAST_MESSAGE,
+    PREVIOUS_PLUS_EXPIRY_BLAST_MESSAGE,
+];
 
 export const ABANDONED_BLAST_MESSAGE = `Oi! Tudo bem? Sou o João, do iMenu 🍔
 
@@ -23,13 +47,13 @@ export const CHURN_BLAST_AUTOMATIONS = {
         id: "recovery-plus",
         name: "Churned iMenu Plus",
         message: PLUS_ABANDONED_BLAST_MESSAGE,
-        criteria: "Plus ativo · pedidos em 2+ dias no último mês · cruzou 14 dias sem pedidos",
+        criteria: "Plus acabou",
     },
     abandoned_imenu: {
         id: "recovery",
         name: "Churned iMenu users",
         message: ABANDONED_BLAST_MESSAGE,
-        criteria: "iMenu sem Plus · pedidos em 2+ dias no último mês · cruzou 14 dias sem pedidos",
+        criteria: "pedidos em 2+ dias no último mês · cruzou 14 dias sem pedidos",
     },
     single_day: {
         id: "single-order",

@@ -384,6 +384,23 @@ export default function PainelPedidosAtivosPage() {
                         Esta página recebe pedidos automaticamente, não é
                         necessário atualizar.
                     </p>
+                    <div className="mt-4 flex flex-col items-stretch gap-2 sm:flex-row">
+                        <Button
+                            type="button"
+                            onClick={() => window.open(`/${restaurantSlug || restaurantId}`, "_blank", "noopener,noreferrer")}
+                            variant="primary"
+                        >
+                            Abrir cardápio
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={() => setIsShareModalOpen(true)}
+                            variant="secondary"
+                            leftIcon={<FontAwesomeIcon icon={faShareAlt} />}
+                        >
+                            Compartilhe seu cardápio
+                        </Button>
+                    </div>
                 </div>
             ) : (
                 <div className="panel-orders">

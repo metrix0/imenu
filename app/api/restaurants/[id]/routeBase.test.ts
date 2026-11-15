@@ -1,9 +1,12 @@
 import { PATCH } from "./routeBase";
+import { DEFAULT_DELIVERY_RANGES } from "@/lib/delivery/defaultRanges";
 import { query, withTransaction } from "@/lib/database/sql";
+import { seedEmptyMenuExample } from "@/lib/menu/onboarding";
 import { seedPizzaExample } from "@/lib/pizza/onboarding";
 import { getCreationStepPath, normalizeCreationStep } from "@/lib/restaurantCreation";
 
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn(), withTransaction: jest.fn() }));
+jest.mock("@/lib/menu/onboarding", () => ({ seedEmptyMenuExample: jest.fn() }));
 jest.mock("@/lib/pizza/onboarding", () => ({ seedPizzaExample: jest.fn() }));
 const context = { params: Promise.resolve({ id: "restaurant" }) };
 const request = (body: unknown) => new Request("http://localhost/api/restaurants/restaurant", {
@@ -31,8 +34,20 @@ test("advancing to Plus persists step 5 without completing registration or seedi
     expect(response.status).toBe(200);
     expect(query).toHaveBeenLastCalledWith(expect.stringContaining("creation_step = $2"), ["restaurant", 5]);
     expect(withTransaction).not.toHaveBeenCalled();
+    expect(seedEmptyMenuExample).not.toHaveBeenCalled();
     expect(seedPizzaExample).not.toHaveBeenCalled();
     expect((query as jest.Mock).mock.calls.at(-1)![0]).not.toContain("onboarding_completed_at");
+});
+
+test("skipping delivery setup advances to Plus and fills only missing radius ranges", async () => {
+    const response = await PATCH(request({ creation_step: 5, use_default_delivery_ranges: true }), context);
+    expect(response.status).toBe(200);
+    const [sql, values] = (query as jest.Mock).mock.calls.at(-1)!;
+    expect(sql).toContain("creation_step = $2");
+    expect(sql).toContain("delivery_fee_mode IS DISTINCT FROM 'neighborhood'");
+    expect(sql).toContain("delivery_fee_json IN ('null'::jsonb, '[]'::jsonb, '{}'::jsonb)");
+    expect(sql).toContain("ELSE delivery_fee_json");
+    expect(values).toEqual(["restaurant", 5, JSON.stringify(DEFAULT_DELIVERY_RANGES)]);
 });
 
 test.each([4, 5])("finishing step %s preserves first completion and seeds once", async step => {
@@ -41,7 +56,40 @@ test.each([4, 5])("finishing step %s preserves first completion and seeds once",
     expect(withTransaction).toHaveBeenCalledTimes(1);
     expect(clientQuery.mock.calls[1][0]).toContain("CASE WHEN first_time IS DISTINCT FROM FALSE THEN NOW() ELSE onboarding_completed_at END");
     expect(seedPizzaExample).toHaveBeenCalledTimes(1);
+    expect(seedEmptyMenuExample).toHaveBeenCalledTimes(1);
+    expect((seedPizzaExample as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan(
+        (seedEmptyMenuExample as jest.Mock).mock.invocationCallOrder[0],
+    );
     expect(clientQuery.mock.calls[1][1]).toEqual(["restaurant", step, false]);
+});
+
+test("first completion opens a shop with empty hours until the next store midnight", async () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-11-15T23:45:00Z"));
+    try {
+        clientQuery
+            .mockResolvedValueOnce({ rows: [{ first_time: true }] })
+            .mockResolvedValueOnce({ rows: [{ ...row, availability_json: { 0: [], 1: [] } }] });
+
+        expect((await PATCH(request({ creation_step: 5, first_time: false }), context)).status).toBe(200);
+        expect(clientQuery).toHaveBeenCalledWith(
+            expect.stringContaining("SET is_closed = NULL, manual_open_until = $2::timestamptz"),
+            ["restaurant", "2026-11-16T03:00:00.000Z"],
+        );
+    } finally {
+        jest.useRealTimers();
+    }
+});
+
+test.each([
+    { availability_json: { 1: [{ open: "18:00", close: "22:00" }] } },
+    { availability_json: {}, preorder_only: true },
+])("first completion keeps the opening policy when the shop has hours or only takes preorders", async (settings) => {
+    clientQuery
+        .mockResolvedValueOnce({ rows: [{ first_time: true }] })
+        .mockResolvedValueOnce({ rows: [{ ...row, ...settings }] });
+
+    expect((await PATCH(request({ creation_step: 5, first_time: false }), context)).status).toBe(200);
+    expect(clientQuery).toHaveBeenCalledTimes(2);
 });
 
 test("repeated completion keeps the original completion date and does not reseed", async () => {
@@ -49,6 +97,8 @@ test("repeated completion keeps the original completion date and does not reseed
         ({ rows: sql.startsWith("SELECT") ? [{ first_time: false }] : [row] }));
     expect((await PATCH(request({ creation_step: 5, first_time: false }), context)).status).toBe(200);
     expect(seedPizzaExample).not.toHaveBeenCalled();
+    expect(seedEmptyMenuExample).not.toHaveBeenCalled();
+    expect(clientQuery).toHaveBeenCalledTimes(2);
 });
 
 test("completing onboarding gives an unnamed restaurant a six-digit name and public link", async () => {

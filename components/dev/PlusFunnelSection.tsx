@@ -39,7 +39,12 @@ export default function PlusFunnelSection({ range, onDataLoaded }: { range: Date
                 if (controller.signal.aborted) return;
                 setData(result);
                 setError("");
-                if (!matured) onDataLoaded?.({ exposures: result.exposures, sources: result.sources });
+                if (!matured) onDataLoaded?.({
+                    exposures: result.exposures,
+                    sources: result.sources && result.modalViews != null
+                        ? { ...result.sources, sales_modal: result.modalViews }
+                        : result.sources,
+                });
             })
             .catch(err => { if (!controller.signal.aborted) { setError(err.message); setData(null); } })
             .finally(() => { if (!controller.signal.aborted) setLoading(false); });

@@ -27,7 +27,9 @@ import type { QrTableMenuContext } from "@/lib/qr-table/types";
 import PromotionBanner from "@/components/costumer/PromotionBanner";
 import { evaluateAutomaticPromotions, parseAutomaticPromotions, promotionAvailable, promotionCartSubtotal } from "@/lib/promotions/automatic";
 import { parseNeighborhoodDeliveryRules } from "@/lib/delivery/neighborhood";
+import { isManualOpeningActive, isStoreManuallyClosed } from "@/lib/menu/storeHoursOverride";
 import { isCategoryAvailable } from "@/lib/menu/categorySchedule";
+import { hasOrderHours } from "@/lib/menu/orderAvailability";
 
 const RESTAURANT_INFO_DAYS = [
     { day: 1, label: "Segunda-feira" },
@@ -137,7 +139,7 @@ export default function MenuClientPage({
     const [cartOpen, setCartOpen] = useState(false);
     const [cartStep, setCartStep] = useState<"cart" | "info" | "checkout">("cart");
     const [nextOpening, setNextOpening] = useState<Date | null>(null);
-    const [isRestaurantOpen, setIsRestaurantOpen] = useState(false);
+    const [isOpenBySchedule, setIsOpenBySchedule] = useState(false);
     const [availabilityChecked, setAvailabilityChecked] = useState(false);
     const [todaySlots, setTodaySlots] = useState<
         { open: string; close: string }[]
@@ -156,7 +158,18 @@ export default function MenuClientPage({
     }, [menuTime]);
     const [restaurantCartWarningVisible, setRestaurantCartWarningVisible] = useState(false);
     const [orderId, setOrderId] = useState<string | null>(null);
-    const [closedForToday, setClosedForToday] = useState(false);
+    const isTableOrder = Boolean(tableOrder);
+    const now = new Date(menuTime);
+    const manuallyOpen = (isTableOrder || restaurant.preorder_only !== true) && isManualOpeningActive(restaurant.manual_open_until, now);
+    const closedForToday = !manuallyOpen && isStoreManuallyClosed(restaurant.is_closed, now);
+    const isRestaurantOpen = manuallyOpen || isOpenBySchedule;
+
+    useEffect(() => {
+        const expiresIn = Date.parse(restaurant.manual_open_until ?? "") - Date.now();
+        if (expiresIn <= 0 || !Number.isFinite(expiresIn)) return;
+        const timer = window.setTimeout(() => setMenuTime(new Date().toISOString()), expiresIn);
+        return () => window.clearTimeout(timer);
+    }, [restaurant.manual_open_until]);
     const [searchText, setSearchText] = useState("");
     const [searchOpen, setSearchOpen] = useState(false);
     const [showMobileSearch, setShowMobileSearch] = useState(false);
@@ -170,7 +183,6 @@ export default function MenuClientPage({
     const [debouncedSearch, setDebouncedSearch] = useState("");
     const [couponUsed, setCouponUsed] = useState("");
     const isItemModalOpen = Boolean(openedItem);
-    const isTableOrder = Boolean(tableOrder);
     useEffect(() => {
         if (isTableOrder || restaurant.delivery_disabled !== true) return;
         useCheckoutStore.setState({ is_pickup: true, delivery_fee_cents: "0", delivery_time_minutes: null } as any);
@@ -451,28 +463,6 @@ export default function MenuClientPage({
     }, [activeTab]);
 
     useEffect(() => {
-        if (!restaurant?.is_closed) {
-            setClosedForToday(false);
-            return;
-        }
-
-        const closedDate = new Date(restaurant.is_closed);
-        const now = new Date();
-
-        if (now.getHours() < 4) {
-            now.setDate(now.getDate() - 1);
-        }
-
-
-        const sameDay =
-            closedDate.getFullYear() === now.getFullYear() &&
-            closedDate.getMonth() === now.getMonth() &&
-            closedDate.getDate() === now.getDate();
-
-        setClosedForToday(sameDay);
-    }, [restaurant?.is_closed]);
-
-    useEffect(() => {
         if (openedProductId) {
             const allItems = Object.values(itemsByCategory).flat();
             const item = allItems.find(i => i.id === openedProductId);
@@ -618,7 +608,7 @@ export default function MenuClientPage({
     const pickupStreet = [restaurant.address?.street, restaurant.address?.number].filter(Boolean).join(", ");
 
     const checkRestaurantAvailability = () => {
-        setIsRestaurantOpen(false);
+        setIsOpenBySchedule(false);
 
         if (!restaurant.availability_json) {
             setTodaySlots([]);
@@ -668,11 +658,9 @@ export default function MenuClientPage({
             const closeDate = new Date();
             closeDate.setHours(closeH, closeM, 0, 0);
 
-            console.log("NOW",now,"open", openDate, closeDate, now >= openDate && now <= closeDate)
-
             if (now >= openDate && now <= closeDate) {
 
-                setIsRestaurantOpen(true);
+                setIsOpenBySchedule(true);
                 setNextOpening(null);
                 return;
             }
@@ -682,8 +670,6 @@ export default function MenuClientPage({
                 return;
             }
         }
-
-        console.log(slots)
 
         if (restaurant.allow_future_order_scheduling !== true) {
             setNextOpening(null);
@@ -744,7 +730,7 @@ export default function MenuClientPage({
     useEffect(() => {
         checkRestaurantAvailability();
         setAvailabilityChecked(true);
-    }, [restaurant]);
+    }, [restaurant, menuTime]);
 
     useEffect(() => {
         if (restaurant?.id) {
@@ -807,7 +793,7 @@ export default function MenuClientPage({
     }, [categories, manualScrollLock]);
 
     const canScheduleToday = (() => {
-        if (!nextOpening || closedForToday) return false;
+        if (!nextOpening || closedForToday || manuallyOpen) return false;
         const now = new Date();
         return nextOpening.getTime() > now.getTime() &&
             nextOpening.getFullYear() === now.getFullYear() &&
@@ -842,6 +828,17 @@ export default function MenuClientPage({
     })();
 
     const warningOpening = nextOpening ?? nextOpeningForWarning;
+    const hasOpeningHours = hasOrderHours(restaurant.availability_json);
+    const canScheduleFuture = restaurant.preorder_only === true
+        ? hasOrderHours(restaurant.preorder_availability_json)
+        : restaurant.allow_future_order_scheduling === true && (warningOpening !== null || isRestaurantOpen);
+    const requiresSchedule = !isTableOrder && (
+        restaurant.preorder_only === true || !isRestaurantOpen || closedForToday
+    );
+    const canOrderFromMenu = isTableOrder
+        ? !closedForToday && isRestaurantOpen
+        : canScheduleFuture ||
+            (restaurant.preorder_only !== true && !closedForToday && (isRestaurantOpen || canScheduleToday));
 
     const openingHoursSlots = (() => {
         if (closedForToday || !warningOpening) return todaySlots;
@@ -853,8 +850,6 @@ export default function MenuClientPage({
         Array.isArray(restaurant.allowed_payment_methods) && restaurant.allowed_payment_methods.length > 0
             ? restaurant.allowed_payment_methods
             : ["pix", "dinheiro", "trazer-maquininha"];
-
-    console.log(nextOpening, closedForToday)
 
     return (
 
@@ -973,17 +968,20 @@ export default function MenuClientPage({
             </div>
             )}
 
-            {!readOnly && restaurant.preorder_only !== true && availabilityChecked && (!isRestaurantOpen || closedForToday) &&
-                (closedForToday || openingHoursSlots.length > 0 ||
-                    (warningOpening !== null && warningOpening.getTime() > Date.now())) && (
+            {!readOnly && restaurant.preorder_only !== true && availabilityChecked && (!isRestaurantOpen || closedForToday) && (
                 <WarningBox icon={icons.faTriangleExclamation} className="mt-10 mx-5 md:mx-48 2xl:mx-80">
                     {closedForToday && (
                         <>
                             Hoje o restaurante está fechado no horário comum de funcionamento, devido à possíveis feriados ou eventos especiais.
-                            {!isTableOrder && restaurant.allow_future_order_scheduling === true && (
+                            {!isTableOrder && canScheduleFuture && (
                                 <> <b>Você pode montar seu pedido e agendar para outro dia</b>.</>
                             )}
                         </>
+                    )}
+                    {!closedForToday && !warningOpening && (
+                        hasOpeningHours
+                            ? "Restaurante fechado no momento."
+                            : "Restaurante fechado no momento. A loja ainda não informou o horário de funcionamento."
                     )}
                     {!isTableOrder && canScheduleToday && nextOpening && (
                         <>
@@ -1259,6 +1257,7 @@ export default function MenuClientPage({
                 <ItemModal
                     channel={isTableOrder ? "mesa" : "delivery"}
                     key={openedItem.item.id}
+                    canOrder={canOrderFromMenu}
                     readOnly={readOnly}
                     restaurant={restaurant}
                     item={openedItem.item}
@@ -1283,10 +1282,7 @@ export default function MenuClientPage({
                 />
             )}
 
-            {!readOnly && (isTableOrder
-                ? !closedForToday && isRestaurantOpen
-                : restaurant.allow_future_order_scheduling === true ||
-                  (!closedForToday && (isRestaurantOpen || canScheduleToday))) && (
+            {!readOnly && canOrderFromMenu && (
                 <CartBar
                     promotionResult={promotionResult}
                     onOpenCartAction={() => {
@@ -1298,7 +1294,7 @@ export default function MenuClientPage({
                     cartOpen={cartOpen}
                     setCartOpenAction={setCartOpen}
                     restaurant={restaurant}
-                    manuallyClosedToday={closedForToday}
+                    requiresSchedule={requiresSchedule}
                     closeItemModalOpen={() => setOpenedItem(null)}
                     trackMeta={trackMeta}
                     slug={slug}
@@ -1311,9 +1307,11 @@ export default function MenuClientPage({
             )}
 
 
-            {!readOnly && cartOpen && (
+            {!readOnly && canOrderFromMenu && cartOpen && (
                 <CartModal
                     catalogItemsByCategory={itemsByCategory}
+                    requiresSchedule={requiresSchedule}
+                    manuallyClosedToday={closedForToday}
                     promotionResult={promotionResult}
                     restaurant={restaurant}
                     onClose={() => {

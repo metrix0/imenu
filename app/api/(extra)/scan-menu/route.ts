@@ -5,7 +5,7 @@ import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/res
 import { readPublicMenuLink, MenuLinkError } from "@/lib/menu/readPublicMenuLink";
 import { query } from "@/lib/database/sql";
 import { recordGeminiMenuFallback } from "@/lib/dev/health";
-import { menuScanLinkDomain, recordMenuScan, type MenuScanDiagnostics } from "@/lib/menu/scanDiagnostics";
+import { menuScanFilePaths, menuScanLinkDomain, menuScanSourceUrl, recordMenuScan, type MenuScanDiagnostics } from "@/lib/menu/scanDiagnostics";
 
 export const runtime = "nodejs";
 
@@ -906,6 +906,11 @@ export async function POST(req: Request) {
             restaurantId, inputType: menuUrl === undefined ? "files" : "link",
             outcome: "failed", elapsedMs: 0,
         };
+        if (typeof menuUrl === "string") {
+            diagnostic.linkDomain = menuScanLinkDomain(menuUrl);
+            const sourceUrl = menuScanSourceUrl(menuUrl);
+            if (sourceUrl) diagnostic.source = { url: sourceUrl };
+        }
         if (!geminiApiKey && !openAiApiKey) {
             diagnostic.errorCode = "providers_unconfigured";
             return NextResponse.json(
@@ -930,7 +935,6 @@ export async function POST(req: Request) {
                     { status: 400 }
                 );
             }
-            diagnostic.linkDomain = menuScanLinkDomain(menuUrl);
             const linkDiagnostic = diagnostic;
             pageText = await readPublicMenuLink(menuUrl, text => { linkDiagnostic.extractedText = text; });
         } else if (
@@ -943,6 +947,9 @@ export async function POST(req: Request) {
                 { error: "Envie ao menos uma imagem ou PDF válido." },
                 { status: 400 }
             );
+        } else {
+            const files = menuScanFilePaths(urls);
+            if (files.length > 0) diagnostic.source = { files };
         }
 
         let parsed: ParsedMenu | undefined;

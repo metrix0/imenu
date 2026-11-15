@@ -1,4 +1,3 @@
-import { query } from "@/lib/database/sql";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +14,7 @@ export async function POST(request: Request) {
             );
         }
 
+        const { query } = await import("@/lib/database/sql");
         const { rows } = await query(
             `
             SELECT email_confirmed_at

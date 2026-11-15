@@ -13,7 +13,6 @@ import { supabase } from "@/lib/database/supabaseClient";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import Dropdown from "@/components/ui/Dropdown";
-import Tooltip from "@/components/ui/Tooltip";
 import CategorySection from "@/components/restaurant-owner/cardapio/CategorySection";
 import OrganizeCategoriesModal from "@/components/restaurant-owner/cardapio/OrganizeCategoriesModal";
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
@@ -368,18 +367,16 @@ export default function CardapioTab({
         return matchesSearch && matchesSelect;
     });
 
-    const scanAction = (label: string, className = "", wrapperClassName = "") => (
-        <Tooltip text="" parentClassName={wrapperClassName}>
-            <Button
-                type="button"
-                onClick={() => onAIScanMenu?.(true)}
-                variant="primary"
-                className={`gap-2 !border-violet-600 !bg-violet-600 hover:!border-violet-700 hover:!bg-violet-700 focus-visible:!outline-violet-600 ${className}`}
-            >
-                <FontAwesomeIcon icon={faWandMagicSparkles} />
-                {label}
-            </Button>
-        </Tooltip>
+    const scanAction = (label: string, className = "") => (
+        <Button
+            type="button"
+            onClick={() => onAIScanMenu?.(true)}
+            variant="primary"
+            className={`gap-2 !border-violet-600 !bg-violet-600 hover:!border-violet-700 hover:!bg-violet-700 focus-visible:!outline-violet-600 ${className}`}
+        >
+            <FontAwesomeIcon icon={faWandMagicSparkles} />
+            {label}
+        </Button>
     );
 
     if (categories.length === 0) {
@@ -459,6 +456,7 @@ export default function CardapioTab({
                     <Button
                         variant="secondary"
                         onClick={onNewCategory}
+                        leftIcon={<FontAwesomeIcon icon={faPlus} aria-hidden="true" />}
                         className="w-full min-w-0 whitespace-normal"
                     >
                         Adicionar categoria
@@ -466,11 +464,12 @@ export default function CardapioTab({
                     <Button
                         variant="secondary"
                         onClick={openOrganizer}
+                        leftIcon={<FontAwesomeIcon icon={faGripVertical} aria-hidden="true" />}
                         className="w-full min-w-0 whitespace-normal"
                     >
                         Organizar categorias
                     </Button>
-                    {scanAction("Scanear itens com IA", "w-full", "col-span-2 w-full")}
+                    {scanAction("Scanear itens com IA", "col-span-2 w-full")}
                 </div>
 
                 <div className="hidden min-w-0 max-w-full gap-4 md:flex md:flex-row">
@@ -492,6 +491,7 @@ export default function CardapioTab({
                     <Button
                         variant="secondary"
                         onClick={onNewCategory}
+                        leftIcon={<FontAwesomeIcon icon={faPlus} aria-hidden="true" />}
                         className="whitespace-nowrap"
                     >
                         Adicionar categoria
@@ -499,6 +499,7 @@ export default function CardapioTab({
                     <Button
                         variant="secondary"
                         onClick={openOrganizer}
+                        leftIcon={<FontAwesomeIcon icon={faGripVertical} aria-hidden="true" />}
                         className="whitespace-nowrap"
                     >
                         Organizar categorias

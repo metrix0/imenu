@@ -1,5 +1,9 @@
 import { query, withTransaction } from "@/lib/database/sql";
+import { DEFAULT_DELIVERY_RANGES } from "@/lib/delivery/defaultRanges";
+import { hasOrderHours } from "@/lib/menu/orderAvailability";
+import { nextStoreMidnight } from "@/lib/menu/storeHoursOverride";
 import { generateUnnamedRestaurantName } from "@/lib/restaurantCreation";
+import { seedEmptyMenuExample } from "@/lib/menu/onboarding";
 import { seedPizzaExample } from "@/lib/pizza/onboarding";
 import { NextResponse } from "next/server";
 
@@ -217,6 +221,18 @@ export async function PATCH(
             fieldsToUpdate.push(`${dbColumn} = $${values.length}`);
         }
 
+        if (body.use_default_delivery_ranges === true &&
+            Number(body.creation_step) === 5 &&
+            !Object.prototype.hasOwnProperty.call(body, "delivery_fee_json")) {
+            values.push(JSON.stringify(DEFAULT_DELIVERY_RANGES));
+            fieldsToUpdate.push(`delivery_fee_json = CASE
+                WHEN delivery_fee_mode IS DISTINCT FROM 'neighborhood'
+                    AND (delivery_fee_json IS NULL OR delivery_fee_json IN ('null'::jsonb, '[]'::jsonb, '{}'::jsonb))
+                THEN $${values.length}::jsonb
+                ELSE delivery_fee_json
+            END`);
+        }
+
         if (fieldsToUpdate.length === 0) {
             return NextResponse.json(
                 { error: "No valid fields provided to update" },
@@ -237,7 +253,7 @@ export async function PATCH(
             UPDATE public.restaurants
             SET ${fieldsToUpdate.join(", ")}, updated_at = NOW()
             WHERE id = $1
-            RETURNING ${returnedFields}
+            RETURNING ${returnedFields}${completingOnboarding ? ", availability_json, preorder_only" : ""}
         `;
         const { rows } = completingOnboarding
             ? await withTransaction(async (client) => {
@@ -258,7 +274,15 @@ export async function PATCH(
                     );
                 }
                 if (previous && previous.first_time !== false) {
+                    if (restaurant && restaurant.preorder_only !== true && !hasOrderHours(restaurant.availability_json)) {
+                        await client.query(
+                            `UPDATE public.restaurants SET is_closed = NULL, manual_open_until = $2::timestamptz
+                             WHERE id = $1`,
+                            [id, nextStoreMidnight(new Date())],
+                        );
+                    }
                     await seedPizzaExample(client, id, previous.name, previous.pizza_settings);
+                    await seedEmptyMenuExample(client, id);
                 }
                 return updated;
             })

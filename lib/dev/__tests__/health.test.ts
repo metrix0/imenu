@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import { query } from "@/lib/database/sql";
 import { recordDevAlert, recordGeminiMenuFallback, recordIntegrationProbe, resolveDevIncident } from "../health";
 
@@ -6,17 +7,47 @@ jest.mock("@/lib/database/sql", () => ({
 }));
 
 const mockQuery = query as jest.Mock;
+const readFileSync = fs.readFileSync;
 const originalFetch = global.fetch;
 const originalTopic = process.env.NTFY_TOPIC;
+let deploymentEnvironment: string | undefined;
+
 beforeEach(() => {
+    deploymentEnvironment = "production\n";
+    jest.spyOn(fs, "readFileSync").mockImplementation((path, options) => {
+        if (path !== ".imenu-deployment-environment") return readFileSync(path, options);
+        if (deploymentEnvironment === undefined) throw new Error("Missing deployment metadata");
+        return deploymentEnvironment;
+    });
     mockQuery.mockReset().mockResolvedValue({rows:[{id:"unit-alert"}],rowCount:1});
     process.env.NTFY_TOPIC = "test-notifications";
     global.fetch = jest.fn().mockResolvedValue(new Response("",{status:200}));
 });
 afterEach(() => {
+    jest.restoreAllMocks();
     global.fetch = originalFetch;
     if(originalTopic===undefined) delete process.env.NTFY_TOPIC;
     else process.env.NTFY_TOPIC = originalTopic;
+});
+
+test.each([
+    ["preview", "preview\n"],
+    ["localhost", undefined],
+    ["unknown deployment", "staging\n"],
+])("%s leaves production alert state and delivery untouched", async (_runtime, environment) => {
+    deploymentEnvironment = environment;
+    const localLog = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const alert = { source: "app", title: "Failed", message: "safe", severity: "critical" };
+    const probe = { id: "waha", state: "failed" as const, operation: "Listar sessões", status: 500, detail: "HTTP 500" };
+
+    await expect(recordDevAlert(alert)).resolves.toEqual({ phoneNotified: false, deliveryError: null });
+    await resolveDevIncident("integration:waha");
+    await recordGeminiMenuFallback("Gemini HTTP 429");
+    await expect(recordIntegrationProbe(probe)).resolves.toEqual(probe);
+
+    expect(mockQuery).not.toHaveBeenCalled();
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(localLog).toHaveBeenCalledWith("[DEV_HEALTH]", expect.objectContaining({ source: "app", severity: "critical" }));
 });
 
 test("notification records its trigger and sends a normal phone notification",async()=>{

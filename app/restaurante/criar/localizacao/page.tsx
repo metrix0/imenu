@@ -166,6 +166,7 @@ export default function LocalizacaoPage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     creation_step: 5,
+                    use_default_delivery_ranges: true,
                 }),
             });
             const payload = await response.json();

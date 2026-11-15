@@ -1,5 +1,6 @@
 "use client";
 
+import { getMenuItemImageUrl } from "@/lib/menu/itemImages";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/database/supabaseClient";
@@ -56,11 +57,7 @@ export default function CriarCardapioPage() {
             setItems(
                 (rawItems || []).map((item: any) => ({
                     ...item,
-                    image_url: item.image_path
-                        ? supabase.storage
-                              .from("menu-images")
-                              .getPublicUrl(item.image_path).data.publicUrl
-                        : null,
+                    image_url: getMenuItemImageUrl(supabase, item.image_path),
                 }))
             );
         } catch (caught) {
