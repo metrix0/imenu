@@ -5,6 +5,7 @@ import { capturePosthogLightweight } from "@/lib/api/instrumentation-client";
 import { supabase } from "@/lib/database/supabaseClient";
 
 type PlusExposureSurface =
+    | "onboarding_complete"
     | "sales_modal"
     | "plus_page"
     | "assistant_limit"

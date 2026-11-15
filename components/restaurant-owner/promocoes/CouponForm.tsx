@@ -1,5 +1,7 @@
 "use client";
 
+import { CollapsibleChevron, CollapsibleContent, useCollapsible } from "@/components/ui/CollapsibleSection";
+
 import { useState, useRef, useEffect } from "react";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
@@ -32,7 +34,7 @@ export default function CouponForm({
                                    }: Props) {
     const [saving, setSaving] = useState(false);
     const [copied, setCopied] = useState(false);
-    const [advancedOptions, setAdvancedOptions] = useState(false);
+    const advanced = useCollapsible();
 
 
     const todayISO = () => {
@@ -246,134 +248,135 @@ export default function CouponForm({
                 </div>
             </div>
 
-            <button type="button" className="flex min-h-11 w-full items-center justify-between border-t border-gray-200 pt-3 text-sm font-medium" aria-expanded={advancedOptions} aria-controls="coupon-advanced-options" onClick={() => setAdvancedOptions(!advancedOptions)}>Opções avançadas <FontAwesomeIcon className={`${advancedOptions ? "rotate-180" : ""} duration-300`} icon={icons.faChevronDown}/></button>
+            <div>
+                <button {...advanced.triggerProps} className="flex min-h-11 w-full items-center justify-between border-t border-gray-200 pt-3 text-sm font-medium">
+                    Opções avançadas
+                    <CollapsibleChevron expanded={advanced.expanded} />
+                </button>
+                <CollapsibleContent id={advanced.contentId} expanded={advanced.expanded}>
+                    <div className="space-y-6 pt-6">
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
 
-            <div
-                id="coupon-advanced-options"
-                hidden={!advancedOptions}
-                className="space-y-6"
-            >
+                            <Input
+                                label="Valor mínimo do pedido"
+                                icon="R$"
+                                iconPosition="left"
+                                type="number" min={0} step="0.01" inputMode="decimal"
+                                value={form.min_order_value}
+                                onChange={(e) =>
+                                    setForm({ ...form, min_order_value: Number(e.target.value) })
+                                }
+                            />
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-
-                    <Input
-                        label="Valor mínimo do pedido"
-                        icon="R$"
-                        iconPosition="left"
-                        type="number" min={0} step="0.01" inputMode="decimal"
-                        value={form.min_order_value}
-                        onChange={(e) =>
-                            setForm({ ...form, min_order_value: Number(e.target.value) })
-                        }
-                    />
-
-                    <Input
-                        label="Valor máximo do desconto"
-                        icon="R$"
-                        iconPosition="left"
-                        type="number" min={0} step="0.01" inputMode="decimal"
-                        value={form.max_discount_value ?? ""}
-                        onChange={(e) =>
-                            setForm({
-                                ...form,
-                                max_discount_value: e.target.value
-                                    ? Number(e.target.value)
-                                    : null,
-                            })
-                        }
-                    />
-                </div>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
-                        <Input
-                            label="Quantidade de cupons disponíveis"
-                            numeric
-                            value={form.quantity ?? 0}
-                            onChange={(e) =>
-                                setForm({ ...form, quantity: Number(e.target.value) })
-                            }
-                            locked={form.unlimited_quantity}
-                            disabled={form.unlimited_quantity}
-                        />
-                        <label className="flex min-h-11 cursor-pointer items-center gap-2">
-                            <Switch aria-label="Quantidade ilimitada" checked={form.unlimited_quantity}
-                                onClick={() => setForm({ ...form, unlimited_quantity: !form.unlimited_quantity,
-                                    quantity: !form.unlimited_quantity ? null : form.quantity })} />
-                            <span className="text-sm">Ilimitado</span>
-                        </label>
-                    </div>
-                    <div>
-                        <p className="text-xs font-medium text-gray-700 mb-2">
-                            Origem
-                        </p>
-                        <div className="mt-4 flex flex-wrap gap-4">
-                            {["retirada", "delivery", "autoatendimento"].map((origin) => (
-                                <label key={origin} className="flex min-h-11 cursor-pointer items-center gap-2">
-                                    <Switch aria-label={origin.charAt(0).toUpperCase() + origin.slice(1)}
-                                        checked={form.origins.includes(origin)}
-                                        onClick={() => setForm({ ...form, origins: form.origins.includes(origin)
-                                            ? form.origins.filter((o: string) => o !== origin)
-                                            : [...form.origins, origin] })} />
-                                    <span className="text-sm">{origin.charAt(0).toUpperCase() + origin.slice(1)}</span>
+                            <Input
+                                label="Valor máximo do desconto"
+                                icon="R$"
+                                iconPosition="left"
+                                type="number" min={0} step="0.01" inputMode="decimal"
+                                value={form.max_discount_value ?? ""}
+                                onChange={(e) =>
+                                    setForm({
+                                        ...form,
+                                        max_discount_value: e.target.value
+                                            ? Number(e.target.value)
+                                            : null,
+                                    })
+                                }
+                            />
+                        </div>
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
+                                <Input
+                                    label="Quantidade de cupons disponíveis"
+                                    numeric
+                                    value={form.quantity ?? 0}
+                                    onChange={(e) =>
+                                        setForm({ ...form, quantity: Number(e.target.value) })
+                                    }
+                                    locked={form.unlimited_quantity}
+                                    disabled={form.unlimited_quantity}
+                                />
+                                <label className="flex min-h-11 cursor-pointer items-center gap-2">
+                                    <Switch aria-label="Quantidade ilimitada" checked={form.unlimited_quantity}
+                                        onClick={() => setForm({ ...form, unlimited_quantity: !form.unlimited_quantity,
+                                            quantity: !form.unlimited_quantity ? null : form.quantity })} />
+                                    <span className="text-sm">Ilimitado</span>
                                 </label>
-                            ))}
+                            </div>
+                            <div>
+                                <p className="text-xs font-medium text-gray-700 mb-2">
+                                    Origem
+                                </p>
+                                <div className="mt-4 flex flex-wrap gap-4">
+                                    {["retirada", "delivery", "autoatendimento"].map((origin) => (
+                                        <label key={origin} className="flex min-h-11 cursor-pointer items-center gap-2">
+                                            <Switch aria-label={origin.charAt(0).toUpperCase() + origin.slice(1)}
+                                                checked={form.origins.includes(origin)}
+                                                onClick={() => setForm({ ...form, origins: form.origins.includes(origin)
+                                                    ? form.origins.filter((o: string) => o !== origin)
+                                                    : [...form.origins, origin] })} />
+                                            <span className="text-sm">{origin.charAt(0).toUpperCase() + origin.slice(1)}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div>
-                        <p className="text-sm font-medium text-gray-700 mb-2">
-                            Dias em que o cupom está disponível
-                        </p>
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <div>
+                                <p className="text-sm font-medium text-gray-700 mb-2">
+                                    Dias em que o cupom está disponível
+                                </p>
 
-                        <div className="flex gap-2 flex-wrap">
-                            {days.map((day, index) => (
-                                <Button
-                                    key={day}
-                                    aria-pressed={form.available_days.includes(index)}
-                                    variant={
-                                        form.available_days.includes(index)
-                                            ? "primary"
-                                            : "secondary"
+                                <div className="flex gap-2 flex-wrap">
+                                    {days.map((day, index) => (
+                                        <Button
+                                            key={day}
+                                            aria-pressed={form.available_days.includes(index)}
+                                            variant={
+                                                form.available_days.includes(index)
+                                                    ? "primary"
+                                                    : "secondary"
+                                            }
+                                            onClick={() =>
+                                                setForm({
+                                                    ...form,
+                                                    available_days: form.available_days.includes(index)
+                                                        ? form.available_days.filter((d: any) => d !== index)
+                                                        : [...form.available_days, index],
+                                                })
+                                            }
+                                        >
+                                            {day}
+                                        </Button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <Input
+                                    label="Início"
+                                    type="time"
+                                    value={form.start_time}
+                                    onChange={(e) =>
+                                        setForm({ ...form, start_time: e.target.value })
                                     }
-                                    onClick={() =>
-                                        setForm({
-                                            ...form,
-                                            available_days: form.available_days.includes(index)
-                                                ? form.available_days.filter((d: any) => d !== index)
-                                                : [...form.available_days, index],
-                                        })
+                                />
+
+                                <Input
+                                    label="Fim"
+                                    type="time"
+                                    value={form.end_time}
+                                    onChange={(e) =>
+                                        setForm({ ...form, end_time: e.target.value })
                                     }
-                                >
-                                    {day}
-                                </Button>
-                            ))}
+                                />
+                            </div>
+
                         </div>
+
+
                     </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <Input
-                            label="Início"
-                            type="time"
-                            value={form.start_time}
-                            onChange={(e) =>
-                                setForm({ ...form, start_time: e.target.value })
-                            }
-                        />
-
-                        <Input
-                            label="Fim"
-                            type="time"
-                            value={form.end_time}
-                            onChange={(e) =>
-                                setForm({ ...form, end_time: e.target.value })
-                            }
-                        />
-                    </div>
-
-                </div>
-
-
+                </CollapsibleContent>
             </div>
 
             <div className="flex justify-end gap-3">

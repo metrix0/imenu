@@ -1,3 +1,4 @@
+import { recordAffiliatePurchase } from "@/lib/analytics/affiliateAttribution";
 import { query } from "@/lib/database/sql";
 
 export const QR_TABLE_PRICE_CENTS = 500;
@@ -130,6 +131,9 @@ export async function activatePayZuQrTablePrepaid(input: {
             input.paidAt || null,
         ]
     );
+    if (input.status.toUpperCase() === "COMPLETED") {
+        await recordAffiliatePurchase(input.addonId, input.paymentId);
+    }
 }
 
 export async function markPayZuQrTablePaymentFailure(input: {

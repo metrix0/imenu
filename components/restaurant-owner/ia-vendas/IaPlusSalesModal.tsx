@@ -15,6 +15,7 @@ import QrCodeMesaCheckoutModal from "@/components/restaurant-owner/mesas/QrCodeM
 import { IA_PLUS_BENEFITS, IA_PLUS_BONUSES, IA_PLUS_PRICE_LABEL } from "@/lib/addons/products";
 import { PROMO_QR_CODE, PROMO_QR_PRICE_LABEL } from "@/lib/addons/promoQr";
 import { PLUS_BONUS_ICONS, PLUS_FEATURE_ICONS } from "@/components/restaurant-owner/mesas/MenuProductCard";
+import type { QrTableSource } from "@/lib/qr-table/types";
 import { usePlusExposure } from "@/lib/analytics/plusExposure";
 
 const SUPPORT_URL =
@@ -58,8 +59,8 @@ export function IaPlusLimitMessage({ onCheckout }: {
     </div>
   </article>;
 }
-export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout = false, active = false, onPaid, contextMessage, coupon }: {
-  open: boolean; onClose: () => void; restaurantId: string; checkout?: boolean; active?: boolean; onPaid?: () => void | Promise<void>; contextMessage?: string; coupon?: string;
+export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout = false, active = false, onPaid, contextMessage, coupon, source = "settings" }: {
+  open: boolean; onClose: () => void; restaurantId: string; checkout?: boolean; active?: boolean; onPaid?: () => void | Promise<void>; contextMessage?: string; coupon?: string; source?: QrTableSource;
 }) {
   const [step, setStep] = useState(checkout);
   const [navigated, setNavigated] = useState(false);
@@ -87,7 +88,7 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
           open
           embedded
           restaurantId={restaurantId}
-          source="settings"
+          source={source}
           productKey="ia_plus"
           coupon={coupon}
           onClose={onClose}

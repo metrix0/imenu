@@ -1,4 +1,5 @@
 import type { AddonProduct } from "@/lib/addons/products";
+import { rememberAffiliateReferral } from "@/lib/analytics/affiliateAttribution";
 import { isPromoQrDate, PROMO_QR_CODE, PROMO_QR_PRICE_CENTS } from "@/lib/addons/promoQr";
 import { createMercadoPagoPixCharge, getMercadoPagoPixPayment, isMercadoPagoPixFailureStatus, MercadoPagoPixApiError } from "@/lib/payments/mercadoPagoPix";
 import { activateMercadoPagoQrTablePrepaid, saveMercadoPagoQrTablePayment, setMercadoPagoQrTablePending } from "@/lib/qr-table/mercadoPagoBilling";
@@ -336,6 +337,7 @@ export async function checkoutAddon(request: Request, product: AddonProduct) {
             }
         }
         const expectedPriceCents = wantsPromo ? PROMO_QR_PRICE_CENTS : product.priceCents;
+        if (product.key === "ia_plus" && !renew) await rememberAffiliateReferral(request, owner.user.id);
         const addon = await prepareAddon(restaurantId, source, product);
         const hasAccess = hasQrTableAccess(addon);
         const prepaidAccess =

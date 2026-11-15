@@ -32,6 +32,7 @@ function SendProgress({ row }: { row: Group }) {
 export default function BlastHistorySection({ refreshKey = 0, connections }: { refreshKey?: number; connections: Connections }) {
     const { openProfile } = useDevProfile();
     const [page, setPage] = useState(0);
+    const [openAutomationGroup, setOpenAutomationGroup] = useState<"payouts" | "other" | null>("payouts");
     const [recipientPage, setRecipientPage] = useState(0);
     const [revision, setRevision] = useState(0);
     const [data, setData] = useState<Data | null>(null);
@@ -77,8 +78,8 @@ export default function BlastHistorySection({ refreshKey = 0, connections }: { r
         <section className={styles.tableSection}>
             <h2>Blasts automáticos</h2>
             <div className="space-y-3">
-                <BlastAutomation automations={Object.values(PAYOUT_BLAST_AUTOMATIONS)} connections={connections} group={{ label: "Payouts", defaultOpen: true }} />
-                <BlastAutomation automations={(data?.automations ?? []).filter(row => row.category !== "payouts")} connections={connections} loading={loading && !data} group={{ label: "Outros" }} />
+                <BlastAutomation automations={Object.values(PAYOUT_BLAST_AUTOMATIONS)} connections={connections} group={{ label: "Payouts", open: openAutomationGroup === "payouts", onOpenChange: open => setOpenAutomationGroup(open ? "payouts" : null) }} />
+                <BlastAutomation automations={(data?.automations ?? []).filter(row => row.category !== "payouts")} connections={connections} loading={loading && !data} group={{ label: "Outros", open: openAutomationGroup === "other", onOpenChange: open => setOpenAutomationGroup(open ? "other" : null) }} />
             </div>
         </section>
         <DevDialog title={selected ? groupLabel(selected) || "Detalhes do blast" : "Detalhes do blast"} open={Boolean(selected)} onClose={() => setSelected(null)}>

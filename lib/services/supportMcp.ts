@@ -53,6 +53,8 @@ export type SupportMcpToolDefinition = {
     inputSchema: Record<string, unknown>;
 };
 
+export const SUPPORT_MENU_LINK_TOOL = "get_restaurant_menu_link";
+
 export const SUPPORT_MCP_TOOLS: SupportMcpToolDefinition[] = [
     {
         name: "search_knowledge",
@@ -99,6 +101,12 @@ export const SUPPORT_MCP_TOOLS: SupportMcpToolDefinition[] = [
             required: ["restaurant_id"],
             additionalProperties: false,
         },
+    },
+    {
+        name: SUPPORT_MENU_LINK_TOOL,
+        description:
+            "Return the exact public iMenu menu URL for the restaurant selected in this conversation. Use only when sharing that restaurant's menu link. If no restaurant is selected, identify it with list_my_restaurants and select_restaurant first.",
+        inputSchema: { type: "object", properties: {}, additionalProperties: false },
     },
     {
         name: "list_restaurant_data_sources",
@@ -983,6 +991,21 @@ export async function executeSupportMcpTool(
         );
 
         return { selected_restaurant_id: restaurantId };
+    }
+
+    if (name === SUPPORT_MENU_LINK_TOOL) {
+        if (!conversation.restaurant_id) return { menu_url: null };
+
+        const { rows } = await query<{ url_slug: string | null }>(
+            "SELECT url_slug FROM public.restaurants WHERE id = $1",
+            [conversation.restaurant_id]
+        );
+        const slug = rows[0]?.url_slug;
+        return {
+            menu_url: slug && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)
+                ? `https://www.imenuapp.com.br/${slug}`
+                : null,
+        };
     }
 
     if (name === "list_restaurant_data_sources") {

@@ -17,6 +17,18 @@ export type BlogArticleDefinition = {
 
 export const BLOG_ARTICLES: BlogArticleDefinition[] = [
     {
+        slug: "programa-de-afiliados-imenu",
+        title: "Indique o iMenu e ganhe 50% de comissão recorrente",
+        shortTitle: "Programa de Afiliados iMenu",
+        metaTitle: "Programa de Afiliados iMenu | 50% de Comissão Recorrente",
+        metaDescription: "Seja afiliado do iMenu e receba 50% de cada pagamento do iMenu Plus dos restaurantes que você indicar, incluindo as renovações.",
+        excerpt: "Indique o iMenu a restaurantes e receba 50% de todos os pagamentos do iMenu Plus das contas que você indicar. A comissão vale da primeira assinatura à última renovação.",
+        category: "Vendas",
+        readingTime: "2 min de leitura",
+        publishedAt: "2026-11-15",
+        updatedAt: "2026-11-15",
+    },
+    {
         slug: "integracao-ifood-imenu",
         title: "Integração iFood com iMenu: como receber e imprimir pedidos em um só painel",
         shortTitle: "Integração iFood no iMenu",

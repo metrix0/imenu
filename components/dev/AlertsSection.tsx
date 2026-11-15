@@ -1,5 +1,7 @@
 "use client";
 
+import { CollapsibleChevron, CollapsibleContent, useCollapsible } from "@/components/ui/CollapsibleSection";
+
 import { useEffect, useRef, useState } from "react";
 import styles from "./dashboard.module.css";
 import DevDialog from "./DevDialog";
@@ -72,6 +74,25 @@ function alertHttpStatus(alert: Alert) {
     if (alert.http_status != null) return alert.http_status;
     const match = alert.source === "gemini" ? /^Gemini HTTP (\d{3})/i.exec(alert.message) : null;
     return match ? Number(match[1]) : null;
+}
+
+function OriginalAlertMessage({ alert }: { alert: Alert }) {
+    const disclosure = useCollapsible();
+    return (
+        <div className="mt-4 border-t border-[#e2e5e9] pt-3 text-sm">
+            <button {...disclosure.triggerProps} className="flex cursor-pointer items-center text-gray-600">
+                <span className="relative flex h-5 w-4 shrink-0 items-center justify-center">
+                    <CollapsibleChevron expanded={disclosure.expanded} className="absolute" />
+                </span>
+                Ver mensagem original
+            </button>
+            <CollapsibleContent id={disclosure.contentId} expanded={disclosure.expanded}>
+                <div className="pt-2">
+                    <p className="whitespace-pre-wrap leading-6">{alert.title}{"\n"}{alert.message}</p>
+                </div>
+            </CollapsibleContent>
+        </div>
+    );
 }
 
 export default function AlertsSection({range, mode = "unread", refresh = 0, onMarkedRead}:{
@@ -203,10 +224,7 @@ export default function AlertsSection({range, mode = "unread", refresh = 0, onMa
                 <p>Status: {selected?.resolved_at?"Resolvido":selected?.trigger_type?"Em aberto":"Histórico"}</p>
                 <p>Notificado no celular: {selected?.phone_notified==null?"Não registrado":selected.phone_notified?"Sim":"Não"}</p>
             </div>
-            {selected && presentAlert(selected).technical && <details className="mt-4 border-t border-[#e2e5e9] pt-3 text-sm">
-                <summary className="cursor-pointer text-gray-600">Ver mensagem original</summary>
-                <p className="mt-2 whitespace-pre-wrap leading-6">{selected.title}{"\n"}{selected.message}</p>
-            </details>}
+            {selected && presentAlert(selected).technical && <OriginalAlertMessage key={selected.id} alert={selected} />}
             {selected?.delivery_error&&<p role="alert" className="text-red-700">{selected.delivery_error}</p>}
         </></DevDialog>
     </section>;

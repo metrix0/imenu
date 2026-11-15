@@ -112,6 +112,7 @@ export default function Footer() {
                     <h3 className="font-semibold text-gray-800 2xl:text-xl">Descubra</h3>
                     <Link href="/cardapio-digital" className="text-blue-500 underline text-sm 2xl:text-xl hover:text-blue-700 cursor-pointer w-fit">Top 5 Cardápios Digitais Grátis</Link>
                     <Link href="/blog" className="w-fit text-sm font-semibold text-brand transition-colors hover:text-brand/80 2xl:text-xl">Blog</Link>
+                    <Link href="/blog/programa-de-afiliados-imenu" className="w-fit text-sm font-semibold text-brand transition-colors hover:text-brand/80 2xl:text-xl">Torne-se um afiliado</Link>
                     <Link href="/ferramentas" className="w-fit text-sm font-semibold text-brand transition-colors hover:text-brand/80 2xl:text-xl">Ferramentas grátis</Link>
                 </div>
 

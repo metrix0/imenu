@@ -1,5 +1,5 @@
 import { query } from "@/lib/database/sql";
-import { executeSupportMcpTool, searchSupportKnowledge, SUPPORT_MCP_TOOLS } from "./supportMcp";
+import { executeSupportMcpTool, searchSupportKnowledge, SUPPORT_MCP_TOOLS, SUPPORT_MENU_LINK_TOOL } from "./supportMcp";
 
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn() }));
 jest.mock("@/lib/services/wahaClient", () => ({
@@ -126,5 +126,25 @@ describe("Pix payout expectation for support", () => {
             next_expected_cycle: null,
             pending_cycles: [{ estimated_net_cents: 1881 }],
         });
+    });
+});
+
+describe("public menu links for support", () => {
+    it("returns the canonical URL using the selected restaurant's stored slug", async () => {
+        mockedQuery
+            .mockResolvedValueOnce({ rows: [{ id: "conversation-1", restaurant_id: "restaurant-1" }] })
+            .mockResolvedValueOnce({ rows: [{ url_slug: "c-m-lanches" }] });
+
+        await expect(executeSupportMcpTool("conversation-1", SUPPORT_MENU_LINK_TOOL, { restaurant_id: "another-id" }))
+            .resolves.toEqual({ menu_url: "https://www.imenuapp.com.br/c-m-lanches" });
+        expect(mockedQuery).toHaveBeenNthCalledWith(2, expect.stringContaining("WHERE id = $1"), ["restaurant-1"]);
+    });
+
+    it("returns no URL when no restaurant is selected", async () => {
+        mockedQuery.mockResolvedValueOnce({ rows: [{ id: "conversation-1", restaurant_id: null }] });
+
+        await expect(executeSupportMcpTool("conversation-1", SUPPORT_MENU_LINK_TOOL, {}))
+            .resolves.toEqual({ menu_url: null });
+        expect(mockedQuery).toHaveBeenCalledTimes(1);
     });
 });
