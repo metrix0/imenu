@@ -6,7 +6,6 @@ import {
     PLUS_ABANDONED_BLAST_MESSAGE,
     SINGLE_ORDER_DAY_RECOVERY_MESSAGE,
 } from "./abandonedBlast";
-import { DID_NOT_ACTIVATE_BLAST_MESSAGE } from "./didNotActivateBlast";
 import { SUPPORT_CONVERSATION_VISIBLE_SQL } from "@/lib/services/supportExclusions";
 import { formatSignupOrigin } from "@/lib/analytics/signupOrigin";
 
@@ -221,10 +220,10 @@ function isCalendarDate(value: string): boolean {
 }
 
 const CHURN_BLAST_TEMPLATES = {
-    churned_plus: [PLUS_ABANDONED_BLAST_MESSAGE],
-    churned_imenu: [ABANDONED_BLAST_MESSAGE],
-    single_day: [SINGLE_ORDER_DAY_RECOVERY_MESSAGE],
-    not_activated: [NO_FIRST_ORDER_RECOVERY_MESSAGE, DID_NOT_ACTIVATE_BLAST_MESSAGE],
+    churned_plus: PLUS_ABANDONED_BLAST_MESSAGE,
+    churned_imenu: ABANDONED_BLAST_MESSAGE,
+    single_day: SINGLE_ORDER_DAY_RECOVERY_MESSAGE,
+    not_activated: NO_FIRST_ORDER_RECOVERY_MESSAGE,
 };
 
 function normalizedBlastMessage(message: string): string {
@@ -236,7 +235,7 @@ function blastMessagePattern(message: string): string {
         .map(part => part.replace(/[.*+?^$(){}|[\]\\]/g, "\\$&")).join(".{1,200}") + "$";
 }
 
-function churnBlastJoin(templatesParam: number, patternsParam: number, allTemplatesParam: number, allPatternsParam: number): string {
+function churnBlastJoin(templateParam: number, patternParam: number): string {
     return `LEFT JOIN LATERAL (
     WITH contact_phones AS (
         SELECT DISTINCT CASE
@@ -250,11 +249,10 @@ function churnBlastJoin(templatesParam: number, patternsParam: number, allTempla
         CROSS JOIN LATERAL (SELECT regexp_replace(COALESCE(contact.raw, ''), '[^0-9]', '', 'g') AS digits) normalized
         WHERE owned.id = r.id OR owned.user_id = r.user_id
     ), matching_campaigns AS (
-        SELECT campaign.id, campaign.status,
-               regexp_replace(BTRIM(campaign.message), '\\s+', ' ', 'g') = ANY($${templatesParam}::text[]) AS same_campaign
+        SELECT campaign.id, campaign.status
         FROM support_blast_campaigns campaign
         WHERE campaign.sender = 'blast'
-          AND regexp_replace(BTRIM(campaign.message), '\\s+', ' ', 'g') = ANY($${allTemplatesParam}::text[])
+          AND regexp_replace(BTRIM(campaign.message), '\\s+', ' ', 'g') = $${templateParam}::text
     ), history AS (
         SELECT CASE
             WHEN recipient.status = 'pending' AND campaign.status = 'paused' THEN 'paused'
@@ -267,7 +265,7 @@ function churnBlastJoin(templatesParam: number, patternsParam: number, allTempla
             ELSE recipient.attempted_at
         END AS event_at,
         COALESCE(recipient.sent_at, recipient.attempted_at, recipient.scheduled_at, recipient.created_at) AS sort_at,
-        recipient.error, campaign.same_campaign
+        recipient.error
         FROM matching_campaigns campaign
         JOIN support_blast_recipients recipient ON recipient.campaign_id = campaign.id
         WHERE (
@@ -283,13 +281,12 @@ function churnBlastJoin(templatesParam: number, patternsParam: number, allTempla
             OR (recipient.status IN ('pending', 'processing') AND campaign.status IN ('running', 'paused'))
         )
         UNION ALL
-        SELECT 'sent', message.created_at, message.created_at, NULL::text,
-               regexp_replace(BTRIM(message.body), '\\s+', ' ', 'g') ~ ANY($${patternsParam}::text[])
+        SELECT 'sent', message.created_at, message.created_at, NULL::text
         FROM support_messages message
         JOIN support_conversations c ON c.id = message.conversation_id
         WHERE c.chat_id LIKE 'imenu-blast:%' AND message.direction = 'outbound'
           AND message.send_status = 'sent' AND message.dedupe_key IS NULL
-          AND regexp_replace(BTRIM(message.body), '\\s+', ' ', 'g') ~ ANY($${allPatternsParam}::text[])
+          AND regexp_replace(BTRIM(message.body), '\\s+', ' ', 'g') ~ $${patternParam}::text
           AND (c.phone IN (SELECT phone FROM contact_phones)
                OR EXISTS (
                    SELECT 1 FROM restaurants contacted
@@ -297,9 +294,9 @@ function churnBlastJoin(templatesParam: number, patternsParam: number, allTempla
                      AND (contacted.id = r.id OR contacted.user_id = r.user_id)
                ))
     )
-    SELECT status, event_at, error, same_campaign
+    SELECT status, event_at, error
     FROM history
-    ORDER BY same_campaign DESC NULLS LAST, sort_at DESC NULLS LAST, (status = 'sent') DESC
+    ORDER BY sort_at DESC NULLS LAST, (status = 'sent') DESC
     LIMIT 1
 ) churn_blast ON TRUE`;
 }
@@ -365,14 +362,11 @@ export async function getCrm(params: URLSearchParams) {
     const listParams = isChurn ? [search, startDate, endDate] : [search];
     const limit = listParams.length + 1;
     const offset = limit + 1;
-    const blastTemplates = includeBlast && Object.hasOwn(CHURN_BLAST_TEMPLATES, activityKey)
-        ? CHURN_BLAST_TEMPLATES[activityKey as keyof typeof CHURN_BLAST_TEMPLATES].map(normalizedBlastMessage)
+    const blastTemplate = includeBlast && Object.hasOwn(CHURN_BLAST_TEMPLATES, activityKey)
+        ? normalizedBlastMessage(CHURN_BLAST_TEMPLATES[activityKey as keyof typeof CHURN_BLAST_TEMPLATES])
         : null;
-    const rowParams: (string | number | string[])[] = [...listParams, CRM_PAGE_SIZE, page * CRM_PAGE_SIZE];
-    if (blastTemplates) {
-        const allTemplates = Object.values(CHURN_BLAST_TEMPLATES).flat().map(normalizedBlastMessage);
-        rowParams.push(blastTemplates, blastTemplates.map(blastMessagePattern), allTemplates, allTemplates.map(blastMessagePattern));
-    }
+    const rowParams = [...listParams, CRM_PAGE_SIZE, page * CRM_PAGE_SIZE];
+    if (blastTemplate) rowParams.push(blastTemplate, blastMessagePattern(blastTemplate));
     const conditions = [
         `($1='' OR r.name ILIKE '%'||$1||'%' OR u.email ILIKE '%'||$1||'%' OR r.phone ILIKE '%'||$1||'%' OR r.store_whatsapp ILIKE '%'||$1||'%' OR u.raw_user_meta_data->>'phone' ILIKE '%'||$1||'%')`,
         ...(paidOnly ? [`(${PAID})`] : []),
@@ -400,7 +394,7 @@ export async function getCrm(params: URLSearchParams) {
         query(`${bounds} SELECT r.id,r.name,r.url_slug,r.created_at,COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),r.phone) phone,r.store_whatsapp AS store_phone,
             COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),NULLIF(TRIM(r.phone),'')) AS owner_phone,(${PLUS_SINCE}) AS plus_since,u.email,(${PAID}) AS has_paid,(${PLUS}) AS plus,
             COALESCE(gmv.gmv_cents,0) AS gmv_cents,support.conversation_id AS support_conversation_id,support.mode AS support_mode,support.last_message,support.last_message_at
-            ${blastTemplates ? ",churn_blast.status AS blast_status,churn_blast.event_at AS blast_at,churn_blast.error AS blast_error,churn_blast.same_campaign AS blast_same_campaign" : ""}
+            ${blastTemplate ? ",churn_blast.status AS blast_status,churn_blast.event_at AS blast_at,churn_blast.error AS blast_error" : ""}
             ${from}
             LEFT JOIN LATERAL (
                 SELECT COALESCE(SUM(o.total_cents),0)::bigint AS gmv_cents
@@ -409,7 +403,7 @@ export async function getCrm(params: URLSearchParams) {
                   AND o.status IS DISTINCT FROM 'pending_online_payment'
             ) gmv ON true
             ${LAST_SUPPORT_JOIN}
-            ${blastTemplates ? churnBlastJoin(offset + 1, offset + 2, offset + 3, offset + 4) : ""}
+            ${blastTemplate ? churnBlastJoin(offset + 1, offset + 2) : ""}
             WHERE ${where}
             ORDER BY ${orderBy} LIMIT $${limit} OFFSET $${offset}`, rowParams),
         query<{ total: number }>(`${bounds} SELECT COUNT(*)::int total ${from} WHERE ${where}`, listParams),

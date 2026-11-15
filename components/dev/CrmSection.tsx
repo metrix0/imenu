@@ -30,7 +30,6 @@ type CrmRow = Restaurant & {
     blast_status?: keyof typeof blastStatus | null;
     blast_at?: string | null;
     blast_error?: string | null;
-    blast_same_campaign?: boolean | null;
 };
 
 export function CrmList({ search = "", plan = "all", activity, title, range, showBlast = false, onTotalChange }: {
@@ -109,11 +108,11 @@ export function CrmList({ search = "", plan = "all", activity, title, range, sho
                     key: "blast", label: "Blast",
                     render: (row: CrmRow) => {
                         const status = row.blast_status && blastStatus[row.blast_status];
-                        if (!status) return <Badge variant="neutral" title="Sem registro de blast de recuperação para esta conta.">Ignorado</Badge>;
+                        if (!status) return <Badge variant="neutral" title="Sem registro deste Blast para esta conta.">Ignorado</Badge>;
                         const detail = row.blast_error || ("detail" in status ? status.detail : null);
                         const date = row.blast_at && row.blast_status !== "paused" ? formatDateTime(row.blast_at) : null;
                         return <Badge variant={status.variant}
-                            title={[row.blast_same_campaign === false && "Outra campanha de recuperação.", detail, date].filter(Boolean).join("\n") || undefined}>
+                            title={[detail, date].filter(Boolean).join("\n") || undefined}>
                             {status.label}
                         </Badge>;
                     },
