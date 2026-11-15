@@ -147,12 +147,13 @@ export default function RestaurantRegistrationPage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email: normalizedEmail }),
             });
-            const checkData = await check.json();
+            const checkData = await check.json().catch(() => null);
 
-            if (!check.ok) {
+            if (!check.ok || typeof checkData?.exists !== "boolean") {
                 throw new Error(
-                    checkData?.error ||
-                        "Não foi possível verificar este e-mail."
+                    typeof checkData?.error === "string"
+                        ? checkData.error
+                        : "Não foi possível verificar este e-mail. Tente novamente."
                 );
             }
 
