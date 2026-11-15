@@ -379,7 +379,7 @@ export default function PainelLayout({
         : isStoreOpenBySchedule(availability, scheduleNow) ? "open" : "scheduled-closed";
     const hasManualClosure = storeStatus === "manual";
     const canResumeSchedule = manuallyOpen || hasManualClosure;
-    const storeStatusLabel = manuallyOpen ? "Aberta manualmente até 23h59"
+    const storeStatusLabel = manuallyOpen ? "Aberta manualmente"
         : storeStatus === "manual" ? "Fechada manualmente"
         : storeStatus === "open" ? "Loja aberta" : "Loja fechada";
 
@@ -425,16 +425,16 @@ export default function PainelLayout({
                         {manuallyOpen
                             ? "Sua loja está aberta manualmente até 23h59."
                             : "Abra ou feche a loja temporariamente. A abertura manual vale até 23h59."}
-                        <span className="mt-3 block">
-                            Você pode abrir sua loja definindo horários na aba <PanelTabCard tab="horarios" inline />.
+                        <span className="-mx-4 mt-3 block text-xs leading-5 max-sm:text-[11px] max-sm:[&_a]:!gap-0.5 max-sm:[&_a]:!px-1 max-sm:[&_a_svg]:!size-3">
+                            Você pode abrir sua loja definindo horários <span className="whitespace-nowrap">na aba <PanelTabCard tab="horarios" inline />.</span>
                         </span>
                     </>
                 }
                 confirmLabel={hasManualClosure ? "Abrir loja hoje" : "Fechar loja hoje"}
                 variant="neutral"
-                confirmTone={hasManualClosure ? "success" : undefined}
+                confirmTone={hasManualClosure ? "success" : "danger"}
                 extraAction={canResumeSchedule
-                    ? { label: "Voltar aos horários normais", onClick: () => void handleStoreToggle("resume") }
+                    ? { label: "Voltar aos horários cadastrados", onClick: () => void handleStoreToggle("resume") }
                     : { label: "Abrir loja hoje", onClick: () => void handleStoreToggle("open"), tone: "success" }}
                 isLoading={isTogglingStore}
             />
@@ -489,7 +489,7 @@ export default function PainelLayout({
                                       : "bg-gray-400"
                             }`}
                         />
-                        {manuallyOpen ? "Aberta manualmente" : storeStatus === "manual"
+                        {manuallyOpen ? storeStatusLabel : storeStatus === "manual"
                             ? "Manual"
                             : storeStatus === "open"
                               ? "Aberta"

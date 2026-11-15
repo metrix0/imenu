@@ -17,7 +17,7 @@ interface ConfirmModalProps {
     cancelLabel?: string;
     isLoading?: boolean;
     extraAction?: { label: string; onClick: () => void; tone?: "success" };
-    confirmTone?: "success";
+    confirmTone?: "success" | "danger";
     variant?: "danger" | "primary" | "neutral";
 }
 
@@ -36,6 +36,7 @@ export default function ConfirmModal({
     variant = "danger"
 }: ConfirmModalProps) {
     const descriptionLength = typeof description === "string" ? description.trim().length : 0;
+    const actionTone = confirmTone ?? variant;
     const badgeStyle = {
         danger: "bg-red-100 text-red-600",
         primary: "bg-orange-100 text-brand",
@@ -98,10 +99,10 @@ export default function ConfirmModal({
                     </Button>
 
                     <Button 
-                        variant={confirmTone === "success" || variant === "primary" ? "primary" : "secondary"}
+                        variant={actionTone === "success" || actionTone === "primary" ? "primary" : "secondary"}
                         onClick={onConfirm}
                         loading={isLoading}
-                        className={`w-full sm:w-auto ${confirmTone === "success" ? successButtonClass : variant === "danger" ? "bg-red-600 text-white hover:bg-red-700 border-transparent" : ""}`}
+                        className={`w-full sm:w-auto ${actionTone === "success" ? successButtonClass : actionTone === "danger" ? "bg-red-600 text-white hover:bg-red-700 border-transparent" : ""}`}
                     >
                         {confirmLabel}
                     </Button>
