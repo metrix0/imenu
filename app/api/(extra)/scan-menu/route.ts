@@ -6,7 +6,10 @@ import { readPublicMenuLink, MenuLinkError, type MenuPhoto } from "@/lib/menu/re
 import { query } from "@/lib/database/sql";
 import { importMenuPhotos } from "@/lib/menu/importMenuPhotos";
 import { recordGeminiMenuFallback } from "@/lib/dev/health";
-import { menuScanFilePaths, menuScanLinkDomain, menuScanSourceUrl, recordMenuScan, type MenuScanDiagnostics } from "@/lib/menu/scanDiagnostics";
+import {
+    beginMenuScan, menuScanFilePaths, menuScanLinkDomain, menuScanSourceUrl,
+    recordMenuScan, recordMenuScanProgress, scanAttemptIdPattern, type MenuScanDiagnostics,
+} from "@/lib/menu/scanDiagnostics";
 
 export const runtime = "nodejs";
 
@@ -65,6 +68,7 @@ type ScanRequest = {
     urls: string[];
     restaurantId: string;
     menuUrl?: string;
+    attemptId?: string;
 };
 
 type ParsedMenu = {
@@ -882,6 +886,38 @@ function buildResponse(parsed: ParsedMenu, restaurantId: string) {
     return { items, categories };
 }
 
+export async function PATCH(request: Request) {
+    const payload = await request.json().catch(() => null);
+    const { restaurantId, attemptId, event, itemId, inputType, stage, reason } = payload ?? {};
+    const invalid = () => NextResponse.json({ error: "Evento de scan inválido." }, { status: 400 });
+    if (typeof restaurantId !== "string" || !scanAttemptIdPattern.test(restaurantId) ||
+        typeof attemptId !== "string" || !scanAttemptIdPattern.test(attemptId)) return invalid();
+
+    try {
+        await requireRestaurantOwner(request, restaurantId);
+        let recorded: boolean;
+        if (event === "viewed") {
+            recorded = await recordMenuScanProgress(restaurantId, attemptId, { event });
+        } else if (event === "saved" && typeof itemId === "string" && scanAttemptIdPattern.test(itemId)) {
+            recorded = await recordMenuScanProgress(restaurantId, attemptId, { event, itemId });
+        } else if (event === "interrupted" && (inputType === "files" || inputType === "link") &&
+            (stage === "analysis" || stage === "review" || stage === "saving") &&
+            (reason === "modal" || reason === "page" || reason === "retry" || reason === "back")) {
+            await recordMenuScanProgress(restaurantId, attemptId, { event, inputType, stage, reason });
+            recorded = true;
+        } else {
+            return invalid();
+        }
+        return recorded ? new NextResponse(null, { status: 204 })
+            : NextResponse.json({ error: "Etapa do scan indisponível." }, { status: 409 });
+    } catch (error) {
+        if (error instanceof RestaurantOwnerAuthError)
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        console.warn("[SCAN_MENU] Não foi possível registrar a etapa da importação.");
+        return NextResponse.json({ error: "Não foi possível registrar a etapa do scan." }, { status: 500 });
+    }
+}
+
 export async function POST(req: Request) {
     const geminiApiKey = process.env.GEMINI_API_KEY?.trim();
     const openAiApiKey = process.env.OPENAI_API_KEY?.trim();
@@ -890,7 +926,11 @@ export async function POST(req: Request) {
     let diagnostic: MenuScanDiagnostics | undefined;
     let isLinkImport = false;
     try {
-        const { urls, restaurantId, menuUrl } = (await req.json()) as ScanRequest;
+        const { urls, restaurantId, menuUrl, attemptId } = (await req.json()) as ScanRequest;
+
+        if (attemptId !== undefined && (typeof attemptId !== "string" || !scanAttemptIdPattern.test(attemptId))) {
+            return NextResponse.json({ error: "Tentativa de scan inválida." }, { status: 400 });
+        }
 
         if (!restaurantId) {
             return NextResponse.json(
@@ -902,13 +942,17 @@ export async function POST(req: Request) {
         await requireRestaurantOwner(req, restaurantId);
         diagnostic = {
             restaurantId, inputType: menuUrl === undefined ? "files" : "link",
-            outcome: "failed", elapsedMs: 0,
+            outcome: "failed", elapsedMs: 0, attemptId,
         };
         if (typeof menuUrl === "string") {
             diagnostic.linkDomain = menuScanLinkDomain(menuUrl);
             const sourceUrl = menuScanSourceUrl(menuUrl);
             if (sourceUrl) diagnostic.source = { url: sourceUrl };
+        } else if (Array.isArray(urls)) {
+            const files = menuScanFilePaths(urls.filter(url => typeof url === "string"));
+            if (files.length > 0) diagnostic.source = { files };
         }
+        await beginMenuScan(diagnostic);
         if (!geminiApiKey && !openAiApiKey) {
             diagnostic.errorCode = "providers_unconfigured";
             return NextResponse.json(
@@ -948,9 +992,6 @@ export async function POST(req: Request) {
                 { error: "Envie ao menos uma imagem ou PDF válido." },
                 { status: 400 }
             );
-        } else {
-            const files = menuScanFilePaths(urls);
-            if (files.length > 0) diagnostic.source = { files };
         }
 
         let parsed: ParsedMenu | undefined;

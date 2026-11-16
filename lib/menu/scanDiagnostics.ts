@@ -24,6 +24,7 @@ export function menuScanFilePaths(urls: string[]): string[] {
 export type MenuScanDiagnostics = {
     restaurantId: string;
     inputType: "link" | "files";
+    attemptId?: string;
     outcome: "success" | "empty" | "failed";
     geminiItems?: number;
     geminiError?: string;
@@ -84,6 +85,80 @@ function redactExcerpt(text: string): string | null {
     return excerpt.slice(0, 400) || null;
 }
 
+export const scanAttemptIdPattern = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+
+export async function beginMenuScan(diagnostic: MenuScanDiagnostics): Promise<void> {
+    if (!diagnostic.attemptId) return;
+
+    try {
+        await query(
+            `INSERT INTO public.menu_scan_events
+                (restaurant_id, input_type, outcome, elapsed_ms, attempt_id, link_domain, source)
+             VALUES ($1, $2, 'failed', 0, $3, $4, $5)
+             ON CONFLICT (restaurant_id, attempt_id) DO UPDATE SET
+                input_type = EXCLUDED.input_type, link_domain = EXCLUDED.link_domain, source = EXCLUDED.source
+             WHERE menu_scan_events.analysis_finished_at IS NULL`,
+            [diagnostic.restaurantId, diagnostic.inputType, diagnostic.attemptId,
+                diagnostic.linkDomain ?? null, diagnostic.source ?? null],
+        );
+    } catch {
+        console.warn("[SCAN_MENU] Não foi possível registrar o início da importação.");
+    }
+}
+
+type ScanProgress =
+    | { event: "viewed" }
+    | { event: "saved"; itemId: string }
+    | { event: "interrupted"; inputType: MenuScanDiagnostics["inputType"];
+        stage: "analysis" | "review" | "saving"; reason: "modal" | "page" | "retry" | "back" };
+
+export async function recordMenuScanProgress(
+    restaurantId: string, attemptId: string, progress: ScanProgress,
+): Promise<boolean> {
+    if (progress.event === "interrupted") {
+        const result = await query(
+            `INSERT INTO public.menu_scan_events AS scan
+                (restaurant_id, attempt_id, input_type, outcome, elapsed_ms,
+                 interrupted_at, interruption_stage, interruption_reason)
+             VALUES ($1, $2, $3, 'failed', 0, clock_timestamp(), $4, $5)
+             ON CONFLICT (restaurant_id, attempt_id) DO UPDATE SET
+                interrupted_at = EXCLUDED.interrupted_at, interruption_stage = EXCLUDED.interruption_stage,
+                interruption_reason = EXCLUDED.interruption_reason
+             WHERE scan.interrupted_at IS NULL AND scan.first_product_added_at IS NULL`,
+            [restaurantId, attemptId, progress.inputType, progress.stage, progress.reason],
+        );
+        return result.rowCount > 0;
+    }
+
+    if (progress.event === "viewed") {
+        const result = await query(
+            `UPDATE public.menu_scan_events
+             SET viewed_at = COALESCE(viewed_at, LEAST(clock_timestamp(), interrupted_at))
+             WHERE restaurant_id = $1 AND attempt_id = $2
+               AND outcome = 'success' AND analysis_finished_at IS NOT NULL
+               AND (interrupted_at IS NULL OR interruption_stage IN ('review', 'saving'))`,
+            [restaurantId, attemptId],
+        );
+        return result.rowCount > 0;
+    }
+
+    const result = await query(
+        `UPDATE public.menu_scan_events AS scan
+         SET viewed_at = COALESCE(scan.viewed_at, clock_timestamp()),
+             first_product_added_at = COALESCE(scan.first_product_added_at, clock_timestamp())
+         WHERE scan.restaurant_id = $1 AND scan.attempt_id = $2
+           AND scan.outcome = 'success' AND scan.analysis_finished_at IS NOT NULL
+           AND scan.interrupted_at IS NULL
+           AND EXISTS (
+               SELECT 1 FROM public.items item
+               WHERE item.id = $3 AND item.restaurant_id = scan.restaurant_id
+                 AND item.created_at >= scan.analysis_finished_at
+           )`,
+        [restaurantId, attemptId, progress.itemId],
+    );
+    return result.rowCount > 0;
+}
+
 export async function recordMenuScan(diagnostic: MenuScanDiagnostics): Promise<void> {
     const text = diagnostic.extractedText;
     const needsExcerpt = diagnostic.outcome !== "success" || diagnostic.geminiItems === 0 || diagnostic.openAiItems === 0;
@@ -91,13 +166,23 @@ export async function recordMenuScan(diagnostic: MenuScanDiagnostics): Promise<v
         await query(
             `INSERT INTO public.menu_scan_events
                 (restaurant_id, input_type, outcome, gemini_items, gemini_error, openai_items, openai_error,
-                 error_code, link_domain, extracted_chars, excerpt, elapsed_ms, source)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+                 error_code, link_domain, extracted_chars, excerpt, elapsed_ms, source, attempt_id, analysis_finished_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,
+                     CASE WHEN $14::uuid IS NOT NULL THEN clock_timestamp() END)
+             ON CONFLICT (restaurant_id, attempt_id) DO UPDATE SET
+                input_type = EXCLUDED.input_type, outcome = EXCLUDED.outcome, gemini_items = EXCLUDED.gemini_items,
+                gemini_error = EXCLUDED.gemini_error, openai_items = EXCLUDED.openai_items,
+                openai_error = EXCLUDED.openai_error, error_code = EXCLUDED.error_code,
+                link_domain = EXCLUDED.link_domain, extracted_chars = EXCLUDED.extracted_chars,
+                excerpt = EXCLUDED.excerpt, elapsed_ms = EXCLUDED.elapsed_ms, source = EXCLUDED.source,
+                analysis_finished_at = EXCLUDED.analysis_finished_at
+             WHERE menu_scan_events.analysis_finished_at IS NULL`,
             [diagnostic.restaurantId, diagnostic.inputType, diagnostic.outcome,
                 diagnostic.geminiItems ?? null, diagnostic.geminiError ?? null,
                 diagnostic.openAiItems ?? null, diagnostic.openAiError ?? null,
                 diagnostic.errorCode ?? null, diagnostic.linkDomain ?? null, text?.length ?? null,
-                needsExcerpt && text ? redactExcerpt(text) : null, diagnostic.elapsedMs, diagnostic.source ?? null],
+                needsExcerpt && text ? redactExcerpt(text) : null, diagnostic.elapsedMs, diagnostic.source ?? null,
+                diagnostic.attemptId ?? null],
         );
     } catch {
         console.warn("[SCAN_MENU] Não foi possível registrar o diagnóstico da importação.");

@@ -1,4 +1,4 @@
-import { GET, POST } from "./route";
+import { GET, PATCH, POST } from "./route";
 import { query } from "@/lib/database/sql";
 import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
 import { MenuLinkError, readPublicMenuLink } from "@/lib/menu/readPublicMenuLink";
@@ -372,4 +372,50 @@ it("preserves products when preparing source photos fails", async () => {
     expect((await response.json()).items).toEqual([
         expect.objectContaining({ name: "Suco", price_cents: 900, image_path: null }),
     ]);
+});
+
+const trackedRestaurant = "e5622834-472c-4727-94e3-40c064f5d67e";
+const trackedAttempt = "f1c1ab43-ac19-4e94-b392-0af627b81835";
+const newItem = "e9f9e97b-6733-4326-8426-d69564c670f4";
+const scanProgress = (progress: object) => new Request(url, {
+    method: "PATCH", headers: { Authorization: "Bearer test", "Content-Type": "application/json" },
+    body: JSON.stringify({ restaurantId: trackedRestaurant, attemptId: trackedAttempt, ...progress }),
+});
+
+it("records the start and provider result on the same tracked attempt", async () => {
+    setExistingItems(0);
+    (readPublicMenuLink as jest.Mock).mockResolvedValue({ text: "Suco R$ 9,00", images: [] });
+    mockOpenAiCreate.mockResolvedValue({ output_text: JSON.stringify({
+        items: [{ name: "Suco", price_cents: 900, category_name: "Bebidas" }],
+        categories: [{ name: "Bebidas" }],
+    }) });
+    const response = await POST(new Request(url, {
+        method: "POST", headers: { Authorization: "Bearer test", "Content-Type": "application/json" },
+        body: JSON.stringify({ restaurantId: trackedRestaurant, attemptId: trackedAttempt, menuUrl: "https://example.test/menu", urls: [] }),
+    }));
+    expect(response.status).toBe(200);
+    expect(diagnostics()).toHaveLength(2);
+    expect(diagnostics()[0][1].slice(0, 3)).toEqual([trackedRestaurant, "link", trackedAttempt]);
+    expect(diagnostics()[1][1].slice(0, 3)).toEqual([trackedRestaurant, "link", "success"]);
+    expect(diagnostics()[1][1][13]).toBe(trackedAttempt);
+});
+
+it("rejects tracking for a restaurant the caller does not own", async () => {
+    (requireRestaurantOwner as jest.Mock).mockRejectedValue(new RestaurantOwnerAuthError("Acesso negado.", 403));
+    expect((await PATCH(scanProgress({ event: "viewed" }))).status).toBe(403);
+    expect(query).not.toHaveBeenCalled();
+});
+
+it("rejects completion when no eligible new product was persisted", async () => {
+    (query as jest.Mock).mockResolvedValue({ rows: [], rowCount: 0 });
+    expect((await PATCH(scanProgress({ event: "saved", itemId: newItem }))).status).toBe(409);
+    expect(query).toHaveBeenCalledWith(expect.stringContaining("item.created_at >= scan.analysis_finished_at"),
+        [trackedRestaurant, trackedAttempt, newItem]);
+});
+
+it("records the interruption stage and accepts repeated delivery", async () => {
+    (query as jest.Mock).mockResolvedValue({ rows: [], rowCount: 0 });
+    expect((await PATCH(scanProgress({ event: "interrupted", inputType: "link", stage: "review", reason: "page" }))).status).toBe(204);
+    expect(query).toHaveBeenCalledWith(expect.stringContaining("scan.interrupted_at IS NULL"),
+        [trackedRestaurant, trackedAttempt, "link", "review", "page"]);
 });
