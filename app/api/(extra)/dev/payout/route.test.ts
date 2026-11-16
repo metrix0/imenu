@@ -6,6 +6,7 @@ import {
     getAsaasBalance,
     getPayoutDashboardData,
     markPayoutPaidManually,
+    retryFailedPayout,
     sendPayouts,
 } from "@/lib/services/payouts";
 import {
@@ -87,6 +88,23 @@ afterAll(() => {
     else process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = originalAnon;
     if (originalProductionUrl === undefined) delete process.env.IMENU_SUPPORT_PUBLIC_URL;
     else process.env.IMENU_SUPPORT_PUBLIC_URL = originalProductionUrl;
+});
+
+it.each([
+    [undefined, false],
+    ["true", false],
+    [true, true],
+])("requires an explicit boolean to confirm retry after a later payout (%j)", async (confirmedLaterPayout, expected) => {
+    (retryFailedPayout as jest.Mock).mockResolvedValue({ paidCount: 1 });
+
+    const response = await POST(new Request("https://example.com/api/dev/payout", {
+        method: "POST",
+        headers: { authorization: "Bearer token", "content-type": "application/json" },
+        body: JSON.stringify({ retryPayoutId: "original-payout", confirmedLaterPayout }),
+    }));
+
+    expect(response.status).toBe(200);
+    expect(retryFailedPayout).toHaveBeenCalledWith("original-payout", expected);
 });
 
 it("funds only the current Asaas shortfall through Mercado Pago", async () => {

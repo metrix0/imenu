@@ -9,6 +9,8 @@ import Card from "@/components/ui/Card";
 import Dropdown from "@/components/ui/Dropdown";
 import Loader from "@/components/ui/Loader";
 import Modal from "@/components/ui/Modal";
+import PayoutRetryDialog from "@/components/dev/PayoutRetryDialog";
+import { PAYOUT_RETRY_CONFIRMATION_REQUIRED } from "@/lib/services/payoutAutomation";
 import { supabase } from "@/lib/database/supabaseClient";
 
 const ALLOWED_DEV_EMAIL = "joaovralmeida@hotmail.com";
@@ -243,6 +245,10 @@ export default function DevPayoutPage() {
     const [sending, setSending] = useState(false);
     const [sendRestaurantId, setSendRestaurantId] = useState<string | null>(null);
     const [retryingPayoutId, setRetryingPayoutId] = useState<string | null>(null);
+    const [retryConfirmation, setRetryConfirmation] = useState<{
+        payout: HistoryItem;
+        warnAboutLaterPayout?: boolean;
+    } | null>(null);
     const [transferringPayzu, setTransferringPayzu] = useState(false);
     const [savingPixTypeId, setSavingPixTypeId] = useState<string | null>(null);
     const [error, setError] = useState("");
@@ -606,8 +612,10 @@ export default function DevPayoutPage() {
         }
     };
 
-    const handleRetryPayout = async (payoutId: string) => {
-        setRetryingPayoutId(payoutId);
+    const handleRetryPayout = async (confirmedLaterPayout: boolean) => {
+        if (!retryConfirmation || retryingPayoutId) return;
+        const { payout } = retryConfirmation;
+        setRetryingPayoutId(payout.id);
         setError("");
         setLastResult(null);
 
@@ -626,16 +634,22 @@ export default function DevPayoutPage() {
                     Authorization: `Bearer ${session.access_token}`,
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ retryPayoutId: payoutId }),
+                body: JSON.stringify({ retryPayoutId: payout.id, confirmedLaterPayout }),
             });
             const payload = await response.json();
             if (!response.ok) {
+                if (payload.code === PAYOUT_RETRY_CONFIRMATION_REQUIRED) {
+                    setRetryConfirmation({ payout, warnAboutLaterPayout: true });
+                    return;
+                }
                 throw new Error(payload.error || "Falha ao reenviar repasse.");
             }
 
             setLastResult(payload as SendResult);
+            setRetryConfirmation(null);
             await loadDashboard();
         } catch (caught) {
+            setRetryConfirmation(null);
             setError(
                 caught instanceof Error
                     ? caught.message
@@ -1311,7 +1325,7 @@ export default function DevPayoutPage() {
                                                     transferringPayzu ||
                                                     !data?.asaasConfigured
                                                 }
-                                                onClick={() => void handleRetryPayout(item.id)}
+                                                onClick={() => setRetryConfirmation({ payout: item })}
                                                 className="px-3 py-1.5 text-xs"
                                             >
                                                 Tentar novamente
@@ -1486,6 +1500,14 @@ export default function DevPayoutPage() {
                     </div>
                 )}
             </Card>
+
+            <PayoutRetryDialog
+                payout={retryConfirmation?.payout}
+                warnAboutLaterPayout={retryConfirmation?.warnAboutLaterPayout}
+                busy={Boolean(retryingPayoutId)}
+                onClose={() => setRetryConfirmation(null)}
+                onConfirm={confirmed => void handleRetryPayout(confirmed)}
+            />
 
             <Modal
                 height={580}
