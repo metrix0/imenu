@@ -2,10 +2,14 @@ import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { openAiAlertFetch } from "@/lib/services/openAiAlerts";
 import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
-import { readPublicMenuLink, MenuLinkError } from "@/lib/menu/readPublicMenuLink";
+import { readPublicMenuLink, MenuLinkError, type MenuPhoto } from "@/lib/menu/readPublicMenuLink";
 import { query } from "@/lib/database/sql";
+import { importMenuPhotos } from "@/lib/menu/importMenuPhotos";
 import { recordGeminiMenuFallback } from "@/lib/dev/health";
-import { menuScanFilePaths, menuScanLinkDomain, menuScanSourceUrl, recordMenuScan, type MenuScanDiagnostics } from "@/lib/menu/scanDiagnostics";
+import {
+    beginMenuScan, menuScanFileFingerprint, menuScanFilePaths, menuScanLinkDomain, menuScanSourceUrl,
+    readMenuScanRetryDraft, recordMenuScan, recordMenuScanProgress, scanAttemptIdPattern, type MenuScanDiagnostics,
+} from "@/lib/menu/scanDiagnostics";
 
 export const runtime = "nodejs";
 
@@ -64,6 +68,7 @@ type ScanRequest = {
     urls: string[];
     restaurantId: string;
     menuUrl?: string;
+    attemptId?: string;
 };
 
 type ParsedMenu = {
@@ -354,10 +359,7 @@ function parseMenuJson(outputText: string): ParsedMenu {
                     Number.isFinite(item.price_cents)
                         ? Math.max(0, Math.round(item.price_cents))
                         : null,
-                image_path:
-                    typeof item.image_path === "string"
-                        ? item.image_path
-                        : null,
+                image_path: null,
                 category_name:
                     typeof item.category_name === "string" &&
                     item.category_name.trim()
@@ -871,7 +873,7 @@ function buildResponse(parsed: ParsedMenu, restaurantId: string) {
         name: item.name,
         description: item.description,
         price_cents: item.price_cents,
-        image_path: null,
+        image_path: item.image_path,
         category_name: item.category_name,
         is_pizza_flavor: item.is_pizza_flavor,
         pizza_sizes: item.pizza_sizes,
@@ -884,6 +886,38 @@ function buildResponse(parsed: ParsedMenu, restaurantId: string) {
     return { items, categories };
 }
 
+export async function PATCH(request: Request) {
+    const payload = await request.json().catch(() => null);
+    const { restaurantId, attemptId, event, itemId, inputType, stage, reason } = payload ?? {};
+    const invalid = () => NextResponse.json({ error: "Evento de scan inválido." }, { status: 400 });
+    if (typeof restaurantId !== "string" || !scanAttemptIdPattern.test(restaurantId) ||
+        typeof attemptId !== "string" || !scanAttemptIdPattern.test(attemptId)) return invalid();
+
+    try {
+        await requireRestaurantOwner(request, restaurantId);
+        let recorded: boolean;
+        if (event === "viewed") {
+            recorded = await recordMenuScanProgress(restaurantId, attemptId, { event });
+        } else if (event === "saved" && typeof itemId === "string" && scanAttemptIdPattern.test(itemId)) {
+            recorded = await recordMenuScanProgress(restaurantId, attemptId, { event, itemId });
+        } else if (event === "interrupted" && (inputType === "files" || inputType === "link") &&
+            (stage === "analysis" || stage === "review" || stage === "saving") &&
+            (reason === "modal" || reason === "page" || reason === "retry" || reason === "back")) {
+            await recordMenuScanProgress(restaurantId, attemptId, { event, inputType, stage, reason });
+            recorded = true;
+        } else {
+            return invalid();
+        }
+        return recorded ? new NextResponse(null, { status: 204 })
+            : NextResponse.json({ error: "Etapa do scan indisponível." }, { status: 409 });
+    } catch (error) {
+        if (error instanceof RestaurantOwnerAuthError)
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        console.warn("[SCAN_MENU] Não foi possível registrar a etapa da importação.");
+        return NextResponse.json({ error: "Não foi possível registrar a etapa do scan." }, { status: 500 });
+    }
+}
+
 export async function POST(req: Request) {
     const geminiApiKey = process.env.GEMINI_API_KEY?.trim();
     const openAiApiKey = process.env.OPENAI_API_KEY?.trim();
@@ -892,7 +926,11 @@ export async function POST(req: Request) {
     let diagnostic: MenuScanDiagnostics | undefined;
     let isLinkImport = false;
     try {
-        const { urls, restaurantId, menuUrl } = (await req.json()) as ScanRequest;
+        const { urls, restaurantId, menuUrl, attemptId } = (await req.json()) as ScanRequest;
+
+        if (attemptId !== undefined && (typeof attemptId !== "string" || !scanAttemptIdPattern.test(attemptId))) {
+            return NextResponse.json({ error: "Tentativa de scan inválida." }, { status: 400 });
+        }
 
         if (!restaurantId) {
             return NextResponse.json(
@@ -901,16 +939,20 @@ export async function POST(req: Request) {
             );
         }
 
-        await requireRestaurantOwner(req, restaurantId);
+        const { user } = await requireRestaurantOwner(req, restaurantId);
         diagnostic = {
             restaurantId, inputType: menuUrl === undefined ? "files" : "link",
-            outcome: "failed", elapsedMs: 0,
+            outcome: "failed", elapsedMs: 0, attemptId,
         };
         if (typeof menuUrl === "string") {
             diagnostic.linkDomain = menuScanLinkDomain(menuUrl);
             const sourceUrl = menuScanSourceUrl(menuUrl);
             if (sourceUrl) diagnostic.source = { url: sourceUrl };
+        } else if (Array.isArray(urls)) {
+            const files = menuScanFilePaths(urls.filter(url => typeof url === "string"));
+            if (files.length > 0) diagnostic.source = { files };
         }
+        await beginMenuScan(diagnostic);
         if (!geminiApiKey && !openAiApiKey) {
             diagnostic.errorCode = "providers_unconfigured";
             return NextResponse.json(
@@ -926,6 +968,7 @@ export async function POST(req: Request) {
         const existingMenuContext = access.hasItems ? await getExistingMenuContext(restaurantId) : undefined;
 
         let pageText: string | undefined;
+        let photos: MenuPhoto[] = [];
         if (menuUrl !== undefined) {
             isLinkImport = true;
             if (typeof menuUrl !== "string" || (Array.isArray(urls) && urls.length > 0)) {
@@ -936,7 +979,9 @@ export async function POST(req: Request) {
                 );
             }
             const linkDiagnostic = diagnostic;
-            pageText = await readPublicMenuLink(menuUrl, text => { linkDiagnostic.extractedText = text; });
+            const page = await readPublicMenuLink(menuUrl, text => { linkDiagnostic.extractedText = text; });
+            pageText = page.text;
+            photos = page.images;
         } else if (
             !Array.isArray(urls) ||
             urls.length === 0 ||
@@ -947,9 +992,27 @@ export async function POST(req: Request) {
                 { error: "Envie ao menos uma imagem ou PDF válido." },
                 { status: 400 }
             );
-        } else {
-            const files = menuScanFilePaths(urls);
-            if (files.length > 0) diagnostic.source = { files };
+        }
+
+        let retryFingerprint: string | undefined;
+        const files = diagnostic.source && "files" in diagnostic.source ? diagnostic.source.files : [];
+        if (!isLinkImport && attemptId && user?.id && files.length === urls.length &&
+            urls.every(url => !/[?#]/.test(url))) {
+            try {
+                retryFingerprint = await menuScanFileFingerprint(user.id, files, existingMenuContext);
+                if (retryFingerprint) {
+                    const draft = await readMenuScanRetryDraft<ReturnType<typeof buildResponse>>(
+                        restaurantId, attemptId, retryFingerprint,
+                    );
+                    if (draft) {
+                        diagnostic.outcome = "success";
+                        diagnostic.reusedFromAttemptId = draft.attempt_id;
+                        return NextResponse.json(draft.result);
+                    }
+                }
+            } catch {
+                console.warn("[SCAN_MENU] Não foi possível recuperar o rascunho da importação.");
+            }
         }
 
         let parsed: ParsedMenu | undefined;
@@ -966,10 +1029,6 @@ export async function POST(req: Request) {
                 }
                 console.warn("[SCAN_MENU] Gemini failed; using OpenAI fallback:", diagnostic.geminiError);
                 fallbackReason = diagnostic.geminiError;
-            }
-            if (parsed?.items.length === 0 && openAiApiKey) {
-                console.warn("[SCAN_MENU] Gemini found zero products; trying OpenAI fallback");
-                fallbackReason = "Gemini não identificou produtos";
             }
         } else {
             diagnostic.geminiError = fallbackReason = "GEMINI_API_KEY ausente";
@@ -1006,9 +1065,16 @@ export async function POST(req: Request) {
             );
         }
 
-        const response = NextResponse.json(buildResponse(parsed, restaurantId));
+        if (photos.length) {
+            await importMenuPhotos(restaurantId, parsed.items, photos).catch(() => {
+                console.warn("[SCAN_MENU] Não foi possível preparar as fotos do cardápio.");
+            });
+        }
+        const result = buildResponse(parsed, restaurantId);
         diagnostic.outcome = "success";
-        return response;
+        // The interruption event can arrive just after the analysis finishes.
+        if (retryFingerprint) diagnostic.retryDraft = { fingerprint: retryFingerprint, result };
+        return NextResponse.json(result);
     } catch (error: unknown) {
         if (diagnostic && !diagnostic.errorCode) {
             diagnostic.errorCode = error instanceof MenuLinkError ? `link_http_${error.status}` : "scan_failed";

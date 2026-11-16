@@ -3,6 +3,7 @@
 import {
     type ChangeEvent,
     type DragEvent,
+    useCallback,
     useEffect,
     useMemo,
     useRef,
@@ -16,6 +17,7 @@ import Dropdown from "@/components/ui/Dropdown";
 import Toast from "@/components/ui/Toast";
 import LoadingBar from "@/components/ui/LoadingBar";
 import { uploadFullMenuImageAI } from "@/lib/database/uploadFullMenuImageAI";
+import { getMenuItemImageUrl } from "@/lib/menu/itemImages";
 import { arePizzaFlavorsCompatible, prepareScannedPizza, type ScannedPizzaOption } from "@/lib/menu/scannedPizza";
 import { parsePizzaSettings } from "@/lib/pizza/pricing";
 import Loader from "@/components/ui/Loader";
@@ -40,6 +42,32 @@ type ScannedResult = {
     items: ScannedItem[];
     categories: { name: string }[];
 };
+
+type ScanAttempt = {
+    id: string;
+    restaurantId: string;
+    inputType: "link" | "files";
+    stage: "analysis" | "review" | "saving";
+    headers?: Record<string, string>;
+};
+
+type ScanProgress =
+    | { event: "viewed" }
+    | { event: "saved"; itemId: string }
+    | { event: "interrupted"; reason: "modal" | "page" | "retry" | "back" };
+
+function trackScanProgress(attempt: ScanAttempt, progress: ScanProgress) {
+    if (!attempt.headers) return;
+    const { id, restaurantId, inputType, stage, headers } = attempt;
+    void fetch("/api/scan-menu", {
+        method: "PATCH",
+        headers,
+        keepalive: true,
+        body: JSON.stringify({ attemptId: id, restaurantId, inputType, stage, ...progress }),
+    }).then(response => {
+        if (!response.ok) console.warn("[SCAN_MENU] Etapa não registrada:", response.status);
+    }).catch(() => {});
+}
 
 type SelectedUpload = {
     id: string;
@@ -108,6 +136,7 @@ function ScanModal({
 }) {
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const previewUrlsRef = useRef<Set<string>>(new Set());
+    const scanAttempt = useRef<ScanAttempt | null>(null);
 
     const [uploads, setUploads] = useState<SelectedUpload[]>([]);
     const [menuUrl, setMenuUrl] = useState("");
@@ -134,6 +163,60 @@ function ScanModal({
             previewUrlsRef.current.clear();
         };
     }, []);
+
+    const interruptScan = useCallback((reason: "modal" | "page" | "retry" | "back") => {
+        const attempt = scanAttempt.current;
+        if (!attempt) return;
+        scanAttempt.current = null;
+        trackScanProgress(attempt, { event: "interrupted", reason });
+    }, []);
+
+    useEffect(() => {
+        function handlePageHide() {
+            if (!scanAttempt.current) return;
+            interruptScan("page");
+            setScanResult(null);
+            setIsScanning(false);
+        }
+
+        window.addEventListener("pagehide", handlePageHide);
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            const headers = scanAttempt.current?.headers;
+            if (headers && session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+        });
+        return () => {
+            subscription.unsubscribe();
+            window.removeEventListener("pagehide", handlePageHide);
+            interruptScan("page");
+        };
+    }, [interruptScan, restaurantId]);
+
+    useEffect(() => {
+        if (open) return;
+        interruptScan("modal");
+        setIsScanning(false);
+    }, [open, interruptScan]);
+
+    useEffect(() => {
+        if (!open || !scanResult) return;
+        const attempt = scanAttempt.current;
+        function markViewed() {
+            if (!attempt || scanAttempt.current !== attempt || attempt.stage !== "analysis" ||
+                document.visibilityState !== "visible") return;
+            attempt.stage = "review";
+            trackScanProgress(attempt, { event: "viewed" });
+        }
+
+        markViewed();
+        document.addEventListener("visibilitychange", markViewed);
+        return () => document.removeEventListener("visibilitychange", markViewed);
+    }, [open, scanResult]);
+
+    function handleClose() {
+        interruptScan("modal");
+        setIsScanning(false);
+        onClose();
+    }
 
     async function fetchScanAccess(): Promise<ScanAccess> {
         const { data: { session } } = await supabase.auth.getSession();
@@ -163,14 +246,14 @@ function ScanModal({
         return () => { active = false; };
     }, [open, restaurantId]);
 
-    async function loadExistingItems() {
+    async function loadExistingItems(attempt: ScanAttempt) {
         const { data, error } = await supabase.from("items")
             .select("id, name, description, price_cents, category_id")
             .eq("restaurant_id", restaurantId)
             .order("position")
             .limit(1000);
         if (error) throw error;
-        setExistingItems((data || []) as ExistingMenuItem[]);
+        if (scanAttempt.current === attempt) setExistingItems((data || []) as ExistingMenuItem[]);
     }
 
     function findExistingItem(item: ScannedItem, categoryName: string): ExistingMenuItem | undefined {
@@ -315,53 +398,62 @@ function ScanModal({
         }
     }
 
-    async function callAiScan(urls: string[], pastedMenuUrl?: string) {
+    async function runScan(urls: string[], pastedMenuUrl?: string) {
+        if (isScanning || isSaving) return;
+        interruptScan("retry");
+
+        const attempt: ScanAttempt = {
+            id: crypto.randomUUID(),
+            restaurantId,
+            inputType: pastedMenuUrl === undefined ? "files" : "link",
+            stage: "analysis",
+        };
+        scanAttempt.current = attempt;
         setIsScanning(true);
 
         try {
             const { data: { session } } = await supabase.auth.getSession();
+            if (scanAttempt.current !== attempt) return;
             if (!session?.access_token) throw new Error("Entre na sua conta para usar o scanner.");
-            const headers: Record<string, string> = {
+            attempt.headers = {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${session.access_token}`,
             };
             const response = await fetch("/api/scan-menu", {
                 method: "POST",
-                headers,
-                body: JSON.stringify({ restaurantId, urls, ...(pastedMenuUrl !== undefined ? { menuUrl: pastedMenuUrl } : {}) }),
+                headers: attempt.headers,
+                body: JSON.stringify({ restaurantId, urls, attemptId: attempt.id, menuUrl: pastedMenuUrl }),
             });
             const json = await response.json();
+            if (scanAttempt.current !== attempt) return;
 
             if (!response.ok) {
-                setToast({
-                    message: json?.error || "O Scan com IA falhou",
-                    type: "error",
-                });
-                return null;
+                scanAttempt.current = null;
+                setIsScanning(false);
+                setToast({ message: json?.error || "O Scan com IA falhou", type: "error" });
+                return;
             }
 
-            setToast({
-                message: "Scan com IA realizado",
-                type: "success",
-            });
+            setToast({ message: "Scan com IA realizado", type: "success" });
             scheduleToastClear();
-            return json as ScannedResult;
-        } catch (error: any) {
+            await showScanResult(json as ScannedResult, attempt);
+        } catch (error: unknown) {
+            if (scanAttempt.current !== attempt) return;
             console.error(error);
             setToast({
-                message: "AI scan error: " + (error?.message ?? error),
+                message: "AI scan error: " + (error instanceof Error ? error.message : String(error)),
                 type: "error",
             });
-            return null;
         } finally {
-            setIsScanning(false);
+            if (scanAttempt.current === attempt) setIsScanning(false);
         }
     }
 
-    async function showScanResult(aiResult: ScannedResult) {
+    async function showScanResult(aiResult: ScannedResult, attempt: ScanAttempt) {
         try {
-            await loadExistingItems();
+            await loadExistingItems(attempt);
         } catch (error) {
+            if (scanAttempt.current !== attempt) return;
             setToast({
                 message: "Não foi possível comparar com os produtos existentes: " +
                     (error instanceof Error ? error.message : String(error)),
@@ -369,6 +461,7 @@ function ScanModal({
             });
             return;
         }
+        if (scanAttempt.current !== attempt) return;
         setItemActions({});
         setScanResult(aiResult);
         const newMap: Record<string, CategoryMapping> = {};
@@ -392,8 +485,7 @@ function ScanModal({
                 });
                 return;
             }
-            const aiResult = await callAiScan([], menuUrl.trim());
-            if (aiResult) await showScanResult(aiResult);
+            await runScan([], menuUrl.trim());
             return;
         }
 
@@ -455,14 +547,13 @@ function ScanModal({
             `[SCAN_MENU] Sending ${publicUrls.length} of ${uploads.length} selected files`
         );
 
-        const aiResult = await callAiScan(publicUrls);
-        if (!aiResult) return;
-
-        await showScanResult(aiResult);
+        await runScan(publicUrls);
     }
 
     async function handleSaveAll() {
-        if (!scanResult || isSaving) return;
+        const attempt = scanAttempt.current;
+        if (!scanResult || !attempt || isSaving) return;
+        attempt.stage = "saving";
         setIsSaving(true);
 
         try {
@@ -486,6 +577,7 @@ function ScanModal({
                         name: item.name,
                         ...(item.description !== null ? { description: item.description } : {}),
                         ...(hasValidPrice ? { price_cents: price } : {}),
+                        ...(item.image_path ? { image_path: item.image_path } : {}),
                     })
                     .eq("restaurant_id", restaurantId).eq("id", original.id).select("id");
                 if (error || !data?.length) throw new Error(error?.message || `Não foi possível atualizar ${item.name}.`);
@@ -618,6 +710,11 @@ function ScanModal({
                 }
             }
 
+            if (scanAttempt.current !== attempt) return;
+            const firstCreatedItem = imported[0];
+            if (firstCreatedItem) trackScanProgress(attempt, { event: "saved", itemId: firstCreatedItem.itemId });
+            scanAttempt.current = null;
+
             setToast({
                 message: needsPizzaReview
                     ? "Cardápio importado. Revise os tamanhos e bordas dos sabores para ativar o Modo Pizza."
@@ -628,6 +725,7 @@ function ScanModal({
             onClose();
         } catch (error: unknown) {
             console.error(error);
+            if (scanAttempt.current !== attempt) return;
             setToast({
                 message: "Erro ao importar. Confira os itens já criados antes de tentar novamente: " +
                     (error instanceof Error ? error.message : String(error)),
@@ -635,6 +733,7 @@ function ScanModal({
             });
             scheduleToastClear(6000);
         } finally {
+            if (scanAttempt.current === attempt) attempt.stage = "review";
             onRefresh();
             setIsSaving(false);
         }
@@ -690,7 +789,7 @@ function ScanModal({
 
     return (
         <>
-            <Modal height={700} open={open && (access?.allowed === true || Boolean(accessError))} onClose={onClose}>
+            <Modal height={700} open={open && (access?.allowed === true || Boolean(accessError))} onClose={handleClose}>
                 <div className="p-6 w-full max-w-3xl 2xl:max-w-4xl overflow-y-auto">
                     {!access && !accessError && <div className="flex min-h-40 items-center justify-center"><Loader /></div>}
                     {accessError && <div className="space-y-4">
@@ -864,7 +963,7 @@ function ScanModal({
                             </div>
 
                             <div className="flex justify-end gap-2">
-                                <Button variant="secondary" onClick={onClose}>
+                                <Button variant="secondary" onClick={handleClose}>
                                     Cancelar
                                 </Button>
                                 <Button
@@ -1004,7 +1103,8 @@ function ScanModal({
                                                             <div className="w-24 h-24 rounded-xl overflow-hidden bg-gray-100 flex items-center justify-center">
                                                                 {item.image_path ? (
                                                                     <img
-                                                                        src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/full-menu-images-ai/${item.image_path}`}
+                                                                        src={getMenuItemImageUrl(supabase, item.image_path) ?? "/placeholders/item.png"}
+                                                                        loading="lazy"
                                                                         className="w-full h-full object-cover"
                                                                         alt={item.name}
                                                                     />
@@ -1028,6 +1128,7 @@ function ScanModal({
                                 <Button
                                     variant="secondary"
                                     onClick={() => {
+                                        interruptScan("back");
                                         setScanResult(null);
                                         resetUploads();
                                     }}

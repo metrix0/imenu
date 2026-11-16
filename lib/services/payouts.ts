@@ -5,7 +5,7 @@ import { setTimeout as delay } from "node:timers/promises";
 
 import { query, withTransaction } from "@/lib/database/sql";
 import { calculateOnePercentPayout, PAYOUT_MARGIN_MINUTES } from "@/lib/services/payoutSafety";
-import { getPayoutPixProblem } from "@/lib/services/payoutAutomation";
+import { getPayoutPixProblem, PAYOUT_RETRY_CONFIRMATION_REQUIRED } from "@/lib/services/payoutAutomation";
 
 const ASAAS_BASE_URL = (
     process.env.ASAAS_API_BASE_URL?.trim() || "https://api.asaas.com/v3"
@@ -1045,7 +1045,8 @@ export async function markPayoutPaidManually(input:
 }
 
 export async function retryFailedPayout(
-    payoutId: string
+    payoutId: string,
+    confirmedLaterPayout = false
 ): Promise<SendPayoutResult> {
     if (!getAsaasApiKey()) {
         throw new PayoutValidationError("ASAAS_API_KEY não configurada.", 503);
@@ -1145,10 +1146,11 @@ export async function retryFailedPayout(
         throw new PayoutValidationError("Valor de repasse inválido.", 400);
     }
 
-    if (payout.has_later_payout) {
+    if (payout.has_later_payout && !confirmedLaterPayout) {
         throw new PayoutValidationError(
             "Há outro repasse posterior para este restaurante. Confira o histórico antes de reenviar.",
-            409
+            409,
+            { code: PAYOUT_RETRY_CONFIRMATION_REQUIRED }
         );
     }
     if (
@@ -1205,7 +1207,7 @@ export async function retryFailedPayout(
     const pixKey = normalizePixKey(payout.payment_info!, keyType);
     const reset = await query<{ id: string }>(
         `
-        UPDATE public.payouts
+        UPDATE public.payouts p
         SET
             status = 'processing',
             paid_at = NULL,
@@ -1215,13 +1217,19 @@ export async function retryFailedPayout(
         WHERE id = $1
           AND status IN ('failed','cancelled')
           AND asaas_transfer_id IS NOT DISTINCT FROM $3
+          AND ($4::boolean OR NOT EXISTS (
+              SELECT 1 FROM public.payouts newer
+              WHERE newer.restaurant_id = p.restaurant_id
+                AND newer.id <> p.id
+                AND newer.created_at >= p.created_at
+          ))
         RETURNING id
         `,
-        [payout.id, pixKey, payout.asaas_transfer_id]
+        [payout.id, pixKey, payout.asaas_transfer_id, confirmedLaterPayout]
     );
     if (!reset.rows[0]) {
         throw new PayoutValidationError(
-            "O status do repasse mudou antes do reenvio. Atualize a página.",
+            "O histórico ou o status do repasse mudou. Atualize a página.",
             409
         );
     }

@@ -94,6 +94,7 @@ export async function POST(request: Request) {
         restaurantIds?: unknown;
         cutoffAt?: unknown;
         retryPayoutId?: unknown;
+        confirmedLaterPayout?: unknown;
         payoutId?: unknown;
         restaurantId?: unknown;
         expectedAmountCents?: unknown;
@@ -205,7 +206,9 @@ export async function POST(request: Request) {
         }
 
         if (retryPayoutId) {
-            return NextResponse.json(await retryFailedPayout(retryPayoutId));
+            return NextResponse.json(
+                await retryFailedPayout(retryPayoutId, body.confirmedLaterPayout === true)
+            );
         }
 
         const latestEligibleCutoff = getPayoutCutoffAt();

@@ -1,5 +1,6 @@
 import { query, withTransaction } from "@/lib/database/sql";
 import { getMercadoPagoPixPayment } from "@/lib/payments/mercadoPagoPix";
+import { PAYOUT_RETRY_CONFIRMATION_REQUIRED } from "@/lib/services/payoutAutomation";
 import { createPayoutPlan, isAsaasTransferSafeToRetry, markPayoutPaidManually, reconcileProcessingPayouts, retryFailedPayout } from "./payouts";
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn(), withTransaction: jest.fn() }));
 jest.mock("@/lib/payments/mercadoPagoPix", () => ({ getMercadoPagoPixPayment: jest.fn() }));
@@ -131,18 +132,20 @@ it("reconciles automation runs without looking for old failures to re-alert", as
 
 describe("retry failed payouts", () => {
     const originalAsaasKey = process.env.ASAAS_API_KEY;
+    let hasLaterPayout: boolean;
     const payout = {
         id: "payout-id", restaurant_id: "r", restaurant_name: "R",
         amount_cents: 4950, gross_cents: 5000, payzu_fee_cents: 50,
         order_count: 1, created_at: "2026-11-01T12:00:00Z",
-        has_later_payout: false, automation_run_id: null,
+        automation_run_id: null,
         asaas_transfer_id: null, payment_info: "pix@example.com", payment_info_type: "EMAIL",
     };
     beforeEach(() => {
         process.env.ASAAS_API_KEY = "test-key";
+        hasLaterPayout = false;
         (query as jest.Mock).mockImplementation(async (sql: string) => {
             if (sql.includes("WHERE p.id = $1") && sql.includes("p.gross_cents")) {
-                return { rows: [payout] };
+                return { rows: [{ ...payout, has_later_payout: hasLaterPayout }] };
             }
             if (sql.includes("jsonb_agg")) {
                 return { rows: [{
@@ -158,6 +161,30 @@ describe("retry failed payouts", () => {
         if (originalAsaasKey === undefined) delete process.env.ASAAS_API_KEY;
         else process.env.ASAAS_API_KEY = originalAsaasKey;
     });
+    it("requests a second confirmation when a later payout exists", async () => {
+        hasLaterPayout = true;
+        await expect(retryFailedPayout("payout-id")).rejects.toMatchObject({
+            status: 409,
+            details: { code: PAYOUT_RETRY_CONFIRMATION_REQUIRED },
+        });
+        expect(getMercadoPagoPixPayment).not.toHaveBeenCalled();
+        expect(query).not.toHaveBeenCalledWith(expect.stringContaining("status = 'processing',"), expect.anything());
+    });
+
+    it("revalidates the original charges after the second confirmation", async () => {
+        hasLaterPayout = true;
+        (getMercadoPagoPixPayment as jest.Mock).mockResolvedValue({
+            id: "123", externalReference: "order-1", status: "refunded",
+            paymentMethodId: "pix", amount: 50, feeCents: 50,
+        });
+
+        await expect(retryFailedPayout("payout-id", true)).rejects.toMatchObject({
+            status: 409,
+            details: { validationErrors: [expect.objectContaining({ orderId: "order-1" })] },
+        });
+        expect(getMercadoPagoPixPayment).toHaveBeenCalledWith({ id: "123" });
+    });
+
     it("blocks retry when Mercado Pago has refunded the original charge", async () => {
         (getMercadoPagoPixPayment as jest.Mock).mockResolvedValue({
             id: "123", externalReference: "order-1", status: "refunded",

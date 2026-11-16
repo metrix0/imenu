@@ -9,15 +9,16 @@ import Tabs from "@/components/ui/Tabs";
 import Tooltip from "@/components/ui/Tooltip";
 import Button from "@/components/ui/Button";
 import ConfirmModal from "@/components/ui/ConfirmModal";
+import PayoutRetryDialog from "./PayoutRetryDialog";
 import DataTable, { type TableColumn } from "@/components/ui/DataTable";
 import DevDialog from "./DevDialog";
 import DevLoading from "./DevLoading";
 import PagedTable, { type PageData } from "./PagedTable";
 import BlastAutomation from "./BlastAutomation";
-import { devJson } from "@/lib/dev/client";
+import { devJson, DevRequestError } from "@/lib/dev/client";
 import { formatCurrencyFromCents as money, formatDateTime } from "@/lib/dev/dashboardFormat";
 import { calculateOnePercentPayout, summarizeOnePercentPayouts } from "@/lib/services/payoutSafety";
-import { MISSING_PIX_TYPE_REASON, PAYOUT_BLAST_AUTOMATIONS } from "@/lib/services/payoutAutomation";
+import { MISSING_PIX_TYPE_REASON, PAYOUT_BLAST_AUTOMATIONS, PAYOUT_RETRY_CONFIRMATION_REQUIRED } from "@/lib/services/payoutAutomation";
 
 type Payable = { restaurantId: string; restaurantName: string; grossCents: number; payzuFeeCents: number; waitingGrossCents: number; canSend: boolean; pixKey: string | null; pixKeyType: string | null; nextEligibleAt: string | null };
 type PayoutRestaurantError = { restaurantId: string; restaurantName: string; orderId: string; paymentRef: string; grossCents: number; message: string };
@@ -185,7 +186,7 @@ export default function PayoutsSection() {
     const [message, setMessage] = useState("");
     const [sending, setSending] = useState(false);
     const [selectedRestaurantIds,setSelectedRestaurantIds] = useState<string[]>([]);
-    const [confirmation, setConfirmation] = useState<{ ids?: string[]; retry?: History } | null>(null);
+    const [confirmation, setConfirmation] = useState<{ ids?: string[]; retry?: History; warnAboutLaterPayout?: boolean } | null>(null);
     const [manualPayment, setManualPayment] = useState<{ payable?: Payable; payout?: History } | null>(null);
     useEffect(() => {
         const controller = new AbortController();
@@ -199,14 +200,29 @@ export default function PayoutsSection() {
     const selectedForBatch = eligible.filter(row=>selectedRestaurantIds.includes(row.restaurantId));
     const selected = eligible.filter(row=>confirmation?.ids?.includes(row.restaurantId));
     const selectedTotal = summarizeOnePercentPayouts(selectedForBatch).netCents;
-    async function send() {
-        if (!confirmation || !data || (!confirmation.retry && !selected.length)) return;
+    async function send(confirmedLaterPayout = false) {
+        if (sending || !confirmation || !data || (!confirmation.retry && !selected.length)) return;
+        const { retry } = confirmation;
         setSending(true); setError(""); setMessage("");
         try {
-            const result = await devJson<{ paidCount?: number; processingCount?: number; failedCount?: number; validationErrors?: PayoutRestaurantError[] }>("/api/dev/payout", { method: "POST", body: JSON.stringify(confirmation.retry ? { retryPayoutId: confirmation.retry.id } : { discountPercent: 1, adjustToOnePercent: true, restaurantIds: selected.map(row => row.restaurantId), cutoffAt: data.cutoffAt }) });
+            const body = retry
+                ? { retryPayoutId: retry.id, confirmedLaterPayout }
+                : { discountPercent: 1, adjustToOnePercent: true, restaurantIds: selected.map(row => row.restaurantId), cutoffAt: data.cutoffAt };
+            const result = await devJson<{ paidCount?: number; processingCount?: number; failedCount?: number; validationErrors?: PayoutRestaurantError[] }>(
+                "/api/dev/payout", { method: "POST", body: JSON.stringify(body) }
+            );
             setMessage(`${result.paidCount || 0} pagos · ${result.processingCount || 0} processando · ${result.failedCount || 0} com falha · ${result.validationErrors?.length || 0} pedidos excluídos por validação.`);
             setConfirmation(null); setRevision(r => r + 1);
-        } catch (e) { setError((e as Error).message); } finally { setSending(false); }
+        } catch (e) {
+            if (retry && e instanceof DevRequestError && e.code === PAYOUT_RETRY_CONFIRMATION_REQUIRED) {
+                setConfirmation({ retry, warnAboutLaterPayout: true });
+            } else {
+                if (retry) setConfirmation(null);
+                setError((e as Error).message);
+            }
+        } finally {
+            setSending(false);
+        }
     }
     async function markPaid() {
         if (!manualPayment || (!manualPayment.payout && (!manualPayment.payable || !data))) return;
@@ -282,7 +298,14 @@ export default function PayoutsSection() {
         </>}
         <Tabs tabs={["Histórico","Histórico por restaurante"]} active={historyTab} onChange={setHistoryTab}/><HistoryTable key={historyTab} section={historyTab==="Histórico"?"runs":"history"} revision={revision} onRetry={()=>undefined}/>
         <BlastAutomation automations={Object.values(PAYOUT_BLAST_AUTOMATIONS)} />
-        <ConfirmModal open={Boolean(confirmation)} onClose={() => { if (!sending) setConfirmation(null); }} onConfirm={() => void send()} isLoading={sending} variant="primary" title={confirmation?.retry ? "Confirmar reenvio do Pix" : "Confirmar repasse"} description={confirmation?.retry ? `Reenviar ${money(confirmation.retry.amount_cents)} para ${confirmation.retry.restaurant_name} usando os dados PIX atuais da loja? Antes do envio, o Asaas será consultado para confirmar que a transferência anterior não foi concluída.` : `Enviar ${money(selected.reduce((sum, row) => sum + net(row), 0))} para ${selected.length} restaurante(s), com desconto total de 1% do bruto.`} confirmLabel={confirmation?.retry ? "Confirmar reenvio" : "Confirmar e enviar"} />
+        <ConfirmModal open={Boolean(confirmation?.ids)} onClose={() => { if (!sending) setConfirmation(null); }} onConfirm={() => void send()} isLoading={sending} variant="primary" title="Confirmar repasse" description={`Enviar ${money(selected.reduce((sum, row) => sum + net(row), 0))} para ${selected.length} restaurante(s), com desconto total de 1% do bruto.`} confirmLabel="Confirmar e enviar" />
+        <PayoutRetryDialog
+            payout={confirmation?.retry}
+            warnAboutLaterPayout={confirmation?.warnAboutLaterPayout}
+            busy={sending}
+            onClose={() => setConfirmation(null)}
+            onConfirm={confirmed => void send(confirmed)}
+        />
         <ConfirmModal open={Boolean(manualPayment)} onClose={() => { if (!sending) setManualPayment(null); }} onConfirm={() => void markPaid()} isLoading={sending} variant="primary" title="Marcar repasse como pago?" description={`Confirma que ${manualName} já recebeu ${money(manualAmount)}? Essa ação registra o pagamento, sem enviar Pix pelo iMenu.`} confirmLabel="Sim, marcar como pago" />
     </>;
 }

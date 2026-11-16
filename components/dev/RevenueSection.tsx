@@ -39,6 +39,22 @@ const providerLabel = (value: string | null) => ({
     mercadopago: "Mercado Pago", asaas: "Asaas", payzu: "PayZu",
 }[value?.toLowerCase() as "mercadopago" | "asaas" | "payzu"] || value || "—");
 
+const asaasPaymentDateFormat = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "UTC",
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+});
+
+function formatPaymentDate(purchase: Purchase): string {
+    // Asaas calendar dates are stored as midnight UTC.
+    if (purchase.provider === "asaas" && /T00:00:00(?:\.0+)?Z$/.test(purchase.paidAt)) {
+        return asaasPaymentDateFormat.format(new Date(purchase.paidAt));
+    }
+
+    return formatDateTime(purchase.paidAt);
+}
+
 export default function RevenueSection() {
     const { openProfile } = useDevProfile();
     const [page, setPage] = useState(0);
@@ -89,7 +105,7 @@ export default function RevenueSection() {
                     columns={[
                         { key: "restaurant", label: "Restaurante", render: row => <button type="button" className={styles.profileLink} onClick={event => { event.stopPropagation(); openProfile({ id: row.restaurantId, name: row.restaurantName }); }} title={row.restaurantName}><span className="block max-w-72 truncate">{row.restaurantName}</span></button> },
                         { key: "type", label: "Tipo", className: "whitespace-nowrap", render: row => row.isRenewal ? "Renovação" : "Nova" },
-                        { key: "paidAt", label: "Pagamento", className: styles.dateCell, render: row => formatDateTime(row.paidAt) },
+                        { key: "paidAt", label: "Pagamento", className: styles.dateCell, render: formatPaymentDate },
                         { key: "purchaseElapsedSeconds", label: "Tempo até compra", className: "whitespace-nowrap", render: row => formatPurchaseElapsedTime(row.purchaseElapsedSeconds) },
                         { key: "method", label: "Método", className: "whitespace-nowrap", render: row => row.method },
                         { key: "amount", label: "Valor", className: styles.numericCell, render: row => formatCurrencyFromCents(row.amountCents) },

@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip } from "chart.js";
 import { Line } from "react-chartjs-2";
+import { faCircleInfo } from "@fortawesome/free-solid-svg-icons";
+import { PanelIcon } from "@/components/ui/PanelIcon";
+import InfoTooltip from "@/components/ui/Tooltip";
 import DataTable from "@/components/ui/DataTable";
 import Dropdown from "@/components/ui/Dropdown";
 import { CHART_BRAND, CHART_CATEGORY_AXIS, CHART_VALUE_AXIS, STANDARD_CHART_TOOLTIP, createBrandAreaGradient } from "@/components/restaurant-owner/exibicoes/chartStyles";
@@ -11,7 +14,7 @@ import PagedTable, { type PageData } from "./PagedTable";
 import DevLoading from "./DevLoading";
 import DevDialog from "./DevDialog";
 import { devJson } from "@/lib/dev/client";
-import { formatCurrencyFromCents, formatDateTime, formatCount, formatRatio } from "@/lib/dev/dashboardFormat";
+import { formatAverage, formatCurrencyFromCents, formatDateTime, formatCount, formatRatio } from "@/lib/dev/dashboardFormat";
 import { useDevProfile } from "./DevProfileProvider";
 import styles from "./dashboard.module.css";
 
@@ -38,15 +41,17 @@ type Missing = {
 };
 type MenuScans = {
     restaurantsTried: number;
+    restaurantsTracked: number;
     restaurantsCompleted: number;
     fallbackAttempts: number;
+    averageAnalysisMs: number | null;
     history: PageData<{
         id: string;
         restaurant_id: string;
         restaurant_name: string;
         created_at: string;
         input_type: "link" | "files";
-        outcome: "success" | "empty" | "failed";
+        outcome: keyof typeof scanOutcomes;
         items: number | null;
         provider: "Gemini" | "OpenAI" | null;
     }>;
@@ -57,7 +62,12 @@ type MenuScanDetails = {
     sourceUrl: string | null;
     linkDomain: string | null;
     files: { name: string; url: string | null }[];
-    elapsedMs: number;
+    elapsedMs: number | null;
+    viewedAt: string | null;
+    firstProductAddedAt: string | null;
+    interruptedAt: string | null;
+    interruptionStage: keyof typeof interruptionStages | null;
+    interruptionReason: keyof typeof interruptionReasons | null;
     geminiError: string | null;
     openAiError: string | null;
     excerpt: string | null;
@@ -65,9 +75,31 @@ type MenuScanDetails = {
 
 const scanOutcomes = {
     success: { label: "Concluído", variant: "success" },
-    empty: { label: "Sem produtos", variant: "warning" },
+    empty: { label: "Insuficiente", variant: "warning" },
     failed: { label: "Falhou", variant: "danger" },
+    interrupted: { label: "Interrompido", variant: "warning" },
+    analyzing: { label: "Em análise", variant: "neutral" },
+    awaiting_review: { label: "Aguardando visualização", variant: "neutral" },
+    reviewed: { label: "Visualizado", variant: "neutral" },
+    unconfirmed: { label: "Sem confirmação", variant: "neutral" },
 } as const;
+
+const interruptionStages = {
+    analysis: "Antes de visualizar o resultado",
+    review: "Na revisão dos produtos",
+    saving: "Durante a importação",
+} as const;
+
+const interruptionReasons = {
+    modal: "Fechou o modal",
+    page: "Saiu da página",
+    retry: "Iniciou outra análise",
+    back: "Voltou sem importar",
+} as const;
+
+const formatScanEventTime = (date: string) => new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short", timeStyle: "medium", timeZone: "America/Sao_Paulo",
+}).format(new Date(date));
 
 type OpenAiCosts =
     | { status: "unconfigured" | "unavailable" }
@@ -252,12 +284,27 @@ export default function QualityAssuranceSection() {
                                 <dd>{formatCount(scans.restaurantsTried)}</dd>
                             </div>
                             <div>
-                                <dt>Taxa de sucesso por restaurante</dt>
-                                <dd>{scans.restaurantsTried ? formatRatio(100 * scans.restaurantsCompleted / scans.restaurantsTried) : "—"}</dd>
+                                <dt className="flex items-center gap-1">
+                                    Taxa de sucesso por restaurante
+                                    <InfoTooltip size="medium" showOnClick portal
+                                        text="Entre os restaurantes com scan rastreado nos últimos 14 dias, conta quem visualizou o resultado e adicionou pelo menos um produto na mesma tentativa. Cada restaurante conta uma vez.">
+                                        <button type="button" aria-label="Informações sobre a taxa de sucesso"
+                                            className="inline-flex h-6 w-6 items-center justify-center text-gray-400 hover:text-brand">
+                                            <PanelIcon icon={faCircleInfo} className="h-3.5 w-3.5" />
+                                        </button>
+                                    </InfoTooltip>
+                                </dt>
+                                <dd>{scans.restaurantsTracked ? formatRatio(100 * scans.restaurantsCompleted / scans.restaurantsTracked) : "Sem dados"}</dd>
+                                {scans.restaurantsTracked > 0 && <p>{formatCount(scans.restaurantsCompleted)} de {formatCount(scans.restaurantsTracked)} restaurantes rastreados</p>}
                             </div>
                             <div>
                                 <dt>Taxa de fallback</dt>
                                 <dd>{scans.history.total ? formatRatio(100 * scans.fallbackAttempts / scans.history.total) : "—"}</dd>
+                            </div>
+                            <div>
+                                <dt>Tempo médio de análise da IA</dt>
+                                <dd>{scans.averageAnalysisMs == null ? "Sem dados" : formatAverage(scans.averageAnalysisMs / 1000) + " s"}</dd>
+                                <p>Últimos 14 dias · inclui preparo e fallback</p>
                             </div>
                         </dl>
                         <PagedTable data={scans.history} loading={scanLoading} onPage={setScanPage}
@@ -272,7 +319,7 @@ export default function QualityAssuranceSection() {
                                 </button> },
                                 { key: "input", label: "Origem", render: row => row.input_type === "link" ? "Link" : "Foto / PDF" },
                                 { key: "outcome", label: "Resultado", render: row => <Badge variant={scanOutcomes[row.outcome].variant}>{scanOutcomes[row.outcome].label}</Badge> },
-                                { key: "items", label: "Produtos", render: row => row.items == null ? "—" : formatCount(row.items) },
+                                { key: "items", label: "Identificados", render: row => row.items == null ? "—" : formatCount(row.items) },
                                 { key: "provider", label: "IA", render: row => row.provider ?? "—" },
                             ]} />
                     </>}
@@ -386,10 +433,17 @@ function MenuScanDialog({ scan, onClose }: { scan: MenuScanRow; onClose: () => v
                 <span>{scan.input_type === "link" ? "Link" : "Foto / PDF"}</span>
                 {scan.items != null && <span>· {formatCount(scan.items)} produtos</span>}
                 {scan.provider && <span>· {scan.provider}</span>}
-                {details && <span>· {(details.elapsedMs / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} s</span>}
+                {details?.elapsedMs != null && <span>· {(details.elapsedMs / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} s</span>}
             </div>
             {failed ? <p role="alert" className="text-red-700">Não foi possível carregar os detalhes do scan.</p>
                 : !details ? <DevLoading /> : <>
+                    {details.viewedAt && <p><strong>Resultado visualizado</strong> · {formatScanEventTime(details.viewedAt)}</p>}
+                    {details.firstProductAddedAt && <p><strong>Importação confirmada</strong> · {formatScanEventTime(details.firstProductAddedAt)}</p>}
+                    {details.interruptedAt && <p>
+                        <strong>Interrompido</strong> · {formatScanEventTime(details.interruptedAt)}
+                        {details.interruptionStage && " · " + interruptionStages[details.interruptionStage]}
+                        {details.interruptionReason && " · " + interruptionReasons[details.interruptionReason]}
+                    </p>}
                     <section className="space-y-2">
                         <h3 className="font-semibold">Fonte do scan</h3>
                         {details.sourceUrl ? <a href={details.sourceUrl} target="_blank" rel="noopener noreferrer"

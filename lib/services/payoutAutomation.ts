@@ -1,3 +1,5 @@
+export const PAYOUT_RETRY_CONFIRMATION_REQUIRED = "PAYOUT_RETRY_CONFIRMATION_REQUIRED";
+
 export const MISSING_PIX_KEY_REASON = "Chave PIX não cadastrada.";
 export const MISSING_PIX_TYPE_REASON = "Tipo de PIX não cadastrado.";
 

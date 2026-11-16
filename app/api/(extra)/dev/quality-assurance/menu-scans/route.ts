@@ -11,14 +11,29 @@ const PAGE_SIZE = 10;
 
 const scansSql = `
     WITH recent AS (
-        SELECT id, restaurant_id, created_at, input_type, outcome, gemini_items, openai_items, openai_error
+        SELECT id, restaurant_id, created_at, input_type, attempt_id, gemini_items, openai_items, openai_error,
+            CASE WHEN elapsed_ms > 0 AND (attempt_id IS NULL OR analysis_finished_at IS NOT NULL)
+                AND (gemini_items IS NOT NULL OR gemini_error IS NOT NULL OR openai_items IS NOT NULL OR openai_error IS NOT NULL)
+                THEN elapsed_ms
+            END AS analysis_elapsed_ms,
+            CASE
+                WHEN interrupted_at IS NOT NULL THEN 'interrupted'
+                WHEN attempt_id IS NULL AND outcome = 'success' THEN 'unconfirmed'
+                WHEN attempt_id IS NOT NULL AND analysis_finished_at IS NULL THEN 'analyzing'
+                WHEN outcome IN ('failed', 'empty') THEN outcome
+                WHEN viewed_at IS NOT NULL AND first_product_added_at IS NOT NULL THEN 'success'
+                WHEN viewed_at IS NOT NULL THEN 'reviewed'
+                ELSE 'awaiting_review'
+            END AS status
         FROM public.menu_scan_events
         WHERE created_at >= NOW() - INTERVAL '14 days'
     ), summary AS (
         SELECT COUNT(*)::int AS total,
             COUNT(*) FILTER (WHERE openai_items IS NOT NULL OR openai_error IS NOT NULL)::int AS fallback_attempts,
             COUNT(DISTINCT restaurant_id)::int AS restaurants_tried,
-            COUNT(DISTINCT restaurant_id) FILTER (WHERE outcome = 'success')::int AS restaurants_completed
+            COUNT(DISTINCT restaurant_id) FILTER (WHERE attempt_id IS NOT NULL)::int AS restaurants_tracked,
+            COUNT(DISTINCT restaurant_id) FILTER (WHERE status = 'success')::int AS restaurants_completed,
+            AVG(analysis_elapsed_ms)::double precision AS average_analysis_ms
         FROM recent
     )
     SELECT summary.*, history.rows
@@ -27,8 +42,8 @@ const scansSql = `
         SELECT COALESCE(jsonb_agg(to_jsonb(scan) ORDER BY scan.created_at DESC, scan.id::bigint DESC), '[]'::jsonb) AS rows
         FROM (
             SELECT scan.id::text AS id, scan.restaurant_id, COALESCE(restaurant.name, 'Restaurante') AS restaurant_name,
-                scan.created_at, scan.input_type, scan.outcome,
-                CASE WHEN scan.outcome = 'success' THEN COALESCE(scan.openai_items, scan.gemini_items) END AS items,
+                scan.created_at, scan.input_type, scan.status AS outcome,
+                COALESCE(scan.openai_items, scan.gemini_items) AS items,
                 CASE WHEN scan.openai_items IS NOT NULL OR scan.openai_error IS NOT NULL THEN 'OpenAI'
                      WHEN scan.gemini_items IS NOT NULL THEN 'Gemini' END AS provider
             FROM (
@@ -43,7 +58,9 @@ type ScanHistoryResult = {
     total: number;
     fallback_attempts: number;
     restaurants_tried: number;
+    restaurants_tracked: number;
     restaurants_completed: number;
+    average_analysis_ms: number | null;
     rows: {
         id: string;
         created_at: string;
@@ -60,14 +77,21 @@ type ScanDetails = {
     link_domain: string | null;
     source_url: string | null;
     files: { path: string; available: boolean }[];
-    elapsed_ms: number;
+    elapsed_ms: number | null;
+    viewed_at: string | null;
+    first_product_added_at: string | null;
+    interrupted_at: string | null;
+    interruption_stage: "analysis" | "review" | "saving" | null;
+    interruption_reason: "modal" | "page" | "retry" | "back" | null;
     gemini_error: string | null;
     openai_error: string | null;
     excerpt: string | null;
 };
 
 const scanDetailsSql = `
-    SELECT scan.link_domain, scan.source->>'url' AS source_url, scan.elapsed_ms,
+    SELECT scan.link_domain, scan.source->>'url' AS source_url,
+        CASE WHEN scan.attempt_id IS NULL OR scan.analysis_finished_at IS NOT NULL THEN scan.elapsed_ms END AS elapsed_ms,
+        scan.viewed_at, scan.first_product_added_at, scan.interrupted_at, scan.interruption_stage, scan.interruption_reason,
         scan.gemini_error, scan.openai_error, scan.excerpt,
         COALESCE((
             SELECT jsonb_agg(jsonb_build_object('path', file.path, 'available', object.id IS NOT NULL)
@@ -97,6 +121,11 @@ async function getScanDetails(scanId: string) {
                 : null,
         })),
         elapsedMs: scan.elapsed_ms,
+        viewedAt: scan.viewed_at,
+        firstProductAddedAt: scan.first_product_added_at,
+        interruptedAt: scan.interrupted_at,
+        interruptionStage: scan.interruption_stage,
+        interruptionReason: scan.interruption_reason,
         geminiError: scan.gemini_error,
         openAiError: scan.openai_error,
         excerpt: scan.excerpt,
@@ -116,8 +145,10 @@ export async function GET(request: Request) {
         const { rows: [result] } = await query<ScanHistoryResult>(scansSql, [PAGE_SIZE, page * PAGE_SIZE]);
         return NextResponse.json({
             restaurantsTried: result.restaurants_tried,
+            restaurantsTracked: result.restaurants_tracked,
             restaurantsCompleted: result.restaurants_completed,
             fallbackAttempts: result.fallback_attempts,
+            averageAnalysisMs: result.average_analysis_ms,
             history: paged(result.rows, result.total, page, PAGE_SIZE),
         }, { headers: { "Cache-Control": "no-store" } });
     } catch (error) {
