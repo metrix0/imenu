@@ -115,6 +115,49 @@ async function notifyPayoutAlarm({
     }
 }
 
+async function alarmOverduePayoutFailures(runId: string, runDate: string): Promise<void> {
+    try {
+        const { rows } = await query<{
+            restaurant_name: string;
+            amount_cents: number;
+            payout_date: string;
+            total: number;
+        }>(
+            `SELECT COALESCE(NULLIF(BTRIM(r.name), ''), 'Restaurante') AS restaurant_name,
+                    p.amount_cents, to_char(p.created_at AT TIME ZONE $2, 'DD/MM/YYYY') AS payout_date,
+                    COUNT(*) OVER ()::int AS total
+             FROM public.payouts p
+             LEFT JOIN public.restaurants r ON r.id = p.restaurant_id
+             WHERE p.status IN ('failed', 'cancelled')
+               AND p.order_count > 0
+               AND p.amount_cents > 0
+               AND p.created_at < ($1::date::timestamp AT TIME ZONE $2)
+             ORDER BY p.created_at, p.id
+             LIMIT 10`,
+            [runDate, BUSINESS_TIME_ZONE]
+        );
+        if (rows.length === 0) return;
+
+        const amount = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+        const details = rows.map(row =>
+            row.payout_date + " · " + row.restaurant_name + " · " + amount.format(row.amount_cents / 100)
+        );
+        const total = rows[0].total;
+        if (total > rows.length) details.push("+ " + (total - rows.length) + " repasse(s)");
+
+        await sendNtfyNotification({
+            source: "cron/daily-payout",
+            operation: "Repasses antigos com falha",
+            trigger: "alarm",
+            incidentKey: "payout:overdue:" + runId,
+            title: "ALARM TRIGGER - iMenu: repasses antigos com falha",
+            message: total + " repasse(s) de dias anteriores com pedidos seguem em falha.\n" + details.join("\n"),
+        });
+    } catch (error) {
+        console.error("[DAILY_PAYOUT] Falha ao verificar ou alertar sobre repasses antigos:", error);
+    }
+}
+
 async function markRunFailed(
     runId: string,
     step: AutomationStep,
@@ -236,6 +279,7 @@ export async function GET(request: Request) {
 
         currentStep = "payzu";
         await reconcileProcessingPayouts();
+        await alarmOverduePayoutFailures(runId, runDate);
 
         currentStep = "adjustment";
         const plan = await createPayoutPlan({

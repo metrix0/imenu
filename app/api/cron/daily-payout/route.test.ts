@@ -166,3 +166,29 @@ test("records an empty payout day without raising an alarm", async () => {
     expect(sendNtfyNotification).toHaveBeenCalledTimes(1);
     expect(sendNtfyNotification).toHaveBeenCalledWith(expect.objectContaining({ trigger: "none" }));
 });
+
+test("alarms for overdue payouts with orders even on a day with no new payouts", async () => {
+    const originalQuery = (query as jest.Mock).getMockImplementation()!;
+    (query as jest.Mock).mockImplementation(async (sql: string, values: unknown[]) => {
+        if (sql.includes("COUNT(*) OVER ()")) {
+            return { rows: [{
+                restaurant_name: "Melkis Monte Mor", amount_cents: 11978, payout_date: "15/11/2026", total: 1,
+            }] };
+        }
+        return originalQuery(sql, values);
+    });
+    (createPayoutPlan as jest.Mock).mockResolvedValue({
+        payables: [], sendable: [], validationErrors: [],
+        grossCents: 0, payzuFeeCents: 0, discountCents: 0, totalNetCents: 0,
+    });
+
+    await GET(request());
+
+    expect(sendNtfyNotification).toHaveBeenCalledWith(expect.objectContaining({
+        trigger: "alarm",
+        incidentKey: "payout:overdue:run-1",
+        message: expect.stringContaining("15/11/2026 · Melkis Monte Mor"),
+    }));
+    expect(notifyPayoutProblem).not.toHaveBeenCalled();
+    expect(sendPayouts).not.toHaveBeenCalled();
+});
