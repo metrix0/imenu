@@ -1030,10 +1030,6 @@ export async function POST(req: Request) {
                 console.warn("[SCAN_MENU] Gemini failed; using OpenAI fallback:", diagnostic.geminiError);
                 fallbackReason = diagnostic.geminiError;
             }
-            if (parsed?.items.length === 0 && openAiApiKey) {
-                console.warn("[SCAN_MENU] Gemini found zero products; trying OpenAI fallback");
-                fallbackReason = "Gemini não identificou produtos";
-            }
         } else {
             diagnostic.geminiError = fallbackReason = "GEMINI_API_KEY ausente";
         }

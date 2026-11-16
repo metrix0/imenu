@@ -103,17 +103,14 @@ it("does not disclose access for another restaurant owner", async () => {
     expect(query).not.toHaveBeenCalled();
 });
 
-it("retries a hydrated public menu with OpenAI when Gemini returns no products", async () => {
+it("retries a hydrated public menu with OpenAI when Gemini returns HTTP 503", async () => {
     setExistingItems(0);
     process.env.GEMINI_API_KEY = "test-gemini-key";
     (readPublicMenuLink as jest.Mock).mockResolvedValue({ text: "Churros tradicionais: Nutella (Original) R$ 19,00", images: [] });
 
     const previousFetch = global.fetch;
     const geminiFetch = jest.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-            candidates: [{ content: { parts: [{ text: JSON.stringify({ items: [], categories: [] }) }] } }],
-        }),
+        ok: false, status: 503, text: async () => "Service unavailable",
     });
     global.fetch = geminiFetch as unknown as typeof fetch;
     mockOpenAiCreate.mockResolvedValue({
@@ -138,7 +135,7 @@ it("retries a hydrated public menu with OpenAI when Gemini returns no products",
         expect(payload.items[0].price_cents).toBe(1900);
         expect(readPublicMenuLink).toHaveBeenCalledTimes(1);
         expect(diagnostics()).toHaveLength(1);
-        expect(diagnostics()[0][1].slice(0,7)).toEqual([restaurantId, "link", "success", 0, null, 1, null]);
+        expect(diagnostics()[0][1].slice(0,7)).toEqual([restaurantId, "link", "success", null, "Gemini HTTP 503", 1, null]);
         expect(diagnostics()[0][1][12]).toEqual({ url: "https://example.test/menu" });
         expect(geminiFetch).toHaveBeenCalledTimes(1);
         expect(mockOpenAiCreate).toHaveBeenCalledTimes(1);
@@ -157,7 +154,7 @@ it("retries a hydrated public menu with OpenAI when Gemini returns no products",
                 },
             },
         }));
-        expect(recordGeminiMenuFallback).toHaveBeenCalledWith("Gemini não identificou produtos");
+        expect(recordGeminiMenuFallback).toHaveBeenCalledWith("Gemini HTTP 503");
     } finally {
         global.fetch = previousFetch;
     }
@@ -260,7 +257,7 @@ it("records short extracted text on link failure and redacts contact and URL det
     expect(mockOpenAiCreate).not.toHaveBeenCalled();
 });
 
-it("records both zero outcomes when neither provider recovers a link", async () => {
+it("records an empty result without calling OpenAI when Gemini finds zero items", async () => {
     setExistingItems(0);
     process.env.GEMINI_API_KEY = "test-gemini-key";
     (readPublicMenuLink as jest.Mock).mockImplementation(async (_url, onExtracted) => {
@@ -272,12 +269,13 @@ it("records both zero outcomes when neither provider recovers a link", async () 
     global.fetch = jest.fn().mockResolvedValue({
         ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: empty }] } }] }),
     }) as unknown as typeof fetch;
-    mockOpenAiCreate.mockResolvedValue({ output_text: empty });
     try {
         expect((await POST(submitLink())).status).toBe(422);
+        expect(mockOpenAiCreate).not.toHaveBeenCalled();
+        expect(recordGeminiMenuFallback).not.toHaveBeenCalled();
         expect(diagnostics()).toHaveLength(1);
         expect(diagnostics()[0][1].slice(2,11)).toEqual([
-            "empty", 0, null, 0, null, "no_products", "example.test", 20, "Carregando cardápio.",
+            "empty", 0, null, null, null, "no_products", "example.test", 20, "Carregando cardápio.",
         ]);
     } finally {
         global.fetch = previousFetch;
