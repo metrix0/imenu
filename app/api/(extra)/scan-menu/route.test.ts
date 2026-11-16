@@ -419,3 +419,109 @@ it("records the interruption stage and accepts repeated delivery", async () => {
     expect(query).toHaveBeenCalledWith(expect.stringContaining("scan.interrupted_at IS NULL"),
         [trackedRestaurant, trackedAttempt, "link", "review", "page"]);
 });
+
+const retryUploadOwner = "099de995-c717-4cc5-9bcc-c744a702669c";
+const retryStorage = "https://storage.example.test";
+const retryUploadPath = "2b8d3c6c-7545-4cc1-be37-9911aac77558-menu.pdf";
+const retryOriginalAttempt = "72ce4307-3e13-4f41-b3a7-909155ff1876";
+const fileMetadata = { etag: '"a8cfb0e4c0bd45cbbb08686865b3b137"', mime: "application/pdf", size: "710", pdf: true };
+
+describe("interrupted file retry drafts", () => {
+    const trackedFile = () => new Request(url, {
+        method: "POST", headers: { Authorization: "Bearer test", "Content-Type": "application/json" },
+        body: JSON.stringify({
+            restaurantId: trackedRestaurant, attemptId: trackedAttempt,
+            urls: [retryStorage + "/storage/v1/object/public/full-menu-images-ai/" + retryUploadPath],
+        }),
+    });
+    const priorStorage = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+    beforeEach(() => {
+        process.env.NEXT_PUBLIC_SUPABASE_URL = retryStorage;
+        (requireRestaurantOwner as jest.Mock).mockResolvedValue({ user: { id: retryUploadOwner } });
+    });
+
+    afterEach(() => {
+        if (priorStorage === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+        else process.env.NEXT_PUBLIC_SUPABASE_URL = priorStorage;
+    });
+
+    function mockDraftQueries(draft?: { attempt_id: string; result: object }) {
+        setExistingItems(0);
+        const defaultQuery = (query as jest.Mock).getMockImplementation()!;
+        (query as jest.Mock).mockImplementation(async (sql, params) => {
+            if (sql.includes("FROM unnest")) return { rows: [fileMetadata] };
+            if (sql.includes("SELECT retry_result AS result")) return { rows: draft ? [draft] : [] };
+            return defaultQuery(sql, params);
+        });
+    }
+
+    it("returns the previous result on a new attempt without either model and keeps the original draft", async () => {
+        process.env.GEMINI_API_KEY = "test-gemini-key";
+        const providerFetch = jest.spyOn(global, "fetch");
+        const result = { items: [{ name: "Suco", price_cents: 900 }], categories: [] };
+        mockDraftQueries({ attempt_id: retryOriginalAttempt, result });
+
+        const response = await POST(trackedFile());
+        expect(response.status).toBe(200);
+        expect(await response.json()).toEqual(result);
+        expect(providerFetch).not.toHaveBeenCalled();
+        expect(mockOpenAiCreate).not.toHaveBeenCalled();
+        expect(recordGeminiMenuFallback).not.toHaveBeenCalled();
+        expect(query).toHaveBeenCalledWith(expect.stringContaining("object.owner_id = $3"),
+            [[retryUploadPath], "full-menu-images-ai", retryUploadOwner]);
+        expect(query).toHaveBeenCalledWith(expect.stringContaining("interruption_reason IN ('modal', 'page')"),
+            [trackedRestaurant, trackedAttempt, expect.stringMatching(/^[0-9a-f]{64}$/), "15 minutes"]);
+        expect(diagnostics()[1][1].slice(2, 7)).toEqual(["success", null, null, null, null]);
+        expect(diagnostics()[1][1].slice(14)).toEqual([null, null, retryOriginalAttempt]);
+    });
+
+    it.each([true, false])("stages only successful fresh results (products: %s)", async foundProducts => {
+        mockDraftQueries();
+        mockOpenAiCreate.mockResolvedValue({ output_text: JSON.stringify({
+            items: foundProducts ? [{ name: "Suco", price_cents: 900, category_name: "Bebidas" }] : [],
+            categories: [],
+        }) });
+
+        const response = await POST(trackedFile());
+        expect(response.status).toBe(foundProducts ? 200 : 422);
+        const payload = await response.json();
+        expect(mockOpenAiCreate).toHaveBeenCalledTimes(1);
+        expect(diagnostics()[1][1].slice(14)).toEqual(foundProducts
+            ? [expect.stringMatching(/^[0-9a-f]{64}$/), payload, null]
+            : [null, null, null]);
+    });
+
+    it("scopes the fingerprint to owned file content, file order and menu context", async () => {
+        const { menuScanFileFingerprint } = await import("@/lib/menu/scanDiagnostics");
+        const other = { ...fileMetadata, etag: '"00000000000000000000000000000000"' };
+        const sql = query as jest.Mock;
+        sql.mockResolvedValueOnce({ rows: [fileMetadata, other] });
+        const initial = await menuScanFileFingerprint(retryUploadOwner, ["a.pdf", "b.pdf"], "context");
+        sql.mockResolvedValueOnce({ rows: [fileMetadata, other] });
+        expect(await menuScanFileFingerprint(retryUploadOwner, ["c.pdf", "d.pdf"], "context")).toBe(initial);
+        sql.mockResolvedValueOnce({ rows: [fileMetadata, other, fileMetadata] });
+        expect(await menuScanFileFingerprint(retryUploadOwner, ["a.pdf", "b.pdf", "c.pdf"], "context")).toBe(initial);
+        sql.mockResolvedValueOnce({ rows: [other, fileMetadata] });
+        expect(await menuScanFileFingerprint(retryUploadOwner, ["b.pdf", "a.pdf"], "context")).not.toBe(initial);
+        sql.mockResolvedValueOnce({ rows: [fileMetadata, other] });
+        expect(await menuScanFileFingerprint(retryUploadOwner, ["a.pdf", "b.pdf"], "new context")).not.toBe(initial);
+        sql.mockResolvedValueOnce({ rows: [fileMetadata] });
+        expect(await menuScanFileFingerprint(retryUploadOwner, ["a.pdf", "unavailable.pdf"], "context")).toBeUndefined();
+    });
+
+    it("continues with fresh analysis if the draft lookup fails", async () => {
+        mockDraftQueries();
+        const defaultQuery = (query as jest.Mock).getMockImplementation()!;
+        (query as jest.Mock).mockImplementation(async (sql, params) => {
+            if (sql.includes("SELECT retry_result AS result")) throw new Error("database unavailable");
+            return defaultQuery(sql, params);
+        });
+        mockOpenAiCreate.mockResolvedValue({ output_text: JSON.stringify({
+            items: [{ name: "Suco", price_cents: 900 }], categories: [],
+        }) });
+
+        expect((await POST(trackedFile())).status).toBe(200);
+        expect(mockOpenAiCreate).toHaveBeenCalledTimes(1);
+    });
+});

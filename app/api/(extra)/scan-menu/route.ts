@@ -7,8 +7,8 @@ import { query } from "@/lib/database/sql";
 import { importMenuPhotos } from "@/lib/menu/importMenuPhotos";
 import { recordGeminiMenuFallback } from "@/lib/dev/health";
 import {
-    beginMenuScan, menuScanFilePaths, menuScanLinkDomain, menuScanSourceUrl,
-    recordMenuScan, recordMenuScanProgress, scanAttemptIdPattern, type MenuScanDiagnostics,
+    beginMenuScan, menuScanFileFingerprint, menuScanFilePaths, menuScanLinkDomain, menuScanSourceUrl,
+    readMenuScanRetryDraft, recordMenuScan, recordMenuScanProgress, scanAttemptIdPattern, type MenuScanDiagnostics,
 } from "@/lib/menu/scanDiagnostics";
 
 export const runtime = "nodejs";
@@ -939,7 +939,7 @@ export async function POST(req: Request) {
             );
         }
 
-        await requireRestaurantOwner(req, restaurantId);
+        const { user } = await requireRestaurantOwner(req, restaurantId);
         diagnostic = {
             restaurantId, inputType: menuUrl === undefined ? "files" : "link",
             outcome: "failed", elapsedMs: 0, attemptId,
@@ -992,6 +992,27 @@ export async function POST(req: Request) {
                 { error: "Envie ao menos uma imagem ou PDF válido." },
                 { status: 400 }
             );
+        }
+
+        let retryFingerprint: string | undefined;
+        const files = diagnostic.source && "files" in diagnostic.source ? diagnostic.source.files : [];
+        if (!isLinkImport && attemptId && user?.id && files.length === urls.length &&
+            urls.every(url => !/[?#]/.test(url))) {
+            try {
+                retryFingerprint = await menuScanFileFingerprint(user.id, files, existingMenuContext);
+                if (retryFingerprint) {
+                    const draft = await readMenuScanRetryDraft<ReturnType<typeof buildResponse>>(
+                        restaurantId, attemptId, retryFingerprint,
+                    );
+                    if (draft) {
+                        diagnostic.outcome = "success";
+                        diagnostic.reusedFromAttemptId = draft.attempt_id;
+                        return NextResponse.json(draft.result);
+                    }
+                }
+            } catch {
+                console.warn("[SCAN_MENU] Não foi possível recuperar o rascunho da importação.");
+            }
         }
 
         let parsed: ParsedMenu | undefined;
@@ -1053,9 +1074,11 @@ export async function POST(req: Request) {
                 console.warn("[SCAN_MENU] Não foi possível preparar as fotos do cardápio.");
             });
         }
-        const response = NextResponse.json(buildResponse(parsed, restaurantId));
+        const result = buildResponse(parsed, restaurantId);
         diagnostic.outcome = "success";
-        return response;
+        // The interruption event can arrive just after the analysis finishes.
+        if (retryFingerprint) diagnostic.retryDraft = { fingerprint: retryFingerprint, result };
+        return NextResponse.json(result);
     } catch (error: unknown) {
         if (diagnostic && !diagnostic.errorCode) {
             diagnostic.errorCode = error instanceof MenuLinkError ? `link_http_${error.status}` : "scan_failed";
