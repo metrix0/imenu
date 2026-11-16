@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { openAiAlertFetch } from "@/lib/services/openAiAlerts";
 import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
-import { readPublicMenuLink, MenuLinkError } from "@/lib/menu/readPublicMenuLink";
+import { readPublicMenuLink, MenuLinkError, type MenuPhoto } from "@/lib/menu/readPublicMenuLink";
 import { query } from "@/lib/database/sql";
+import { importMenuPhotos } from "@/lib/menu/importMenuPhotos";
 import { recordGeminiMenuFallback } from "@/lib/dev/health";
 import { menuScanFilePaths, menuScanLinkDomain, menuScanSourceUrl, recordMenuScan, type MenuScanDiagnostics } from "@/lib/menu/scanDiagnostics";
 
@@ -354,10 +355,7 @@ function parseMenuJson(outputText: string): ParsedMenu {
                     Number.isFinite(item.price_cents)
                         ? Math.max(0, Math.round(item.price_cents))
                         : null,
-                image_path:
-                    typeof item.image_path === "string"
-                        ? item.image_path
-                        : null,
+                image_path: null,
                 category_name:
                     typeof item.category_name === "string" &&
                     item.category_name.trim()
@@ -871,7 +869,7 @@ function buildResponse(parsed: ParsedMenu, restaurantId: string) {
         name: item.name,
         description: item.description,
         price_cents: item.price_cents,
-        image_path: null,
+        image_path: item.image_path,
         category_name: item.category_name,
         is_pizza_flavor: item.is_pizza_flavor,
         pizza_sizes: item.pizza_sizes,
@@ -926,6 +924,7 @@ export async function POST(req: Request) {
         const existingMenuContext = access.hasItems ? await getExistingMenuContext(restaurantId) : undefined;
 
         let pageText: string | undefined;
+        let photos: MenuPhoto[] = [];
         if (menuUrl !== undefined) {
             isLinkImport = true;
             if (typeof menuUrl !== "string" || (Array.isArray(urls) && urls.length > 0)) {
@@ -936,7 +935,9 @@ export async function POST(req: Request) {
                 );
             }
             const linkDiagnostic = diagnostic;
-            pageText = await readPublicMenuLink(menuUrl, text => { linkDiagnostic.extractedText = text; });
+            const page = await readPublicMenuLink(menuUrl, text => { linkDiagnostic.extractedText = text; });
+            pageText = page.text;
+            photos = page.images;
         } else if (
             !Array.isArray(urls) ||
             urls.length === 0 ||
@@ -1006,6 +1007,11 @@ export async function POST(req: Request) {
             );
         }
 
+        if (photos.length) {
+            await importMenuPhotos(restaurantId, parsed.items, photos).catch(() => {
+                console.warn("[SCAN_MENU] Não foi possível preparar as fotos do cardápio.");
+            });
+        }
         const response = NextResponse.json(buildResponse(parsed, restaurantId));
         diagnostic.outcome = "success";
         return response;

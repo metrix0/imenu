@@ -3,6 +3,7 @@ import { query } from "@/lib/database/sql";
 import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
 import { MenuLinkError, readPublicMenuLink } from "@/lib/menu/readPublicMenuLink";
 import { recordGeminiMenuFallback } from "@/lib/dev/health";
+import { importMenuPhotos } from "@/lib/menu/importMenuPhotos";
 
 const mockOpenAiCreate = jest.fn();
 jest.mock("openai", () => ({
@@ -18,6 +19,7 @@ jest.mock("@/lib/menu/readPublicMenuLink", () => ({
     },
 }));
 
+jest.mock("@/lib/menu/importMenuPhotos", () => ({ importMenuPhotos: jest.fn() }));
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn() }));
 jest.mock("@/lib/dev/health", () => ({ recordGeminiMenuFallback: jest.fn().mockResolvedValue(undefined) }));
 jest.mock("@/lib/auth/restaurantOwner", () => {
@@ -104,7 +106,7 @@ it("does not disclose access for another restaurant owner", async () => {
 it("retries a hydrated public menu with OpenAI when Gemini returns no products", async () => {
     setExistingItems(0);
     process.env.GEMINI_API_KEY = "test-gemini-key";
-    (readPublicMenuLink as jest.Mock).mockResolvedValue("Churros tradicionais: Nutella (Original) R$ 19,00");
+    (readPublicMenuLink as jest.Mock).mockResolvedValue({ text: "Churros tradicionais: Nutella (Original) R$ 19,00", images: [] });
 
     const previousFetch = global.fetch;
     const geminiFetch = jest.fn().mockResolvedValue({
@@ -184,7 +186,7 @@ it("honors the OpenAI model override when Gemini is unavailable", async () => {
 it("records a Gemini rate-limit fallback without exposing the response body", async () => {
     setExistingItems(0);
     process.env.GEMINI_API_KEY = "test-gemini-key";
-    (readPublicMenuLink as jest.Mock).mockResolvedValue("Suco R$ 9,00");
+    (readPublicMenuLink as jest.Mock).mockResolvedValue({ text: "Suco R$ 9,00", images: [] });
     const previousFetch = global.fetch;
     global.fetch = jest.fn().mockResolvedValue({
         ok: false, status: 429, text: async () => "Too many requests",
@@ -212,7 +214,7 @@ it("records a Gemini rate-limit fallback without exposing the response body", as
 it("falls back to OpenAI when the Gemini request times out", async () => {
     setExistingItems(0);
     process.env.GEMINI_API_KEY = "test-gemini-key";
-    (readPublicMenuLink as jest.Mock).mockResolvedValue("Suco R$ 9,00");
+    (readPublicMenuLink as jest.Mock).mockResolvedValue({ text: "Suco R$ 9,00", images: [] });
     const geminiFetch = jest.spyOn(globalThis, "fetch").mockRejectedValue(
         new DOMException("The operation was aborted due to timeout", "TimeoutError"),
     );
@@ -263,7 +265,7 @@ it("records both zero outcomes when neither provider recovers a link", async () 
     process.env.GEMINI_API_KEY = "test-gemini-key";
     (readPublicMenuLink as jest.Mock).mockImplementation(async (_url, onExtracted) => {
         onExtracted("Carregando cardápio.");
-        return "Carregando cardápio.";
+        return { text: "Carregando cardápio.", images: [] };
     });
     const previousFetch = global.fetch;
     const empty = JSON.stringify({ items: [], categories: [] });
@@ -324,4 +326,50 @@ it.each([
     expect((await POST(submitLink(input))).status).toBe(400);
     expect(diagnostics()).toHaveLength(1);
     expect(diagnostics()[0][1][12]).toEqual(expectedSource);
+});
+
+it("returns only photos matched to source product images for link scans", async () => {
+    setExistingItems(0);
+    const images = [{ url: "https://images.example.test/suco.png", names: ["Suco"], area: 6400 }];
+    (readPublicMenuLink as jest.Mock).mockResolvedValue({ text: "Suco R$ 9,00", images });
+    mockOpenAiCreate.mockResolvedValue({
+        output_text: JSON.stringify({
+            items: [
+                { name: "Suco", price_cents: 900, category_name: "Bebidas" },
+                { name: "Café", price_cents: 500, category_name: "Bebidas", image_path: "untrusted/model-path" },
+            ],
+            categories: [{ name: "Bebidas" }],
+        }),
+    });
+    (importMenuPhotos as jest.Mock).mockImplementation(async (_restaurant, items) => {
+        expect(items[1].image_path).toBeNull();
+        items[0].image_path = "menu-images/restaurant-1/suco.webp";
+    });
+
+    const response = await POST(submitLink());
+    expect(response.status).toBe(200);
+    expect((await response.json()).items).toEqual([
+        expect.objectContaining({ name: "Suco", image_path: "menu-images/restaurant-1/suco.webp" }),
+        expect.objectContaining({ name: "Café", image_path: null }),
+    ]);
+    expect(importMenuPhotos).toHaveBeenCalledWith(restaurantId, expect.any(Array), images);
+});
+
+it("preserves products when preparing source photos fails", async () => {
+    setExistingItems(0);
+    const images = [{ url: "https://images.example.test/suco.png", names: ["Suco"], area: 6400 }];
+    (readPublicMenuLink as jest.Mock).mockResolvedValue({ text: "Suco R$ 9,00", images });
+    mockOpenAiCreate.mockResolvedValue({
+        output_text: JSON.stringify({
+            items: [{ name: "Suco", price_cents: 900 }],
+            categories: [],
+        }),
+    });
+    (importMenuPhotos as jest.Mock).mockRejectedValue(new Error("Storage unavailable"));
+
+    const response = await POST(submitLink());
+    expect(response.status).toBe(200);
+    expect((await response.json()).items).toEqual([
+        expect.objectContaining({ name: "Suco", price_cents: 900, image_path: null }),
+    ]);
 });

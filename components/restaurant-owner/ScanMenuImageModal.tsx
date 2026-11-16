@@ -16,6 +16,7 @@ import Dropdown from "@/components/ui/Dropdown";
 import Toast from "@/components/ui/Toast";
 import LoadingBar from "@/components/ui/LoadingBar";
 import { uploadFullMenuImageAI } from "@/lib/database/uploadFullMenuImageAI";
+import { getMenuItemImageUrl } from "@/lib/menu/itemImages";
 import { arePizzaFlavorsCompatible, prepareScannedPizza, type ScannedPizzaOption } from "@/lib/menu/scannedPizza";
 import { parsePizzaSettings } from "@/lib/pizza/pricing";
 import Loader from "@/components/ui/Loader";
@@ -486,6 +487,7 @@ function ScanModal({
                         name: item.name,
                         ...(item.description !== null ? { description: item.description } : {}),
                         ...(hasValidPrice ? { price_cents: price } : {}),
+                        ...(item.image_path ? { image_path: item.image_path } : {}),
                     })
                     .eq("restaurant_id", restaurantId).eq("id", original.id).select("id");
                 if (error || !data?.length) throw new Error(error?.message || `Não foi possível atualizar ${item.name}.`);
@@ -1004,7 +1006,8 @@ function ScanModal({
                                                             <div className="w-24 h-24 rounded-xl overflow-hidden bg-gray-100 flex items-center justify-center">
                                                                 {item.image_path ? (
                                                                     <img
-                                                                        src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/full-menu-images-ai/${item.image_path}`}
+                                                                        src={getMenuItemImageUrl(supabase, item.image_path) ?? "/placeholders/item.png"}
+                                                                        loading="lazy"
                                                                         className="w-full h-full object-cover"
                                                                         alt={item.name}
                                                                     />
