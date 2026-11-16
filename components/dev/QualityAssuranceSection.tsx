@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip } from "chart.js";
 import { Line } from "react-chartjs-2";
+import { faCircleInfo } from "@fortawesome/free-solid-svg-icons";
+import { PanelIcon } from "@/components/ui/PanelIcon";
+import InfoTooltip from "@/components/ui/Tooltip";
 import DataTable from "@/components/ui/DataTable";
 import Dropdown from "@/components/ui/Dropdown";
 import { CHART_BRAND, CHART_CATEGORY_AXIS, CHART_VALUE_AXIS, STANDARD_CHART_TOOLTIP, createBrandAreaGradient } from "@/components/restaurant-owner/exibicoes/chartStyles";
@@ -11,7 +14,7 @@ import PagedTable, { type PageData } from "./PagedTable";
 import DevLoading from "./DevLoading";
 import DevDialog from "./DevDialog";
 import { devJson } from "@/lib/dev/client";
-import { formatCurrencyFromCents, formatDateTime, formatCount, formatRatio } from "@/lib/dev/dashboardFormat";
+import { formatAverage, formatCurrencyFromCents, formatDateTime, formatCount, formatRatio } from "@/lib/dev/dashboardFormat";
 import { useDevProfile } from "./DevProfileProvider";
 import styles from "./dashboard.module.css";
 
@@ -41,6 +44,7 @@ type MenuScans = {
     restaurantsTracked: number;
     restaurantsCompleted: number;
     fallbackAttempts: number;
+    averageAnalysisMs: number | null;
     history: PageData<{
         id: string;
         restaurant_id: string;
@@ -280,13 +284,27 @@ export default function QualityAssuranceSection() {
                                 <dd>{formatCount(scans.restaurantsTried)}</dd>
                             </div>
                             <div>
-                                <dt title="Restaurantes com rastreamento. Sucesso exige visualizar e adicionar pelo menos um produto.">Taxa de sucesso por restaurante</dt>
-                                <dd>{scans.restaurantsTracked ? formatRatio(100 * scans.restaurantsCompleted / scans.restaurantsTracked) : "—"}</dd>
+                                <dt className="flex items-center gap-1">
+                                    Taxa de sucesso por restaurante
+                                    <InfoTooltip size="medium" showOnClick portal
+                                        text="Entre os restaurantes com scan rastreado nos últimos 14 dias, conta quem visualizou o resultado e adicionou pelo menos um produto na mesma tentativa. Cada restaurante conta uma vez.">
+                                        <button type="button" aria-label="Informações sobre a taxa de sucesso"
+                                            className="inline-flex h-6 w-6 items-center justify-center text-gray-400 hover:text-brand">
+                                            <PanelIcon icon={faCircleInfo} className="h-3.5 w-3.5" />
+                                        </button>
+                                    </InfoTooltip>
+                                </dt>
+                                <dd>{scans.restaurantsTracked ? formatRatio(100 * scans.restaurantsCompleted / scans.restaurantsTracked) : "Sem dados"}</dd>
                                 {scans.restaurantsTracked > 0 && <p>{formatCount(scans.restaurantsCompleted)} de {formatCount(scans.restaurantsTracked)} restaurantes rastreados</p>}
                             </div>
                             <div>
                                 <dt>Taxa de fallback</dt>
                                 <dd>{scans.history.total ? formatRatio(100 * scans.fallbackAttempts / scans.history.total) : "—"}</dd>
+                            </div>
+                            <div>
+                                <dt>Tempo médio de análise da IA</dt>
+                                <dd>{scans.averageAnalysisMs == null ? "Sem dados" : formatAverage(scans.averageAnalysisMs / 1000) + " s"}</dd>
+                                <p>Últimos 14 dias · inclui preparo e fallback</p>
                             </div>
                         </dl>
                         <PagedTable data={scans.history} loading={scanLoading} onPage={setScanPage}

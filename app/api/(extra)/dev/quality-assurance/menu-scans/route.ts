@@ -12,6 +12,10 @@ const PAGE_SIZE = 10;
 const scansSql = `
     WITH recent AS (
         SELECT id, restaurant_id, created_at, input_type, attempt_id, gemini_items, openai_items, openai_error,
+            CASE WHEN elapsed_ms > 0 AND (attempt_id IS NULL OR analysis_finished_at IS NOT NULL)
+                AND (gemini_items IS NOT NULL OR gemini_error IS NOT NULL OR openai_items IS NOT NULL OR openai_error IS NOT NULL)
+                THEN elapsed_ms
+            END AS analysis_elapsed_ms,
             CASE
                 WHEN interrupted_at IS NOT NULL THEN 'interrupted'
                 WHEN attempt_id IS NULL AND outcome = 'success' THEN 'unconfirmed'
@@ -28,7 +32,8 @@ const scansSql = `
             COUNT(*) FILTER (WHERE openai_items IS NOT NULL OR openai_error IS NOT NULL)::int AS fallback_attempts,
             COUNT(DISTINCT restaurant_id)::int AS restaurants_tried,
             COUNT(DISTINCT restaurant_id) FILTER (WHERE attempt_id IS NOT NULL)::int AS restaurants_tracked,
-            COUNT(DISTINCT restaurant_id) FILTER (WHERE status = 'success')::int AS restaurants_completed
+            COUNT(DISTINCT restaurant_id) FILTER (WHERE status = 'success')::int AS restaurants_completed,
+            AVG(analysis_elapsed_ms)::double precision AS average_analysis_ms
         FROM recent
     )
     SELECT summary.*, history.rows
@@ -55,6 +60,7 @@ type ScanHistoryResult = {
     restaurants_tried: number;
     restaurants_tracked: number;
     restaurants_completed: number;
+    average_analysis_ms: number | null;
     rows: {
         id: string;
         created_at: string;
@@ -142,6 +148,7 @@ export async function GET(request: Request) {
             restaurantsTracked: result.restaurants_tracked,
             restaurantsCompleted: result.restaurants_completed,
             fallbackAttempts: result.fallback_attempts,
+            averageAnalysisMs: result.average_analysis_ms,
             history: paged(result.rows, result.total, page, PAGE_SIZE),
         }, { headers: { "Cache-Control": "no-store" } });
     } catch (error) {
