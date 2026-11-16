@@ -137,6 +137,16 @@ function decodePage(response: PageResponse): string {
     }
 }
 
+function isRasterPhoto(bytes: Buffer): boolean {
+    return bytes.length >= 16 && (
+        bytes.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff])) ||
+        bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) ||
+        /^GIF8[79]a$/.test(bytes.toString("ascii", 0, 6)) ||
+        (bytes.toString("ascii", 0, 4) === "RIFF" && bytes.toString("ascii", 8, 12) === "WEBP") ||
+        (bytes.toString("ascii", 4, 8) === "ftyp" && /^(avif|avis)$/.test(bytes.toString("ascii", 8, 12)))
+    );
+}
+
 export async function downloadPublicMenuPhoto(raw: string, signal: AbortSignal): Promise<Buffer> {
     let url = validateUrl(raw);
     for (let redirect = 0; redirect <= 3; redirect++) {
@@ -146,8 +156,13 @@ export async function downloadPublicMenuPhoto(raw: string, signal: AbortSignal):
             continue;
         }
         const mimeType = response.contentType.split(";", 1)[0].trim().toLowerCase();
-        if (response.status !== 200 || !PUBLIC_IMAGE_TYPES.has(mimeType)) break;
-        return decodeResponseBytes(response);
+        if (response.status !== 200) break;
+        if (PUBLIC_IMAGE_TYPES.has(mimeType)) return decodeResponseBytes(response);
+        if (!mimeType || mimeType === "application/octet-stream" || mimeType === "binary/octet-stream") {
+            const bytes = decodeResponseBytes(response);
+            if (isRasterPhoto(bytes)) return bytes;
+        }
+        break;
     }
     throw new MenuLinkError("Não foi possível ler a foto do produto.");
 }
@@ -208,21 +223,51 @@ async function renderPublicPage(url: URL): Promise<MenuPage> {
             page.waitForNetworkIdle({ idleTime: 1500, timeout: 15_000 }).catch(() => undefined),
         ]);
         await page.waitForNetworkIdle({ idleTime: NETWORK_IDLE_MS, timeout: 3000 }).catch(() => undefined);
-        const first = await page.evaluate(() => document.body?.innerText || "");
-        await new Promise(resolve => setTimeout(resolve, 1200));
+        // A visible price can be an order minimum or a featured item. Scroll
+        // through the page to trigger the rest of the catalog's lazy sections.
+        await page.evaluate(async () => {
+            const root = document.scrollingElement;
+            if (!root) return;
+
+            const deadline = performance.now() + 12_000;
+            let stableAtEnd = 0;
+            while (performance.now() < deadline && stableAtEnd < 3) {
+                const candidates = [root, ...document.querySelectorAll("main, [role='main'], section, div")];
+                const scrollers = candidates.filter(element => {
+                    if (element === root) return true;
+                    const rect = element.getBoundingClientRect();
+                    return rect.width >= 240 && rect.height >= 200 && rect.bottom > 0 &&
+                        rect.top < window.innerHeight && element.scrollHeight > element.clientHeight + 120 &&
+                        /auto|scroll/.test(getComputedStyle(element).overflowY) &&
+                        !element.closest("header, nav, footer, [role='dialog']");
+                }).slice(0, 6);
+                const before = scrollers.map(element => [element.scrollHeight, element.scrollTop]);
+                for (const element of scrollers) {
+                    element.scrollTop += Math.max(element.clientHeight * 0.8, 200);
+                }
+                await new Promise(resolve => setTimeout(resolve, 300));
+                stableAtEnd = scrollers.every((element, index) =>
+                    Math.abs(element.scrollTop - before[index][1]) < 2 &&
+                    element.scrollHeight === before[index][0] &&
+                    element.scrollHeight - element.scrollTop - element.clientHeight < 4
+                ) ? stableAtEnd + 1 : 0;
+            }
+        });
+        await page.waitForNetworkIdle({ idleTime: NETWORK_IDLE_MS, timeout: 3000 }).catch(() => undefined);
         const rendered = await page.evaluate((maxImages, pricePattern) => {
             const text = document.body?.innerText || "";
             const images: MenuPhoto[] = [];
             const titleSelector = "h2,h3,h4,h5,[itemprop='name'],[class*='__name'],[class*='__title'],[class*='product-name'],[class*='item-name']";
             const itemContainer = "article, li, [itemscope], [class~='product'], [class~='item'], [class*='product-card'], [class*='item-card']";
             const price = new RegExp(pricePattern);
+            const priceOnly = new RegExp("^(?:a partir de |por )?(?:" + pricePattern + ")\\s*[\\d,.]*$", "i");
             const clean = (value: string) => value.trim().replace(/\s+/g, " ");
             const nameText = (element: Element) => clean((element as HTMLElement).innerText || "");
             const photoUrl = (img: HTMLImageElement) => {
                 const candidates = [
-                    img.currentSrc,
                     img.getAttribute("data-src"),
                     img.getAttribute("data-original"),
+                    img.currentSrc,
                     img.getAttribute("src"),
                 ];
                 for (const src of candidates) {
@@ -249,7 +294,7 @@ async function renderPublicPage(url: URL): Promise<MenuPage> {
                     if (cardText.length > 1200 || card.matches("body,main,header,footer,nav")) break;
                     if (!price.test(cardText)) continue;
                     const titles = Array.from(card.querySelectorAll(titleSelector), nameText)
-                        .filter(name => name.length >= 2 && name.length <= 180 && !price.test(name));
+                        .filter(name => name.length >= 2 && name.length <= 180 && !priceOnly.test(name));
                     const uniqueTitles = [...new Set(titles)];
                     const alt = clean(img.alt);
                     const altIsProduct = alt.length >= 2 && alt.length <= 180 && cardText.includes(alt);
@@ -275,7 +320,6 @@ async function renderPublicPage(url: URL): Promise<MenuPage> {
             }
             return { text, images };
         }, MAX_IMAGE_CANDIDATES, PRICE_PATTERN.source);
-        const visibleText = rendered.text.length >= first.length ? rendered.text : first;
         const html = await page.content();
         // Include published structured data as a generic fallback for pages whose
         // menu is present in hydration payloads but not visible as ordinary text.
@@ -296,7 +340,7 @@ async function renderPublicPage(url: URL): Promise<MenuPage> {
         return {
             images: rendered.images,
             text: ("Texto visível após carregar a página:\n" +
-                visibleText.slice(0, MAX_TEXT_LENGTH - 75_100) +
+                rendered.text.slice(0, MAX_TEXT_LENGTH - structured.length - 100) +
                 (structured ? "\nDados estruturados:\n" + structured : "")
             ).slice(0, MAX_TEXT_LENGTH),
         };
