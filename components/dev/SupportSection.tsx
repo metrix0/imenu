@@ -13,7 +13,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 
-import {Send, Bot, MessageCircle, SquareArrowOutUpRight} from "lucide-react";
+import {Send, Bot, Lock, MessageCircle, SquareArrowOutUpRight} from "lucide-react";
 import BlastHistorySection from "@/components/dev/BlastHistorySection";
 import SupportDraftsSection from "@/components/dev/SupportDraftsSection";
 import Pagination from "@/components/ui/Pagination";
@@ -726,7 +726,29 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                         { key: "owner", label: "Celular dono", render: conversation => <PhoneLink phone={conversation.owner_phone} /> },
                         { key: "store", label: "Celular restaurante", render: conversation => <PhoneLink phone={conversation.store_phone} /> },
                         {key:"context",label:"Última mensagem",render:conversation=><p className="truncate" title={conversation.last_message || undefined}>{conversation.last_message || "—"}</p>},
-                        { key: "actions", label: "", render: conversation => <div className="flex justify-end gap-1"><button type="button" title="Reativar IA" aria-label="Reativar IA" disabled={action === "set_conversation_mode"} className={styles.supportIcon} onClick={() => void runAction("set_conversation_mode", { id: conversation.id, mode: "ai" })}><Bot size={16} aria-hidden="true" /></button><button type="button" title="Ver mensagens" aria-label="Ver mensagens" className={styles.supportIcon} onClick={()=>openConversation(conversation, undefined, () => { void loadDashboard().catch(caught => setError(caught instanceof Error ? caught.message : "Não foi possível atualizar a lista.")); })}><MessageCircle size={16} aria-hidden="true"/></button><button type="button" title="Abrir WhatsApp" aria-label="Abrir WhatsApp" className={styles.supportIcon} disabled={!getWhatsappUrl(conversation.phone)} onClick={() => { const url = getWhatsappUrl(conversation.phone); if (url) window.open(url, "_blank", "noopener,noreferrer"); }}><SquareArrowOutUpRight size={16} aria-hidden="true" /></button></div> },
+                        {
+                            key: "actions",
+                            label: "",
+                            className: section === "support" ? "w-[168px]! max-sm:w-[136px]! max-sm:px-1!" : undefined,
+                            render: conversation => {
+                                const pausedUntil = new Date(conversation.ai_paused_until ?? 0);
+                                const locked = pausedUntil.getTime() > Date.now();
+                                const lockLabel = "Manter atendimento humano por 24 h";
+                                return <div className={`flex justify-end gap-1 ${section === "support" ? "max-sm:[&>button]:p-1.5!" : ""}`}>
+                                    {section === "support" && <button
+                                        type="button"
+                                        title={locked ? `Atendimento humano fixado até ${pausedUntil.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}` : lockLabel}
+                                        aria-label={locked ? "Renovar atendimento humano por 24 h" : lockLabel}
+                                        disabled={action === "set_conversation_mode"}
+                                        className={`${styles.supportIcon} ${locked ? "bg-amber-50 text-amber-700!" : ""}`}
+                                        onClick={() => void runAction("set_conversation_mode", { id: conversation.id, mode: "human", lockForDay: true })}
+                                    ><Lock size={16} aria-hidden="true" /></button>}
+                                    <button type="button" title="Reativar IA" aria-label="Reativar IA" disabled={action === "set_conversation_mode"} className={styles.supportIcon} onClick={() => void runAction("set_conversation_mode", { id: conversation.id, mode: "ai" })}><Bot size={16} aria-hidden="true" /></button>
+                                    <button type="button" title="Ver mensagens" aria-label="Ver mensagens" className={styles.supportIcon} onClick={() => openConversation(conversation, undefined, () => { void loadDashboard().catch(caught => setError(caught instanceof Error ? caught.message : "Não foi possível atualizar a lista.")); })}><MessageCircle size={16} aria-hidden="true" /></button>
+                                    <button type="button" title="Abrir WhatsApp" aria-label="Abrir WhatsApp" className={styles.supportIcon} disabled={!getWhatsappUrl(conversation.phone)} onClick={() => { const url = getWhatsappUrl(conversation.phone); if (url) window.open(url, "_blank", "noopener,noreferrer"); }}><SquareArrowOutUpRight size={16} aria-hidden="true" /></button>
+                                </div>;
+                            },
+                        },
                     ]} />
                     {(data?.stats.human_conversations || 0) > 25 && <div className={styles.tableFooter}><Pagination page={handoffPage} pageCount={Math.ceil((data?.stats.human_conversations || 0) / 25)} onChange={setHandoffPage} /></div>}
                 </section>

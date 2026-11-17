@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip } from "chart.js";
 import { Line } from "react-chartjs-2";
-import { faCircleInfo } from "@fortawesome/free-solid-svg-icons";
+import { faCircleInfo, faCopy } from "@fortawesome/free-solid-svg-icons";
 import { PanelIcon } from "@/components/ui/PanelIcon";
 import InfoTooltip from "@/components/ui/Tooltip";
 import DataTable from "@/components/ui/DataTable";
@@ -54,12 +54,15 @@ type MenuScans = {
         outcome: keyof typeof scanOutcomes;
         items: number | null;
         provider: "Gemini" | "OpenAI" | null;
+        reused: boolean;
+        analysis_elapsed_ms: number | null;
     }>;
 };
 
 type MenuScanRow = MenuScans["history"]["rows"][number];
 type MenuScanDetails = {
     sourceUrl: string | null;
+    sourceInput: string | null;
     linkDomain: string | null;
     files: { name: string; url: string | null }[];
     elapsedMs: number | null;
@@ -77,6 +80,7 @@ const scanOutcomes = {
     success: { label: "Concluído", variant: "success" },
     empty: { label: "Insuficiente", variant: "warning" },
     failed: { label: "Falhou", variant: "danger" },
+    invalid_link: { label: "Link inválido", variant: "danger" },
     interrupted: { label: "Interrompido", variant: "warning" },
     analyzing: { label: "Em análise", variant: "neutral" },
     awaiting_review: { label: "Aguardando visualização", variant: "neutral" },
@@ -320,7 +324,16 @@ export default function QualityAssuranceSection() {
                                 { key: "input", label: "Origem", render: row => row.input_type === "link" ? "Link" : "Foto / PDF" },
                                 { key: "outcome", label: "Resultado", render: row => <Badge variant={scanOutcomes[row.outcome].variant}>{scanOutcomes[row.outcome].label}</Badge> },
                                 { key: "items", label: "Identificados", render: row => row.items == null ? "—" : formatCount(row.items) },
-                                { key: "provider", label: "IA", render: row => row.provider ?? "—" },
+                                { key: "provider", label: "IA", render: row => row.reused
+                                    ? <InfoTooltip text="Resultado reaproveitado de uma análise anterior.">
+                                        <Badge variant="info" className="gap-1">
+                                            <PanelIcon icon={faCopy} className="h-3 w-3" aria-hidden="true" />
+                                            {row.provider ?? "Reutilizada"}
+                                            {row.provider && <span className="sr-only"> (análise reutilizada)</span>}
+                                        </Badge>
+                                    </InfoTooltip>
+                                    : row.provider ?? "—" },
+                                { key: "analysisElapsed", label: "Tempo de IA", className: "whitespace-nowrap", render: row => row.analysis_elapsed_ms == null ? "—" : formatAverage(row.analysis_elapsed_ms / 1000) + " s" },
                             ]} />
                     </>}
             </section>
@@ -425,6 +438,8 @@ function MenuScanDialog({ scan, onClose }: { scan: MenuScanRow; onClose: () => v
         return () => controller.abort();
     }, [scan.id]);
 
+    const sourceText = details?.sourceInput ?? details?.sourceUrl;
+
     return <DevDialog open onClose={onClose} title="Detalhes do scan"
         description={scan.restaurant_name + " · " + formatDateTime(scan.created_at)}>
         <div className="space-y-4 text-sm">
@@ -446,8 +461,9 @@ function MenuScanDialog({ scan, onClose }: { scan: MenuScanRow; onClose: () => v
                     </p>}
                     <section className="space-y-2">
                         <h3 className="font-semibold">Fonte do scan</h3>
-                        {details.sourceUrl ? <a href={details.sourceUrl} target="_blank" rel="noopener noreferrer"
-                            className="break-all text-brand underline">{details.sourceUrl}</a>
+                        {details.sourceUrl && scan.outcome !== "invalid_link" ? <a href={details.sourceUrl} target="_blank" rel="noopener noreferrer"
+                            className="whitespace-pre-wrap break-all text-brand underline">{sourceText}</a>
+                            : sourceText != null ? <p className="whitespace-pre-wrap break-all">{sourceText}</p>
                             : details.files.length > 0 ? <ul className="space-y-2">{details.files.map((file, index) =>
                                 <li key={index} className="break-all">
                                     {file.url ? <a href={file.url} target="_blank" rel="noopener noreferrer"

@@ -1,23 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faBars,
     faBell,
     faBellSlash,
     faCheckCircle,
+    faChevronUp,
     faCloudArrowDown,
     faEllipsis,
     faEllipsisVertical,
     faMobileScreenButton,
     faPaperPlane,
+    faPlay,
     faTriangleExclamation,
     faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import { CollapsibleContent, useCollapsible } from "@/components/ui/CollapsibleSection";
 import Modal from "@/components/ui/Modal";
 import { LegacyModalClose } from "@/components/ui/ModalCloseButton";
 import Toast from "@/components/ui/Toast";
@@ -72,6 +75,23 @@ export default function ApplicationSetup() {
         useState(false);
 
     const ios = useMemo(() => isIosDevice(), []);
+    const tutorialVideoRef = useRef<HTMLVideoElement>(null);
+    const [tutorialRequested, setTutorialRequested] = useState(false);
+    const tutorial = useCollapsible({
+        onOpenChange: (expanded) => {
+            if (expanded) {
+                setTutorialRequested(true);
+            } else {
+                tutorialVideoRef.current?.pause();
+            }
+        },
+    });
+
+    const closeInstallInstructions = () => {
+        setInstallInstructionsOpen(false);
+        tutorial.setExpanded(false);
+        setTutorialRequested(false);
+    };
 
     const showToast = useCallback(
         (message: string, type: ToastState["type"] = "info") => {
@@ -344,15 +364,15 @@ export default function ApplicationSetup() {
                 />
             )}
 
-            <Modal height={420}
+            <Modal height={ios ? 720 : 420}
                 open={installInstructionsOpen}
-                onClose={() => setInstallInstructionsOpen(false)}
+                onClose={closeInstallInstructions}
                 className="max-w-lg"
             >
                 <div className="relative p-6">
                     <LegacyModalClose><button
                         type="button"
-                        onClick={() => setInstallInstructionsOpen(false)}
+                        onClick={closeInstallInstructions}
                         className="absolute right-3 top-3 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
                         aria-label="Fechar instruções"
                     >
@@ -392,6 +412,37 @@ export default function ApplicationSetup() {
                             </li>
                             <li>Toque em <strong>Instalar</strong> e confirme.</li>
                         </ol>
+                    )}
+
+                    {ios && (
+                        <>
+                            <Button
+                                {...tutorial.triggerProps}
+                                variant="secondary"
+                                leftIcon={
+                                    <FontAwesomeIcon
+                                        icon={tutorial.expanded ? faChevronUp : faPlay}
+                                        aria-hidden="true"
+                                    />
+                                }
+                                className="mt-5 w-full"
+                            >
+                                {tutorial.expanded ? "Ocultar vídeo" : "Ver vídeo explicativo"}
+                            </Button>
+                            <CollapsibleContent id={tutorial.contentId} expanded={tutorial.expanded}>
+                                {tutorialRequested && (
+                                    <video
+                                        ref={tutorialVideoRef}
+                                        src="/images/iphoneAppTutorial.mp4"
+                                        controls
+                                        playsInline
+                                        preload="metadata"
+                                        aria-label="Como adicionar o iMenu à Tela de Início"
+                                        className="mx-auto mt-3 aspect-[9/16] max-h-[50dvh] w-full rounded-lg bg-black object-contain"
+                                    />
+                                )}
+                            </CollapsibleContent>
+                        </>
                     )}
 
                     <a

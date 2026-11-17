@@ -4,9 +4,16 @@ import { useEffect, useState } from "react";
 import { useDevProfile } from "./DevProfileProvider";
 import PagedTable, { type PageData } from "./PagedTable";
 import DevLoading from "./DevLoading";
+import Badge from "@/components/ui/Badge";
 import { devJson } from "@/lib/dev/client";
 import { formatCount, formatCurrencyFromCents, formatDateTime, formatPurchaseElapsedTime, formatRatio } from "@/lib/dev/dashboardFormat";
 import styles from "./dashboard.module.css";
+
+const notificationStatuses = {
+    sent: { label: "Enviada", variant: "success" },
+    sending: { label: "Enviando", variant: "info" },
+    failed: { label: "Falha", variant: "danger" },
+} as const;
 
 type Purchase = {
     id: string;
@@ -18,6 +25,7 @@ type Purchase = {
     method: string;
     provider: string | null;
     isRenewal: boolean;
+    notificationStatus: keyof typeof notificationStatuses | null;
 };
 type RevenueData = {
     summary: {
@@ -110,6 +118,11 @@ export default function RevenueSection() {
                         { key: "method", label: "Método", className: "whitespace-nowrap", render: row => row.method },
                         { key: "amount", label: "Valor", className: styles.numericCell, render: row => formatCurrencyFromCents(row.amountCents) },
                         { key: "provider", label: "Provedor", className: "whitespace-nowrap", render: row => providerLabel(row.provider) },
+                        { key: "notificationStatus", label: "Notificação enviada", className: "whitespace-nowrap", render: row => {
+                            if (row.isRenewal) return "—";
+                            const status = row.notificationStatus && notificationStatuses[row.notificationStatus];
+                            return status ? <Badge variant={status.variant}>{status.label}</Badge> : <Badge variant="neutral">Sem registro</Badge>;
+                        } },
                     ]} />
             </section>
         </>}

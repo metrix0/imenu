@@ -1,4 +1,12 @@
 import { isSupportContactExcluded } from "@/lib/services/supportExclusions";
+import {
+    BLAST_WAHA_SESSION_NAME,
+    SUPPORT_WAHA_SESSION_NAME,
+    reportOfficialWahaFailure,
+    resolveOfficialWahaFailure,
+} from "@/lib/services/wahaAlerts";
+
+export { BLAST_WAHA_SESSION_NAME, SUPPORT_WAHA_SESSION_NAME };
 type WahaSessionStatus =
     | "STOPPED"
     | "STARTING"
@@ -69,9 +77,6 @@ const WAHA_SEND_TIMEOUT_MS = 5_000;
 const WAHA_MEDIA_TIMEOUT_MS = 15_000;
 const MAX_WAHA_MEDIA_BYTES = 12 * 1024 * 1024;
 const WAHA_TYPING_TIMEOUT_MS = 1_000;
-
-export const SUPPORT_WAHA_SESSION_NAME = "imenu-support";
-export const BLAST_WAHA_SESSION_NAME = "imenu-blast";
 
 class WahaHttpError extends Error {
     status: number;
@@ -201,6 +206,11 @@ function sessionConfig(
         ],
     };
 }
+export async function checkWahaApi(): Promise<void> {
+    const response = await wahaRequest<{ version?: unknown }>("/api/version", {}, 5_000);
+    if (typeof response?.version !== "string") throw new Error("Resposta inválida da API do WAHA.");
+}
+
 export async function getWahaSession(
     sessionName: string,
     timeoutMs = 20_000
@@ -638,13 +648,38 @@ async function assertWahaRecipientAllowed(sessionName: string, chatId: string): 
     }
 }
 
+async function sendWahaMessage(sessionName: string, path: string, init: RequestInit): Promise<unknown> {
+    if (sessionName !== SUPPORT_WAHA_SESSION_NAME && sessionName !== BLAST_WAHA_SESSION_NAME) {
+        return wahaRequest<unknown>(path, init, WAHA_SEND_TIMEOUT_MS);
+    }
+    try {
+        const result = await wahaRequest<unknown>(path, init, WAHA_SEND_TIMEOUT_MS);
+        await resolveOfficialWahaFailure(sessionName, "outbound");
+        return result;
+    } catch (error) {
+        if (error instanceof WahaHttpError) {
+            // Recipient errors do not indicate a failure of the sending number.
+            const recipientError = /invalid (recipient|phone|chat ?id)|not registered|not on whatsapp|number does not exist/i.test(error.responseBody);
+            const sessionError = [404, 409, 422].includes(error.status) &&
+                /session (status|not found|is not|does not exist)/i.test(error.responseBody);
+            if (!recipientError && (sessionError || [401, 403, 408, 424, 429].includes(error.status) || error.status >= 500)) {
+                await reportOfficialWahaFailure(sessionName, "outbound", `O WAHA retornou HTTP ${error.status} ao tentar enviar a mensagem.`);
+            }
+        } else if (error instanceof TypeError || (error instanceof Error && error.name === "TimeoutError")) {
+            await reportOfficialWahaFailure(sessionName, "outbound", "O WAHA não confirmou o envio por falha de rede ou tempo limite.");
+        }
+        throw error;
+    }
+}
+
 export async function sendWahaText(
     sessionName: string,
     chatId: string,
     text: string
 ): Promise<unknown> {
     await assertWahaRecipientAllowed(sessionName, chatId);
-    return wahaRequest<unknown>(
+    return sendWahaMessage(
+        sessionName,
         "/api/sendText",
         {
             method: "POST",
@@ -654,8 +689,7 @@ export async function sendWahaText(
                 text,
                 linkPreview: true,
             }),
-        },
-        WAHA_SEND_TIMEOUT_MS
+        }
     );
 }
 
@@ -776,7 +810,7 @@ export async function sendWahaImage(sessionName: string, chatId: string, url: st
     } finally { await reader.cancel(); }
     const {default:sharp} = await import("sharp");
     const image = await sharp(Buffer.concat(chunks),{limitInputPixels:40_000_000}).rotate().resize({width:1200,height:1200,fit:"inside",withoutEnlargement:true}).flatten({background:"#ffffff"}).jpeg({quality:85}).toBuffer();
-    return wahaRequest<unknown>("/api/sendImage", { method: "POST", body: JSON.stringify({session:sessionName,chatId,file:{mimetype:"image/jpeg",filename:"produto.jpg",data:image.toString("base64")},caption}) }, WAHA_SEND_TIMEOUT_MS);
+    return sendWahaMessage(sessionName, "/api/sendImage", { method: "POST", body: JSON.stringify({session:sessionName,chatId,file:{mimetype:"image/jpeg",filename:"produto.jpg",data:image.toString("base64")},caption}) });
 }
 
 export async function getWahaPhoneLid(sessionName: string, phone: string): Promise<string | null> {

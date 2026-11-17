@@ -78,11 +78,23 @@ type NumberedLocation = {
     neighborhood: "match" | "mismatch" | "unknown";
 };
 
+export function fetchCoordinates(
+    fullAddress: string,
+    canUseAlternative?: (coordinates: Coordinates) => boolean,
+    streetFallback?: StreetFallback,
+): Promise<Coordinates>;
+export function fetchCoordinates(
+    fullAddress: string,
+    canUseAlternative: ((coordinates: Coordinates) => boolean) | undefined,
+    streetFallback: StreetFallback | undefined,
+    requireAddressMatch: boolean,
+): Promise<Coordinates | null>;
 export async function fetchCoordinates(
     fullAddress: string,
     canUseAlternative?: (coordinates: Coordinates) => boolean,
     streetFallback?: StreetFallback,
-): Promise<Coordinates> {
+    requireAddressMatch = false,
+): Promise<Coordinates | null> {
     const TOMTOM_API_KEY = process.env.NEXT_PUBLIC_TOMTOM_API_KEY;
 
     const parts = fullAddress.split(",").map((part) => part.trim());
@@ -319,13 +331,15 @@ export async function fetchCoordinates(
         if (interpolated?.neighborhood === "match" && usable(interpolated.point)) return interpolated.point;
     }
 
-    const arcgisStreet = await geocodeArcGIS(true);
-    if (arcgisStreet && (!requireNeighborhoodMatch || usable(arcgisStreet))) return arcgisStreet;
-    const nominatimStreet = (await geocodeNominatim(true)).find(location =>
-        location.neighborhood !== "mismatch" &&
-        (!requireNeighborhoodMatch || (location.neighborhood === "match" && usable(location.point)))
-    );
-    if (nominatimStreet) return nominatimStreet.point;
+    if (!requireAddressMatch) {
+        const arcgisStreet = await geocodeArcGIS(true);
+        if (arcgisStreet && (!requireNeighborhoodMatch || usable(arcgisStreet))) return arcgisStreet;
+        const nominatimStreet = (await geocodeNominatim(true)).find(location =>
+            location.neighborhood !== "mismatch" &&
+            (!requireNeighborhoodMatch || (location.neighborhood === "match" && usable(location.point)))
+        );
+        if (nominatimStreet) return nominatimStreet.point;
+    }
     const city = cities.find(([name, uf]) => normalize(name) === normalize(wantedCity) && (!state || uf === state[0]));
     if (state && wantedCity && wantedStreet && wantedNeighborhood) {
         try {
@@ -357,6 +371,8 @@ export async function fetchCoordinates(
             // An unavailable local index must not interrupt the existing fallback chain.
         }
     }
+
+    if (requireAddressMatch) return null;
 
     // A generic CEP or city point cannot resolve a known neighborhood mismatch.
     if (original) return original;

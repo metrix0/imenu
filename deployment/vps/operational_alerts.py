@@ -100,9 +100,7 @@ SELECT json_build_object(
 
 
 
-def summarize_webhook_delivery(log_text):
-    """Use WAHA sender responses, not inbound webhook processing or WAHA uptime."""
-    results = {}
+def webhook_delivery_responses(log_text):
     for line in log_text.splitlines():
         if "WebhookSender/" not in line:
             continue
@@ -110,9 +108,14 @@ def summarize_webhook_delivery(log_text):
         delivery_id = re.search(r'"id"\s*:\s*"([^"]+)"', line)
         destination = re.search(r'"url"\s*:\s*"([^"]+)"', line)
         if code and delivery_id and destination:
-            # A successful retry supersedes a failed attempt for that delivery.
-            results[(destination.group(1), delivery_id.group(1))] = int(code.group(1))
+            yield line, destination.group(1), delivery_id.group(1), int(code.group(1))
 
+
+def summarize_webhook_delivery(log_text):
+    """Use WAHA sender responses, not inbound webhook processing or WAHA uptime."""
+    # A successful retry supersedes a failed attempt for that delivery.
+    results = {(destination, delivery_id): status
+               for _, destination, delivery_id, status in webhook_delivery_responses(log_text)}
     delivered = sum(200 <= code < 300 for code in results.values())
     failures = {}
     for (destination, _), code in results.items():
@@ -129,19 +132,58 @@ def summarize_webhook_delivery(log_text):
             "failures": failed, "delivered": delivered, "worst_failures": len(worst)}
 
 
+def read_waha_logs(since):
+    output = subprocess.run(["docker", "logs", "--timestamps", "--since", since, "--tail", "15000",
+                             "imenu-kinghost-waha"], capture_output=True, text=True,
+                            check=True, timeout=12)
+    # Docker sends stdout and stderr separately. Keep the final retry in timestamp order.
+    return "\n".join(sorted((output.stdout + "\n" + output.stderr).splitlines()))
+
+
 def check_waha_webhook_delivery():
     try:
-        # Existing 15-minute deep check; no new timer, webhook request or session change.
-        output = subprocess.run(["docker", "logs", "--since", "15m", "--tail", "15000",
-                                 "imenu-kinghost-waha"], capture_output=True, text=True,
-                                check=True, timeout=12)
-        result = summarize_webhook_delivery(output.stdout + output.stderr)
+        result = summarize_webhook_delivery(read_waha_logs("15m"))
     except (OSError, subprocess.SubprocessError):
         result = {"state": "unverified", "http_status": None,
                   "detail": "Não foi possível consultar as respostas do WAHA.",
                   "failures": 0, "delivered": 0, "worst_failures": 0}
     result["checked_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
     return result
+
+
+OFFICIAL_SESSIONS = {"imenu-support": "Suporte", "imenu-blast": "Blast"}
+PRODUCTION_WEBHOOKS = {"https://www.imenuapp.com.br/api/webhooks/waha", "https://imenuapp.com.br/api/webhooks/waha"}
+
+
+def confirmed_waha_alarms(log_text):
+    if any(re.search(r"Client outdated\s*\(405\)\s*connect failure", line, re.IGNORECASE)
+           for line in log_text.splitlines()):
+        day = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
+        yield ("ALARM TRIGGER · Cliente WAHA desatualizado",
+               "O WhatsApp rejeitou a versão do cliente do WAHA (405 Client outdated). Confira a versão e a reconexão das sessões.",
+               "Compatibilidade WAHA", 405, f"waha:client-outdated:{day}")
+
+    results = {}
+    cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=15)
+    for line, destination, delivery_id, status in webhook_delivery_responses(log_text):
+        if destination not in PRODUCTION_WEBHOOKS or not re.search(r'"event"\s*:\s*"message"', line):
+            continue
+        for session in OFFICIAL_SESSIONS:
+            if f"session:{session} - " in line:
+                timestamp = line.split(" ", 1)[0]
+                try:
+                    observed_at = datetime.datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+                except ValueError:
+                    break
+                results[(session, delivery_id)] = (status, observed_at)
+                break
+    for session, label in OFFICIAL_SESSIONS.items():
+        status = next((status for (name, _), (status, observed_at) in reversed(results.items())
+                       if name == session and observed_at <= cutoff and not 200 <= status < 300), None)
+        if status is not None:
+            yield (f"ALARM TRIGGER · WhatsApp {label}: falha de recebimento",
+                   f"O WAHA não conseguiu entregar ao iMenu um webhook de mensagem (HTTP {status}).",
+                   f"Recebimento WhatsApp {label}", status, f"waha:inbound:{session}")
 
 
 def read_state(path):
@@ -180,7 +222,7 @@ def scheduled_jobs():
     return issues
 
 
-def notify(root, title, message, *, source="vps-monitor", operation=None, http_status=None):
+def notify(root, title, message, *, source="vps-monitor", operation=None, http_status=None, incident_key=None):
     secret = None
     for line in (root / "secrets/app-production.env").read_text().splitlines():
         if line.startswith("CRON_SECRET="):
@@ -194,6 +236,8 @@ def notify(root, title, message, *, source="vps-monitor", operation=None, http_s
         payload["operation"] = operation
     if http_status is not None:
         payload["httpStatus"] = http_status
+    if incident_key:
+        payload["incidentKey"] = incident_key
     request = urllib.request.Request("https://www.imenuapp.com.br/api/notify",
         data=json.dumps(payload).encode("utf-8"),
         headers={"Authorization": "Bearer " + secret, "Content-Type": "application/json"}, method="POST")
@@ -261,6 +305,19 @@ def inspect(root, host_alerts, dry_run=False):
                  if value["streak"] == 0 and value["notified"]]
     notification_error = None
     if not dry_run:
+        try:
+            current = list(confirmed_waha_alarms(read_waha_logs("6m")))
+            sent = set(state.get("waha_alarms_seen", []))
+            confirmed = set()
+            for title, message, operation, code, key in current:
+                if key not in sent:
+                    notify(root, title, message, source="waha", operation=operation,
+                           http_status=code, incident_key=key)
+                confirmed.add(key)
+                state["waha_alarms_seen"] = sorted(sent | confirmed)
+            state["waha_alarms_seen"] = sorted(confirmed)
+        except (OSError, RuntimeError, subprocess.SubprocessError) as error:
+            print("IMENU_WAHA_ALARM_CHECK_FAILED", type(error).__name__)
         critical_alarms = [key for key in new_alarms if is_critical(key)]
         webhook_key = "operation:wa_delivery_failures"
         normal_alarms = [key for key in new_alarms if not is_critical(key) and key != webhook_key]

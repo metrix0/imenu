@@ -16,6 +16,7 @@ import { CONSUMER_EVENTS } from "@/lib/analytics/consumerEvents";
 import { useRouter } from "next/navigation";
 import type { PromotionResult } from "@/lib/promotions/automatic";
 import type { QrTableMenuContext } from "@/lib/qr-table/types";
+import { getRestaurantDeliveryLocation } from "@/lib/delivery/restaurantLocation";
 
 export default function CartBar({
                                     onOpenCartAction,
@@ -56,6 +57,8 @@ export default function CartBar({
     const isTableOrder = Boolean(tableOrder);
     useCheckoutSession(String(restaurant?.id || ""), !isTableOrder);
     const isPickup = !isTableOrder && (restaurant?.delivery_disabled === true || Boolean((checkoutState as any).is_pickup));
+    const missingDeliveryOrigin = !isTableOrder && !isPickup && restaurant?.delivery_fee_mode !== "neighborhood" &&
+        !getRestaurantDeliveryLocation(restaurant ?? {}).hasRadiusOrigin;
     const smallCityMode = restaurant?.delivery_fee_mode === "neighborhood" && restaurant?.small_city_mode_enabled === true;
     const missingDeliveryRanges = !isTableOrder && !isPickup && restaurant?.delivery_fee_mode !== "neighborhood" && (() => {
         let configured = restaurant?.delivery_fee_json;
@@ -162,7 +165,8 @@ export default function CartBar({
                           checkoutState.numero))
           );
 
-    const disabledContinue = cartOpen && step === "info" && !allRequiredFilled;
+    const deliveryUnavailable = cartOpen && step !== "cart" && missingDeliveryOrigin;
+    const disabledContinue = deliveryUnavailable || (cartOpen && step === "info" && !allRequiredFilled);
 
     const missingFields: string[] = [];
     if (isTableOrder) {
@@ -206,7 +210,7 @@ export default function CartBar({
     };
 
     const maybeWrap = (children: React.ReactNode) => {
-        if (disabledContinue && step === "info") {
+        if (disabledContinue && !deliveryUnavailable && step === "info") {
             return (
                 <Tooltip text={tooltipText}  position="left" className={!disabledContinue ? "!hidden" : ""} tooltipClassName={!disabledContinue ? "!hidden" : ""}>
                     {children}
@@ -216,7 +220,16 @@ export default function CartBar({
         return children;
     };
 
+    function advanceToPayment() {
+        captureConsumerEvent(
+            CONSUMER_EVENTS.paymentStarted,
+            consumerProperties()
+        );
+        setStep("checkout");
+    }
+
     async function handleClick() {
+        if (deliveryUnavailable) return;
         closeItemModalOpen();
         if (cartOpen && step === "cart") {
             const totalCents = items.reduce((acc,i)=>acc+i.total_cents,0);
@@ -267,7 +280,7 @@ export default function CartBar({
             if (smallCityMode) {
                 setShowAddressWarning(true);
             } else {
-                useCheckoutStore.setState({ cepTrigger: true });
+                useCheckoutStore.setState({ cepTrigger: advanceToPayment });
             }
             return;
         }
@@ -300,11 +313,7 @@ export default function CartBar({
                 return;
             }
 
-            captureConsumerEvent(
-                CONSUMER_EVENTS.paymentStarted,
-                consumerProperties()
-            );
-            setStep("checkout");
+            advanceToPayment();
             return;
         }
 

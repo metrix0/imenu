@@ -1,3 +1,4 @@
+import { reportOfficialWahaFailure, reportWahaClientOutdated, resolveOfficialWahaFailure } from "@/lib/services/wahaAlerts";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -414,6 +415,7 @@ async function updateSessionStatus({
 export async function POST(request: NextRequest) {
     const rawBody = await request.text();
     let claimedEventId: string | null = null;
+    let receivingSession: string | null = null;
 
     try {
         if (!verifyWebhook(rawBody, request)) {
@@ -424,6 +426,10 @@ export async function POST(request: NextRequest) {
         const sessionName = String(event.session || "");
         const eventName = String(event.event || "");
         const payload = event.payload || {};
+
+        if (eventName === "session.status" && payload.data?.reason?.event === "ClientOutdated") {
+            await reportWahaClientOutdated();
+        }
 
         // Reconnecting WAHA sessions can replay old messages as fresh webhooks.
         // Use the original message timestamp, never the webhook delivery time.
@@ -448,6 +454,7 @@ export async function POST(request: NextRequest) {
         ) {
             const isBlastSession =
                 sessionName === BLAST_WAHA_SESSION_NAME;
+            if (eventName === "message" && payload.fromMe !== true) receivingSession = sessionName;
             const supportConnection =
                 await getSupportConnectionForSession(sessionName);
             if (!supportConnection) {
@@ -538,6 +545,7 @@ export async function POST(request: NextRequest) {
                     botEnabled: supportConnection.bot_enabled,
                 });
                 await finishEvent(claimedEventId, "processed");
+                await resolveOfficialWahaFailure(sessionName, "inbound");
             }
 
             return NextResponse.json({ ok: true });
@@ -620,6 +628,9 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ ok: true });
     } catch (error) {
         console.error("[WAHA_WEBHOOK]", error);
+        if (receivingSession) {
+            await reportOfficialWahaFailure(receivingSession, "inbound", "O iMenu recebeu o webhook, mas falhou ao processar a mensagem.");
+        }
 
         if (claimedEventId) {
             try {

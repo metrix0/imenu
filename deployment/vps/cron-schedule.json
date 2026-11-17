@@ -10,5 +10,6 @@
   "push-retries": "*-*-* *:*:00",
   "reconcile-payouts": "*-*-* 15:05:00 UTC",
   "storage-cleanup": "*-*-* 04:30:00 UTC",
-  "support-blast": "*-*-* *:00/10:00 UTC"
+  "support-blast": "*-*-* *:00/10:00 UTC",
+  "waha-health": "*-*-* *:*:00"
 }

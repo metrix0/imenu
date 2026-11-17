@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
+import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faCopy, faGlobe } from "@fortawesome/free-solid-svg-icons";
 import Button from "@/components/ui/Button";
@@ -63,6 +64,7 @@ export default function StoreProfileManager({
     onPixPayoutValidationChange,
     onSaveStatusChange,
 }: StoreProfileProps) {
+    const setRestaurantSlug = useCreationStore(state => state.setRestaurantSlug);
     const [name, setName] = useState(restaurant.name);
     const [logoUrl, setLogoUrl] = useState<string | null>(null);
     const [bannerUrl, setBannerUrl] = useState<string | null>(null);
@@ -189,7 +191,8 @@ export default function StoreProfileManager({
         }
         setUrlSlug(normalized);
         try {
-            await saveFields({ url_slug: normalized });
+            const saved = await saveFields({ url_slug: normalized });
+            setRestaurantSlug(saved.url_slug ?? normalized);
             setToast({ msg: "Endereço atualizado!", type: "success" });
         } catch {
             setUrlSlug(restaurant.url_slug || "");

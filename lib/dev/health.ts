@@ -33,7 +33,7 @@ export type DevAlertInput = {
     incidentKey?: string;
 };
 
-function isProductionAlertRuntime(): boolean {
+export function isProductionAlertRuntime(): boolean {
     try {
         // The VPS release workflow writes this into the read-only standalone release.
         return readFileSync(".imenu-deployment-environment", "utf8").trim() === "production";

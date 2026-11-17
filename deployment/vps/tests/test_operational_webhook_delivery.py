@@ -1,3 +1,4 @@
+import datetime
 import importlib.util
 import json
 import pathlib
@@ -40,6 +41,22 @@ class WahaWebhookDeliveryTests(unittest.TestCase):
 
     def test_no_response_is_not_healthy(self):
         self.assertEqual(module.summarize_webhook_delivery("")["state"], "unverified")
+
+
+class WahaAlarmTests(unittest.TestCase):
+    def test_client_outdated_is_a_global_alarm_without_http_failure(self):
+        alarms = list(module.confirmed_waha_alarms("Client outdated (405) connect failure"))
+        self.assertEqual(len(alarms), 1)
+        self.assertEqual(alarms[0][3], 405)
+
+    def test_first_official_inbound_failure_is_critical(self):
+        timestamp = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=30)).isoformat()
+        log = f'{timestamp} (WebhookSender/7): session:imenu-support - POST request was sent with status code: 503 '
+        log += json.dumps({"id": "one", "event": "message", "url": "https://www.imenuapp.com.br/api/webhooks/waha"})
+        alarms = list(module.confirmed_waha_alarms(log))
+        self.assertEqual([alarm[4] for alarm in alarms], ["waha:inbound:imenu-support"])
+        self.assertEqual(list(module.confirmed_waha_alarms(log.replace("imenu-support", "imenu-restaurant"))), [])
+        self.assertEqual(list(module.confirmed_waha_alarms(log + "\n" + log.replace("503", "200"))), [])
 
 
 if __name__ == "__main__":

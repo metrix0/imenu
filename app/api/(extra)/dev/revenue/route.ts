@@ -11,6 +11,7 @@ const PAGE_SIZE = 10;
 const confirmedPurchases = `
     WITH paid AS (
         SELECT payment.id::text AS id,
+            addon.id AS addon_id,
             addon.restaurant_id::text AS restaurant_id,
             restaurant.name AS restaurant_name,
             restaurant.created_at AS restaurant_created_at,
@@ -56,6 +57,7 @@ type PurchaseRow = {
     payment_provider: string | null;
     total: number | string;
     purchase_rank: number | string;
+    notification_status: string | null;
 };
 
 export async function GET(request: Request) {
@@ -87,7 +89,12 @@ export async function GET(request: Request) {
                     CASE WHEN paid_at >= restaurant_created_at
                         THEN EXTRACT(EPOCH FROM paid_at - restaurant_created_at)::double precision
                     END AS purchase_elapsed_seconds,
-                    method, payment_provider, purchase_rank, COUNT(*) OVER()::int AS total
+                    method, payment_provider, purchase_rank, COUNT(*) OVER()::int AS total,
+                    CASE WHEN purchase_rank = 1 THEN (
+                        SELECT outbound.status
+                        FROM public.whatsapp_outbound_messages outbound
+                        WHERE outbound.dedupe_key = 'support:addon-purchase:' || paid.addon_id::text
+                    ) END AS notification_status
                 FROM paid
                 ORDER BY paid_at DESC, id DESC
                 LIMIT $1 OFFSET $2
@@ -118,6 +125,7 @@ export async function GET(request: Request) {
                     method: row.method,
                     provider: row.payment_provider,
                     isRenewal: Number(row.purchase_rank) > 1,
+                    notificationStatus: row.notification_status,
                 })),
                 total, page, pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)),
             },

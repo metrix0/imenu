@@ -1,8 +1,9 @@
-import { query } from "@/lib/database/sql";
+import { query, withTransaction } from "@/lib/database/sql";
 import { CUSTOMER_SEGMENTS, purchaseHabits, type CustomerSegment, type PurchaseHabit } from "./crmRules";
 
 export const PURCHASE_SQL =
   "status NOT IN ('canceled','pending_online_payment')";
+const CUSTOMER_PROFILE_SQL = "(c.opted_out_at IS NULL OR c.name IS NOT NULL OR c.address IS NOT NULL)";
 export type CustomerRow = {
   phone: string;
   name: string | null;
@@ -49,7 +50,8 @@ export async function listCustomers(
                 WHEN m.last_purchase <= now()-interval '30 days' THEN 'Em risco'
                 WHEN m.order_count>=10 OR m.spending_cents>=100000 THEN 'Destaque'
                 WHEN m.order_count>=3 THEN 'Frequente' ELSE 'Novo' END segment
-            FROM customers c LEFT JOIN metrics m USING (phone) WHERE c.restaurant_id=$1
+            FROM customers c LEFT JOIN metrics m USING (phone)
+            WHERE c.restaurant_id=$1 AND ${CUSTOMER_PROFILE_SQL}
         ) SELECT *,count(*) OVER() total FROM customers_with_metrics
         WHERE ($2='' OR name ILIKE '%'||$2||'%' OR phone LIKE '%'||$2||'%')
           AND ($3='' OR segment=$3)
@@ -117,11 +119,34 @@ export async function listCustomers(
     total: Number(result.rows[0]?.total || 0),
   };
 }
+export async function deleteCustomer(restaurantId: string, phone: string) {
+  await withTransaction(async (client) => {
+    const { rows: [customer] } = await client.query<{ opted_out_at: string | null }>(
+      "SELECT opted_out_at FROM public.customers WHERE restaurant_id=$1 AND phone=$2 FOR UPDATE",
+      [restaurantId, phone],
+    );
+    if (!customer) return;
+
+    if (customer.opted_out_at) {
+      // Keep the opt-out record used to suppress automatic offers.
+      await client.query(
+        "UPDATE public.customers SET name=NULL, address=NULL, marketing_consent=false, updated_at=now() WHERE restaurant_id=$1 AND phone=$2",
+        [restaurantId, phone],
+      );
+    } else {
+      await client.query(
+        "DELETE FROM public.customers WHERE restaurant_id=$1 AND phone=$2",
+        [restaurantId, phone],
+      );
+    }
+  });
+}
+
 export async function customerDetails(restaurantId: string, phone: string, orderPage = 1) {
   const offset = (Math.max(1, orderPage) - 1) * 10;
   const [profile, orders, orderCount, favorites, habitOrders] = await Promise.all([
     query(
-      "SELECT phone,name,address,opted_out_at FROM customers WHERE restaurant_id=$1 AND phone=$2",
+      `SELECT c.phone,c.name,c.address,c.opted_out_at FROM customers c WHERE c.restaurant_id=$1 AND c.phone=$2 AND ${CUSTOMER_PROFILE_SQL}`,
       [restaurantId, phone],
     ),
     query(

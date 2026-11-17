@@ -10,6 +10,7 @@ type ToggleOptionCardProps = {
     icon?: ReactNode;
     badge?: ReactNode;
     description?: ReactNode;
+    variant?: "default" | "section";
     disabled?: boolean;
     className?: string;
     ariaLabel?: string;
@@ -22,10 +23,14 @@ export default function ToggleOptionCard({
     icon,
     badge,
     description,
+    variant = "default",
     disabled = false,
     className = "",
     ariaLabel,
 }: ToggleOptionCardProps) {
+    const isSection = variant === "section";
+    const Label = isSection ? "h2" : "span";
+
     return (
         <div
             data-ui="toggle-option-card"
@@ -44,7 +49,9 @@ export default function ToggleOptionCard({
 
                 <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium text-gray-800">{label}</span>
+                        <Label className={isSection ? "text-xl font-semibold text-gray-900" : "font-medium text-gray-800"}>
+                            {label}
+                        </Label>
                         {badge &&
                             (isValidElement(badge) ? (
                                 badge
@@ -55,7 +62,7 @@ export default function ToggleOptionCard({
                             ))}
                     </div>
                     {description && (
-                        <div className="mt-0.5 text-xs text-gray-500">
+                        <div className={isSection ? "mt-1 text-sm text-gray-500" : "mt-0.5 text-xs text-gray-500"}>
                             {description}
                         </div>
                     )}

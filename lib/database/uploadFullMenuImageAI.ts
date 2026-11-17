@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/database/supabaseClient";
+import { menuPhotoPdfParts } from "@/lib/menu/menuPhotoPdf";
 
 function concatBytes(parts: Uint8Array[]): Uint8Array {
     const totalLength = parts.reduce((sum, part) => sum + part.length, 0);
@@ -61,51 +62,8 @@ async function imageFileToPdf(file: File): Promise<File> {
         });
 
         const jpegBytes = new Uint8Array(await jpegBlob.arrayBuffer());
-        const scale = 1000 / Math.max(image.naturalWidth, image.naturalHeight);
-        const pageWidth = Math.max(1, image.naturalWidth * scale).toFixed(3);
-        const pageHeight = Math.max(1, image.naturalHeight * scale).toFixed(3);
-        const contentStream = textBytes(
-            `q\n${pageWidth} 0 0 ${pageHeight} 0 0 cm\n/Im0 Do\nQ\n`
-        );
-
-        const objects = [
-            textBytes("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n"),
-            textBytes(
-                "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n"
-            ),
-            textBytes(
-                `3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>\nendobj\n`
-            ),
-            concatBytes([
-                textBytes(
-                    `4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${image.naturalWidth} /Height ${image.naturalHeight} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpegBytes.length} >>\nstream\n`
-                ),
-                jpegBytes,
-                textBytes("\nendstream\nendobj\n"),
-            ]),
-            concatBytes([
-                textBytes(`5 0 obj\n<< /Length ${contentStream.length} >>\nstream\n`),
-                contentStream,
-                textBytes("endstream\nendobj\n"),
-            ]),
-        ];
-
-        const header = textBytes("%PDF-1.4\n");
-        const offsets: number[] = [];
-        let currentOffset = header.length;
-
-        objects.forEach((object) => {
-            offsets.push(currentOffset);
-            currentOffset += object.length;
-        });
-
-        const xrefOffset = currentOffset;
-        const xref = textBytes(
-            `xref\n0 6\n0000000000 65535 f \n${offsets
-                .map((offset) => `${String(offset).padStart(10, "0")} 00000 n `)
-                .join("\n")}\ntrailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`
-        );
-        const pdfBytes = concatBytes([header, ...objects, xref]);
+        const { before, after } = menuPhotoPdfParts(image.naturalWidth, image.naturalHeight, jpegBytes.length);
+        const pdfBytes = concatBytes([textBytes(before), jpegBytes, textBytes(after)]);
         const baseName = file.name.replace(/\.[^.]+$/, "") || "cardapio";
 
         return new File([pdfBytes.buffer as ArrayBuffer], `${baseName}.pdf`, {

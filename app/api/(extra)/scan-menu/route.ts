@@ -5,13 +5,28 @@ import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/res
 import { readPublicMenuLink, MenuLinkError, type MenuPhoto } from "@/lib/menu/readPublicMenuLink";
 import { query } from "@/lib/database/sql";
 import { importMenuPhotos } from "@/lib/menu/importMenuPhotos";
+import { menuPhotoPdfParts } from "@/lib/menu/menuPhotoPdf";
 import { recordGeminiMenuFallback } from "@/lib/dev/health";
 import {
-    beginMenuScan, menuScanFileFingerprint, menuScanFilePaths, menuScanLinkDomain, menuScanSourceUrl,
-    readMenuScanRetryDraft, recordMenuScan, recordMenuScanProgress, scanAttemptIdPattern, type MenuScanDiagnostics,
+    beginMenuScan, claimMenuScanFileAnalysis, menuScanFileFingerprint, menuScanFilePaths,
+    menuScanLinkDomain, menuScanSourceUrl, recordMenuScan, recordMenuScanProgress,
+    scanAttemptIdPattern, waitForMenuScanResult, type MenuScanDiagnostics, type MenuScanTimings,
 } from "@/lib/menu/scanDiagnostics";
 
 export const runtime = "nodejs";
+
+async function timeScanStage<T>(
+    timings: MenuScanTimings,
+    stage: keyof MenuScanTimings,
+    run: () => Promise<T>,
+): Promise<T> {
+    const startedAt = performance.now();
+    try {
+        return await run();
+    } finally {
+        timings[stage] = (timings[stage] ?? 0) + Math.round(performance.now() - startedAt);
+    }
+}
 
 type ScanAccess = { hasItems: boolean; allowed: boolean };
 
@@ -498,10 +513,8 @@ async function waitForGeminiFile(
 
 async function uploadGeminiFile(
     apiKey: string,
-    sourceUrl: string
+    source: Awaited<ReturnType<typeof fetchSourceFile>>
 ): Promise<GeminiFile> {
-    const source = await fetchSourceFile(sourceUrl);
-
     const startResponse = await fetch(
         `${GEMINI_BASE_URL}/upload/v1beta/files`,
         {
@@ -561,7 +574,7 @@ async function uploadGeminiFile(
         );
     }
 
-    return waitForGeminiFile(apiKey, payload.file);
+    return payload.file;
 }
 
 async function deleteGeminiFile(
@@ -680,6 +693,7 @@ Regras:
 async function scanWithGemini(
     apiKey: string,
     urls: string[],
+    timings: MenuScanTimings,
     pageText?: string,
     existingMenuContext?: string
 ): Promise<ParsedMenu> {
@@ -688,24 +702,91 @@ async function scanWithGemini(
     try {
         if (!pageText) {
             for (const url of urls) {
-                uploadedFiles.push(await uploadGeminiFile(apiKey, url));
+                const source = await timeScanStage(timings, "source_fetch", () => fetchSourceFile(url));
+                const file = await timeScanStage(timings, "gemini_upload", () => uploadGeminiFile(apiKey, source));
+                uploadedFiles.push(await timeScanStage(timings, "gemini_file_ready", () => waitForGeminiFile(apiKey, file)));
             }
         }
 
-        const outputText = await generateGeminiMenuJson(
+        const outputText = await timeScanStage(timings, "gemini_generation", () => generateGeminiMenuJson(
             apiKey,
             process.env.GEMINI_MENU_SCAN_MODEL || "gemini-3.5-flash",
             uploadedFiles,
             pageText,
             existingMenuContext
-        );
+        ));
 
         return parseMenuJson(outputText);
     } finally {
-        await Promise.allSettled(
-            uploadedFiles.map((file) => deleteGeminiFile(apiKey, file.name))
-        );
+        if (uploadedFiles.length) {
+            await timeScanStage(timings, "gemini_cleanup", () =>
+                Promise.allSettled(uploadedFiles.map(file => deleteGeminiFile(apiKey, file.name))),
+            );
+        }
     }
+}
+
+async function readMenuPdfRange(url: string, start: number, end: number, signal: AbortSignal) {
+    const response = await fetch(url, {
+        cache: "no-store",
+        redirect: "error",
+        headers: { Range: `bytes=${start}-${end}` },
+        signal,
+    });
+    const length = Number(response.headers.get("content-length"));
+    if (response.status !== 206 || !Number.isSafeInteger(length) || length <= 0 || length > end - start + 1) {
+        await response.body?.cancel();
+        return;
+    }
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (bytes.length === length) return { bytes, range: response.headers.get("content-range") };
+}
+
+async function readMenuPhotoJpeg(url: string, maxJpegBytes: number, signal: AbortSignal) {
+    if (maxJpegBytes < 4 || /[?#]/.test(url) || !menuScanFilePaths([url]).length) return;
+    try {
+        const header = await readMenuPdfRange(url, 0, 1023, signal);
+        const prefix = header?.bytes.toString("latin1");
+        const fields = prefix?.match(/\n4 0 obj\n<< \/Type \/XObject \/Subtype \/Image \/Width (\d+) \/Height (\d+) \/ColorSpace \/DeviceRGB \/BitsPerComponent 8 \/Filter \/DCTDecode \/Length (\d+) >>\nstream\n/);
+        if (!header || !prefix || !fields) return;
+        const [width, height, jpegLength] = fields.slice(1).map(Number);
+        if (![width, height, jpegLength].every(Number.isSafeInteger) ||
+            width < 1 || height < 1 || jpegLength < 4 || jpegLength > maxJpegBytes) return;
+
+        const { before, after } = menuPhotoPdfParts(width, height, jpegLength);
+        const end = before.length + jpegLength + after.length - 1;
+        if (!prefix.startsWith(before) || header.range !== `bytes 0-${header.bytes.length - 1}/${end + 1}`) return;
+
+        const body = await readMenuPdfRange(url, before.length, end, signal);
+        if (body?.range !== `bytes ${before.length}-${end}/${end + 1}` ||
+            body.bytes.subarray(jpegLength).toString("latin1") !== after) return;
+        const jpeg = body.bytes.subarray(0, jpegLength);
+        if (jpeg.readUInt16BE(0) === 0xffd8 && jpeg.readUInt16BE(jpeg.length - 2) === 0xffd9) return jpeg;
+    } catch {
+        // The original PDF remains usable if the optimization fails.
+    }
+}
+
+async function openAiMenuFiles(urls: string[]) {
+    const files: OpenAI.Responses.ResponseInputContent[] = [];
+    const signal = AbortSignal.timeout(5000);
+    // Leave room in the image payload limit for the prompt and JSON schema.
+    let remainingBase64Chars = 48_000_000;
+    for (const url of urls) {
+        if (!isPdfUrl(url)) {
+            files.push({ type: "input_image", image_url: url, detail: "high" });
+            continue;
+        }
+        const jpeg = await readMenuPhotoJpeg(url, Math.floor(remainingBase64Chars / 4) * 3, signal);
+        if (jpeg) {
+            const base64 = jpeg.toString("base64");
+            remainingBase64Chars -= base64.length;
+            files.push({ type: "input_image", image_url: `data:image/jpeg;base64,${base64}`, detail: "high" });
+        } else {
+            files.push({ type: "input_file", file_url: url });
+        }
+    }
+    return files;
 }
 
 async function scanWithOpenAI(
@@ -718,18 +799,7 @@ async function scanWithOpenAI(
 
     const fileContent = pageText
         ? [{ type: "input_text" as const, text: pageText }]
-        : urls.map((url) =>
-        isPdfUrl(url)
-            ? {
-                  type: "input_file" as const,
-                  file_url: url,
-              }
-            : {
-                  type: "input_image" as const,
-                  image_url: url,
-                  detail: "high" as const,
-              }
-    );
+        : await openAiMenuFiles(urls);
 
     const model = process.env.OPENAI_MENU_SCAN_MODEL?.trim() || "gpt-6-luna";
     const useLuna = model === "gpt-6-luna" || /^gpt-6-luna-\d{4}-\d{2}-\d{2}$/.test(model);
@@ -918,11 +988,31 @@ export async function PATCH(request: Request) {
     }
 }
 
+function emptyMenuScanResponse(isLinkImport: boolean) {
+    return NextResponse.json(
+        {
+            error: isLinkImport
+                ? "Não encontramos produtos legíveis nesse link. Tente fotos ou PDF do cardápio."
+                : "Nenhum produto foi identificado.",
+            details: isLinkImport
+                ? "A página pode carregar os produtos de forma restrita ou não apresentar os valores."
+                : "Tente enviar imagens mais nítidas ou dividir o PDF em menos páginas.",
+        },
+        { status: 422 }
+    );
+}
+
 export async function POST(req: Request) {
-    const geminiApiKey = process.env.GEMINI_API_KEY?.trim();
+    const geminiApiKeys = [
+        process.env.GEMINI_API_KEY,
+        process.env.GEMINI_API_KEY_2,
+        process.env.GEMINI_API_KEY_3,
+    ].map(key => key?.trim()).filter(Boolean);
+    const geminiApiKey = geminiApiKeys[Math.floor(Math.random() * geminiApiKeys.length)];
     const openAiApiKey = process.env.OPENAI_API_KEY?.trim();
 
     const startedAt = Date.now();
+    const timingsMs: MenuScanTimings = {};
     let diagnostic: MenuScanDiagnostics | undefined;
     let isLinkImport = false;
     try {
@@ -942,12 +1032,11 @@ export async function POST(req: Request) {
         const { user } = await requireRestaurantOwner(req, restaurantId);
         diagnostic = {
             restaurantId, inputType: menuUrl === undefined ? "files" : "link",
-            outcome: "failed", elapsedMs: 0, attemptId,
+            outcome: "failed", elapsedMs: 0, timingsMs, attemptId,
         };
         if (typeof menuUrl === "string") {
             diagnostic.linkDomain = menuScanLinkDomain(menuUrl);
-            const sourceUrl = menuScanSourceUrl(menuUrl);
-            if (sourceUrl) diagnostic.source = { url: sourceUrl };
+            diagnostic.source = { input: menuUrl, url: menuScanSourceUrl(menuUrl) };
         } else if (Array.isArray(urls)) {
             const files = menuScanFilePaths(urls.filter(url => typeof url === "string"));
             if (files.length > 0) diagnostic.source = { files };
@@ -979,7 +1068,9 @@ export async function POST(req: Request) {
                 );
             }
             const linkDiagnostic = diagnostic;
-            const page = await readPublicMenuLink(menuUrl, text => { linkDiagnostic.extractedText = text; });
+            const page = await timeScanStage(timingsMs, "link_read", () =>
+                readPublicMenuLink(menuUrl, text => { linkDiagnostic.extractedText = text; }),
+            );
             pageText = page.text;
             photos = page.images;
         } else if (
@@ -1000,18 +1091,39 @@ export async function POST(req: Request) {
             urls.every(url => !/[?#]/.test(url))) {
             try {
                 retryFingerprint = await menuScanFileFingerprint(user.id, files, existingMenuContext);
-                if (retryFingerprint) {
-                    const draft = await readMenuScanRetryDraft<ReturnType<typeof buildResponse>>(
-                        restaurantId, attemptId, retryFingerprint,
-                    );
-                    if (draft) {
-                        diagnostic.outcome = "success";
-                        diagnostic.reusedFromAttemptId = draft.attempt_id;
-                        return NextResponse.json(draft.result);
-                    }
-                }
             } catch {
-                console.warn("[SCAN_MENU] Não foi possível recuperar o rascunho da importação.");
+                console.warn("[SCAN_MENU] Não foi possível identificar os arquivos da importação.");
+            }
+            if (retryFingerprint) {
+                const prior = await claimMenuScanFileAnalysis<ReturnType<typeof buildResponse>>(
+                    restaurantId, attemptId, retryFingerprint,
+                );
+                if (prior === null) {
+                    diagnostic = undefined;
+                    return NextResponse.json({ error: "Tentativa de scan indisponível." }, { status: 409 });
+                }
+                if (prior) {
+                    if (prior.attempt_id === attemptId) diagnostic = undefined;
+                    else diagnostic.reusedFromAttemptId = prior.attempt_id;
+
+                    const finished = await waitForMenuScanResult(restaurantId, prior, req.signal);
+                    if (finished?.outcome === "success" && finished.result) {
+                        if (diagnostic) diagnostic.outcome = "success";
+                        return NextResponse.json(finished.result);
+                    }
+                    if (finished?.outcome === "empty") {
+                        if (diagnostic) {
+                            diagnostic.outcome = "empty";
+                            diagnostic.errorCode = finished.error_code ?? "no_products";
+                        }
+                        return emptyMenuScanResponse(false);
+                    }
+                    if (diagnostic) diagnostic.errorCode = finished?.error_code ?? "scan_result_unavailable";
+                    return NextResponse.json(
+                        { error: "Não foi possível recuperar a análise anterior. Tente novamente." },
+                        { status: finished?.outcome === "failed" ? 500 : 503 },
+                    );
+                }
             }
         }
 
@@ -1019,7 +1131,7 @@ export async function POST(req: Request) {
         let fallbackReason: string | undefined;
         if (geminiApiKey) {
             try {
-                parsed = await scanWithGemini(geminiApiKey, urls, pageText, existingMenuContext);
+                parsed = await scanWithGemini(geminiApiKey, urls, timingsMs, pageText, existingMenuContext);
                 diagnostic.geminiItems = parsed.items.length;
             } catch (geminiError) {
                 diagnostic.geminiError = geminiFallbackReason(geminiError);
@@ -1037,7 +1149,9 @@ export async function POST(req: Request) {
         if (fallbackReason && openAiApiKey) {
             await recordGeminiMenuFallback(fallbackReason);
             try {
-                parsed = await scanWithOpenAI(openAiApiKey, urls, pageText, existingMenuContext);
+                parsed = await timeScanStage(timingsMs, "openai_fallback", () =>
+                    scanWithOpenAI(openAiApiKey, urls, pageText, existingMenuContext),
+                );
                 diagnostic.openAiItems = parsed.items.length;
             } catch (error) {
                 const status = error && typeof error === "object" && "status" in error ? error.status : null;
@@ -1052,17 +1166,7 @@ export async function POST(req: Request) {
         if (!parsed?.items.length) {
             diagnostic.outcome = "empty";
             diagnostic.errorCode = "no_products";
-            return NextResponse.json(
-                {
-                    error: isLinkImport
-                        ? "Não encontramos produtos legíveis nesse link. Tente fotos ou PDF do cardápio."
-                        : "Nenhum produto foi identificado.",
-                    details: isLinkImport
-                        ? "A página pode carregar os produtos de forma restrita ou não apresentar os valores."
-                        : "Tente enviar imagens mais nítidas ou dividir o PDF em menos páginas.",
-                },
-                { status: 422 }
-            );
+            return emptyMenuScanResponse(isLinkImport);
         }
 
         if (photos.length) {

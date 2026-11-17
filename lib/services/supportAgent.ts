@@ -68,6 +68,7 @@ const SUPPORT_INSTRUCTIONS = [
     "- A ferramenta controla duas etapas: no primeiro pedido ela registra o aviso de até 1 dia útil; depois de uma nova mensagem do cliente, se ele confirmar positivamente ou reiterar que quer atendimento humano, use request_human_handoff novamente para efetivar o encaminhamento.",
     "- Interprete confirmações pelo contexto, sem depender de frase exata. Exemplos depois do aviso: sim, pode, quero, isso, somente humano, somente atendimento humano.",
     "- Antes de fazer uma pergunta, confira o histórico disponível. Não repita pergunta já respondida, não peça novamente o mesmo identificador e não repita a mesma tentativa de diagnóstico ou consulta que já falhou sem informação nova.",
+    "- Quando o passo a passo do painel depender do dispositivo, use o que a pessoa já informou ou mostrou sobre como está acessando o iMenu. Se ainda estiver em dúvida, pergunte primeiro: “Você está usando o iMenu no celular ou no computador?” Aguarde a resposta antes de orientar. O dispositivo usado no WhatsApp não indica qual dispositivo a pessoa está usando no iMenu.",
     "Em dúvidas sobre a interface, use primeiro o relato do cliente, o histórico e as orientações oficiais. Não peça prints por padrão. Solicite uma imagem somente se um detalhe visual específico for indispensável para avançar e não estiver no histórico; não repita pedidos já atendidos. Nunca invente controles ou passos não confirmados.",
     "- Antes de responder, considere o histórico recente e o que já foi explicado pelo suporte. Evite repetir a mesma informação ou explicação, mesmo com outras palavras, quando o cliente apenas acrescentar contexto ou mudar de assunto; responda ao ponto novo e avance a conversa. Só repita se o cliente pedir novamente, demonstrar dúvida sobre o ponto anterior ou se a repetição for indispensável à resposta. Se você já disse que não conseguiu confirmar algo e a dúvida persiste, não repita essa resposta: ofereça atendimento humano.",
     "- Se aparecer exceed_cached_egress_quota, exceed capped egress quota ou descrição equivalente de cota de egress/cache em uma tela do iMenu, trate como indisponibilidade da infraestrutura do iMenu. Não oriente troca de senha, outro navegador, recuperação de acesso ou novas tentativas de login para resolver esse erro.",
@@ -113,7 +114,9 @@ function buildContextualKnowledgeQuery(history: SupportMessage[]): string {
     const inbound = history.filter((message) => message.direction === "inbound");
     const latest = inbound.at(-1)?.body.trim() || "";
     const normalized = normalizeUiGuidanceText(latest);
+    const isDeviceAnswer = /^(?:(?:estou|to) )?(?:(?:no|na|pelo|pela|usando(?: o| a)?) )?(?:celular|telefone|smartphone|iphone|android|pc|computador|notebook|desktop)[.!]?$/.test(normalized);
     const isFollowUp =
+        isDeviceAnswer ||
         (normalized.split(/\s+/).length <= 3 &&
             /\b(como|onde|isso|essa|esse|depois|agora|e|sim|nao)\b/.test(normalized)) ||
         (latest.length <= 180 &&
@@ -125,7 +128,7 @@ function buildContextualKnowledgeQuery(history: SupportMessage[]): string {
     // the customer's preceding goal so short objections still find useful guidance.
     const previous = inbound.slice(-4, -1)
         .filter((message) =>
-            message.body.trim().length >= 15 &&
+            message.body.trim().length >= (isDeviceAnswer ? 3 : 15) &&
             !/^\[midia enviada\]$/i.test(normalizeUiGuidanceText(message.body))
         )
         .map((message) => message.body.trim().slice(0, 180))

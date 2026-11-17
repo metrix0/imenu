@@ -437,7 +437,7 @@ export default function CardapioTab({
             )}
 
             <div>
-                <div className="grid min-w-0 max-w-full grid-cols-2 gap-4 pb-4 md:hidden">
+                <div className="grid min-w-0 max-w-full grid-cols-2 gap-x-2 gap-y-4 pb-4 md:hidden">
                     <div className="col-span-2 min-w-0 flex-1">
                         <Input
                             placeholder="Buscar item ou categoria"
@@ -465,9 +465,10 @@ export default function CardapioTab({
                         variant="secondary"
                         onClick={openOrganizer}
                         leftIcon={<FontAwesomeIcon icon={faGripVertical} aria-hidden="true" />}
-                        className="w-full min-w-0 whitespace-normal"
+                        className="w-full min-w-0 whitespace-nowrap px-1"
+                        aria-label="Organizar categorias"
                     >
-                        Organizar categorias
+                        Organizar categ.
                     </Button>
                     {scanAction("Scanear itens com IA", "col-span-2 w-full")}
                 </div>

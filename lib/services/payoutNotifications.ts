@@ -55,6 +55,13 @@ async function sendPayoutNotice(restaurantId: string, kind: PayoutNoticeKind | "
     return false;
 }
 
+// Outbound records can still contain the copy sent before the template update.
+const previousPayoutNoticeMessages: Record<PayoutNoticeKind, string> = {
+    failed: "Não foi possível concluir seu repasse iMenu. Sua chave PIX pode estar cadastrada incorretamente. Confira e, se necessário, corrija seus dados na aba Loja do painel. Por segurança, somente você deve alterar esses dados; não envie sua chave pelo suporte.",
+    "missing-key": "Seu repasse iMenu está pendente porque sua loja não tem uma chave PIX cadastrada. Cadastre sua chave na aba Loja do painel. Por segurança, somente você deve cadastrar ou alterar esses dados; não envie sua chave pelo suporte.",
+    "missing-type": "Seu repasse iMenu está pendente porque o tipo da sua chave PIX não está cadastrado. Selecione o tipo da sua chave na aba Loja do painel. Por segurança, somente você deve alterar esses dados; não envie sua chave pelo suporte.",
+};
+
 // Alarm only when a payout failed and its failure notice has not been confirmed as sent.
 // Only check payouts whose current failure the caller handled.
 export async function alarmUnnotifiedPayoutFailures(payoutIds: string[]): Promise<void> {
@@ -72,14 +79,15 @@ export async function alarmUnnotifiedPayoutFailures(payoutIds: string[]): Promis
             LEFT JOIN public.whatsapp_outbound_messages notice ON notice.dedupe_key =
                 'support:payout:'||to_char(NOW() AT TIME ZONE 'America/Sao_Paulo','YYYY-MM-DD')||':'||p.restaurant_id::text
             WHERE p.id = ANY($6::uuid[]) AND p.status IN ('failed','cancelled')
-              AND (notice.status IS DISTINCT FROM 'sent' OR notice.context->>'message' IS DISTINCT FROM
-                   CASE p.failure_reason WHEN $4 THEN $2 WHEN $5 THEN $3 ELSE $1 END)
+              AND (notice.status IS DISTINCT FROM 'sent' OR (notice.context->>'message' = ANY (
+                   CASE p.failure_reason WHEN $4 THEN $2::text[] WHEN $5 THEN $3::text[] ELSE $1::text[] END
+              )) IS NOT TRUE)
               AND (notice.status IS DISTINCT FROM 'sending' OR notice.updated_at < NOW() - INTERVAL '2 minutes')
             ORDER BY p.created_at DESC
         `, [
-            PAYOUT_BLAST_AUTOMATIONS.failed.message,
-            PAYOUT_BLAST_AUTOMATIONS["missing-key"].message,
-            PAYOUT_BLAST_AUTOMATIONS["missing-type"].message,
+            [PAYOUT_BLAST_AUTOMATIONS.failed.message, previousPayoutNoticeMessages.failed],
+            [PAYOUT_BLAST_AUTOMATIONS["missing-key"].message, previousPayoutNoticeMessages["missing-key"]],
+            [PAYOUT_BLAST_AUTOMATIONS["missing-type"].message, previousPayoutNoticeMessages["missing-type"]],
             MISSING_PIX_KEY_REASON,
             MISSING_PIX_TYPE_REASON,
             payoutIds,

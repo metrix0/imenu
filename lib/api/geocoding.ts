@@ -57,9 +57,10 @@ export async function fetchCoordinates(
     fullAddress: string,
     canUseAlternative?: Parameters<typeof fetchCoordinatesBase>[1],
     streetFallback?: Parameters<typeof fetchCoordinatesBase>[2],
+    requireAddressMatch = false,
 ) {
     if (!neighborhoodDeliveryBypass) {
-        return fetchCoordinatesBase(fullAddress, canUseAlternative, streetFallback);
+        return fetchCoordinatesBase(fullAddress, canUseAlternative, streetFallback, requireAddressMatch);
     }
 
     const initialValidation =
@@ -82,13 +83,13 @@ export async function fetchCoordinates(
     const cleanCep = cepMatch?.[0]?.replace(/\D/g, "") ?? "";
 
     if (cleanCep.length !== 8) {
-        neighborhoodDeliveryReferenceCoordinates = await fetchCoordinatesBase(fullAddress);
+        neighborhoodDeliveryReferenceCoordinates = await fetchCoordinatesBase(fullAddress, undefined, undefined, requireAddressMatch);
         return neighborhoodDeliveryReferenceCoordinates;
     }
 
     const cepAddress = await fetchAddressByCEP(cleanCep);
     if (!cepAddress) {
-        neighborhoodDeliveryReferenceCoordinates = await fetchCoordinatesBase(fullAddress);
+        neighborhoodDeliveryReferenceCoordinates = await fetchCoordinatesBase(fullAddress, undefined, undefined, requireAddressMatch);
         return neighborhoodDeliveryReferenceCoordinates;
     }
 
@@ -108,7 +109,7 @@ export async function fetchCoordinates(
         return null;
     }
 
-    const coordinates = await fetchCoordinatesBase(fullAddress);
+    const coordinates = await fetchCoordinatesBase(fullAddress, undefined, undefined, requireAddressMatch);
     neighborhoodDeliveryReferenceCoordinates = coordinates;
 
     return coordinates;
