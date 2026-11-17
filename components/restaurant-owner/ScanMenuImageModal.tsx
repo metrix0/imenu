@@ -828,7 +828,8 @@ function ScanModal({
                                         }}
                                         className="mb-5 inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-brand hover:underline"
                                     >
-                                        ← Usar fotos ou PDF
+                                        <FontAwesomeIcon icon={icons.faArrowLeft} aria-hidden="true" />
+                                        Usar fotos ou PDF
                                     </button>
                                     <Input
                                         type="url"
@@ -840,12 +841,20 @@ function ScanModal({
                                         autoFocus
                                         aria-describedby={isIfoodLink ? ifoodWarningId : undefined}
                                     />
-                                    {isIfoodLink && (
-                                        <WarningBox id={ifoodWarningId} role="alert" icon={icons.faTriangleExclamation} className="mt-3">
-                                            <strong>O iFood bloqueia a leitura automática.</strong>{" "}
-                                            Use fotos ou PDF do cardápio.
-                                        </WarningBox>
-                                    )}
+                                    <div
+                                        key="ifood-warning"
+                                        aria-hidden={!isIfoodLink}
+                                        className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out motion-reduce:transition-none ${
+                                            isIfoodLink ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                                        }`}
+                                    >
+                                        <div className="min-h-0 overflow-hidden">
+                                            <WarningBox id={ifoodWarningId} role="alert" icon={icons.faTriangleExclamation} className="mt-3">
+                                                <strong>O iFood bloqueia a leitura automática.</strong>{" "}
+                                                Use fotos ou PDF do cardápio.
+                                            </WarningBox>
+                                        </div>
+                                    </div>
                                 </div>
                             ) : (
                             <div className="rounded-lg p-4 2xl:text-xl">
