@@ -9,10 +9,23 @@ import { recordGeminiMenuFallback } from "@/lib/dev/health";
 import {
     beginMenuScan, claimMenuScanFileAnalysis, menuScanFileFingerprint, menuScanFilePaths,
     menuScanLinkDomain, menuScanSourceUrl, recordMenuScan, recordMenuScanProgress,
-    scanAttemptIdPattern, waitForMenuScanResult, type MenuScanDiagnostics,
+    scanAttemptIdPattern, waitForMenuScanResult, type MenuScanDiagnostics, type MenuScanTimings,
 } from "@/lib/menu/scanDiagnostics";
 
 export const runtime = "nodejs";
+
+async function timeScanStage<T>(
+    timings: MenuScanTimings,
+    stage: keyof MenuScanTimings,
+    run: () => Promise<T>,
+): Promise<T> {
+    const startedAt = performance.now();
+    try {
+        return await run();
+    } finally {
+        timings[stage] = (timings[stage] ?? 0) + Math.round(performance.now() - startedAt);
+    }
+}
 
 type ScanAccess = { hasItems: boolean; allowed: boolean };
 
@@ -499,10 +512,8 @@ async function waitForGeminiFile(
 
 async function uploadGeminiFile(
     apiKey: string,
-    sourceUrl: string
+    source: Awaited<ReturnType<typeof fetchSourceFile>>
 ): Promise<GeminiFile> {
-    const source = await fetchSourceFile(sourceUrl);
-
     const startResponse = await fetch(
         `${GEMINI_BASE_URL}/upload/v1beta/files`,
         {
@@ -562,7 +573,7 @@ async function uploadGeminiFile(
         );
     }
 
-    return waitForGeminiFile(apiKey, payload.file);
+    return payload.file;
 }
 
 async function deleteGeminiFile(
@@ -681,6 +692,7 @@ Regras:
 async function scanWithGemini(
     apiKey: string,
     urls: string[],
+    timings: MenuScanTimings,
     pageText?: string,
     existingMenuContext?: string
 ): Promise<ParsedMenu> {
@@ -689,23 +701,27 @@ async function scanWithGemini(
     try {
         if (!pageText) {
             for (const url of urls) {
-                uploadedFiles.push(await uploadGeminiFile(apiKey, url));
+                const source = await timeScanStage(timings, "source_fetch", () => fetchSourceFile(url));
+                const file = await timeScanStage(timings, "gemini_upload", () => uploadGeminiFile(apiKey, source));
+                uploadedFiles.push(await timeScanStage(timings, "gemini_file_ready", () => waitForGeminiFile(apiKey, file)));
             }
         }
 
-        const outputText = await generateGeminiMenuJson(
+        const outputText = await timeScanStage(timings, "gemini_generation", () => generateGeminiMenuJson(
             apiKey,
             process.env.GEMINI_MENU_SCAN_MODEL || "gemini-3.5-flash",
             uploadedFiles,
             pageText,
             existingMenuContext
-        );
+        ));
 
         return parseMenuJson(outputText);
     } finally {
-        await Promise.allSettled(
-            uploadedFiles.map((file) => deleteGeminiFile(apiKey, file.name))
-        );
+        if (uploadedFiles.length) {
+            await timeScanStage(timings, "gemini_cleanup", () =>
+                Promise.allSettled(uploadedFiles.map(file => deleteGeminiFile(apiKey, file.name))),
+            );
+        }
     }
 }
 
@@ -938,6 +954,7 @@ export async function POST(req: Request) {
     const openAiApiKey = process.env.OPENAI_API_KEY?.trim();
 
     const startedAt = Date.now();
+    const timingsMs: MenuScanTimings = {};
     let diagnostic: MenuScanDiagnostics | undefined;
     let isLinkImport = false;
     try {
@@ -957,7 +974,7 @@ export async function POST(req: Request) {
         const { user } = await requireRestaurantOwner(req, restaurantId);
         diagnostic = {
             restaurantId, inputType: menuUrl === undefined ? "files" : "link",
-            outcome: "failed", elapsedMs: 0, attemptId,
+            outcome: "failed", elapsedMs: 0, timingsMs, attemptId,
         };
         if (typeof menuUrl === "string") {
             diagnostic.linkDomain = menuScanLinkDomain(menuUrl);
@@ -993,7 +1010,9 @@ export async function POST(req: Request) {
                 );
             }
             const linkDiagnostic = diagnostic;
-            const page = await readPublicMenuLink(menuUrl, text => { linkDiagnostic.extractedText = text; });
+            const page = await timeScanStage(timingsMs, "link_read", () =>
+                readPublicMenuLink(menuUrl, text => { linkDiagnostic.extractedText = text; }),
+            );
             pageText = page.text;
             photos = page.images;
         } else if (
@@ -1054,7 +1073,7 @@ export async function POST(req: Request) {
         let fallbackReason: string | undefined;
         if (geminiApiKey) {
             try {
-                parsed = await scanWithGemini(geminiApiKey, urls, pageText, existingMenuContext);
+                parsed = await scanWithGemini(geminiApiKey, urls, timingsMs, pageText, existingMenuContext);
                 diagnostic.geminiItems = parsed.items.length;
             } catch (geminiError) {
                 diagnostic.geminiError = geminiFallbackReason(geminiError);
@@ -1072,7 +1091,9 @@ export async function POST(req: Request) {
         if (fallbackReason && openAiApiKey) {
             await recordGeminiMenuFallback(fallbackReason);
             try {
-                parsed = await scanWithOpenAI(openAiApiKey, urls, pageText, existingMenuContext);
+                parsed = await timeScanStage(timingsMs, "openai_fallback", () =>
+                    scanWithOpenAI(openAiApiKey, urls, pageText, existingMenuContext),
+                );
                 diagnostic.openAiItems = parsed.items.length;
             } catch (error) {
                 const status = error && typeof error === "object" && "status" in error ? error.status : null;

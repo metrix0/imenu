@@ -137,6 +137,11 @@ it("retries a hydrated public menu with OpenAI when Gemini returns HTTP 503", as
         expect(diagnostics()).toHaveLength(1);
         expect(diagnostics()[0][1].slice(0,7)).toEqual([restaurantId, "link", "success", null, "Gemini HTTP 503", 1, null]);
         expect(diagnostics()[0][1][12]).toEqual({ input: "https://example.test/menu", url: "https://example.test/menu" });
+        expect(diagnostics()[0][1][17]).toEqual({
+            link_read: expect.any(Number),
+            gemini_generation: expect.any(Number),
+            openai_fallback: expect.any(Number),
+        });
         expect(geminiFetch).toHaveBeenCalledTimes(1);
         expect(mockOpenAiCreate).toHaveBeenCalledTimes(1);
         expect(mockOpenAiCreate).toHaveBeenCalledWith(expect.objectContaining({
@@ -280,6 +285,32 @@ it("records an empty result without calling OpenAI when Gemini finds zero items"
     } finally {
         global.fetch = previousFetch;
     }
+});
+
+it("records separate timings for a Gemini file scan", async () => {
+    setExistingItems(0);
+    process.env.GEMINI_API_KEY = "test-gemini-key";
+    const providerFetch = jest.spyOn(global, "fetch")
+        .mockResolvedValueOnce(new Response("image", { headers: { "content-type": "image/png" } }))
+        .mockResolvedValueOnce(new Response(null, { headers: { "x-goog-upload-url": "https://example.test/upload" } }))
+        .mockResolvedValueOnce(Response.json({
+            file: { name: "files/menu", uri: "https://example.test/file", mimeType: "image/png", state: "ACTIVE" },
+        }))
+        .mockResolvedValueOnce(Response.json({
+            candidates: [{ content: { parts: [{ text: JSON.stringify({ items: [], categories: [] }) }] } }],
+        }))
+        .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    expect((await POST(post())).status).toBe(422);
+    expect(providerFetch).toHaveBeenCalledTimes(5);
+    expect(diagnostics()).toHaveLength(1);
+    expect(diagnostics()[0][1][17]).toEqual({
+        source_fetch: expect.any(Number),
+        gemini_upload: expect.any(Number),
+        gemini_file_ready: expect.any(Number),
+        gemini_generation: expect.any(Number),
+        gemini_cleanup: expect.any(Number),
+    });
 });
 
 it("preserves the import response when writing diagnostics fails", async () => {
@@ -481,7 +512,7 @@ describe("interrupted file retry drafts", () => {
         expect(transactionQuery).toHaveBeenCalledWith(expect.stringContaining("interruption_reason IN ('modal', 'page')"),
             [trackedRestaurant, trackedAttempt, expect.stringMatching(/^[0-9a-f]{64}$/), "15 minutes"]);
         expect(diagnostics()[1][1].slice(2, 7)).toEqual(["success", null, null, null, null]);
-        expect(diagnostics()[1][1].slice(14)).toEqual([null, null, retryOriginalAttempt]);
+        expect(diagnostics()[1][1].slice(14)).toEqual([null, null, retryOriginalAttempt, null]);
     });
 
     it.each([true, false])("stages only successful fresh results (products: %s)", async foundProducts => {
@@ -496,8 +527,8 @@ describe("interrupted file retry drafts", () => {
         const payload = await response.json();
         expect(mockOpenAiCreate).toHaveBeenCalledTimes(1);
         expect(diagnostics()[1][1].slice(14)).toEqual(foundProducts
-            ? [expect.stringMatching(/^[0-9a-f]{64}$/), payload, null]
-            : [null, null, null]);
+            ? [expect.stringMatching(/^[0-9a-f]{64}$/), payload, null, { openai_fallback: expect.any(Number) }]
+            : [null, null, null, { openai_fallback: expect.any(Number) }]);
     });
 
     it.each([true, false])("joins analysis in progress even after closing the modal (products: %s)", async foundProducts => {
@@ -562,7 +593,7 @@ describe("interrupted file retry drafts", () => {
         expect(await resumed.json()).toEqual(await original.json());
         expect(mockOpenAiCreate).toHaveBeenCalledTimes(1);
         const resumedDiagnostic = diagnostics().find(([, params]) => params[13] === trackedAttempt);
-        expect(resumedDiagnostic?.[1].slice(14)).toEqual([null, null, retryOriginalAttempt]);
+        expect(resumedDiagnostic?.[1].slice(14)).toEqual([null, null, retryOriginalAttempt, null]);
     });
 
     it("does not call a provider if it cannot establish the analysis claim", async () => {

@@ -23,6 +23,12 @@ export function menuScanFilePaths(urls: string[]): string[] {
     });
 }
 
+export type MenuScanTimings = Partial<Record<
+    "source_fetch" | "link_read" | "gemini_upload" | "gemini_file_ready" |
+    "gemini_generation" | "gemini_cleanup" | "openai_fallback",
+    number
+>>;
+
 export type MenuScanDiagnostics = {
     restaurantId: string;
     inputType: "link" | "files";
@@ -37,6 +43,7 @@ export type MenuScanDiagnostics = {
     extractedText?: string;
     source?: { input: string; url?: string } | { files: string[] };
     elapsedMs: number;
+    timingsMs: MenuScanTimings;
     retryDraft?: { fingerprint: string; result: object };
     reusedFromAttemptId?: string;
 };
@@ -279,14 +286,15 @@ export async function recordMenuScanProgress(
 export async function recordMenuScan(diagnostic: MenuScanDiagnostics): Promise<void> {
     const text = diagnostic.extractedText;
     const needsExcerpt = diagnostic.outcome !== "success" || diagnostic.geminiItems === 0 || diagnostic.openAiItems === 0;
+    const timingsMs = Object.keys(diagnostic.timingsMs).length ? diagnostic.timingsMs : null;
     try {
         await query(
             `INSERT INTO public.menu_scan_events
                 (restaurant_id, input_type, outcome, gemini_items, gemini_error, openai_items, openai_error,
                  error_code, link_domain, extracted_chars, excerpt, elapsed_ms, source, attempt_id, analysis_finished_at,
-                 retry_fingerprint, retry_result, reused_from_attempt_id)
+                 retry_fingerprint, retry_result, reused_from_attempt_id, timings_ms)
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,
-                     CASE WHEN $14::uuid IS NOT NULL THEN clock_timestamp() END,$15,$16,$17)
+                     CASE WHEN $14::uuid IS NOT NULL THEN clock_timestamp() END,$15,$16,$17,$18)
              ON CONFLICT (restaurant_id, attempt_id) DO UPDATE SET
                 input_type = EXCLUDED.input_type, outcome = EXCLUDED.outcome, gemini_items = EXCLUDED.gemini_items,
                 gemini_error = EXCLUDED.gemini_error, openai_items = EXCLUDED.openai_items,
@@ -296,7 +304,8 @@ export async function recordMenuScan(diagnostic: MenuScanDiagnostics): Promise<v
                 analysis_finished_at = EXCLUDED.analysis_finished_at,
                 retry_fingerprint = COALESCE(EXCLUDED.retry_fingerprint, menu_scan_events.retry_fingerprint),
                 retry_result = EXCLUDED.retry_result,
-                reused_from_attempt_id = COALESCE(EXCLUDED.reused_from_attempt_id, menu_scan_events.reused_from_attempt_id)
+                reused_from_attempt_id = COALESCE(EXCLUDED.reused_from_attempt_id, menu_scan_events.reused_from_attempt_id),
+                timings_ms = EXCLUDED.timings_ms
              WHERE menu_scan_events.analysis_finished_at IS NULL`,
             [diagnostic.restaurantId, diagnostic.inputType, diagnostic.outcome,
                 diagnostic.geminiItems ?? null, diagnostic.geminiError ?? null,
@@ -304,7 +313,7 @@ export async function recordMenuScan(diagnostic: MenuScanDiagnostics): Promise<v
                 diagnostic.errorCode ?? null, diagnostic.linkDomain ?? null, text?.length ?? null,
                 needsExcerpt && text ? redactExcerpt(text) : null, diagnostic.elapsedMs, diagnostic.source ?? null,
                 diagnostic.attemptId ?? null, diagnostic.retryDraft?.fingerprint ?? null,
-                diagnostic.retryDraft?.result ?? null, diagnostic.reusedFromAttemptId ?? null],
+                diagnostic.retryDraft?.result ?? null, diagnostic.reusedFromAttemptId ?? null, timingsMs],
         );
     } catch {
         console.warn("[SCAN_MENU] Não foi possível registrar o diagnóstico da importação.");
