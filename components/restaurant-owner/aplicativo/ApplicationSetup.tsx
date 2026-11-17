@@ -18,6 +18,7 @@ import {
 
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import { useCollapsible } from "@/components/ui/CollapsibleSection";
 import Modal from "@/components/ui/Modal";
 import { LegacyModalClose } from "@/components/ui/ModalCloseButton";
 import Toast from "@/components/ui/Toast";
@@ -72,6 +73,12 @@ export default function ApplicationSetup() {
         useState(false);
 
     const ios = useMemo(() => isIosDevice(), []);
+    const tutorial = useCollapsible();
+
+    const closeInstallInstructions = () => {
+        setInstallInstructionsOpen(false);
+        tutorial.setExpanded(false);
+    };
 
     const showToast = useCallback(
         (message: string, type: ToastState["type"] = "info") => {
@@ -344,15 +351,15 @@ export default function ApplicationSetup() {
                 />
             )}
 
-            <Modal height={420}
+            <Modal height={tutorial.expanded ? 720 : 420}
                 open={installInstructionsOpen}
-                onClose={() => setInstallInstructionsOpen(false)}
+                onClose={closeInstallInstructions}
                 className="max-w-lg"
             >
                 <div className="relative p-6">
                     <LegacyModalClose><button
                         type="button"
-                        onClick={() => setInstallInstructionsOpen(false)}
+                        onClick={closeInstallInstructions}
                         className="absolute right-3 top-3 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
                         aria-label="Fechar instruções"
                     >
@@ -392,6 +399,30 @@ export default function ApplicationSetup() {
                             </li>
                             <li>Toque em <strong>Instalar</strong> e confirme.</li>
                         </ol>
+                    )}
+
+                    {ios && (
+                        <>
+                            <Button
+                                {...tutorial.triggerProps}
+                                variant="secondary"
+                                className="mt-5 w-full"
+                            >
+                                {tutorial.expanded ? "Ocultar vídeo" : "Ver vídeo explicativo"}
+                            </Button>
+                            <div id={tutorial.contentId} hidden={!tutorial.expanded}>
+                                {tutorial.expanded && (
+                                    <video
+                                        src="/images/iphoneAppTutorial.mp4"
+                                        controls
+                                        playsInline
+                                        preload="metadata"
+                                        aria-label="Como adicionar o iMenu à Tela de Início"
+                                        className="mx-auto mt-3 max-h-[50dvh] w-full rounded-lg bg-black object-contain"
+                                    />
+                                )}
+                            </div>
+                        </>
                     )}
 
                     <a
