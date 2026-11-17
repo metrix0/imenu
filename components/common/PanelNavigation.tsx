@@ -13,7 +13,7 @@ import "@/app/painel/mobile.css";
 
 export type PanelMenuItem =
     | { type: "divider" }
-    | { label: string; icon: IconDefinition; href: string; openInNewTab?: boolean; isNew?: boolean; notification?: string; notificationTitle?: string; type?: undefined };
+    | { label: string; icon: IconDefinition; href: string; isNew?: boolean; notification?: string; notificationTitle?: string; type?: undefined };
 
 type FooterAction = { label: string; icon: IconDefinition; onClick: () => void; disabled?: boolean; error?: string };
 
@@ -57,13 +57,11 @@ export default function PanelNavigation({ children, base, menuItems, onNavigate,
     const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
     const menuButtonRef = useRef<HTMLButtonElement>(null);
     const Content = contentAs;
-    const trackPanelTabOpen = (item: Exclude<PanelMenuItem, { type: "divider" }>) => {
-        if (!item.openInNewTab) onNavigate?.(item);
-    };
+    const trackPanelTabOpen = (item: Exclude<PanelMenuItem, { type: "divider" }>) => onNavigate?.(item);
     const isItemActive = (item: Exclude<PanelMenuItem, { type: "divider" }>) =>
-        !item.openInNewTab && (item.href === base || item.href === `${base}/`
+        item.href === base || item.href === `${base}/`
             ? pathname === base || pathname === `${base}/`
-            : pathname?.startsWith(item.href));
+            : pathname?.startsWith(item.href);
 
     useEffect(() => {
         setMobileMenuOpen(false);
@@ -276,13 +274,7 @@ export default function PanelNavigation({ children, base, menuItems, onNavigate,
                                 <Link
                                     key={`mobile-${item.href}`}
                                     href={item.href}
-                                    target={item.openInNewTab ? "_blank" : undefined}
-                                    rel={item.openInNewTab ? "noopener noreferrer" : undefined}
-                                    prefetch={item.openInNewTab ? false : undefined}
-                                    onClick={() => {
-                                        if (item.openInNewTab) setMobileMenuOpen(false);
-                                        trackPanelTabOpen(item);
-                                    }}
+                                    onClick={() => trackPanelTabOpen(item)}
                                     aria-current={active ? "page" : undefined}
                                     className={`panel-nav-link flex items-center gap-3 rounded-lg px-4 py-3 text-sm transition-colors ${
                                         active
@@ -403,9 +395,6 @@ export default function PanelNavigation({ children, base, menuItems, onNavigate,
                                 <Link
                                     key={item.href}
                                     href={item.href}
-                                    target={item.openInNewTab ? "_blank" : undefined}
-                                    rel={item.openInNewTab ? "noopener noreferrer" : undefined}
-                                    prefetch={item.openInNewTab ? false : undefined}
                                     onClick={() => trackPanelTabOpen(item)}
                                     title={!expanded ? (item.notification ? (item.notificationTitle || item.label) : item.label) : ""}
                                     aria-current={active ? "page" : undefined}

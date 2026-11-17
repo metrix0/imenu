@@ -3,8 +3,10 @@
 import { getMenuItemImageUrl } from "@/lib/menu/itemImages";
 import { PageSaveHeader } from "@/components/ui/SaveStatus";
 import { useEffect, useState } from "react";
+import { ExternalLink } from "lucide-react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
+import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import Tabs from "@/components/ui/Tabs";
 import Toast from "@/components/ui/Toast";
@@ -32,6 +34,7 @@ export default function MenuManagerPage() {
 
     const [activeTab, setActiveTab] = useState("Cardápio");
     const [isLoading, setIsLoading] = useState(true);
+    const [publicMenu, setPublicMenu] = useState<{ restaurantId: string; slug: string } | null>(null);
     const [categories, setCategories] = useState<Category[]>([]);
     const [items, setItems] = useState<MenuItemType[]>([]);
     const [toast, setToast] = useState<{
@@ -84,9 +87,19 @@ export default function MenuManagerPage() {
     };
 
     useEffect(() => {
+        let active = true;
         const init = async () => {
             if (restaurantId) {
-                await loadMenuData(restaurantId);
+                void loadMenuData(restaurantId);
+                const { data } = await supabase
+                    .from("restaurants")
+                    .select("url_slug")
+                    .eq("id", restaurantId)
+                    .single();
+
+                if (active) {
+                    setPublicMenu(data?.url_slug ? { restaurantId, slug: data.url_slug } : null);
+                }
                 return;
             }
 
@@ -113,6 +126,7 @@ export default function MenuManagerPage() {
         };
 
         void init();
+        return () => { active = false; };
     }, [restaurantId, setRestaurantId]);
 
     const openScanner = () => setAiModalOpen(true);
@@ -247,13 +261,26 @@ export default function MenuManagerPage() {
             `}</style>
 
             <PageSaveHeader>
-<div className="min-w-0 max-w-full">
-                <h1 className="text-3xl font-bold text-gray-900">Cardápio</h1>
-                <p className="text-gray-500 mt-1 2xl:text-lg">
-                    Defina quais os itens seus clientes podem pedir.
-                </p>
-            </div>
-</PageSaveHeader>
+                <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 sm:gap-3">
+                    <div className="min-w-min flex-1">
+                        <h1 className="text-3xl font-bold text-gray-900">Cardápio</h1>
+                        <p className="text-gray-500 mt-1 2xl:text-lg">
+                            Defina quais os itens seus clientes podem pedir.
+                        </p>
+                    </div>
+                    {publicMenu?.restaurantId === restaurantId && (
+                        <Button
+                            type="button"
+                            variant="primary"
+                            className="shrink-0 whitespace-nowrap"
+                            rightIcon={<ExternalLink size={16} aria-hidden="true" />}
+                            onClick={() => window.open(`/${encodeURIComponent(publicMenu.slug)}`, "_blank", "noopener,noreferrer")}
+                        >
+                            Abrir meu cardápio
+                        </Button>
+                    )}
+                </div>
+            </PageSaveHeader>
 
             <div className="max-w-full overflow-hidden border-b border-gray-200">
                 <Tabs

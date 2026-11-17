@@ -6,7 +6,6 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { PanelIcon as FontAwesomeIcon, faMotorRacingHelmet } from "@/components/ui/PanelIcon";
 import {
-    faUpRightFromSquare,
     faBox,
     faChair,
     faChartLine,
@@ -104,7 +103,6 @@ export default function PainelLayout({
     const pathname = usePathname();
     const router = useRouter();
     const restaurantId = useCreationStore(state => state.restaurantId);
-    const restaurantSlug = useCreationStore(state => state.restaurantSlug);
     const refreshUsage = useSalesStore(state => state.refreshUsage);
     const usageAccess = useSalesStore(state => state.usageAccess);
     const supportButtonRef = useRef<SupportButtonRef>(null);
@@ -113,7 +111,6 @@ export default function PainelLayout({
     const [storeOverride, setStoreOverride] = useState<{ is_closed: string | null; manual_open_until: string | null } | null>(null);
     const storeChangeVersion = useRef(0);
     const [availability, setAvailability] = useState<Availability | null>(null);
-    const [publicMenu, setPublicMenu] = useState<{ restaurantId: string; slug: string } | null>(null);
     const [scheduleNow, setScheduleNow] = useState(() => new Date());
     const [showStoreModal, setShowStoreModal] = useState(false);
     const [isTogglingStore, setIsTogglingStore] = useState(false);
@@ -220,17 +217,16 @@ export default function PainelLayout({
         let active = true;
         const version = storeChangeVersion.current;
         void supabase.from("restaurants")
-            .select("is_closed, manual_open_until, availability_json, url_slug")
+            .select("is_closed, manual_open_until, availability_json")
             .eq("id", targetRestaurantId)
             .single()
             .then(({ data, error }) => {
                 if (!active || error || !data) return;
                 setAvailability((data.availability_json as Availability | null) ?? null);
-                setPublicMenu(data.url_slug ? { restaurantId: targetRestaurantId, slug: data.url_slug } : null);
                 if (version === storeChangeVersion.current) setStoreOverride(data);
             });
         return () => { active = false; };
-    }, [targetRestaurantId, restaurantSlug, pathname]);
+    }, [targetRestaurantId, pathname]);
 
     useEffect(() => {
         const update = () => setScheduleNow(new Date());
@@ -316,12 +312,6 @@ export default function PainelLayout({
     const cardapioHref = `${base}/cardapio`;
 
     const menuItems: PanelMenuItem[] = [
-        ...(publicMenu && publicMenu.restaurantId === targetRestaurantId ? [{
-            label: "Abrir meu cardápio",
-            icon: faUpRightFromSquare,
-            href: `/${encodeURIComponent(publicMenu.slug)}`,
-            openInNewTab: true,
-        }] : []),
         { label: "Pedidos", icon: faHome, href: `${base}/` },
         { label: "Histórico", icon: faBox, href: `${base}/historico` },
         { label: "Cardápio", icon: faUtensils, href: cardapioHref },
