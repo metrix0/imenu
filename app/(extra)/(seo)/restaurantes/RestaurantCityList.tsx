@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRestaurantDirectory } from "@/components/common/RestaurantDirectoryProvider";
 import Dropdown from "@/components/ui/Dropdown";
+import PanelAppearance from "@/components/ui/PanelAppearance";
 import Pagination from "@/components/ui/Pagination";
 
 const CITIES_PER_PAGE = 24;
@@ -33,18 +34,19 @@ export default function RestaurantCityList() {
     return (
         <>
             <div ref={sortControlsRef} className="mt-5 scroll-mt-4 sm:w-56">
-                <Dropdown
-                    custom
-                    aria-label="Ordenar restaurantes por cidade"
-                    value={order}
-                    options={SORT_OPTIONS}
-                    onChange={(event) => {
-                        const nextOrder = event.target.value === "quantity" ? "quantity" : "name";
-                        if (nextOrder === order) return;
-                        setOrder(nextOrder);
-                        setPage(0);
-                    }}
-                />
+                <PanelAppearance>
+                    <Dropdown
+                        aria-label="Ordenar restaurantes por cidade"
+                        value={order}
+                        options={SORT_OPTIONS}
+                        onChange={(event) => {
+                            const nextOrder = event.target.value === "quantity" ? "quantity" : "name";
+                            if (nextOrder === order) return;
+                            setOrder(nextOrder);
+                            setPage(0);
+                        }}
+                    />
+                </PanelAppearance>
             </div>
 
             <ul className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
