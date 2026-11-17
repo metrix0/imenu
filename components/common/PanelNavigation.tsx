@@ -11,9 +11,10 @@ import Badge from "@/components/ui/Badge";
 import { PageSaveStatusProvider } from "@/components/ui/SaveStatus";
 import "@/app/painel/mobile.css";
 
-export type PanelMenuItem =
-    | { type: "divider" }
-    | { label: string; icon: IconDefinition; href: string; isNew?: boolean; notification?: string; notificationTitle?: string; type?: undefined };
+type PanelRouteItem = { label: string; icon: IconDefinition; href: string; isNew?: boolean; notification?: string; notificationTitle?: string; type?: undefined };
+type PanelShortcut = { type: "shortcut"; label: string; icon: IconDefinition; href: string };
+
+export type PanelMenuItem = { type: "divider" } | PanelRouteItem | PanelShortcut;
 
 type FooterAction = { label: string; icon: IconDefinition; onClick: () => void; disabled?: boolean; error?: string };
 
@@ -42,7 +43,7 @@ export default function PanelNavigation({ children, base, menuItems, onNavigate,
     children: ReactNode;
     base: string;
     menuItems: PanelMenuItem[];
-    onNavigate?: (item: Exclude<PanelMenuItem, { type: "divider" }>) => void;
+    onNavigate?: (item: PanelRouteItem) => void;
     status?: ReactNode;
     collapsedStatus?: ReactNode;
     headerAction?: ReactNode;
@@ -57,8 +58,24 @@ export default function PanelNavigation({ children, base, menuItems, onNavigate,
     const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
     const menuButtonRef = useRef<HTMLButtonElement>(null);
     const Content = contentAs;
-    const trackPanelTabOpen = (item: Exclude<PanelMenuItem, { type: "divider" }>) => onNavigate?.(item);
-    const isItemActive = (item: Exclude<PanelMenuItem, { type: "divider" }>) =>
+    const renderShortcut = (item: PanelShortcut, showLabel: boolean, onClick?: () => void) => (
+        <Link
+            key={item.href}
+            href={item.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            prefetch={false}
+            onClick={onClick}
+            aria-label={item.label}
+            title={showLabel ? undefined : item.label}
+            className="panel-nav-link panel-nav-shortcut mb-1 flex shrink-0 items-center gap-3 rounded-lg px-4 py-3 font-medium"
+        >
+            <FontAwesomeIcon icon={item.icon} aria-hidden="true" />
+            {showLabel && <span className="whitespace-nowrap">{item.label}</span>}
+        </Link>
+    );
+    const trackPanelTabOpen = (item: PanelRouteItem) => onNavigate?.(item);
+    const isItemActive = (item: PanelRouteItem) =>
         item.href === base || item.href === `${base}/`
             ? pathname === base || pathname === `${base}/`
             : pathname?.startsWith(item.href);
@@ -269,6 +286,8 @@ export default function PanelNavigation({ children, base, menuItems, onNavigate,
                                 );
                             }
 
+                            if (item.type === "shortcut") return renderShortcut(item, true, () => setMobileMenuOpen(false));
+
                             const active = isItemActive(item);
                             return (
                                 <Link
@@ -389,6 +408,8 @@ export default function PanelNavigation({ children, base, menuItems, onNavigate,
                                     />
                                 );
                             }
+
+                            if (item.type === "shortcut") return renderShortcut(item, expanded);
 
                             const active = isItemActive(item);
                             return (

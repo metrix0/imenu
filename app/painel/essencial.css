@@ -158,6 +158,10 @@
 .panel-essencial .panel-nav-link:hover { background: var(--panel-background); color: var(--panel-text); }
 .panel-essencial .panel-nav-link[aria-current="page"] { background: var(--panel-tint); color: var(--panel-accent-text); }
 .panel-essencial .panel-sidebar .panel-nav-link { justify-content: flex-start; overflow: hidden; }
+.panel-essencial .panel-nav-link.panel-nav-shortcut { background: var(--panel-action); color: #fff; }
+.panel-essencial .panel-nav-link.panel-nav-shortcut:hover { background: var(--panel-action-hover); color: #fff; }
+.panel-essencial .panel-nav-shortcut:focus-visible { outline: 2px solid var(--panel-action); outline-offset: 2px; }
+.panel-essencial .panel-sidebar[data-expanded="false"] .panel-nav-shortcut { justify-content: center; padding-inline: 0; }
 .panel-essencial .panel-mobile-header { border-color: var(--panel-border); background: var(--panel-surface); }
 .panel-essencial .panel-store-status { border-radius: 8px; font-size: 12px; padding: 7px 10px; }
 

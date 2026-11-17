@@ -26,6 +26,7 @@ import {
     faRocket,
     faStore,
     faTruck,
+    faUpRightFromSquare,
     faUtensils,
     faUsers,
     faBullhorn,
@@ -103,6 +104,7 @@ export default function PainelLayout({
     const pathname = usePathname();
     const router = useRouter();
     const restaurantId = useCreationStore(state => state.restaurantId);
+    const restaurantSlug = useCreationStore(state => state.restaurantSlug);
     const refreshUsage = useSalesStore(state => state.refreshUsage);
     const usageAccess = useSalesStore(state => state.usageAccess);
     const supportButtonRef = useRef<SupportButtonRef>(null);
@@ -117,9 +119,11 @@ export default function PainelLayout({
     const [isChecking, setIsChecking] = useState(true);
     const [isPasswordRecoveryFlow, setIsPasswordRecoveryFlow] = useState(false);
     const [showNewAnalysisDot, setShowNewAnalysisDot] = useState(false);
+    const [menuShortcut, setMenuShortcut] = useState<{ restaurantId: string; slug: string; expiresAt: number } | null>(null);
 
     const base = "/painel";
     const targetRestaurantId = restaurantId || getParamRestaurantId(params);
+    const menuShortcutExpiresAt = menuShortcut?.expiresAt ?? 0;
     const finishedAnalysisAt = usageAccess?.restaurant_id === targetRestaurantId
         ? usageAccess.latest_analysis_finished_at
         : null;
@@ -217,16 +221,23 @@ export default function PainelLayout({
         let active = true;
         const version = storeChangeVersion.current;
         void supabase.from("restaurants")
-            .select("is_closed, manual_open_until, availability_json")
+            .select("is_closed, manual_open_until, availability_json, url_slug, first_time, onboarding_completed_at")
             .eq("id", targetRestaurantId)
             .single()
             .then(({ data, error }) => {
                 if (!active || error || !data) return;
                 setAvailability((data.availability_json as Availability | null) ?? null);
                 if (version === storeChangeVersion.current) setStoreOverride(data);
+
+                const completedAt = Date.parse(data.onboarding_completed_at ?? "");
+                const expiresAt = completedAt + 24 * 60 * 60 * 1000;
+                const now = Date.now();
+                setMenuShortcut(data.first_time === false && data.url_slug && completedAt <= now && expiresAt > now
+                    ? { restaurantId: targetRestaurantId, slug: data.url_slug, expiresAt }
+                    : null);
             });
         return () => { active = false; };
-    }, [targetRestaurantId, pathname]);
+    }, [targetRestaurantId, restaurantSlug, pathname]);
 
     useEffect(() => {
         const update = () => setScheduleNow(new Date());
@@ -234,14 +245,17 @@ export default function PainelLayout({
         const interval = window.setInterval(update, 30_000);
         const expiresIn = Date.parse(storeOverride?.manual_open_until ?? "") - Date.now();
         const expiryTimer = expiresIn > 0 ? window.setTimeout(update, expiresIn) : undefined;
+        const shortcutExpiresIn = menuShortcutExpiresAt - Date.now();
+        const shortcutTimer = shortcutExpiresIn > 0 ? window.setTimeout(update, shortcutExpiresIn) : undefined;
         window.addEventListener("focus", update);
 
         return () => {
             window.clearInterval(interval);
             if (expiryTimer !== undefined) window.clearTimeout(expiryTimer);
+            if (shortcutTimer !== undefined) window.clearTimeout(shortcutTimer);
             window.removeEventListener("focus", update);
         };
-    }, [storeOverride?.manual_open_until]);
+    }, [storeOverride?.manual_open_until, menuShortcutExpiresAt]);
 
     useEffect(() => {
         const checkAuth = async () => {
@@ -310,11 +324,19 @@ export default function PainelLayout({
     };
 
     const cardapioHref = `${base}/cardapio`;
+    const showMenuShortcut = menuShortcut && menuShortcut.restaurantId === targetRestaurantId &&
+        menuShortcut.expiresAt > scheduleNow.getTime();
 
     const menuItems: PanelMenuItem[] = [
         { label: "Pedidos", icon: faHome, href: `${base}/` },
         { label: "Histórico", icon: faBox, href: `${base}/historico` },
         { label: "Cardápio", icon: faUtensils, href: cardapioHref },
+        ...(showMenuShortcut ? [{
+            type: "shortcut" as const,
+            label: "Abrir cardápio",
+            icon: faUpRightFromSquare,
+            href: `/${encodeURIComponent(menuShortcut.slug)}`,
+        }] : []),
         { label: "Assistente IA", icon: faWandMagicSparkles, href: `${base}/assistente-ia` },
         { label: "Clientes", icon: faUsers, href: `${base}/clientes`, isNew: true },
         { label: "Mesas", icon: faChair, href: `${base}/mesas` },
