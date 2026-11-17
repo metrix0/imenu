@@ -11,6 +11,7 @@ type LoadingBarProps = {
     fixed?: boolean;
 
     durationSeconds?: number;
+    targetProgress?: number;
 };
 
 export default function LoadingBar({
@@ -23,24 +24,23 @@ export default function LoadingBar({
                                        showLabel = false,
                                        fixed = false,
                                        durationSeconds,
+                                       targetProgress = 90,
                                    }: LoadingBarProps) {
 
     const [autoProgress, setAutoProgress] = useState(0);
     const rafRef = useRef<number | null>(null);
     const startTime = useRef<number | null>(null);
 
-    // If durationSeconds is passed, animate 0% → 90%
     useEffect(() => {
         if (!durationSeconds || indeterminate) return;
 
-        const target = 90;
         const durationMs = durationSeconds * 1000;
 
         const step = (now: number) => {
             if (!startTime.current) startTime.current = now;
             const elapsed = now - startTime.current;
             const pct = Math.min(1, elapsed / durationMs);
-            setAutoProgress(Math.round(pct * target));
+            setAutoProgress(Math.round(pct * targetProgress));
 
             if (pct < 1) {
                 rafRef.current = requestAnimationFrame(step);
@@ -53,7 +53,7 @@ export default function LoadingBar({
             if (rafRef.current) cancelAnimationFrame(rafRef.current);
             startTime.current = null;
         };
-    }, [durationSeconds, indeterminate]);
+    }, [durationSeconds, indeterminate, targetProgress]);
 
     // effective progress
     const effectiveProgress = durationSeconds ? autoProgress : progress;
