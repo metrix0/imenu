@@ -49,7 +49,8 @@ const scansSql = `
                      WHEN scan.gemini_items IS NOT NULL THEN 'Gemini'
                      WHEN original.openai_items IS NOT NULL OR original.openai_error IS NOT NULL THEN 'OpenAI'
                      WHEN original.gemini_items IS NOT NULL THEN 'Gemini' END AS provider,
-                scan.reused_from_attempt_id IS NOT NULL AS reused
+                scan.reused_from_attempt_id IS NOT NULL AS reused,
+                scan.analysis_elapsed_ms
             FROM (
                 SELECT * FROM recent ORDER BY created_at DESC, id DESC LIMIT $1 OFFSET $2
             ) scan
@@ -77,6 +78,7 @@ type ScanHistoryResult = {
         items: number | null;
         provider: string | null;
         reused: boolean;
+        analysis_elapsed_ms: number | null;
     }[];
 };
 

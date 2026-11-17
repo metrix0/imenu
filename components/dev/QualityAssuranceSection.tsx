@@ -55,6 +55,7 @@ type MenuScans = {
         items: number | null;
         provider: "Gemini" | "OpenAI" | null;
         reused: boolean;
+        analysis_elapsed_ms: number | null;
     }>;
 };
 
@@ -330,6 +331,7 @@ export default function QualityAssuranceSection() {
                                         </Badge>
                                     </InfoTooltip>
                                     : row.provider ?? "—" },
+                                { key: "analysisElapsed", label: "Tempo de IA", className: "whitespace-nowrap", render: row => row.analysis_elapsed_ms == null ? "—" : formatAverage(row.analysis_elapsed_ms / 1000) + " s" },
                             ]} />
                     </>}
             </section>
