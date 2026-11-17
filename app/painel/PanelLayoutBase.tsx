@@ -328,15 +328,15 @@ export default function PainelLayout({
         menuShortcut.expiresAt > scheduleNow.getTime();
 
     const menuItems: PanelMenuItem[] = [
-        { label: "Pedidos", icon: faHome, href: `${base}/` },
-        { label: "Histórico", icon: faBox, href: `${base}/historico` },
-        { label: "Cardápio", icon: faUtensils, href: cardapioHref },
         ...(showMenuShortcut ? [{
             type: "shortcut" as const,
             label: "Abrir cardápio",
             icon: faUpRightFromSquare,
             href: `/${encodeURIComponent(menuShortcut.slug)}`,
         }] : []),
+        { label: "Pedidos", icon: faHome, href: `${base}/` },
+        { label: "Histórico", icon: faBox, href: `${base}/historico` },
+        { label: "Cardápio", icon: faUtensils, href: cardapioHref },
         { label: "Assistente IA", icon: faWandMagicSparkles, href: `${base}/assistente-ia` },
         { label: "Clientes", icon: faUsers, href: `${base}/clientes`, isNew: true },
         { label: "Mesas", icon: faChair, href: `${base}/mesas` },
