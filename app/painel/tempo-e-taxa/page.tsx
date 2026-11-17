@@ -200,6 +200,7 @@ export default function PainelTempoETaxaPage() {
             <section className="mx-auto mt-10 max-w-2xl 2xl:max-w-3xl">
                 <ToggleOptionCard
                     label="Desativar entregas"
+                    variant="section"
                     description="Quando ativado, o cardápio aceita apenas pedidos para retirada no restaurante."
                     ariaLabel="Desativar entregas"
                     checked={deliveryDisabled}
