@@ -30,6 +30,7 @@ import { Item, type ItemsByCategory } from "@/lib/types/types";
 import { rankAutomaticUpsells, type AutomaticUpsellRecommendations } from "@/lib/upsell/recommendations";
 import { StartingPriceLabel } from "./StartingPriceLabels";
 import type { QrTableMenuContext } from "@/lib/qr-table/types";
+import { getRestaurantDeliveryLocation } from "@/lib/delivery/restaurantLocation";
 import {
     findSimilarNeighborhoodDeliveryRule,
     normalizeNeighborhoodName,
@@ -264,24 +265,9 @@ export default function CartModal({
         }
     }, [scheduledOptionsKey, scheduled_for, mustSchedule, isTableOrder, allowFutureScheduling, preorderOnly, showOptionalSchedule]);
 
-    const restaurantAddress = (() => {
-        const rawAddress = restaurant?.address;
-        if (!rawAddress) return null;
-        if (typeof rawAddress === "string") {
-            try {
-                return JSON.parse(rawAddress);
-            } catch {
-                return null;
-            }
-        }
-        return typeof rawAddress === "object" ? rawAddress : null;
-    })();
-
-    const hasRestaurantAddress = Boolean(
-        restaurantAddress &&
-        [restaurantAddress.street, restaurantAddress.number, restaurantAddress.neighborhood, restaurantAddress.city, restaurantAddress.state, restaurantAddress.cep]
-            .some((value) => String(value ?? "").trim().length > 0)
-    );
+    const { address: restaurantAddress, hasAddress: hasRestaurantAddress, hasRadiusOrigin } =
+        getRestaurantDeliveryLocation(restaurant);
+    const missingDeliveryOrigin = !isTableOrder && !isPickup && !neighborhoodMode && !hasRadiusOrigin;
 
     const formattedRestaurantAddress = restaurantAddress
         ? [
@@ -367,7 +353,7 @@ export default function CartModal({
         setField("showAddressWarning", false);
         setCepLocationError(false);
         setCitywideAddressError(false);
-        if (missingDeliveryRanges) {
+        if (missingDeliveryOrigin || missingDeliveryRanges) {
             setDeliveryFeeCents(null);
             setField("delivery_fee_cents", null);
             setField("delivery_time_minutes", null);
@@ -493,7 +479,7 @@ export default function CartModal({
     }
 
     async function handleCepInput(value: string, onCitywideSuccess?: () => void) {
-        if (isPickup || isTableOrder) return;
+        if (isPickup || isTableOrder || missingDeliveryOrigin) return;
         setCepLocationError(false);
         setCitywideAddressError(false);
         setContinueBlocked(true)
@@ -574,6 +560,10 @@ export default function CartModal({
 
     useEffect(() => {
         if (isTableOrder || isPickup) return;
+        if (missingDeliveryOrigin) {
+            void recalcDeliveryFeeFromAddress();
+            return;
+        }
         if (smallCityMode && (!rua || !bairro || !numero)) {
             setDeliveryFeeCents(null);
             setField("delivery_fee_cents", false);
@@ -591,10 +581,10 @@ export default function CartModal({
         }, 400);
 
         return () => window.clearTimeout(timer);
-    }, [cep, rua, bairro, numero, isPickup, isTableOrder, smallCityMode, neighborhoodDeliveryRules]);
+    }, [cep, rua, bairro, numero, isPickup, isTableOrder, missingDeliveryOrigin, smallCityMode, neighborhoodDeliveryRules]);
 
     async function handleUseMyLocation() {
-        if (isPickup || isTableOrder) return;
+        if (isPickup || isTableOrder || missingDeliveryOrigin) return;
         if (!("geolocation" in navigator)){
             console.log("no geo")
             setShowNoGeolocationToast(true)
@@ -1266,7 +1256,7 @@ export default function CartModal({
 
                     {!deliveryDisabled && (
                     <fieldset
-                        disabled={isPickup}
+                        disabled={isPickup || missingDeliveryOrigin}
                         className={`transition-opacity ${isPickup ? "pointer-events-none opacity-40" : "opacity-100"}`}
                     >
                         <div className={"md:flex md:justify-between md:pr-4 md:mx-1 md:mb-4"}>
@@ -1284,7 +1274,15 @@ export default function CartModal({
                             </button>
                         </div>
 
-                        {missingDeliveryConfig && (
+                        {missingDeliveryOrigin ? (
+                            <WarningBox
+                                role="alert"
+                                icon={icons.faTriangleExclamation}
+                                className="mt-2 mb-8 p-4 2xl:text-lg"
+                            >
+                                A entrega está indisponível porque o endereço da loja não foi configurado. O restaurante pode corrigir isso na aba <strong>Tempo e Taxa → Endereço do restaurante</strong>.
+                            </WarningBox>
+                        ) : missingDeliveryConfig && (
                             <WarningBox
                                 role="alert"
                                 icon={icons.faTriangleExclamation}
@@ -1296,7 +1294,7 @@ export default function CartModal({
                             </WarningBox>
                         )}
 
-                        {(citywideAddressError || showAddressWarning) && !isPickup && !missingDeliveryConfig &&
+                        {(citywideAddressError || showAddressWarning) && !isPickup && !missingDeliveryOrigin && !missingDeliveryConfig &&
                             <WarningBox
                                 role={citywideAddressError ? "alert" : undefined}
                                 icon={icons.faTriangleExclamation}
