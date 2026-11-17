@@ -12,6 +12,7 @@ const PAGE_SIZE = 10;
 const scansSql = `
     WITH recent AS (
         SELECT id, restaurant_id, created_at, input_type, attempt_id, gemini_items, openai_items, openai_error,
+            reused_from_attempt_id,
             CASE WHEN elapsed_ms > 0 AND (attempt_id IS NULL OR analysis_finished_at IS NOT NULL)
                 AND (gemini_items IS NOT NULL OR gemini_error IS NOT NULL OR openai_items IS NOT NULL OR openai_error IS NOT NULL)
                 THEN elapsed_ms
@@ -43,13 +44,18 @@ const scansSql = `
         FROM (
             SELECT scan.id::text AS id, scan.restaurant_id, COALESCE(restaurant.name, 'Restaurante') AS restaurant_name,
                 scan.created_at, scan.input_type, scan.status AS outcome,
-                COALESCE(scan.openai_items, scan.gemini_items) AS items,
+                COALESCE(scan.openai_items, scan.gemini_items, original.openai_items, original.gemini_items) AS items,
                 CASE WHEN scan.openai_items IS NOT NULL OR scan.openai_error IS NOT NULL THEN 'OpenAI'
-                     WHEN scan.gemini_items IS NOT NULL THEN 'Gemini' END AS provider
+                     WHEN scan.gemini_items IS NOT NULL THEN 'Gemini'
+                     WHEN original.openai_items IS NOT NULL OR original.openai_error IS NOT NULL THEN 'OpenAI'
+                     WHEN original.gemini_items IS NOT NULL THEN 'Gemini' END AS provider,
+                scan.reused_from_attempt_id IS NOT NULL AS reused
             FROM (
                 SELECT * FROM recent ORDER BY created_at DESC, id DESC LIMIT $1 OFFSET $2
             ) scan
             LEFT JOIN public.restaurants restaurant ON restaurant.id = scan.restaurant_id
+            LEFT JOIN public.menu_scan_events original ON original.restaurant_id = scan.restaurant_id
+                AND original.attempt_id = scan.reused_from_attempt_id
         ) scan
     ) history
 `;
@@ -70,6 +76,7 @@ type ScanHistoryResult = {
         outcome: string;
         items: number | null;
         provider: string | null;
+        reused: boolean;
     }[];
 };
 

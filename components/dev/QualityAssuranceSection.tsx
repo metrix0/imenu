@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip } from "chart.js";
 import { Line } from "react-chartjs-2";
-import { faCircleInfo } from "@fortawesome/free-solid-svg-icons";
+import { faCircleInfo, faCopy } from "@fortawesome/free-solid-svg-icons";
 import { PanelIcon } from "@/components/ui/PanelIcon";
 import InfoTooltip from "@/components/ui/Tooltip";
 import DataTable from "@/components/ui/DataTable";
@@ -54,6 +54,7 @@ type MenuScans = {
         outcome: keyof typeof scanOutcomes;
         items: number | null;
         provider: "Gemini" | "OpenAI" | null;
+        reused: boolean;
     }>;
 };
 
@@ -320,7 +321,15 @@ export default function QualityAssuranceSection() {
                                 { key: "input", label: "Origem", render: row => row.input_type === "link" ? "Link" : "Foto / PDF" },
                                 { key: "outcome", label: "Resultado", render: row => <Badge variant={scanOutcomes[row.outcome].variant}>{scanOutcomes[row.outcome].label}</Badge> },
                                 { key: "items", label: "Identificados", render: row => row.items == null ? "—" : formatCount(row.items) },
-                                { key: "provider", label: "IA", render: row => row.provider ?? "—" },
+                                { key: "provider", label: "IA", render: row => row.reused
+                                    ? <InfoTooltip text="Resultado reaproveitado de uma análise anterior.">
+                                        <Badge variant="info" className="gap-1">
+                                            <PanelIcon icon={faCopy} className="h-3 w-3" aria-hidden="true" />
+                                            {row.provider ?? "Reutilizada"}
+                                            {row.provider && <span className="sr-only"> (análise reutilizada)</span>}
+                                        </Badge>
+                                    </InfoTooltip>
+                                    : row.provider ?? "—" },
                             ]} />
                     </>}
             </section>
