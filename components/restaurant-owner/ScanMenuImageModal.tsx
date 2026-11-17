@@ -5,6 +5,7 @@ import {
     type DragEvent,
     useCallback,
     useEffect,
+    useId,
     useMemo,
     useRef,
     useState,
@@ -15,6 +16,7 @@ import { supabase } from "@/lib/database/supabaseClient";
 import Modal from "@/components/ui/Modal";
 import Dropdown from "@/components/ui/Dropdown";
 import Toast from "@/components/ui/Toast";
+import WarningBox from "@/components/ui/WarningBox";
 import LoadingBar from "@/components/ui/LoadingBar";
 import { uploadFullMenuImageAI } from "@/lib/database/uploadFullMenuImageAI";
 import { getMenuItemImageUrl } from "@/lib/menu/itemImages";
@@ -97,6 +99,18 @@ const normalizeItemName = (name: string) =>
 
 const MAX_MENU_FILES = 8;
 
+function isIfoodMenuUrl(value: string): boolean {
+    const url = value.trim();
+    if (!url) return false;
+
+    try {
+        const hostname = new URL(/^https?:/i.test(url) ? url : `https://${url}`).hostname.replace(/\.$/, "");
+        return hostname === "ifood.com.br" || hostname.endsWith(".ifood.com.br");
+    } catch {
+        return false;
+    }
+}
+
 export default function ScanMenuModal({
     open,
     onClose,
@@ -141,6 +155,8 @@ function ScanModal({
     const [uploads, setUploads] = useState<SelectedUpload[]>([]);
     const [menuUrl, setMenuUrl] = useState("");
     const [showLinkField, setShowLinkField] = useState(false);
+    const ifoodWarningId = useId();
+    const isIfoodLink = showLinkField && isIfoodMenuUrl(menuUrl);
     const [toast, setToast] = useState<{
         message: string;
         type: "success" | "error";
@@ -477,6 +493,7 @@ function ScanModal({
     }
 
     async function handleContinue() {
+        if (isIfoodLink) return;
         if (showLinkField) {
             if (!menuUrl.trim()) {
                 setToast({
@@ -821,7 +838,14 @@ function ScanModal({
                                         onChange={(event) => setMenuUrl(event.target.value)}
                                         maxLength={2048}
                                         autoFocus
+                                        aria-describedby={isIfoodLink ? ifoodWarningId : undefined}
                                     />
+                                    {isIfoodLink && (
+                                        <WarningBox id={ifoodWarningId} role="alert" icon={icons.faTriangleExclamation} className="mt-3">
+                                            <strong>O iFood bloqueia a leitura automática.</strong>{" "}
+                                            Use fotos ou PDF do cardápio.
+                                        </WarningBox>
+                                    )}
                                 </div>
                             ) : (
                             <div className="rounded-lg p-4 2xl:text-xl">
@@ -971,6 +995,7 @@ function ScanModal({
                                     variant="primary"
                                     onClick={handleContinue}
                                     loading={isScanning}
+                                    disabled={isScanning || isIfoodLink}
                                 >
                                     Continuar
                                 </Button>
