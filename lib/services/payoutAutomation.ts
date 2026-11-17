@@ -39,7 +39,13 @@ export const PAYOUT_BLAST_AUTOMATIONS = {
         name: "Aviso preventivo de Pix",
         criteria: "Próximo repasse com chave Pix ausente, inválida ou sem tipo cadastrado",
         trigger: "Cron diário às 06:00 (São Paulo)",
-        message: "Identificamos um problema com a chave Pix do seu próximo repasse iMenu. Antes do repasse, confira se a chave está ativa e se o tipo está correto na aba Loja do painel. Se faltar algum dado, cadastre-o nessa mesma aba. Por segurança, somente você deve alterar esses dados. Não envie sua chave pelo suporte.",
+        message: `Olá! Aqui é o João do iMenu! Identificamos um problema com a chave Pix do seu próximo repasse iMenu.
+
+Poderia por gentileza, conferir se a chave e se o tipo estão corretos na aba *Loja* do painel?
+
+Se faltar algum dado, cadastre-o nessa mesma aba. Por segurança, somente você deve alterar esses dados.
+
+Estamos à disposição! 🧡`,
         limit: null,
         sender: "blast",
         category: "payouts",

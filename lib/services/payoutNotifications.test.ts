@@ -63,7 +63,7 @@ test("the evening warning has its own daily claim and uses the preventive messag
 
 test("messages require the owner to edit Loja for safety and contain no actual PIX data", () => {
     for (const { message } of Object.values(PAYOUT_BLAST_AUTOMATIONS)) {
-        expect(message).toContain("aba Loja");
+        expect(message).toMatch(/aba (?:Loja|\*Loja\*)/);
         expect(message).toContain("Por segurança");
         expect(message).toContain("somente você");
     }
