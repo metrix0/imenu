@@ -3,7 +3,8 @@
 import { getMenuItemImageUrl } from "@/lib/menu/itemImages";
 import { PageSaveHeader } from "@/components/ui/SaveStatus";
 import { useEffect, useState } from "react";
-import { ExternalLink } from "lucide-react";
+import { faUpRightFromSquare } from "@fortawesome/free-solid-svg-icons";
+import { PanelIcon } from "@/components/ui/PanelIcon";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import Button from "@/components/ui/Button";
@@ -273,10 +274,10 @@ export default function MenuManagerPage() {
                             type="button"
                             variant="primary"
                             className="shrink-0 whitespace-nowrap"
-                            rightIcon={<ExternalLink size={16} aria-hidden="true" />}
+                            rightIcon={<PanelIcon icon={faUpRightFromSquare} aria-hidden="true" />}
                             onClick={() => window.open(`/${encodeURIComponent(publicMenu.slug)}`, "_blank", "noopener,noreferrer")}
                         >
-                            Abrir meu cardápio
+                            Abrir cardápio
                         </Button>
                     )}
                 </div>
