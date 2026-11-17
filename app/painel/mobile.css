@@ -110,13 +110,13 @@
         max-width: 100%;
     }
 
-    .panel-mobile-content[data-panel-path^="/painel/tempo-e-taxa"] .max-w-2xl > .p-6:first-of-type {
+    .panel-mobile-content[data-panel-path^="/painel/tempo-e-taxa"] .max-w-2xl > .p-6:first-of-type:has(> .space-y-3) {
         overflow-x: auto;
         padding: 1rem;
     }
 
-    .panel-mobile-content[data-panel-path^="/painel/tempo-e-taxa"] .max-w-2xl > .p-6:first-of-type > .flex,
-    .panel-mobile-content[data-panel-path^="/painel/tempo-e-taxa"] .max-w-2xl > .p-6:first-of-type > .space-y-3 {
+    .panel-mobile-content[data-panel-path^="/painel/tempo-e-taxa"] .max-w-2xl > .p-6:first-of-type:has(> .space-y-3) > .flex,
+    .panel-mobile-content[data-panel-path^="/painel/tempo-e-taxa"] .max-w-2xl > .p-6:first-of-type:has(> .space-y-3) > .space-y-3 {
         min-width: 520px;
     }
 
