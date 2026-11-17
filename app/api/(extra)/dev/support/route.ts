@@ -197,11 +197,12 @@ async function getDashboardData(params = new URLSearchParams()) {
             origin: "blast" | "support";
             human_started_at: string | null;
             last_human_reply_at: string | null;
+            ai_paused_until: string | null;
             last_message: string | null;
         }>(
             `SELECT c.id, c.phone, c.customer_name, c.restaurant_id, r.name AS restaurant_name, COALESCE(NULLIF(u.raw_user_meta_data->>'phone',''),r.phone) AS owner_phone, r.store_whatsapp AS store_phone, EXISTS(SELECT 1 FROM restaurant_addons a WHERE a.restaurant_id=r.id AND a.product_key='ia_plus' AND (a.status='active' OR (a.status IN ('canceled','past_due') AND a.current_period_ends_at>NOW()))) AS plus, c.mode, c.updated_at,
                     CASE WHEN starts_with(c.chat_id, $1) THEN 'blast' ELSE 'support' END AS origin,
-                    c.human_started_at, c.last_human_reply_at, COALESCE(last_msg.direction='outbound' AND last_msg.model IS NULL AND (last_msg.dedupe_key IS NULL OR last_msg.dedupe_key LIKE 'support:human:%' OR last_msg.dedupe_key LIKE 'support:draft:%'),false) AS attended, last_msg.body AS last_message FROM support_conversations c LEFT JOIN restaurants r ON r.id = c.restaurant_id LEFT JOIN auth.users u ON u.id=r.user_id LEFT JOIN LATERAL (SELECT body,direction,model,dedupe_key FROM support_messages sm WHERE sm.conversation_id=c.id AND (sm.direction='inbound' OR sm.send_status='sent') ORDER BY sm.created_at DESC,sm.id DESC LIMIT 1) last_msg ON TRUE WHERE c.mode = 'human' AND ${SUPPORT_CONVERSATION_VISIBLE_SQL} ORDER BY plus DESC, attended ASC, COALESCE(c.last_human_reply_at, c.human_started_at, c.updated_at) DESC, c.id DESC LIMIT 25 OFFSET ${handoffPage * 25}`,
+                    c.human_started_at, c.last_human_reply_at, c.ai_paused_until, COALESCE(last_msg.direction='outbound' AND last_msg.model IS NULL AND (last_msg.dedupe_key IS NULL OR last_msg.dedupe_key LIKE 'support:human:%' OR last_msg.dedupe_key LIKE 'support:draft:%'),false) AS attended, last_msg.body AS last_message FROM support_conversations c LEFT JOIN restaurants r ON r.id = c.restaurant_id LEFT JOIN auth.users u ON u.id=r.user_id LEFT JOIN LATERAL (SELECT body,direction,model,dedupe_key FROM support_messages sm WHERE sm.conversation_id=c.id AND (sm.direction='inbound' OR sm.send_status='sent') ORDER BY sm.created_at DESC,sm.id DESC LIMIT 1) last_msg ON TRUE WHERE c.mode = 'human' AND ${SUPPORT_CONVERSATION_VISIBLE_SQL} ORDER BY plus DESC, attended ASC, COALESCE(c.last_human_reply_at, c.human_started_at, c.updated_at) DESC, c.id DESC LIMIT 25 OFFSET ${handoffPage * 25}`,
             [BLAST_WAHA_SESSION_NAME + ":"]
         ),
     ]);
@@ -662,11 +663,25 @@ export async function POST(request: Request) {
                 );
             }
 
+            const id = String(body.id || "");
+            if (mode === "human" && body.lockForDay === true) {
+                const result = await query(
+                    `UPDATE support_conversations
+                     SET ai_paused_until = GREATEST(ai_paused_until, NOW() + INTERVAL '24 hours'), updated_at = NOW()
+                     WHERE id = $1 AND mode = 'human'`,
+                    [id]
+                );
+                if (!result.rowCount) {
+                    return NextResponse.json({ error: "A conversa não está mais em atendimento humano. Atualize a lista." }, { status: 409 });
+                }
+                return NextResponse.json(await getDashboardData());
+            }
+
             await query(
                 mode === "human"
                     ? "UPDATE support_conversations SET mode = 'human', followup_state = NULL, human_started_at = NOW(), last_human_reply_at = NULL, updated_at = NOW() WHERE id = $1"
-                    : "UPDATE support_conversations SET mode = 'ai', followup_state = NULL, human_started_at = NULL, last_human_reply_at = NULL, updated_at = NOW() WHERE id = $1",
-                [String(body.id || "")]
+                    : "UPDATE support_conversations SET mode = 'ai', followup_state = NULL, human_started_at = NULL, last_human_reply_at = NULL, ai_paused_until = NULL, updated_at = NOW() WHERE id = $1",
+                [id]
             );
             return NextResponse.json(await getDashboardData());
         }
