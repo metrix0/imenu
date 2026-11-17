@@ -1,0 +1,12 @@
+[Unit]
+Description=Update WAHA after the monthly encrypted backup
+After=imenu-backup.service docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/imenu-migration/ops/update-waha.sh
+TimeoutStartSec=1h
+TimeoutStopSec=15min
+KillMode=mixed
+UMask=0077
