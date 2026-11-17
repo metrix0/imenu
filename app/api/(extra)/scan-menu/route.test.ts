@@ -136,7 +136,7 @@ it("retries a hydrated public menu with OpenAI when Gemini returns HTTP 503", as
         expect(readPublicMenuLink).toHaveBeenCalledTimes(1);
         expect(diagnostics()).toHaveLength(1);
         expect(diagnostics()[0][1].slice(0,7)).toEqual([restaurantId, "link", "success", null, "Gemini HTTP 503", 1, null]);
-        expect(diagnostics()[0][1][12]).toEqual({ url: "https://example.test/menu" });
+        expect(diagnostics()[0][1][12]).toEqual({ input: "https://example.test/menu", url: "https://example.test/menu" });
         expect(geminiFetch).toHaveBeenCalledTimes(1);
         expect(mockOpenAiCreate).toHaveBeenCalledTimes(1);
         expect(mockOpenAiCreate).toHaveBeenCalledWith(expect.objectContaining({
@@ -313,17 +313,18 @@ it("keeps only references to files in the menu upload bucket", async () => {
 });
 
 it.each([
-    ["https://example.test/menu?restaurant=7", { url: "https://example.test/menu?restaurant=7" }],
-    ["example.test/menu", { url: "https://example.test/menu" }],
-    ["https://example.test/menu?access_token=private", null],
-    ["javascript:alert(1)", null],
-])("records a safe submitted source even if link reading fails (%s)", async (input, expectedSource) => {
+    ["  https://example.test/menu?restaurant=7  ", "https://example.test/menu?restaurant=7"],
+    ["example.test/menu", "https://example.test/menu"],
+    ["https://example.test/menu?access_token=private", undefined],
+    ["javascript:alert(1)", undefined],
+    ["cardápio sem endereço", undefined],
+])("records the original input and any usable source URL even if link reading fails (%s)", async (input, sourceUrl) => {
     setExistingItems(0);
     (readPublicMenuLink as jest.Mock).mockRejectedValue(new MenuLinkError("Link inacessível.", 400));
 
     expect((await POST(submitLink(input))).status).toBe(400);
     expect(diagnostics()).toHaveLength(1);
-    expect(diagnostics()[0][1][12]).toEqual(expectedSource);
+    expect(diagnostics()[0][1][12]).toEqual({ input, url: sourceUrl });
 });
 
 it("returns only photos matched to source product images for link scans", async () => {
@@ -394,6 +395,7 @@ it("records the start and provider result on the same tracked attempt", async ()
     expect(response.status).toBe(200);
     expect(diagnostics()).toHaveLength(2);
     expect(diagnostics()[0][1].slice(0, 3)).toEqual([trackedRestaurant, "link", trackedAttempt]);
+    expect(diagnostics()[0][1][4]).toEqual({ input: "https://example.test/menu", url: "https://example.test/menu" });
     expect(diagnostics()[1][1].slice(0, 3)).toEqual([trackedRestaurant, "link", "success"]);
     expect(diagnostics()[1][1][13]).toBe(trackedAttempt);
 });

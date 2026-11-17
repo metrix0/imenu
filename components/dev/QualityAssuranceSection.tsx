@@ -62,6 +62,7 @@ type MenuScans = {
 type MenuScanRow = MenuScans["history"]["rows"][number];
 type MenuScanDetails = {
     sourceUrl: string | null;
+    sourceInput: string | null;
     linkDomain: string | null;
     files: { name: string; url: string | null }[];
     elapsedMs: number | null;
@@ -79,6 +80,7 @@ const scanOutcomes = {
     success: { label: "Concluído", variant: "success" },
     empty: { label: "Insuficiente", variant: "warning" },
     failed: { label: "Falhou", variant: "danger" },
+    invalid_link: { label: "Link inválido", variant: "danger" },
     interrupted: { label: "Interrompido", variant: "warning" },
     analyzing: { label: "Em análise", variant: "neutral" },
     awaiting_review: { label: "Aguardando visualização", variant: "neutral" },
@@ -436,6 +438,8 @@ function MenuScanDialog({ scan, onClose }: { scan: MenuScanRow; onClose: () => v
         return () => controller.abort();
     }, [scan.id]);
 
+    const sourceText = details?.sourceInput ?? details?.sourceUrl;
+
     return <DevDialog open onClose={onClose} title="Detalhes do scan"
         description={scan.restaurant_name + " · " + formatDateTime(scan.created_at)}>
         <div className="space-y-4 text-sm">
@@ -457,8 +461,9 @@ function MenuScanDialog({ scan, onClose }: { scan: MenuScanRow; onClose: () => v
                     </p>}
                     <section className="space-y-2">
                         <h3 className="font-semibold">Fonte do scan</h3>
-                        {details.sourceUrl ? <a href={details.sourceUrl} target="_blank" rel="noopener noreferrer"
-                            className="break-all text-brand underline">{details.sourceUrl}</a>
+                        {details.sourceUrl && scan.outcome !== "invalid_link" ? <a href={details.sourceUrl} target="_blank" rel="noopener noreferrer"
+                            className="whitespace-pre-wrap break-all text-brand underline">{sourceText}</a>
+                            : sourceText != null ? <p className="whitespace-pre-wrap break-all">{sourceText}</p>
                             : details.files.length > 0 ? <ul className="space-y-2">{details.files.map((file, index) =>
                                 <li key={index} className="break-all">
                                     {file.url ? <a href={file.url} target="_blank" rel="noopener noreferrer"

@@ -946,8 +946,7 @@ export async function POST(req: Request) {
         };
         if (typeof menuUrl === "string") {
             diagnostic.linkDomain = menuScanLinkDomain(menuUrl);
-            const sourceUrl = menuScanSourceUrl(menuUrl);
-            if (sourceUrl) diagnostic.source = { url: sourceUrl };
+            diagnostic.source = { input: menuUrl, url: menuScanSourceUrl(menuUrl) };
         } else if (Array.isArray(urls)) {
             const files = menuScanFilePaths(urls.filter(url => typeof url === "string"));
             if (files.length > 0) diagnostic.source = { files };

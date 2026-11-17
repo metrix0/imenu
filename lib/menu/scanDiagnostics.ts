@@ -34,7 +34,7 @@ export type MenuScanDiagnostics = {
     errorCode?: string;
     linkDomain?: string;
     extractedText?: string;
-    source?: { url: string } | { files: string[] };
+    source?: { input: string; url?: string } | { files: string[] };
     elapsedMs: number;
     retryDraft?: { fingerprint: string; result: object };
     reusedFromAttemptId?: string;

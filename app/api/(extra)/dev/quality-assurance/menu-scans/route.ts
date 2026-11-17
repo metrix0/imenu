@@ -21,6 +21,8 @@ const scansSql = `
                 WHEN interrupted_at IS NOT NULL THEN 'interrupted'
                 WHEN attempt_id IS NULL AND outcome = 'success' THEN 'unconfirmed'
                 WHEN attempt_id IS NOT NULL AND analysis_finished_at IS NULL THEN 'analyzing'
+                WHEN input_type = 'link' AND outcome = 'failed' AND error_code IN ('invalid_link_input', 'link_http_400')
+                    THEN 'invalid_link'
                 WHEN outcome IN ('failed', 'empty') THEN outcome
                 WHEN viewed_at IS NOT NULL AND first_product_added_at IS NOT NULL THEN 'success'
                 WHEN viewed_at IS NOT NULL THEN 'reviewed'
@@ -85,6 +87,7 @@ type ScanHistoryResult = {
 type ScanDetails = {
     link_domain: string | null;
     source_url: string | null;
+    source_input: string | null;
     files: { path: string; available: boolean }[];
     elapsed_ms: number | null;
     viewed_at: string | null;
@@ -98,7 +101,7 @@ type ScanDetails = {
 };
 
 const scanDetailsSql = `
-    SELECT scan.link_domain, scan.source->>'url' AS source_url,
+    SELECT scan.link_domain, scan.source->>'url' AS source_url, scan.source->>'input' AS source_input,
         CASE WHEN scan.attempt_id IS NULL OR scan.analysis_finished_at IS NOT NULL THEN scan.elapsed_ms END AS elapsed_ms,
         scan.viewed_at, scan.first_product_added_at, scan.interrupted_at, scan.interruption_stage, scan.interruption_reason,
         scan.gemini_error, scan.openai_error, scan.excerpt,
@@ -122,6 +125,7 @@ async function getScanDetails(scanId: string) {
     const storageUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
     return NextResponse.json({
         sourceUrl: scan.source_url,
+        sourceInput: scan.source_input,
         linkDomain: scan.link_domain,
         files: scan.files.map(({ path, available }) => ({
             name: path.slice(37),

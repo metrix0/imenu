@@ -485,7 +485,7 @@ function ScanModal({
                 });
                 return;
             }
-            await runScan([], menuUrl.trim());
+            await runScan([], menuUrl);
             return;
         }
 
