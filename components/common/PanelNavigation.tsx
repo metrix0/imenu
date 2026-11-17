@@ -11,10 +11,9 @@ import Badge from "@/components/ui/Badge";
 import { PageSaveStatusProvider } from "@/components/ui/SaveStatus";
 import "@/app/painel/mobile.css";
 
-type PanelRouteItem = { label: string; icon: IconDefinition; href: string; isNew?: boolean; notification?: string; notificationTitle?: string; type?: undefined };
-type PanelShortcut = { type: "shortcut"; label: string; icon: IconDefinition; href: string };
-
-export type PanelMenuItem = { type: "divider" } | PanelRouteItem | PanelShortcut;
+export type PanelMenuItem =
+    | { type: "divider" }
+    | { label: string; icon: IconDefinition; href: string; openInNewTab?: boolean; isNew?: boolean; notification?: string; notificationTitle?: string; type?: undefined };
 
 type FooterAction = { label: string; icon: IconDefinition; onClick: () => void; disabled?: boolean; error?: string };
 
@@ -43,7 +42,7 @@ export default function PanelNavigation({ children, base, menuItems, onNavigate,
     children: ReactNode;
     base: string;
     menuItems: PanelMenuItem[];
-    onNavigate?: (item: PanelRouteItem) => void;
+    onNavigate?: (item: Exclude<PanelMenuItem, { type: "divider" }>) => void;
     status?: ReactNode;
     collapsedStatus?: ReactNode;
     headerAction?: ReactNode;
@@ -58,27 +57,13 @@ export default function PanelNavigation({ children, base, menuItems, onNavigate,
     const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
     const menuButtonRef = useRef<HTMLButtonElement>(null);
     const Content = contentAs;
-    const renderShortcut = (item: PanelShortcut, showLabel: boolean, onClick?: () => void) => (
-        <Link
-            key={item.href}
-            href={item.href}
-            target="_blank"
-            rel="noopener noreferrer"
-            prefetch={false}
-            onClick={onClick}
-            aria-label={item.label}
-            title={showLabel ? undefined : item.label}
-            className="panel-nav-link panel-nav-shortcut mb-1 flex shrink-0 items-center gap-3 rounded-lg px-4 py-3 font-medium"
-        >
-            <FontAwesomeIcon icon={item.icon} aria-hidden="true" />
-            {showLabel && <span className="whitespace-nowrap">{item.label}</span>}
-        </Link>
-    );
-    const trackPanelTabOpen = (item: PanelRouteItem) => onNavigate?.(item);
-    const isItemActive = (item: PanelRouteItem) =>
-        item.href === base || item.href === `${base}/`
+    const trackPanelTabOpen = (item: Exclude<PanelMenuItem, { type: "divider" }>) => {
+        if (!item.openInNewTab) onNavigate?.(item);
+    };
+    const isItemActive = (item: Exclude<PanelMenuItem, { type: "divider" }>) =>
+        !item.openInNewTab && (item.href === base || item.href === `${base}/`
             ? pathname === base || pathname === `${base}/`
-            : pathname?.startsWith(item.href);
+            : pathname?.startsWith(item.href));
 
     useEffect(() => {
         setMobileMenuOpen(false);
@@ -286,14 +271,18 @@ export default function PanelNavigation({ children, base, menuItems, onNavigate,
                                 );
                             }
 
-                            if (item.type === "shortcut") return renderShortcut(item, true, () => setMobileMenuOpen(false));
-
                             const active = isItemActive(item);
                             return (
                                 <Link
                                     key={`mobile-${item.href}`}
                                     href={item.href}
-                                    onClick={() => trackPanelTabOpen(item)}
+                                    target={item.openInNewTab ? "_blank" : undefined}
+                                    rel={item.openInNewTab ? "noopener noreferrer" : undefined}
+                                    prefetch={item.openInNewTab ? false : undefined}
+                                    onClick={() => {
+                                        if (item.openInNewTab) setMobileMenuOpen(false);
+                                        trackPanelTabOpen(item);
+                                    }}
                                     aria-current={active ? "page" : undefined}
                                     className={`panel-nav-link flex items-center gap-3 rounded-lg px-4 py-3 text-sm transition-colors ${
                                         active
@@ -409,13 +398,14 @@ export default function PanelNavigation({ children, base, menuItems, onNavigate,
                                 );
                             }
 
-                            if (item.type === "shortcut") return renderShortcut(item, expanded);
-
                             const active = isItemActive(item);
                             return (
                                 <Link
                                     key={item.href}
                                     href={item.href}
+                                    target={item.openInNewTab ? "_blank" : undefined}
+                                    rel={item.openInNewTab ? "noopener noreferrer" : undefined}
+                                    prefetch={item.openInNewTab ? false : undefined}
                                     onClick={() => trackPanelTabOpen(item)}
                                     title={!expanded ? (item.notification ? (item.notificationTitle || item.label) : item.label) : ""}
                                     aria-current={active ? "page" : undefined}

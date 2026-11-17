@@ -328,13 +328,13 @@ export default function PainelLayout({
         menuShortcut.expiresAt > scheduleNow.getTime();
 
     const menuItems: PanelMenuItem[] = [
+        { label: "Pedidos", icon: faHome, href: `${base}/` },
         ...(showMenuShortcut ? [{
-            type: "shortcut" as const,
-            label: "Abrir cardápio",
+            label: "Abrir meu cardápio",
             icon: faUpRightFromSquare,
             href: `/${encodeURIComponent(menuShortcut.slug)}`,
+            openInNewTab: true,
         }] : []),
-        { label: "Pedidos", icon: faHome, href: `${base}/` },
         { label: "Histórico", icon: faBox, href: `${base}/historico` },
         { label: "Cardápio", icon: faUtensils, href: cardapioHref },
         { label: "Assistente IA", icon: faWandMagicSparkles, href: `${base}/assistente-ia` },
