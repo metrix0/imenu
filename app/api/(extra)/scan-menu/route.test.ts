@@ -61,6 +61,8 @@ beforeEach(() => {
 afterEach(() => {
     delete process.env.OPENAI_API_KEY;
     delete process.env.GEMINI_API_KEY;
+    delete process.env.GEMINI_API_KEY_2;
+    delete process.env.GEMINI_API_KEY_3;
     if (configuredMenuModel === undefined) delete process.env.OPENAI_MENU_SCAN_MODEL;
     else process.env.OPENAI_MENU_SCAN_MODEL = configuredMenuModel;
     jest.restoreAllMocks();
@@ -287,9 +289,17 @@ it("records an empty result without calling OpenAI when Gemini finds zero items"
     }
 });
 
-it("records separate timings for a Gemini file scan", async () => {
+it.each([
+    { random: 0, primaryKey: "test-gemini-key", expectedKey: "test-gemini-key" },
+    { random: 0.5, primaryKey: "test-gemini-key", expectedKey: "test-gemini-key-2" },
+    { random: 0.99, primaryKey: "test-gemini-key", expectedKey: "test-gemini-key-3" },
+    { random: 0, primaryKey: " ", expectedKey: "test-gemini-key-2" },
+])("records timings and uses $expectedKey throughout a Gemini file scan", async ({ random, primaryKey, expectedKey }) => {
     setExistingItems(0);
-    process.env.GEMINI_API_KEY = "test-gemini-key";
+    process.env.GEMINI_API_KEY = primaryKey;
+    process.env.GEMINI_API_KEY_2 = "test-gemini-key-2";
+    process.env.GEMINI_API_KEY_3 = "test-gemini-key-3";
+    jest.spyOn(Math, "random").mockReturnValue(random);
     const providerFetch = jest.spyOn(global, "fetch")
         .mockResolvedValueOnce(new Response("image", { headers: { "content-type": "image/png" } }))
         .mockResolvedValueOnce(new Response(null, { headers: { "x-goog-upload-url": "https://example.test/upload" } }))
@@ -303,6 +313,8 @@ it("records separate timings for a Gemini file scan", async () => {
 
     expect((await POST(post())).status).toBe(422);
     expect(providerFetch).toHaveBeenCalledTimes(5);
+    expect(providerFetch.mock.calls.map(([, init]) => new Headers(init?.headers).get("x-goog-api-key")))
+        .toEqual([null, expectedKey, null, expectedKey, expectedKey]);
     expect(diagnostics()).toHaveLength(1);
     expect(diagnostics()[0][1][17]).toEqual({
         source_fetch: expect.any(Number),

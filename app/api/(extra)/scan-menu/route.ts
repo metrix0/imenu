@@ -950,7 +950,12 @@ function emptyMenuScanResponse(isLinkImport: boolean) {
 }
 
 export async function POST(req: Request) {
-    const geminiApiKey = process.env.GEMINI_API_KEY?.trim();
+    const geminiApiKeys = [
+        process.env.GEMINI_API_KEY,
+        process.env.GEMINI_API_KEY_2,
+        process.env.GEMINI_API_KEY_3,
+    ].map(key => key?.trim()).filter(Boolean);
+    const geminiApiKey = geminiApiKeys[Math.floor(Math.random() * geminiApiKeys.length)];
     const openAiApiKey = process.env.OPENAI_API_KEY?.trim();
 
     const startedAt = Date.now();
