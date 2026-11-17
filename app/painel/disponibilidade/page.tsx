@@ -195,6 +195,28 @@ export default function DisponibilidadePage() {
         );
     }
 
+    const orderSchedulingCard = (
+        <Card className="mt-6 border border-gray-200 shadow-sm">
+            <div className="mb-5">
+                <h2 className="text-lg font-medium text-gray-900">Agendamento de pedidos</h2>
+                <p className="mt-2 text-sm text-gray-500">
+                    Defina quando os clientes podem agendar pedidos, inclusive enquanto a loja estiver fechada.
+                </p>
+            </div>
+            <ChoiceCardGroup
+                value={allowFutureOrderScheduling ? "future" : "today"}
+                disabled={isSavingOrderScheduling || preorderOnly}
+                onChange={(value) => void saveOrderSchedulingMode(value === "future")}
+                className="sm:grid-cols-2"
+                options={[
+                    { value: "today", label: "Dia atual", description: "Permite agendar apenas para horários disponíveis de hoje." },
+                    { value: "future", label: "Dias futuros", description: "Permite agendar para hoje e dias futuros, escolhendo a data e o horário disponível." },
+                ]}
+            />
+            {preorderOnly && <p className="mt-3 text-sm text-gray-500">Dias futuros está ativado automaticamente pelo modo Encomendas. Para alterar, desative o modo acima.</p>}
+        </Card>
+    );
+
     return (
         <div className="max-w-6xl min-[1800px]:max-w-[100rem] min-[1800px]:w-full mx-auto pb-20 px-4 sm:px-6 pt-8">
             <div className="mb-4 px-2 sm:mb-8">
@@ -224,28 +246,11 @@ export default function DisponibilidadePage() {
             {!preorderOnly && <div role="region" aria-label="Horários da semana" className="bg-white border border-gray-200 rounded-xl p-5 sm:py-6 sm:pr-6">
                 <WeeklyScheduleClick value={availability} onChange={handleScheduleChange} />
             </div>}
-            <Card className="mt-6 border border-gray-200 shadow-sm">
-                <div className="mb-5">
-                    <h2 className="text-lg font-medium text-gray-900">Agendamento de pedidos</h2>
-                    <p className="mt-2 text-sm text-gray-500">
-                        Defina quando os clientes podem agendar pedidos, inclusive enquanto a loja estiver fechada.
-                    </p>
-                </div>
-                <ChoiceCardGroup
-                    value={allowFutureOrderScheduling ? "future" : "today"}
-                    disabled={isSavingOrderScheduling || preorderOnly}
-                    onChange={(value) => void saveOrderSchedulingMode(value === "future")}
-                    className="sm:grid-cols-2"
-                    options={[
-                        { value: "today", label: "Dia atual", description: "Permite agendar apenas para horários disponíveis de hoje." },
-                        { value: "future", label: "Dias futuros", description: "Permite agendar para hoje e dias futuros, escolhendo a data e o horário disponível." },
-                    ]}
-                />
-                {preorderOnly && <p className="mt-3 text-sm text-gray-500">Dias futuros está ativado automaticamente pelo modo Encomendas. Para alterar, desative o modo abaixo.</p>}
-            </Card>
+            {!preorderOnly && orderSchedulingCard}
             <div id="preorder-mode" className="mt-6 scroll-mt-24">
                 <PreorderModeToggle restaurantId={restaurantId} enabled={preorderOnly} onChange={(enabled) => { setPreorderOnly(enabled); if (enabled) setAllowFutureOrderScheduling(true); }} openConfirmationSignal={openPreorderConfirmationSignal} />
             </div>
+            {preorderOnly && orderSchedulingCard}
         </div>
     );
 }
