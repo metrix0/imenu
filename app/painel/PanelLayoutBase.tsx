@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { PanelIcon as FontAwesomeIcon, faMotorRacingHelmet } from "@/components/ui/PanelIcon";
 import {
-    faArrowUpRightFromSquare,
+    faUpRightFromSquare,
     faBox,
     faChair,
     faChartLine,
@@ -318,7 +318,7 @@ export default function PainelLayout({
     const menuItems: PanelMenuItem[] = [
         ...(publicMenu && publicMenu.restaurantId === targetRestaurantId ? [{
             label: "Abrir meu cardápio",
-            icon: faArrowUpRightFromSquare,
+            icon: faUpRightFromSquare,
             href: `/${encodeURIComponent(publicMenu.slug)}`,
             openInNewTab: true,
         }] : []),
