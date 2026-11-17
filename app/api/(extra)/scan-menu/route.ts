@@ -5,6 +5,7 @@ import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/res
 import { readPublicMenuLink, MenuLinkError, type MenuPhoto } from "@/lib/menu/readPublicMenuLink";
 import { query } from "@/lib/database/sql";
 import { importMenuPhotos } from "@/lib/menu/importMenuPhotos";
+import { menuPhotoPdfParts } from "@/lib/menu/menuPhotoPdf";
 import { recordGeminiMenuFallback } from "@/lib/dev/health";
 import {
     beginMenuScan, claimMenuScanFileAnalysis, menuScanFileFingerprint, menuScanFilePaths,
@@ -725,6 +726,69 @@ async function scanWithGemini(
     }
 }
 
+async function readMenuPdfRange(url: string, start: number, end: number, signal: AbortSignal) {
+    const response = await fetch(url, {
+        cache: "no-store",
+        redirect: "error",
+        headers: { Range: `bytes=${start}-${end}` },
+        signal,
+    });
+    const length = Number(response.headers.get("content-length"));
+    if (response.status !== 206 || !Number.isSafeInteger(length) || length <= 0 || length > end - start + 1) {
+        await response.body?.cancel();
+        return;
+    }
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (bytes.length === length) return { bytes, range: response.headers.get("content-range") };
+}
+
+async function readMenuPhotoJpeg(url: string, maxJpegBytes: number, signal: AbortSignal) {
+    if (maxJpegBytes < 4 || /[?#]/.test(url) || !menuScanFilePaths([url]).length) return;
+    try {
+        const header = await readMenuPdfRange(url, 0, 1023, signal);
+        const prefix = header?.bytes.toString("latin1");
+        const fields = prefix?.match(/\n4 0 obj\n<< \/Type \/XObject \/Subtype \/Image \/Width (\d+) \/Height (\d+) \/ColorSpace \/DeviceRGB \/BitsPerComponent 8 \/Filter \/DCTDecode \/Length (\d+) >>\nstream\n/);
+        if (!header || !prefix || !fields) return;
+        const [width, height, jpegLength] = fields.slice(1).map(Number);
+        if (![width, height, jpegLength].every(Number.isSafeInteger) ||
+            width < 1 || height < 1 || jpegLength < 4 || jpegLength > maxJpegBytes) return;
+
+        const { before, after } = menuPhotoPdfParts(width, height, jpegLength);
+        const end = before.length + jpegLength + after.length - 1;
+        if (!prefix.startsWith(before) || header.range !== `bytes 0-${header.bytes.length - 1}/${end + 1}`) return;
+
+        const body = await readMenuPdfRange(url, before.length, end, signal);
+        if (body?.range !== `bytes ${before.length}-${end}/${end + 1}` ||
+            body.bytes.subarray(jpegLength).toString("latin1") !== after) return;
+        const jpeg = body.bytes.subarray(0, jpegLength);
+        if (jpeg.readUInt16BE(0) === 0xffd8 && jpeg.readUInt16BE(jpeg.length - 2) === 0xffd9) return jpeg;
+    } catch {
+        // The original PDF remains usable if the optimization fails.
+    }
+}
+
+async function openAiMenuFiles(urls: string[]) {
+    const files: OpenAI.Responses.ResponseInputContent[] = [];
+    const signal = AbortSignal.timeout(5000);
+    // Leave room in the image payload limit for the prompt and JSON schema.
+    let remainingBase64Chars = 48_000_000;
+    for (const url of urls) {
+        if (!isPdfUrl(url)) {
+            files.push({ type: "input_image", image_url: url, detail: "high" });
+            continue;
+        }
+        const jpeg = await readMenuPhotoJpeg(url, Math.floor(remainingBase64Chars / 4) * 3, signal);
+        if (jpeg) {
+            const base64 = jpeg.toString("base64");
+            remainingBase64Chars -= base64.length;
+            files.push({ type: "input_image", image_url: `data:image/jpeg;base64,${base64}`, detail: "high" });
+        } else {
+            files.push({ type: "input_file", file_url: url });
+        }
+    }
+    return files;
+}
+
 async function scanWithOpenAI(
     apiKey: string,
     urls: string[],
@@ -735,18 +799,7 @@ async function scanWithOpenAI(
 
     const fileContent = pageText
         ? [{ type: "input_text" as const, text: pageText }]
-        : urls.map((url) =>
-        isPdfUrl(url)
-            ? {
-                  type: "input_file" as const,
-                  file_url: url,
-              }
-            : {
-                  type: "input_image" as const,
-                  image_url: url,
-                  detail: "high" as const,
-              }
-    );
+        : await openAiMenuFiles(urls);
 
     const model = process.env.OPENAI_MENU_SCAN_MODEL?.trim() || "gpt-6-luna";
     const useLuna = model === "gpt-6-luna" || /^gpt-6-luna-\d{4}-\d{2}-\d{2}$/.test(model);

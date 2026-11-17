@@ -4,6 +4,7 @@ import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/res
 import { MenuLinkError, readPublicMenuLink } from "@/lib/menu/readPublicMenuLink";
 import { recordGeminiMenuFallback } from "@/lib/dev/health";
 import { importMenuPhotos } from "@/lib/menu/importMenuPhotos";
+import { menuPhotoPdfParts } from "@/lib/menu/menuPhotoPdf";
 
 const mockOpenAiCreate = jest.fn();
 jest.mock("openai", () => ({
@@ -185,6 +186,76 @@ it("honors the OpenAI model override when Gemini is unavailable", async () => {
     expect(request.model).toBe("gpt-4.1");
     expect(request).not.toHaveProperty("reasoning");
     expect(request.text.format.strict).toBe(true);
+});
+
+
+it("sends wrapped menu photos as the original high-detail JPEG and keeps other inputs in order", async () => {
+    setExistingItems(0);
+    jest.replaceProperty(process, "env", { ...process.env, NEXT_PUBLIC_SUPABASE_URL: "https://storage.example.test" });
+    const bucket = "https://storage.example.test/storage/v1/object/public/full-menu-images-ai/";
+    const photoUrl = bucket + "10000000-1000-1000-1000-100000000000-photo.pdf";
+    const pdfUrl = bucket + "20000000-2000-2000-2000-200000000000-menu.pdf";
+    const external = "https://example.test/menu.pdf";
+    const direct = "https://example.test/photo.jpg";
+    const jpeg = Buffer.from([0xff, 0xd8, 0x3a, 0xff, 0xd9]);
+    const { before, after } = menuPhotoPdfParts(800, 1200, jpeg.length);
+    const wrapped = Buffer.concat([Buffer.from(before), jpeg, Buffer.from(after)]);
+    const native = Buffer.from("%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF\n");
+    const rangeFetch = jest.spyOn(global, "fetch").mockImplementation(async (input, init) => {
+        const source = input === photoUrl ? wrapped : input === pdfUrl ? native : null;
+        if (!source) throw new Error("Unexpected file fetch");
+        expect(init?.redirect).toBe("error");
+        const [, startText, endText] = /^bytes=(\d+)-(\d+)$/.exec(new Headers(init?.headers).get("Range")!)!;
+        const start = Number(startText);
+        const end = Math.min(Number(endText), source.length - 1);
+        return new Response(new Uint8Array(source.subarray(start, end + 1)), {
+            status: 206,
+            headers: { "Content-Length": String(end - start + 1), "Content-Range": `bytes ${start}-${end}/${source.length}` },
+        });
+    });
+    mockOpenAiCreate.mockResolvedValue({
+        output_text: JSON.stringify({
+            items: [{ name: "Suco", price_cents: 900, category_name: "Bebidas" }],
+            categories: [{ name: "Bebidas" }],
+        }),
+    });
+
+    const response = await POST(new Request(url, {
+        method: "POST", headers: { Authorization: "Bearer test", "Content-Type": "application/json" },
+        body: JSON.stringify({ restaurantId, urls: [photoUrl, pdfUrl, external, direct] }),
+    }));
+
+    expect(response.status).toBe(200);
+    expect(rangeFetch.mock.calls.map(([input]) => input)).toEqual([photoUrl, photoUrl, pdfUrl]);
+    expect(mockOpenAiCreate.mock.calls[0][0].input[1].content.slice(1)).toEqual([
+        { type: "input_image", image_url: `data:image/jpeg;base64,${jpeg.toString("base64")}`, detail: "high" },
+        { type: "input_file", file_url: pdfUrl },
+        { type: "input_file", file_url: external },
+        { type: "input_image", image_url: direct, detail: "high" },
+    ]);
+});
+
+it("keeps the source as a PDF if the photo inspection fails", async () => {
+    setExistingItems(0);
+    jest.replaceProperty(process, "env", { ...process.env, NEXT_PUBLIC_SUPABASE_URL: "https://storage.example.test" });
+    const photoUrl = "https://storage.example.test/storage/v1/object/public/full-menu-images-ai/10000000-1000-1000-1000-100000000000-photo.pdf";
+    jest.spyOn(global, "fetch").mockRejectedValueOnce(new Error("Storage request failed"));
+    mockOpenAiCreate.mockResolvedValue({
+        output_text: JSON.stringify({
+            items: [{ name: "Suco", price_cents: 900, category_name: "Bebidas" }],
+            categories: [{ name: "Bebidas" }],
+        }),
+    });
+
+    const response = await POST(new Request(url, {
+        method: "POST", headers: { Authorization: "Bearer test", "Content-Type": "application/json" },
+        body: JSON.stringify({ restaurantId, urls: [photoUrl] }),
+    }));
+
+    expect(response.status).toBe(200);
+    expect(mockOpenAiCreate.mock.calls[0][0].input[1].content.at(-1)).toEqual({
+        type: "input_file", file_url: photoUrl,
+    });
 });
 
 it("records a Gemini rate-limit fallback without exposing the response body", async () => {
@@ -482,6 +553,7 @@ describe("interrupted file retry drafts", () => {
     beforeEach(() => {
         process.env.NEXT_PUBLIC_SUPABASE_URL = retryStorage;
         (requireRestaurantOwner as jest.Mock).mockResolvedValue({ user: { id: retryUploadOwner } });
+        jest.spyOn(global, "fetch").mockResolvedValue(new Response(null, { status: 404 }));
     });
 
     afterEach(() => {
