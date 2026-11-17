@@ -3,7 +3,8 @@ import {
   requireRestaurantOwner,
   RestaurantOwnerAuthError,
 } from "@/lib/auth/restaurantOwner";
-import { listCustomers, customerDetails } from "@/lib/services/crm";
+import { listCustomers, customerDetails, deleteCustomer } from "@/lib/services/crm";
+import { isUuid } from "@/lib/promotions/automatic";
 import { normalizeCustomerPhone } from "@/lib/services/crmRules";
 export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
@@ -37,5 +38,24 @@ export async function GET(request: NextRequest) {
         status: error instanceof RestaurantOwnerAuthError ? error.status : 500,
       },
     );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const params = request.nextUrl.searchParams;
+    const id = params.get("restaurantId") ?? "";
+    const phone = normalizeCustomerPhone(params.get("phone"));
+    if (!isUuid(id) || !phone) {
+      return NextResponse.json({ error: "Cliente inválido." }, { status: 400 });
+    }
+    await requireRestaurantOwner(request, id);
+    await deleteCustomer(id, phone);
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    if (error instanceof RestaurantOwnerAuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    return NextResponse.json({ error: "Não foi possível excluir o cliente." }, { status: 500 });
   }
 }

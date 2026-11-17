@@ -9,9 +9,14 @@ import Input from "@/components/ui/Input";
 import Dropdown from "@/components/ui/Dropdown";
 import Pagination from "@/components/ui/Pagination";
 import { Search } from "lucide-react";
+import { faTrash } from "@fortawesome/free-solid-svg-icons";
+import { PanelIcon } from "@/components/ui/PanelIcon";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import HybridModal from "@/components/ui/HybridModal";
+import Button from "@/components/ui/Button";
+import ConfirmModal from "@/components/ui/ConfirmModal";
+import Toast from "@/components/ui/Toast";
 import { formatPrice } from "@/lib/utils/formatPrice";
 import { formatPhone } from "@/lib/dev/dashboardFormat";
 import InitialsAvatar from "@/components/ui/InitialsAvatar";
@@ -57,13 +62,17 @@ export default function ClientesPage() {
     [sortKey, setSortKey] = useState("last"),
     [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc"),
     [page, setPage] = useState(1),
-    [total, setTotal] = useState(0);
+    [total, setTotal] = useState(0),
+    [refreshKey, setRefreshKey] = useState(0);
   const [selected, setSelected] = useState<CustomerRow | null>(null),
     [favoritePage, setFavoritePage] = useState(0),
     [orderPage, setOrderPage] = useState(0),
     [details, setDetails] = useState<Details | null>(null),
     [detailsLoading, setDetailsLoading] = useState(false),
     [detailsError, setDetailsError] = useState("");
+  const [customerToDelete, setCustomerToDelete] = useState<CustomerRow | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   useEffect(() => {
     if (!id) return;
     const controller = new AbortController();
@@ -91,7 +100,7 @@ export default function ClientesPage() {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [id, search, segment, sortKey, sortDirection, page]);
+  }, [id, search, segment, sortKey, sortDirection, page, refreshKey]);
   useEffect(() => {
     setDetailsError("");
     if (!id || !selected) {
@@ -123,6 +132,31 @@ export default function ClientesPage() {
       setSortDirection(key === "name" || key === "segment" ? "asc" : "desc");
     }
     setPage(1);
+  };
+  const handleDeleteCustomer = async () => {
+    if (!id || !customerToDelete || isDeleting) return;
+    setIsDeleting(true);
+    try {
+      await crmRequest(
+        `/api/customers?phone=${encodeURIComponent(customerToDelete.phone)}`,
+        id,
+        { method: "DELETE" },
+      );
+      setCustomerToDelete(null);
+      setToast({ message: "Cliente excluído.", type: "success" });
+      if (page > 1 && rows.length === 1) {
+        setPage(page - 1);
+      } else {
+        setRefreshKey((current) => current + 1);
+      }
+    } catch (error) {
+      setToast({
+        message: error instanceof Error ? error.message : "Não foi possível excluir o cliente.",
+        type: "error",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-4 pb-20 pt-8 sm:px-6">
@@ -424,8 +458,33 @@ export default function ClientesPage() {
               </div>
             </>
           )}
+          {selected && (
+            <div className="flex justify-end">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setCustomerToDelete(selected);
+                  setSelected(null);
+                }}
+                className="text-red-600 hover:bg-red-50 border-red-200"
+              >
+                <PanelIcon icon={faTrash} className="mr-2" /> Excluir
+              </Button>
+            </div>
+          )}
         </div>
       </HybridModal>
+      <ConfirmModal
+        open={customerToDelete !== null}
+        onClose={() => { if (!isDeleting) setCustomerToDelete(null); }}
+        onConfirm={() => void handleDeleteCustomer()}
+        title="Excluir cliente?"
+        description="O cadastro será removido da lista de clientes. O histórico de pedidos será preservado."
+        confirmLabel="Excluir cliente"
+        isLoading={isDeleting}
+        variant="danger"
+      />
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   );
 }
