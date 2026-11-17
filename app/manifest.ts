@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
     return {
-        name: "iMenu — Painel do Restaurante",
+        name: "iMenu",
         short_name: "iMenu",
         description: "Gerencie pedidos e seu cardápio pelo celular.",
         start_url: "/painel",
