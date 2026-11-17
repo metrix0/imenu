@@ -1,52 +1,24 @@
 import { unstable_cache } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
+import { cities as municipalities, states } from "@/lib/api/brazilianMunicipalities";
 
 const PAGE_SIZE = 1000;
 const FALLBACK_CITY_SLUG = "outras-localidades";
 const FALLBACK_CITY_NAME = "Outras localidades";
 
-const STATE_ALIASES: Record<string, string> = {
-    acre: "AC",
-    alagoas: "AL",
-    amapa: "AP",
-    amazonas: "AM",
-    bahia: "BA",
-    ceara: "CE",
-    "distrito-federal": "DF",
-    "espirito-santo": "ES",
-    goias: "GO",
-    maranhao: "MA",
-    "mato-grosso": "MT",
-    "mato-grosso-do-sul": "MS",
-    "minas-gerais": "MG",
-    para: "PA",
-    paraiba: "PB",
-    parana: "PR",
-    pernambuco: "PE",
-    piaui: "PI",
-    "rio-de-janeiro": "RJ",
-    "rio-grande-do-norte": "RN",
-    "rio-grande-do-sul": "RS",
-    rondonia: "RO",
-    roraima: "RR",
-    "santa-catarina": "SC",
-    "sao-paulo": "SP",
-    sergipe: "SE",
-    tocantins: "TO",
-};
-
-const STATE_CODES: ReadonlySet<string> = new Set(
-    Object.values(STATE_ALIASES)
+const STATE_CODES_BY_SLUG = new Map(
+    states.flatMap(([code, name]) =>
+        [code, name, code + " " + name].map(
+            (label) => [slugify(label), code] as const
+        )
+    )
 );
-
-const LOWERCASE_CITY_WORDS: ReadonlySet<string> = new Set([
-    "da",
-    "das",
-    "de",
-    "do",
-    "dos",
-    "e",
-]);
+const MUNICIPAL_NAMES_BY_SLUG = new Map(
+    municipalities.map(([name, state]) => [
+        slugify(name) + "-" + slugify(state),
+        name,
+    ] as const)
+);
 
 type AddressData = {
     city?: unknown;
@@ -65,10 +37,6 @@ export type PublicRestaurantCity = {
     state: string | null;
     updatedAt: string | null;
     restaurants: PublicRestaurantDirectoryItem[];
-};
-
-type MutableRestaurantCity = PublicRestaurantCity & {
-    cityNameScore: number;
 };
 
 function text(value: unknown): string {
@@ -92,48 +60,6 @@ function slugify(value: string): string {
         .replace(/^-+|-+$/g, "");
 }
 
-function normalizeState(value: unknown): string | null {
-    const rawState = text(value);
-    if (!rawState) return null;
-
-    const upperState = rawState.toUpperCase();
-    if (STATE_CODES.has(upperState)) return upperState;
-
-    const leadingCode = upperState.match(/^([A-Z]{2})(?:\s|[-–—])/);
-    if (leadingCode && STATE_CODES.has(leadingCode[1])) {
-        return leadingCode[1];
-    }
-
-    return STATE_ALIASES[slugify(rawState)] || upperState;
-}
-
-function formatCityName(value: string): string {
-    let wordIndex = 0;
-
-    return value
-        .toLocaleLowerCase("pt-BR")
-        .split(/([\s-]+)/)
-        .map((part) => {
-            if (!part || /^[\s-]+$/.test(part)) return part;
-
-            const isFirstWord = wordIndex === 0;
-            wordIndex += 1;
-
-            if (!isFirstWord && LOWERCASE_CITY_WORDS.has(part)) {
-                return part;
-            }
-
-            return part.charAt(0).toLocaleUpperCase("pt-BR") + part.slice(1);
-        })
-        .join("");
-}
-
-function getCityNameScore(value: string): number {
-    return (
-        value.normalize("NFD").match(/[\u0300-\u036f]/g)?.length || 0
-    );
-}
-
 function getLatestDate(
     current: string | null,
     candidate: string | null
@@ -144,7 +70,7 @@ function getLatestDate(
 }
 
 function buildRestaurantDirectory(rows: unknown[]): PublicRestaurantCity[] {
-    const groups = new Map<string, MutableRestaurantCity>();
+    const groups = new Map<string, PublicRestaurantCity>();
     const seenRestaurantSlugs = new Set<string>();
 
     for (const value of rows) {
@@ -167,27 +93,18 @@ function buildRestaurantDirectory(rows: unknown[]): PublicRestaurantCity[] {
         seenRestaurantSlugs.add(restaurantSlug);
 
         const address = getAddress(row.address);
-        const rawCityName = text(address?.city);
-        const normalizedState = normalizeState(address?.state);
-        const citySlug = slugify(rawCityName);
-        const routeSlug = citySlug
-            ? citySlug +
-              (normalizedState ? "-" + slugify(normalizedState) : "")
-            : FALLBACK_CITY_SLUG;
-        const formattedCityName = citySlug
-            ? formatCityName(rawCityName)
-            : FALLBACK_CITY_NAME;
-        const cityNameScore = getCityNameScore(rawCityName);
+        const state = STATE_CODES_BY_SLUG.get(slugify(text(address?.state))) ?? null;
+        const citySlug = slugify(text(address?.city));
+        const municipalitySlug = citySlug && state
+            ? citySlug + "-" + slugify(state)
+            : "";
+        const municipality = MUNICIPAL_NAMES_BY_SLUG.get(municipalitySlug);
+        const routeSlug = municipality ? municipalitySlug : FALLBACK_CITY_SLUG;
         const updatedAt =
             typeof row.updated_at === "string" ? row.updated_at : null;
         const existing = groups.get(routeSlug);
 
         if (existing) {
-            if (cityNameScore > existing.cityNameScore) {
-                existing.name = formattedCityName;
-                existing.cityNameScore = cityNameScore;
-            }
-
             existing.updatedAt = getLatestDate(
                 existing.updatedAt,
                 updatedAt
@@ -202,8 +119,8 @@ function buildRestaurantDirectory(rows: unknown[]): PublicRestaurantCity[] {
 
         groups.set(routeSlug, {
             slug: routeSlug,
-            name: formattedCityName,
-            state: citySlug ? normalizedState : null,
+            name: municipality ?? FALLBACK_CITY_NAME,
+            state: municipality ? state : null,
             updatedAt,
             restaurants: [
                 {
@@ -212,12 +129,11 @@ function buildRestaurantDirectory(rows: unknown[]): PublicRestaurantCity[] {
                     updatedAt,
                 },
             ],
-            cityNameScore,
         });
     }
 
     return [...groups.values()]
-        .map(({ cityNameScore: _cityNameScore, ...city }) => ({
+        .map((city) => ({
             ...city,
             restaurants: city.restaurants.sort((first, second) =>
                 first.name.localeCompare(second.name, "pt-BR")
@@ -264,7 +180,7 @@ async function loadRestaurantDirectory(): Promise<
 
 export const getRestaurantDirectory = unstable_cache(
     loadRestaurantDirectory,
-    ["public-restaurant-directory-v1"],
+    ["public-restaurant-directory-v2"],
     { revalidate: 3600 }
 );
 
