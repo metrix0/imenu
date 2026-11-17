@@ -93,11 +93,11 @@ test('alarms once per failed batch when the automatic restaurant notice was not 
     expect(sql).toContain("to_char(NOW() AT TIME ZONE 'America/Sao_Paulo'");
     expect(sql).toContain("notice.status IS DISTINCT FROM 'sent'");
     expect(sql).toContain("notice.status IS DISTINCT FROM 'sending'");
-    expect(sql).toContain("CASE p.failure_reason WHEN $4 THEN $2 WHEN $5 THEN $3 ELSE $1 END");
+    expect(sql).toContain("CASE p.failure_reason WHEN $4 THEN $2::text[] WHEN $5 THEN $3::text[] ELSE $1::text[] END");
     expect((query as jest.Mock).mock.calls[0][1]).toEqual([
-        PAYOUT_BLAST_AUTOMATIONS.failed.message,
-        PAYOUT_BLAST_AUTOMATIONS["missing-key"].message,
-        PAYOUT_BLAST_AUTOMATIONS["missing-type"].message,
+        [PAYOUT_BLAST_AUTOMATIONS.failed.message, expect.stringContaining("Não foi possível concluir seu repasse iMenu")],
+        [PAYOUT_BLAST_AUTOMATIONS["missing-key"].message, expect.stringContaining("Seu repasse iMenu está pendente porque sua loja não tem uma chave PIX cadastrada")],
+        [PAYOUT_BLAST_AUTOMATIONS["missing-type"].message, expect.stringContaining("Seu repasse iMenu está pendente porque o tipo da sua chave PIX não está cadastrado")],
         MISSING_PIX_KEY_REASON,
         MISSING_PIX_TYPE_REASON,
         ["p1", "p2"],
