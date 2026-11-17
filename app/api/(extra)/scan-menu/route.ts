@@ -7,8 +7,9 @@ import { query } from "@/lib/database/sql";
 import { importMenuPhotos } from "@/lib/menu/importMenuPhotos";
 import { recordGeminiMenuFallback } from "@/lib/dev/health";
 import {
-    beginMenuScan, menuScanFileFingerprint, menuScanFilePaths, menuScanLinkDomain, menuScanSourceUrl,
-    readMenuScanRetryDraft, recordMenuScan, recordMenuScanProgress, scanAttemptIdPattern, type MenuScanDiagnostics,
+    beginMenuScan, claimMenuScanFileAnalysis, menuScanFileFingerprint, menuScanFilePaths,
+    menuScanLinkDomain, menuScanSourceUrl, recordMenuScan, recordMenuScanProgress,
+    scanAttemptIdPattern, waitForMenuScanResult, type MenuScanDiagnostics,
 } from "@/lib/menu/scanDiagnostics";
 
 export const runtime = "nodejs";
@@ -918,6 +919,20 @@ export async function PATCH(request: Request) {
     }
 }
 
+function emptyMenuScanResponse(isLinkImport: boolean) {
+    return NextResponse.json(
+        {
+            error: isLinkImport
+                ? "Não encontramos produtos legíveis nesse link. Tente fotos ou PDF do cardápio."
+                : "Nenhum produto foi identificado.",
+            details: isLinkImport
+                ? "A página pode carregar os produtos de forma restrita ou não apresentar os valores."
+                : "Tente enviar imagens mais nítidas ou dividir o PDF em menos páginas.",
+        },
+        { status: 422 }
+    );
+}
+
 export async function POST(req: Request) {
     const geminiApiKey = process.env.GEMINI_API_KEY?.trim();
     const openAiApiKey = process.env.OPENAI_API_KEY?.trim();
@@ -999,18 +1014,39 @@ export async function POST(req: Request) {
             urls.every(url => !/[?#]/.test(url))) {
             try {
                 retryFingerprint = await menuScanFileFingerprint(user.id, files, existingMenuContext);
-                if (retryFingerprint) {
-                    const draft = await readMenuScanRetryDraft<ReturnType<typeof buildResponse>>(
-                        restaurantId, attemptId, retryFingerprint,
-                    );
-                    if (draft) {
-                        diagnostic.outcome = "success";
-                        diagnostic.reusedFromAttemptId = draft.attempt_id;
-                        return NextResponse.json(draft.result);
-                    }
-                }
             } catch {
-                console.warn("[SCAN_MENU] Não foi possível recuperar o rascunho da importação.");
+                console.warn("[SCAN_MENU] Não foi possível identificar os arquivos da importação.");
+            }
+            if (retryFingerprint) {
+                const prior = await claimMenuScanFileAnalysis<ReturnType<typeof buildResponse>>(
+                    restaurantId, attemptId, retryFingerprint,
+                );
+                if (prior === null) {
+                    diagnostic = undefined;
+                    return NextResponse.json({ error: "Tentativa de scan indisponível." }, { status: 409 });
+                }
+                if (prior) {
+                    if (prior.attempt_id === attemptId) diagnostic = undefined;
+                    else diagnostic.reusedFromAttemptId = prior.attempt_id;
+
+                    const finished = await waitForMenuScanResult(restaurantId, prior, req.signal);
+                    if (finished?.outcome === "success" && finished.result) {
+                        if (diagnostic) diagnostic.outcome = "success";
+                        return NextResponse.json(finished.result);
+                    }
+                    if (finished?.outcome === "empty") {
+                        if (diagnostic) {
+                            diagnostic.outcome = "empty";
+                            diagnostic.errorCode = finished.error_code ?? "no_products";
+                        }
+                        return emptyMenuScanResponse(false);
+                    }
+                    if (diagnostic) diagnostic.errorCode = finished?.error_code ?? "scan_result_unavailable";
+                    return NextResponse.json(
+                        { error: "Não foi possível recuperar a análise anterior. Tente novamente." },
+                        { status: finished?.outcome === "failed" ? 500 : 503 },
+                    );
+                }
             }
         }
 
@@ -1051,17 +1087,7 @@ export async function POST(req: Request) {
         if (!parsed?.items.length) {
             diagnostic.outcome = "empty";
             diagnostic.errorCode = "no_products";
-            return NextResponse.json(
-                {
-                    error: isLinkImport
-                        ? "Não encontramos produtos legíveis nesse link. Tente fotos ou PDF do cardápio."
-                        : "Nenhum produto foi identificado.",
-                    details: isLinkImport
-                        ? "A página pode carregar os produtos de forma restrita ou não apresentar os valores."
-                        : "Tente enviar imagens mais nítidas ou dividir o PDF em menos páginas.",
-                },
-                { status: 422 }
-            );
+            return emptyMenuScanResponse(isLinkImport);
         }
 
         if (photos.length) {

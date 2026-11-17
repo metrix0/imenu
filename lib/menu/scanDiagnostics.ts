@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { isIP } from "node:net";
-import { query } from "@/lib/database/sql";
+import { setTimeout as delay } from "node:timers/promises";
+import { query, withTransaction } from "@/lib/database/sql";
 
 export const MENU_SCAN_BUCKET = "full-menu-images-ai";
 export const MENU_SCAN_BUCKET_PATH = "/storage/v1/object/public/" + MENU_SCAN_BUCKET + "/";
@@ -68,21 +69,81 @@ export async function menuScanFileFingerprint(
         .digest("hex");
 }
 
-export async function readMenuScanRetryDraft<Result>(
+type MenuScanResult<Result> = {
+    result: Result | null;
+    outcome: MenuScanDiagnostics["outcome"];
+    error_code: string | null;
+};
+
+type PriorMenuScan<Result> = MenuScanResult<Result> & {
+    attempt_id: string;
+    analysis_finished_at: Date | null;
+    retry_until: Date;
+    already_claimed: boolean;
+};
+
+export async function claimMenuScanFileAnalysis<Result>(
     restaurantId: string, attemptId: string, fingerprint: string,
-): Promise<{ result: Result; attempt_id: string } | undefined> {
-    const { rows } = await query<{ result: Result; attempt_id: string }>(
-        `SELECT retry_result AS result, attempt_id
-         FROM public.menu_scan_events
-         WHERE restaurant_id = $1 AND attempt_id <> $2 AND retry_fingerprint = $3
-           AND retry_result IS NOT NULL AND interruption_stage = 'analysis'
-           AND interruption_reason IN ('modal', 'page') AND viewed_at IS NULL
-           AND analysis_finished_at > NOW() - $4::interval
-         ORDER BY analysis_finished_at DESC
-         LIMIT 1`,
-        [restaurantId, attemptId, fingerprint, RETRY_DRAFT_TTL],
-    );
-    return rows[0];
+): Promise<PriorMenuScan<Result> | null | undefined> {
+    return withTransaction(async client => {
+        await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+            [`menu-scan:${restaurantId}:${fingerprint}`]);
+        const { rows: [prior] } = await client.query<PriorMenuScan<Result>>(
+            `SELECT source.retry_result AS result, source.attempt_id, source.analysis_finished_at,
+                    source.outcome, source.error_code, source.created_at + $4::interval AS retry_until,
+                    source.attempt_id = COALESCE(request.reused_from_attempt_id, request.attempt_id) AS already_claimed
+             FROM public.menu_scan_events request
+             JOIN public.menu_scan_events source ON source.restaurant_id = request.restaurant_id
+             WHERE request.restaurant_id = $1 AND request.attempt_id = $2
+               AND source.retry_fingerprint = $3 AND source.reused_from_attempt_id IS NULL
+               AND (
+                 source.attempt_id = COALESCE(request.reused_from_attempt_id, request.attempt_id)
+                 OR (source.analysis_finished_at IS NULL AND source.created_at > NOW() - $4::interval)
+                 OR (
+                   source.analysis_finished_at > NOW() - $4::interval
+                   AND source.retry_result IS NOT NULL AND source.interruption_stage = 'analysis'
+                   AND source.interruption_reason IN ('modal', 'page') AND source.viewed_at IS NULL
+                   AND NOT EXISTS (
+                       SELECT 1 FROM public.menu_scan_events reviewed
+                       WHERE reviewed.restaurant_id = source.restaurant_id
+                         AND reviewed.reused_from_attempt_id = source.attempt_id AND reviewed.viewed_at IS NOT NULL
+                   )
+                 )
+               )
+             ORDER BY already_claimed DESC, (source.analysis_finished_at IS NULL) DESC,
+                      source.analysis_finished_at DESC, source.id DESC
+             LIMIT 1`,
+            [restaurantId, attemptId, fingerprint, RETRY_DRAFT_TTL],
+        );
+        if (!prior?.already_claimed) {
+            const { rowCount } = await client.query(
+                `UPDATE public.menu_scan_events SET retry_fingerprint = $3, reused_from_attempt_id = $4
+                 WHERE restaurant_id = $1 AND attempt_id = $2
+                   AND analysis_finished_at IS NULL AND retry_fingerprint IS NULL`,
+                [restaurantId, attemptId, fingerprint, prior?.attempt_id ?? null],
+            );
+            if (rowCount !== 1) return null;
+        }
+        return prior;
+    });
+}
+
+export async function waitForMenuScanResult<Result>(
+    restaurantId: string, prior: PriorMenuScan<Result>, signal: AbortSignal,
+): Promise<MenuScanResult<Result> | undefined> {
+    if (prior.analysis_finished_at) return prior;
+
+    const deadline = prior.retry_until.getTime();
+    while (Date.now() < deadline) {
+        await delay(Math.min(1500, deadline - Date.now()), undefined, { signal });
+        const { rows: [finished] } = await query<MenuScanResult<Result>>(
+            `SELECT retry_result AS result, outcome, error_code
+             FROM public.menu_scan_events
+             WHERE restaurant_id = $1 AND attempt_id = $2 AND analysis_finished_at IS NOT NULL`,
+            [restaurantId, prior.attempt_id],
+        );
+        if (finished) return finished;
+    }
 }
 
 export function menuScanLinkDomain(raw: string): string | undefined {
@@ -145,7 +206,7 @@ export async function beginMenuScan(diagnostic: MenuScanDiagnostics): Promise<vo
              VALUES ($1, $2, 'failed', 0, $3, $4, $5)
              ON CONFLICT (restaurant_id, attempt_id) DO UPDATE SET
                 input_type = EXCLUDED.input_type, link_domain = EXCLUDED.link_domain, source = EXCLUDED.source
-             WHERE menu_scan_events.analysis_finished_at IS NULL`,
+             WHERE menu_scan_events.analysis_finished_at IS NULL AND menu_scan_events.retry_fingerprint IS NULL`,
             [diagnostic.restaurantId, diagnostic.inputType, diagnostic.attemptId,
                 diagnostic.linkDomain ?? null, diagnostic.source ?? null],
         );
@@ -159,18 +220,6 @@ type ScanProgress =
     | { event: "saved"; itemId: string }
     | { event: "interrupted"; inputType: MenuScanDiagnostics["inputType"];
         stage: "analysis" | "review" | "saving"; reason: "modal" | "page" | "retry" | "back" };
-
-// A reused result lives on a different attempt. Leave its draft in place until review.
-const discardReusedDraft = `
-    , discarded AS (
-        UPDATE public.menu_scan_events AS source
-        SET retry_result = NULL
-        FROM recorded
-        WHERE source.restaurant_id = $1 AND source.attempt_id = recorded.reused_from_attempt_id
-          AND source.attempt_id <> $2 AND source.retry_result IS NOT NULL
-    )
-    SELECT EXISTS (SELECT 1 FROM recorded) AS recorded
-`;
 
 export async function recordMenuScanProgress(
     restaurantId: string, attemptId: string, progress: ScanProgress,
@@ -190,16 +239,18 @@ export async function recordMenuScanProgress(
         return result.rowCount > 0;
     }
 
+    // Keep the draft available to requests that already joined this analysis.
+    // A viewed result is excluded from new reuse and its payload is cleared by cleanup.
     if (progress.event === "viewed") {
         const { rows } = await query<{ recorded: boolean }>(
             `WITH recorded AS (
                 UPDATE public.menu_scan_events
-                SET viewed_at = COALESCE(viewed_at, LEAST(clock_timestamp(), interrupted_at)), retry_result = NULL
+                SET viewed_at = COALESCE(viewed_at, LEAST(clock_timestamp(), interrupted_at))
                 WHERE restaurant_id = $1 AND attempt_id = $2
                   AND outcome = 'success' AND analysis_finished_at IS NOT NULL
                   AND (interrupted_at IS NULL OR interruption_stage IN ('review', 'saving'))
-                RETURNING reused_from_attempt_id
-            ) ${discardReusedDraft}`,
+                RETURNING 1
+            ) SELECT EXISTS (SELECT 1 FROM recorded) AS recorded`,
             [restaurantId, attemptId],
         );
         return rows[0]?.recorded === true;
@@ -209,8 +260,7 @@ export async function recordMenuScanProgress(
         `WITH recorded AS (
             UPDATE public.menu_scan_events AS scan
             SET viewed_at = COALESCE(scan.viewed_at, clock_timestamp()),
-                first_product_added_at = COALESCE(scan.first_product_added_at, clock_timestamp()),
-                retry_result = NULL
+                first_product_added_at = COALESCE(scan.first_product_added_at, clock_timestamp())
             WHERE scan.restaurant_id = $1 AND scan.attempt_id = $2
               AND scan.outcome = 'success' AND scan.analysis_finished_at IS NOT NULL
               AND scan.interrupted_at IS NULL
@@ -219,8 +269,8 @@ export async function recordMenuScanProgress(
                   WHERE item.id = $3 AND item.restaurant_id = scan.restaurant_id
                     AND item.created_at >= scan.analysis_finished_at
               )
-            RETURNING scan.reused_from_attempt_id
-        ) ${discardReusedDraft}`,
+            RETURNING 1
+        ) SELECT EXISTS (SELECT 1 FROM recorded) AS recorded`,
         [restaurantId, attemptId, progress.itemId],
     );
     return rows[0]?.recorded === true;
@@ -243,8 +293,10 @@ export async function recordMenuScan(diagnostic: MenuScanDiagnostics): Promise<v
                 openai_error = EXCLUDED.openai_error, error_code = EXCLUDED.error_code,
                 link_domain = EXCLUDED.link_domain, extracted_chars = EXCLUDED.extracted_chars,
                 excerpt = EXCLUDED.excerpt, elapsed_ms = EXCLUDED.elapsed_ms, source = EXCLUDED.source,
-                analysis_finished_at = EXCLUDED.analysis_finished_at, retry_fingerprint = EXCLUDED.retry_fingerprint,
-                retry_result = EXCLUDED.retry_result, reused_from_attempt_id = EXCLUDED.reused_from_attempt_id
+                analysis_finished_at = EXCLUDED.analysis_finished_at,
+                retry_fingerprint = COALESCE(EXCLUDED.retry_fingerprint, menu_scan_events.retry_fingerprint),
+                retry_result = EXCLUDED.retry_result,
+                reused_from_attempt_id = COALESCE(EXCLUDED.reused_from_attempt_id, menu_scan_events.reused_from_attempt_id)
              WHERE menu_scan_events.analysis_finished_at IS NULL`,
             [diagnostic.restaurantId, diagnostic.inputType, diagnostic.outcome,
                 diagnostic.geminiItems ?? null, diagnostic.geminiError ?? null,

@@ -1,5 +1,5 @@
 import { GET, PATCH, POST } from "./route";
-import { query } from "@/lib/database/sql";
+import { query, withTransaction } from "@/lib/database/sql";
 import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
 import { MenuLinkError, readPublicMenuLink } from "@/lib/menu/readPublicMenuLink";
 import { recordGeminiMenuFallback } from "@/lib/dev/health";
@@ -20,7 +20,7 @@ jest.mock("@/lib/menu/readPublicMenuLink", () => ({
 }));
 
 jest.mock("@/lib/menu/importMenuPhotos", () => ({ importMenuPhotos: jest.fn() }));
-jest.mock("@/lib/database/sql", () => ({ query: jest.fn() }));
+jest.mock("@/lib/database/sql", () => ({ query: jest.fn(), withTransaction: jest.fn() }));
 jest.mock("@/lib/dev/health", () => ({ recordGeminiMenuFallback: jest.fn().mockResolvedValue(undefined) }));
 jest.mock("@/lib/auth/restaurantOwner", () => {
     class RestaurantOwnerAuthError extends Error {
@@ -427,10 +427,10 @@ const retryOriginalAttempt = "72ce4307-3e13-4f41-b3a7-909155ff1876";
 const fileMetadata = { etag: '"a8cfb0e4c0bd45cbbb08686865b3b137"', mime: "application/pdf", size: "710", pdf: true };
 
 describe("interrupted file retry drafts", () => {
-    const trackedFile = () => new Request(url, {
+    const trackedFile = (attemptId = trackedAttempt) => new Request(url, {
         method: "POST", headers: { Authorization: "Bearer test", "Content-Type": "application/json" },
         body: JSON.stringify({
-            restaurantId: trackedRestaurant, attemptId: trackedAttempt,
+            restaurantId: trackedRestaurant, attemptId,
             urls: [retryStorage + "/storage/v1/object/public/full-menu-images-ai/" + retryUploadPath],
         }),
     });
@@ -451,16 +451,24 @@ describe("interrupted file retry drafts", () => {
         const defaultQuery = (query as jest.Mock).getMockImplementation()!;
         (query as jest.Mock).mockImplementation(async (sql, params) => {
             if (sql.includes("FROM unnest")) return { rows: [fileMetadata] };
-            if (sql.includes("SELECT retry_result AS result")) return { rows: draft ? [draft] : [] };
             return defaultQuery(sql, params);
         });
+
+        const transactionQuery = jest.fn(async (sql: string, _params?: unknown[]): Promise<{ rows: object[]; rowCount?: number }> => {
+            if (sql.includes("SELECT source.retry_result AS result")) {
+                return { rows: draft ? [{ ...draft, outcome: "success", analysis_finished_at: new Date() }] : [] };
+            }
+            return { rows: [], rowCount: 1 };
+        });
+        (withTransaction as jest.Mock).mockImplementation(callback => callback({ query: transactionQuery }));
+        return transactionQuery;
     }
 
     it("returns the previous result on a new attempt without either model and keeps the original draft", async () => {
         process.env.GEMINI_API_KEY = "test-gemini-key";
         const providerFetch = jest.spyOn(global, "fetch");
         const result = { items: [{ name: "Suco", price_cents: 900 }], categories: [] };
-        mockDraftQueries({ attempt_id: retryOriginalAttempt, result });
+        const transactionQuery = mockDraftQueries({ attempt_id: retryOriginalAttempt, result });
 
         const response = await POST(trackedFile());
         expect(response.status).toBe(200);
@@ -470,7 +478,7 @@ describe("interrupted file retry drafts", () => {
         expect(recordGeminiMenuFallback).not.toHaveBeenCalled();
         expect(query).toHaveBeenCalledWith(expect.stringContaining("object.owner_id = $3"),
             [[retryUploadPath], "full-menu-images-ai", retryUploadOwner]);
-        expect(query).toHaveBeenCalledWith(expect.stringContaining("interruption_reason IN ('modal', 'page')"),
+        expect(transactionQuery).toHaveBeenCalledWith(expect.stringContaining("interruption_reason IN ('modal', 'page')"),
             [trackedRestaurant, trackedAttempt, expect.stringMatching(/^[0-9a-f]{64}$/), "15 minutes"]);
         expect(diagnostics()[1][1].slice(2, 7)).toEqual(["success", null, null, null, null]);
         expect(diagnostics()[1][1].slice(14)).toEqual([null, null, retryOriginalAttempt]);
@@ -492,6 +500,78 @@ describe("interrupted file retry drafts", () => {
             : [null, null, null]);
     });
 
+    it.each([true, false])("joins analysis in progress even after closing the modal (products: %s)", async foundProducts => {
+        const transactionQuery = mockDraftQueries();
+        let claimed = false;
+        let markJoined!: () => void;
+        const joined = new Promise<void>(resolve => { markJoined = resolve; });
+        transactionQuery.mockImplementation(async (sql, params) => {
+            if (sql.includes("SELECT source.retry_result AS result")) {
+                return { rows: claimed ? [{
+                    attempt_id: retryOriginalAttempt, result: null, analysis_finished_at: null,
+                    retry_until: new Date(Date.now() + 60_000),
+                }] : [] };
+            }
+            if (sql.includes("UPDATE public.menu_scan_events SET retry_fingerprint")) {
+                if (params?.[1] === retryOriginalAttempt) claimed = true;
+                if (params?.[1] === trackedAttempt && params[3] === retryOriginalAttempt) markJoined();
+            }
+            return { rows: [], rowCount: 1 };
+        });
+
+        const defaultQuery = (query as jest.Mock).getMockImplementation()!;
+        let finished: { outcome: string; error_code: string | null; result: unknown } | undefined;
+        (query as jest.Mock).mockImplementation(async (sql, params) => {
+            if (sql.includes("SELECT retry_result AS result")) return { rows: finished ? [finished] : [] };
+            if (sql.includes("analysis_finished_at = EXCLUDED.analysis_finished_at") && params[13] === retryOriginalAttempt) {
+                finished = { outcome: params[2], error_code: params[7], result: params[15] };
+            }
+            return defaultQuery(sql, params);
+        });
+
+        let startProvider!: () => void;
+        const providerStarted = new Promise<void>(resolve => { startProvider = resolve; });
+        let finishProvider!: (result: object) => void;
+        const providerResult = new Promise<object>(resolve => { finishProvider = resolve; });
+        mockOpenAiCreate.mockImplementationOnce(() => {
+            startProvider();
+            return providerResult;
+        });
+
+        const first = POST(trackedFile(retryOriginalAttempt));
+        await providerStarted;
+        const closed = await PATCH(new Request(url, {
+            method: "PATCH",
+            body: JSON.stringify({
+                restaurantId: trackedRestaurant, attemptId: retryOriginalAttempt,
+                event: "interrupted", inputType: "files", stage: "analysis", reason: "modal",
+            }),
+        }));
+        expect(closed.status).toBe(204);
+        const second = POST(trackedFile());
+        await joined;
+        expect(mockOpenAiCreate).toHaveBeenCalledTimes(1);
+        finishProvider({ output_text: JSON.stringify({
+            items: foundProducts ? [{ name: "Suco", price_cents: 900 }] : [],
+            categories: [],
+        }) });
+
+        const [original, resumed] = await Promise.all([first, second]);
+        expect(original.status).toBe(foundProducts ? 200 : 422);
+        expect(resumed.status).toBe(original.status);
+        expect(await resumed.json()).toEqual(await original.json());
+        expect(mockOpenAiCreate).toHaveBeenCalledTimes(1);
+        const resumedDiagnostic = diagnostics().find(([, params]) => params[13] === trackedAttempt);
+        expect(resumedDiagnostic?.[1].slice(14)).toEqual([null, null, retryOriginalAttempt]);
+    });
+
+    it("does not call a provider if it cannot establish the analysis claim", async () => {
+        mockDraftQueries();
+        (withTransaction as jest.Mock).mockRejectedValue(new Error("database unavailable"));
+        expect((await POST(trackedFile())).status).toBe(500);
+        expect(mockOpenAiCreate).not.toHaveBeenCalled();
+    });
+
     it("scopes the fingerprint to owned file content, file order and menu context", async () => {
         const { menuScanFileFingerprint } = await import("@/lib/menu/scanDiagnostics");
         const other = { ...fileMetadata, etag: '"00000000000000000000000000000000"' };
@@ -510,11 +590,11 @@ describe("interrupted file retry drafts", () => {
         expect(await menuScanFileFingerprint(retryUploadOwner, ["a.pdf", "unavailable.pdf"], "context")).toBeUndefined();
     });
 
-    it("continues with fresh analysis if the draft lookup fails", async () => {
+    it("continues with fresh analysis if file metadata lookup fails", async () => {
         mockDraftQueries();
         const defaultQuery = (query as jest.Mock).getMockImplementation()!;
         (query as jest.Mock).mockImplementation(async (sql, params) => {
-            if (sql.includes("SELECT retry_result AS result")) throw new Error("database unavailable");
+            if (sql.includes("FROM unnest")) throw new Error("database unavailable");
             return defaultQuery(sql, params);
         });
         mockOpenAiCreate.mockResolvedValue({ output_text: JSON.stringify({
