@@ -310,3 +310,38 @@ describe("IBGE street fallback", () => {
         expect(await fetchCoordinates(c.input)).toEqual(valid);
     });
 });
+
+describe("specific geocoding for a citywide CEP", () => {
+    const address = "Rua Bem-te-vi, 44, Novo Horizonte, Rio Paranaíba - MG, 38810000, Brasil";
+    const fixture = { input: address, city: "Rio Paranaíba", street: "Rua Bem-te-vi", number: "44", uf: "MG", lat: -19.2038, lon: -46.2442 };
+
+    it("keeps a numbered address with a citywide CEP", async () => {
+        arcgisOnly([candidate(fixture)]);
+        expect(await fetchCoordinates(address, undefined, undefined, true))
+            .toEqual({ latitude: fixture.lat, longitude: fixture.lon });
+    });
+
+    it("rejects a postal/city point while retaining the existing fallback by default", async () => {
+        const point = { latitude: -19.19, longitude: -46.24 };
+        global.fetch = jest.fn(async input => {
+            const url = String(input);
+            if (url.includes("/api/cep/v2/")) {
+                return reply({ city: fixture.city, state: fixture.uf, location: { coordinates: point } });
+            }
+            return reply(url.includes("arcgis.com") ? { candidates: [] } : []);
+        }) as typeof fetch;
+        expect(await fetchCoordinates(address, undefined, undefined, true)).toBeNull();
+        expect((global.fetch as jest.Mock).mock.calls.some(([url]) => String(url).includes("/api/cep/v2/"))).toBe(false);
+        expect(await fetchCoordinates(address)).toEqual(point);
+    });
+
+    it("only accepts a local street estimate when the configured tier covers its distance range", async () => {
+        const point = { latitude: fixture.lat, longitude: fixture.lon };
+        const range = { min: 0.1, max: 0.4 };
+        global.fetch = jest.fn(async input => String(input) === "/api/checkout/geocode-ibge"
+            ? reply({ point, range })
+            : reply(String(input).includes("arcgis.com") ? { candidates: [] } : [])) as typeof fetch;
+        expect(await fetchCoordinates(address, undefined, { origin: point, acceptsRange: ({ max }) => max <= 0.5 }, true)).toEqual(point);
+        expect(await fetchCoordinates(address, undefined, { origin: point, acceptsRange: ({ max }) => max <= 0.3 }, true)).toBeNull();
+    });
+});

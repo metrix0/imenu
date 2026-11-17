@@ -40,7 +40,7 @@ interface CheckoutState {
     coupon_discount_cents: number | null;
 
     showAddressWarning: boolean;
-    cepTrigger: boolean;
+    cepTrigger: (() => void) | null;
 
     setStep: (s: CheckoutState["step"]) => void;
     setField: (key: string, value: string | number | boolean | null) => void;
@@ -87,7 +87,7 @@ export const useCheckoutStore = create<CheckoutState>()(
 
             // ⚠️ UI state (do NOT persist)
             showAddressWarning: false,
-            cepTrigger: false,
+            cepTrigger: null,
 
             setStep: (s) => {
                 set({ step: s });

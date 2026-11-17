@@ -216,6 +216,14 @@ export default function CartBar({
         return children;
     };
 
+    function advanceToPayment() {
+        captureConsumerEvent(
+            CONSUMER_EVENTS.paymentStarted,
+            consumerProperties()
+        );
+        setStep("checkout");
+    }
+
     async function handleClick() {
         closeItemModalOpen();
         if (cartOpen && step === "cart") {
@@ -267,7 +275,7 @@ export default function CartBar({
             if (smallCityMode) {
                 setShowAddressWarning(true);
             } else {
-                useCheckoutStore.setState({ cepTrigger: true });
+                useCheckoutStore.setState({ cepTrigger: advanceToPayment });
             }
             return;
         }
@@ -300,11 +308,7 @@ export default function CartBar({
                 return;
             }
 
-            captureConsumerEvent(
-                CONSUMER_EVENTS.paymentStarted,
-                consumerProperties()
-            );
-            setStep("checkout");
+            advanceToPayment();
             return;
         }
 

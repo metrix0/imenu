@@ -22,7 +22,7 @@ import ModalMobile from "@/components/ui/HybridModal";
 import WarningBox from "@/components/ui/WarningBox";
 import Toast from "@/components/ui/Toast";
 import Loader from "@/components/ui/Loader";
-import {fetchAddressByCEP, fetchCoordinates, fetchAddressByCoordinates, calculateDistanceKm,} from "@/lib/api/geocoding";
+import {fetchAddressByCEP, fetchCoordinates, fetchAddressByCoordinates, calculateDistanceKm, type GeoAddress} from "@/lib/api/geocoding";
 import {formatPriceNoRS, formatPrice, promotionPrice} from "@/lib/utils/formatPrice";
 import { supabase } from "@/lib/database/supabaseClient";
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
@@ -63,6 +63,10 @@ const PAYMENT_OPTIONS = [
         icon: icons.faPersonBiking,
     },
 ];
+
+function isCitywideCep(address: GeoAddress | null) {
+    return Boolean(address && !address.street?.trim() && !address.neighborhood?.trim());
+}
 
 function formatDateInputValue(date: Date) {
     const year = date.getFullYear();
@@ -141,6 +145,13 @@ export default function CartModal({
     const [addressError, setAddressError] = useState<string | null>(null);
     const showAddressWarning = useCheckoutStore(s => s.showAddressWarning);
     const [cepLocationError, setCepLocationError] = useState(false);
+    const [citywideAddressError, setCitywideAddressError] = useState(false);
+    const cepLookupRef = useRef<{
+        cep: string;
+        result: ReturnType<typeof fetchAddressByCEP>;
+        address?: GeoAddress;
+    } | null>(null);
+    const citywideGeocodeRef = useRef<{ address: string; result: ReturnType<typeof fetchCoordinates> } | null>(null);
     const [showNoGeolocationToast, setShowNoGeolocationToast] = useState(false);
     const cepTrigger = useCheckoutStore((s) => s.cepTrigger);
     const [loadingUseMyLocation, setLoadingUseMyLocation] = useState(false);
@@ -329,6 +340,20 @@ export default function CartModal({
         return tier ? Number(tier.fee_cents) : null;
     }
 
+    function lookupCep(cep: string, refresh = false) {
+        if (!refresh && cepLookupRef.current?.cep === cep) return cepLookupRef.current.result;
+        const result = fetchAddressByCEP(cep).then(address => {
+            const lookup = cepLookupRef.current;
+            if (lookup?.result === result) {
+                if (address) lookup.address = address;
+                else cepLookupRef.current = null;
+            }
+            return address;
+        });
+        cepLookupRef.current = { cep, result };
+        return result;
+    }
+
     async function recalcDeliveryFeeFromAddress() {
         if (isTableOrder) return;
         const st = useCheckoutStore.getState() as any;
@@ -341,6 +366,7 @@ export default function CartModal({
 
         setField("showAddressWarning", false);
         setCepLocationError(false);
+        setCitywideAddressError(false);
         if (missingDeliveryRanges) {
             setDeliveryFeeCents(null);
             setField("delivery_fee_cents", null);
@@ -391,7 +417,8 @@ export default function CartModal({
         const restLat = Number(restaurant.latitude);
         const restLon = Number(restaurant.longitude);
         const tiers = getDeliveryTiers();
-        const coords = await fetchCoordinates(fullAddress, (point) => {
+        const citywideCep = isCitywideCep(await lookupCep(st.cep.replace(/\D/g, "")));
+        const geocode = () => fetchCoordinates(fullAddress, (point) => {
             const distance = calculateDistanceKm(restLat, restLon, point.latitude, point.longitude);
             const fee = computeFeeFromTiers(distance, tiers);
             return fee !== null && Number.isFinite(fee);
@@ -404,13 +431,26 @@ export default function CartModal({
                     Number(nearest.radius_km) === Number(farthest.radius_km) &&
                     Number.isFinite(Number(farthest.fee_cents));
             },
-        });
+        }, citywideCep);
+
+        let coordinates = citywideGeocodeRef.current?.address === fullAddress
+            ? citywideGeocodeRef.current.result
+            : null;
+        if (!citywideCep || !coordinates) {
+            coordinates = geocode();
+            if (citywideCep) {
+                citywideGeocodeRef.current = { address: fullAddress, result: coordinates };
+            }
+        }
+        const coords = await coordinates;
+        if (citywideGeocodeRef.current?.result === coordinates) citywideGeocodeRef.current = null;
 
         const latest = useCheckoutStore.getState() as any;
         const latestFullAddress = `${latest.rua}, ${latest.numero}, ${latest.bairro}, ${latest.cidade} - ${latest.estado}, ${latest.cep}, Brasil`;
-        if (fullAddress !== latestFullAddress) return;
+        if (fullAddress !== latestFullAddress || (citywideCep && latest.is_pickup)) return;
 
         if (!coords) {
+            if (citywideCep) setCitywideAddressError(true);
             setDeliveryFeeCents(null);
             setField("delivery_fee_cents", null);
             setField("delivery_time_minutes", null);
@@ -449,14 +489,20 @@ export default function CartModal({
         if (matchedTime !== null) {
             setField("delivery_time_minutes", String(matchedTime));
         }
+        return true;
     }
 
-    async function handleCepInput(value: string) {
+    async function handleCepInput(value: string, onCitywideSuccess?: () => void) {
         if (isPickup || isTableOrder) return;
         setCepLocationError(false);
+        setCitywideAddressError(false);
         setContinueBlocked(true)
 
         const cleanCep = value.replace(/\D/g, "");
+        const previousLookup = cepLookupRef.current;
+        const knownStreetCep = previousLookup?.cep === cleanCep &&
+            previousLookup.address && !isCitywideCep(previousLookup.address);
+        const resetCep = !onCitywideSuccess || knownStreetCep;
         if (smallCityMode) {
             // Typing or clearing an optional CEP must not erase the manual address.
             useCheckoutStore.setState({ cep: cleanCep } as any);
@@ -465,7 +511,7 @@ export default function CartModal({
                 return;
             }
         } else {
-            setField("cep", cleanCep);
+            if (resetCep) setField("cep", cleanCep);
             if (cleanCep.length !== 8) return;
         }
 
@@ -474,7 +520,11 @@ export default function CartModal({
         const timer = window.setTimeout(async () => {
             setLoadingCepLookup(true);
             try {
-                const addr = await fetchAddressByCEP(cleanCep);
+                const addr = await lookupCep(cleanCep, Boolean(onCitywideSuccess && knownStreetCep));
+                if (useCheckoutStore.getState().cep.replace(/\D/g, "") !== cleanCep) return;
+
+                const citywideCep = !smallCityMode && isCitywideCep(addr);
+                if (!resetCep && !citywideCep) setField("cep", cleanCep);
                 if (!addr) {
                     setCepLocationError(true);
                     if (!smallCityMode) setField("delivery_fee_cents", null);
@@ -490,15 +540,25 @@ export default function CartModal({
                       )
                     : null;
 
-                setField("rua", addr.street);
-                setField(
-                    "bairro",
-                    matchedNeighborhood?.neighborhood || addr.neighborhood
-                );
+                if (!citywideCep) {
+                    setField("rua", addr.street);
+                    setField(
+                        "bairro",
+                        matchedNeighborhood?.neighborhood || addr.neighborhood
+                    );
+                }
                 setField("cidade", addr.city);
                 setField("estado", addr.state);
 
-                recalcDeliveryFeeFromAddress();
+                if (onCitywideSuccess && citywideCep) {
+                    const feeReady = await recalcDeliveryFeeFromAddress();
+                    const checkout = useCheckoutStore.getState();
+                    if (feeReady && checkout.step === "info" && checkout.nome && checkout.celular) {
+                        onCitywideSuccess();
+                    }
+                } else {
+                    void recalcDeliveryFeeFromAddress();
+                }
             } catch (error) {
                 console.error("CEP lookup failed:", error);
                 setCepLocationError(true);
@@ -784,9 +844,9 @@ export default function CartModal({
     useEffect(() => {
         if (!cepTrigger || isPickup) return;
 
-        if (!smallCityMode) handleCepInput(cep);
+        if (!smallCityMode) void handleCepInput(cep, cepTrigger);
 
-        useCheckoutStore.setState({ cepTrigger: false });
+        useCheckoutStore.setState({ cepTrigger: null });
     }, [cepTrigger, isPickup, smallCityMode]);
 
     useEffect(() => {
@@ -1236,16 +1296,19 @@ export default function CartModal({
                             </WarningBox>
                         )}
 
-                        {showAddressWarning && !isPickup && !missingDeliveryConfig &&
+                        {(citywideAddressError || showAddressWarning) && !isPickup && !missingDeliveryConfig &&
                             <WarningBox
+                                role={citywideAddressError ? "alert" : undefined}
                                 icon={icons.faTriangleExclamation}
                                 className="mt-2 mb-8 p-4 2xl:text-lg"
                             >
-                                {unknownNeighborhood && !cepLocationError
-                                    ? "Bairro não encontrado, verifique a grafia."
-                                    : !neighborhoodMode && !cepLocationError
-                                        ? "O restaurante está muito longe deste endereço para entrega!"
-                                        : "Verifique se o endereço está correto ou tente usar sua localização."}
+                                {citywideAddressError
+                                    ? "Este é um CEP geral da cidade. Se a sua cidade usa um único CEP, peça ao restaurante para ativar o Modo sem CEP nas configurações da loja."
+                                    : unknownNeighborhood && !cepLocationError
+                                        ? "Bairro não encontrado, verifique a grafia."
+                                        : !neighborhoodMode && !cepLocationError
+                                            ? "O restaurante está muito longe deste endereço para entrega!"
+                                            : "Verifique se o endereço está correto ou tente usar sua localização."}
                             </WarningBox>
                         }
 
