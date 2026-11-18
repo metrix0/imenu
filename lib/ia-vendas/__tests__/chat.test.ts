@@ -306,6 +306,55 @@ test("assistant snapshot keeps useful data but omits heavy fields", () => {
   expect(compact.sales.products_truncated).toBe(true);
 });
 
+test("assistant sends two proposal summaries, then can find a specific older proposal and create a new one", async () => {
+  const proposals = Array.from({ length: 25 }, (_, i) => ({
+    id: `10000000-0000-4000-8000-${String(i).padStart(12, "0")}`,
+    title: `Proposta ${i}`,
+    status: "pending",
+    operations: [{ entity: "items", kind: "update", values: { description: `old-operation-${i}: ${"x".repeat(4_900)}` } }],
+  }));
+  (context as jest.Mock).mockResolvedValueOnce({ ...namedContext(), actions: proposals });
+  mockAssistantHistory("");
+  const toolRound = (name: string, call_id: string, params: object) => ({
+    status: "completed",
+    output: [{ type: "function_call", name, call_id, arguments: JSON.stringify(params) }],
+    usage: { input_tokens: 5_000, output_tokens: 100 },
+  });
+  create
+    .mockResolvedValueOnce(toolRound("read_proposals", "list", {}))
+    .mockResolvedValueOnce(toolRound("read_proposals", "lookup", { id: proposals[24].id }))
+    .mockResolvedValueOnce(toolRound("propose_action", "create", { title: "Nova proposta" }))
+    .mockResolvedValueOnce({
+      status: "completed", output: [],
+      output_text: JSON.stringify({ reply: "Preparei a proposta.", summary: "" }),
+      usage: { input_tokens: 6_000, output_tokens: 100 },
+    });
+
+  await runChat({ ...args, deep: false, text: "Confira a proposta antiga e faça uma versão atualizada." });
+
+  expect(create).toHaveBeenCalledTimes(4);
+  const developerContent = create.mock.calls[0][0].input[0].content;
+  const firstPrompt = typeof developerContent === "string"
+    ? developerContent
+    : developerContent.map((part: { text: string }) => part.text).join("");
+  expect(firstPrompt).toContain('"recent_proposal_count":25');
+  expect(firstPrompt).toContain(proposals[0].id);
+  expect(firstPrompt).toContain(proposals[1].id);
+  expect(firstPrompt).not.toContain(proposals[2].id);
+  expect(firstPrompt).not.toContain("old-operation-");
+  const toolOutput = (round: number, id: string) => JSON.parse(create.mock.calls[round][0].input.find(
+    (entry: any) => entry.type === "function_call_output" && entry.call_id === id,
+  ).output);
+  const listed = toolOutput(1, "list").proposals;
+  expect(listed).toHaveLength(25);
+  expect(listed[24]).toEqual({ id: proposals[24].id, title: proposals[24].title, status: "pending" });
+  expect(JSON.stringify(listed)).not.toContain("old-operation-");
+  expect(toolOutput(2, "lookup")).toEqual(proposals[24]);
+  expect(JSON.stringify(create.mock.calls[3][0].input)).not.toContain("old-operation-0:");
+  expect(propose).toHaveBeenCalledWith("owner", "conversation", "run", { title: "Nova proposta" }, undefined);
+  expect(args.send).toHaveBeenCalledWith("done", expect.any(Object));
+});
+
 test.each([
   ["Gere fotos para os meus produtos", true],
   ["Gere fotos e altere o preço", false],

@@ -169,6 +169,11 @@ const assistantTools = [
       : definition,
   ),
   tool(
+    "read_proposals",
+    "Consulte propostas recentes somente quando forem relevantes ao pedido. Omita id para listar os resumos ou informe um id da lista para ver as operações de uma proposta.",
+    { id: text },
+  ),
+  tool(
     "search_imenu_knowledge",
     "Consultar a mesma base de conhecimento curada usada pelo suporte oficial do iMenu. Use para funcionamento do produto, configuração, preços, termos, políticas e orientações do sistema.",
     { query: text },
@@ -261,11 +266,16 @@ Pode editar apenas campos comerciais listados. Pedidos, histórico, repasses, an
 Imagens: quando o proprietário solicitar geração ou melhoria de uma imagem de produto, logo ou banner, chame image_example para preparar a prévia (ou read_data antes se precisar identificar o produto). NUNCA substitua a geração por perguntas sobre fundo, ângulo, texto, apresentação ou outras preferências opcionais. Não trate sugestões anteriores do assistente como preferências do proprietário. Se houver um produto identificável, gere com as informações existentes. Quando o usuário solicitar melhorias nas imagens dos produtos, consulte o cardápio e identifique os produtos relevantes. Tome decisões com base nos dados reais, sem exigir que o usuário organize o trabalho ou forneça preferências opcionais. Preserve ingredientes, porção e identidade do produto. Ao melhorar a foto, descreva no prompt melhorias de iluminação, nitidez, enquadramento e composição comercial, com o produto em destaque e sem distrações do ambiente original. Fundo, ângulo, texto e demais opções visuais são opcionais: não os solicite como campos obrigatórios. Sem preferências explícitas, escolha fundo e ângulo adequados para valorizar o produto; essas escolhas automáticas não são preferências do proprietário e não devem ser salvas em style. Não adicione texto sem solicitação. A imagem gerada é apenas prévia até aprovação. Uma prévia descartada (status rejected) não é uma imagem concluída: quando o proprietário solicitar novamente, gere outra prévia, mesmo que o histórico ou resumo diga que uma imagem foi gerada. Somente status applied indica imagem publicada. Logos/banners são permitidos. Nunca regenere imagens já aplicadas em pedidos amplos (todos, categoria, próximos): mantenha-as e complete apenas os produtos restantes. Só refaça uma imagem aplicada quando o pedido atual solicitar explicitamente a alteração e identificar especificamente o produto/logo/banner; se ambíguo, peça o nome e a alteração. Não trate aprovar um lote como autorização para refazer produtos concluídos. Use approved_image_styles SOMENTE se houver preferências visuais que o proprietário pediu explicitamente e aprovou antes. Se não houver preferências assim, escolha a composição fotográfica sem tratá-la como estilo aprovado nem pedir opções obrigatórias. Reaproveite fundo, texto e ângulo explicitamente pedidos entre produtos; preserve ingredientes, porção e apresentação específica apenas do MESMO produto. Nunca copie ingredientes ou porções de outro prato. Em style, inclua apenas campos explicitamente escolhidos pelo proprietário no pedido atual; omita o campo inteiro quando não houver novas escolhas. Não esqueça preferências ao mudar de lote ou conversa. Aplique novas preferências explícitas do proprietário antes de gerar.
 Formato final obrigatório JSON: {"reply":"resposta Markdown", "summary":"memória concisa da conversa, até 6000 caracteres"}. Widgets são renderizados pelas ferramentas. Não repita a lista inteira de mudanças no texto quando já há widget. Use linguagem simples também nas evidências e hipóteses: não exponha nomes de campos, SQL, IDs internos ou detalhes de implementação. Cada justificativa deve conter apenas o dado que muda a decisão e a melhoria sugerida, em até duas frases curtas. Se uma ferramenta falhar, explique; no máximo uma nova tentativa ajustada. Campos disponíveis (tipo; ? aceita null; ! obrigatório na criação):\n` +
   fieldGuide;
-export function compactAssistantContext(ctx: Data): Data {
+function proposalSummary({ id, title, status, applied_at, undone_at }: Data) {
+  return { id, title, status, applied_at, undone_at };
+}
+
+export function compactAssistantContext(ctx: Data, includeProposalOperations = false): Data {
   const select = (row: Data, keys: string[]) =>
     Object.fromEntries(keys.filter((key) => Object.hasOwn(row, key)).map((key) => [key, row[key]]));
   const items = ctx.items?.rows || [];
   const products = ctx.sales?.products || [];
+  const proposals: Data[] = ctx.actions || [];
   return {
     ...ctx,
     items: {
@@ -287,14 +297,9 @@ export function compactAssistantContext(ctx: Data): Data {
       products: products.slice(0, 20),
       products_truncated: products.length > 20,
     },
-    actions: (ctx.actions || []).map((action: Data) => ({
-      id: action.id,
-      title: action.title,
-      status: action.status,
-      applied_at: action.applied_at,
-      undone_at: action.undone_at,
-      operations: action.operations,
-    })),
+    ...(includeProposalOperations
+      ? { actions: proposals.map(action => ({ ...proposalSummary(action), operations: action.operations })) }
+      : { actions: proposals.slice(0, 2).map(proposalSummary), recent_proposal_count: proposals.length }),
     last_analysis: ctx.last_analysis
       ? { finished_at: ctx.last_analysis.finished_at, reply: ctx.last_analysis.result?.reply }
       : null,
@@ -618,7 +623,7 @@ export async function runChat(args: {
       const compact = deep
         ? analysisModelContext(ctx)
         : {
-            ...compactAssistantContext(ctx),
+            ...compactAssistantContext(ctx, !isChatConversation),
             application_access: {
               plus: access.plus,
               free_applications_remaining: access.free_applications_remaining,
@@ -845,6 +850,19 @@ export async function runChat(args: {
                       fields: p.fields,
                     });
                 break;
+              case "read_proposals": {
+                if (!isChatConversation)
+                  throw new SalesError("Ferramenta disponível apenas no Assistente IA.");
+                const proposals: Data[] = ctx.actions || [];
+                if (p.id === undefined) {
+                  result = { proposals: proposals.map(proposalSummary) };
+                  break;
+                }
+                const proposal = proposals.find(action => action.id === p.id);
+                if (!proposal) throw new SalesError("Proposta não encontrada.");
+                result = { ...proposalSummary(proposal), operations: proposal.operations };
+                break;
+              }
               case "sales_metrics":
                 result = await metrics(
                   restaurant,
