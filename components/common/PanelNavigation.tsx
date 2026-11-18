@@ -38,7 +38,7 @@ function isInsideHorizontalScroller(target: EventTarget | null, boundary: HTMLEl
     return false;
 }
 
-export default function PanelNavigation({ children, base, menuItems, onNavigate, status, collapsedStatus, headerAction, footerAction, overlay, collapsePath, contentAs = "main" }: {
+export default function PanelNavigation({ children, base, menuItems, onNavigate, status, collapsedStatus, headerAction, footerAction, overlay, collapsePath, hasPlus, contentAs = "main" }: {
     children: ReactNode;
     base: string;
     menuItems: PanelMenuItem[];
@@ -49,6 +49,7 @@ export default function PanelNavigation({ children, base, menuItems, onNavigate,
     footerAction?: FooterAction;
     overlay?: ReactNode;
     collapsePath?: string;
+    hasPlus?: boolean;
     contentAs?: "main" | "div";
 }) {
     const pathname = usePathname();
@@ -340,7 +341,7 @@ export default function PanelNavigation({ children, base, menuItems, onNavigate,
                         expanded ? "w-60 2xl:w-70" : "w-[4.5rem] 2xl:w-20"
                     }`}
                 >
-                    <div className="panel-sidebar-header">
+                    <div className="panel-sidebar-header relative">
                         <Link
                             href={base}
                             aria-label="Ir para o painel"
@@ -359,6 +360,13 @@ export default function PanelNavigation({ children, base, menuItems, onNavigate,
                                 height={40}
                             />
                         </Link>
+                        {expanded && hasPlus && (
+                            <Badge mode="pill" uppercase={false} title="iMenu Plus ativo"
+                                className="absolute inset-y-0 left-[122px] my-auto h-fit bg-(--panel-tint)! text-(--panel-accent-text)! transition-[visibility] delay-300 duration-0 starting:invisible motion-reduce:transition-none"
+                            >
+                                Plus
+                            </Badge>
+                        )}
                         <button type="button" onClick={toggleSidebar}
                             aria-label={expanded ? "Recolher menu lateral" : "Expandir menu lateral"}
                             aria-expanded={expanded} className="panel-sidebar-toggle cursor-pointer bg-white">
