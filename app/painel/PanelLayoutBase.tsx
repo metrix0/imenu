@@ -471,7 +471,7 @@ export default function PainelLayout({
                 menuItems={menuItems}
                 onNavigate={trackPanelTabOpen}
                 collapsePath="/painel/assistente-ia"
-                hasPlus={restaurantUsageAccess?.access.plus === true}
+                hasPlus={restaurantUsageAccess?.access?.plus === true}
                 footerAction={{ label: "Ajuda", icon: faCircleQuestion, onClick: () => supportButtonRef.current?.open() }}
                 status={storeStatusButton(true)}
                 collapsedStatus={

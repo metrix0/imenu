@@ -399,6 +399,7 @@ async function crmPanels(browser) {
     },{user,token,restaurantId,authStorageKey:process.env.NEXT_PUBLIC_SUPABASE_AUTH_STORAGE_KEY||"sb-127-auth-token"});
     const customer={habits:[],favorite_product:null,phone:"5511999990000",name:"Cliente CRM",address:{rua:"Rua de teste",numero:"123",bairro:"Centro"},opted_out_at:null,order_count:3,spending_cents:15000,average_ticket_cents:5000,last_purchase:new Date().toISOString(),segment:"Frequente"};
     let saved=null,saveCount=0,pdfPlus=false;
+    let usageResponse={},usageRequests=0;
     const settings={dailyTotalLimit:10,...Object.fromEntries(["cart","reactivation","habit"].map(kind=>[kind,{enabled:false,message:"Oi, {{nome}}! Vamos pedir na {{restaurante}}?",days:30,dailyLimit:kind==="cart"?7:2,cooldownDays:kind==="reactivation"?120:7,offer:""}]))};
     await page.setRequestInterception(true);
     page.on("request",request=>{
@@ -410,12 +411,18 @@ async function crmPanels(browser) {
             return request.respond({status:200,contentType:"application/json",body:JSON.stringify(request.method()==="PUT" ? {settings:saved} : {settings,plus:true,offers:[{value:"coupon:10000000-0000-4000-8000-000000000001",label:"Cupom: VOLTE10"}],connected:true})});
         }
         if(url.origin===BASE && url.pathname==="/api/addons/billing") return request.respond({status:200,contentType:"application/json",body:JSON.stringify({addons:pdfPlus?[{addon:{product_key:"ia_plus"},active:true}]:[]})});
+        if(url.origin===BASE && url.pathname==="/api/ia-vendas" && url.searchParams.get("usage_only")==="1") {
+            usageRequests++;
+            return request.respond({status:200,contentType:"application/json",body:JSON.stringify(usageResponse)});
+        }
         if(url.origin===BASE && url.pathname.startsWith("/api/")) return request.respond({status:200,contentType:"application/json",body:JSON.stringify({connection:null,notices:[],items:[]})});
         return request.continue();
     });
     try {
         await page.goto(BASE+"/painel/clientes",{waitUntil:"networkidle2"});
         await page.waitForFunction(()=>document.body.textContent.includes("Cliente CRM"));
+        assert.ok(usageRequests>0,"Customer list must render even when the usage response omits access");
+        assert.equal(await page.$('[aria-label="iMenu Plus ativo"]'),null);
         assert.ok((await page.content()).includes("Frequente"));
         await screenshot(page,"clientes-desktop");
         await page.locator('input[placeholder="Nome ou celular"]').fill("Cliente");
@@ -437,8 +444,10 @@ async function crmPanels(browser) {
         await page.setViewport({width:390,height:844});
         await screenshot(page,"automacoes-mobile");
         assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),"Mobile automation page must not overflow horizontally");
+        usageResponse={access:{plus:true},latest_analysis_finished_at:null};
         await page.goto(BASE+"/painel/clientes",{waitUntil:"networkidle2"});
         await page.waitForFunction(()=>document.body.textContent.includes("Cliente CRM"));
+        await page.waitForSelector('[aria-label="iMenu Plus ativo"]');
         await screenshot(page,"clientes-mobile");
         assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),"Mobile customer page must not overflow horizontally");
         await page.goto(BASE+"/painel/configuracoes",{waitUntil:"networkidle2"});
@@ -467,6 +476,15 @@ async function crmPanels(browser) {
 async function landingPlanSpacing(browser) {
     const context=await browser.createBrowserContext(),page=await context.newPage();
     try {
+        await page.setRequestInterception(true);
+        page.on("request",request=>{
+            if(request.url()===BASE+"/api/restaurants/best-sellers") {
+                return request.respond({status:200,contentType:"application/json",body:JSON.stringify({
+                    restaurants:[],stats:{total_restaurants:0,total_orders:0,total_gmv_cents:0}
+                })});
+            }
+            return request.continue();
+        });
         for(const width of [1280,390]) {
             await page.setViewport({width,height:900});
             await page.goto(BASE+"/#planos",{waitUntil:"networkidle2"});
