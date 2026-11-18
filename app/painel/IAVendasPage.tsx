@@ -1084,7 +1084,7 @@ export default function SalesPage() {
           </div>
           {notice}
           {conversationLimit ? (
-            <div className="border-t border-[var(--panel-border)] bg-[var(--panel-surface)] px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:px-8">
+            <div className="border-t border-[var(--panel-border)] bg-[var(--panel-surface)] px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:border-t-0 md:px-8 md:pt-4 md:pb-4">
               <div className="mx-auto max-w-3xl">
                 <AssistantConversationLimitReply message={conversationLimit} onNewConversation={startNewConversation} />
               </div>

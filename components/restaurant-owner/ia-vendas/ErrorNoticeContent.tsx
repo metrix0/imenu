@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
-import { Coins } from "lucide-react";
+import { Coins, SquarePen } from "lucide-react";
 import LoadingBar from "@/components/ui/LoadingBar";
 import type { aiAccess } from "@/lib/ia-vendas/access";
 import { SupportWhatsappBadge } from "@/components/common/SupportButton";
@@ -14,11 +14,17 @@ const IA_CAPACITY_SUPPORT_SUFFIX =
 type AssistantAccess = Awaited<ReturnType<typeof aiAccess>>;
 const formatCount = (value: number) => value.toLocaleString("pt-BR");
 
-function AssistantNotice({ title, children }: { title: string; children: ReactNode }) {
+function AssistantNotice({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) {
   return (
-    <section aria-label={title} className="max-w-lg rounded-[10px] border border-[var(--panel-border)] bg-[var(--panel-surface)] p-4">
-      <p className="text-sm font-semibold text-[var(--panel-text,#1d1d1d)]">{title}</p>
-      {children}
+    <section
+      aria-label={title}
+      className={`max-w-lg rounded-[10px] border border-[var(--panel-border)] bg-[var(--panel-surface)] p-4${action ? " md:flex md:max-w-none md:items-center md:justify-between md:gap-4" : ""}`}
+    >
+      <div>
+        <p className="text-sm font-semibold text-[var(--panel-text,#1d1d1d)]">{title}</p>
+        {children}
+      </div>
+      {action && <div className="mt-3 md:mt-0 md:shrink-0">{action}</div>}
     </section>
   );
 }
@@ -28,11 +34,20 @@ export function AssistantConversationLimitReply({ message, onNewConversation }: 
   onNewConversation: () => void;
 }) {
   return (
-    <AssistantNotice title="Limite da conversa atingido">
+    <AssistantNotice
+      title="Limite da conversa atingido"
+      action={
+        <Button
+          type="button"
+          onClick={onNewConversation}
+          leftIcon={<SquarePen size={16} aria-hidden="true" />}
+          className="!min-h-9 !px-3 !py-1.5"
+        >
+          Criar novo chat
+        </Button>
+      }
+    >
       <p className="mt-1 text-sm leading-5 text-[var(--panel-muted,#626973)]">{message}</p>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <Button type="button" onClick={onNewConversation} className="!min-h-9 !px-3 !py-1.5">Criar novo chat</Button>
-      </div>
     </AssistantNotice>
   );
 }
