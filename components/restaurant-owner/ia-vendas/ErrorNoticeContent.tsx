@@ -64,20 +64,19 @@ export function AssistantQuotaReply({ message, onBuyCredits, onSubscribe, access
     monthly ? /^Limite mensal de IA atingido\.\s*/ : /^Seu limite gratuito foi atingido\.\s*/,
     "",
   );
-  const monthlyUsage = monthly && access?.plus ? access.credit_usage ?? access.usage : null;
+  const monthlyUsage = monthly && access?.plus ? access.usage : null;
   const inputLimitReached = monthlyUsage !== null &&
-    monthlyUsage.tokens.input >= monthlyUsage.tokens.input_limit &&
-    (access?.purchased_credits.input ?? 0) <= 0;
+    monthlyUsage.tokens.input >= monthlyUsage.tokens.input_limit;
   const imageLimitReached = (access?.images_remaining ?? 0) <= 0;
   return (
     <AssistantNotice title={title}>
       {detail && <p className="mt-1 text-sm leading-5 text-[var(--panel-muted,#626973)]">{detail}</p>}
-      {monthlyUsage && monthlyUsage.tokens.percent < 100 && (
+      {monthlyUsage && monthlyUsage.tokens.percent < 100 && access?.chat_quota_insufficient && (
         <p className="mt-1 text-sm text-[var(--panel-muted,#626973)]">O saldo restante não é suficiente para iniciar outra mensagem.</p>
       )}
       {monthlyUsage && (
         <div className="mt-3 text-sm text-[var(--panel-muted,#626973)]">
-          <p>{access?.credit_usage ? "Uso atual e limites após a recarga" : "Seu plano inclui estes limites mensais. Uso atual:"}</p>
+          <p>Seu plano inclui estes limites mensais. Uso atual:</p>
           <dl className="mt-2 space-y-2.5">
             <div>
               <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">

@@ -3,6 +3,7 @@ import { query } from "@/lib/database/sql";
 import { hasIMenuPlusAccess } from "@/lib/addons/access";
 import { SalesError } from "./types";
 import { LIMITS } from "./config";
+import { monthlyAllowanceRemaining } from "./creditMath";
 import { formatAiResetAt } from "./usageReset";
 
 export const FREE_AI_TOKENS = 150_000;
@@ -48,61 +49,38 @@ export async function aiAccess(restaurant: string, client?: Pick<PoolClient, "qu
     JOIN public.ia_vendas_conversations c ON c.id=a.conversation_id AND c.restaurant_id=a.restaurant_id
     WHERE a.restaurant_id=$1 AND c.kind='chat' AND a.applied_at IS NOT NULL AND a.image_jobs IS NULL
   ) used`, [restaurant])).rows[0]?.used === true;
-  const usage = (await execute(`WITH recharges AS (
-    SELECT max(credited_at) FILTER (WHERE input_tokens>0 OR output_tokens>0) AS tokens_at,
-           max(credited_at) FILTER (WHERE image_count>0) AS images_at
-    FROM public.ia_vendas_credit_purchases
-    WHERE restaurant_id=$1 AND $2::boolean
-      AND credited_at>=date_trunc('month',now()) AND revoked_at IS NULL
-  ), usage AS (
+  const usage = (await execute(`WITH usage AS (
     SELECT
     coalesce(sum(input_tokens + output_tokens) FILTER (WHERE kind='chat' AND status='completed' AND coalesce(result->>'quota_exempt','false')<>'true' AND created_at>=now()-interval '7 days'),0)::int tokens,
     coalesce(sum(reserved_input + reserved_output) FILTER (WHERE kind='chat' AND status='running' AND created_at>now()-interval '6 minutes'),0)::int reserved,
     coalesce(sum(image_count) FILTER (WHERE created_at>=now()-interval '7 days'),0)::int images,
     coalesce(sum(image_count) FILTER (WHERE created_at>=date_trunc('month',now())),0)::int monthly_images,
-    coalesce(sum(greatest(input_tokens,reserved_input)) FILTER (WHERE kind='chat' AND created_at>=date_trunc('month',now())),0)::float monthly_input,
-    coalesce(sum(greatest(output_tokens,reserved_output)) FILTER (WHERE kind='chat' AND created_at>=date_trunc('month',now())),0)::float monthly_output,
-    coalesce(sum(greatest(input_tokens,reserved_input)) FILTER (WHERE kind='chat' AND created_at>=recharges.tokens_at),0)::float credit_input,
-    coalesce(sum(greatest(output_tokens,reserved_output)) FILTER (WHERE kind='chat' AND created_at>=recharges.tokens_at),0)::float credit_output,
-    coalesce(sum(image_count) FILTER (WHERE created_at>=recharges.images_at),0)::int credit_images,
+    coalesce(sum(greatest(input_tokens,CASE WHEN status='running' THEN reserved_input ELSE 0 END)) FILTER (WHERE kind='chat' AND created_at>=date_trunc('month',now())),0)::float monthly_input,
+    coalesce(sum(greatest(output_tokens,CASE WHEN status='running' THEN reserved_output ELSE 0 END)) FILTER (WHERE kind='chat' AND created_at>=date_trunc('month',now())),0)::float monthly_output,
     (date_trunc('month', now()) + interval '1 month') monthly_reset_at
-    FROM public.ia_vendas_runs CROSS JOIN recharges WHERE restaurant_id=$1
+    FROM public.ia_vendas_runs WHERE restaurant_id=$1
   )
-  SELECT usage.*, recharges.tokens_at, recharges.images_at,
+  SELECT usage.*,
          wallet.input_tokens AS wallet_input, wallet.output_tokens AS wallet_output, wallet.images AS wallet_images
-  FROM usage CROSS JOIN recharges
-  LEFT JOIN public.ia_vendas_credit_balances wallet ON wallet.restaurant_id=$1`, [restaurant, plus])).rows[0];
+  FROM usage
+  LEFT JOIN public.ia_vendas_credit_balances wallet ON wallet.restaurant_id=$1`, [restaurant])).rows[0];
   const purchased = {
     input: Number(usage?.wallet_input || 0),
     output: Number(usage?.wallet_output || 0),
     images: Number(usage?.wallet_images || 0),
   };
-  const input = Number(usage?.monthly_input || 0), output = Number(usage?.monthly_output || 0);
+  const monthlyInput = Number(usage?.monthly_input || 0);
+  const monthlyOutput = Number(usage?.monthly_output || 0);
+  const monthlyImages = Number(usage?.monthly_images || 0);
+  const input = LIMITS.monthlyChatInput - monthlyAllowanceRemaining(LIMITS.monthlyChatInput, monthlyInput, purchased.input);
+  const output = LIMITS.monthlyChatOutput - monthlyAllowanceRemaining(LIMITS.monthlyChatOutput, monthlyOutput, purchased.output);
+  const imagesRemaining = monthlyAllowanceRemaining(LIMITS.images, monthlyImages, purchased.images);
+  const imagesUsed = LIMITS.images - imagesRemaining;
   const monthlyUsage = plus ? {
     tokens: { input, output, input_limit: LIMITS.monthlyChatInput, output_limit: LIMITS.monthlyChatOutput,
       percent: Math.max(input / LIMITS.monthlyChatInput, output / LIMITS.monthlyChatOutput) * 100 },
-    images: { used: Number(usage?.monthly_images || 0), limit: LIMITS.images, percent: Number(usage?.monthly_images || 0) / LIMITS.images * 100 },
+    images: { used: imagesUsed, limit: LIMITS.images, percent: imagesUsed / LIMITS.images * 100 },
   } : null;
-  const imageRemaining = Math.max(0, LIMITS.images - Number(usage?.monthly_images || 0));
-  let creditUsage: typeof monthlyUsage = null;
-  if (monthlyUsage && (usage?.tokens_at || usage?.images_at)) {
-    creditUsage = { ...monthlyUsage };
-    if (usage.tokens_at) {
-      const creditInput = Number(usage.credit_input);
-      const creditOutput = Number(usage.credit_output);
-      const inputLimit = creditInput + Math.max(0, LIMITS.monthlyChatInput - input) + Math.max(0, purchased.input);
-      const outputLimit = creditOutput + Math.max(0, LIMITS.monthlyChatOutput - output) + Math.max(0, purchased.output);
-      creditUsage.tokens = {
-        input: creditInput, output: creditOutput, input_limit: inputLimit, output_limit: outputLimit,
-        percent: Math.max(inputLimit ? creditInput / inputLimit : 1, outputLimit ? creditOutput / outputLimit : 1) * 100,
-      };
-    }
-    if (usage.images_at) {
-      const used = Number(usage.credit_images);
-      const limit = used + imageRemaining + Math.max(0, purchased.images);
-      creditUsage.images = { used, limit, percent: limit ? used / limit * 100 : 100 };
-    }
-  }
   const freeTokensUsed = Number(usage?.tokens || 0);
   const freeImagesUsed = Number(usage?.images || 0);
   let freeTokensResetAt: string | null = null;
@@ -135,17 +113,17 @@ export async function aiAccess(restaurant: string, client?: Pick<PoolClient, "qu
     ? new Date(usage.monthly_reset_at).toISOString()
     : null;
   return {
-    plus, usage: monthlyUsage, credit_usage: creditUsage,
+    plus, usage: monthlyUsage,
+    chat_quota_insufficient: plus && (LIMITS.monthlyChatInput - input < LIMITS.runInput ||
+      LIMITS.monthlyChatOutput - output < LIMITS.chatOutput),
     free_applications_remaining: plus ? null : usedApplication ? 0 : 1,
     reserved_tokens: Number(usage?.reserved || 0),
     tokens_remaining: plus ? null : Math.max(0, FREE_AI_TOKENS - freeTokensUsed) +
       Math.max(0, Math.min(purchased.input, purchased.output)),
-    images_remaining: Math.max(0,
-      plus ? imageRemaining : FREE_AI_IMAGES - freeImagesUsed)
-      + Math.max(0, purchased.images),
+    images_remaining: plus ? imagesRemaining : Math.max(0, FREE_AI_IMAGES - freeImagesUsed) + Math.max(0, purchased.images),
     purchased_credits: purchased,
     base_tokens_remaining: plus ? null : Math.max(0, FREE_AI_TOKENS - freeTokensUsed),
-    base_images_remaining: plus ? imageRemaining : Math.max(0, FREE_AI_IMAGES - freeImagesUsed),
+    base_images_remaining: plus ? monthlyAllowanceRemaining(LIMITS.images, monthlyImages) : Math.max(0, FREE_AI_IMAGES - freeImagesUsed),
     free_tokens_limit: plus ? null : FREE_AI_TOKENS,
     free_images_limit: plus ? null : FREE_AI_IMAGES,
     tokens_reset_at: plus ? monthlyResetAt : freeTokensResetAt,

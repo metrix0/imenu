@@ -69,10 +69,6 @@ export async function getAvailableCreditRechargeRates(
   if (!rates) throw new Error("Preços indisponíveis para o modelo atual.");
 
   const access = await aiAccess(restaurantId, client);
-  const includedInput = access.plus
-    ? Math.max(0, LIMITS.monthlyChatInput - Number(access.usage?.tokens.input ?? 0))
-    : Math.max(0, Number(access.base_tokens_remaining ?? 0));
-  const includedImages = Math.max(0, Number(access.base_images_remaining ?? 0));
   const execute = (sql: string, params: unknown[]) =>
     client ? client.query(sql, params) : query(sql, params);
   const pending = (await execute(
@@ -85,19 +81,23 @@ export async function getAvailableCreditRechargeRates(
   )).rows[0];
 
   const purchased = access.purchased_credits;
-  const availableInput = includedInput + Math.max(0, purchased.input) + Number(pending?.input || 0);
+  const inputUsed = access.usage?.tokens.input ??
+    (LIMITS.monthlyChatInput - Number(access.base_tokens_remaining ?? 0) - Math.max(0, purchased.input));
+  const imagesUsed = access.usage?.images.used ??
+    (LIMITS.images - Number(access.base_images_remaining ?? 0) - Math.max(0, purchased.images));
+  const pendingInput = Number(pending?.input || 0);
+  const pendingImages = Number(pending?.images || 0);
   const pendingOutput = Number(pending?.output || 0);
   const maxOutputTokens = Math.max(
     0, Math.floor(LIMITS.monthlyChatOutput - Math.max(0, purchased.output) - pendingOutput),
   );
-  const availableImages = includedImages + Math.max(0, purchased.images) + Number(pending?.images || 0);
   return {
     ...rates,
     maxInputTokens: Math.max(
-      0, Math.floor((LIMITS.monthlyChatInput - availableInput) / rates.inputStep) * rates.inputStep,
+      0, Math.floor((inputUsed - pendingInput) / rates.inputStep) * rates.inputStep,
     ),
     maxOutputTokens,
-    maxImages: Math.max(0, Math.floor(LIMITS.images - availableImages)),
+    maxImages: Math.max(0, Math.floor(imagesUsed - pendingImages)),
   };
 }
 

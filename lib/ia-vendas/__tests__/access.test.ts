@@ -187,39 +187,51 @@ test("rolling free reset timestamp is computed only when tokens are exhausted", 
   expect(resetCall?.[1]).toEqual(["restaurant", 0, 0]);
 });
 
-test("confirmed credits start a new usage counter without resetting monthly consumption", async () => {
+test.each([2_000_000, 4_946_985])("repeat recharges reduce billed usage at the same fixed cap (%d raw input)", async (input) => {
   addon = { status: "active" };
-  usage = {
-    monthly_input: 4_000_000, monthly_output: 150_000, monthly_images: 40,
-    tokens_at: "2026-11-18T16:00:00Z", credit_input: 0, credit_output: 0,
-  };
-  credits = { input_tokens: 1_900_000, output_tokens: 114_000, images: 0 };
-  const fresh = await aiAccess("restaurant");
-  expect(fresh.usage?.tokens.input).toBe(4_000_000);
-  expect(fresh.credit_usage).toMatchObject({
-    tokens: { input: 0, output: 0, input_limit: 1_900_000, output_limit: 114_000, percent: 0 },
-    images: { used: 40, limit: 75 },
+  usage = { monthly_input: input, monthly_output: 120_000, monthly_images: 40 };
+  expect((await aiAccess("restaurant")).usage?.tokens).toMatchObject({
+    input: 2_000_000, input_limit: 2_000_000, output: 120_000, output_limit: 120_000,
   });
 
-  usage.monthly_input += 100_000;
-  usage.credit_input = 100_000;
-  credits.input_tokens -= 100_000;
-  expect((await aiAccess("restaurant")).credit_usage?.tokens).toMatchObject({
-    input: 100_000, input_limit: 1_900_000,
+  credits = { input_tokens: 1_000_000, output_tokens: 60_000 };
+  const recharged = await aiAccess("restaurant");
+  expect(recharged.usage?.tokens).toMatchObject({
+    input: 1_000_000, input_limit: 2_000_000, output: 60_000, output_limit: 120_000, percent: 50,
   });
+  expect(recharged.chat_quota_insufficient).toBe(false);
 
-  delete usage.tokens_at;
-  expect((await aiAccess("restaurant")).credit_usage).toBeNull();
+  usage.monthly_input += 1_000_000;
+  usage.monthly_output += 60_000;
+  credits = { input_tokens: 0, output_tokens: 0 };
+  expect((await aiAccess("restaurant")).usage?.tokens.input).toBe(2_000_000);
+
+  credits = { input_tokens: 1_000_000, output_tokens: 60_000 };
+  expect((await aiAccess("restaurant")).usage?.tokens.input).toBe(1_000_000);
 });
 
-test("an image-only recharge resets the image meter independently", async () => {
+test("image recharge reduces image usage at the fixed cap without affecting tokens", async () => {
   addon = { status: "active" };
-  usage = { monthly_input: 25_000, monthly_images: 75, images_at: "2026-11-18T16:00:00Z", credit_images: 0 };
+  usage = { monthly_input: 25_000, monthly_images: 75 };
   credits = { images: 10 };
-  expect((await aiAccess("restaurant")).credit_usage).toMatchObject({
+  const access = await aiAccess("restaurant");
+  expect(access.usage).toMatchObject({
     tokens: { input: 25_000 },
-    images: { used: 0, limit: 10, percent: 0 },
+    images: { used: 65, limit: 75 },
   });
+  expect(access.images_remaining).toBe(10);
+});
+
+test("credits carried across the monthly reset cannot make usage negative or increase a cap", async () => {
+  addon = { status: "active" };
+  credits = { input_tokens: 875_100, output_tokens: 120_000, images: 10 };
+  const access = await aiAccess("restaurant");
+  expect(access.usage).toMatchObject({
+    tokens: { input: 0, input_limit: 2_000_000, output: 0, output_limit: 120_000, percent: 0 },
+    images: { used: 0, limit: 75, percent: 0 },
+  });
+  expect(access.purchased_credits.input).toBe(875_100);
+  expect(access.images_remaining).toBe(75);
 });
 
 test("a context-limited chat cannot start another run or reserve more credits", async () => {

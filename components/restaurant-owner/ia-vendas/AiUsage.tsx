@@ -18,7 +18,7 @@ export default function AiUsage({ access, compact = false, onBuyTokens }: {
   const format = (n: number) => n.toLocaleString("pt-BR");
   let rows: UsageRow[];
   if (access.plus) {
-    const usage = access.credit_usage ?? access.usage;
+    const usage = access.usage;
     if (!usage) return null;
     rows = [
       { label: "Limite", short: "L", percent: usage.tokens.percent, resetAt: access.tokens_reset_at,

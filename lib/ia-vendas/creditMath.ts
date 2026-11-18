@@ -1,3 +1,8 @@
+/** Available quota cannot exceed the plan limit, even when paid credits carry over. */
+export function monthlyAllowanceRemaining(limit: number, used: number, paidBalance = 0): number {
+  return Math.min(limit, Math.max(0, limit - used) + Math.max(0, paidBalance));
+}
+
 export type CreditRates = {
   chatModel: string;
   imageModel: string;
