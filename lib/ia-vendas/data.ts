@@ -170,7 +170,14 @@ export async function metrics(
       "Pedidos concluídos; receita líquida de entrega após descontos. Produtos: receita bruta. Bebidas/combos classificados por nomes; conferir ambiguidades. Retenção entre clientes identificados no período.",
   };
 }
-export async function context(restaurant: string, deep = false, includeAnalysis = true) {
+export const VISIBLE_PROPOSAL_RUN = `NOT EXISTS (
+  SELECT 1 FROM public.ia_vendas_runs r
+  WHERE r.restaurant_id=ia_vendas_actions.restaurant_id AND r.id=ia_vendas_actions.run_id
+    AND (r.result->>'detached_at' IS NOT NULL
+      OR (r.kind='analysis' AND (r.status<>'completed' OR r.result->'report'->>'status' IS DISTINCT FROM 'complete')))
+)`;
+
+export async function context(restaurant: string, deep = false, includeAnalysis = true, conversation?: string) {
   if (deep) return analysisContext(restaurant);
   const w = window28();
   const [r, items, categories, sales, memory, actions, last, upsellSettings, marketingSettings, marketingAccess, whatsapp] =
@@ -184,8 +191,11 @@ export async function context(restaurant: string, deep = false, includeAnalysis 
         [restaurant],
       ),
       query(
-        "SELECT id,conversation_id,title,status,applied_at,undone_at FROM public.ia_vendas_actions WHERE restaurant_id=$1 AND ($2::boolean OR EXISTS(SELECT 1 FROM public.ia_vendas_conversations c WHERE c.id=ia_vendas_actions.conversation_id AND c.restaurant_id=$1 AND c.kind='chat')) AND NOT EXISTS(SELECT 1 FROM public.ia_vendas_runs r WHERE r.restaurant_id=$1 AND r.id=ia_vendas_actions.run_id AND r.result->>'detached_at' IS NOT NULL) AND NOT EXISTS(SELECT 1 FROM public.ia_vendas_runs r WHERE r.restaurant_id=$1 AND r.id=ia_vendas_actions.run_id AND r.kind='analysis' AND (r.status<>'completed' OR r.result->'report'->>'status' IS DISTINCT FROM 'complete')) ORDER BY created_at DESC LIMIT 25",
-        [restaurant, includeAnalysis],
+        `SELECT id,conversation_id,title,status,applied_at,undone_at FROM public.ia_vendas_actions
+         WHERE restaurant_id=$1 AND ($2::boolean OR EXISTS(SELECT 1 FROM public.ia_vendas_conversations c WHERE c.id=ia_vendas_actions.conversation_id AND c.restaurant_id=$1 AND c.kind='chat'))
+           AND ${VISIBLE_PROPOSAL_RUN}
+         ORDER BY CASE WHEN conversation_id=$3 AND status='pending' THEN 0 ELSE 1 END, created_at DESC, id DESC LIMIT 25`,
+        [restaurant, includeAnalysis, conversation ?? null],
       ),
       query(
         "SELECT result,finished_at FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND $2::boolean AND kind='analysis' AND result->>'detached_at' IS NULL AND status='completed' AND result->'report'->>'status'='complete' ORDER BY finished_at DESC LIMIT 1",

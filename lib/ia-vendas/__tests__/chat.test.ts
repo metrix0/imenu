@@ -962,7 +962,7 @@ test("requesting analysis in contextual chat stays a normal chat run", async () 
   });
   await runChat({ ...args, deep: false });
   expect(beginRun).toHaveBeenCalledWith("owner", "conversation", "run", "chat", undefined);
-  expect(context).toHaveBeenCalledWith("owner", false);
+  expect(context).toHaveBeenCalledWith("owner", false, true, "conversation");
   expect(analysisPhotos).not.toHaveBeenCalled();
   expect(create.mock.calls[0][0].text.format).toEqual({ type: "json_object" });
   const scopedQuery = (query as jest.Mock).mock.calls.find(([sql]) =>
@@ -1244,16 +1244,21 @@ test("a saved proposal survives a model context error with its card linked and a
   expect(args.send).toHaveBeenCalledWith("done", { id: finished.message_id });
 });
 
+const previousProposalId = "01234567-89ab-4def-8123-456789abcdef";
+
 test.each([
   ["other-chat", "A proposta para retirar os molhos está pronta."],
-  ["other-chat", "Preparei a proposta.\n[[action:old-draft]]"],
-  ["conversation", "Aqui está a proposta.\n[[action:old-draft]]"],
+  ["other-chat", `Preparei a proposta.\n[[action:${previousProposalId}]]`],
+  ["conversation", `Aqui está a proposta.\n[[action:${previousProposalId}]]`],
 ])("only a valid proposal from this conversation can be shown (%s, %s)", async (proposalChat, reply) => {
   mockAssistantHistory("");
-  (context as jest.Mock).mockResolvedValueOnce({
-    ...namedContext(),
-    actions: [{ id: "old-draft", title: "Retirar molhos", status: "pending", conversation_id: proposalChat }],
-  });
+  const action = { id: previousProposalId, title: "Retirar molhos", status: "pending", conversation_id: proposalChat };
+  (context as jest.Mock).mockResolvedValueOnce({ ...namedContext(), actions: [action] });
+  const read = (query as jest.Mock).getMockImplementation()!;
+  (query as jest.Mock).mockImplementation((sql: string, params: unknown[]) =>
+    sql.startsWith("SELECT id FROM public.ia_vendas_actions")
+      ? Promise.resolve({ rows: params[1] === proposalChat ? [action] : [] })
+      : read(sql, params));
   create.mockResolvedValueOnce({
     status: "completed", output: [],
     output_text: JSON.stringify({ reply, summary: "Proposta pronta" }),
@@ -1270,7 +1275,47 @@ test.each([
   expect(client.query).toHaveBeenCalledWith(
     expect.stringContaining("INSERT INTO public.ia_vendas_messages"),
     [finished.message_id, "owner", "conversation", finished.reply,
-      sameChat ? '[{"type":"action","id":"old-draft"}]' : "[]"],
+      sameChat ? JSON.stringify([{ type: "action", id: previousProposalId }]) : "[]"],
+  );
+});
+
+test("a pending proposal can be read and shown again outside the recent snapshot", async () => {
+  const id = previousProposalId;
+  const action = { id, title: "Retirar molhos", status: "pending", conversation_id: "conversation", operations: [] };
+  const reply = `Aqui está a proposta.\n[[action:${id}]]`;
+  mockAssistantHistory(reply);
+  const read = (query as jest.Mock).getMockImplementation()!;
+  (query as jest.Mock).mockImplementation((sql: string, params: unknown[]) =>
+    sql.includes("FROM public.ia_vendas_actions") && sql.includes("conversation_id=$2")
+      ? Promise.resolve({ rows: [action] })
+      : read(sql, params));
+  (context as jest.Mock).mockResolvedValueOnce({
+    ...namedContext(),
+    actions: Array.from({ length: 25 }, (_, index) => ({
+      id: String(index), title: "Outra proposta", status: "pending", conversation_id: "other-chat",
+    })),
+  });
+  create.mockResolvedValueOnce({
+    status: "completed",
+    output: [{ type: "function_call", name: "read_proposals", call_id: "lookup", arguments: JSON.stringify({ id }) }],
+    usage: { input_tokens: 5_000, output_tokens: 100 },
+  }).mockResolvedValueOnce({
+    status: "completed", output: [],
+    output_text: JSON.stringify({ reply, summary: "" }),
+    usage: { input_tokens: 5_000, output_tokens: 100 },
+  });
+
+  await runChat({ ...args, deep: false, text: "Mostre novamente a proposta para retirar os molhos." });
+
+  const lookup = create.mock.calls[1][0].input.find((entry: any) => entry.call_id === "lookup" && entry.type === "function_call_output");
+  expect(JSON.parse(lookup.output)).toMatchObject({ id, in_this_conversation: true, operations: [] });
+  expect(query).toHaveBeenCalledWith(expect.stringContaining("conversation_id=$2"), ["owner", "conversation", id]);
+  expect(query).toHaveBeenCalledWith(expect.stringContaining("conversation_id=$2"), ["owner", "conversation", [id]]);
+  const [, , finished, , client] = (finishRun as jest.Mock).mock.calls.at(-1);
+  expect(finished.reply).toBe(reply);
+  expect(client.query).toHaveBeenCalledWith(
+    expect.stringContaining("INSERT INTO public.ia_vendas_messages"),
+    [finished.message_id, "owner", "conversation", reply, JSON.stringify([{ type: "action", id }])],
   );
 });
 

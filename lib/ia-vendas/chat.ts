@@ -17,7 +17,7 @@ import { makeReport, productReportFormat, REPORT_INSTRUCTIONS } from "./report";
 import { validateProductEstimate } from "./products";
 import { FIELDS } from "./fields";
 import { actionValuesSchema, key, isUuid } from "./catalog";
-import { analysisModelContext, context, readData, metrics, measure } from "./data";
+import { analysisModelContext, context, readData, metrics, measure, VISIBLE_PROPOSAL_RUN } from "./data";
 import { propose } from "./actions";
 import { applyProposal } from "./application";
 import { previewImage, analysisPhotos } from "./images";
@@ -415,16 +415,23 @@ function reportSection(report: Data, { section, field, id, offset = 0 }: Data) {
 const MISSING_PROPOSAL_CARD_REPLY =
   "Não consegui mostrar uma proposta nesta conversa. Diga quais alterações deseja e eu preparo uma proposta aqui.";
 
-function proposalReply(reply: string, cards: Data[], ctx: Data, conversation: string) {
-  const ids = [...reply.matchAll(/\[\[action:([^\]]+)\]\]/g)].map(match => match[1]);
+async function proposalReply(reply: string, cards: Data[], restaurant: string, conversation: string) {
+  const ids = new Set([...reply.matchAll(/\[\[action:([^\]]+)\]\]/g)].map(match => match[1]));
   const shown = new Set(cards.filter(card => card.type === "action").map(card => card.id));
-  const available = new Set((ctx.actions || [])
-    .filter((action: Data) => action.conversation_id === conversation && action.status === "pending")
-    .map((action: Data) => action.id));
-  if (ids.some(id => !shown.has(id) && !available.has(id))) return MISSING_PROPOSAL_CARD_REPLY;
-  for (const id of new Set(ids))
-    if (!shown.has(id)) cards.push({ type: "action", id });
-  if (ids.length || shown.size) return reply;
+  const referenced = [...ids].filter(id => !shown.has(id));
+  if (referenced.length) {
+    if (!referenced.every(isUuid)) return MISSING_PROPOSAL_CARD_REPLY;
+    const { rows } = await query(
+      `SELECT id FROM public.ia_vendas_actions
+       WHERE restaurant_id=$1 AND conversation_id=$2 AND status='pending' AND id=ANY($3::uuid[])
+         AND ${VISIBLE_PROPOSAL_RUN}`,
+      [restaurant, conversation, referenced],
+    );
+    const available = new Set(rows.map(row => row.id));
+    if (referenced.some(id => !available.has(id))) return MISSING_PROPOSAL_CARD_REPLY;
+    cards.push(...referenced.map(id => ({ type: "action", id })));
+  }
+  if (ids.size || shown.size) return reply;
   const claimsProposal = /\b(?:preparei|criei|montei|salvei|gerei)\s+(?:(?:uma?|a|as|duas)\s+)?(?:nova\s+)?(?:propostas?|prévias?)\b|\b(?:propostas?|prévias?)\b[^.!?\n]{0,150}\b(?:está|estão|ficou|ficaram|foi|foram)\s+(?:prontas?|salvas?|criadas?|geradas?)\b|\b(?:propostas?|prévias?)\s+prontas?\b/iu;
   return claimsProposal.test(reply) ? MISSING_PROPOSAL_CARD_REPLY : reply;
 }
@@ -634,7 +641,7 @@ export async function runChat(args: {
           ? "Analisando pedidos e cardápio…"
           : "Consultando seu restaurante…",
       });
-      ctx = freeAssistant ? await context(restaurant, false, false) : await context(restaurant, deep);
+      ctx = await context(restaurant, deep, !freeAssistant, conversation);
       reportContext = deep ? ctx : null;
       if (deep) {
         report = makeReport(ctx, cards, [], run);
@@ -936,7 +943,7 @@ export async function runChat(args: {
           reply = report.summary;
         } else
           reply = ensureSalesAnalysisBridge(
-            proposalReply(String(result.reply || ""), cards, ctx, conversation), cards,
+            await proposalReply(String(result.reply || ""), cards, restaurant, conversation), cards,
           );
         summary = String((reply.startsWith(MISSING_PROPOSAL_CARD_REPLY) ? conv.summary : result.summary) || "").slice(0, 6000);
         break;
@@ -988,15 +995,22 @@ export async function runChat(args: {
                   break;
                 }
                 const proposal = proposals.find(action => action.id === p.id);
-                if (!proposal) throw new SalesError("Proposta não encontrada.");
-                const row = (await query(
-                  "SELECT operations FROM public.ia_vendas_actions WHERE restaurant_id=$1 AND id=$2",
-                  [restaurant, proposal.id],
-                )).rows[0];
+                if (!proposal && !isUuid(p.id)) throw new SalesError("Proposta não encontrada.");
+                const row = proposal
+                  ? (await query(
+                      "SELECT operations FROM public.ia_vendas_actions WHERE restaurant_id=$1 AND id=$2",
+                      [restaurant, proposal.id],
+                    )).rows[0]
+                  : (await query(
+                      `SELECT id,conversation_id,title,status,applied_at,undone_at,operations FROM public.ia_vendas_actions
+                       WHERE restaurant_id=$1 AND conversation_id=$2 AND id=$3 AND status='pending'
+                         AND ${VISIBLE_PROPOSAL_RUN}`,
+                      [restaurant, conversation, p.id],
+                    )).rows[0];
                 if (!row) throw new SalesError("Proposta não encontrada.");
                 const offset = p.offset ?? 0;
                 const { rows, ...pagination } = toolPage((row.operations || []).slice(offset), offset);
-                result = { ...proposalSummary(proposal, conversation), operations: rows, ...pagination };
+                result = { ...proposalSummary(proposal ?? row, conversation), operations: rows, ...pagination };
                 break;
               }
               case "read_report":
