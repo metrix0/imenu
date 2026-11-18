@@ -36,7 +36,7 @@ const MAX_REPLY_CHARACTERS = 800;
 const MENU_LINK_PLACEHOLDER = "[[MENU_URL]]";
 const MENU_LINK_UNVERIFIED_REPLY = "Não consegui confirmar o link do cardápio.";
 const FIRST_HUMAN_REQUEST_MESSAGE =
-    "O suporte técnico especial pode levar até 1 dia útil. Gostaria de continuar?";
+    "O suporte técnico especial pode levar algumas horas. Gostaria de continuar?";
 const HANDOFF_CONFIRMED_MESSAGE =
     "A equipe de suporte já tem acesso ao histórico da conversa e entrará em contato em breve por aqui.";
 const HANDOFF_QUESTION_MESSAGE =
@@ -62,10 +62,10 @@ const SUPPORT_INSTRUCTIONS = [
     "- Nunca inicie um handoff sem o cliente pedir atendimento humano ou confirmar claramente que quer seguir com ele.",
     "- Se uma dúvida legítima sobre o iMenu ou sobre a conta não puder ser respondida com segurança, tente primeiro outra consulta relevante à base de conhecimento ou às ferramentas MCP disponíveis, conforme o assunto. Respeite os limites de acesso e não repita consultas iguais sem informação nova.",
     "- Se ainda não conseguir confirmar a resposta ou resolver a dúvida, explique brevemente o que não conseguiu verificar e ofereça atendimento humano, por exemplo: Não consegui encontrar informações suficientes para explicar isso. Quer que eu encaminhe para nossa equipe de suporte? Essa oferta não é um encaminhamento: não chame request_human_handoff, não informe o prazo e não diga que a equipe assumiu até o cliente aceitar a oferta.",
-    "- Se o cliente aceitar a oferta de atendimento humano, siga exatamente o fluxo existente: chame request_human_handoff uma vez para apresentar o aviso de até 1 dia útil e aguarde outra mensagem de confirmação para efetivar o encaminhamento. Nunca pule essas duas etapas.",
+    "- Se o cliente aceitar a oferta de atendimento humano, siga exatamente o fluxo existente: chame request_human_handoff uma vez para apresentar o aviso de prazo e aguarde outra mensagem de confirmação para efetivar o encaminhamento. Nunca pule essas duas etapas.",
     "- Não ofereça encaminhamento só porque uma consulta válida confirmou zero pedidos, vendas ou outros registros; nesse caso, informe o resultado normalmente. Se faltar um dado essencial que o cliente possa informar, faça uma pergunta objetiva primeiro. Não sugira suporte humano para pedidos de clientes finais que devem ser direcionados ao restaurante. Se a existência de uma funcionalidade continuar sem confirmação após uma consulta relevante, ofereça atendimento humano.",
     "- Quando entender pelo contexto que o cliente quer atendimento humano, use request_human_handoff exatamente uma vez naquele turno. Não escreva por conta própria as mensagens de confirmação ou de encaminhamento.",
-    "- A ferramenta controla duas etapas: no primeiro pedido ela registra o aviso de até 1 dia útil; depois de uma nova mensagem do cliente, se ele confirmar positivamente ou reiterar que quer atendimento humano, use request_human_handoff novamente para efetivar o encaminhamento.",
+    "- A ferramenta controla duas etapas: no primeiro pedido ela registra o aviso de prazo; depois de uma nova mensagem do cliente, se ele confirmar positivamente ou reiterar que quer atendimento humano, use request_human_handoff novamente para efetivar o encaminhamento.",
     "- Interprete confirmações pelo contexto, sem depender de frase exata. Exemplos depois do aviso: sim, pode, quero, isso, somente humano, somente atendimento humano.",
     "- Antes de fazer uma pergunta, confira o histórico disponível. Não repita pergunta já respondida, não peça novamente o mesmo identificador e não repita a mesma tentativa de diagnóstico ou consulta que já falhou sem informação nova.",
     "- Quando o passo a passo do painel depender do dispositivo, use o que a pessoa já informou ou mostrou sobre como está acessando o iMenu. Se ainda estiver em dúvida, pergunte primeiro: “Você está usando o iMenu no celular ou no computador?” Aguarde a resposta antes de orientar. O dispositivo usado no WhatsApp não indica qual dispositivo a pessoa está usando no iMenu.",

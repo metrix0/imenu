@@ -40,19 +40,17 @@ export function calculateCreditQuote(
     throw new Error("Quantidade de créditos inválida.");
   }
 
-  const outputAllowanceTokens = Math.round(inputTokens * rates.outputRatio);
-  // Each recharge purchases its full output allocation, regardless of unused plan output.
-  const outputTokens = outputAllowanceTokens;
-  if (outputTokens > (rates.maxOutputTokens ?? Number.MAX_SAFE_INTEGER)) {
-    throw new Error("Quantidade de créditos inválida.");
-  }
+  const outputTokens = Math.min(
+    Math.round(inputTokens * rates.outputRatio),
+    rates.maxOutputTokens ?? Number.MAX_SAFE_INTEGER,
+  );
   const inputUsd = inputTokens / 1_000_000 * rates.inputUsdPerMillion;
   const outputUsd = outputTokens / 1_000_000 * rates.outputUsdPerMillion;
   const imagesUsd = images * rates.imageUsdEstimate;
   return {
     inputTokens,
     outputTokens,
-    outputAllowanceTokens,
+    outputAllowanceTokens: outputTokens,
     images,
     inputUsd,
     outputUsd,
