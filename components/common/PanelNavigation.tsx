@@ -6,7 +6,6 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { faBars, faCrown, faTimes, type IconDefinition } from "@fortawesome/free-solid-svg-icons";
-import { FontAwesomeIcon as SolidIcon } from "@fortawesome/react-fontawesome";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import Badge from "@/components/ui/Badge";
 import { PageSaveStatusProvider } from "@/components/ui/SaveStatus";
@@ -363,9 +362,9 @@ export default function PanelNavigation({ children, base, menuItems, onNavigate,
                         </Link>
                         {expanded && hasPlus && (
                             <span role="img" aria-label="iMenu Plus ativo" title="iMenu Plus ativo"
-                                className="absolute inset-y-0 left-[122px] my-auto flex h-fit text-[#ff4200] transition-[visibility] delay-300 duration-0 starting:invisible motion-reduce:transition-none"
+                                className="absolute bottom-[24px] left-[122px] flex text-[#ff4200] transition-[visibility] delay-300 duration-0 starting:invisible motion-reduce:transition-none"
                             >
-                                <SolidIcon icon={faCrown} aria-hidden="true" className="h-3.5! w-4!" />
+                                <FontAwesomeIcon icon={faCrown} aria-hidden="true" className="h-4! w-4! fill-current" />
                             </span>
                         )}
                         <button type="button" onClick={toggleSidebar}
