@@ -59,7 +59,7 @@ export async function getUsdBrlRate(): Promise<number> {
 /**
  * Limits each recharge to available input, purchased-output and image capacity.
  * Included input/images and pending Pix payments reserve capacity; included output
- * does not reduce the paid output allocation of a new token recharge.
+ * does not reduce how much new output can be purchased.
  */
 export async function getAvailableCreditRechargeRates(
   restaurantId: string,
@@ -90,17 +90,11 @@ export async function getAvailableCreditRechargeRates(
   const maxOutputTokens = Math.max(
     0, Math.floor(LIMITS.monthlyChatOutput - Math.max(0, purchased.output) - pendingOutput),
   );
-  const outputCompatibleInput = Math.floor(
-    maxOutputTokens / rates.outputRatio / rates.inputStep,
-  ) * rates.inputStep;
   const availableImages = includedImages + Math.max(0, purchased.images) + Number(pending?.images || 0);
   return {
     ...rates,
     maxInputTokens: Math.max(
-      0, Math.min(
-        Math.floor((LIMITS.monthlyChatInput - availableInput) / rates.inputStep) * rates.inputStep,
-        outputCompatibleInput,
-      ),
+      0, Math.floor((LIMITS.monthlyChatInput - availableInput) / rates.inputStep) * rates.inputStep,
     ),
     maxOutputTokens,
     maxImages: Math.max(0, Math.floor(LIMITS.images - availableImages)),

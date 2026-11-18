@@ -35,10 +35,10 @@ test("available recharge capacity is the Plus cap minus included, paid and pendi
   );
 });
 
-test("recharge purchases full output even when the Plus plan output is nearly unused", async () => {
+test.each([2_000_000, 4_000_000])("recharge purchases full output even when the Plus plan output is nearly unused (input used: %s)", async (input) => {
   (aiAccess as jest.Mock).mockResolvedValue({
     ...current,
-    usage: { tokens: { input: 2_000_000, output: 25 } },
+    usage: { tokens: { input, output: 25 } },
     base_images_remaining: 0,
     purchased_credits: { input: 0, output: 0, images: 0 },
   });
@@ -71,6 +71,41 @@ test("paid output follows the slider instead of reusing the remaining 119,971 in
   const full = calculateCreditQuote(rates, 2_000_000, 0);
   expect(full.outputAllowanceTokens).toBe(120_000);
   expect(full.outputTokens).toBe(120_000);
+});
+
+test("a restaurant past the monthly input limit can recharge with a full paid output balance", async () => {
+  (aiAccess as jest.Mock).mockResolvedValue({
+    ...current,
+    usage: { tokens: { input: 4_003_175, output: 32_504 } },
+    base_images_remaining: LIMITS.images,
+    purchased_credits: { input: 22_085, output: 120_000, images: 0 },
+  });
+  (query as jest.Mock).mockResolvedValue({ rows: [{ input: 0, output: 0, images: 0 }] });
+
+  const rates = await getAvailableCreditRechargeRates("restaurant-1");
+  expect(rates.maxInputTokens).toBe(1_900_000);
+  expect(rates.maxOutputTokens).toBe(0);
+  expect(rates.maxImages).toBe(0);
+  const quote = calculateCreditQuote(rates, rates.maxInputTokens, 0);
+  expect(quote.outputTokens).toBe(0);
+  expect(quote.outputAllowanceTokens).toBe(0);
+  expect(quote.totalUsd).toBe(quote.inputUsd);
+});
+
+test("recharge quotes charge for only the new output that fits after paid balances and pending purchases", async () => {
+  (aiAccess as jest.Mock).mockResolvedValue({
+    ...current,
+    usage: { tokens: { input: 2_000_001, output: 120_000 } },
+    purchased_credits: { input: 0, output: 110_000, images: 0 },
+  });
+
+  const rates = await getAvailableCreditRechargeRates("restaurant-1");
+  expect(rates.maxInputTokens).toBe(1_900_000);
+  expect(rates.maxOutputTokens).toBe(8_000);
+  const quote = calculateCreditQuote(rates, 1_000_000, 0);
+  expect(quote.outputTokens).toBe(8_000);
+  expect(quote.outputAllowanceTokens).toBe(8_000);
+  expect(quote.outputUsd).toBeCloseTo(8_000 / 1_000_000 * rates.outputUsdPerMillion);
 });
 
 test("a full unused plan cannot buy credits beyond the existing allowance", async () => {
