@@ -9,13 +9,12 @@ import { LIMITS } from '../config';
 
 const resetAt = '2026-12-01T00:00:00.000Z';
 const access = (plus: boolean, tokens: number, images: number): Awaited<ReturnType<typeof aiAccess>> => ({
- plus, free_applications_remaining:plus ? null : 1, reserved_tokens:0,
+ plus, chat_quota_insufficient: plus && tokens > 95, free_applications_remaining:plus ? null : 1, reserved_tokens:0,
  purchased_credits: { input:0, output:0, images:0 }, base_tokens_remaining: plus ? null : 150000, base_images_remaining:plus ? 75 : 3,
  tokens_remaining:plus ? null : Math.max(0, 150000 - tokens * 1500),
  images_remaining:plus ? Math.max(0, LIMITS.images - images * LIMITS.images/100) : Math.max(0, 3 - images * 3/100),
  free_tokens_limit:plus ? null : 150000, free_images_limit:plus ? null : 3,
  tokens_reset_at:resetAt, images_reset_at:resetAt,
- credit_usage: null,
  usage: plus ? { tokens:{input:tokens*20000,output:0,input_limit:2000000,output_limit:120000,percent:tokens},images:{used:images*LIMITS.images/100,limit:LIMITS.images,percent:images} } : null,
 });
 test.each([[false,0,0],[true,69.99,69.99]])('hidden below threshold', (plus,tokens,images) => {
@@ -144,10 +143,22 @@ test('a context-limited conversation shows its error and the new chat action', (
  expect(html).not.toContain('Fechar aviso');
 });
 
-test('the usage display reads the recharge counter instead of the monthly total', () => {
- const value = access(true, 200, 80);
- value.credit_usage = { ...value.usage!, tokens: { input: 0, output: 0, input_limit: 1_900_000, output_limit: 114_000, percent: 0 } };
- const html = renderToStaticMarkup(<AiUsage access={value} />);
- expect(html).toContain('Entrada: 0 / 1.900.000');
- expect(html).not.toContain('4.000.000');
+test('the tooltip and quota notice keep the plan denominators after a recharge', () => {
+ const value = access(true, 50, 80);
+ value.usage!.tokens.output = 60_000;
+ value.purchased_credits = { input: 1_000_000, output: 60_000, images: 0 };
+ const sidebar = renderToStaticMarkup(<AiUsage access={value} />);
+ expect(sidebar).toContain('Entrada: 1.000.000 / 2.000.000');
+ expect(sidebar).toContain('Saída: 60.000 / 120.000');
+
+ const notice = renderToStaticMarkup(
+   <AssistantQuotaReply
+     message="Limite mensal de IA atingido."
+     access={value}
+     onBuyCredits={() => {}}
+   />,
+ );
+ expect(notice).toContain('1.000.000 / 2.000.000');
+ expect(notice).toContain('Saldo disponível');
+ expect(notice).not.toContain('O saldo restante não é suficiente');
 });

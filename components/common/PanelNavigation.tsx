@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
-import { faBars, faTimes, type IconDefinition } from "@fortawesome/free-solid-svg-icons";
+import { faBars, faCrown, faTimes, type IconDefinition } from "@fortawesome/free-solid-svg-icons";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import Badge from "@/components/ui/Badge";
 import { PageSaveStatusProvider } from "@/components/ui/SaveStatus";
@@ -38,7 +38,7 @@ function isInsideHorizontalScroller(target: EventTarget | null, boundary: HTMLEl
     return false;
 }
 
-export default function PanelNavigation({ children, base, menuItems, onNavigate, status, collapsedStatus, headerAction, footerAction, overlay, collapsePath, contentAs = "main" }: {
+export default function PanelNavigation({ children, base, menuItems, onNavigate, status, collapsedStatus, headerAction, footerAction, overlay, collapsePath, hasPlus, contentAs = "main" }: {
     children: ReactNode;
     base: string;
     menuItems: PanelMenuItem[];
@@ -49,6 +49,7 @@ export default function PanelNavigation({ children, base, menuItems, onNavigate,
     footerAction?: FooterAction;
     overlay?: ReactNode;
     collapsePath?: string;
+    hasPlus?: boolean;
     contentAs?: "main" | "div";
 }) {
     const pathname = usePathname();
@@ -346,9 +347,9 @@ export default function PanelNavigation({ children, base, menuItems, onNavigate,
                             aria-label="Ir para o painel"
                             aria-hidden={!expanded}
                             tabIndex={expanded ? 0 : -1}
-                            className={`panel-sidebar-logo origin-left overflow-hidden transition-[width,transform,opacity] duration-300 ${
+                            className={`panel-sidebar-logo relative origin-left overflow-hidden transition-[width,transform,opacity] duration-300 ${
                                 expanded
-                                    ? "w-[108px] scale-100 opacity-100"
+                                    ? `${hasPlus ? "w-32" : "w-[108px]"} scale-100 opacity-100`
                                     : "pointer-events-none w-0 scale-75 opacity-0"
                             }`}
                         >
@@ -358,6 +359,13 @@ export default function PanelNavigation({ children, base, menuItems, onNavigate,
                                 width={104}
                                 height={40}
                             />
+                            {hasPlus && (
+                                <span role="img" aria-label="iMenu Plus ativo" title="iMenu Plus ativo"
+                                    className="absolute -bottom-px left-28 flex text-[#ff4200]"
+                                >
+                                    <FontAwesomeIcon icon={faCrown} aria-hidden="true" className="h-4! w-4! fill-current" />
+                                </span>
+                            )}
                         </Link>
                         <button type="button" onClick={toggleSidebar}
                             aria-label={expanded ? "Recolher menu lateral" : "Expandir menu lateral"}

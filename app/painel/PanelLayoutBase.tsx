@@ -131,9 +131,8 @@ export default function PainelLayout({
             ? { ...onboardingCompletion, expiresAt: Date.parse(onboardingCompletion.completedAt) + MENU_SHORTCUT_DURATION }
             : null;
     const menuShortcutExpiresAt = menuShortcut?.expiresAt ?? 0;
-    const finishedAnalysisAt = usageAccess?.restaurant_id === targetRestaurantId
-        ? usageAccess.latest_analysis_finished_at
-        : null;
+    const restaurantUsageAccess = usageAccess?.restaurant_id === targetRestaurantId ? usageAccess : null;
+    const finishedAnalysisAt = restaurantUsageAccess?.latest_analysis_finished_at ?? null;
 
     useEffect(() => {
         const finished = finishedAnalysisAt ? Date.parse(finishedAnalysisAt) : NaN;
@@ -472,6 +471,7 @@ export default function PainelLayout({
                 menuItems={menuItems}
                 onNavigate={trackPanelTabOpen}
                 collapsePath="/painel/assistente-ia"
+                hasPlus={restaurantUsageAccess?.access?.plus === true}
                 footerAction={{ label: "Ajuda", icon: faCircleQuestion, onClick: () => supportButtonRef.current?.open() }}
                 status={storeStatusButton(true)}
                 collapsedStatus={

@@ -68,7 +68,9 @@ export const useSalesStore = create<State>((set, get) => ({
     const request = ++usageVersion;
     try {
       const data = await api(`/api/ia-vendas?usage_only=1&restaurant_id=${encodeURIComponent(restaurant)}`);
-      if (request === usageVersion) set({ usageAccess: { restaurant_id: restaurant, access: data.access, latest_analysis_finished_at: data.latest_analysis_finished_at ?? null } });
+      if (request === usageVersion && typeof data?.access?.plus === "boolean") {
+        set({ usageAccess: { restaurant_id: restaurant, access: data.access, latest_analysis_finished_at: data.latest_analysis_finished_at ?? null } });
+      }
     } catch { /* Preserve the last known usage on transient network failures. */ }
   },
   upgradeRequired: false,

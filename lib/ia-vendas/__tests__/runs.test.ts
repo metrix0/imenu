@@ -102,6 +102,39 @@ test("Plus monthly exhaustion displays the exact reset instant", async () => {
   await expect(beginRun("restaurant", "conversation", "chat-run", "chat"))
     .rejects.toThrow("Limites serão reiniciados em 30/11 às 21:00.");
 });
+test("a recharge permits a new chat even when the recorded usage exceeded the cap", async () => {
+  const { hasIMenuPlusAccess } = require("@/lib/addons/access");
+  (hasIMenuPlusAccess as jest.Mock).mockResolvedValue(true);
+  let inputBalance = 0;
+  c.query.mockImplementation(async (sql: string, params: unknown[]) => {
+    if (sql.includes("sum(input_tokens + output_tokens)")) {
+      return { rows: [{ monthly_input: 4_946_985, monthly_output: 39_603, wallet_input: inputBalance }] };
+    }
+    if (sql.includes("sum(greatest")) {
+      return { rows: [{ input: 4_946_985, output: 39_603, recent: 0 }] };
+    }
+    if (sql.includes("SET input_tokens=input_tokens-$2")) {
+      const reservation = Number(params[1]);
+      if (inputBalance < reservation) return { rowCount: 0 };
+      inputBalance -= reservation;
+      return { rowCount: 1 };
+    }
+    return { rows: [], rowCount: 0 };
+  });
+  try {
+    await expect(beginRun("restaurant", "conversation", "run", "chat"))
+      .rejects.toThrow("Limite mensal de IA atingido.");
+
+    inputBalance = 1_000_000;
+    await expect(beginRun("restaurant", "conversation", "run", "chat")).resolves.toBeNull();
+    expect(inputBalance).toBe(900_000);
+    const insert = c.query.mock.calls.find(([sql]) => sql.includes("INSERT INTO public.ia_vendas_runs"));
+    expect(insert?.[1].slice(8, 12)).toEqual([100_000, 0, 0, 6_000]);
+  } finally {
+    (hasIMenuPlusAccess as jest.Mock).mockResolvedValue(false);
+  }
+});
+
 test("queued analyses survive the synchronous stale timeout and don't block contextual chat", async () => {
   await beginRun("restaurant", "conversation", "run", "chat");
   const cleanup = c.query.mock.calls.find(([sql]) => sql.startsWith("UPDATE public.ia_vendas_runs"));

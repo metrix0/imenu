@@ -7,6 +7,7 @@ import {
 import type { PoolClient } from "pg";
 import { query, withTransaction } from "@/lib/database/sql";
 import { LIMITS, MODELS } from "./config";
+import { monthlyAllowanceRemaining } from "./creditMath";
 import { ASSISTANT_CONVERSATION_LIMIT_MESSAGE, SalesError } from "./types";
 import { formatAiResetAt } from "./usageReset";
 export async function assistantConversationLimit(
@@ -46,7 +47,7 @@ export async function beginRun(
       if (limit) throw new SalesError(limit, 409);
     }
     const expired = await c.query(
-      "UPDATE public.ia_vendas_runs SET status='failed',error='Processamento interrompido.',finished_at=now() WHERE restaurant_id=$1 AND status='running' AND created_at<now()-interval '6 minutes' AND coalesce(result->'batch'->>'mode','')<>'batch' RETURNING credit_input_reserved,credit_output_reserved,credit_included_input,credit_included_output,input_tokens,output_tokens",
+      "UPDATE public.ia_vendas_runs SET status='failed',error='Processamento interrompido.',finished_at=now(),reserved_input=0,reserved_output=0 WHERE restaurant_id=$1 AND status='running' AND created_at<now()-interval '6 minutes' AND coalesce(result->'batch'->>'mode','')<>'batch' RETURNING credit_input_reserved,credit_output_reserved,credit_included_input,credit_included_output,input_tokens,output_tokens",
       [restaurant],
     );
     for (const oldRun of expired.rows) {
@@ -74,7 +75,7 @@ export async function beginRun(
       throw new SalesError("Aguarde a resposta em andamento.", 409);
     const usage = (
       await c.query(
-        "SELECT coalesce(sum(greatest(input_tokens,reserved_input)) FILTER (WHERE kind=$2),0)::float input,coalesce(sum(greatest(output_tokens,reserved_output)) FILTER (WHERE kind=$2),0)::float output,count(*) FILTER(WHERE created_at>now()-interval '1 minute')::int recent FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND created_at>=date_trunc('month',now())",
+        "SELECT coalesce(sum(greatest(input_tokens,CASE WHEN status='running' THEN reserved_input ELSE 0 END)) FILTER (WHERE kind=$2),0)::float input,coalesce(sum(greatest(output_tokens,CASE WHEN status='running' THEN reserved_output ELSE 0 END)) FILTER (WHERE kind=$2),0)::float output,count(*) FILTER(WHERE created_at>now()-interval '1 minute')::int recent FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND created_at>=date_trunc('month',now())",
         [restaurant, kind],
       )
     ).rows[0];
@@ -95,10 +96,10 @@ export async function beginRun(
     }
     const includedInput = kind !== "chat" ? 0 : free
       ? (freeExhausted || inputUsed + inputReservation > LIMITS.monthlyChatInput ? 0 : inputReservation)
-      : Math.max(0, Math.min(inputReservation, LIMITS.monthlyChatInput - inputUsed));
+      : Math.min(inputReservation, monthlyAllowanceRemaining(LIMITS.monthlyChatInput, inputUsed));
     const includedOutput = kind !== "chat" ? 0 : free
       ? (freeExhausted || outputUsed + outputReservation > LIMITS.monthlyChatOutput ? 0 : outputReservation)
-      : Math.max(0, Math.min(outputReservation, LIMITS.monthlyChatOutput - outputUsed));
+      : Math.min(outputReservation, monthlyAllowanceRemaining(LIMITS.monthlyChatOutput, outputUsed));
     const purchasedInput = kind !== "chat" ? 0 : inputReservation - includedInput;
     const purchasedOutput = kind !== "chat" ? 0 : outputReservation - includedOutput;
 

@@ -2,6 +2,7 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { usePanelAppearance } from "./PanelAppearance";
+import Input from "./Input";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faCheck, faChevronDown } from "@fortawesome/free-solid-svg-icons";
 
@@ -16,6 +17,11 @@ type DropdownProps = React.SelectHTMLAttributes<HTMLSelectElement> & {
     options?: DropdownOption[];
     chevronClassName?: string;
     custom?: boolean;
+    scrollToSelected?: boolean;
+    search?: {
+        placeholder: string;
+        filter: (option: DropdownOption, query: string) => boolean;
+    };
 };
 
 const LegacyDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(function LegacyDropdown(
@@ -256,7 +262,7 @@ const LegacyDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functi
     );
 });
 
-const Dropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(function Dropdown(props, ref) {
+const Dropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(function Dropdown({ scrollToSelected, search, ...props }, ref) {
     const panel = usePanelAppearance();
     if (!panel && !props.options) {
         const { label, custom, chevronClassName, options, className = "", ...nativeProps } = props;
@@ -268,17 +274,20 @@ const Dropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(function Dro
         return [{ value: String(child.props.value ?? label), label, disabled: child.props.disabled }];
     });
     return panel
-        ? <PanelDropdown {...props} options={options} ref={ref} />
+        ? <PanelDropdown {...props} options={options} scrollToSelected={scrollToSelected} search={search} ref={ref} />
         : <LegacyDropdown {...props} options={options} ref={ref} />;
 });
 
 const PanelDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(function PanelDropdown(
-    { label, options = [], className = "", chevronClassName, custom, children, ...props }, ref
+    { label, options = [], className = "", chevronClassName, custom, children, scrollToSelected, search, ...props }, ref
 ) {
     const id = React.useId();
     const selectRef = React.useRef<HTMLSelectElement>(null);
     const triggerRef = React.useRef<HTMLButtonElement>(null);
     const menuRef = React.useRef<HTMLDivElement>(null);
+    const searchRef = React.useRef<HTMLInputElement>(null);
+    const searchListRef = React.useRef<HTMLDivElement>(null);
+    const [query, setQuery] = React.useState("");
     const [open, setOpen] = React.useState(false);
     const [uncontrolledValue, setUncontrolledValue] = React.useState(props.defaultValue ?? options[0]?.value ?? "");
     const [mounted, setMounted] = React.useState(false);
@@ -291,13 +300,32 @@ const PanelDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functio
             return () => { cancelAnimationFrame(frame); cancelAnimationFrame(secondFrame); };
         }
         setActive(false);
+        setQuery("");
         const timer = window.setTimeout(() => setMounted(false), 200);
         return () => window.clearTimeout(timer);
     }, [open]);
     const [position, setPosition] = React.useState<React.CSSProperties>({});
     const value = props.value ?? uncontrolledValue;
     const selected = options.find(option => String(option.value) === String(value));
+    const searchQuery = query.trim();
+    const visibleOptions = search && searchQuery
+        ? options.filter(option => search.filter(option, searchQuery))
+        : options;
+    const hasSearch = Boolean(search);
     React.useImperativeHandle(ref, () => selectRef.current as HTMLSelectElement);
+
+    React.useLayoutEffect(() => {
+        if (!open || !mounted || position.position !== "fixed") return;
+        if (scrollToSelected) {
+            const list = searchListRef.current ?? menuRef.current;
+            const option = list?.querySelector<HTMLButtonElement>('[aria-selected="true"]');
+            if (list && option) {
+                list.scrollTop = option.offsetTop - (list.clientHeight - option.offsetHeight) / 2;
+                if (!hasSearch) option.focus({ preventScroll: true });
+            }
+        }
+        searchRef.current?.focus({ preventScroll: true });
+    }, [open, mounted, position.position, scrollToSelected, hasSearch]);
 
     const focusOption = (index: number) => {
         const elements = menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]:not(:disabled)');
@@ -342,6 +370,30 @@ const PanelDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functio
         triggerRef.current?.focus();
     };
 
+    const closeAndFocusTrigger = () => {
+        setOpen(false);
+        triggerRef.current?.focus();
+    };
+
+    const optionButtons = visibleOptions.map(option => {
+        const optionSelected = String(option.value) === String(value);
+        return <button key={option.value} type="button" role="option"
+            aria-selected={optionSelected} disabled={option.disabled} tabIndex={search ? -1 : undefined}
+            className={`flex min-h-10 w-full cursor-pointer items-center justify-between gap-3 rounded-[5px] px-2.5 py-[9px] text-left text-sm hover:bg-[#f1f3f5] focus-visible:bg-[#f1f3f5] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-45 ${optionSelected ? "bg-[#fff1ea] text-[#c43700]" : "text-[#1d1d1d]"}`}
+            onClick={() => choose(option.value)}
+            onKeyDown={event => {
+                if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+                    event.preventDefault();
+                    const buttons = Array.from(menuRef.current?.querySelectorAll('[role="option"]:not(:disabled)') || []);
+                    const index = buttons.indexOf(event.currentTarget);
+                    focusOption(event.key === "Home" ? 0 : event.key === "End" ? -1 : index + (event.key === "ArrowDown" ? 1 : -1));
+                }
+            }}>
+            <span>{option.label}</span>
+            {optionSelected && <FontAwesomeIcon icon={faCheck} className="h-3.5 w-3.5" />}
+        </button>;
+    });
+
     return <div data-ui="field" className="panel-dropdown-field flex min-w-0 flex-col gap-1.5">
         {label && <label data-ui="field-label" htmlFor={`${id}-trigger`} className="block text-xs font-medium leading-[18px] text-[#1d1d1d]">{label}</label>}
         <select {...props} ref={selectRef} className="sr-only" tabIndex={-1} aria-hidden="true"
@@ -350,7 +402,7 @@ const PanelDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functio
             {options.map(option => <option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>)}
         </select>
         <button ref={triggerRef} id={`${id}-trigger`} type="button" data-ui="dropdown-trigger"
-            aria-haspopup="listbox" aria-expanded={open} aria-controls={open ? `${id}-list` : undefined}
+            aria-haspopup={search ? "dialog" : "listbox"} aria-expanded={open} aria-controls={open ? `${id}-popup` : undefined}
             aria-label={props["aria-label"] || label} aria-labelledby={props["aria-labelledby"]}
             aria-invalid={props["aria-invalid"]} disabled={props.disabled}
             className={`flex w-full cursor-pointer items-center justify-between gap-3 rounded-[8px] border border-[#e2e5e9] bg-white text-left text-[#1d1d1d] outline-none disabled:cursor-not-allowed disabled:bg-[#f1f3f5] disabled:opacity-[.55] ${className}`}
@@ -359,7 +411,9 @@ const PanelDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functio
             onKeyDown={event => {
                 if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
                     event.preventDefault(); setOpen(true);
-                    requestAnimationFrame(() => focusOption(event.key === "End" || event.key === "ArrowUp" ? -1 : 0));
+                    if (!search && (!scrollToSelected || event.key === "Home" || event.key === "End")) {
+                        requestAnimationFrame(() => focusOption(event.key === "End" || event.key === "ArrowUp" ? -1 : 0));
+                    }
                 } else if (event.key === "Escape" && open) { event.stopPropagation(); setOpen(false); }
             }}>
             <span className="min-w-0 truncate">{selected?.label ?? "Selecione"}</span>
@@ -369,29 +423,43 @@ const PanelDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functio
                 style={{ width: 14, height: 14, transition: "transform 180ms ease, rotate 180ms ease" }}
             />
         </button>
-        {mounted && createPortal(<div className={`panel-essencial panel-dropdown-portal z-[1000] overflow-y-auto overscroll-contain rounded-[8px] border border-[#e2e5e9] bg-white p-[5px] shadow-[0_6px_20px_#1d1d1d12] ${active ? "scale-100 opacity-100" : "pointer-events-none scale-[0.99] opacity-0"}`} style={{ ...position, transformOrigin: "top", transition: "opacity 200ms cubic-bezier(0.4, 0, 0.2, 1), transform 200ms cubic-bezier(0.4, 0, 0.2, 1)" }}
+        {mounted && createPortal(<div className={`panel-essencial panel-dropdown-portal z-[1000] overscroll-contain rounded-[8px] border border-[#e2e5e9] bg-white p-[5px] shadow-[0_6px_20px_#1d1d1d12] ${search ? "flex flex-col overflow-hidden" : "overflow-y-auto"} ${active ? "scale-100 opacity-100" : "pointer-events-none scale-[0.99] opacity-0"}`} style={{ ...position, transformOrigin: "top", transition: "opacity 200ms cubic-bezier(0.4, 0, 0.2, 1), transform 200ms cubic-bezier(0.4, 0, 0.2, 1)" }}
             data-state={active ? "open" : "closed"} aria-hidden={!open} inert={!open}
-            ref={menuRef} id={`${id}-list`} role="listbox" aria-label={props["aria-label"] || label}
-            data-ui="dropdown-menu" onBlur={closeOnBlur}>
-            {options.map(option => {
-                const optionSelected = String(option.value) === String(value);
-                return <button key={option.value} type="button" role="option"
-                aria-selected={optionSelected} disabled={option.disabled}
-                className={`flex min-h-10 w-full cursor-pointer items-center justify-between gap-3 rounded-[5px] px-2.5 py-[9px] text-left text-sm hover:bg-[#f1f3f5] focus-visible:bg-[#f1f3f5] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-45 ${optionSelected ? "bg-[#fff1ea] text-[#c43700]" : "text-[#1d1d1d]"}`}
-                onClick={() => choose(option.value)}
-                onKeyDown={event => {
-                    const buttons = Array.from(menuRef.current?.querySelectorAll('[role="option"]:not(:disabled)') || []);
-                    const index = buttons.indexOf(event.currentTarget);
-                    if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
-                        event.preventDefault(); focusOption(event.key === "Home" ? 0 : event.key === "End" ? -1 : index + (event.key === "ArrowDown" ? 1 : -1));
-                    } else if (event.key === "Escape") {
-                        event.preventDefault(); event.stopPropagation(); setOpen(false); triggerRef.current?.focus();
-                    }
-                }}>
-                <span>{option.label}</span>
-                {optionSelected && <FontAwesomeIcon icon={faCheck} className="h-3.5 w-3.5" />}
-            </button>;
-            })}
+            ref={menuRef} id={`${id}-popup`} role={search ? "dialog" : "listbox"} aria-label={props["aria-label"] || label}
+            data-ui="dropdown-menu" onBlur={closeOnBlur} onKeyDown={event => {
+                if (event.key === "Escape") {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    closeAndFocusTrigger();
+                }
+            }}>
+            {search ? <>
+                <div className="shrink-0 pb-1">
+                    <Input ref={searchRef} placeholder={search.placeholder} aria-label={search.placeholder}
+                        aria-controls={`${id}-results`} autoComplete="off" spellCheck={false} value={query}
+                        onChange={event => {
+                            setQuery(event.target.value);
+                            if (searchListRef.current) searchListRef.current.scrollTop = 0;
+                        }}
+                        onKeyDown={event => {
+                            if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                                event.preventDefault();
+                                const selectedOption = !searchQuery && searchListRef.current?.querySelector<HTMLButtonElement>('[aria-selected="true"]:not(:disabled)');
+                                if (selectedOption) selectedOption.focus();
+                                else focusOption(event.key === "ArrowUp" ? -1 : 0);
+                            } else if (event.key === "Enter") {
+                                event.preventDefault();
+                                const match = searchQuery && visibleOptions.find(option => !option.disabled);
+                                if (match) choose(match.value);
+                            }
+                        }} />
+                </div>
+                <div ref={searchListRef} id={`${id}-results`} role="listbox" aria-label={props["aria-label"] || label}
+                    className="relative min-h-0 overflow-y-auto overscroll-contain">
+                    {optionButtons}
+                </div>
+                {visibleOptions.length === 0 && <p role="status" className="px-2.5 py-2 text-sm text-[#626973]">Nenhuma opção encontrada</p>}
+            </> : optionButtons}
         </div>, document.body)}
     </div>;
 });

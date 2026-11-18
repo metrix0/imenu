@@ -19,6 +19,7 @@ import { DIMENSIONS } from "../report";
 import { PRODUCT_DIMENSIONS } from "../products";
 import { potential } from "../peers";
 import { LIMITS } from "../config";
+import { ASSISTANT_CONVERSATION_LIMIT_MESSAGE } from "../types";
 import { query, withTransaction } from "@/lib/database/sql";
 import { context, measure, readData } from "../data";
 import { beginRun, recordTokens, finishRun } from "../runs";
@@ -223,7 +224,7 @@ test("assistant offers targeted reads and a compact field guide", async () => {
   expect(rules.text).not.toContain('"nullable":false');
 });
 
-test("chat memory stays in its conversation while durable image preferences remain available", async () => {
+test("text chat keeps its own memory and defers approved styles to image generation", async () => {
   const otherChat = "Falta escolher ângulo de cima ou 45°";
   (query as jest.Mock).mockImplementation(async (sql: string) => ({
     rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
@@ -252,21 +253,36 @@ test("chat memory stays in its conversation while durable image preferences rema
   expect(prompts).toContain("Memória desta conversa: Memória apenas desta conversa");
   expect(prompts).not.toContain("Outras conversas:");
   expect(prompts).not.toContain(otherChat);
-  expect(prompts).toContain('"approved_image_styles":[{"profile":"item","target_id":"item-1"');
-  expect(prompts).toContain('"background":"fundo claro"');
+  expect(prompts).not.toContain("approved_image_styles");
+  expect(rules.text).toContain("reaplica no servidor as preferências explícitas já aprovadas");
   expect((query as jest.Mock).mock.calls.some(([sql]: [string]) =>
-    sql.includes("SELECT title,summary FROM public.ia_vendas_conversations"))).toBe(false);
+    sql.includes("SELECT title,summary FROM public.ia_vendas_conversations") ||
+    sql.includes("a.image->'explicit_style'"))).toBe(false);
 });
 
-test("sales analysis chat sends the selected report after its cache breakpoint", async () => {
+test("sales analysis chat sends a summary and reads selected report details on demand", async () => {
+  const report = {
+    headline: "Venda de bebidas",
+    opportunities: [
+      { id: "drinks", title: "Bebidas", evidence: [{ detail: "Evidência das bebidas" }] },
+      { id: "food", title: "Lanches", evidence: [{ detail: "Evidência dos lanches" }] },
+    ],
+    sales_snapshot: { products: [{ description: "snapshot-volume".repeat(6_000) }] },
+  };
   (query as jest.Mock).mockImplementation(async (sql: string) => ({
     rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
       ? [{ kind: "analysis", summary: "Resumo anterior" }]
       : sql.includes("SELECT id,result->'report' report")
-        ? [{ id: "report", report: { headline: "Venda de bebidas", opportunities: [{ id: "drinks" }] } }]
+        ? [{ id: "report", report }]
         : sql.includes("RETURNING id") ? [{ id: "user" }] : [],
   }));
   create.mockResolvedValueOnce({
+    status: "completed", output: [{
+      type: "function_call", name: "read_report", call_id: "report-read",
+      arguments: JSON.stringify({ section: "opportunities", id: "drinks" }),
+    }],
+    usage: { input_tokens: 100, output_tokens: 10 },
+  }).mockResolvedValueOnce({
     status: "completed", output: [],
     output_text: JSON.stringify({ reply: "Confira as bebidas.", summary: "" }),
     usage: { input_tokens: 100, output_tokens: 10 },
@@ -282,6 +298,11 @@ test("sales analysis chat sends the selected report after its cache breakpoint",
   expect(turn.text).toContain("Venda de bebidas");
   expect(turn.text).toContain("Oportunidade selecionada: drinks");
   expect(turn.prompt_cache_breakpoint).toBeUndefined();
+  expect(turn.text).not.toMatch(/snapshot-volume|Evidência|Lanches/);
+  const next = create.mock.calls[1][0].input;
+  const toolResult = next.find((item: any) => item.call_id === "report-read" && item.type === "function_call_output");
+  expect(JSON.parse(toolResult.output).rows).toEqual([report.opportunities[0]]);
+  expect(JSON.stringify(next)).not.toMatch(/snapshot-volume|Evidência dos lanches/);
 });
 
 test("assistant snapshot keeps useful data but omits heavy fields", () => {
@@ -303,6 +324,55 @@ test("assistant snapshot keeps useful data but omits heavy fields", () => {
   expect(compact.sales.orders).toBe(2);
   expect(compact.sales.products).toHaveLength(20);
   expect(compact.sales.products_truncated).toBe(true);
+});
+
+test("assistant sends two proposal summaries, then can find a specific older proposal and create a new one", async () => {
+  const proposals = Array.from({ length: 25 }, (_, i) => ({
+    id: `10000000-0000-4000-8000-${String(i).padStart(12, "0")}`,
+    title: `Proposta ${i}`,
+    status: "pending",
+    operations: [{ entity: "items", kind: "update", values: { description: `old-operation-${i}: ${"x".repeat(4_900)}` } }],
+  }));
+  (context as jest.Mock).mockResolvedValueOnce({ ...namedContext(), actions: proposals });
+  mockAssistantHistory("", proposals);
+  const toolRound = (name: string, call_id: string, params: object) => ({
+    status: "completed",
+    output: [{ type: "function_call", name, call_id, arguments: JSON.stringify(params) }],
+    usage: { input_tokens: 5_000, output_tokens: 100 },
+  });
+  create
+    .mockResolvedValueOnce(toolRound("read_proposals", "list", {}))
+    .mockResolvedValueOnce(toolRound("read_proposals", "lookup", { id: proposals[24].id }))
+    .mockResolvedValueOnce(toolRound("propose_action", "create", { title: "Nova proposta" }))
+    .mockResolvedValueOnce({
+      status: "completed", output: [],
+      output_text: JSON.stringify({ reply: "Preparei a proposta.", summary: "" }),
+      usage: { input_tokens: 6_000, output_tokens: 100 },
+    });
+
+  await runChat({ ...args, deep: false, text: "Confira a proposta antiga e faça uma versão atualizada." });
+
+  expect(create).toHaveBeenCalledTimes(4);
+  const developerContent = create.mock.calls[0][0].input[0].content;
+  const firstPrompt = typeof developerContent === "string"
+    ? developerContent
+    : developerContent.map((part: { text: string }) => part.text).join("");
+  expect(firstPrompt).toContain('"recent_proposal_count":25');
+  expect(firstPrompt).toContain(proposals[0].id);
+  expect(firstPrompt).toContain(proposals[1].id);
+  expect(firstPrompt).not.toContain(proposals[2].id);
+  expect(firstPrompt).not.toContain("old-operation-");
+  const toolOutput = (round: number, id: string) => JSON.parse(create.mock.calls[round][0].input.find(
+    (entry: any) => entry.type === "function_call_output" && entry.call_id === id,
+  ).output);
+  const listed = toolOutput(1, "list").proposals;
+  expect(listed).toHaveLength(25);
+  expect(listed[24]).toEqual({ id: proposals[24].id, title: proposals[24].title, status: "pending" });
+  expect(JSON.stringify(listed)).not.toContain("old-operation-");
+  expect(toolOutput(2, "lookup")).toEqual({ ...proposals[24], has_more: false, next_offset: 1 });
+  expect(JSON.stringify(create.mock.calls[3][0].input)).not.toContain("old-operation-0:");
+  expect(propose).toHaveBeenCalledWith("owner", "conversation", "run", { title: "Nova proposta" }, undefined);
+  expect(args.send).toHaveBeenCalledWith("done", expect.any(Object));
 });
 
 test.each([
@@ -892,7 +962,7 @@ test("requesting analysis in contextual chat stays a normal chat run", async () 
   });
   await runChat({ ...args, deep: false });
   expect(beginRun).toHaveBeenCalledWith("owner", "conversation", "run", "chat", undefined);
-  expect(context).toHaveBeenCalledWith("owner", false);
+  expect(context).toHaveBeenCalledWith("owner", false, true, "conversation");
   expect(analysisPhotos).not.toHaveBeenCalled();
   expect(create.mock.calls[0][0].text.format).toEqual({ type: "json_object" });
   const scopedQuery = (query as jest.Mock).mock.calls.find(([sql]) =>
@@ -997,11 +1067,11 @@ test("default deep analysis queues Batch and resumes to persist a strict report 
     final_synthesis: true,
   });
 });
-test("Batch tool replay uses saved proposals and full output without creating another action", async () => {
+test("Batch tool replay compacts a legacy proposal response without creating another action", async () => {
   (batchResponse as jest.Mock).mockRejectedValueOnce(new BatchPending());
   await runChat({ ...args, immediate: false });
   const snapshot = structuredClone((batchResponse as jest.Mock).mock.calls[0][4]);
-  (readBatch as jest.Mock).mockResolvedValue({ tool_results: { call: { result: { id: "proposal", operations: [{ values: { full: "preserved" } }] }, cards: [{ type: "action", id: "proposal" }], example: false, estimated: false } } });
+  (readBatch as jest.Mock).mockResolvedValue({ tool_results: { call: { result: { id: "proposal", operations: [{ kind: "create", id: "generated", values: { full: "persisted" } }] }, cards: [{ type: "action", id: "proposal" }], example: false, estimated: false } } });
   (batchResponse as jest.Mock).mockResolvedValueOnce({ id: "response-1", status: "completed", output: [{ type: "function_call", name: "propose_action", arguments: "{}", call_id: "call" }], usage: { input_tokens: 47313, output_tokens: 2367 } }).mockRejectedValueOnce(new BatchPending());
   await runChat({ ...args, immediate: false, resume: snapshot });
   expect(propose).not.toHaveBeenCalled();
@@ -1012,7 +1082,7 @@ test("Batch tool replay uses saved proposals and full output without creating an
     expect.arrayContaining([
       expect.objectContaining({
         type: "function_call_output",
-        output: expect.stringContaining('"full":"preserved"'),
+        output: JSON.stringify({ id: "proposal", created_ids: ["generated"] }),
       }),
     ]),
   );
@@ -1026,6 +1096,227 @@ test("free users cannot discuss analysis through a direct chat request", async (
   expect(create).not.toHaveBeenCalled();
   expect(beginRun).not.toHaveBeenCalled();
   expect(args.send).toHaveBeenCalledWith("error", expect.objectContaining({ code: "IA_PLUS_REQUIRED" }));
+});
+
+function mockAssistantHistory(content: string, proposals: any[] = []) {
+  (args.send as jest.Mock).mockClear();
+  (aiAccess as jest.Mock).mockResolvedValueOnce({ plus: true });
+  (query as jest.Mock).mockImplementation(async (sql: string, params: string[]) => ({
+    rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
+      ? [{ kind: "chat", summary: "" }]
+      : sql.startsWith("SELECT role,content,cards")
+        ? [{ role: "assistant", content, cards: [] }]
+        : sql.startsWith("SELECT operations FROM public.ia_vendas_actions")
+          ? proposals.filter(proposal => proposal.id === params[1])
+        : sql.includes("RETURNING id") ? [{ id: "user" }] : [],
+  }));
+}
+
+test("assistant saves room for a final reply inside the shared turn budget", async () => {
+  mockAssistantHistory("Pedido anterior. ".repeat(3600));
+  (readData as jest.Mock).mockResolvedValueOnce({ rows: [{ name: "Lanche" }] });
+  create
+    .mockResolvedValueOnce({
+      status: "completed",
+      output: [{ type: "function_call", name: "read_data", call_id: "read", arguments: '{"entity":"items"}' }],
+      usage: { input_tokens: 40_000, output_tokens: 1_200 },
+    })
+    .mockResolvedValueOnce({
+      status: "completed",
+      output: [],
+      output_text: JSON.stringify({ reply: "Encontrei o lanche.", summary: "" }),
+      usage: { input_tokens: 40_000, output_tokens: 100 },
+    });
+
+  await runChat({ ...args, deep: false });
+
+  expect(create).toHaveBeenCalledTimes(2);
+  expect(create.mock.calls[0][0].tool_choice).toBe("auto");
+  expect(create.mock.calls[1][0]).toMatchObject({ tool_choice: "none", tools: [] });
+  expect(create.mock.calls[1][0].input).toContainEqual(expect.objectContaining({
+    type: "function_call_output",
+    call_id: "read",
+  }));
+  expect(args.send).toHaveBeenCalledWith("done", expect.any(Object));
+});
+
+test("assistant keeps an oversized record out of the request and answers without locking the conversation", async () => {
+  mockAssistantHistory("Pedido anterior.");
+  (readData as jest.Mock).mockResolvedValueOnce({ rows: [{ description: "x".repeat(200_000) }] });
+  create.mockResolvedValueOnce({
+    status: "completed",
+    output: [{ type: "function_call", name: "read_data", call_id: "read", arguments: '{"entity":"items"}' }],
+    usage: { input_tokens: 40_000, output_tokens: 1_200 },
+  }).mockResolvedValueOnce({
+    status: "completed", output: [],
+    output_text: JSON.stringify({ reply: "Qual campo você precisa conferir?", summary: "" }),
+    usage: { input_tokens: 6_000, output_tokens: 100 },
+  });
+
+  await runChat({ ...args, deep: false });
+
+  expect(create).toHaveBeenCalledTimes(2);
+  const toolResult = create.mock.calls[1][0].input.find((entry: any) => entry.type === "function_call_output");
+  expect(JSON.parse(toolResult.output).error).toContain("apenas os campos necessários");
+  expect(toolResult.output.length).toBeLessThan(300);
+  expect(recordTokens).toHaveBeenCalledWith("owner", "run", 40_000, 1_200, expect.any(Object));
+  const finished = (finishRun as jest.Mock).mock.calls.at(-1);
+  expect(finished[2]).toMatchObject({ reply: "Qual campo você precisa conferir?" });
+  expect(finished[2]).not.toHaveProperty("quota_exempt");
+  expect(finished[3]).toBeUndefined();
+  expect(args.send).toHaveBeenCalledWith("done", expect.any(Object));
+});
+
+test("already oversized conversation history still produces the persistent lock", async () => {
+  mockAssistantHistory("x".repeat(200_001));
+
+  await runChat({ ...args, deep: false });
+
+  expect(create).not.toHaveBeenCalled();
+  expect(finishRun).toHaveBeenLastCalledWith("owner", "run", null, ASSISTANT_CONVERSATION_LIMIT_MESSAGE);
+  expect(args.send).toHaveBeenCalledWith("error", { message: ASSISTANT_CONVERSATION_LIMIT_MESSAGE });
+});
+
+test("paged reads preserve exact rows and repeated results are referenced once", async () => {
+  mockAssistantHistory("");
+  const rows = [1, 2, 3].map(number => ({ id: String(number), description: String(number).repeat(5_000) }));
+  (readData as jest.Mock).mockReset()
+    .mockResolvedValueOnce({ rows, has_more: false })
+    .mockResolvedValueOnce({ rows, has_more: false })
+    .mockResolvedValueOnce({ rows: rows.slice(2), has_more: false });
+  const read = (call_id: string, offset = 0) => ({
+    type: "function_call", name: "read_data", call_id, arguments: JSON.stringify({ entity: "items", offset }),
+  });
+  create.mockResolvedValueOnce({
+    status: "completed", output: [read("first"), read("duplicate"), read("next", 2)],
+    usage: { input_tokens: 5_000, output_tokens: 250 },
+  }).mockResolvedValueOnce({
+    status: "completed", output: [],
+    output_text: JSON.stringify({ reply: "Conferi os itens.", summary: "" }),
+    usage: { input_tokens: 10_000, output_tokens: 100 },
+  });
+
+  await runChat({ ...args, deep: false });
+
+  const outputs = Object.fromEntries(create.mock.calls[1][0].input
+    .filter((entry: any) => entry.type === "function_call_output")
+    .map((entry: any) => [entry.call_id, JSON.parse(entry.output)]));
+  expect(outputs).toEqual({
+    first: { rows: rows.slice(0, 2), has_more: true, next_offset: 2 },
+    duplicate: { same_result_as: "first" },
+    next: { rows: rows.slice(2), has_more: false, next_offset: 3 },
+  });
+});
+
+test("a saved proposal survives a model context error with its card linked and actual usage charged", async () => {
+  mockAssistantHistory("");
+  const operations = [{ kind: "update", id: "item-1", values: { description: "Nova descrição" } }];
+  (propose as jest.Mock).mockResolvedValueOnce({
+    id: "proposal", operations: operations.map(op => ({ ...op, before: { description: "Conteúdo anterior" } })),
+  });
+  create.mockResolvedValueOnce({
+    status: "completed", output: [{
+      type: "function_call", name: "propose_action", call_id: "draft",
+      arguments: JSON.stringify({ title: "Ajustar item", operations }),
+    }],
+    usage: { input_tokens: 8_000, output_tokens: 250 },
+  }).mockRejectedValueOnce(new Error("Maximum context length exceeded"));
+
+  await runChat({ ...args, deep: false });
+
+  const second = create.mock.calls[1][0].input;
+  expect(second).toContainEqual({
+    type: "function_call_output", call_id: "draft",
+    output: JSON.stringify({ id: "proposal", status: "pending", created_ids: [] }),
+  });
+  expect(JSON.stringify(second)).not.toContain("Conteúdo anterior");
+  const [, , finished, error, client] = (finishRun as jest.Mock).mock.calls.at(-1);
+  expect(error).toBeTruthy();
+  expect(finished).not.toHaveProperty("quota_exempt");
+  expect(client.query).toHaveBeenCalledWith(
+    expect.stringContaining("INSERT INTO public.ia_vendas_messages"),
+    [finished.message_id, "owner", "conversation", finished.reply, '[{"type":"action","id":"proposal"}]'],
+  );
+  expect(client.query).toHaveBeenCalledWith(
+    expect.stringContaining("UPDATE public.ia_vendas_actions SET message_id"),
+    ["owner", "run", finished.message_id],
+  );
+  expect(args.send).toHaveBeenCalledWith("done", { id: finished.message_id });
+});
+
+const previousProposalId = "01234567-89ab-4def-8123-456789abcdef";
+
+test.each([
+  ["other-chat", "A proposta para retirar os molhos está pronta."],
+  ["other-chat", `Preparei a proposta.\n[[action:${previousProposalId}]]`],
+  ["conversation", `Aqui está a proposta.\n[[action:${previousProposalId}]]`],
+])("only a valid proposal from this conversation can be shown (%s, %s)", async (proposalChat, reply) => {
+  mockAssistantHistory("");
+  const action = { id: previousProposalId, title: "Retirar molhos", status: "pending", conversation_id: proposalChat };
+  (context as jest.Mock).mockResolvedValueOnce({ ...namedContext(), actions: [action] });
+  const read = (query as jest.Mock).getMockImplementation()!;
+  (query as jest.Mock).mockImplementation((sql: string, params: unknown[]) =>
+    sql.startsWith("SELECT id FROM public.ia_vendas_actions")
+      ? Promise.resolve({ rows: params[1] === proposalChat ? [action] : [] })
+      : read(sql, params));
+  create.mockResolvedValueOnce({
+    status: "completed", output: [],
+    output_text: JSON.stringify({ reply, summary: "Proposta pronta" }),
+    usage: { input_tokens: 5_000, output_tokens: 100 },
+  });
+
+  await runChat({ ...args, deep: false });
+
+  const [, , finished, , client] = (finishRun as jest.Mock).mock.calls.at(-1);
+  const sameChat = proposalChat === "conversation";
+  expect(finished.reply).toBe(sameChat
+    ? reply
+    : "Não consegui mostrar uma proposta nesta conversa. Diga quais alterações deseja e eu preparo uma proposta aqui.");
+  expect(client.query).toHaveBeenCalledWith(
+    expect.stringContaining("INSERT INTO public.ia_vendas_messages"),
+    [finished.message_id, "owner", "conversation", finished.reply,
+      sameChat ? JSON.stringify([{ type: "action", id: previousProposalId }]) : "[]"],
+  );
+});
+
+test("a pending proposal can be read and shown again outside the recent snapshot", async () => {
+  const id = previousProposalId;
+  const action = { id, title: "Retirar molhos", status: "pending", conversation_id: "conversation", operations: [] };
+  const reply = `Aqui está a proposta.\n[[action:${id}]]`;
+  mockAssistantHistory(reply);
+  const read = (query as jest.Mock).getMockImplementation()!;
+  (query as jest.Mock).mockImplementation((sql: string, params: unknown[]) =>
+    sql.includes("FROM public.ia_vendas_actions") && sql.includes("conversation_id=$2")
+      ? Promise.resolve({ rows: [action] })
+      : read(sql, params));
+  (context as jest.Mock).mockResolvedValueOnce({
+    ...namedContext(),
+    actions: Array.from({ length: 25 }, (_, index) => ({
+      id: String(index), title: "Outra proposta", status: "pending", conversation_id: "other-chat",
+    })),
+  });
+  create.mockResolvedValueOnce({
+    status: "completed",
+    output: [{ type: "function_call", name: "read_proposals", call_id: "lookup", arguments: JSON.stringify({ id }) }],
+    usage: { input_tokens: 5_000, output_tokens: 100 },
+  }).mockResolvedValueOnce({
+    status: "completed", output: [],
+    output_text: JSON.stringify({ reply, summary: "" }),
+    usage: { input_tokens: 5_000, output_tokens: 100 },
+  });
+
+  await runChat({ ...args, deep: false, text: "Mostre novamente a proposta para retirar os molhos." });
+
+  const lookup = create.mock.calls[1][0].input.find((entry: any) => entry.call_id === "lookup" && entry.type === "function_call_output");
+  expect(JSON.parse(lookup.output)).toMatchObject({ id, in_this_conversation: true, operations: [] });
+  expect(query).toHaveBeenCalledWith(expect.stringContaining("conversation_id=$2"), ["owner", "conversation", id]);
+  expect(query).toHaveBeenCalledWith(expect.stringContaining("conversation_id=$2"), ["owner", "conversation", [id]]);
+  const [, , finished, , client] = (finishRun as jest.Mock).mock.calls.at(-1);
+  expect(finished.reply).toBe(reply);
+  expect(client.query).toHaveBeenCalledWith(
+    expect.stringContaining("INSERT INTO public.ia_vendas_messages"),
+    [finished.message_id, "owner", "conversation", reply, JSON.stringify([{ type: "action", id }])],
+  );
 });
 
 test("free chat does not count restaurant context toward the per-message cap", async () => {

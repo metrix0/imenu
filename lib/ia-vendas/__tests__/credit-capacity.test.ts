@@ -10,9 +10,9 @@ jest.mock("@/lib/database/sql", () => ({ query: jest.fn() }));
 const current = {
   plus: true,
   usage: {
-    tokens: { input: 1_500_000, output: 100_000 },
+    tokens: { input: 1_100_000, output: 85_000 },
+    images: { used: 51 },
   },
-  base_images_remaining: 20,
   purchased_credits: { input: 400_000, output: 15_000, images: 4 },
 };
 
@@ -35,11 +35,10 @@ test("available recharge capacity is the Plus cap minus included, paid and pendi
   );
 });
 
-test.each([2_000_000, 4_000_000])("recharge purchases full output even when the Plus plan output is nearly unused (input used: %s)", async (input) => {
+test("recharge purchases full output even when the Plus plan output is nearly unused", async () => {
   (aiAccess as jest.Mock).mockResolvedValue({
     ...current,
-    usage: { tokens: { input, output: 25 } },
-    base_images_remaining: 0,
+    usage: { tokens: { input: 2_000_000, output: 25 }, images: { used: 75 } },
     purchased_credits: { input: 0, output: 0, images: 0 },
   });
   (query as jest.Mock).mockResolvedValue({ rows: [{ input: 0, output: 0, images: 0 }] });
@@ -55,8 +54,7 @@ test.each([2_000_000, 4_000_000])("recharge purchases full output even when the 
 test("paid output follows the slider instead of reusing the remaining 119,971 included tokens", async () => {
   (aiAccess as jest.Mock).mockResolvedValue({
     ...current,
-    usage: { tokens: { input: 2_000_000, output: 29 } },
-    base_images_remaining: 5,
+    usage: { tokens: { input: 2_000_000, output: 29 }, images: { used: 70 } },
     purchased_credits: { input: 0, output: 0, images: 0 },
   });
   (query as jest.Mock).mockResolvedValue({ rows: [{ input: 0, output: 0, images: 0 }] });
@@ -76,8 +74,7 @@ test("paid output follows the slider instead of reusing the remaining 119,971 in
 test("a restaurant past the monthly input limit can recharge with a full paid output balance", async () => {
   (aiAccess as jest.Mock).mockResolvedValue({
     ...current,
-    usage: { tokens: { input: 4_003_175, output: 32_504 } },
-    base_images_remaining: LIMITS.images,
+    usage: { tokens: { input: 1_977_915, output: 0 }, images: { used: 0 } },
     purchased_credits: { input: 22_085, output: 120_000, images: 0 },
   });
   (query as jest.Mock).mockResolvedValue({ rows: [{ input: 0, output: 0, images: 0 }] });
@@ -95,7 +92,7 @@ test("a restaurant past the monthly input limit can recharge with a full paid ou
 test("recharge quotes charge for only the new output that fits after paid balances and pending purchases", async () => {
   (aiAccess as jest.Mock).mockResolvedValue({
     ...current,
-    usage: { tokens: { input: 2_000_001, output: 120_000 } },
+    usage: { tokens: { input: 2_000_000, output: 10_000 }, images: { used: 0 } },
     purchased_credits: { input: 0, output: 110_000, images: 0 },
   });
 
@@ -111,8 +108,7 @@ test("recharge quotes charge for only the new output that fits after paid balanc
 test("a full unused plan cannot buy credits beyond the existing allowance", async () => {
   (aiAccess as jest.Mock).mockResolvedValue({
     ...current,
-    usage: { tokens: { input: 0, output: 0 } },
-    base_images_remaining: LIMITS.images,
+    usage: { tokens: { input: 0, output: 0 }, images: { used: 0 } },
     purchased_credits: { input: 0, output: 0, images: 0 },
   });
   (query as jest.Mock).mockResolvedValue({ rows: [{ input: 0, output: 0, images: 0 }] });
