@@ -1,4 +1,5 @@
 import { query } from "@/lib/database/sql";
+import { isManualOpeningActive, isStoreManuallyClosed } from "@/lib/menu/storeHoursOverride";
 
 export const WHATSAPP_TEMPLATE_KEYS = [
     "welcome",
@@ -81,7 +82,13 @@ type RestaurantTemplateData = {
     allowed_payment_methods: string[] | null;
     pickup_enabled: boolean | null;
     availability_json: unknown;
+    is_closed: string | null;
+    manual_open_until: string | null;
+    preorder_only: boolean | null;
 };
+
+export type RestaurantOpeningData = Pick<RestaurantTemplateData,
+    "availability_json" | "is_closed" | "manual_open_until" | "preorder_only">;
 
 type DeliveryRule = {
     radius_km: number;
@@ -181,34 +188,89 @@ function buildPaymentMethods(restaurant: RestaurantTemplateData): string {
         : "As formas disponíveis aparecem na finalização do pedido.";
 }
 
+const OPENING_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+const OPENING_DAYS = ["domingo", "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado"];
+const restaurantClock = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+});
+
+function openingSlots(value: unknown, day: number): { open: string; close: string }[] {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+    const slots = (value as Record<string, unknown>)[String(day)];
+    if (!Array.isArray(slots)) return [];
+
+    return slots.flatMap(slot => {
+        if (!slot || typeof slot !== "object" || Array.isArray(slot)) return [];
+        const open = String(slot.open || "");
+        const close = String(slot.close || "");
+        return OPENING_TIME.test(open) && OPENING_TIME.test(close) ? [{ open, close }] : [];
+    });
+}
+
 function formatOpeningHours(value: unknown): string {
-    if (!value || typeof value !== "object" || Array.isArray(value)) {
-        return "Consulte os horários no cardápio.";
-    }
-
-    const days: string[] = [];
-    for (let day = 0; day < 7; day += 1) {
-        const rawSlots = (value as Record<string, unknown>)[String(day)];
-        if (!Array.isArray(rawSlots) || rawSlots.length === 0) continue;
-
-        const slots = rawSlots
-            .map((item) => {
-                if (!item || typeof item !== "object" || Array.isArray(item)) {
-                    return null;
-                }
-                const slot = item as Record<string, unknown>;
-                const open = String(slot.open || "");
-                const close = String(slot.close || "");
-                if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(open)) return null;
-                if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(close)) return null;
-                return `${open}–${close}`;
-            })
-            .filter((slot): slot is string => Boolean(slot));
-
-        if (slots.length) days.push(`${DAY_LABELS[day]}: ${slots.join(" e ")}`);
-    }
-
+    const days = DAY_LABELS.flatMap((label, day) => {
+        const slots = openingSlots(value, day);
+        return slots.length ? [label + ": " + slots.map(({ open, close }) => open + "–" + close).join(" e ")] : [];
+    });
     return days.length ? days.join("; ") : "Consulte os horários no cardápio.";
+}
+
+export function buildWhatsAppOpeningContext(restaurant: RestaurantOpeningData, now = new Date()) {
+    const local = Object.fromEntries(restaurantClock.formatToParts(now).map(({ type, value }) => [type, value]));
+    const date = [local.year, local.month, local.day].join("-");
+    const day = new Date(date + "T00:00:00Z").getUTCDay();
+    const week = OPENING_DAYS.map((_, index) => openingSlots(restaurant.availability_json, index));
+    const today = week[day];
+    const at = (localDate: string, time: string) => new Date(localDate + "T" + time + ":00-03:00");
+    const manualUntil = restaurant.preorder_only === true ? null : restaurant.manual_open_until;
+    const manuallyOpen = isManualOpeningActive(manualUntil, now);
+    const manuallyClosed = !manuallyOpen && isStoreManuallyClosed(restaurant.is_closed, now);
+    const openNow = manuallyOpen || (!manuallyClosed && today.some(({ open, close }) =>
+        now >= at(date, open) && now <= at(date, close)
+    ));
+
+    let nextOpening: { dia: string; data: string; hora: string } | null = null;
+    if (!openNow) {
+        for (let offset = 0; offset <= 7 && !nextOpening; offset++) {
+            const nextDate = new Date(date + "T00:00:00Z");
+            nextDate.setUTCDate(nextDate.getUTCDate() + offset);
+            const nextDay = nextDate.getUTCDay();
+            const nextDateLabel = nextDate.toISOString().slice(0, 10);
+            const slots = [...week[nextDay]].sort((a, b) => a.open.localeCompare(b.open));
+            for (const slot of slots) {
+                let time = slot.open;
+                let starts = at(nextDateLabel, time);
+                if (isStoreManuallyClosed(restaurant.is_closed, starts)) {
+                    // A manual closing from the previous day carries over until 04:00.
+                    if (time >= "04:00" || isStoreManuallyClosed(restaurant.is_closed, at(nextDateLabel, "04:00"))) continue;
+                    time = "04:00";
+                    starts = at(nextDateLabel, time);
+                }
+                if (starts <= now || starts > at(nextDateLabel, slot.close)) continue;
+                nextOpening = { dia: OPENING_DAYS[nextDay], data: nextDateLabel, hora: time };
+                break;
+            }
+        }
+    }
+
+    const closedToday = manuallyClosed && isStoreManuallyClosed(restaurant.is_closed, at(date, "23:59"));
+
+    return {
+        dia: OPENING_DAYS[day],
+        data: date,
+        hora_local: local.hour + ":" + local.minute,
+        aberto_agora: openNow,
+        atende_hoje: !closedToday && (manuallyOpen || today.length > 0),
+        horarios_hoje: closedToday ? [] : today,
+        fechamento_manual_agora: manuallyClosed,
+        abertura_manual_ate: manuallyOpen && manualUntil ? restaurantClock.format(new Date(manualUntil)) : null,
+        somente_encomendas: restaurant.preorder_only === true,
+        proxima_abertura: nextOpening,
+        agenda_semanal: Object.fromEntries(OPENING_DAYS.map((label, index) =>
+            [label, week[index].length ? week[index] : "Fechado"]
+        )),
+    };
 }
 
 export function mergeWhatsAppTemplates(
@@ -303,7 +365,10 @@ export async function getRestaurantTemplateData(
                 delivery_fee_json,
                 allowed_payment_methods,
                 pickup_enabled,
-                availability_json
+                availability_json,
+                to_char(is_closed, 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS is_closed,
+                to_char(manual_open_until AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS manual_open_until,
+                preorder_only
             FROM restaurants
             WHERE id = $1
             LIMIT 1
