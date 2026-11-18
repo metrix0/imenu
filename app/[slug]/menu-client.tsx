@@ -27,6 +27,7 @@ import type { QrTableMenuContext } from "@/lib/qr-table/types";
 import PromotionBanner from "@/components/costumer/PromotionBanner";
 import { evaluateAutomaticPromotions, parseAutomaticPromotions, promotionAvailable, promotionCartSubtotal } from "@/lib/promotions/automatic";
 import { parseNeighborhoodDeliveryRules } from "@/lib/delivery/neighborhood";
+import { getCheckoutFulfillment } from "@/lib/delivery/restaurantLocation";
 import { isManualOpeningActive, isStoreManuallyClosed } from "@/lib/menu/storeHoursOverride";
 import { isCategoryAvailable } from "@/lib/menu/categorySchedule";
 import { hasOrderHours } from "@/lib/menu/orderAvailability";
@@ -193,7 +194,8 @@ export default function MenuClientPage({
     const promotionCart = useCartStore(s => s.items);
     const promotionScheduledFor = useCheckoutStore(s => s.scheduled_for);
     const promotionDeliveryFee = useCheckoutStore(s => s.delivery_fee_cents);
-    const promotionIsPickup = useCheckoutStore(s => Boolean((s as any).is_pickup));
+    const pickupSelected = useCheckoutStore(s => Boolean((s as any).is_pickup));
+    const {isPickup: promotionIsPickup} = getCheckoutFulfillment(restaurant, isTableOrder, pickupSelected);
     const [promotionNow, setPromotionNow] = useState<Date | null>(null);
     const automaticPromotions = parseAutomaticPromotions(restaurant.automatic_promotions);
     const promotionProducts = Object.values(itemsByCategory).flat();
@@ -209,10 +211,10 @@ export default function MenuClientPage({
     const promotionResult = automaticPromotions.length && promotionDate ? evaluateAutomaticPromotions(automaticPromotions, {
         items: promotionCart, products: promotionProducts,
         subtotal_cents: promotionCartSubtotal(promotionCart),
-        delivery_cents: Number(promotionDeliveryFee) || 0,
-        coupon_discount_cents: Number(coupon_discount_cents) || 0,
+        delivery_cents: promotionIsPickup ? 0 : Number(promotionDeliveryFee) || 0,
+        coupon_discount_cents: promotionIsPickup && coupon_type === "delivery" ? 0 : Number(coupon_discount_cents) || 0,
         coupon_type,
-        pickup: Boolean(promotionIsPickup),
+        pickup: promotionIsPickup,
         channel: isTableOrder ? "mesa" : "delivery", at: promotionDate,
     }) : undefined;
     const visiblePromotions = promotionNow ? automaticPromotions.filter(p => p.show_on_menu &&

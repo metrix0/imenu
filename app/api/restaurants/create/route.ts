@@ -23,8 +23,8 @@ export async function POST(request: Request) {
             `INSERT INTO public.restaurants (
                 user_id, phone, rating, min_order_cents, balance_cents,
                 delivery_fee_json, availability_json, prep_time_min_minutes, prep_time_max_minutes,
-                prep_time_source, created_at, updated_at, first_time, creation_step
-            ) VALUES ($1, $2, 5.0, 1500, 0, $3::jsonb, '{}'::jsonb, 40, 50, 'manual', NOW(), NOW(), TRUE, 1)
+                prep_time_source, created_at, updated_at, first_time, creation_step, pickup_enabled
+            ) VALUES ($1, $2, 5.0, 1500, 0, $3::jsonb, '{}'::jsonb, 40, 50, 'manual', NOW(), NOW(), TRUE, 1, TRUE)
             RETURNING id`,
             [userId, phone, JSON.stringify(DEFAULT_DELIVERY_RANGES)]
         );

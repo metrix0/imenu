@@ -16,7 +16,7 @@ import { CONSUMER_EVENTS } from "@/lib/analytics/consumerEvents";
 import { useRouter } from "next/navigation";
 import type { PromotionResult } from "@/lib/promotions/automatic";
 import type { QrTableMenuContext } from "@/lib/qr-table/types";
-import { getRestaurantDeliveryLocation } from "@/lib/delivery/restaurantLocation";
+import { getCheckoutFulfillment } from "@/lib/delivery/restaurantLocation";
 
 export default function CartBar({
                                     onOpenCartAction,
@@ -56,9 +56,9 @@ export default function CartBar({
     const checkoutState = useCheckoutStore((s) => s);
     const isTableOrder = Boolean(tableOrder);
     useCheckoutSession(String(restaurant?.id || ""), !isTableOrder);
-    const isPickup = !isTableOrder && (restaurant?.delivery_disabled === true || Boolean((checkoutState as any).is_pickup));
-    const missingDeliveryOrigin = !isTableOrder && !isPickup && restaurant?.delivery_fee_mode !== "neighborhood" &&
-        !getRestaurantDeliveryLocation(restaurant ?? {}).hasRadiusOrigin;
+    const { isPickup, missingDeliveryOrigin } = getCheckoutFulfillment(
+        restaurant ?? {}, isTableOrder, Boolean((checkoutState as any).is_pickup),
+    );
     const smallCityMode = restaurant?.delivery_fee_mode === "neighborhood" && restaurant?.small_city_mode_enabled === true;
     const missingDeliveryRanges = !isTableOrder && !isPickup && restaurant?.delivery_fee_mode !== "neighborhood" && (() => {
         let configured = restaurant?.delivery_fee_json;
@@ -149,7 +149,7 @@ export default function CartBar({
             ? Number(checkoutState.delivery_fee_cents)
             : 0;
 
-    const discount_cents = isTableOrder
+    const discount_cents = isTableOrder || (isPickup && checkoutState.coupon_type === "delivery")
         ? 0
         : checkoutState.coupon_discount_cents || 0;
 
@@ -165,7 +165,7 @@ export default function CartBar({
                           checkoutState.numero))
           );
 
-    const deliveryUnavailable = cartOpen && step !== "cart" && missingDeliveryOrigin;
+    const deliveryUnavailable = cartOpen && step !== "cart" && missingDeliveryOrigin && !isPickup;
     const disabledContinue = deliveryUnavailable || (cartOpen && step === "info" && !allRequiredFilled);
 
     const missingFields: string[] = [];
@@ -338,7 +338,9 @@ export default function CartBar({
             setOrderWarning({ message: "Selecione a data e o horário do agendamento." });
             return;
         }
-        const pickup = !isTableOrder && (restaurant?.delivery_disabled === true || Boolean((checkout as any).is_pickup));
+        const { isPickup: pickup } = getCheckoutFulfillment(
+            restaurant, isTableOrder, Boolean((checkout as any).is_pickup),
+        );
         const shouldReturnToGarcom =
             isTableOrder &&
             typeof window !== "undefined" &&
@@ -395,7 +397,9 @@ export default function CartBar({
                 ? Number(checkout.delivery_fee_cents)
                 : 0;
 
-        const discount_cents = isTableOrder ? 0 : checkout.coupon_discount_cents || 0;
+        const discount_cents = isTableOrder || (pickup && checkout.coupon_type === "delivery")
+            ? 0
+            : checkout.coupon_discount_cents || 0;
         const changeFor = !isTableOrder && checkout.pagamento === "dinheiro"
             ? String((checkout as any).troco ?? "").replace(/^R\$\s*/i, "").trim()
             : "";
