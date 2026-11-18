@@ -1,5 +1,6 @@
 import { alarmUnnotifiedPayoutFailures, notifyPayoutProblem, notifyUpcomingPayoutPixProblem } from "@/lib/services/payoutNotifications";
 import { getMercadoPagoPixPayment } from "@/lib/payments/mercadoPagoPix";
+import { inferPixKeyType, type PixKeyType } from "@/lib/payments/pixKeyType";
 import * as https from "node:https";
 import { setTimeout as delay } from "node:timers/promises";
 
@@ -12,7 +13,7 @@ const ASAAS_BASE_URL = (
 ).replace(/\/+$/, "");
 const ASAAS_REQUEST_TIMEOUT_MS = 10_000;
 
-export type PixKeyType = "CPF" | "CNPJ" | "EMAIL" | "PHONE" | "EVP";
+export type { PixKeyType } from "@/lib/payments/pixKeyType";
 
 type PayableRestaurant = {
     restaurant_id: string;
@@ -340,21 +341,23 @@ export async function warnAboutUpcomingPayoutPix(now = new Date()) {
     // Check payments already confirmed before today's payout cutoff.
     const { payables, validationErrors } = await getPayables(now);
     const day = new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo" }).format(now);
-    const lookup = new Map<string, string[]>();
+    const lookup = new Map<string, { row: PayableRestaurant; detectedType: PixKeyType | null }[]>();
     let invalid = 0;
     let sent = 0;
 
     for (const row of payables) {
-        const params = getPixLookupParams(row);
+        // The store's automatic option is saved without a Pix type.
+        const detectedType = !row.payment_info_type ? inferPixKeyType(row.payment_info ?? "") : null;
+        const params = getPixLookupParams(detectedType ? { ...row, payment_info_type: detectedType } : row);
         if (!params) {
             invalid++;
             if (await notifyUpcomingPayoutPixProblem(row.restaurant_id, day)) sent++;
             continue;
         }
         const path = `/pix/addressKeys/external?${params}`;
-        const restaurantIds = lookup.get(path) ?? [];
-        restaurantIds.push(row.restaurant_id);
-        lookup.set(path, restaurantIds);
+        const candidates = lookup.get(path) ?? [];
+        candidates.push({ row, detectedType });
+        lookup.set(path, candidates);
     }
 
     let remaining = 0;
@@ -367,11 +370,12 @@ export async function warnAboutUpcomingPayoutPix(now = new Date()) {
             console.warn("[PAYOUT_PIX_WARNING] Não foi possível consultar o saldo de consultas Pix.");
         }
     }
-    for (const [path, restaurantIds] of lookup) {
+    for (const [path, candidates] of lookup) {
         // Asaas allows five lookups a minute and can charge 15 tokens for a rejected key.
         if (remaining < 15) break;
         if (checked > 0) await delay(15_000);
 
+        let rejected = false;
         try {
             const resolved = await asaasRequest<{ key?: string }>(path);
             if (!resolved.key) break;
@@ -379,9 +383,19 @@ export async function warnAboutUpcomingPayoutPix(now = new Date()) {
         } catch (error) {
             if (!asaasRejectedPixKey(error)) break;
             remaining -= 15;
-            invalid += restaurantIds.length;
-            for (const restaurantId of restaurantIds) {
-                if (await notifyUpcomingPayoutPixProblem(restaurantId, day)) sent++;
+            rejected = true;
+        }
+
+        for (const { row, detectedType } of candidates) {
+            if (rejected) {
+                invalid++;
+                if (await notifyUpcomingPayoutPixProblem(row.restaurant_id, day)) sent++;
+            } else if (detectedType) {
+                await query(
+                    `UPDATE public.restaurants SET payment_info_type = $3, updated_at = NOW()
+                     WHERE id = $1 AND payment_info = $2 AND NULLIF(payment_info_type, '') IS NULL`,
+                    [row.restaurant_id, row.payment_info, detectedType],
+                );
             }
         }
         checked++;
