@@ -1030,7 +1030,7 @@ async function processIncomingWhatsAppMessageUnlocked({
 
     const { getWhatsAppAiReply } = await import("@/lib/services/whatsappAi");
     const aiReply = await getWhatsAppAiReply({
-        restaurantId, sessionName, chatId, messageId, body, variables,
+        restaurantId, sessionName, chatId, messageId, body, variables, restaurantHours: restaurant,
     });
     if (aiReply) {
         // The owner may have taken over while the model was answering.

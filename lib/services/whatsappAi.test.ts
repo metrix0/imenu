@@ -8,7 +8,11 @@ jest.mock("openai", () => ({ __esModule: true, default: jest.fn() }));
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn() }));
 jest.mock("@/lib/addons/access", () => ({ hasIMenuPlusAccess: jest.fn() }));
 jest.mock("@/lib/services/wahaClient", () => ({ getWahaRecentTextHistory: jest.fn(), startWahaTyping: jest.fn() }));
-const input = { restaurantId: "restaurant", sessionName: "session", chatId: "chat", messageId: "message", body: "Vocês têm pizza?", variables: { NOME_DO_RESTAURANTE: "Loja" } };
+const input = {
+    restaurantId: "restaurant", sessionName: "session", chatId: "chat", messageId: "message",
+    body: "Vocês têm pizza?", variables: { NOME_DO_RESTAURANTE: "Loja" },
+    restaurantHours: { availability_json: null, is_closed: null, manual_open_until: null, preorder_only: false },
+};
 const create = jest.fn();
 let enabled: boolean, counts: { chat_count: number; restaurant_count: number };
 const call = (name: string, args = {}) => ({ output_text: "", output: [{ type: "function_call", name, arguments: JSON.stringify(args), call_id: "call" }] });
@@ -25,6 +29,43 @@ beforeEach(() => {
     (query as jest.Mock).mockImplementation(async (sql: string) => ({ rows: sql.includes("whatsapp_bot_settings") ? [{ enabled }] : [counts], rowCount: 1 }));
 });
 afterEach(() => { jest.useRealTimers(); });
+test("sends explicit closed-day status and next opening to the AI in local time", async () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-11-17T17:56:40Z"));
+    await getWhatsAppAiReply({
+        ...input,
+        body: "a senhora atende hoje?",
+        restaurantHours: {
+            ...input.restaurantHours,
+            availability_json: { 2: [], 3: [{ open: "14:00", close: "20:00" }] },
+        },
+    });
+    const instructions: string = create.mock.calls[0][0].instructions;
+    const status = JSON.parse(instructions.split("Status de funcionamento calculado: ")[1]);
+    expect(status).toMatchObject({
+        dia: "terça-feira", hora_local: "14:56", aberto_agora: false, atende_hoje: false,
+        horarios_hoje: [], agenda_semanal: { "terça-feira": "Fechado" },
+        proxima_abertura: { dia: "quarta-feira", data: "2026-11-18", hora: "14:00" },
+    });
+    expect(create).toHaveBeenCalledTimes(1);
+});
+
+test.each([
+    { is_closed: "2026-11-17T16:00:00", manual_open_until: null, open: false },
+    { is_closed: null, manual_open_until: "2026-11-17T19:00:00Z", open: true },
+])("reflects manual opening and closing in the assistant context", async ({ is_closed, manual_open_until, open }) => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-11-17T17:56:40Z"));
+    await getWhatsAppAiReply({
+        ...input,
+        restaurantHours: {
+            ...input.restaurantHours, is_closed, manual_open_until,
+            availability_json: open ? { 2: [] } : { 2: [{ open: "14:00", close: "20:00" }] },
+        },
+    });
+    const instructions: string = create.mock.calls[0][0].instructions;
+    const status = JSON.parse(instructions.split("Status de funcionamento calculado: ")[1]);
+    expect(status).toMatchObject({ aberto_agora: open, atende_hoje: open, fechamento_manual_agora: !open });
+});
+
 test.each(["disabled", "expired Plus", "missing key"])("does not call AI when %s", async (reason) => {
     if (reason === "disabled") enabled = false;
     if (reason === "expired Plus") (hasIMenuPlusAccess as jest.Mock).mockResolvedValue(false);
