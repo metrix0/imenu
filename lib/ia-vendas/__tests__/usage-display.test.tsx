@@ -1,9 +1,10 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import AiUsage from '@/components/restaurant-owner/ia-vendas/AiUsage';
 import { IaPlusLimitMessage } from '@/components/restaurant-owner/ia-vendas/IaPlusSalesModal';
-import { AssistantQuotaReply } from '@/components/restaurant-owner/ia-vendas/ErrorNoticeContent';
+import { AssistantConversationLimitReply, AssistantQuotaReply } from '@/components/restaurant-owner/ia-vendas/ErrorNoticeContent';
 import { formatAiResetAt } from '../usageReset';
 import type { aiAccess } from '../access';
+import { ASSISTANT_CONVERSATION_LIMIT_MESSAGE } from '../types';
 import { LIMITS } from '../config';
 
 const resetAt = '2026-12-01T00:00:00.000Z';
@@ -14,6 +15,7 @@ const access = (plus: boolean, tokens: number, images: number): Awaited<ReturnTy
  images_remaining:plus ? Math.max(0, LIMITS.images - images * LIMITS.images/100) : Math.max(0, 3 - images * 3/100),
  free_tokens_limit:plus ? null : 150000, free_images_limit:plus ? null : 3,
  tokens_reset_at:resetAt, images_reset_at:resetAt,
+ credit_usage: null,
  usage: plus ? { tokens:{input:tokens*20000,output:0,input_limit:2000000,output_limit:120000,percent:tokens},images:{used:images*LIMITS.images/100,limit:LIMITS.images,percent:images} } : null,
 });
 test.each([[false,0,0],[true,69.99,69.99]])('hidden below threshold', (plus,tokens,images) => {
@@ -131,4 +133,21 @@ test('monthly quota notice explains the exact plan limits and current usage', ()
  expect(html).toContain("70 / 75");
  expect(html).toContain("30/11 às 21:00");
  expect(html).toContain("Recarregar créditos");
+});
+
+test('a context-limited conversation shows its error and the new chat action', () => {
+ const html = renderToStaticMarkup(
+   <AssistantConversationLimitReply message={ASSISTANT_CONVERSATION_LIMIT_MESSAGE} onNewConversation={() => {}} />,
+ );
+ expect(html).toContain(ASSISTANT_CONVERSATION_LIMIT_MESSAGE);
+ expect(html).toContain('Criar novo chat');
+ expect(html).not.toContain('Fechar aviso');
+});
+
+test('the usage display reads the recharge counter instead of the monthly total', () => {
+ const value = access(true, 200, 80);
+ value.credit_usage = { ...value.usage!, tokens: { input: 0, output: 0, input_limit: 1_900_000, output_limit: 114_000, percent: 0 } };
+ const html = renderToStaticMarkup(<AiUsage access={value} />);
+ expect(html).toContain('Entrada: 0 / 1.900.000');
+ expect(html).not.toContain('4.000.000');
 });

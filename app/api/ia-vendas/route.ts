@@ -3,6 +3,7 @@ import { analysisPreview } from "@/lib/ia-vendas/paywall";
 import { aiAccess, requireIaPlus, IaPlusRequired, IaImageLimitReached, saveImageLimitNotice } from "@/lib/ia-vendas/access";
 import { API_ANALYSIS_ENABLED, analysisConversation } from "@/lib/ia-vendas/analysis";
 import { runChat } from "@/lib/ia-vendas/chat";
+import { assistantConversationLimit } from "@/lib/ia-vendas/runs";
 import { query, withTransaction } from "@/lib/database/sql";
 import { authorize, failure } from "@/lib/ia-vendas/http";
 import { SalesError, type Action } from "@/lib/ia-vendas/types";
@@ -53,7 +54,7 @@ export async function GET(request: Request) {
     const before = url.searchParams.get("before");
     if (before && !Number.isFinite(Date.parse(before)))
       throw new SalesError("Cursor inválido.");
-    const [messages, actions, memory, running, refs, analyses] =
+    const [messages, actions, memory, running, refs, analyses, conversation_limit] =
       await Promise.all([
         query(
           analysisConversation
@@ -85,6 +86,7 @@ export async function GET(request: Request) {
               [restaurant, id],
             )
           : Promise.resolve({ rows: [] }),
+        analysisConversation ? null : assistantConversationLimit(restaurant, id),
       ]);
     const hydrated = await Promise.all(
       messages.rows
@@ -183,6 +185,7 @@ export async function GET(request: Request) {
         access,
         restaurant_id: restaurant,
         conversation_id: id,
+        conversation_limit,
         conversations,
         messages: analysisConversation && !access.plus ? [] : hydrated,
         analyses: analysisConversation ? visibleAnalyses : [],

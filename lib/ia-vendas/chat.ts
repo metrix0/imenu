@@ -27,7 +27,7 @@ import { attachment, download } from "./files";
 import { benchmark, potential } from "./peers";
 import { beginRun, recordTokens, finishRun } from "./runs";
 import { LIMITS, MODELS } from "./config";
-import { SalesError, type Data } from "./types";
+import { ASSISTANT_CONVERSATION_LIMIT_MESSAGE, SalesError, type Data } from "./types";
 import { searchSupportKnowledge } from "@/lib/services/supportMcp";
 import { PANEL_TAB_KEYS, PANEL_TABS, isPanelTabKey } from "./panelTabs";
 const tool = (
@@ -691,7 +691,7 @@ export async function runChat(args: {
         throw new SalesError(
           deep
             ? "A análise atingiu o orçamento máximo desta execução. As propostas preparadas foram preservadas no relatório parcial."
-            : "Esta conversa ficou extensa. Abra uma nova conversa; suas propostas já foram salvas.",
+            : ASSISTANT_CONVERSATION_LIMIT_MESSAGE,
         );
       if (outputTokens + 500 > maxOutput)
         throw deep

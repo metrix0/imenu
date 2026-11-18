@@ -9,14 +9,16 @@ import {
   requireApplicationAccess,
 } from "../access";
 import { beginRun, reserveImage } from "../runs";
+import { ASSISTANT_CONVERSATION_LIMIT_MESSAGE } from "../types";
 import { query, withTransaction } from "@/lib/database/sql";
 
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn(), withTransaction: jest.fn() }));
 const sql = query as jest.Mock;
-let addon: any, usage: any, used: boolean, kind: string, credits: any;
+let addon: any, usage: any, used: boolean, kind: string, credits: any, conversationLimit: string | null;
 beforeEach(() => {
   addon = null;
   credits = null;
+  conversationLimit = null;
   used = false;
   kind = "chat";
   usage = { tokens: 0, reserved: 0, images: 0, monthly_images: 0 };
@@ -24,8 +26,13 @@ beforeEach(() => {
     rows: statement.includes("SELECT EXISTS") ? [{ used }]
       : statement.startsWith("SELECT kind") ? [{ kind }]
       : statement.includes("restaurant_addons") ? (addon ? [addon] : [])
-      : statement.includes("sum(input_tokens + output_tokens)") ? [usage]
-      : statement.includes("FROM public.ia_vendas_credit_balances") ? (credits ? [credits] : [])
+      : statement.includes("sum(input_tokens + output_tokens)") ? [{
+          ...usage,
+          wallet_input: credits?.input_tokens,
+          wallet_output: credits?.output_tokens,
+          wallet_images: credits?.images,
+        }]
+      : statement.startsWith("SELECT r.error") ? (conversationLimit ? [{ error: conversationLimit }] : [])
       : statement.includes("WITH counted AS") ? [{ tokens_reset_at: new Date("2026-11-09T14:30:00Z"), images_reset_at: new Date("2026-11-10T14:30:00Z") }]
       : statement.includes("sum(greatest") ? [{ input: 0, output: 0, recent: 0 }]
       : statement.includes("sum(image_count),0) n") ? [{ n: usage.monthly_images }] : [],
@@ -178,4 +185,47 @@ test("rolling free reset timestamp is computed only when tokens are exhausted", 
   const resetCall = sql.mock.calls.find(([statement]) => statement.includes("WITH counted AS"));
   expect(resetCall?.[0]).toContain("sum(tokens) OVER");
   expect(resetCall?.[1]).toEqual(["restaurant", 0, 0]);
+});
+
+test("confirmed credits start a new usage counter without resetting monthly consumption", async () => {
+  addon = { status: "active" };
+  usage = {
+    monthly_input: 4_000_000, monthly_output: 150_000, monthly_images: 40,
+    tokens_at: "2026-11-18T16:00:00Z", credit_input: 0, credit_output: 0,
+  };
+  credits = { input_tokens: 1_900_000, output_tokens: 114_000, images: 0 };
+  const fresh = await aiAccess("restaurant");
+  expect(fresh.usage?.tokens.input).toBe(4_000_000);
+  expect(fresh.credit_usage).toMatchObject({
+    tokens: { input: 0, output: 0, input_limit: 1_900_000, output_limit: 114_000, percent: 0 },
+    images: { used: 40, limit: 75 },
+  });
+
+  usage.monthly_input += 100_000;
+  usage.credit_input = 100_000;
+  credits.input_tokens -= 100_000;
+  expect((await aiAccess("restaurant")).credit_usage?.tokens).toMatchObject({
+    input: 100_000, input_limit: 1_900_000,
+  });
+
+  delete usage.tokens_at;
+  expect((await aiAccess("restaurant")).credit_usage).toBeNull();
+});
+
+test("an image-only recharge resets the image meter independently", async () => {
+  addon = { status: "active" };
+  usage = { monthly_input: 25_000, monthly_images: 75, images_at: "2026-11-18T16:00:00Z", credit_images: 0 };
+  credits = { images: 10 };
+  expect((await aiAccess("restaurant")).credit_usage).toMatchObject({
+    tokens: { input: 25_000 },
+    images: { used: 0, limit: 10, percent: 0 },
+  });
+});
+
+test("a context-limited chat cannot start another run or reserve more credits", async () => {
+  conversationLimit = ASSISTANT_CONVERSATION_LIMIT_MESSAGE;
+  await expect(beginRun("restaurant", "conversation", "run", "chat")).rejects.toThrow(conversationLimit);
+  expect(sql.mock.calls.find(([statement]) => statement.startsWith("SELECT r.error"))?.[1])
+    .toEqual(["restaurant", "conversation", conversationLimit]);
+  expect(sql.mock.calls.some(([statement]) => /INSERT INTO public\.ia_vendas_runs|UPDATE public\.ia_vendas_credit_balances/.test(statement))).toBe(false);
 });
