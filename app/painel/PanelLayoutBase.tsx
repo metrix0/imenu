@@ -63,6 +63,7 @@ type AvailabilitySlot = {
 };
 
 type Availability = Record<string, AvailabilitySlot[]>;
+const MENU_SHORTCUT_DURATION = 24 * 60 * 60 * 1000;
 
 function isStoreOpenBySchedule(
     availability: Availability | null,
@@ -105,6 +106,7 @@ export default function PainelLayout({
     const router = useRouter();
     const restaurantId = useCreationStore(state => state.restaurantId);
     const restaurantSlug = useCreationStore(state => state.restaurantSlug);
+    const onboardingCompletion = useCreationStore(state => state.onboardingCompletion);
     const refreshUsage = useSalesStore(state => state.refreshUsage);
     const usageAccess = useSalesStore(state => state.usageAccess);
     const supportButtonRef = useRef<SupportButtonRef>(null);
@@ -119,10 +121,15 @@ export default function PainelLayout({
     const [isChecking, setIsChecking] = useState(true);
     const [isPasswordRecoveryFlow, setIsPasswordRecoveryFlow] = useState(false);
     const [showNewAnalysisDot, setShowNewAnalysisDot] = useState(false);
-    const [menuShortcut, setMenuShortcut] = useState<{ restaurantId: string; slug: string; expiresAt: number } | null>(null);
+    const [savedMenuShortcut, setSavedMenuShortcut] = useState<{ restaurantId: string; slug: string; expiresAt: number } | null>(null);
 
     const base = "/painel";
     const targetRestaurantId = restaurantId || getParamRestaurantId(params);
+    const menuShortcut = savedMenuShortcut?.restaurantId === targetRestaurantId
+        ? savedMenuShortcut
+        : onboardingCompletion?.restaurantId === targetRestaurantId
+            ? { ...onboardingCompletion, expiresAt: Date.parse(onboardingCompletion.completedAt) + MENU_SHORTCUT_DURATION }
+            : null;
     const menuShortcutExpiresAt = menuShortcut?.expiresAt ?? 0;
     const finishedAnalysisAt = usageAccess?.restaurant_id === targetRestaurantId
         ? usageAccess.latest_analysis_finished_at
@@ -229,10 +236,8 @@ export default function PainelLayout({
                 setAvailability((data.availability_json as Availability | null) ?? null);
                 if (version === storeChangeVersion.current) setStoreOverride(data);
 
-                const completedAt = Date.parse(data.onboarding_completed_at ?? "");
-                const expiresAt = completedAt + 24 * 60 * 60 * 1000;
-                const now = Date.now();
-                setMenuShortcut(data.first_time === false && data.url_slug && completedAt <= now && expiresAt > now
+                const expiresAt = Date.parse(data.onboarding_completed_at ?? "") + MENU_SHORTCUT_DURATION;
+                setSavedMenuShortcut(data.first_time === false && data.url_slug && expiresAt > Date.now()
                     ? { restaurantId: targetRestaurantId, slug: data.url_slug, expiresAt }
                     : null);
             });

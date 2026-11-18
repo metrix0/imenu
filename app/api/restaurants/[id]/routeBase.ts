@@ -248,7 +248,8 @@ export async function PATCH(
             );
         }
 
-        const returnedFields = "id, name, url_slug, store_whatsapp, creation_step, first_time";
+        const returnedFields = "id, name, url_slug, store_whatsapp, creation_step, first_time"
+            + (completingOnboarding ? ", onboarding_completed_at" : "");
         const updateSql = `
             UPDATE public.restaurants
             SET ${fieldsToUpdate.join(", ")}, updated_at = NOW()
@@ -294,6 +295,7 @@ export async function PATCH(
             store_whatsapp: rows[0].store_whatsapp,
             creation_step: rows[0].creation_step,
             first_time: rows[0].first_time,
+            ...(completingOnboarding && { onboarding_completed_at: rows[0].onboarding_completed_at }),
         });
     } catch (error) {
         console.error("Error updating restaurant:", error);
