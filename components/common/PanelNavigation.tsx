@@ -341,15 +341,15 @@ export default function PanelNavigation({ children, base, menuItems, onNavigate,
                         expanded ? "w-60 2xl:w-70" : "w-[4.5rem] 2xl:w-20"
                     }`}
                 >
-                    <div className="panel-sidebar-header relative">
+                    <div className="panel-sidebar-header">
                         <Link
                             href={base}
                             aria-label="Ir para o painel"
                             aria-hidden={!expanded}
                             tabIndex={expanded ? 0 : -1}
-                            className={`panel-sidebar-logo origin-left overflow-hidden transition-[width,transform,opacity] duration-300 ${
+                            className={`panel-sidebar-logo relative origin-left overflow-hidden transition-[width,transform,opacity] duration-300 ${
                                 expanded
-                                    ? "w-[108px] scale-100 opacity-100"
+                                    ? `${hasPlus ? "w-32" : "w-[108px]"} scale-100 opacity-100`
                                     : "pointer-events-none w-0 scale-75 opacity-0"
                             }`}
                         >
@@ -359,14 +359,14 @@ export default function PanelNavigation({ children, base, menuItems, onNavigate,
                                 width={104}
                                 height={40}
                             />
+                            {hasPlus && (
+                                <span role="img" aria-label="iMenu Plus ativo" title="iMenu Plus ativo"
+                                    className="absolute -bottom-px left-28 flex text-[#ff4200]"
+                                >
+                                    <FontAwesomeIcon icon={faCrown} aria-hidden="true" className="h-4! w-4! fill-current" />
+                                </span>
+                            )}
                         </Link>
-                        {expanded && hasPlus && (
-                            <span role="img" aria-label="iMenu Plus ativo" title="iMenu Plus ativo"
-                                className="absolute bottom-[24px] left-[122px] flex text-[#ff4200] transition-[visibility] delay-300 duration-0 starting:invisible motion-reduce:transition-none"
-                            >
-                                <FontAwesomeIcon icon={faCrown} aria-hidden="true" className="h-4! w-4! fill-current" />
-                            </span>
-                        )}
                         <button type="button" onClick={toggleSidebar}
                             aria-label={expanded ? "Recolher menu lateral" : "Expandir menu lateral"}
                             aria-expanded={expanded} className="panel-sidebar-toggle cursor-pointer bg-white">
