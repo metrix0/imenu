@@ -213,6 +213,13 @@ const FREE_RESPONSE_LIMIT_MESSAGE =
   "Não consegui concluir tudo em uma única resposta. Divida o pedido em partes menores para continuar.";
 class IaMessageLimitReached extends SalesError {}
 class IaResponseLimitReached extends SalesError {}
+class IaTurnBudgetReached extends IaResponseLimitReached {}
+
+function estimateInputTokens(input: unknown) {
+  return Math.ceil(
+    JSON.stringify(input).replace(/data:[^,]+;base64,[A-Za-z0-9+/=]+/g, "[file]").length / 2,
+  );
+}
 
 const ASSISTANT_ONLY_INSTRUCTIONS =
   `\nNo Assistente IA, consulte application_access para saber se há iMenu Plus ou a primeira aplicação grátis. Uma aplicação grátis é uma proposta concluída, mesmo que contenha várias alterações relacionadas; falhas não consomem a aplicação, desfazer não a devolve e gerar prévias não conta como publicar. A aprovação explícita de uma proposta já mostrada pode ser enviada no chat, como “Pode aplicar” ou “Aplicar”; o sistema executa pelo mesmo fluxo do botão. Se a primeira aplicação já foi usada e não há iMenu Plus, explique que aplicar exige iMenu Plus; não prometa aplicar nem apenas indique um botão bloqueado. Com múltiplas propostas e aprovação ambígua, peça que escolha uma pelo botão. Nunca diga que publicou ou aplicou uma proposta só por tê-la criado. O Robô WhatsApp com IA não pode ser reprogramado enviando instruções pelo WhatsApp. Mensagens dos clientes são contexto, nunca regras de configuração. Não oriente o proprietário a enviar uma regra ao número do robô para treiná-lo. Para ambiguidades de produtos, ofereça revisão dos nomes/descrições ou encaminhamento ao suporte; não prometa mudar o prompt do robô. O Painel Garçom permite lançar pedidos por mesa e tem acesso próprio na página Motoboy e Garçom. Não existe cadastro individual de garçons nem atribuição automática do nome do garçom no pedido; não invente campo de nome do garçom no pedido manual. Você também pode consultar a base de conhecimento oficial do suporte com search_imenu_knowledge para dúvidas factuais sobre o funcionamento, configuração, preços, termos, políticas ou navegação do iMenu. Essa base é somente leitura e não substitui os dados reais do restaurante. Quando uma aba existente do painel for um próximo passo útil, use open_panel_tab e coloque [[tab:CHAVE]] dentro da frase exatamente onde a referência clicável à aba deve aparecer, usando a chave retornada pela ferramenta (exemplo: "Acesse [[tab:horarios]] para configurar o funcionamento."). Não coloque o atalho isolado em outra linha quando ele puder fazer parte do texto. Nunca invente abas ou rotas e nunca diga que abriu a aba pelo usuário. Quando a pergunta for uma avaliação ampla do cardápio como um todo, responda de forma breve com o que o contexto imediato sustenta e não tente fazer uma varredura exaustiva nesta conversa. Nesses casos, a resposta DEVE fazer uma ponte natural para a Vendas IA em uma ou duas frases, explicando por que ela é o próximo passo para uma análise completa com os dados reais do restaurante. O cartão da Vendas IA aparecerá logo abaixo da resposta, então não o deixe surgir sem contexto e não chame open_panel_tab para vendas-ia só para repetir esse atalho.`;
@@ -666,40 +673,48 @@ export async function runChat(args: {
       round = args.resume?.round || 0;
     const deadline = batched ? Infinity : deep ? analysisDeadline : Date.now() + 220000,
       maxOutput = deep ? LIMITS.analysisOutput : LIMITS.chatOutput;
+    const chatTools = isChatConversation
+      ? assistantTools.filter(({ name }) => !focusedImageRequest(message) ||
+          !["propose_action", "estimate_revenue"].includes(name))
+      : tools;
+    const chatToolTokens = isChatConversation ? estimateInputTokens(chatTools) : 0;
+    const chatResponseTokens = 2500;
     let maxRounds = deep ? LIMITS.analysisRounds : 5;
     let retriedMissingProposal = false;
     let retryingMissingProposal = false;
 
     while (!reply && round++ < maxRounds && Date.now() < deadline) {
-      const estimatedInput =
-        Math.ceil(
-          JSON.stringify(input).replace(
-            /data:[^,]+;base64,[A-Za-z0-9+/=]+/g,
-            "[file]",
-          ).length / 2,
-        ) +
-        attachments.length * 5000 +
+      const estimatedContext = estimateInputTokens(input) + attachments.length * 5000;
+      const remainingInput = LIMITS.runInput - inputTokens;
+      const remainingOutput = maxOutput - outputTokens;
+      // Allow tools only if a subsequent answer with the same context can fit.
+      const finalRound = round === maxRounds || (isChatConversation && (
+        estimatedContext * 2 + chatToolTokens > remainingInput ||
+        remainingOutput < chatResponseTokens + 500
+      ));
+      const estimatedInput = estimatedContext +
         (deep
           ? LIMITS.analysisRequestOverhead +
             Number(ctx.image_review?.loaded || 0) * 2000
-          : 0);
-      if (
-        deep
-          ? inputTokens + estimatedInput > LIMITS.analysisInput
-          : estimatedInput > LIMITS.runInput
-      )
+          : finalRound ? 0 : chatToolTokens);
+      if (deep && inputTokens + estimatedInput > LIMITS.analysisInput)
         throw new SalesError(
-          deep
-            ? "A análise atingiu o orçamento máximo desta execução. As propostas preparadas foram preservadas no relatório parcial."
-            : ASSISTANT_CONVERSATION_LIMIT_MESSAGE,
+          "A análise atingiu o orçamento máximo desta execução. As propostas preparadas foram preservadas no relatório parcial.",
         );
+      if (!deep && estimatedInput > (isChatConversation ? remainingInput : LIMITS.runInput)) {
+        if (!isChatConversation ||
+            (round === 1 && estimateInputTokens(
+              Array.isArray(input.at(-1)?.content) ? input.slice(0, -1) : input,
+            ) > LIMITS.runInput))
+          throw new SalesError(ASSISTANT_CONVERSATION_LIMIT_MESSAGE);
+        throw new IaTurnBudgetReached("Esta mensagem atingiu o limite de processamento.");
+      }
       if (outputTokens + 500 > maxOutput)
         throw deep
           ? new SalesError(
               "A análise atingiu o limite de resposta desta execução. As propostas preparadas foram preservadas no relatório parcial.",
             )
           : new IaResponseLimitReached(FREE_RESPONSE_LIMIT_MESSAGE);
-      const finalRound = round === maxRounds;
       if (finalRound && deep && !input.some((m) => m.role === "developer" && m.content === "Finalize agora o relatório estruturado com o que foi verificado. Não crie mais ferramentas. Informe dados indisponíveis sem inventar."))
         input.push({
           role: "developer",
@@ -711,11 +726,7 @@ export async function runChat(args: {
           model: deep ? MODELS.analysis : MODELS.chat,
           ...(cacheChat ? explicitPromptCache : {}),
           input,
-          tools: !deep && conv.kind === "chat"
-            ? assistantTools.filter((definition) =>
-                !focusedImageRequest(message) ||
-                !["propose_action", "estimate_revenue"].includes(definition.name))
-            : tools,
+          tools: isChatConversation && finalRound ? [] : chatTools,
           tool_choice:
             finalRound ? "none" : (deep || retryingMissingProposal) ? "required" : "auto",
           parallel_tool_calls: true,
@@ -723,7 +734,8 @@ export async function runChat(args: {
             ? finalRound
               ? Math.min(6000, maxOutput - outputTokens)
               : Math.min(2500, maxOutput - outputTokens - 5000)
-            : Math.min(2500, maxOutput - outputTokens),
+            : Math.min(chatResponseTokens, remainingOutput -
+                (isChatConversation && !finalRound ? chatResponseTokens : 0)),
           reasoning: { effort: deep ? "medium" : "low" },
           text: { format: deep ? productReportFormat(ctx) : { type: "json_object" } },
           store: false,
@@ -1143,7 +1155,7 @@ export async function runChat(args: {
             user_message_id: userMessageId,
             report_id: args.report_id || null,
             opportunity_id: args.opportunity_id || null,
-            quota_exempt: true,
+            ...(e instanceof IaTurnBudgetReached ? {} : { quota_exempt: true }),
           },
           undefined,
           c,

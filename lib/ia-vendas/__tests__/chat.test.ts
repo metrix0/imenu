@@ -19,6 +19,7 @@ import { DIMENSIONS } from "../report";
 import { PRODUCT_DIMENSIONS } from "../products";
 import { potential } from "../peers";
 import { LIMITS } from "../config";
+import { ASSISTANT_CONVERSATION_LIMIT_MESSAGE } from "../types";
 import { query, withTransaction } from "@/lib/database/sql";
 import { context, measure, readData } from "../data";
 import { beginRun, recordTokens, finishRun } from "../runs";
@@ -1026,6 +1027,76 @@ test("free users cannot discuss analysis through a direct chat request", async (
   expect(create).not.toHaveBeenCalled();
   expect(beginRun).not.toHaveBeenCalled();
   expect(args.send).toHaveBeenCalledWith("error", expect.objectContaining({ code: "IA_PLUS_REQUIRED" }));
+});
+
+function mockAssistantHistory(content: string) {
+  (args.send as jest.Mock).mockClear();
+  (aiAccess as jest.Mock).mockResolvedValueOnce({ plus: true });
+  (query as jest.Mock).mockImplementation(async (sql: string) => ({
+    rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
+      ? [{ kind: "chat", summary: "" }]
+      : sql.startsWith("SELECT role,content,cards")
+        ? [{ role: "assistant", content, cards: [] }]
+        : sql.includes("RETURNING id") ? [{ id: "user" }] : [],
+  }));
+}
+
+test("assistant saves room for a final reply inside the shared turn budget", async () => {
+  mockAssistantHistory("Pedido anterior. ".repeat(3600));
+  (readData as jest.Mock).mockResolvedValueOnce({ rows: [{ name: "Lanche" }] });
+  create
+    .mockResolvedValueOnce({
+      status: "completed",
+      output: [{ type: "function_call", name: "read_data", call_id: "read", arguments: '{"entity":"items"}' }],
+      usage: { input_tokens: 40_000, output_tokens: 1_200 },
+    })
+    .mockResolvedValueOnce({
+      status: "completed",
+      output: [],
+      output_text: JSON.stringify({ reply: "Encontrei o lanche.", summary: "" }),
+      usage: { input_tokens: 40_000, output_tokens: 100 },
+    });
+
+  await runChat({ ...args, deep: false });
+
+  expect(create).toHaveBeenCalledTimes(2);
+  expect(create.mock.calls[0][0].tool_choice).toBe("auto");
+  expect(create.mock.calls[1][0]).toMatchObject({ tool_choice: "none", tools: [] });
+  expect(create.mock.calls[1][0].input).toContainEqual(expect.objectContaining({
+    type: "function_call_output",
+    call_id: "read",
+  }));
+  expect(args.send).toHaveBeenCalledWith("done", expect.any(Object));
+});
+
+test("assistant stops an oversized follow-up request without locking the conversation or exempting consumed tokens", async () => {
+  mockAssistantHistory("Pedido anterior.");
+  (readData as jest.Mock).mockResolvedValueOnce({ rows: [{ description: "x".repeat(200_000) }] });
+  create.mockResolvedValueOnce({
+    status: "completed",
+    output: [{ type: "function_call", name: "read_data", call_id: "read", arguments: '{"entity":"items"}' }],
+    usage: { input_tokens: 40_000, output_tokens: 1_200 },
+  });
+
+  await runChat({ ...args, deep: false });
+
+  expect(create).toHaveBeenCalledTimes(1);
+  expect(recordTokens).toHaveBeenCalledWith("owner", "run", 40_000, 1_200, expect.any(Object));
+  const finished = (finishRun as jest.Mock).mock.calls.at(-1);
+  expect(finished[2]).toMatchObject({ reply: "Esta mensagem atingiu o limite de processamento." });
+  expect(finished[2]).not.toHaveProperty("quota_exempt");
+  expect(finished[3]).toBeUndefined();
+  expect(args.send).toHaveBeenCalledWith("done", expect.any(Object));
+});
+
+test("already oversized conversation history still produces the persistent lock", async () => {
+  mockAssistantHistory("x".repeat(200_001));
+
+  await runChat({ ...args, deep: false });
+
+  expect(create).not.toHaveBeenCalled();
+  expect(finishRun).toHaveBeenLastCalledWith("owner", "run", null, ASSISTANT_CONVERSATION_LIMIT_MESSAGE);
+  expect(args.send).toHaveBeenCalledWith("error", { message: ASSISTANT_CONVERSATION_LIMIT_MESSAGE });
 });
 
 test("free chat does not count restaurant context toward the per-message cap", async () => {
