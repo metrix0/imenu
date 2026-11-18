@@ -48,6 +48,17 @@ const TIME_OPTIONS = [
 const timeOptionsFor = (time: string) =>
     TIME_OPTIONS.includes(time) ? TIME_OPTIONS : [...TIME_OPTIONS, time].sort();
 
+const TIME_SEARCH = {
+    placeholder: "Buscar horário",
+    filter: ({ label }: { label: string }, query: string) => {
+        const term = query.toLowerCase().replace(/\s+/g, "").replace("h", ":");
+        const unpadded = label.replace(/^0(?=\d)/, "");
+        return [label, unpadded].some((time) =>
+            time.startsWith(term) || time.replace(":", "").startsWith(term),
+        );
+    },
+};
+
 type DragMode = "move" | "resize-start" | "resize-end";
 type DragState = {
     dayKey: string;
@@ -515,6 +526,8 @@ export default function WeeklyScheduleClick({
                             <div className="relative">
                                 <Dropdown
                                     aria-label="Das"
+                                    scrollToSelected
+                                    search={isMobileEditor ? undefined : TIME_SEARCH}
                                     value={editModal.startTime}
                                     onChange={(event) => {
                                         setEditorError("");
@@ -538,6 +551,8 @@ export default function WeeklyScheduleClick({
                             <div className="relative">
                                 <Dropdown
                                     aria-label="Até"
+                                    scrollToSelected
+                                    search={isMobileEditor ? undefined : TIME_SEARCH}
                                     value={editModal.endTime}
                                     onChange={(event) => {
                                         setEditorError("");
