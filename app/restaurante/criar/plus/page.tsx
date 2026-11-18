@@ -15,13 +15,19 @@ import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import { getCreationStepPath } from "@/lib/restaurantCreation";
 import "../../../painel/planos/planos.css";
 
-type Restaurant = { id: string; url_slug: string | null; first_time: boolean; creation_step: number };
+type Restaurant = {
+    id: string;
+    url_slug: string | null;
+    first_time: boolean;
+    creation_step: number;
+    onboarding_completed_at: string | null;
+};
 const panelUrl = (slug: string) =>
     `/painel?onboarding=complete&menu=${encodeURIComponent(slug)}`;
 
 export default function OnboardingPlusPage() {
     const router = useRouter();
-    const { clear, setRestaurantId } = useCreationStore();
+    const { completeOnboarding, setRestaurantId } = useCreationStore();
     const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
     const [userId, setUserId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
@@ -39,11 +45,11 @@ export default function OnboardingPlusPage() {
             body: JSON.stringify({ first_time: false, creation_step: 5 }),
         });
         if (!response.ok) throw new Error("Não foi possível concluir o cadastro. Tente novamente.");
-        const { url_slug } = await response.json() as { url_slug: string | null };
+        const { url_slug, onboarding_completed_at } = await response.json() as Pick<Restaurant, "url_slug" | "onboarding_completed_at">;
         if (!url_slug) throw new Error("Não foi possível gerar o link do seu cardápio. Tente novamente.");
-        clear();
+        completeOnboarding(store.id, url_slug, onboarding_completed_at);
         router.replace(panelUrl(url_slug));
-    }, [clear, router]);
+    }, [completeOnboarding, router]);
 
     useEffect(() => {
         let canceled = false;
@@ -52,10 +58,14 @@ export default function OnboardingPlusPage() {
             if (canceled) return;
             if (!session) { router.replace("/restaurante/login"); return; }
             const { data, error: loadError } = await supabase.from("restaurants")
-                .select("id,url_slug,first_time,creation_step").eq("user_id", session.user.id).maybeSingle();
+                .select("id,url_slug,first_time,creation_step,onboarding_completed_at").eq("user_id", session.user.id).maybeSingle();
             if (canceled) return;
             if (loadError || !data) throw new Error("Não foi possível carregar seu restaurante. Tente novamente.");
-            if (data.first_time === false && data.url_slug) { router.replace(panelUrl(data.url_slug)); return; }
+            if (data.first_time === false && data.url_slug) {
+                completeOnboarding(data.id, data.url_slug, data.onboarding_completed_at);
+                router.replace(panelUrl(data.url_slug));
+                return;
+            }
             if (data.creation_step !== 5) { router.replace(getCreationStepPath(data.creation_step)); return; }
             setRestaurant(data);
             setRestaurantId(data.id);
@@ -87,7 +97,7 @@ export default function OnboardingPlusPage() {
             if (!canceled) { setError((caught as Error).message); setLoading(false); }
         });
         return () => { canceled = true; };
-    }, [finish, router, setRestaurantId]);
+    }, [completeOnboarding, finish, router, setRestaurantId]);
 
     const track = (action: "checkout" | "skip" | "continue" | "paid" | "back") => {
         if (userId && restaurant) capturePosthogLightweight("imenu_plus_onboarding_action", userId, {

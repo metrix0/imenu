@@ -177,7 +177,7 @@ async function signup(browser) {
     }
 }
 
-async function flow(browser, method) {
+async function flow(browser, method, pickupMode = "only", width = 800) {
     const context = await browser.createBrowserContext();
     const page = await context.newPage();
     let orderPayload;
@@ -228,6 +228,32 @@ async function flow(browser, method) {
         await click(page, "Ver Sacola");
         await click(page, "Continuar");
         await page.waitForSelector('input[autocomplete="name"]');
+        if (width !== 800) await page.setViewport({ width, height: 844 });
+        if (pickupMode !== "only") {
+            const fulfillment = await page.evaluate(() => {
+                const pickup = Array.from(document.querySelectorAll("label"))
+                    .find(label => label.textContent.includes("Retirar pedido no balcão"))
+                    ?.querySelector("input");
+                const cep = document.querySelector('input[autocomplete="postal-code"]');
+                const street = document.querySelector('input[autocomplete="address-line1"]');
+                const neighborhood = document.querySelector('input[autocomplete="address-level3"]');
+                return {
+                    pickupSelected: pickup?.checked,
+                    pickupLocked: pickup?.disabled,
+                    addressLocked: [cep, street, neighborhood].every(input => input?.matches(":disabled")),
+                    addressFaded: Number(getComputedStyle(cep.closest("fieldset")).opacity) < 1,
+                    warning: Array.from(document.querySelectorAll('[role="alert"]'))
+                        .some(element => element.textContent.includes("o endereço da loja não foi configurado")),
+                };
+            });
+            const forced = pickupMode === "automatic";
+            assert.deepEqual(fulfillment, {
+                pickupSelected: forced, pickupLocked: forced, addressLocked: forced,
+                addressFaded: forced, warning: forced,
+            });
+            if (!forced) await page.evaluate(() => Array.from(document.querySelectorAll("label"))
+                .find(label => label.textContent.includes("Retirar pedido no balcão")).click());
+        }
         const phoneFirst = await page.evaluate(() => Boolean(document.querySelector('input[autocomplete="tel"]').compareDocumentPosition(document.querySelector('input[autocomplete="name"]')) & Node.DOCUMENT_POSITION_FOLLOWING));
         assert.ok(phoneFirst,"Phone must come before name in checkout");
         await page.type('input[autocomplete="name"]', "Cliente E2E");
@@ -248,9 +274,10 @@ async function flow(browser, method) {
         assert.equal(orderPayload.customer_phone.replace(/\D/g, ""), "11999990000");
         assert.equal(orderPayload.subtotal_cents, 2500);
         assert.equal(orderPayload.delivery_fee_cents, 0);
+        assert.equal(orderPayload.customer_address, null);
         assert.equal(orderPayload.items.length, 1);
         assert.equal(orderPayload.items[0].base_item_id, itemId);
-        console.log("PASS menu → cart → pickup checkout → " + method + " (order/payment API simulated)");
+        console.log("PASS menu → cart → " + pickupMode + " pickup checkout → " + method + " at " + width + "px (order/payment API simulated)");
     } finally {
         await context.close();
     }
@@ -479,6 +506,21 @@ async function run() {
         await signup(browser);
         await flow(browser, "dinheiro");
         await flow(browser, "pix");
+        const restaurant = data.restaurants[0];
+        const originalRestaurant = { ...restaurant };
+        try {
+            restaurant.delivery_disabled = false;
+            await flow(browser, "dinheiro", "automatic");
+            await flow(browser, "dinheiro", "automatic", 390);
+            Object.assign(restaurant, {
+                address: { street: "Rua E2E", city: "Rio Claro", state: "SP" },
+                latitude: -22.41, longitude: -47.56,
+                delivery_fee_json: [{ radius_km: 3, fee_cents: 800, time_minutes: 40 }],
+            });
+            await flow(browser, "dinheiro", "optional");
+        } finally {
+            Object.assign(restaurant, originalRestaurant);
+        }
         await panelOrders(browser);
         await crmPanels(browser);
     } catch (error) {

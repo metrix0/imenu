@@ -1,3 +1,6 @@
+export const ASSISTANT_CONVERSATION_LIMIT_MESSAGE =
+  "Esta conversa ficou extensa. Abra uma nova conversa; suas propostas já foram salvas.";
+
 export type Data = Record<string, any>;
 export type Operation = {
   entity: string;

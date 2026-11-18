@@ -7,8 +7,22 @@ import {
 import type { PoolClient } from "pg";
 import { query, withTransaction } from "@/lib/database/sql";
 import { LIMITS, MODELS } from "./config";
-import { SalesError } from "./types";
+import { ASSISTANT_CONVERSATION_LIMIT_MESSAGE, SalesError } from "./types";
 import { formatAiResetAt } from "./usageReset";
+export async function assistantConversationLimit(
+  restaurant: string,
+  conversation: string,
+  client?: Pick<PoolClient, "query">,
+): Promise<string | null> {
+  const statement = `SELECT r.error FROM public.ia_vendas_runs r
+    JOIN public.ia_vendas_conversations c ON c.id=r.conversation_id AND c.restaurant_id=r.restaurant_id
+    WHERE r.restaurant_id=$1 AND r.conversation_id=$2 AND c.kind='chat'
+      AND r.kind='chat' AND r.status='failed' AND r.error=$3 LIMIT 1`;
+  const params = [restaurant, conversation, ASSISTANT_CONVERSATION_LIMIT_MESSAGE];
+  const result = client ? await client.query(statement, params) : await query(statement, params);
+  return result.rows[0]?.error ?? null;
+}
+
 export async function beginRun(
   restaurant: string,
   conversation: string,
@@ -27,6 +41,10 @@ export async function beginRun(
       )
     ).rows[0];
     if (old) return old;
+    if (kind === "chat") {
+      const limit = await assistantConversationLimit(restaurant, conversation, c);
+      if (limit) throw new SalesError(limit, 409);
+    }
     const expired = await c.query(
       "UPDATE public.ia_vendas_runs SET status='failed',error='Processamento interrompido.',finished_at=now() WHERE restaurant_id=$1 AND status='running' AND created_at<now()-interval '6 minutes' AND coalesce(result->'batch'->>'mode','')<>'batch' RETURNING credit_input_reserved,credit_output_reserved,credit_included_input,credit_included_output,input_tokens,output_tokens",
       [restaurant],

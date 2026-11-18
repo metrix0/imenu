@@ -3,6 +3,8 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from 'zustand/middleware';
 
+type OnboardingCompletion = { restaurantId: string; slug: string; completedAt: string };
+
 type CreationState = {
     restaurantId: string | null;
     email: string | null; 
@@ -11,24 +13,33 @@ type CreationState = {
     setEmail: (email: string) => void;
     setProductSelectionCompleted: (completed: boolean) => void;
     clear: () => void;
+    onboardingCompletion: OnboardingCompletion | null;
+    completeOnboarding: (restaurantId: string, slug: string, completedAt: string | null) => void;
     restaurantSlug?: string | null;
     setRestaurantSlug: (slug: string | null) => void;
+};
+
+const emptyCreation = {
+    restaurantId: null,
+    email: null,
+    productSelectionCompleted: false,
+    onboardingCompletion: null,
 };
 
 export const useCreationStore = create<CreationState>()(
     persist(
         (set) => ({
-            restaurantId: null,
-            email: null,
-            productSelectionCompleted: false,
+            ...emptyCreation,
             setRestaurantId: (id) => set({ restaurantId: id }),
             setEmail: (email) => set({ email: email }), 
             setProductSelectionCompleted: (completed) =>
                 set({ productSelectionCompleted: completed }),
-            clear: () => set({
-                restaurantId: null,
-                email: null,
-                productSelectionCompleted: false,
+            clear: () => set(emptyCreation),
+            completeOnboarding: (restaurantId, slug, completedAt) => set({
+                ...emptyCreation,
+                restaurantId,
+                restaurantSlug: slug,
+                onboardingCompletion: completedAt ? { restaurantId, slug, completedAt } : null,
             }),
             restaurantSlug : null,
             setRestaurantSlug: (slug) => set({ restaurantSlug: slug }),

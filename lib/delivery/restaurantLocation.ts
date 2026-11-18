@@ -40,3 +40,29 @@ export function getRestaurantDeliveryLocation(restaurant: {
 
     return { address, hasAddress, hasRadiusOrigin };
 }
+
+export function getCheckoutFulfillment(
+    restaurant: Parameters<typeof getRestaurantDeliveryLocation>[0] & {
+        delivery_disabled?: boolean | null;
+        delivery_fee_mode?: string | null;
+        pickup_enabled?: boolean | null;
+    },
+    isTableOrder: boolean,
+    pickupSelected: boolean,
+    neighborhoodMode = restaurant.delivery_fee_mode === "neighborhood",
+) {
+    const location = getRestaurantDeliveryLocation(restaurant);
+    const deliveryDisabled = !isTableOrder && restaurant.delivery_disabled === true;
+    const missingDeliveryOrigin = !isTableOrder && !deliveryDisabled && !neighborhoodMode && !location.hasRadiusOrigin;
+    const pickupAvailable = !isTableOrder && restaurant.pickup_enabled === true;
+    const pickupRequired = deliveryDisabled || (pickupAvailable && missingDeliveryOrigin);
+
+    return {
+        ...location,
+        deliveryDisabled,
+        missingDeliveryOrigin,
+        pickupAvailable,
+        pickupRequired,
+        isPickup: pickupRequired || (pickupAvailable && pickupSelected),
+    };
+}

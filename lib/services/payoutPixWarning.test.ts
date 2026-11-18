@@ -52,7 +52,7 @@ afterEach(() => {
 test("warns only verified payables with missing key, missing type, invalid format or a rejected lookup", async () => {
     (query as jest.Mock).mockResolvedValue({ rows: [
         restaurant("1", null, null),
-        restaurant("2", "pix@example.com", null),
+        restaurant("2", "12345678901", null),
         restaurant("3", "pix@example.com", "PHONE"),
         restaurant("4", "inactive@example.com", "EMAIL"),
         restaurant("5", "(19) 99999-9999", "PHONE"),
@@ -77,12 +77,48 @@ test("warns only verified payables with missing key, missing type, invalid forma
     expect(delay).toHaveBeenCalledWith(15_000);
 });
 
-test.each([429, 500])("an Asaas HTTP %s leaves the key unverified and sends no warning", async status => {
-    (query as jest.Mock).mockResolvedValue({ rows: [restaurant("1", "pix@example.com", "EMAIL")] });
+test("sets an automatically detected type only after Asaas confirms it and skips the warning", async () => {
+    (query as jest.Mock).mockResolvedValueOnce({ rows: [
+        restaurant("1", "pix@example.com", null),
+        restaurant("2", "pix@example.com", "EMAIL"),
+        restaurant("3", "pix@example.com", "PHONE"),
+    ] }).mockResolvedValueOnce({ rowCount: 1 });
+    asaasResponse(200, { remaining: 40 });
+    asaasResponse(200, { key: "pix@example.com" });
+
+    await expect(warnAboutUpcomingPayoutPix(runAt)).resolves.toMatchObject({
+        eligible: 3, invalid: 1, sent: 1, uncheckedKeys: 0,
+    });
+    expect(request).toHaveBeenCalledTimes(2);
+    expect((request as jest.Mock).mock.calls[1][0].searchParams.get("type")).toBe("EMAIL");
+    expect(query).toHaveBeenCalledTimes(2);
+    expect(query).toHaveBeenLastCalledWith(
+        expect.stringContaining("payment_info = $2 AND NULLIF(payment_info_type, '') IS NULL"),
+        ["1", "pix@example.com", "EMAIL"],
+    );
+    expect(notifyUpcomingPayoutPixProblem).toHaveBeenCalledTimes(1);
+    expect(notifyUpcomingPayoutPixProblem).toHaveBeenCalledWith("3", "2026-11-15");
+});
+
+test("warns when Asaas rejects the detected type without saving it", async () => {
+    (query as jest.Mock).mockResolvedValueOnce({ rows: [restaurant("1", "pix@example.com", null)] });
+    asaasResponse(200, { remaining: 40 });
+    asaasResponse(400, { errors: [{ description: "Chave Pix não encontrada." }] });
+
+    await expect(warnAboutUpcomingPayoutPix(runAt)).resolves.toMatchObject({
+        invalid: 1, sent: 1, uncheckedKeys: 0,
+    });
+    expect(query).toHaveBeenCalledTimes(1);
+    expect(notifyUpcomingPayoutPixProblem).toHaveBeenCalledWith("1", "2026-11-15");
+});
+
+test.each([429, 500])("an Asaas HTTP %s leaves the detected type unverified and sends no warning", async status => {
+    (query as jest.Mock).mockResolvedValue({ rows: [restaurant("1", "pix@example.com", null)] });
     asaasResponse(200, { remaining: 40 });
     asaasResponse(status, { errors: [{ description: "Chave Pix não encontrada." }] });
 
     await expect(warnAboutUpcomingPayoutPix(runAt)).resolves.toMatchObject({ uncheckedKeys: 1, sent: 0 });
+    expect(query).toHaveBeenCalledTimes(1);
     expect(notifyUpcomingPayoutPixProblem).not.toHaveBeenCalled();
 });
 

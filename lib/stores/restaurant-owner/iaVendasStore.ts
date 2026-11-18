@@ -31,6 +31,7 @@ type State = {
   clearUpgrade: () => void;
   restaurant_id: string | null;
   conversation_id: string | null;
+  conversation_limit: string | null;
   conversations: Data[];
   messages: Message[];
   analyses: Data[];
@@ -74,6 +75,7 @@ export const useSalesStore = create<State>((set, get) => ({
   clearUpgrade: () => set({ upgradeRequired: false }),
   restaurant_id: null,
   conversation_id: null,
+  conversation_limit: null,
   conversations: [],
   messages: [],
   analyses: [],
@@ -107,6 +109,7 @@ export const useSalesStore = create<State>((set, get) => ({
             references: {},
             running: null,
             conversation_id: null,
+            conversation_limit: null,
           }
         : {}),
     });
@@ -125,6 +128,7 @@ export const useSalesStore = create<State>((set, get) => ({
         usageVersion += 1;
         set({
           ...data,
+          conversation_limit: data.conversation_limit ?? null,
           usageAccess: { restaurant_id: data.restaurant_id, access: data.access, latest_analysis_finished_at: data.latest_analysis_finished_at ?? null },
           messages: older
             ? [...data.messages, ...previous.messages]
@@ -139,7 +143,7 @@ export const useSalesStore = create<State>((set, get) => ({
   },
   send: async (text, attachments, deep, scope = {}) => {
     const current = get();
-    if (current.busy || !current.conversation_id) return false;
+    if (current.busy || !current.conversation_id || current.conversation_limit) return false;
     const conversation = current.conversation_id;
     version += 1;
     set({

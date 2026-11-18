@@ -30,7 +30,7 @@ import { Item, type ItemsByCategory } from "@/lib/types/types";
 import { rankAutomaticUpsells, type AutomaticUpsellRecommendations } from "@/lib/upsell/recommendations";
 import { StartingPriceLabel } from "./StartingPriceLabels";
 import type { QrTableMenuContext } from "@/lib/qr-table/types";
-import { getRestaurantDeliveryLocation } from "@/lib/delivery/restaurantLocation";
+import { getCheckoutFulfillment } from "@/lib/delivery/restaurantLocation";
 import {
     findSimilarNeighborhoodDeliveryRule,
     normalizeNeighborhoodName,
@@ -124,9 +124,11 @@ export default function CartModal({
     } = useCheckoutStore();
     const savedPickup = useCheckoutStore((state: any) => Boolean(state.is_pickup));
     const isTableOrder = Boolean(tableOrder);
-    const deliveryDisabled = !isTableOrder && restaurant?.delivery_disabled === true;
-    const isPickup = deliveryDisabled || savedPickup;
     const neighborhoodMode = Array.isArray(neighborhoodDeliveryRules);
+    const {
+        address: restaurantAddress, hasAddress: hasRestaurantAddress,
+        deliveryDisabled, missingDeliveryOrigin, pickupAvailable, pickupRequired, isPickup,
+    } = getCheckoutFulfillment(restaurant, isTableOrder, savedPickup, neighborhoodMode);
     const normalizedNeighborhood = normalizeNeighborhoodName(bairro);
     const unknownNeighborhood = neighborhoodMode && Boolean(normalizedNeighborhood) &&
         !neighborhoodDeliveryRules.some((rule) =>
@@ -265,10 +267,6 @@ export default function CartModal({
         }
     }, [scheduledOptionsKey, scheduled_for, mustSchedule, isTableOrder, allowFutureScheduling, preorderOnly, showOptionalSchedule]);
 
-    const { address: restaurantAddress, hasAddress: hasRestaurantAddress, hasRadiusOrigin } =
-        getRestaurantDeliveryLocation(restaurant);
-    const missingDeliveryOrigin = !isTableOrder && !isPickup && !neighborhoodMode && !hasRadiusOrigin;
-
     const formattedRestaurantAddress = restaurantAddress
         ? [
             [restaurantAddress.street, restaurantAddress.number].filter(Boolean).join(", "),
@@ -343,7 +341,7 @@ export default function CartModal({
     async function recalcDeliveryFeeFromAddress() {
         if (isTableOrder) return;
         const st = useCheckoutStore.getState() as any;
-        if (st.is_pickup) {
+        if (pickupRequired || st.is_pickup) {
             setDeliveryFeeCents(0);
             setField("delivery_fee_cents", "0");
             setField("delivery_time_minutes", null);
@@ -685,12 +683,12 @@ export default function CartModal({
 
     useEffect(() => {
         if (isTableOrder) return;
-        if (!deliveryDisabled && !hasRestaurantAddress && isPickup) {
+        if (!deliveryDisabled && !hasRestaurantAddress && savedPickup) {
             useCheckoutStore.setState({ is_pickup: false } as any);
             setDeliveryFeeCents(null);
             setField("delivery_fee_cents", null);
         }
-    }, [deliveryDisabled, hasRestaurantAddress, isPickup, isTableOrder]);
+    }, [deliveryDisabled, hasRestaurantAddress, savedPickup, isTableOrder]);
 
     useEffect(() => {
         if (!restaurant?.id) return;
@@ -1233,11 +1231,12 @@ export default function CartModal({
                             )}
                         </div>
                     )}
-                    {!deliveryDisabled && hasRestaurantAddress && (
-                        <label className={`mb-5 flex cursor-pointer items-center gap-3 rounded-xl border p-4 transition-colors ${isPickup ? "border-[var(--im-menu-action,#f14400)] bg-[var(--im-menu-accent-soft,#f144000d)]" : "border-[var(--im-menu-border,#e5e7eb)] bg-[var(--im-menu-surface,#fff)] hover:border-[var(--im-menu-border,#d1d5db)]"}`}>
+                    {!deliveryDisabled && pickupAvailable && (hasRestaurantAddress || pickupRequired) && (
+                        <label className={`mb-5 flex items-center gap-3 rounded-xl border p-4 transition-colors ${pickupRequired ? "cursor-default" : "cursor-pointer"} ${isPickup ? "border-[var(--im-menu-action,#f14400)] bg-[var(--im-menu-accent-soft,#f144000d)]" : "border-[var(--im-menu-border,#e5e7eb)] bg-[var(--im-menu-surface,#fff)] hover:border-[var(--im-menu-border,#d1d5db)]"}`}>
                             <input
                                 type="checkbox"
                                 checked={isPickup}
+                                disabled={pickupRequired}
                                 onChange={(event) => handlePickupChange(event.target.checked)}
                                 className="sr-only"
                             />
@@ -1249,15 +1248,26 @@ export default function CartModal({
                             </span>
                             <span className="flex min-w-0 flex-col">
                                 <span className="font-semibold text-md 2xl:text-lg">Retirar pedido no balcão</span>
-                                <span className="mt-1 text-sm text-[var(--im-menu-muted,#6b7280)] 2xl:text-base">{formattedRestaurantAddress}</span>
+                                {formattedRestaurantAddress && (
+                                    <span className="mt-1 text-sm text-[var(--im-menu-muted,#6b7280)] 2xl:text-base">{formattedRestaurantAddress}</span>
+                                )}
                             </span>
                         </label>
                     )}
 
+                    {missingDeliveryOrigin && (
+                        <WarningBox
+                            role="alert"
+                            icon={icons.faTriangleExclamation}
+                            className="mt-2 mb-8 p-4 2xl:text-lg"
+                        >
+                            A entrega está indisponível porque o endereço da loja não foi configurado. O restaurante pode corrigir isso na aba <strong>Tempo e Taxa → Endereço do restaurante</strong>.
+                        </WarningBox>
+                    )}
                     {!deliveryDisabled && (
                     <fieldset
                         disabled={isPickup || missingDeliveryOrigin}
-                        className={`transition-opacity ${isPickup ? "pointer-events-none opacity-40" : "opacity-100"}`}
+                        className={`transition-opacity ${isPickup || missingDeliveryOrigin ? "pointer-events-none opacity-40" : "opacity-100"}`}
                     >
                         <div className={"md:flex md:justify-between md:pr-4 md:mx-1 md:mb-4"}>
                             <h2 className="font-semibold text-md 2xl:text-lg mb-4 md:mb-0">
@@ -1274,15 +1284,7 @@ export default function CartModal({
                             </button>
                         </div>
 
-                        {missingDeliveryOrigin ? (
-                            <WarningBox
-                                role="alert"
-                                icon={icons.faTriangleExclamation}
-                                className="mt-2 mb-8 p-4 2xl:text-lg"
-                            >
-                                A entrega está indisponível porque o endereço da loja não foi configurado. O restaurante pode corrigir isso na aba <strong>Tempo e Taxa → Endereço do restaurante</strong>.
-                            </WarningBox>
-                        ) : missingDeliveryConfig && (
+                        {!missingDeliveryOrigin && missingDeliveryConfig && (
                             <WarningBox
                                 role="alert"
                                 icon={icons.faTriangleExclamation}

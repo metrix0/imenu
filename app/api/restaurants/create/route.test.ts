@@ -18,7 +18,7 @@ function createRequest() {
     });
 }
 
-test("creates the restaurant with the 1, 2 and 3 km delivery ranges before onboarding", async () => {
+test("creates the restaurant with pickup enabled and default delivery ranges", async () => {
     mockQuery
         .mockResolvedValueOnce({ rows: [], rowCount: 0 })
         .mockResolvedValueOnce({ rows: [{ id: "new-restaurant" }], rowCount: 1 })
@@ -30,6 +30,7 @@ test("creates the restaurant with the 1, 2 and 3 km delivery ranges before onboa
     const [insert, values] = mockQuery.mock.calls[1];
     expect(insert).toContain("delivery_fee_json");
     expect(insert).toContain("$3::jsonb");
+    expect(insert).toMatch(/creation_step, pickup_enabled\s*\) VALUES [^\n]+TRUE, 1, TRUE\)/);
     expect(JSON.parse(values![2] as string)).toEqual([
         { radius_km: 1, time_minutes: 40, fee_cents: 800 },
         { radius_km: 2, time_minutes: 40, fee_cents: 800 },

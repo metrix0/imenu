@@ -41,7 +41,7 @@ import {
 import type { Action, Data } from "@/lib/ia-vendas/types";
 import { IA_PLUS_FEATURE_MESSAGE } from "@/lib/addons/products";
 import { isPanelTabKey, type PanelTabKey } from "@/lib/ia-vendas/panelTabs";
-import ErrorNoticeContent, { AssistantQuotaReply } from "@/components/restaurant-owner/ia-vendas/ErrorNoticeContent";
+import ErrorNoticeContent, { AssistantConversationLimitReply, AssistantQuotaReply } from "@/components/restaurant-owner/ia-vendas/ErrorNoticeContent";
 import { SupportWhatsappBadge } from "@/components/common/SupportButton";
 import { capturePosthogLightweight } from "@/lib/api/instrumentation-client";
 import { usePlusExposure } from "@/lib/analytics/plusExposure";
@@ -227,6 +227,7 @@ export default function SalesPage() {
     modeReady =
       (!isAnalysis && newConversation) ||
       conversation?.kind === (isAnalysis ? "analysis" : "chat"),
+    conversationLimit = !isAnalysis && !newConversation && modeReady ? sales.conversation_limit : null,
     disabled =
       sales.busy || sales.acting || !!(sales.running && sales.running.mode !== "batch") || !modeReady,
     analysisRunning =
@@ -286,7 +287,7 @@ export default function SalesPage() {
   }, [sales.upgradeRequired, isAnalysis, openPlus]);
   async function send() {
     if (isAnalysis && locked) { setPlusModal("checkout"); return; }
-    if (!text.trim() || disabled || uploading) return;
+    if (!text.trim() || disabled || uploading || conversationLimit) return;
     const draft = text.trim(),
       pendingAttachments = attachments;
     setText("");
@@ -646,14 +647,15 @@ export default function SalesPage() {
               <div ref={end} />
     </>
   );
+  const noticeMessage = localError || (sales.error === conversationLimit ? null : sales.error);
   const notice = (
     <>
-          {(sales.error || localError) && (
+          {noticeMessage && (
             <div
               role="alert"
               className="mx-4 mb-2 flex items-start justify-between gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700"
             >
-              <ErrorNoticeContent message={localError || sales.error || ""} access={sales.access} onBuyCredits={() => setModal("buy_tokens")} />
+              <ErrorNoticeContent message={noticeMessage} access={sales.access} onBuyCredits={() => setModal("buy_tokens")} />
               <button
                 aria-label="Fechar aviso"
                 className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-[8px] transition-colors hover:bg-red-100"
@@ -1081,7 +1083,13 @@ export default function SalesPage() {
             </div>
           </div>
           {notice}
-          {composer}
+          {conversationLimit ? (
+            <div className="border-t border-[var(--panel-border)] bg-[var(--panel-surface)] px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:border-t-0 md:px-8 md:pt-4 md:pb-4">
+              <div className="mx-auto max-w-3xl">
+                <AssistantConversationLimitReply message={conversationLimit} onNewConversation={startNewConversation} />
+              </div>
+            </div>
+          ) : composer}
             </>
           )}
 
