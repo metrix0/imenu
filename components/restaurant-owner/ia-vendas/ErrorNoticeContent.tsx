@@ -1,5 +1,6 @@
 "use client";
 
+import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { Coins } from "lucide-react";
 import LoadingBar from "@/components/ui/LoadingBar";
@@ -25,6 +26,10 @@ export function AssistantQuotaReply({ message, onBuyCredits, onSubscribe, access
     "",
   );
   const monthlyUsage = monthly && access?.plus ? access.usage : null;
+  const inputLimitReached = monthlyUsage !== null &&
+    monthlyUsage.tokens.input >= monthlyUsage.tokens.input_limit &&
+    (access?.purchased_credits.input ?? 0) <= 0;
+  const imageLimitReached = (access?.images_remaining ?? 0) <= 0;
   return (
     <section aria-label={title} className="max-w-lg rounded-[10px] border border-[var(--panel-border)] bg-[var(--panel-surface)] p-4">
       <p className="text-sm font-semibold text-[var(--panel-text,#1d1d1d)]">{title}</p>
@@ -37,9 +42,14 @@ export function AssistantQuotaReply({ message, onBuyCredits, onSubscribe, access
           <p>Seu plano inclui estes limites mensais. Uso atual:</p>
           <dl className="mt-2 space-y-2.5">
             <div>
-              <div className="flex justify-between gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                 <dt>Tokens de entrada</dt>
-                <dd className="tabular-nums text-[var(--panel-text,#1d1d1d)]">{formatCount(monthlyUsage.tokens.input)} / {formatCount(monthlyUsage.tokens.input_limit)}</dd>
+                <dd className="ml-auto flex flex-wrap items-center justify-end gap-x-2 gap-y-1 tabular-nums text-[var(--panel-text,#1d1d1d)]">
+                  <Badge mode="pill" variant={inputLimitReached ? "danger" : "success"} uppercase={false} className="whitespace-nowrap">
+                    {inputLimitReached ? "Limite atingido" : "Saldo disponível"}
+                  </Badge>
+                  <span className="whitespace-nowrap">{formatCount(monthlyUsage.tokens.input)} / {formatCount(monthlyUsage.tokens.input_limit)}</span>
+                </dd>
               </div>
               <LoadingBar
                 progress={monthlyUsage.tokens.input / monthlyUsage.tokens.input_limit * 100}
@@ -50,9 +60,14 @@ export function AssistantQuotaReply({ message, onBuyCredits, onSubscribe, access
               />
             </div>
             <div>
-              <div className="flex justify-between gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                 <dt>Imagens</dt>
-                <dd className="tabular-nums text-[var(--panel-text,#1d1d1d)]">{formatCount(monthlyUsage.images.used)} / {formatCount(monthlyUsage.images.limit)}</dd>
+                <dd className="ml-auto flex flex-wrap items-center justify-end gap-x-2 gap-y-1 tabular-nums text-[var(--panel-text,#1d1d1d)]">
+                  <Badge mode="pill" variant={imageLimitReached ? "danger" : "success"} uppercase={false} className="whitespace-nowrap">
+                    {imageLimitReached ? "Limite atingido" : "Saldo disponível"}
+                  </Badge>
+                  <span className="whitespace-nowrap">{formatCount(monthlyUsage.images.used)} / {formatCount(monthlyUsage.images.limit)}</span>
+                </dd>
               </div>
               <LoadingBar
                 progress={monthlyUsage.images.percent}
