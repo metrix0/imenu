@@ -117,5 +117,5 @@ export function useAutoSave<T>(scope: string | null, save: Save<T>) {
 
     // Capture the current restaurant's save callback with each edit.
     const schedule = useCallback((value: T) => controller.schedule(value, save), [controller, save]);
-    return { ...state, schedule, reset: controller.reset };
+    return { ...state, schedule, reset: controller.reset, retry: controller.retry };
 }

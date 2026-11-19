@@ -1,7 +1,7 @@
 // app/[slug]/menu-client.tsx
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { Restaurant, Menu, Category, ItemsByCategory, Item, Subitem, Subcategory } from "@/lib/types/types";
@@ -16,6 +16,7 @@ import Input from "@/components/ui/Input";
 import { formatPrice, formatPriceNoRS, promotionPrice } from "@/lib/utils/formatPrice";
 import ModalMobile from "@/components/ui/HybridModal";
 import ItemModal from "./ItemModal";
+import { MenuCardMedia, useMenuVideoPreviews } from "./menuVideoPreviews";
 import CartBar from "@/components/costumer/CartBar"
 import CartModal from "./CartModal"
 import WarningBox from "@/components/ui/WarningBox";
@@ -183,7 +184,10 @@ export default function MenuClientPage({
     const [manualScrollLock, setManualScrollLock] = useState(false);
     const [debouncedSearch, setDebouncedSearch] = useState("");
     const [couponUsed, setCouponUsed] = useState("");
-    const isItemModalOpen = Boolean(openedItem);
+    const menuCards = useRef<HTMLDivElement>(null);
+    const activeVideoPreview = useMenuVideoPreviews(menuCards, categories, itemsByCategory, debouncedSearch,
+        !openedItem && !cartOpen && !searchOpen && !historyOpen && !restaurantInfoOpen && !restaurantCartWarningVisible,
+    );
     useEffect(() => {
         if (isTableOrder || restaurant.delivery_disabled !== true) return;
         useCheckoutStore.setState({ is_pickup: true, delivery_fee_cents: "0", delivery_time_minutes: null } as any);
@@ -1126,7 +1130,7 @@ export default function MenuClientPage({
                 </div>
             )}
 
-            <div className="mt-8 px-4 md:mx-44 space-y-12 pb-20 2xl:mx-80 2xl:mt-12 relative">
+            <div ref={menuCards} className="mt-8 px-4 md:mx-44 space-y-12 pb-20 2xl:mx-80 2xl:mt-12 relative">
                 <div className="absolute top-0 right-4 hidden md:flex justify-end gap-4">
                     <button
                         className={`text-sm 2xl:text-base text-[var(--im-menu-link,#f14400)] mt-1 transition-opacity duration-200 ${
@@ -1177,15 +1181,7 @@ export default function MenuClientPage({
                                                 : ""
                                         }`}
                                     >
-                                        <div className=" w-full aspect-square rounded-2xl overflow-hidden bg-[var(--im-menu-raised,#e5e7eb)] shadow-sm">
-                                            <Image
-                                                src={item.image_public_url || "/placeholders/item.png"}
-                                                width={320}
-                                                height={320}
-                                                className="w-full h-full object-cover"
-                                                alt={item.name}
-                                            />
-                                        </div>
+                                        <MenuCardMedia item={item} activeVideoId={activeVideoPreview} className="w-full aspect-square rounded-2xl overflow-hidden bg-[var(--im-menu-raised,#e5e7eb)] shadow-sm" />
 
                                         <div className="mt-3 flex flex-col h-[55px] justify-start ">
                                             <p className="font-semibold text-sm 2xl:text-lg">
@@ -1199,8 +1195,7 @@ export default function MenuClientPage({
                                             </p>
                                         </div>
                                     </button>
-                                )
-                                )}
+                                ))}
                             </div>
                         </div>
                         :
@@ -1236,16 +1231,7 @@ export default function MenuClientPage({
                                             </p>
                                         </div>
 
-                                        <div className="w-[22vw] h-[22vw] md:w-[10vw] md:h-[10vw] rounded-2xl overflow-hidden
-                    bg-[var(--im-menu-raised,#e5e7eb)] shadow-sm flex-shrink-0">
-                                            <Image
-                                                src={item.image_public_url || "/placeholders/item.png"}
-                                                width={320}
-                                                height={320}
-                                                className="w-full h-full object-cover"
-                                                alt={item.name}
-                                            />
-                                        </div>
+                                        <MenuCardMedia item={item} activeVideoId={activeVideoPreview} className="w-[22vw] h-[22vw] md:w-[10vw] md:h-[10vw] rounded-2xl overflow-hidden bg-[var(--im-menu-raised,#e5e7eb)] shadow-sm flex-shrink-0" />
                                     </button>
                                 ))}
                             </div>

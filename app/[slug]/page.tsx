@@ -1,3 +1,4 @@
+import { getPublicItemMedia } from "@/lib/menu/itemMedia";
 import { getMenuItemImageUrl } from "@/lib/menu/itemImages";
 import { isItemAvailableForChannel } from "@/lib/menu/itemAvailability";
 // app/[slug]/page.tsx
@@ -261,7 +262,7 @@ export default async function Page({
     supabase
       .from("items")
       .select(
-        "id, name, description, price_cents, image_path, is_available, available_for_delivery, available_for_salao, position, category_id, category:category_id(id, name, position)",
+        "id, name, description, price_cents, image_path, gallery_media, is_available, available_for_delivery, available_for_salao, position, category_id, category:category_id(id, name, position)",
       )
       .eq("restaurant_id", restaurant.id)
       .order("position", { ascending: true }),
@@ -355,6 +356,7 @@ export default async function Page({
     .map((item: any) => ({
       ...item,
       image_public_url: getMenuItemImageUrl(supabase, item.image_path),
+      gallery_media: item.image_path ? getPublicItemMedia(supabase, item.gallery_media) : [],
     }));
 
   // ======================

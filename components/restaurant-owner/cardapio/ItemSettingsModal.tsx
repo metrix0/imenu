@@ -10,7 +10,8 @@ import { icons } from "@/lib/utils/fontawesome";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useAutoSave } from "@/lib/utils/useAutoSave";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
-import type { MenuItemType } from "./MenuItemRow";
+import type { MenuItemSettingsUpdate, MenuItemType } from "./MenuItemRow";
+import ItemMediaSettings from "./ItemMediaSettings";
 
 type Availability = { available_for_delivery: boolean; available_for_salao: boolean };
 
@@ -19,7 +20,7 @@ export default function ItemSettingsModal({ item, restaurantId, open, onClose, o
     restaurantId: string;
     open: boolean;
     onClose: () => void;
-    onUpdated: (item: MenuItemType) => void;
+    onUpdated: (item: MenuItemSettingsUpdate) => void;
     onOpenComplements?: () => void;
 }) {
     const restaurantSlug = useCreationStore(state => state.restaurantSlug);
@@ -28,6 +29,7 @@ export default function ItemSettingsModal({ item, restaurantId, open, onClose, o
         available_for_delivery: item.available_for_delivery !== false,
         available_for_salao: item.available_for_salao !== false,
     });
+    const [mediaBusy, setMediaBusy] = useState(false);
     const [copied, setCopied] = useState(false);
     const [copyError, setCopyError] = useState("");
     const save = useAutoSave<Availability>(`${restaurantId}:${item.id}`, async value => {
@@ -35,7 +37,7 @@ export default function ItemSettingsModal({ item, restaurantId, open, onClose, o
             .eq("id", item.id).eq("restaurant_id", restaurantId)
             .select("available_for_delivery, available_for_salao").single();
         if (error || !data) throw new Error("Não foi possível salvar a disponibilidade.");
-        onUpdated({ ...item, ...data });
+        onUpdated({ id: item.id, ...data });
     });
     const update = (field: keyof Availability) => {
         const next = { ...availability, [field]: !availability[field] };
@@ -60,14 +62,17 @@ export default function ItemSettingsModal({ item, restaurantId, open, onClose, o
         }
     };
 
+    const isBusy = mediaBusy || save.status === "saving";
+
     return <>
         <SaveStatus status={save.status} />
-        <Modal height={420} open={open} onClose={() => { if (save.status !== "saving") onClose(); }} showCloseButton>
+        <Modal height={680} open={open} onClose={() => { if (!isBusy) onClose(); }} showCloseButton>
             <div className="space-y-5 p-6">
                 <div>
                     <h2 className="text-xl font-semibold text-gray-900">Configurações do item</h2>
                     <p className="mt-1 text-sm text-gray-500">{item.name}</p>
                 </div>
+                <ItemMediaSettings item={item} restaurantId={restaurantId} onUpdated={onUpdated} onBusyChange={setMediaBusy} />
                 <div className="divide-y divide-gray-100 rounded-lg border border-gray-200">
                     <div className="flex items-center justify-between gap-4 p-4">
                         <span id={`delivery-${item.id}`} className="text-sm font-medium text-gray-900">Disponível para delivery</span>
@@ -86,7 +91,7 @@ export default function ItemSettingsModal({ item, restaurantId, open, onClose, o
                 {copyError && <p role="alert" className="text-sm text-red-600">{copyError}</p>}
                 <p className="text-sm text-gray-500">
                     Quer adicionar opções ao produto?{" "}
-                    <button type="button" disabled={save.status === "saving"} onClick={() => { onClose(); onOpenComplements?.(); }} className="cursor-pointer font-medium text-brand hover:underline disabled:opacity-50">Acesse Complementos.</button>
+                    <button type="button" disabled={isBusy} onClick={() => { onClose(); onOpenComplements?.(); }} className="cursor-pointer font-medium text-brand hover:underline disabled:opacity-50">Acesse Complementos.</button>
                 </p>
             </div>
         </Modal>

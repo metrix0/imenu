@@ -74,6 +74,7 @@ export type Item = {
     position: number;
     category?: Category | null;
     image_public_url?: string | null;
+    gallery_media?: import("@/lib/menu/itemMedia").PublicItemMedia[];
     promotion?: Promotion;
 };
 

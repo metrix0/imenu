@@ -195,7 +195,6 @@ export default function CategorySection({
                 name: updatedItem.name,
                 description: updatedItem.description,
                 price_cents: updatedItem.price_cents,
-                image_path: updatedItem.image_path,
                 is_available: updatedItem.is_available
             })
             .eq("id", updatedItem.id);
@@ -224,6 +223,7 @@ export default function CategorySection({
             description: originalItem.description,
             price_cents: originalItem.price_cents,
             image_path: originalItem.image_path,
+            gallery_media: originalItem.gallery_media ?? [],
             category_id: category.id,
             restaurant_id: restaurantId,
             is_available: false,
@@ -298,7 +298,7 @@ export default function CategorySection({
                             onSave={handleUpdateItem}
                             onSettingsUpdated={(updatedItem) => {
                                 const nextItems = localItemsRef.current.map(current => current.id === updatedItem.id
-                                    ? { ...current, available_for_delivery: updatedItem.available_for_delivery, available_for_salao: updatedItem.available_for_salao }
+                                    ? { ...current, ...updatedItem }
                                     : current);
                                 localItemsRef.current = nextItems;
                                 setLocalItems(nextItems);
