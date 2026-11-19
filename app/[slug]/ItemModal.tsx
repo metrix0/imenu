@@ -13,6 +13,7 @@ import Loader from "@/components/ui/Loader";
 import Tooltip from "@/components/ui/Tooltip";
 import { captureConsumerEvent } from "@/lib/analytics/captureConsumerEvent";
 import { CONSUMER_EVENTS } from "@/lib/analytics/consumerEvents";
+import { metaCommerceData, type TrackMetaFunnelEvent } from "@/lib/analytics/metaEvents";
 
 import SearchModal from "./SearchModal";
 import ItemMediaGallery from "./ItemMediaGallery";
@@ -33,7 +34,7 @@ type Props = {
     deliveryTax: { lowest: number; highest: number  } | null;
     deliveryTime: { lowest: number; highest: number  } | null;
     onAdd?: () => void;
-    trackMeta?: (slug: string, eventName: string, data: Record<string, any>) => void;
+    trackMeta?: TrackMetaFunnelEvent;
     slug?: string;
 };
 
@@ -311,13 +312,7 @@ export default function ItemModal({
             cart_item_count: cartItemCount,
         });
 
-        if (trackMeta && slug) {
-            trackMeta(slug, "AddToCart", {
-                content_ids: [item.id],
-                value: item.price_cents / 100,
-                currency: "BRL",
-            });
-        }
+        trackMeta?.("AddToCart", metaCommerceData([{ id: item.id, quantity: qty }], displayedTotal));
 
         if (onAdd) {
             closeWithAnimation();

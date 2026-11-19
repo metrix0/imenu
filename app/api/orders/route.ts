@@ -1,4 +1,9 @@
 import { isItemAvailableForChannel } from "@/lib/menu/itemAvailability";
+import { metaCommerceData, metaPurchaseEventId, type MetaCommerceData } from "@/lib/analytics/metaEvents";
+import {
+    discardMetaPixPurchase, metaContext, metaCustomerFromOrder, metaDestination,
+    saveMetaPixPurchase, sendMetaEvent,
+} from "@/lib/analytics/metaServer";
 import { readCookie, checkoutCookie, structuredAddress, trustCustomer, trustedPhone } from "@/lib/services/checkoutCustomer";
 import { normalizeCustomerPhone } from "@/lib/services/crmRules";
 // app/api/orders/route.ts
@@ -1289,6 +1294,43 @@ export async function POST(request: Request) {
             slug,
         } = transactionResult;
 
+        let metaPurchase: MetaCommerceData | undefined;
+        let savedPixAttribution = false;
+        if (body.meta_tracking === true && panel_order !== true && !isCounterOrder && slug) {
+            try {
+                const destination = await metaDestination({ id: restaurantId });
+                if (destination) {
+                    metaPurchase = metaCommerceData(
+                        items.map((item: any) => ({ id: getCartItemId(item) || "", quantity: Number(item.qty) })),
+                        total,
+                        orderId,
+                    );
+                    if (destination.token) {
+                        const customer = metaCustomerFromOrder(
+                            { ...body, customer_phone: isTableOrder ? null : customer_phone },
+                            !isTableOrder && !isPickup,
+                        );
+                        const context = metaContext(request, slug, restaurantId, customer);
+                        if (isOnlinePix) {
+                            await saveMetaPixPurchase(orderId, destination.pixelId, metaPurchase, context);
+                            savedPixAttribution = true;
+                        } else {
+                            const purchase = metaPurchase;
+                            after(async () => {
+                                try {
+                                    await sendMetaEvent(destination, "Purchase", metaPurchaseEventId(orderId), purchase, context);
+                                } catch (error) {
+                                    console.warn("[META] Offline purchase delivery failed", error);
+                                }
+                            });
+                        }
+                    }
+                }
+            } catch (error) {
+                console.warn("[META] Could not prepare purchase tracking", error);
+            }
+        }
+
         if (!isOnlinePix) {
             after(async () => {
                 try {
@@ -1300,6 +1342,7 @@ export async function POST(request: Request) {
             return trustCustomer(NextResponse.json({
                 order_id: orderId,
                 payment_type: "offline",
+                ...(metaPurchase ? { meta_purchase: metaPurchase } : {}),
                 redirect: `/${slug}/${orderId}`,
             }),restaurantId,customer_phone,trustedPhone(request,restaurantId)===normalizeCustomerPhone(customer_phone) ? undefined : {name:String(customer_name || "").slice(0,100),address:structuredAddress(body.customer_address_details)});
         }
@@ -1319,6 +1362,11 @@ export async function POST(request: Request) {
                 idempotencyKey: orderId.toString(),
             });
         } catch (paymentError) {
+            if (savedPixAttribution) {
+                await discardMetaPixPurchase(orderId).catch(error => {
+                    console.warn("[META] Could not clear failed Pix attribution", error);
+                });
+            }
             try {
                 await cancelUnpaidOnlineOrder(
                     orderId
@@ -1358,6 +1406,7 @@ export async function POST(request: Request) {
         return trustCustomer(NextResponse.json({
             id: orderId,
             payment_type: "pix",
+            ...(metaPurchase ? { meta_purchase: metaPurchase } : {}),
         }),restaurantId,customer_phone,trustedPhone(request,restaurantId)===normalizeCustomerPhone(customer_phone) ? undefined : {name:String(customer_name || "").slice(0,100),address:structuredAddress(body.customer_address_details)});
     } catch (error) {
         console.error(

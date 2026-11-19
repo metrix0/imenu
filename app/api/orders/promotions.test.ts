@@ -561,3 +561,43 @@ it("online PIX waits for payment confirmation before sending a push", async () =
   expect(after).not.toHaveBeenCalled();
   expect(notifyOrderReady).not.toHaveBeenCalled();
 });
+
+it("returns confirmed Pixel purchase data only after creating the order", async () => {
+  (query as jest.Mock).mockImplementation(async (sql: string) => ({
+    rows: sql.includes("FROM public.tracking_integrations") ? [{
+      restaurant_id: restaurantId, meta_pixel_id: "123456", meta_capi_token: null,
+    }] : [],
+    rowCount: 1,
+  }));
+  const result = await send({ meta_tracking: true });
+  expect(result.status).toBe(200);
+  expect(transactions).toEqual(["commit"]);
+  expect((await result.json()).meta_purchase).toMatchObject({
+    order_id: orderId, content_ids: [itemId], value: 45, currency: "BRL",
+  });
+
+  stock = 0;
+  const failure = await send({ meta_tracking: true });
+  expect(failure.status).toBe(409);
+  expect((await failure.json()).meta_purchase).toBeUndefined();
+});
+
+it("saves the online Pix attribution before requesting payment and defers the event", async () => {
+  const db = query as jest.Mock;
+  db.mockImplementation(async (sql: string) => ({
+    rows: sql.includes("FROM public.tracking_integrations") ? [{
+      restaurant_id: restaurantId, meta_pixel_id: "123456", meta_capi_token: "test-token",
+    }] : [],
+    rowCount: 1,
+  }));
+  (createMercadoPagoPixCharge as jest.Mock).mockImplementationOnce(async () => {
+    expect(db).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO meta_private.pix_purchase"), [
+      orderId, "123456", expect.any(String), expect.any(String),
+    ]);
+    return { id: "payment-test", qrCodeText: "test" };
+  });
+  const result = await send({ meta_tracking: true, paymentMethod: "pix" });
+  expect(result.status).toBe(200);
+  expect((await result.json()).payment_type).toBe("pix");
+  expect(after).not.toHaveBeenCalled();
+});

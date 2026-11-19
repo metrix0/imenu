@@ -14,6 +14,7 @@ import {
   Restaurant,
 } from "@/lib/types/types";
 import TrackingScripts from "@/components/costumer/TrackingScripts";
+import { cleanMetaPixelId } from "@/lib/analytics/metaEvents";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import PickupAvailabilityGuard from "./PickupAvailabilityGuard";
@@ -249,7 +250,7 @@ export default async function Page({
       .maybeSingle(),
     supabase
       .from("tracking_integrations")
-      .select("ga4_id, gtm_id, meta_pixel_id")
+      .select("ga4_id, gtm_id, meta_pixel_id, meta_capi_token, is_enabled")
       .eq("restaurant_id", restaurantData.id)
       .order("updated_at", { ascending: false })
       .limit(1)
@@ -276,6 +277,7 @@ export default async function Page({
 
   const loyaltyProgram = loyaltyResult.data;
   const tracking = trackingResult.data;
+  const metaPixelId = tracking?.is_enabled ? cleanMetaPixelId(tracking.meta_pixel_id) : null;
   const categories: Category[] = categoriesResult.data || [];
   const itemsRaw = itemsResult.data || [];
   const promotions = promotionsResult.data;
@@ -401,7 +403,7 @@ export default async function Page({
         <TrackingScripts
           ga4Id={tracking?.ga4_id}
           gtmId={tracking?.gtm_id}
-          metaPixelId={tracking?.meta_pixel_id}
+          metaPixelId={metaPixelId}
         />
       )}
 
@@ -427,6 +429,8 @@ export default async function Page({
         <StartingPriceLabels items={Array.from(startingPriceItemIds)}>
         <MenuClientPage
           slug={slug}
+          metaPixelId={metaPixelId}
+          metaCapiEnabled={Boolean(metaPixelId && tracking?.meta_capi_token?.trim())}
           readOnly={readOnly}
           darkTheme={darkMenuActive}
           restaurant={restaurant}

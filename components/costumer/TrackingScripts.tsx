@@ -1,11 +1,14 @@
 "use client";
 
 import Script from "next/script";
+import { META_PIXEL_READY } from "@/lib/analytics/metaBrowser";
+import { cleanMetaPixelId } from "@/lib/analytics/metaEvents";
 
 type Props = {
     ga4Id?: string | null;
     gtmId?: string | null;
     metaPixelId?: string | null;
+    metaPageView?: boolean;
 };
 
 const unique = (values: Array<string | null>) =>
@@ -21,6 +24,7 @@ export default function TrackingScripts({
     ga4Id,
     gtmId,
     metaPixelId,
+    metaPageView = true,
 }: Props) {
     // Accept clean IDs and also recover IDs from legacy rows where a complete
     // Google snippet was pasted into one of the fields.
@@ -36,7 +40,7 @@ export default function TrackingScripts({
     ]);
 
     const googleLoaderId = googleDestinationIds[0] ?? null;
-    const cleanMetaPixelId = metaPixelId?.trim().match(/^[0-9]{5,25}$/)?.[0] ?? null;
+    const pixelId = cleanMetaPixelId(metaPixelId);
 
     return (
         <>
@@ -97,10 +101,10 @@ export default function TrackingScripts({
             )}
 
             {/* Meta / Facebook Pixel */}
-            {cleanMetaPixelId && (
+            {pixelId && (
                 <>
                     <Script
-                        id={`meta-pixel-${cleanMetaPixelId}`}
+                        id={`meta-pixel-${pixelId}`}
                         strategy="afterInteractive"
                     >
                         {`
@@ -124,19 +128,24 @@ export default function TrackingScripts({
                             }(window, document,'script',
                             'https://connect.facebook.net/en_US/fbevents.js');
 
-                            fbq('init', '${cleanMetaPixelId}');
-                            fbq('track', 'PageView');
+                            window.imenuMetaPixels = window.imenuMetaPixels || {};
+                            if (!window.imenuMetaPixels['${pixelId}']) {
+                                fbq('init', '${pixelId}');
+                                window.imenuMetaPixels['${pixelId}'] = true;
+                            }
+                            ${metaPageView ? `fbq('trackSingle', '${pixelId}', 'PageView');` : ""}
+                            window.dispatchEvent(new Event('${META_PIXEL_READY}'));
                         `}
                     </Script>
-                    <noscript>
+                    {metaPageView && <noscript>
                         <img
                             height="1"
                             width="1"
                             style={{ display: "none" }}
-                            src={`https://www.facebook.com/tr?id=${cleanMetaPixelId}&ev=PageView&noscript=1`}
+                            src={`https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1`}
                             alt=""
                         />
-                    </noscript>
+                    </noscript>}
                 </>
             )}
         </>

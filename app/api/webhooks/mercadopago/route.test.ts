@@ -1,9 +1,11 @@
 import { POST } from "./route";
+import { sendConfirmedMetaPixPurchase } from "@/lib/analytics/metaServer";
 import { query, withTransaction } from "@/lib/database/sql";
 import { getMercadoPagoPixPayment } from "@/lib/payments/mercadoPagoPix";
 import { activateMercadoPagoQrTablePrepaid } from "@/lib/qr-table/mercadoPagoBilling";
 import { notifyOrderReady } from "@/lib/push/server";
 
+jest.mock("@/lib/analytics/metaServer", () => ({ sendConfirmedMetaPixPurchase: jest.fn() }));
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn(), withTransaction: jest.fn() }));
 jest.mock("@/lib/payments/mercadoPagoPix", () => ({ getMercadoPagoPixPayment: jest.fn(), isMercadoPagoPixFailureStatus: jest.fn() }));
 jest.mock("@/lib/qr-table/mercadoPagoBilling", () => ({ activateMercadoPagoQrTablePrepaid: jest.fn(), saveMercadoPagoQrTablePayment: jest.fn(), markMercadoPagoQrTablePaymentFailure: jest.fn() }));
@@ -119,4 +121,27 @@ it.each([490,500])("reconciles a historical QR payment of %i cents after QR beco
  (query as jest.Mock).mockResolvedValue({rows:[{id,product_key:"qr_code_mesa",price_cents,payment_provider:"mercadopago",mercadopago_order_id:"123"}]});
  expect((await send()).status).toBe(200);
  expect(activateMercadoPagoQrTablePrepaid).toHaveBeenCalledWith(expect.objectContaining({addonId:id,paymentId:"123"}));
+});
+
+it("sends the Pix conversion after the approved payment transaction", async () => {
+    const trackedOrder = { ...order, meta_capi_enabled: true };
+    jest.mocked(query).mockResolvedValue({ rows: [trackedOrder] } as never);
+    const sql = jest.fn()
+        .mockResolvedValueOnce({ rows: [trackedOrder], rowCount: 1 })
+        .mockResolvedValueOnce({ rows: [{ id }], rowCount: 1 })
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 });
+    jest.mocked(withTransaction).mockImplementation(async callback => {
+        const result = await callback({ query: sql } as never);
+        expect(sendConfirmedMetaPixPurchase).not.toHaveBeenCalled();
+        return result;
+    });
+    expect((await send()).status).toBe(200);
+    expect(sendConfirmedMetaPixPurchase).toHaveBeenCalledWith(id, order.restaurant_id, payment.paidAt);
+});
+
+it("does not count an online order that has not been paid", async () => {
+    jest.mocked(query).mockResolvedValue({ rows: [{ ...order, status: "canceled", meta_capi_enabled: true }] } as never);
+    jest.mocked(getMercadoPagoPixPayment).mockResolvedValue({ ...payment, status: "pending" } as never);
+    expect((await send()).status).toBe(200);
+    expect(sendConfirmedMetaPixPurchase).not.toHaveBeenCalled();
 });

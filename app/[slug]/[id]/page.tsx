@@ -1,6 +1,8 @@
 "use client";
 
 import PromotionSummary from "@/components/costumer/PromotionSummary";
+import TrackingScripts from "@/components/costumer/TrackingScripts";
+import { readPixPixelPurchase, trackPixPixelPurchase, type PixPixelPurchase } from "@/lib/analytics/metaBrowser";
 import { use, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/database/supabaseClient";
@@ -28,6 +30,19 @@ export default function PedidoPage({
     const [restaurantLogo, setRestaurantLogo] = useState("");
     const [restaurantId, setRestaurantId] = useState<string | null>(null);
     const [copiedPix, setCopiedPix] = useState(false);
+    const [pixPurchase, setPixPurchase] = useState<PixPixelPurchase | null>(null);
+    const [confirmedPixOrderId, setConfirmedPixOrderId] = useState<string | null>(null);
+
+    useEffect(() => {
+        setPixPurchase(readPixPixelPurchase(id));
+    }, [id]);
+
+    const didTrackPix = useRef<string | null>(null);
+    useEffect(() => {
+        if (confirmedPixOrderId !== id || pixPurchase?.data.order_id !== id || didTrackPix.current === id) return;
+        didTrackPix.current = id;
+        trackPixPixelPurchase(id, pixPurchase);
+    }, [confirmedPixOrderId, id, pixPurchase]);
 
     useEffect(() => {
         if (id.length < 10) {
@@ -49,6 +64,7 @@ export default function PedidoPage({
                     const next = payload.new;
                     if (next && typeof next === "object" && "status" in next) {
                         setStatus(next.status as string);
+                        if (next.payment_paid_at) setConfirmedPixOrderId(id);
                     }
                     setOrder((previous: any) => ({ ...(previous ?? {}), ...(next ?? {}) }));
                 }
@@ -62,6 +78,7 @@ export default function PedidoPage({
 
                 if (orderData && typeof orderData === "object" && "status" in orderData) {
                     setStatus(orderData.status);
+                    if (orderData.online_payment_confirmed) setConfirmedPixOrderId(id);
                 }
                 setOrder(orderData);
 
@@ -133,6 +150,7 @@ export default function PedidoPage({
             fetch(`/api/orders/${id}/status`)
                 .then((response) => response.json())
                 .then((data) => {
+                    if (data?.online_payment_confirmed) setConfirmedPixOrderId(id);
                     if (data?.status && data.status !== status) {
                         setStatus(data.status);
                     }
@@ -266,6 +284,7 @@ export default function PedidoPage({
 
     return (
         <main className="p-6 max-w-xl mx-auto min-h-screen flex flex-col">
+            {pixPurchase?.data.order_id === id && <TrackingScripts metaPixelId={pixPurchase.pixelId} metaPageView={false} />}
             <section className="p-5">
                 <h2 className="text-gray-500 text-lg 2xl:text-xl">
                     {isTableOrder ? "Mesa" : isCounterOrder ? "Balcão" : isPickup ? "Previsão de retirada" : "Previsão de entrega"}

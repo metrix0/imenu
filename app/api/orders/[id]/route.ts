@@ -39,6 +39,7 @@ export async function GET(
         restaurant_id,
         created_at,
         payment_ref,
+        payment_paid_at IS NOT NULL AS online_payment_confirmed,
         pix_qr_base64,
         pix_copia_cola
     FROM orders

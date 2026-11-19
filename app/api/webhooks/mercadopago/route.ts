@@ -1,6 +1,7 @@
 import { ADDON_PRODUCTS } from "@/lib/addons/products";
 import { PROMO_QR_CODE, PROMO_QR_PRICE_CENTS } from "@/lib/addons/promoQr";
 import { NextResponse } from "next/server";
+import { sendConfirmedMetaPixPurchase } from "@/lib/analytics/metaServer";
 
 import { query, withTransaction } from "@/lib/database/sql";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
@@ -121,9 +122,15 @@ async function processOrderPix(
         payment_ref: string | null;
         payment_method: string | null;
         restaurant_id: string;
+        meta_capi_enabled: boolean;
     }>(
         `
-            SELECT id, status, total_cents, payment_ref, payment_method, restaurant_id
+            SELECT id, status, total_cents, payment_ref, payment_method, restaurant_id,
+                EXISTS (
+                    SELECT 1 FROM public.tracking_integrations t
+                    WHERE t.restaurant_id = orders.restaurant_id AND t.is_enabled IS TRUE
+                        AND t.meta_pixel_id IS NOT NULL AND NULLIF(btrim(t.meta_capi_token), '') IS NOT NULL
+                ) AS meta_capi_enabled
             FROM orders
             WHERE id = $1
             LIMIT 1
@@ -179,9 +186,17 @@ async function processOrderPix(
             "SELECT * FROM public.orders WHERE id = $1 FOR UPDATE", [order.id]
         );
         const current = locked.rows[0];
-        if (!current || !["pending_online_payment", "paid"].includes(current.status) ||
-            current.payment_method !== "pix" || Number(current.total_cents) !== paidAmountCents ||
-            (current.payment_ref && current.payment_ref !== payment.id)) return false;
+        if (!current || current.payment_method !== "pix" ||
+            Number(current.total_cents) !== paidAmountCents ||
+            (current.payment_ref && current.payment_ref !== payment.id)) return null;
+
+        if (!["pending_online_payment", "paid"].includes(current.status)) {
+            return current.payment_paid_at && current.payment_ref === payment.id
+                ? { notify: false, paidAt: current.payment_paid_at }
+                : null;
+        }
+
+        const paidAt = current.payment_paid_at ?? payment.paidAt ?? new Date().toISOString();
         const updateResult = await client.query(
             `UPDATE public.orders
              SET
@@ -190,7 +205,7 @@ async function processOrderPix(
                  payment_paid_at = COALESCE(payment_paid_at, $3::timestamptz),
                  updated_at = NOW()
              WHERE id = $1 AND status = 'pending_online_payment'
-             RETURNING id`, [order.id, payment.id, payment.paidAt]
+             RETURNING id`, [order.id, payment.id, paidAt]
         );
         // The order lock and transaction make status + print enqueue retryable together.
         const printResult = await client.query(
@@ -200,17 +215,19 @@ async function processOrderPix(
              )
              RETURNING id`, [current.restaurant_id, order.id]
         );
-        return (updateResult.rowCount || 0) > 0 || (printResult.rowCount || 0) > 0;
+        return { notify: Boolean(updateResult.rowCount || printResult.rowCount), paidAt };
     });
     if (!confirmed) return;
 
-    try {
-        await notifyOrderReady(order.id);
-    } catch (pushError) {
-        console.error(
-            "[OWNER_PUSH] Failed after Mercado Pago payment:",
-            pushError
-        );
+    if (confirmed.notify) {
+        try {
+            await notifyOrderReady(order.id);
+        } catch (pushError) {
+            console.error("[OWNER_PUSH] Failed after Mercado Pago payment:", pushError);
+        }
+    }
+    if (order.meta_capi_enabled) {
+        await sendConfirmedMetaPixPurchase(order.id, order.restaurant_id, confirmed.paidAt);
     }
 }
 

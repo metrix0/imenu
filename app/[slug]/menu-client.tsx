@@ -1,6 +1,9 @@
 // app/[slug]/menu-client.tsx
 "use client";
 
+import { trackMetaFunnel } from "@/lib/analytics/metaBrowser";
+import { metaCommerceData, type TrackMetaFunnelEvent } from "@/lib/analytics/metaEvents";
+
 import { useState, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
@@ -82,6 +85,8 @@ export default function MenuClientPage({
     tableOrder,
     readOnly = false,
     darkTheme = false,
+    metaPixelId,
+    metaCapiEnabled = false,
                                        }: {
     slug: string;
     restaurant: Restaurant;
@@ -93,6 +98,8 @@ export default function MenuClientPage({
     tableOrder?: QrTableMenuContext | null;
     readOnly?: boolean;
     darkTheme?: boolean;
+    metaPixelId?: string | null;
+    metaCapiEnabled?: boolean;
 }) {
     useEffect(() => {
         if (!darkTheme) return;
@@ -267,28 +274,9 @@ export default function MenuClientPage({
         } as any);
     }, [tableOrder]);
 
-    function trackMeta(slug: string, eventName: string, customData?: any) {
-        const eventID =
-            crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
-
-        const fbq = (window as any).fbq;
-        if (typeof fbq === "function") {
-            fbq("track", eventName, customData ?? {}, { eventID });
-        }
-
-        fetch("/api/meta", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-                slug,
-                event_name: eventName,
-                event_id: eventID,
-                custom_data: customData ?? {},
-                fbp: document.cookie.match(/_fbp=([^;]+)/)?.[1],
-                fbc: document.cookie.match(/_fbc=([^;]+)/)?.[1],
-            }),
-        }).catch(() => {});
-    }
+    const trackMeta: TrackMetaFunnelEvent | undefined = metaPixelId
+        ? (...event) => trackMetaFunnel(metaPixelId, slug, metaCapiEnabled, ...event)
+        : undefined;
 
     useEffect(() => {
         if (readOnly || !selectedCouponCode) return;
@@ -479,8 +467,12 @@ export default function MenuClientPage({
     }, []);
 
 
-    const handleItemClick = async (item: Item) => {
+    const handleItemClick = async (item: Item, retry = false) => {
         if (!item.id) return;
+
+        if (!retry) {
+            trackMeta?.("ViewContent", metaCommerceData([{ id: item.id, quantity: 1 }], item.price_cents));
+        }
 
         setOpenedItem({
             item,
@@ -1252,7 +1244,7 @@ export default function MenuClientPage({
                     subcategories={openedItem.subcategories}
                     loading={openedItem.loading}
                     error={openedItem.error}
-                    onRetry={() => void handleItemClick(openedItem.item)}
+                    onRetry={() => void handleItemClick(openedItem.item, true)}
                     onClose={() => setOpenedItem(null)}
                     deliveryTax={deliveryTax}
                     deliveryTime={deliveryTime}
@@ -1285,6 +1277,7 @@ export default function MenuClientPage({
                     requiresSchedule={requiresSchedule}
                     closeItemModalOpen={() => setOpenedItem(null)}
                     trackMeta={trackMeta}
+                    metaPixelId={metaPixelId}
                     slug={slug}
                     tableOrder={tableOrder || null}
                     selectedTableId={selectedTableId || null}
