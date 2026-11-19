@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import DeliveryRules from "@/components/restaurant-owner/configuracoes/TempoeTaxa";
-import AddressForm from "@/components/restaurant-owner/configuracoes/AddressForm";
+import AddressForm, { saveRestaurantAddress } from "@/components/restaurant-owner/configuracoes/AddressForm";
 import Button from "@/components/ui/Button";
 import ToggleOptionCard from "@/components/ui/ToggleOptionCard";
 import ConfirmModal from "@/components/ui/ConfirmModal";
@@ -81,18 +81,7 @@ export default function PainelTempoETaxaPage() {
         setSavingAddress(true);
 
         try {
-            const response = await fetch(`/api/restaurants/${restaurantId}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    address: data,
-                    latitude: data.latitude,
-                    longitude: data.longitude,
-                }),
-            });
-
-            if (!response.ok) throw new Error();
-
+            await saveRestaurantAddress(restaurantId, data);
             setAddress(data);
         } catch (caught) {
             const message = "Não foi possível salvar o endereço. Tente novamente.";

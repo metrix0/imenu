@@ -13,6 +13,7 @@ import type { SaveState } from "@/components/ui/SaveStatus";
 import PixPayoutFields from "@/components/restaurant-owner/PixPayoutFields";
 import StoreVisuals from "./StoreVisuals";
 import CustomDomainModal from "./CustomDomainModal";
+import StoreWhatsappField from "./StoreWhatsappField";
 
 interface StoreProfileProps {
     restaurant: {
@@ -47,15 +48,6 @@ function sanitizeSlug(value: string): string {
         .slice(0, 80);
 }
 
-function formatPhone(value: string): string {
-    let digits = value.replace(/\D/g, "");
-    if (digits.startsWith("55") && digits.length > 11) digits = digits.slice(2);
-    digits = digits.slice(0, 11);
-    if (digits.length <= 2) return digits ? `(${digits}` : "";
-    if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
-    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
-}
-
 export default function StoreProfileManager({
     restaurant,
     hideCustomDomainButton = false,
@@ -69,8 +61,9 @@ export default function StoreProfileManager({
     const [logoUrl, setLogoUrl] = useState<string | null>(null);
     const [bannerUrl, setBannerUrl] = useState<string | null>(null);
     const [fieldStatuses, setFieldStatuses] = useState<Record<string, SaveState>>({});
-    const isSaving = Object.values(fieldStatuses).includes("saving");
-    const hasSaveError = Object.values(fieldStatuses).includes("error");
+    const [whatsappStatus, setWhatsappStatus] = useState<SaveState>("idle");
+    const isSaving = whatsappStatus === "saving" || Object.values(fieldStatuses).includes("saving");
+    const hasSaveError = whatsappStatus === "error" || Object.values(fieldStatuses).includes("error");
     useEffect(() => {
         onSaveStatusChange(hasSaveError ? "error" : isSaving ? "saving" : "saved");
     }, [hasSaveError, isSaving, onSaveStatusChange]);
@@ -89,9 +82,6 @@ export default function StoreProfileManager({
     useEffect(() => {
         onPixPayoutValidationChange?.(needsPixType || pixAutoDetectionFailed);
     }, [needsPixType, onPixPayoutValidationChange, pixAutoDetectionFailed]);
-    const [storeWhatsapp, setStoreWhatsapp] = useState(
-        formatPhone(restaurant.store_whatsapp || "")
-    );
     const [urlSlug, setUrlSlug] = useState(restaurant.url_slug || "");
     const [customDomain, setCustomDomain] = useState(
         restaurant.custom_domain || ""
@@ -267,22 +257,11 @@ export default function StoreProfileManager({
                     />
 
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)_auto] md:items-end">
-                        <Input
-                            label="WhatsApp da loja"
-                            placeholder="(00) 00000-0000"
-                            type="tel"
-                            inputMode="tel"
-                            value={storeWhatsapp}
-                            onChange={(event) =>
-                                setStoreWhatsapp(formatPhone(event.target.value))
-                            }
-                            onBlur={() =>
-                                void saveFields({
-                                    store_whatsapp: storeWhatsapp.replace(/\D/g, ""),
-                                })
-                            }
-                            maxLength={15}
-                            autoComplete="tel"
+                        <StoreWhatsappField
+                            key={restaurant.id}
+                            restaurantId={restaurant.id}
+                            initialValue={restaurant.store_whatsapp}
+                            onSaveStatusChange={setWhatsappStatus}
                         />
 
                         {customDomain && customDomainVerified ? (
