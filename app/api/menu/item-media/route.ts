@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     try {
         await requireRestaurantOwner(request, restaurantId);
         if (!(await hasIMenuPlusAccess(restaurantId))) {
-            return NextResponse.json({ error: "Fotos extras são exclusivas do iMenu Plus." }, { status: 403 });
+            return NextResponse.json({ error: "Múltiplas fotos por item são exclusivas do iMenu Plus." }, { status: 403 });
         }
 
         const body = await request.json().catch(() => null);

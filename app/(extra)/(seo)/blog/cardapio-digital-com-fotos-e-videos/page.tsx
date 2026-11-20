@@ -33,7 +33,7 @@ const faq = [
         answer: `Cada item pode ter um vídeo de até 30 segundos e ${MAX_MENU_VIDEO_MB} MB. Adicione a foto principal antes de enviar o vídeo.`,
     },
     {
-        question: "O que acontece com as fotos extras e o vídeo se o Plus vencer?",
+        question: "O que acontece com a galeria de fotos e vídeo se o Plus vencer?",
         answer: "A foto principal continua visível. A galeria fica salva e volta a aparecer quando o iMenu Plus estiver ativo.",
     },
 ];
@@ -46,7 +46,7 @@ export default function CardapioDigitalComFotosEVideosPage() {
             takeaways={[
                 "Escolha uma capa que ajude a reconhecer o prato de relance",
                 "Mostre porção, recheio e textura com ângulos diferentes",
-                "Adicione fotos extras e um vídeo pelo painel do iMenu",
+                "Adicione múltiplas fotos e um vídeo pelo painel do iMenu",
             ]}
             sections={sections}
             faq={faq}
@@ -56,7 +56,7 @@ export default function CardapioDigitalComFotosEVideosPage() {
             <BlogSection id="como-montar" title="O que mostrar em cada foto de um cardápio digital">
                 <p>
                     A primeira foto é a capa do produto. Mostre a porção que o cliente recebe, com
-                    o prato inteiro em destaque. Nas fotos extras, responda perguntas que a capa
+                    o prato inteiro em destaque. Use outros ângulos para responder perguntas que a capa
                     deixa em aberto. Uma foto lateral mostra a altura de um hambúrguer. Uma foto
                     da fatia mostra o recheio do bolo. Uma foto do combo aberto mostra quais
                     acompanhamentos chegam junto.
@@ -77,7 +77,7 @@ export default function CardapioDigitalComFotosEVideosPage() {
                 ]} />
                 <p>
                     Com o <Link href="/blog/imenu-plus" className="font-semibold text-brand underline">iMenu Plus</Link>,
-                    as fotos extras e o vídeo aparecem na galeria do item. A capa continua sendo
+                    as múltiplas fotos e o vídeo aparecem na galeria do item. A capa continua sendo
                     a primeira foto cadastrada.
                 </p>
             </BlogSection>

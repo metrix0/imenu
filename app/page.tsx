@@ -157,7 +157,7 @@ const PLUS_BONUS_ICONS: Record<string, LucideIcon> = {
     "Scan de cardápio com IA": ScanLine,
     "Download Cardápio em PDF": FileDown,
     "Cardápio Tema Escuro": Moon,
-    "Fotos extras e vídeo no cardápio": Film,
+    "Múltiplas fotos e vídeo no cardápio": Film,
 };
 
 const LANDING_HERO_PRIMARY_BUTTON =
