@@ -255,7 +255,7 @@ export default function HistoryModal({
         <ModalMobile
             open={open}
             onClose={onClose}
-            title={program ? "Fidelidade" : "Histórico"}
+            title={program ? "Peça e Ganhe com Fidelidade" : "Histórico"}
             height={0.85}
         >
             <div className="relative space-y-6 p-4">
@@ -272,7 +272,7 @@ export default function HistoryModal({
                 )}
 
                 {program && (
-                    <h2 className="text-lg font-semibold text-[var(--im-menu-text,#111827)]">Fidelidade</h2>
+                    <h2 className="text-xl font-semibold text-[var(--im-menu-text,#111827)]">Peça e Ganhe com Fidelidade</h2>
                 )}
 
                 {program && (
