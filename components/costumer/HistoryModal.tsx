@@ -296,11 +296,14 @@ export default function HistoryModal({
 
                 {visibleStep === "input_phone" && (
                     <div className="space-y-4">
-                        <p className="text-center font-medium text-[var(--im-menu-muted,#4b5563)]">
-                            {program ? "Use seu número do celular para consultar suas compras." : "Digite seu WhatsApp para consultar seus pedidos."}
-                        </p>
+                        {!program && (
+                            <p className="text-center font-medium text-[var(--im-menu-muted,#4b5563)]">
+                                Digite seu WhatsApp para consultar seus pedidos.
+                            </p>
+                        )}
 
                         <Input
+                            label={program ? "Use seu número do celular para consultar suas compras." : undefined}
                             placeholder="(00) 00000-0000"
                             value={customer_phone}
                             onChange={(event) =>
@@ -325,7 +328,7 @@ export default function HistoryModal({
                             inputMode="tel"
                             autoComplete="tel"
                             maxLength={15}
-                            aria-label="Número do celular"
+                            aria-label={program ? undefined : "Número do celular"}
                             className={program ? undefined : "text-center text-lg tracking-widest"}
                         />
 
