@@ -84,8 +84,9 @@ export async function POST(request: NextRequest) {
         const rewardSubitemIds = parseIdArray(
             body?.reward_subitem_ids
         );
-        const additionalRewards = Array.isArray(body?.additional_rewards)
-            ? body.additional_rewards.map((reward: { item_id?: string; subitem_ids?: unknown } | null) => ({
+        const requestedRewards: unknown = body?.additional_rewards;
+        const additionalRewards = Array.isArray(requestedRewards)
+            ? requestedRewards.map((reward: { item_id?: unknown; subitem_ids?: unknown } | null) => ({
                 item_id: String(reward?.item_id ?? ""),
                 subitem_ids: parseIdArray(reward?.subitem_ids),
             }))
