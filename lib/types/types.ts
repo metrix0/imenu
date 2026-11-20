@@ -201,9 +201,28 @@ export type LoyaltyProgram = {
     min_order_value_cents: number;
     reward_item_id: string | null;
     reward_subitem_ids: string[];
-    reward_description: string | null;
+    additional_rewards?: LoyaltyRewardSelection[];
     created_at?: string;
     updated_at?: string;
+};
+
+export type LoyaltyRewardSelection = {
+    item_id: string;
+    subitem_ids: string[];
+};
+
+export type LoyaltyReward = {
+    id: string;
+    name: string;
+    image: string | null;
+    complements: { subcategoryId: string; subcategoryName: string; subitemId: string; subitemName: string; price_cents: number }[];
+};
+
+export type LoyaltyOffer = {
+    active: boolean;
+    goal_count: number;
+    min_order_value_cents: number;
+    rewards: LoyaltyReward[];
 };
 
 export type LoyaltyBalance = {

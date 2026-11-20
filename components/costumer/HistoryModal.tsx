@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-    faGift,
     faStar,
     faTrophy,
 } from "@fortawesome/free-solid-svg-icons";
@@ -13,12 +12,15 @@ import Input from "@/components/ui/Input";
 import ModalMobile from "@/components/ui/HybridModal";
 import Toast from "@/components/ui/Toast";
 import { useCartStore } from "@/lib/stores/costumer/cartStore";
+import { formatPrice } from "@/lib/utils/formatPrice";
+import type { LoyaltyOffer, LoyaltyReward } from "@/lib/types/types";
 import { useHistoryStore } from "@/lib/stores/costumer/historyStore";
 
 type Props = {
     open: boolean;
     onClose: () => void;
     restaurantId: string;
+    offer: LoyaltyOffer | null;
 };
 
 type ToastState = {
@@ -68,12 +70,14 @@ export default function HistoryModal({
     open,
     onClose,
     restaurantId,
+    offer,
 }: Props) {
     const {
         step,
         customer_phone,
         loyaltyBalance,
-        program,
+        program: loadedOffer,
+        restaurantId: loadedRestaurantId,
         orders,
         loading,
         error,
@@ -92,10 +96,9 @@ export default function HistoryModal({
 
     useEffect(() => {
         if (open) {
-            reset();
             setToast(null);
         }
-    }, [open, reset]);
+    }, [open]);
 
     const rewardAlreadyInCart = useMemo(
         () => cartItems.some((item) => item.is_reward),
@@ -106,18 +109,11 @@ export default function HistoryModal({
         await fetchHistory(restaurantId);
     };
 
-    const handleRedeem = () => {
-        if (
-            !program?.active ||
-            !program.reward_item_id
-        ) {
-            setToast({
-                message:
-                    "A recompensa ainda não está configurada.",
-                type: "error",
-            });
-            return;
-        }
+    const program = (loadedRestaurantId === restaurantId ? loadedOffer : null) ?? offer;
+    const visibleStep = loadedRestaurantId === restaurantId ? step : "input_phone";
+
+    const handleRedeem = (reward: LoyaltyReward) => {
+        if (!canRedeem) return;
 
         if (rewardAlreadyInCart) {
             setToast({
@@ -128,37 +124,14 @@ export default function HistoryModal({
             return;
         }
 
-        const expandedSubitems = Array.isArray(
-            (program as any).expanded_reward_subitems
-        )
-            ? (program as any).expanded_reward_subitems
-            : [];
-
-        const selectedSubitems = expandedSubitems.map(
-            (subitem: any) => ({
-                subcategoryId: subitem.subcategory_id,
-                subcategoryName:
-                    subitem.subcategory_name,
-                subitemId: subitem.subitem_id,
-                subitemName: subitem.subitem_name,
-                price_cents: 0,
-            })
-        );
-
         addToCart({
             id: crypto.randomUUID(),
-            base_item_id: program.reward_item_id,
-            name: `(PRÊMIO) ${
-                (program as any).reward_item_name ||
-                program.reward_description ||
-                "Recompensa"
-            }`,
+            base_item_id: reward.id,
+            name: `(PRÊMIO) ${reward.name}`,
             total_cents: 0,
             qty: 1,
-            image:
-                (program as any).reward_item_image ||
-                null,
-            selectedSubitems,
+            image: reward.image,
+            selectedSubitems: reward.complements,
             unit_price_cents: 0,
             is_reward: true,
         });
@@ -180,12 +153,12 @@ export default function HistoryModal({
     );
     const current = Math.max(
         0,
-        Number(loyaltyBalance?.current_count) || 0
+        Number(loadedRestaurantId === restaurantId ? loyaltyBalance?.current_count : 0) || 0
     );
     const canRedeem =
         program?.active === true &&
         current >= goal &&
-        Boolean(program.reward_item_id);
+        visibleStep === "view_history" && program.rewards.length > 0;
 
     const renderProgress = () => {
         return (
@@ -224,17 +197,14 @@ export default function HistoryModal({
                             prêmio.
                         </p>
 
-                        <Button
-                            variant="primary"
-                            onClick={handleRedeem}
-                            className="w-full shadow-lg shadow-brand/20"
-                        >
-                            <FontAwesomeIcon
-                                icon={faTrophy}
-                                className="mr-2"
-                            />
-                            RESGATAR AGORA
-                        </Button>
+                        <div className="grid gap-2">
+                            {program?.rewards.map(reward => (
+                                <Button key={reward.id} variant="primary" onClick={() => handleRedeem(reward)}>
+                                    <FontAwesomeIcon icon={faTrophy} className="mr-2" />
+                                    Resgatar {reward.name}
+                                </Button>
+                            ))}
+                        </div>
 
                         <p className="mt-2 text-[10px] text-[var(--im-menu-subtle,#9ca3af)]">
                             O item será adicionado à sua sacola
@@ -256,7 +226,7 @@ export default function HistoryModal({
         <ModalMobile
             open={open}
             onClose={onClose}
-            title="Fidelidade"
+            title={program ? "Fidelidade" : "Histórico"}
             height={0.85}
         >
             <div className="relative space-y-6 p-4">
@@ -272,19 +242,29 @@ export default function HistoryModal({
                     </div>
                 )}
 
-                {step === "input_phone" && (
-                    <div className="space-y-4 pt-10">
-                        <div className="mb-4 flex justify-center">
-                            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--im-menu-accent-soft,#f144001a)] text-2xl text-[var(--im-menu-link,#f14400)]">
-                                <FontAwesomeIcon
-                                    icon={faGift}
-                                />
-                            </div>
-                        </div>
+                {program && (
+                    <div className="space-y-3 rounded-xl border border-[var(--im-menu-border,#e5e7eb)] bg-[var(--im-menu-soft,#f9fafb)] p-4">
+                        <h3 className="font-semibold">Como funciona</h3>
+                        <p className="text-sm">
+                            Ganhe 1 selo por pedido concluído{program.min_order_value_cents > 0
+                                ? ` a partir de ${formatPrice(program.min_order_value_cents)}` : ""}, sem resgate de prêmio.
+                            {" "}Junte {goal} {goal === 1 ? "selo" : "selos"} e escolha sua recompensa.
+                        </p>
+                        <ul className="space-y-2">
+                            {program.rewards.map(reward => (
+                                <li key={reward.id} className="flex items-center gap-3 text-sm font-medium">
+                                    {reward.image && <img src={reward.image} alt="" className="size-10 shrink-0 rounded-lg object-cover" />}
+                                    {reward.name}{reward.complements.length > 0 ? " + Complementos" : ""}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
 
+                {visibleStep === "input_phone" && (
+                    <div className="space-y-4">
                         <p className="text-center font-medium text-[var(--im-menu-muted,#4b5563)]">
-                            Digite seu WhatsApp para consultar
-                            seus selos e pedidos.
+                            {program ? "Use seu WhatsApp para consultar seus selos." : "Digite seu WhatsApp para consultar seus pedidos."}
                         </p>
 
                         <Input
@@ -331,7 +311,7 @@ export default function HistoryModal({
                             }
                             className="mt-4 w-full"
                         >
-                            Acessar fidelidade
+                            {program ? "Consultar meus selos" : "Consultar pedidos"}
                         </Button>
 
                         <p className="px-4 text-center text-xs text-[var(--im-menu-subtle,#9ca3af)]">
@@ -342,31 +322,14 @@ export default function HistoryModal({
                     </div>
                 )}
 
-                {step === "view_history" && (
+                {visibleStep === "view_history" && (
                     <div className="space-y-8 animate-fadeIn">
-                        <div className="relative overflow-hidden rounded-2xl border border-[var(--im-menu-border,#f3f4f6)] bg-[var(--im-menu-surface,#fff)] p-6 text-center shadow-sm">
-                            <div className="absolute left-0 top-0 h-1 w-full bg-gradient-to-r from-brand/50 to-brand" />
-
-                            <h3 className="mb-1 text-xl font-bold text-[var(--im-menu-text,#111827)]">
-                                {program?.reward_description ||
-                                    "Programa de Fidelidade"}
-                            </h3>
-
-                            {program?.active ? (
-                                <>
-                                    <p className="mb-2 text-sm text-[var(--im-menu-muted,#6b7280)]">
-                                        Complete a cartela para
-                                        ganhar.
-                                    </p>
-                                    {renderProgress()}
-                                </>
-                            ) : (
-                                <p className="py-4 text-sm text-[var(--im-menu-muted,#6b7280)]">
-                                    Este restaurante não possui
-                                    programa ativo no momento.
-                                </p>
-                            )}
-                        </div>
+                        {program && (
+                            <div className="rounded-xl border border-[var(--im-menu-border,#e5e7eb)] p-4 text-center">
+                                <h3 className="font-semibold">Seus selos · {current}/{goal}</h3>
+                                {renderProgress()}
+                            </div>
+                        )}
 
                         <div>
                             <h3 className="mb-3 ml-1 text-sm font-bold uppercase tracking-wider text-[var(--im-menu-subtle,#9ca3af)]">

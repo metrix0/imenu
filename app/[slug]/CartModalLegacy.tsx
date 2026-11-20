@@ -5,6 +5,9 @@ import CheckoutCustomerFields from "@/components/costumer/CheckoutCustomerFields
 import { getOrderScheduleOptions } from "@/lib/menu/orderAvailability";
 
 import PromotionSummary from "@/components/costumer/PromotionSummary";
+import { faGift } from "@fortawesome/free-solid-svg-icons";
+import type { LoyaltyOffer } from "@/lib/types/types";
+import { useHistoryStore } from "@/lib/stores/costumer/historyStore";
 import type { PromotionResult } from "@/lib/promotions/automatic";
 
 import { useEffect, useState, useRef, useMemo } from "react";
@@ -86,9 +89,11 @@ export default function CartModal({
                                        restaurant,
     catalogItemsByCategory,
     selectedCouponCode, onSelectItem, tableOrder, selectedTableId,
-    selectedTableName, onTableChange, promotionResult, neighborhoodDeliveryRules, smallCityMode = false, requiresSchedule = false, manuallyClosedToday: closedToday
+    selectedTableName, onTableChange, promotionResult, neighborhoodDeliveryRules, smallCityMode = false, requiresSchedule = false, manuallyClosedToday: closedToday, loyaltyOffer, onOpenLoyalty
                                    }: {
     promotionResult?: PromotionResult;
+    loyaltyOffer?: LoyaltyOffer | null;
+    onOpenLoyalty?: () => void;
     requiresSchedule?: boolean;
     manuallyClosedToday: boolean;
     onClose: () => void;
@@ -891,6 +896,15 @@ export default function CartModal({
     const effectiveDeliveryFeeCents =
         isPickup || isTableOrder ? 0 : deliveryFeeCents;
 
+    const currentStamps = useHistoryStore(state => state.restaurantId === String(restaurant.id)
+        ? state.loyaltyBalance?.current_count ?? (state.step === "view_history" ? 0 : null) : null);
+    const eligibleTotal = Math.max(0,
+        items.reduce((total, item) => total + (promotionPrice(item) || item.total_cents), 0)
+            + (effectiveDeliveryFeeCents ?? 0) - Number(coupon_discount_cents || 0)
+            - (promotionResult?.promotion?.discount_cents || 0));
+    const loyaltyShortfall = Math.max(0, (loyaltyOffer?.min_order_value_cents ?? 0) - eligibleTotal);
+    const redeemingReward = items.some(item => item.is_reward);
+
     return (
         <div className={`fixed inset-0 z-41 flex justify-center items-end`}>
             <ModalMobile
@@ -1089,6 +1103,31 @@ export default function CartModal({
                     );})}
 
                     <PromotionSummary promotion={promotionResult?.promotion} />
+                    {!isTableOrder && items.length > 0 && loyaltyOffer && onOpenLoyalty && (
+                        <button type="button" onClick={onOpenLoyalty}
+                            className="mt-4 flex w-full cursor-pointer items-center gap-3 rounded-xl border border-[var(--im-menu-border,#e5e7eb)] bg-[var(--im-menu-soft,#f9fafb)] p-3 text-left">
+                            <span className="flex shrink-0 -space-x-2">
+                                {loyaltyOffer.rewards.slice(0, 3).map(reward => reward.image
+                                    ? <img key={reward.id} src={reward.image} alt="" className="size-9 rounded-lg border border-[var(--im-menu-surface,#fff)] object-cover" />
+                                    : <span key={reward.id} className="grid size-9 place-items-center rounded-lg bg-[var(--im-menu-surface,#fff)] text-[var(--im-menu-link,#f14400)]"><FontAwesomeIcon icon={faGift} /></span>)}
+                            </span>
+                            <span className="min-w-0 flex-1 space-y-1">
+                                <span className="block text-sm font-medium">
+                                    {redeemingReward ? "Você está resgatando uma recompensa"
+                                        : loyaltyShortfall > 0 ? `Faltam ${formatPrice(loyaltyShortfall)} para ganhar 1 selo`
+                                        : "Este pedido vale 1 selo"}
+                                </span>
+                                {currentStamps !== null && (
+                                    <span className="flex items-center gap-2 text-xs">
+                                        <progress aria-label="Progresso da fidelidade" value={currentStamps} max={loyaltyOffer.goal_count}
+                                            className="h-2 min-w-0 flex-1 appearance-none overflow-hidden rounded-full bg-[var(--im-menu-border,#e5e7eb)] [&::-webkit-progress-bar]:bg-[var(--im-menu-border,#e5e7eb)] [&::-webkit-progress-value]:bg-[var(--im-menu-action,#f14400)] [&::-moz-progress-bar]:bg-[var(--im-menu-action,#f14400)]" />
+                                        {currentStamps}/{loyaltyOffer.goal_count}
+                                    </span>
+                                )}
+                                <span className="block text-xs font-semibold text-[var(--im-menu-link,#f14400)]">Ver recompensa</span>
+                            </span>
+                        </button>
+                    )}
                     <div className="mt-6 mb-20">
                         <button
                             onClick={closeWithAnimation}

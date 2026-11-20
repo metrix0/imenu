@@ -3,7 +3,7 @@ import type { LoyaltyProgram } from "@/lib/types/types";
 
 const draft: LoyaltyProgram = {
     id: "program", restaurant_id: "restaurant", active: true, goal_count: 10,
-    reward_description: "Reward", reward_item_id: "item", reward_subitem_ids: [], min_order_value_cents: 0,
+    reward_item_id: "item", reward_subitem_ids: [], min_order_value_cents: 0,
 };
 
 describe("loyalty autosave snapshots", () => {

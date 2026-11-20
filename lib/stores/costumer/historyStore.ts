@@ -1,9 +1,11 @@
 import { create } from "zustand";
 import {
     LoyaltyBalance,
-    LoyaltyProgram,
+    LoyaltyOffer,
     Order,
 } from "@/lib/types/types";
+
+let requestVersion = 0;
 
 type HistoryStep = "input_phone" | "view_history";
 
@@ -15,7 +17,8 @@ type HistoryStore = {
 
     customer_phone: string;
     loyaltyBalance: LoyaltyBalance | null;
-    program: LoyaltyProgram | null;
+    program: LoyaltyOffer | null;
+    restaurantId: string | null;
     orders: Order[];
 
     openModal: () => void;
@@ -48,6 +51,7 @@ export const useHistoryStore = create<HistoryStore>(
         customer_phone: "",
         loyaltyBalance: null,
         program: null,
+        restaurantId: null,
         orders: [],
 
         openModal: () => set({ isOpen: true }),
@@ -60,16 +64,19 @@ export const useHistoryStore = create<HistoryStore>(
                 error: null,
             }),
 
-        reset: () =>
+        reset: () => {
+            requestVersion++;
             set({
                 step: "input_phone",
                 customer_phone: "",
                 loyaltyBalance: null,
                 program: null,
+                restaurantId: null,
                 orders: [],
                 error: null,
                 loading: false,
-            }),
+            });
+        },
 
         fetchHistory: async (restaurantId: string) => {
             const cleanPhone = normalizePhone(
@@ -88,6 +95,7 @@ export const useHistoryStore = create<HistoryStore>(
                 return;
             }
 
+            const version = ++requestVersion;
             set({
                 loading: true,
                 error: null,
@@ -110,6 +118,7 @@ export const useHistoryStore = create<HistoryStore>(
                 );
 
                 const result = await response.json();
+                if (version !== requestVersion) return;
 
                 if (!response.ok) {
                     throw new Error(
@@ -119,6 +128,7 @@ export const useHistoryStore = create<HistoryStore>(
                 }
 
                 set({
+                    restaurantId,
                     loyaltyBalance:
                         result.balance || null,
                     orders: Array.isArray(result.orders)
@@ -130,6 +140,7 @@ export const useHistoryStore = create<HistoryStore>(
                     error: null,
                 });
             } catch (error) {
+                if (version !== requestVersion) return;
                 console.error(
                     "[FIDELIDADE] Falha ao carregar histórico:",
                     error

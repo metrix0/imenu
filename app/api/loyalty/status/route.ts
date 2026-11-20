@@ -1,4 +1,4 @@
-import { isMenuExampleImage } from "@/lib/menu/itemImages";
+import { loadLoyaltyOffer } from "@/lib/services/loyaltyOffer";
 import { NextResponse } from "next/server";
 import { query } from "@/lib/database/sql";
 
@@ -17,27 +17,15 @@ function normalizePhone(value: unknown): string {
     return digits;
 }
 
-function parseIdArray(value: unknown): string[] {
-    if (Array.isArray(value)) {
-        return value
-            .map((item) => String(item))
-            .filter(Boolean);
+export async function GET(request: Request) {
+    const restaurantId = new URL(request.url).searchParams.get("restaurant_id")?.trim();
+    if (!restaurantId) return NextResponse.json({ error: "Restaurante não identificado." }, { status: 400 });
+    try {
+        return NextResponse.json(await loadLoyaltyOffer(restaurantId));
+    } catch (error) {
+        console.error("[FIDELIDADE] Erro ao buscar programa:", error);
+        return NextResponse.json({ error: "Não foi possível carregar a fidelidade." }, { status: 500 });
     }
-
-    if (typeof value === "string") {
-        try {
-            const parsed = JSON.parse(value);
-            return Array.isArray(parsed)
-                ? parsed
-                      .map((item) => String(item))
-                      .filter(Boolean)
-                : [];
-        } catch {
-            return [];
-        }
-    }
-
-    return [];
 }
 
 export async function POST(request: Request) {
@@ -111,100 +99,17 @@ export async function POST(request: Request) {
             LIMIT 20
         `;
 
-        const programQuery = `
-            SELECT
-                program.*,
-                item.name AS reward_item_name,
-                item.image_path AS reward_item_image_path
-            FROM loyalty_programs program
-            LEFT JOIN items item
-              ON program.reward_item_id = item.id
-            WHERE program.restaurant_id = $1
-            LIMIT 1
-        `;
+        const [balanceResult, ordersResult, program] = await Promise.all([
+            query(balanceQuery, [restaurantId, phoneCandidates, cleanPhone]),
+            query(ordersQuery, [restaurantId, phoneCandidates]),
+            loadLoyaltyOffer(restaurantId),
+        ]);
 
-        const [balanceResult, ordersResult, programResult] =
-            await Promise.all([
-                query(balanceQuery, [
-                    restaurantId,
-                    phoneCandidates,
-                    cleanPhone,
-                ]),
-                query(ordersQuery, [
-                    restaurantId,
-                    phoneCandidates,
-                ]),
-                query(programQuery, [restaurantId]),
-            ]);
-
-        const program = programResult.rows[0] || null;
-
-        if (!program) {
-            return NextResponse.json(
-                {
-                    balance:
-                        balanceResult.rows[0] || null,
-                    orders: ordersResult.rows,
-                    program: null,
-                },
-                { status: 200 }
-            );
-        }
-
-        const rewardSubitemIds = parseIdArray(
-            program.reward_subitem_ids
-        );
-
-        let expandedRewardSubitems: any[] = [];
-
-        if (rewardSubitemIds.length > 0) {
-            const subitemsResult = await query(
-                `
-                    SELECT
-                        subitem.id AS subitem_id,
-                        subitem.name AS subitem_name,
-                        subcategory.id AS subcategory_id,
-                        subcategory.name AS subcategory_name
-                    FROM subitems subitem
-                    JOIN item_subcategories subcategory
-                      ON subitem.item_subcategory_id = subcategory.id
-                    WHERE subitem.id::text = ANY($1::text[])
-                      AND subcategory.item_id = $2
-                    ORDER BY subcategory.position, subitem.position
-                `,
-                [
-                    rewardSubitemIds,
-                    program.reward_item_id,
-                ]
-            );
-
-            expandedRewardSubitems =
-                subitemsResult.rows;
-        }
-
-        const imagePath = program.reward_item_image_path;
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const rewardItemImage = imagePath && isMenuExampleImage(imagePath)
-            ? imagePath
-            : imagePath && supabaseUrl
-                ? `${supabaseUrl}/storage/v1/object/public/menu-images/${imagePath}`
-                : null;
-
-        return NextResponse.json(
-            {
-                balance:
-                    balanceResult.rows[0] || null,
-                orders: ordersResult.rows,
-                program: {
-                    ...program,
-                    reward_item_image:
-                        rewardItemImage,
-                    expanded_reward_subitems:
-                        expandedRewardSubitems,
-                },
-            },
-            { status: 200 }
-        );
+        return NextResponse.json({
+            balance: balanceResult.rows[0] || null,
+            orders: ordersResult.rows,
+            program,
+        });
     } catch (error) {
         console.error(
             "[FIDELIDADE] Erro ao buscar status:",

@@ -6,16 +6,17 @@ import { useLoyaltyStore } from "@/lib/stores/restaurant-owner/loyaltyStore";
 import Input from "@/components/ui/Input";
 import SaveStatus from "@/components/ui/SaveStatus";
 import Loader from "@/components/ui/Loader";
+import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Dropdown from "@/components/ui/Dropdown";
 import ToggleOptionCard from "@/components/ui/ToggleOptionCard";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import { faStar, faGift, faMoneyBillWave } from "@fortawesome/free-solid-svg-icons";
+import { faStar, faMoneyBillWave } from "@fortawesome/free-solid-svg-icons";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import { supabase } from "@/lib/database/supabaseClient";
 import { formatPrice } from "@/lib/utils/formatPrice";
 import { useAutoSave } from "@/lib/utils/useAutoSave";
-import type { LoyaltyProgram } from "@/lib/types/types";
+import type { LoyaltyProgram, LoyaltyRewardSelection } from "@/lib/types/types";
 
 // Tipos auxiliares para a UI
 type MenuItemOption = {
@@ -42,7 +43,6 @@ export default function FidelidadePage() {
         program, 
         fetchProgram, 
         saveProgram, 
-        updateField,
         setProgram 
     } = useLoyaltyStore();
 
@@ -62,9 +62,9 @@ export default function FidelidadePage() {
     const [menuItems, setMenuItems] = useState<MenuItemOption[]>([]);
     const [itemsLoading, setItemsLoading] = useState(false);
 
-    // Detalhes do item selecionado (para escolher subitens)
-    const [selectedItemDetails, setSelectedItemDetails] = useState<ItemDetails | null>(null);
-    const [loadingDetails, setLoadingDetails] = useState(false);
+    const [itemDetails, setItemDetails] = useState<Record<string, ItemDetails>>({});
+    const itemIds = [program?.reward_item_id, ...(program?.additional_rewards ?? []).map(reward => reward.item_id)]
+        .filter(Boolean).join(",");
 
     useEffect(() => {
         let active = true;
@@ -84,14 +84,16 @@ export default function FidelidadePage() {
         return () => { active = false; };
     }, [restaurantId, fetchProgram, resetSave]);
 
-    // Carregar detalhes quando o item da recompensa mudar (ou ao carregar a página)
     useEffect(() => {
-        if (program?.reward_item_id) {
-            fetchItemDetails(program.reward_item_id);
-        } else {
-            setSelectedItemDetails(null);
+        if (!itemIds) {
+            setItemDetails({});
+            return;
         }
-    }, [program?.reward_item_id]);
+        let active = true;
+        void Promise.all(itemIds.split(",").map(async id => [id, await fetchItemDetails(id)] as const))
+            .then(details => { if (active) setItemDetails(Object.fromEntries(details)); });
+        return () => { active = false; };
+    }, [itemIds]);
 
     const fetchMenuItems = async (id: string) => {
         setItemsLoading(true);
@@ -107,7 +109,6 @@ export default function FidelidadePage() {
 
     // Busca grupos e subitens do item selecionado
     const fetchItemDetails = async (itemId: string) => {
-        setLoadingDetails(true);
         // Busca Grupos
         const { data: groups } = await supabase
             .from("item_subcategories")
@@ -130,11 +131,9 @@ export default function FidelidadePage() {
                 subitems: subitems?.filter(s => s.item_subcategory_id === g.id) || []
             }));
             
-            setSelectedItemDetails({ groups: structured });
-        } else {
-            setSelectedItemDetails({ groups: [] });
+            return { groups: structured.filter(group => group.subitems.length > 0) };
         }
-        setLoadingDetails(false);
+        return { groups: [] };
     };
 
     // Sincronização inicial de valor monetário
@@ -147,24 +146,19 @@ export default function FidelidadePage() {
         }
     }, [program, restaurantId, loadingProgram, isInitialized]);
 
-    const handleChange = (field: any, value: any) => {
-        if (!program) {
-            setProgram({
-                id: "", 
-                restaurant_id: restaurantId || "",
-                goal_count: 10,
-                reward_description: "",
-                active: false,
-                min_order_value_cents: 0,
-                reward_item_id: null,
-                reward_subitem_ids: [],
-                [field]: value 
-            });
-        } else {
-            updateField(field, value);
-        }
-        const next = useLoyaltyStore.getState().program;
-        if (next) scheduleSave(next);
+    const updateProgram = (patch: Partial<LoyaltyProgram>) => {
+        const current = useLoyaltyStore.getState().program ?? {
+            id: "",
+            restaurant_id: restaurantId || "",
+            goal_count: 10,
+            active: false,
+            min_order_value_cents: 0,
+            reward_item_id: null,
+            reward_subitem_ids: [],
+        };
+        const next = { ...current, ...patch };
+        setProgram(next);
+        scheduleSave(next);
     };
 
     const handleMoneyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -174,30 +168,26 @@ export default function FidelidadePage() {
         setMinOrderDisplay(val);
         const floatVal = parseFloat(val.replace(',', '.'));
         const cents = isNaN(floatVal) ? 0 : Math.round(floatVal * 100);
-        handleChange("min_order_value_cents", cents);
+        updateProgram({ min_order_value_cents: cents });
     };
 
-    // Ao selecionar item, limpa os subitens antigos
-    const handleItemSelect = (itemId: string) => {
-        handleChange("reward_item_id", itemId);
-        handleChange("reward_subitem_ids", []); // Reseta seleção de complementos
-        
-        const newItem = menuItems.find(i => i.id === itemId);
-        if (newItem) {
-            handleChange("reward_description", `${newItem.name} + Complementos`);
-        }
+    const rewards: LoyaltyRewardSelection[] = [
+        ...(program?.reward_item_id ? [{ item_id: program.reward_item_id, subitem_ids: program.reward_subitem_ids ?? [] }] : []),
+        ...(program?.additional_rewards ?? []),
+    ];
+
+    const saveRewards = ([first, ...additional]: LoyaltyRewardSelection[]) => {
+        updateProgram({
+            reward_item_id: first?.item_id ?? null,
+            reward_subitem_ids: first?.subitem_ids ?? [],
+            additional_rewards: additional,
+        });
     };
 
-    // Toggle de Subitem na lista de "Inclusos"
-    const toggleSubitem = (subitemId: string) => {
-        const currentIds = program?.reward_subitem_ids || [];
-        let newIds;
-        if (currentIds.includes(subitemId)) {
-            newIds = currentIds.filter(id => id !== subitemId);
-        } else {
-            newIds = [...currentIds, subitemId];
-        }
-        handleChange("reward_subitem_ids", newIds);
+    const replaceReward = (index: number, reward: LoyaltyRewardSelection) => {
+        const next = [...rewards];
+        next[index] = reward;
+        saveRewards(next);
     };
 
     if (loadingProgram) return (
@@ -210,15 +200,15 @@ export default function FidelidadePage() {
     const safeProgram = program || { 
         active: false, 
         goal_count: 10, 
-        reward_description: "", 
         min_order_value_cents: 0,
         reward_item_id: null,
         reward_subitem_ids: []
     };
 
-    const dropdownOptions = [
+    const rewardOptions = (current?: string) => [
         { value: "", label: menuItems.length ? "Selecione um item" : "Nenhum item disponível", disabled: true },
-        ...menuItems.map(item => ({ value: item.id, label: item.name })),
+        ...menuItems.filter(item => item.id === current || !rewards.some(reward => reward.item_id === item.id))
+            .map(item => ({ value: item.id, label: item.name })),
     ];
 
     return (
@@ -237,7 +227,7 @@ export default function FidelidadePage() {
                 className="flex-nowrap!"
                 ariaLabel="Ativar programa de fidelidade"
                 checked={safeProgram.active}
-                onChange={(active) => handleChange("active", active)}
+                onChange={(active) => updateProgram({ active })}
                 description={safeProgram.active
                     ? "Pedidos elegíveis geram selos."
                     : "A contagem de selos está pausada."}
@@ -247,20 +237,20 @@ export default function FidelidadePage() {
                 <Card className="min-w-0 space-y-4">
                     <div>
                         <h2 className="text-lg font-semibold text-gray-900">Regras de pontuação</h2>
-                        <p className="mt-1 text-sm text-gray-500">Defina quais pedidos valem um selo e quantos selos liberam a recompensa.</p>
+
                     </div>
                     <Input
-                        label="Meta de selos"
+                        label="Meta de pedidos"
                         type="number"
                         min={1}
                         max={100}
                         value={safeProgram.goal_count}
-                        onChange={(e) => handleChange("goal_count", Number(e.target.value))}
+                        onChange={(e) => updateProgram({ goal_count: Number(e.target.value) })}
                         icon={<FontAwesomeIcon icon={faStar} className="text-gray-400" />}
                     />
                     <div>
                         <Input
-                            label="Valor mínimo do pedido (R$)"
+                            label="Valor mínimo do pedido"
                             placeholder="0,00"
                             value={minOrderDisplay}
                             onChange={handleMoneyChange}
@@ -280,40 +270,35 @@ export default function FidelidadePage() {
                             <Loader className="border-t-brand" />
                         </div>
                     ) : (
-                        <Dropdown
-                            label="Item principal gratuito"
-                            disabled={!safeProgram.active}
-                            options={dropdownOptions}
-                            onChange={(e) => handleItemSelect(e.target.value)}
-                            value={safeProgram.reward_item_id || ""}
-                            className="w-full"
-                        />
-                    )}
-                    <Input
-                        label="Nome de exibição da recompensa"
-                        placeholder="Ex.: Açaí completo grátis"
-                        value={safeProgram.reward_description || ""}
-                        onChange={(e) => handleChange("reward_description", e.target.value)}
-                        icon={<FontAwesomeIcon icon={faGift} className="text-gray-400" />}
-                    />
-
-                    {safeProgram.reward_item_id && (
-                        <div className="space-y-3 border-t border-gray-200 pt-4">
-                            <div>
-                                <h3 className="text-sm font-semibold text-gray-900">Complementos inclusos</h3>
-                                <p className="mt-1 text-sm text-gray-500">
-                                    Selecione os complementos gratuitos. Os demais serão cobrados pelo valor normal.
-                                </p>
-                            </div>
-                            {loadingDetails ? (
-                                <div role="status" aria-label="Carregando complementos" className="flex justify-center p-4">
-                                    <Loader className="border-t-brand" />
-                                </div>
-                            ) : selectedItemDetails?.groups.length === 0 ? (
-                                <p className="text-sm text-gray-500">Este item não possui complementos.</p>
-                            ) : (
-                                <div className="space-y-3">
-                                    {selectedItemDetails?.groups.map(group => (
+                        <>
+                            {(rewards.length ? rewards : [{ item_id: "", subitem_ids: [] }]).map((reward, index) => {
+                                const details = itemDetails[reward.item_id];
+                                const options = rewardOptions(reward.item_id);
+                                if (reward.item_id && !options.some(option => option.value === reward.item_id)) {
+                                    options.push({ value: reward.item_id, label: "Item indisponível", disabled: true });
+                                }
+                                return (
+                                    <div key={reward.item_id || "initial"} className="space-y-3">
+                                        <div className="flex items-end gap-2">
+                                            <div className="min-w-0 flex-1">
+                                                <Dropdown
+                                                    label={index === 0 ? "Item de recompensa" : `Item de recompensa ${index + 1}`}
+                                                    disabled={!safeProgram.active}
+                                                    options={options}
+                                                    value={reward.item_id}
+                                                    onChange={event => replaceReward(index, { item_id: event.target.value, subitem_ids: [] })}
+                                                />
+                                            </div>
+                                            {rewards.length > 1 && (
+                                                <Button variant="secondary" onClick={() => saveRewards(rewards.filter((_, position) => position !== index))}>
+                                                    Remover
+                                                </Button>
+                                            )}
+                                        </div>
+                                        {details && details.groups.length > 0 && (
+                                            <div className="space-y-3">
+                                                <h3 className="text-sm font-semibold text-gray-900">Complementos inclusos</h3>
+                                    {details.groups.map(group => (
                                         <fieldset key={group.id} className="min-w-0 rounded-lg border border-gray-200 bg-gray-50 p-3">
                                             <legend className="px-1 text-sm font-medium text-gray-700">{group.name}</legend>
                                             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
@@ -324,8 +309,13 @@ export default function FidelidadePage() {
                                                     >
                                                         <input
                                                             type="checkbox"
-                                                            checked={safeProgram.reward_subitem_ids?.includes(sub.id) ?? false}
-                                                            onChange={() => toggleSubitem(sub.id)}
+                                                            checked={reward.subitem_ids.includes(sub.id)}
+                                                            onChange={event => replaceReward(index, {
+                                                                ...reward,
+                                                                subitem_ids: event.target.checked
+                                                                    ? [...reward.subitem_ids, sub.id]
+                                                                    : reward.subitem_ids.filter(id => id !== sub.id),
+                                                            })}
                                                             className="size-5 shrink-0 cursor-pointer accent-brand disabled:cursor-not-allowed"
                                                         />
                                                         <span className="min-w-0 flex-1 wrap-break-word">{sub.name}</span>
@@ -337,9 +327,21 @@ export default function FidelidadePage() {
                                             </div>
                                         </fieldset>
                                     ))}
-                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                            {rewards.length > 0 && rewardOptions().length > 1 && (
+                                <Dropdown
+                                    label="Adicionar item de recompensa"
+                                    disabled={!safeProgram.active}
+                                    options={rewardOptions()}
+                                    value=""
+                                    onChange={event => saveRewards([...rewards, { item_id: event.target.value, subitem_ids: [] }])}
+                                />
                             )}
-                        </div>
+                        </>
                     )}
                 </Card>
             </fieldset>

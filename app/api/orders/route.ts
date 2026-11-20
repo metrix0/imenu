@@ -562,7 +562,8 @@ export async function POST(request: Request) {
                 SELECT
                     goal_count,
                     reward_item_id,
-                    reward_subitem_ids
+                    reward_subitem_ids,
+                    to_jsonb(loyalty_programs)->'additional_rewards' AS additional_rewards
                 FROM loyalty_programs
                 WHERE restaurant_id = $1
                   AND active = true
@@ -574,15 +575,17 @@ export async function POST(request: Request) {
         const program =
             programResult.rows[0] || null;
 
+        const configuredRewards = new Map<string, unknown>();
+        if (program?.reward_item_id) configuredRewards.set(String(program.reward_item_id), program.reward_subitem_ids);
+        for (const reward of program?.additional_rewards ?? []) {
+            configuredRewards.set(reward.item_id, reward.subitem_ids);
+        }
+
         const rewardItems = items.filter(
             (item: any) => {
                 const itemId = getCartItemId(item);
                 const matchesConfiguredReward =
-                    program &&
-                    String(itemId) ===
-                        String(
-                            program.reward_item_id
-                        ) &&
+                    program?.reward_item_id && String(itemId) === String(program.reward_item_id) &&
                     Number(item.total_cents) === 0;
 
                 return (
@@ -625,10 +628,7 @@ export async function POST(request: Request) {
             const rewardItemId =
                 getCartItemId(rewardItem);
 
-            if (
-                String(program.reward_item_id) !==
-                rewardItemId
-            ) {
+            if (!configuredRewards.has(rewardItemId)) {
                 throw new OrderRequestError(
                     "Item inválido para resgate."
                 );
@@ -649,7 +649,7 @@ export async function POST(request: Request) {
 
             rewardSubitemIds = new Set(
                 parseIdArray(
-                    program.reward_subitem_ids
+                    configuredRewards.get(rewardItemId)
                 )
             );
 

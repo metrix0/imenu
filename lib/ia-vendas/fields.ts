@@ -362,11 +362,6 @@ export const FIELDS = {
       nullable: false,
       required: false,
     },
-    reward_description: {
-      type: "text",
-      nullable: true,
-      required: false,
-    },
     active: {
       type: "boolean",
       nullable: true,

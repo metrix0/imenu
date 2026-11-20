@@ -12,7 +12,7 @@ import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
 import { useCartStore } from "@/lib/stores/costumer/cartStore";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/utils/fontawesome";
-import { faChair, faChevronRight, faStar } from "@fortawesome/free-solid-svg-icons";
+import { faChair, faChevronRight, faGift, faStar } from "@fortawesome/free-solid-svg-icons";
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import { supabase } from "@/lib/database/supabaseClient";
 import Input from "@/components/ui/Input";
@@ -27,6 +27,8 @@ import Tabs from "@/components/ui/Tabs";
 import SearchModal from "./SearchModal";
 import { StartingPriceLabel } from "./StartingPriceLabels";
 import HistoryModal from "@/components/costumer/HistoryModal";
+import { useHistoryStore } from "@/lib/stores/costumer/historyStore";
+import type { LoyaltyOffer } from "@/lib/types/types";
 import type { QrTableMenuContext } from "@/lib/qr-table/types";
 import PromotionBanner from "@/components/costumer/PromotionBanner";
 import { evaluateAutomaticPromotions, parseAutomaticPromotions, promotionAvailable, promotionCartSubtotal } from "@/lib/promotions/automatic";
@@ -181,6 +183,37 @@ export default function MenuClientPage({
     const [restaurantCartWarningVisible, setRestaurantCartWarningVisible] = useState(false);
     const [orderId, setOrderId] = useState<string | null>(null);
     const isTableOrder = Boolean(tableOrder);
+    const [loyalty, setLoyalty] = useState<{ restaurantId: string; offer: LoyaltyOffer | null } | null>(null);
+    const loyaltyOffer = loyalty?.restaurantId === restaurant.id ? loyalty.offer : null;
+    const savedPhone = useCheckoutStore(state => state.celular);
+    const showLoyaltyLookup = historyOpen || (cartOpen && Boolean(loyaltyOffer));
+
+    useEffect(() => {
+        if (readOnly || isTableOrder) return;
+        const controller = new AbortController();
+        void fetch(`/api/loyalty/status?restaurant_id=${encodeURIComponent(restaurant.id)}`, { signal: controller.signal })
+            .then(async response => response.ok ? await response.json() as LoyaltyOffer | null : null)
+            .then(offer => {
+                if (!controller.signal.aborted) setLoyalty({ restaurantId: restaurant.id, offer });
+            })
+            .catch(() => undefined);
+        return () => {
+            controller.abort();
+            useHistoryStore.getState().reset();
+        };
+    }, [restaurant.id, readOnly, isTableOrder]);
+
+    useEffect(() => {
+        if (readOnly || isTableOrder || !showLoyaltyLookup) return;
+        const history = useHistoryStore.getState();
+        if (history.restaurantId === restaurant.id || history.loading) return;
+        const digits = savedPhone.replace(/\D/g, "");
+        const phone = /^55\d{10,11}$/.test(digits) ? digits.slice(2) : digits;
+        if (phone.length === 10 || phone.length === 11) {
+            history.setPhone(savedPhone);
+            void history.fetchHistory(restaurant.id);
+        }
+    }, [showLoyaltyLookup, savedPhone, restaurant.id, readOnly, isTableOrder]);
     const now = new Date(menuTime);
     const manuallyOpen = (isTableOrder || restaurant.preorder_only !== true) && isManualOpeningActive(restaurant.manual_open_until, now);
     const closedForToday = !manuallyOpen && isStoreManuallyClosed(restaurant.is_closed, now);
@@ -1076,11 +1109,12 @@ export default function MenuClientPage({
                     : "opacity-100 translate-y-0"}
     `}
             >
-                {!isTableOrder && (
-                    <div onClick={() => setHistoryOpen(true)}
+                {!readOnly && !isTableOrder && (
+                    <button type="button" aria-label={loyaltyOffer ? "Fidelidade" : "Histórico de pedidos"}
+                        onClick={() => setHistoryOpen(true)}
                         className="cursor-pointer pointer-events-auto h-10 w-10 rounded-full bg-black/50 text-white flex justify-center items-center">
-                        <FontAwesomeIcon icon={icons.faHistory} />
-                    </div>
+                        <FontAwesomeIcon icon={loyaltyOffer ? faGift : icons.faHistory} />
+                    </button>
                 )}
 
                 <div
@@ -1137,6 +1171,12 @@ export default function MenuClientPage({
 
             <div ref={menuCards} className="mt-8 px-4 md:mx-44 space-y-12 pb-20 2xl:mx-80 2xl:mt-12 relative">
                 <div className="absolute top-0 right-4 hidden md:flex justify-end gap-4">
+                    {!readOnly && !isTableOrder && loyaltyOffer && (
+                        <button type="button" aria-label="Fidelidade" title="Fidelidade" onClick={() => setHistoryOpen(true)}
+                            className="grid size-10 cursor-pointer place-items-center rounded-lg border border-[var(--im-menu-border,#e5e7eb)] bg-[var(--im-menu-surface,#fff)] text-[var(--im-menu-link,#f14400)]">
+                            <FontAwesomeIcon icon={faGift} />
+                        </button>
+                    )}
                     <button
                         className={`text-sm 2xl:text-base text-[var(--im-menu-link,#f14400)] mt-1 transition-opacity duration-200 ${
                             searchText.length > 0 ? "opacity-100 pointer-events-auto cursor-pointer" : "opacity-0 pointer-events-none"
@@ -1307,6 +1347,11 @@ export default function MenuClientPage({
                     requiresSchedule={requiresSchedule}
                     manuallyClosedToday={closedForToday}
                     promotionResult={promotionResult}
+                    loyaltyOffer={loyaltyOffer}
+                    onOpenLoyalty={() => {
+                        setCartOpen(false);
+                        setHistoryOpen(true);
+                    }}
                     restaurant={restaurant}
                     onClose={() => {
                         setCartOpen(false);
@@ -1335,6 +1380,7 @@ export default function MenuClientPage({
                 <HistoryModal
                     open={historyOpen}
                     onClose={() => setHistoryOpen(false)}
+                    offer={loyaltyOffer}
                     restaurantId={restaurant.id}
                 />
             )}

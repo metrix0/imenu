@@ -62,7 +62,6 @@ const labels: Record<string, string> = {
   show_coupon: "Mostrar cupom",
   one_coupon_per_user: "Uma utilização por cliente",
   goal_count: "Meta de pedidos",
-  reward_description: "Descrição da recompensa",
   min_order_value_cents: "Pedido mínimo",
   reward_item_id: "Recompensa",
   reward_subitem_ids: "Complementos da recompensa",

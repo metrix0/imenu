@@ -84,7 +84,6 @@ const samples: Record<string, unknown> = {
   show_coupon: true,
   one_coupon_per_user: false,
   goal_count: 10,
-  reward_description: "Produto grátis",
   min_order_value_cents: 1000,
   reward_item_id: uuid,
   reward_subitem_ids: [uuid],
