@@ -4,13 +4,13 @@ import { PageSaveHeader } from "@/components/ui/SaveStatus";
 import { useEffect, useState } from "react";
 import { useLoyaltyStore } from "@/lib/stores/restaurant-owner/loyaltyStore";
 import Input from "@/components/ui/Input";
-import Switch from "@/components/ui/Switch";
 import SaveStatus from "@/components/ui/SaveStatus";
 import Loader from "@/components/ui/Loader";
 import Card from "@/components/ui/Card";
 import Dropdown from "@/components/ui/Dropdown";
+import ToggleOptionCard from "@/components/ui/ToggleOptionCard";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import { faStar, faGift, faMoneyBillWave, faCheckSquare, faSquare, faChevronDown, faChevronUp } from "@fortawesome/free-solid-svg-icons";
+import { faStar, faGift, faMoneyBillWave } from "@fortawesome/free-solid-svg-icons";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import { supabase } from "@/lib/database/supabaseClient";
 import { formatPrice } from "@/lib/utils/formatPrice";
@@ -216,151 +216,133 @@ export default function FidelidadePage() {
         reward_subitem_ids: []
     };
 
-    const dropdownOptions = menuItems.map(item => ({ value: item.id, label: item.name }));
+    const dropdownOptions = [
+        { value: "", label: menuItems.length ? "Selecione um item" : "Nenhum item disponível", disabled: true },
+        ...menuItems.map(item => ({ value: item.id, label: item.name })),
+    ];
 
     return (
-        <div className="max-w-6xl mx-auto pb-20 px-4 sm:px-6 pt-8">
+        <div className="mx-auto max-w-6xl space-y-6 px-4 pb-20 pt-8 sm:px-6">
             <PageSaveHeader>
-<div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Programa de Fidelidade</h1>
-                    <p className="text-gray-500 mt-1 2xl:text-lg">Defina o item que será dado como recompensa e quais complementos já vêm inclusos.</p>
-                </div>
-                <SaveStatus status={saveStatus} className="self-start sm:self-auto" />
-            </div>
-</PageSaveHeader>
-            {saveError ? <p role="alert" className="mb-4 text-sm text-red-600">{saveError}</p> : null}
+                <h1 className="text-3xl font-bold text-gray-900">Programa de Fidelidade</h1>
+                <p className="mt-1 text-gray-500 2xl:text-lg">Defina como seus clientes ganham selos e qual recompensa podem resgatar.</p>
+                <SaveStatus status={saveStatus} />
+            </PageSaveHeader>
 
-            <Card className="space-y-6 p-6">
-                <div className="flex justify-between items-center border-b border-gray-100 pb-6">
+            {saveError && <p role="alert" className="text-sm text-red-600">{saveError}</p>}
+
+            <ToggleOptionCard
+                label="Status do programa"
+                variant="section"
+                className="flex-nowrap!"
+                ariaLabel="Ativar programa de fidelidade"
+                checked={safeProgram.active}
+                onChange={(active) => handleChange("active", active)}
+                description={safeProgram.active
+                    ? "Pedidos elegíveis geram selos."
+                    : "A contagem de selos está pausada."}
+            />
+
+            <fieldset disabled={!safeProgram.active} className="grid min-w-0 items-start gap-4 disabled:opacity-75 lg:grid-cols-3">
+                <Card className="min-w-0 space-y-4">
                     <div>
-                        <h3 className="font-semibold text-lg">Status do Programa</h3>
-                        <p className="text-sm text-gray-500">Se desativado, a pontuação é pausada.</p>
+                        <h2 className="text-lg font-semibold text-gray-900">Regras de pontuação</h2>
+                        <p className="mt-1 text-sm text-gray-500">Defina quais pedidos valem um selo e quantos selos liberam a recompensa.</p>
                     </div>
-                    <Switch
-                        aria-label="Ativar programa de fidelidade"
-                        checked={safeProgram.active} 
-                        onClick={() => handleChange("active", !safeProgram.active)}
+                    <Input
+                        label="Meta de selos"
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={safeProgram.goal_count}
+                        onChange={(e) => handleChange("goal_count", Number(e.target.value))}
+                        icon={<FontAwesomeIcon icon={faStar} className="text-gray-400" />}
                     />
-                </div>
-
-                <fieldset disabled={!safeProgram.active} className="min-w-0 space-y-6 disabled:opacity-50">
-                    {/* REGRAS */}
-                    <div className="grid md:grid-cols-2 gap-6">
+                    <div>
                         <Input
-                            label="Meta de Pedidos (Selos)"
-                            type="number"
-                            min={1}
-                            max={100}
-                            placeholder="Ex: 10"
-                            value={safeProgram.goal_count}
-                            onChange={(e) => handleChange("goal_count", Number(e.target.value))}
-                            icon={<FontAwesomeIcon icon={faStar} className="text-gray-400"/>}
+                            label="Valor mínimo do pedido (R$)"
+                            placeholder="0,00"
+                            value={minOrderDisplay}
+                            onChange={handleMoneyChange}
+                            aria-describedby="loyalty-minimum-help"
+                            icon={<FontAwesomeIcon icon={faMoneyBillWave} className="text-gray-400" />}
                         />
-                        <div>
-                             <Input
-                                label="Valor Mínimo do Pedido (R$)"
-                                placeholder="0,00"
-                                value={minOrderDisplay} 
-                                onChange={handleMoneyChange}
-                                icon={<FontAwesomeIcon icon={faMoneyBillWave} className="text-gray-400"/>}
-                                iconPosition="left"
-                            />
-                            <p className="text-xs text-gray-400 mt-1 ml-1">Deixe 0 para pontuar qualquer valor.</p>
-                        </div>
+                        <p id="loyalty-minimum-help" className="mt-1 text-xs text-gray-500">
+                            Com valor mínimo de R$ 0, qualquer pedido pontua.
+                        </p>
                     </div>
+                </Card>
 
-                    <hr className="border-gray-100" />
-
-                    {/* SELEÇÃO DO COMBO */}
-                    <div className="space-y-4">
-                        <h3 className="font-medium text-gray-900">Definir Combo de Recompensa</h3>
-                        
-                        <div className="w-full">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Item Principal (Gratuito)</label>
-                            {itemsLoading ? (
-                                <div role="status" aria-label="Carregando itens" className="flex justify-center p-4">
-                                    <Loader className="border-t-brand" />
-                                </div>
-                            ) : (
-                                <Dropdown 
-                                    aria-label="Item principal gratuito"
-                                    disabled={!safeProgram.active}
-                                    options={dropdownOptions}
-                                    onChange={(e) => handleItemSelect(e.target.value)}
-                                    value={safeProgram.reward_item_id || ""}
-                                    className="w-full"
-                                />
-                            )}
+                <Card className="min-w-0 space-y-4 lg:col-span-2">
+                    <h2 className="text-lg font-semibold text-gray-900">Recompensa</h2>
+                    {itemsLoading ? (
+                        <div role="status" aria-label="Carregando itens" className="flex justify-center p-4">
+                            <Loader className="border-t-brand" />
                         </div>
+                    ) : (
+                        <Dropdown
+                            label="Item principal gratuito"
+                            disabled={!safeProgram.active}
+                            options={dropdownOptions}
+                            onChange={(e) => handleItemSelect(e.target.value)}
+                            value={safeProgram.reward_item_id || ""}
+                            className="w-full"
+                        />
+                    )}
+                    <Input
+                        label="Nome de exibição da recompensa"
+                        placeholder="Ex.: Açaí completo grátis"
+                        value={safeProgram.reward_description || ""}
+                        onChange={(e) => handleChange("reward_description", e.target.value)}
+                        icon={<FontAwesomeIcon icon={faGift} className="text-gray-400" />}
+                    />
 
-                        {/* LISTA DE COMPLEMENTOS INCLUSOS */}
-                        {safeProgram.reward_item_id && (
-                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                                <h4 className="font-medium text-sm text-gray-700 mb-3">
-                                    Selecione os complementos que virão <span className="text-green-600 font-bold">GRÁTIS</span> neste combo:
-                                </h4>
-                                
-                                {loadingDetails ? (
-                                    <div role="status" aria-label="Carregando complementos" className="flex justify-center p-4">
-                                        <Loader className="border-t-brand" />
-                                    </div>
-                                ) : selectedItemDetails?.groups.length === 0 ? (
-                                    <p className="text-sm text-gray-400 italic">Este item não possui complementos.</p>
-                                ) : (
-                                    <div className="space-y-4 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                                        {selectedItemDetails?.groups.map(group => (
-                                            <div key={group.id}>
-                                                <p className="text-xs font-bold text-gray-500 uppercase mb-2">{group.name}</p>
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                                    {group.subitems.map(sub => {
-                                                        const isSelected = safeProgram.reward_subitem_ids?.includes(sub.id);
-                                                        return (
-                                                            <button
-                                                                type="button"
-                                                                aria-pressed={!!isSelected}
-                                                                key={sub.id}
-                                                                onClick={() => toggleSubitem(sub.id)}
-                                                                className={`cursor-pointer flex items-center p-2 rounded border transition-all ${
-                                                                    isSelected 
-                                                                        ? "bg-green-50 border-green-200 text-green-800" 
-                                                                        : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
-                                                                }`}
-                                                            >
-                                                                <FontAwesomeIcon 
-                                                                    icon={isSelected ? faCheckSquare : faSquare} 
-                                                                    className={`mr-2 ${isSelected ? "text-green-600" : "text-gray-300"}`}
-                                                                />
-                                                                <span className="text-sm flex-1">{sub.name}</span>
-                                                                <span className="text-xs text-gray-400">
-                                                                    {sub.price_cents > 0 ? `+${formatPrice(sub.price_cents)}` : 'Grátis'}
-                                                                </span>
-                                                            </button>
-                                                        )
-                                                    })}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                                <p className="text-xs text-gray-500 mt-3 pt-3 border-t border-gray-200">
-                                    * Qualquer outro complemento que o cliente escolher além destes será cobrado o valor normal.
+                    {safeProgram.reward_item_id && (
+                        <div className="space-y-3 border-t border-gray-200 pt-4">
+                            <div>
+                                <h3 className="text-sm font-semibold text-gray-900">Complementos inclusos</h3>
+                                <p className="mt-1 text-sm text-gray-500">
+                                    Selecione os complementos gratuitos. Os demais serão cobrados pelo valor normal.
                                 </p>
                             </div>
-                        )}
-
-                        <div className="pt-2">
-                            <Input
-                                label="Nome de Exibição (Ex: Açaí Completo Grátis)"
-                                value={safeProgram.reward_description || ""}
-                                onChange={(e) => handleChange("reward_description", e.target.value)}
-                                icon={<FontAwesomeIcon icon={faGift} className="text-gray-400"/>}
-                            />
+                            {loadingDetails ? (
+                                <div role="status" aria-label="Carregando complementos" className="flex justify-center p-4">
+                                    <Loader className="border-t-brand" />
+                                </div>
+                            ) : selectedItemDetails?.groups.length === 0 ? (
+                                <p className="text-sm text-gray-500">Este item não possui complementos.</p>
+                            ) : (
+                                <div className="space-y-3">
+                                    {selectedItemDetails?.groups.map(group => (
+                                        <fieldset key={group.id} className="min-w-0 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                                            <legend className="px-1 text-sm font-medium text-gray-700">{group.name}</legend>
+                                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                                                {group.subitems.map(sub => (
+                                                    <label
+                                                        key={sub.id}
+                                                        className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 transition-colors hover:bg-gray-50 has-checked:border-brand has-checked:bg-[#fff1ea] has-disabled:cursor-not-allowed"
+                                                    >
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={safeProgram.reward_subitem_ids?.includes(sub.id) ?? false}
+                                                            onChange={() => toggleSubitem(sub.id)}
+                                                            className="size-5 shrink-0 cursor-pointer accent-brand disabled:cursor-not-allowed"
+                                                        />
+                                                        <span className="min-w-0 flex-1 wrap-break-word">{sub.name}</span>
+                                                        <span className="shrink-0 text-xs text-gray-600">
+                                                            {sub.price_cents > 0 ? `+${formatPrice(sub.price_cents)}` : "Grátis"}
+                                                        </span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </fieldset>
+                                    ))}
+                                </div>
+                            )}
                         </div>
-                    </div>
-                </fieldset>
-
-            </Card>
+                    )}
+                </Card>
+            </fieldset>
         </div>
     );
 }
