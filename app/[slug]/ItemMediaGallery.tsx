@@ -20,7 +20,7 @@ export default function ItemMediaGallery({ name, image, media = [] }: {
     const container = useRef<HTMLDivElement>(null);
     const video = useRef<HTMLVideoElement>(null);
     const interacted = useRef(false);
-    const [active, setActive] = useState(0);
+    const [{ active, viewed }, setSlide] = useState({ active: 0, viewed: new Set([0]) });
     const [videoFailed, setVideoFailed] = useState(false);
     const activeVideoUrl = slides[active]?.type === "video" ? slides[active].url : null;
 
@@ -64,13 +64,17 @@ export default function ItemMediaGallery({ name, image, media = [] }: {
                 onWheel={event => { if (event.deltaX) interacted.current = true; }}
                 onScroll={event => {
                     const strip = event.currentTarget;
-                    if (strip.clientWidth) setActive(Math.round(strip.scrollLeft / strip.clientWidth));
+                    if (!strip.clientWidth) return;
+                    const index = Math.max(0, Math.min(slides.length - 1, Math.round(strip.scrollLeft / strip.clientWidth)));
+                    setSlide(previous => previous.active === index
+                        ? previous
+                        : { active: index, viewed: previous.viewed.has(index) ? previous.viewed : new Set([...previous.viewed, index]) });
                 }}
             >
                 {slides.map((slide, index) => (
                     <div key={index} className="relative h-full w-full shrink-0 snap-center">
                         {slide.type === "image" || videoFailed ? (
-                            <Image src={slide.type === "image" ? slide.url : cover} alt={index > firstPhotoIndex ? `Foto ${index - firstPhotoIndex + 1} de ${name}` : name} fill sizes="(min-width: 768px) 50vw, 100vw" loading="eager" className="object-cover" draggable={false} />
+                            viewed.has(index) && <Image src={slide.type === "image" ? slide.url : cover} alt={index > firstPhotoIndex ? `Foto ${index - firstPhotoIndex + 1} de ${name}` : name} fill sizes="(min-width: 768px) 50vw, 100vw" loading="eager" className="object-cover" draggable={false} />
                         ) : (
                             <video
                                 ref={video}

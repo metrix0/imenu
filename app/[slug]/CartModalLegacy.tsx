@@ -1,5 +1,6 @@
 // app/[slug]/CartModal.tsx
 "use client";
+import { createMenuRequestCache } from "@/lib/menu/requestCache";
 import { getMenuItemImageUrl } from "@/lib/menu/itemImages";
 import CheckoutCustomerFields from "@/components/costumer/CheckoutCustomerFields";
 import { getOrderScheduleOptions } from "@/lib/menu/orderAvailability";
@@ -89,6 +90,39 @@ function dateFromInput(value: string) {
     const [year, month, day] = value.split("-").map(Number);
     return new Date(year, month - 1, day, 12, 0, 0, 0);
 }
+
+const loadManualUpsells = createMenuRequestCache(async (restaurantId: string): Promise<Item[]> => {
+    const { data: rows, error } = await supabase
+        .from("upsell")
+        .select("item_id, position")
+        .eq("restaurant_id", restaurantId)
+        .order("position", { ascending: true });
+    if (error) throw error;
+    if (!rows?.length) return [];
+
+    const { data: products, error: productsError } = await supabase
+        .from("items")
+        .select("*")
+        .in("id", rows.map(row => row.item_id))
+        .eq("is_available", true);
+    if (productsError) throw productsError;
+
+    const byId = new Map(products?.map(product => [product.id, product]));
+    return rows.flatMap(row => {
+        const product = byId.get(row.item_id);
+        return product ? [{
+            ...product,
+            image_public_url: getMenuItemImageUrl(supabase, product.image_path),
+        }] : [];
+    });
+});
+
+const loadAutomaticUpsells = createMenuRequestCache(async (restaurantId: string) => {
+    const { data, error } = await supabase.from("automatic_upsell").select("recommendations")
+        .eq("restaurant_id", restaurantId).maybeSingle();
+    if (error) throw error;
+    return (data?.recommendations as AutomaticUpsellRecommendations | null) ?? null;
+});
 
 export default function CartModal({
                                        onClose,
@@ -181,7 +215,6 @@ export default function CartModal({
     const [showDiscountInput, setShowDiscountInput] = useState(false);
     const [manualUpsells, setManualUpsells] = useState<Item[]>([]);
     const [automaticRecommendations, setAutomaticRecommendations] = useState<AutomaticUpsellRecommendations | null>(null);
-    const [loadingUpsells, setLoadingUpsells] = useState(false);
     const [showOptionalSchedule, setShowOptionalSchedule] = useState(false);
     const [scheduleDropdownOpen, setScheduleDropdownOpen] = useState(false);
     const now = new Date();
@@ -706,66 +739,17 @@ export default function CartModal({
 
     useEffect(() => {
         if (!restaurant?.id) return;
-
-        const loadUpsells = async () => {
-            setLoadingUpsells(true);
-
-            const { data: upsellRows } = await supabase
-                .from("upsell")
-                .select("item_id, position")
-                .eq("restaurant_id", restaurant.id)
-                .order("position", { ascending: true });
-
-            if (!upsellRows || upsellRows.length === 0) {
-                setManualUpsells([]);
-                setLoadingUpsells(false);
-                return;
-            }
-
-            const itemIds = upsellRows.map(u => u.item_id);
-
-            const { data: items } = await supabase
-                .from("items")
-                .select("*")
-                .in("id", itemIds)
-                .eq("is_available", true);
-
-            if (!items) {
-                setManualUpsells([]);
-                setLoadingUpsells(false);
-                return;
-            }
-
-            const ordered: Item[] = upsellRows
-                .map(u => {
-                    const item = items.find(i => i.id === u.item_id);
-                    if (!item) return null;
-
-                    return {
-                        ...item,
-                        image_public_url: getMenuItemImageUrl(supabase, item.image_path),
-                    };
-                })
-                .filter((i): i is Item => i !== null);
-
-            setManualUpsells(ordered);
-            setLoadingUpsells(false);
-        };
-
-        loadUpsells();
-    }, [restaurant?.id]);
-
-    useEffect(() => {
-        if (!restaurant?.id) return;
         let active = true;
+        setManualUpsells([]);
         setAutomaticRecommendations(null);
-        supabase.from("automatic_upsell").select("recommendations")
-            .eq("restaurant_id", restaurant.id).maybeSingle()
-            .then(({ data, error }) => {
-                if (active && !error && data?.recommendations) {
-                    setAutomaticRecommendations(data.recommendations as AutomaticUpsellRecommendations);
-                }
-            });
+
+        void loadManualUpsells(restaurant.id).then(products => {
+            if (active) setManualUpsells(products);
+        }).catch(() => undefined);
+        void loadAutomaticUpsells(restaurant.id).then(recommendations => {
+            if (active) setAutomaticRecommendations(recommendations);
+        }).catch(() => undefined);
+
         return () => { active = false; };
     }, [restaurant?.id]);
 

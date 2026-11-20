@@ -20,7 +20,7 @@ import Button from "@/components/ui/Button";
 import { formatPrice, formatPriceNoRS, promotionPrice } from "@/lib/utils/formatPrice";
 import ModalMobile from "@/components/ui/HybridModal";
 import ItemModal from "./ItemModal";
-import { MenuCardMedia, useMenuVideoPreviews } from "./menuVideoPreviews";
+import { MenuCardMedia, MenuVideoPreviews } from "./menuVideoPreviews";
 import CartBar from "@/components/costumer/CartBar"
 import CartModal from "./CartModal"
 import WarningBox from "@/components/ui/WarningBox";
@@ -38,6 +38,14 @@ import { getCheckoutFulfillment } from "@/lib/delivery/restaurantLocation";
 import { isManualOpeningActive, isStoreManuallyClosed } from "@/lib/menu/storeHoursOverride";
 import { isCategoryAvailable } from "@/lib/menu/categorySchedule";
 import { hasOrderHours } from "@/lib/menu/orderAvailability";
+
+import { createMenuRequestCache } from "@/lib/menu/requestCache";
+
+const loadItemOptions = createMenuRequestCache(async (itemId: string): Promise<Subcategory[]> => {
+    const response = await fetch(`/api/items/${itemId}/subcategories`);
+    if (!response.ok) throw new Error("Não foi possível carregar os complementos. Tente novamente.");
+    return response.json();
+});
 
 const RESTAURANT_INFO_DAYS = [
     { day: 1, label: "Segunda-feira" },
@@ -160,7 +168,6 @@ export default function MenuClientPage({
     const coupon_id = useCheckoutStore((s) => s.coupon_id);
     const coupon_discount_cents = useCheckoutStore((s) => s.coupon_discount_cents);
     const setField = useCheckoutStore((s) => s.setField);
-    const [loadingItemId, setLoadingItemId] = useState<string | null>(null);
     const [cartOpen, setCartOpen] = useState(false);
     const [cartStep, setCartStep] = useState<"cart" | "info" | "checkout">("cart");
     const [nextOpening, setNextOpening] = useState<Date | null>(null);
@@ -236,12 +243,9 @@ export default function MenuClientPage({
         }
     }, [categories, activeTab]);
     const [manualScrollLock, setManualScrollLock] = useState(false);
-    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const query = searchText.trim();
     const [couponUsed, setCouponUsed] = useState("");
     const menuCards = useRef<HTMLDivElement>(null);
-    const activeVideoPreviews = useMenuVideoPreviews(menuCards, categories, itemsByCategory, debouncedSearch,
-        !openedItem && !cartOpen && !searchOpen && !historyOpen && !restaurantInfoOpen && !restaurantCartWarningVisible,
-    );
     useEffect(() => {
         if (isTableOrder || restaurant.delivery_disabled !== true) return;
         useCheckoutStore.setState({ is_pickup: true, delivery_fee_cents: "0", delivery_time_minutes: null } as any);
@@ -330,15 +334,6 @@ export default function MenuClientPage({
         if (coupon_code === selectedCouponCode) return;
         setField("coupon_code", selectedCouponCode);
     }, [selectedCouponCode, readOnly]);
-
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setDebouncedSearch(searchText);
-        }, 300);
-
-        return () => clearTimeout(timer);
-    }, [searchText]);
-
 
     useEffect(() => {
         if (readOnly) return;
@@ -527,16 +522,8 @@ export default function MenuClientPage({
             loading: true,
         });
 
-        setLoadingItemId(item.id);
-
         try {
-            const res = await fetch(`/api/items/${item.id}/subcategories`);
-            if (!res.ok) {
-                throw new Error("Não foi possível carregar os complementos. Tente novamente.");
-            }
-
-
-            const normalized = await res.json();
+            const normalized = await loadItemOptions(item.id);
 
             setOpenedItem(current => current?.item.id === item.id ? {
                 item, subcategories: normalized, loading: false,
@@ -545,8 +532,6 @@ export default function MenuClientPage({
             setOpenedItem(current => current?.item.id === item.id ? {
                 item, subcategories: [], loading: false, error: "Não foi possível carregar os complementos. Tente novamente.",
             } : current);
-        } finally {
-            setLoadingItemId(null);
         }
     }, [trackMeta]);
 
@@ -578,13 +563,13 @@ export default function MenuClientPage({
     const filteredItemsByCat = useMemo(() => Object.fromEntries(
         Object.entries(itemsByCategory).map(([catId, arr]) => [
             catId,
-            debouncedSearch
+            query
                 ? arr.filter(i =>
-                    i.name.toLowerCase().includes(debouncedSearch.toLowerCase())
+                    i.name.toLowerCase().includes(query.toLowerCase())
                 )
                 : arr,
         ])
-    ), [itemsByCategory, debouncedSearch]);
+    ), [itemsByCategory, query]);
     const taxText = () => {
         if (!deliveryTax) return null;
 
@@ -911,13 +896,9 @@ export default function MenuClientPage({
                             <button
                                 key={item.id}
                                 onClick={() => handleItemClick(item)}
-                                className={`text-left cursor-pointer ${
-                                    loadingItemId === item.id
-                                        ? "opacity-60"
-                                        : ""
-                                }`}
+                                className="text-left cursor-pointer"
                             >
-                                <MenuCardMedia item={item} previewActive={activeVideoPreviews.includes(item.id)} className="w-full aspect-square rounded-2xl overflow-hidden bg-[var(--im-menu-raised,#e5e7eb)] shadow-sm" />
+                                <MenuCardMedia item={item} className="w-full aspect-square rounded-2xl overflow-hidden bg-[var(--im-menu-raised,#e5e7eb)] shadow-sm" />
 
                                 <div className="mt-3 flex flex-col h-[55px] justify-start ">
                                     <p className="font-semibold text-sm 2xl:text-lg">
@@ -947,9 +928,7 @@ export default function MenuClientPage({
                             <button
                                 key={item.id}
                                 onClick={() => handleItemClick(item)}
-                                className={`cursor-pointer w-full flex justify-between items-start text-left border-b-1 pb-4 border-[var(--im-menu-border,#e5e7eb)] ${
-                                    loadingItemId === item.id ? "opacity-60" : ""
-                                }`}
+                                className="cursor-pointer w-full flex justify-between items-start text-left border-b-1 pb-4 border-[var(--im-menu-border,#e5e7eb)]"
                             >
                                 <div className="flex flex-col pr-4 flex-1 items-start justify-start max-w-[70%] ">
                                     <p className="text-sm 2xl:text-lg font-semibold leading-tight">
@@ -967,14 +946,14 @@ export default function MenuClientPage({
                                     </p>
                                 </div>
 
-                                <MenuCardMedia item={item} previewActive={activeVideoPreviews.includes(item.id)} className="w-[22vw] h-[22vw] md:w-[10vw] md:h-[10vw] rounded-2xl overflow-hidden bg-[var(--im-menu-raised,#e5e7eb)] shadow-sm flex-shrink-0" />
+                                <MenuCardMedia item={item} className="w-[22vw] h-[22vw] md:w-[10vw] md:h-[10vw] rounded-2xl overflow-hidden bg-[var(--im-menu-raised,#e5e7eb)] shadow-sm flex-shrink-0" />
                             </button>
                         ))}
                     </div>
                 </div>
             }
             </div>
-    )), [categories, filteredItemsByCat, handleItemClick, loadingItemId, activeVideoPreviews]);
+    )), [categories, filteredItemsByCat, handleItemClick]);
 
     return (
 
@@ -1244,7 +1223,7 @@ export default function MenuClientPage({
             </div>
 
 
-            {!readOnly && !debouncedSearch && visiblePromotions.length > 0 && (
+            {!readOnly && !query && visiblePromotions.length > 0 && (
                 <div className="mt-8 mx-5 md:mx-48 2xl:mx-80 space-y-3">
                     {visiblePromotions.map(p => <PromotionBanner key={p.id} promotion={p} products={promotionProducts} categories={categories} applied={promotionResult?.promotion?.id === p.id} />)}
                 </div>
@@ -1258,7 +1237,6 @@ export default function MenuClientPage({
                         }`}
                         onClick={() => {
                             setSearchText("");
-                            setDebouncedSearch("");
                         }}
                     >
                         Cancelar
@@ -1284,7 +1262,7 @@ export default function MenuClientPage({
                 </div>
 
 
-                {debouncedSearch && Object.values(filteredItemsByCat).every(arr => arr.length === 0) && (
+                {query && Object.values(filteredItemsByCat).every(arr => arr.length === 0) && (
                     <div className="flex flex-col items-center justify-center text-center mx-10 pt-16">
                         <img src="/images/meh_emoji.png" alt="Nada encontrado" className="w-38 h-38 mb-4 2xl:w-46 2xl:h-46" />
                         <p className="text-[var(--im-menu-muted,#6b7280)] text-md 2xl:text-xl">Nenhum item encontrado para <b>{searchText}</b>.</p>
@@ -1292,6 +1270,11 @@ export default function MenuClientPage({
                 )}
 
                 {catalog}
+                <MenuVideoPreviews
+                    menu={menuCards}
+                    visibleItems={filteredItemsByCat}
+                    enabled={!openedItem && !cartOpen && !searchOpen && !historyOpen && !restaurantInfoOpen && !restaurantCartWarningVisible}
+                />
             </div>
 
             {openedItem && (

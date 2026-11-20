@@ -2,6 +2,7 @@ import React from "react";
 import {renderToStaticMarkup} from "react-dom/server";
 import MenuPage from "./page";
 import { hasIMenuPlusAccess } from "@/lib/addons/access";
+jest.mock("@/lib/database/sql",()=>({query:jest.fn().mockResolvedValue({rows:[]})}));
 jest.mock("@/lib/addons/access",()=>({hasIMenuPlusAccess:jest.fn()}));
 jest.mock("next/navigation",()=>({notFound:()=>{throw new Error("NOT_FOUND")}}));
 jest.mock("next/image",()=>({__esModule:true,default:({fill,...props}:any)=><img {...props}/>}));

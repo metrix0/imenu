@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type ComponentProps } from "react";
 
 import LegacyCartModal from "./CartModalLegacy";
+import { createMenuRequestCache } from "@/lib/menu/requestCache";
 import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
 import {
     getNeighborhoodDeliveryReferenceCoordinates,
@@ -28,6 +29,21 @@ type DeliveryConfig = {
     smallCityModeEnabled: boolean;
 };
 
+const loadDeliveryConfig = createMenuRequestCache(async (restaurantId: string): Promise<DeliveryConfig> => {
+    const response = await fetch(
+        `/api/checkout/delivery-config?restaurantId=${encodeURIComponent(restaurantId)}`,
+        { cache: "no-store" }
+    );
+    if (!response.ok) throw new Error("Não foi possível carregar as configurações de entrega.");
+
+    const data = await response.json();
+    return {
+        mode: data.mode === "neighborhood" ? "neighborhood" : "radius",
+        rules: parseNeighborhoodDeliveryRules(data.rules),
+        smallCityModeEnabled: data.smallCityModeEnabled === true,
+    };
+});
+
 type NeighborhoodValidationResult =
     | "valid"
     | "invalid-neighborhood"
@@ -46,24 +62,9 @@ export default function CartModal(props: LegacyProps) {
 
         let active = true;
 
-        void fetch(
-            `/api/checkout/delivery-config?restaurantId=${encodeURIComponent(restaurantId)}`,
-            { cache: "no-store" }
-        )
-            .then(async (response) => {
-                if (!response.ok) return null;
-                return response.json();
-            })
-            .then((data) => {
-                if (!active || !data) return;
-                setDeliveryConfig({
-                    mode:
-                        data.mode === "neighborhood"
-                            ? "neighborhood"
-                            : "radius",
-                    rules: parseNeighborhoodDeliveryRules(data.rules),
-                    smallCityModeEnabled: data.smallCityModeEnabled === true,
-                });
+        void loadDeliveryConfig(restaurantId)
+            .then(config => {
+                if (active) setDeliveryConfig(config);
             })
             .catch(() => undefined);
 

@@ -343,34 +343,20 @@ export default function ItemModal({
         : null;
     const deliveryTaxText = taxText();
 
-    const renderContent = () => {
-        if (error) return <div className="px-4 py-8"><p role="alert" className="text-sm text-[var(--im-menu-error-text,#b91c1c)]">{error}</p><button type="button" className="mt-3 text-[var(--im-menu-link,#f14400)]" onClick={onRetry}>Tentar novamente</button></div>;
-        if (loading)
-            return (
-                <div className="flex items-center justify-center h-[55vh]">
-                    <Loader />
-                </div>
-            );
-
+    const renderOptions = () => {
+        if (error) return (
+            <div className="px-4 py-8">
+                <p role="alert" className="text-sm text-[var(--im-menu-error-text,#b91c1c)]">{error}</p>
+                <button type="button" className="mt-3 text-[var(--im-menu-link,#f14400)]" onClick={onRetry}>Tentar novamente</button>
+            </div>
+        );
+        if (loading) return (
+            <div className="flex items-center justify-center h-[55vh]">
+                <Loader />
+            </div>
+        );
         return (
             <>
-                <div className="mt-3 px-4">
-
-                    <h1 className="text-[22px] 2xl:text-3xl font-semibold mb-2">{shownItem.name}</h1>
-
-                    {shownItem.description && (
-                        <p className="text-[15px] 2xl:text-lg text-[var(--im-menu-text-soft,#374151)] mb-3">
-                            {shownItem.description}
-                        </p>
-                    )}
-
-                    <p className="text-[18px] font-semibold 2xl:text-lg">
-                        {pizzaQuote ? <><span className="block text-xs font-normal text-[var(--im-menu-muted,#6b7280)]">Preço Final</span>{formatPrice(unitTotal)}</> : (item.promotion && item.promotion.value > 0) ? <><span className={"text-[var(--im-menu-success-text,#15b058)]"}><StartingPriceLabel itemId={shownItem.id} />{formatPrice(promotionPrice(item) || item.price_cents)}</span> <span className={"font-normal text-[var(--im-menu-subtle,#9ca3af)] line-through text-xs"}>{formatPrice(item.price_cents)}</span></>
-                            : <><StartingPriceLabel itemId={shownItem.id} />{formatPrice(item.price_cents)}</>
-                        }
-                    </p>
-                </div>
-
                 <div className="mt-6">
                     {eligibleForPizza && !isSubsequentFlavor && <section aria-labelledby="pizza-flavors-title">
                         <div className="bg-[var(--im-menu-soft,#f3f4f6)] px-4 py-3">
@@ -656,7 +642,24 @@ export default function ItemModal({
 
             <div ref={detailsScroll} className="pb-32 md:h-[80vh] md:overflow-y-auto md:p-4 md:pb-0">
                 <div className={" md:pb-62"}>
-                {renderContent()}
+                    <div className="mt-3 px-4">
+
+                        <h1 className="text-[22px] 2xl:text-3xl font-semibold mb-2">{shownItem.name}</h1>
+
+                        {shownItem.description && (
+                            <p className="text-[15px] 2xl:text-lg text-[var(--im-menu-text-soft,#374151)] mb-3">
+                                {shownItem.description}
+                            </p>
+                        )}
+
+                        <p className="text-[18px] font-semibold 2xl:text-lg">
+                            {pizzaQuote ? <><span className="block text-xs font-normal text-[var(--im-menu-muted,#6b7280)]">Preço Final</span>{formatPrice(unitTotal)}</> : (item.promotion && item.promotion.value > 0) ? <><span className={"text-[var(--im-menu-success-text,#15b058)]"}><StartingPriceLabel itemId={shownItem.id} />{formatPrice(promotionPrice(item) || item.price_cents)}</span> <span className={"font-normal text-[var(--im-menu-subtle,#9ca3af)] line-through text-xs"}>{formatPrice(item.price_cents)}</span></>
+                                : <><StartingPriceLabel itemId={shownItem.id} />{formatPrice(item.price_cents)}</>
+                            }
+                        </p>
+                    </div>
+
+                    {renderOptions()}
                 </div>
             </div>
 

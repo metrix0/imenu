@@ -1,31 +1,21 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState, type RefObject } from "react";
-import type { Category, Item, ItemsByCategory } from "@/lib/types/types";
+import { useEffect, useState, type RefObject } from "react";
+import { createPortal } from "react-dom";
+import type { Item, ItemsByCategory } from "@/lib/types/types";
 
 const PREVIEW_DELAY = 2000;
 const PREVIEW_SELECTOR = "[data-menu-preview]";
-const NO_ACTIVE_PREVIEWS: readonly string[] = [];
+const NO_ACTIVE_PREVIEWS: readonly HTMLElement[] = [];
 type Connection = { saveData?: boolean; effectiveType?: string };
 
-export function useMenuVideoPreviews(
-    menu: RefObject<HTMLDivElement | null>,
-    categories: Category[],
-    items: ItemsByCategory,
-    search: string,
-    enabled: boolean,
-) {
-    const [active, setActive] = useState<readonly string[]>(NO_ACTIVE_PREVIEWS);
-    const previewKey = useMemo(() => JSON.stringify(Object.entries(items).flatMap(([category, products]) =>
-        products.filter(product => product.gallery_media?.some(media => media.type === "video"))
-            .map(product => [category, product.id]),
-    )), [items]);
-    const warmKey = useMemo(() => JSON.stringify([...new Set(categories.slice(0, 3).flatMap(category =>
-        (items[category.id] ?? []).flatMap(item =>
-            item.gallery_media?.filter(media => media.type === "video").map(media => media.url) ?? [],
-        ),
-    ))]), [categories, items]);
+export function MenuVideoPreviews({ menu, visibleItems, enabled }: {
+    menu: RefObject<HTMLDivElement | null>;
+    visibleItems: ItemsByCategory;
+    enabled: boolean;
+}) {
+    const [active, setActive] = useState(NO_ACTIVE_PREVIEWS);
 
     useEffect(() => {
         const container = menu.current;
@@ -40,8 +30,7 @@ export function useMenuVideoPreviews(
 
         let frame = 0;
         let timeout = 0;
-        let selected: readonly string[] = NO_ACTIVE_PREVIEWS;
-        let pointer = { x: -1, y: -1 };
+        let selected = NO_ACTIVE_PREVIEWS;
         const onScreen = new Map<HTMLElement, number>();
 
         const choose = () => {
@@ -49,7 +38,7 @@ export function useMenuVideoPreviews(
             let next: HTMLElement | null = null;
             if (!document.hidden && !motion.matches) {
                 if (finePointer.matches) {
-                    const hovered = document.elementFromPoint(pointer.x, pointer.y)?.closest<HTMLButtonElement>("button");
+                    const hovered = container.querySelector<HTMLButtonElement>("button:hover");
                     const preview = hovered?.querySelector<HTMLElement>(PREVIEW_SELECTOR);
                     if (preview && onScreen.has(preview)) next = preview;
                 } else {
@@ -80,25 +69,18 @@ export function useMenuVideoPreviews(
                 }
             }
 
-            const nextIds = nextPreviews.flatMap(preview => preview.dataset.menuPreview ? [preview.dataset.menuPreview] : []);
-            if (nextIds.length === selected.length && nextIds.every(id => selected.includes(id))) return;
-            selected = nextIds;
+            if (nextPreviews.length === selected.length && nextPreviews.every(preview => selected.includes(preview))) return;
+            selected = nextPreviews;
             clearTimeout(timeout);
             setActive(NO_ACTIVE_PREVIEWS);
-            if (nextIds.length) timeout = window.setTimeout(() => {
-                if (!document.hidden && !motion.matches) setActive(nextIds);
+            if (nextPreviews.length) timeout = window.setTimeout(() => {
+                if (!document.hidden && !motion.matches) {
+                    setActive(nextPreviews.filter(preview => preview.isConnected));
+                }
             }, PREVIEW_DELAY);
         };
 
         const schedule = () => { if (!frame) frame = requestAnimationFrame(choose); };
-        const onPointerMove = (event: PointerEvent) => {
-            pointer = { x: event.clientX, y: event.clientY };
-            schedule();
-        };
-        const resetPointer = () => {
-            pointer = { x: -1, y: -1 };
-            schedule();
-        };
         const observer = new IntersectionObserver(entries => {
             for (const entry of entries) {
                 if (entry.intersectionRatio >= 0.65) onScreen.set(entry.target as HTMLElement, entry.intersectionRatio);
@@ -108,8 +90,8 @@ export function useMenuVideoPreviews(
         }, { threshold: [0.65, 1] });
 
         previews.forEach(preview => observer.observe(preview));
-        window.addEventListener("pointermove", onPointerMove, { passive: true });
-        document.documentElement.addEventListener("pointerleave", resetPointer);
+        window.addEventListener("pointermove", schedule, { passive: true });
+        document.documentElement.addEventListener("pointerleave", schedule);
         window.addEventListener("scroll", schedule, { passive: true });
         window.addEventListener("resize", schedule);
         document.addEventListener("visibilitychange", schedule);
@@ -118,8 +100,8 @@ export function useMenuVideoPreviews(
 
         return () => {
             observer.disconnect();
-            window.removeEventListener("pointermove", onPointerMove);
-            document.documentElement.removeEventListener("pointerleave", resetPointer);
+            window.removeEventListener("pointermove", schedule);
+            document.documentElement.removeEventListener("pointerleave", schedule);
             window.removeEventListener("scroll", schedule);
             window.removeEventListener("resize", schedule);
             document.removeEventListener("visibilitychange", schedule);
@@ -129,71 +111,18 @@ export function useMenuVideoPreviews(
             clearTimeout(timeout);
             setActive(NO_ACTIVE_PREVIEWS);
         };
-    }, [menu, previewKey, search, enabled]);
+    }, [menu, visibleItems, enabled]);
 
-    useEffect(() => {
-        const connection = (navigator as Navigator & { connection?: Connection }).connection;
-        if (connection?.saveData || /^(slow-)?2g$/.test(connection?.effectiveType ?? "") ||
-            window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
-        const urls: string[] = JSON.parse(warmKey);
-        if (!urls.length) return;
-
-        let idle = 0;
-        let timer = 0;
-        let pending: HTMLVideoElement | null = null;
-        let stopped = false;
-        const stopLoading = () => {
-            clearTimeout(timer);
-            if (!pending) return;
-            pending.onloadedmetadata = null;
-            pending.onerror = null;
-            pending.removeAttribute("src");
-            pending.load();
-            pending = null;
-        };
-        const warmNext = () => {
-            if (stopped) return;
-            const url = urls.shift();
-            if (!url) return;
-            pending = document.createElement("video");
-            pending.preload = "metadata";
-            const next = () => {
-                stopLoading();
-                queueIdle();
-            };
-            pending.onloadedmetadata = next;
-            pending.onerror = next;
-            pending.src = url;
-            pending.load();
-            timer = window.setTimeout(next, 3000);
-        };
-        const queueIdle = () => {
-            if (typeof window.requestIdleCallback === "function") idle = window.requestIdleCallback(warmNext);
-            else timer = window.setTimeout(warmNext, 1000);
-        };
-        if (document.readyState === "complete") queueIdle();
-        else window.addEventListener("load", queueIdle, { once: true });
-
-        return () => {
-            stopped = true;
-            stopLoading();
-            if (typeof window.cancelIdleCallback === "function") window.cancelIdleCallback(idle);
-            window.removeEventListener("load", queueIdle);
-        };
-    }, [warmKey]);
-
-    return enabled ? active : NO_ACTIVE_PREVIEWS;
+    return enabled ? active.map(target => {
+        const url = target.dataset.menuPreview;
+        return url && createPortal(<MenuVideoPreview url={url} />, target, target.dataset.previewItemId);
+    }) : null;
 }
 
-export function MenuCardMedia({ item, previewActive, className }: {
-    item: Item;
-    previewActive: boolean;
-    className: string;
-}) {
+export function MenuCardMedia({ item, className }: { item: Item; className: string }) {
     const videoUrl = item.gallery_media?.find(media => media.type === "video")?.url;
     return (
-        <div data-menu-preview={videoUrl ? item.id : undefined} className={`relative ${className}`}>
+        <div data-menu-preview={videoUrl} data-preview-item-id={videoUrl ? item.id : undefined} className={`relative ${className}`}>
             <Image
                 src={item.image_public_url || "/placeholders/item.png"}
                 width={320}
@@ -201,7 +130,6 @@ export function MenuCardMedia({ item, previewActive, className }: {
                 className="w-full h-full object-cover"
                 alt={item.name}
             />
-            {videoUrl && previewActive && <MenuVideoPreview key={videoUrl} url={videoUrl} />}
         </div>
     );
 }
