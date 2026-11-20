@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { ABANDONED_BLAST_MESSAGE, PLUS_ABANDONED_BLAST_MESSAGE, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE, RECOVERY_DAILY_LIMIT } from "@/lib/dev/abandonedBlast";
-import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGE, PLUS_FEEDBACK_DAILY_LIMIT } from "@/lib/dev/plusFeedbackBlast";
+import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGE, PLUS_FIRST_MONTH_FEEDBACK_MESSAGES, PLUS_FEEDBACK_DAILY_LIMIT } from "@/lib/dev/plusFeedbackBlast";
 import { query } from "@/lib/database/sql";
 import { normalizeBlastPhone } from "@/lib/services/supportBlast";
 import { ACTIVE_PLUS_FOR_ACCOUNT, PLUS_CHURN_EVENTS, RECOVERY_CUTOFF } from "./plusChurn";
@@ -108,8 +108,8 @@ export async function getFirstMonthFeedbackRecipients(day: string) {
         `SELECT DISTINCT recipient.phone
          FROM support_blast_recipients recipient
          JOIN support_blast_campaigns campaign ON campaign.id = recipient.campaign_id
-         WHERE campaign.message = $1 AND recipient.phone = ANY($2::text[])`,
-        [PLUS_FIRST_MONTH_FEEDBACK_MESSAGE, eligible.map(row => row.phone)]
+         WHERE campaign.message = ANY($1::text[]) AND recipient.phone = ANY($2::text[])`,
+        [PLUS_FIRST_MONTH_FEEDBACK_MESSAGES, eligible.map(row => row.phone)]
     );
     const alreadyContacted = new Set(priorFeedback.rows.map(row => row.phone));
     const selected = eligible.filter(row => !alreadyContacted.has(row.phone)).slice(0, remaining);

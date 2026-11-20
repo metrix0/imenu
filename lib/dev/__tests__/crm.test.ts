@@ -194,9 +194,12 @@ test.each([
     expect(templates).toHaveLength(expectedCopy.length);
     expect(patterns).toHaveLength(expectedCopy.length);
     if (feedback) {
-        expect(listArgs.at(-1)).toBe(PLUS_FIRST_MONTH_FEEDBACK_MESSAGE);
+        expect(listArgs.at(-1)).toEqual([
+            PLUS_FIRST_MONTH_FEEDBACK_MESSAGE,
+            PLUS_FIRST_MONTH_FEEDBACK_MESSAGE.replace("Sou a Ellen", "Sou o João"),
+        ]);
         expect(listSql).toContain("feedback_blast.status AS feedback_blast_status");
-        expect(listSql).toContain("campaign.sender = 'support' AND campaign.message = $8");
+        expect(listSql).toContain("campaign.sender = 'support' AND campaign.message = ANY($8::text[])");
         expect(listSql).toContain("(churn.event_at AT TIME ZONE 'America/Sao_Paulo')::date - 7");
         expect(listSql).toContain("'support:bulk:support:'");
     } else {

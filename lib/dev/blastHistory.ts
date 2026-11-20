@@ -1,7 +1,7 @@
 import {buildExpiryMessage} from "@/lib/services/addonExpiryMessage";
 import { PAYOUT_BLAST_AUTOMATIONS } from "@/lib/services/payoutAutomation";
 import { ABANDONED_BLAST_MESSAGE, LEGACY_PLUS_ABANDONED_BLAST_MESSAGE, PLUS_EXPIRY_BLAST_MESSAGES, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE, CHURN_BLASTS } from "./abandonedBlast";
-import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGE } from "./plusFeedbackBlast";
+import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGES } from "./plusFeedbackBlast";
 import { DID_NOT_ACTIVATE_BLAST_MESSAGE } from "./didNotActivateBlast";
 import { MESSAGE_ROWS_SQL } from "./messageHistory";
 import { query } from "@/lib/database/sql";
@@ -17,7 +17,7 @@ export const AUTOMATED_BLASTS = [
     {id:"congratulations",name:"Boas-vindas iMenu Plus",sender:"support",message:null,criteria:"Compra iMenu Plus confirmada",trigger:"Webhook de confirmação do pagamento",limit:null},
 ] as const;
 const patterns = [ABANDONED_BLAST_MESSAGE,...PLUS_EXPIRY_BLAST_MESSAGES,LEGACY_PLUS_ABANDONED_BLAST_MESSAGE,SINGLE_ORDER_DAY_RECOVERY_MESSAGE,NO_FIRST_ORDER_RECOVERY_MESSAGE,DID_NOT_ACTIVATE_BLAST_MESSAGE].map(message=>"^"+message.replace(/\s+/g," ").trim().split("{{Nome Restaurante}}").map(part=>part.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join(".{1,200}")+"$");
-const campaignGroup = `CASE WHEN c.message = '${PLUS_FIRST_MONTH_FEEDBACK_MESSAGE.replaceAll("'", "''")}' THEN 'automation:plus-feedback' WHEN regexp_replace(trim(c.message),'\\s+',' ','g') ~ANY($1::text[]) THEN 'automation:recovery' ELSE 'campaign:'||c.id::text END`;
+const campaignGroup = `CASE WHEN c.message IN (${PLUS_FIRST_MONTH_FEEDBACK_MESSAGES.map(message => "'" + message.replaceAll("'", "''") + "'").join(", ")}) THEN 'automation:plus-feedback' WHEN regexp_replace(trim(c.message),'\\s+',' ','g') ~ANY($1::text[]) THEN 'automation:recovery' ELSE 'campaign:'||c.id::text END`;
 const recoveryGroup = (timestamp: string) =>
     `'automation:recovery:' || (${timestamp} AT TIME ZONE 'America/Sao_Paulo')::date::text`;
 // Keep the daily cohort stable as pending recipients are sent or retried.

@@ -9,7 +9,7 @@ import {
 import { SUPPORT_CONVERSATION_VISIBLE_SQL } from "@/lib/services/supportExclusions";
 import { brazilClock, getTodayRecoveryForecast } from "./abandonedBlastPlan";
 import { PLUS_CHURN_EVENTS, RECOVERY_CUTOFF } from "./plusChurn";
-import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGE } from "./plusFeedbackBlast";
+import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGES } from "./plusFeedbackBlast";
 import { formatSignupOrigin } from "@/lib/analytics/signupOrigin";
 
 const CRM_PAGE_SIZE = 10;
@@ -226,7 +226,7 @@ function churnBlastJoin(templatesParam: number, patternsParam?: number): string 
         SELECT campaign.id, campaign.status
         FROM support_blast_campaigns campaign
         WHERE ${feedback
-            ? `campaign.sender = 'support' AND campaign.message = $${templatesParam}
+            ? `campaign.sender = 'support' AND campaign.message = ANY($${templatesParam}::text[])
               AND (campaign.created_at AT TIME ZONE 'America/Sao_Paulo')::date =
                   (churn.event_at AT TIME ZONE 'America/Sao_Paulo')::date - 7`
             : `campaign.sender = 'blast'
@@ -353,7 +353,7 @@ export async function getCrm(params: URLSearchParams) {
     const rowParams: (string | number | string[])[] = [...listParams, CRM_PAGE_SIZE, page * CRM_PAGE_SIZE];
     const includeFeedback = includeBlast && activityKey === "churned_plus";
     if (blastTemplates) rowParams.push(blastTemplates, blastTemplates.map(blastMessagePattern));
-    if (includeFeedback) rowParams.push(PLUS_FIRST_MONTH_FEEDBACK_MESSAGE);
+    if (includeFeedback) rowParams.push([...PLUS_FIRST_MONTH_FEEDBACK_MESSAGES]);
     const conditions = [
         `($1='' OR r.name ILIKE '%'||$1||'%' OR u.email ILIKE '%'||$1||'%' OR r.phone ILIKE '%'||$1||'%' OR r.store_whatsapp ILIKE '%'||$1||'%' OR u.raw_user_meta_data->>'phone' ILIKE '%'||$1||'%')`,
         ...(paidOnly ? [`(${PAID})`] : []),
