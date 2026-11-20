@@ -151,7 +151,7 @@ export default function TablesOrdersModal({
             <div className="px-6 py-6 sm:px-8">
                 {loading && (
                     <div className="flex min-h-48 items-center justify-center">
-                        <Loader className="border-t-brand" />
+                        <Loader />
                     </div>
                 )}
 

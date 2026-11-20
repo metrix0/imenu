@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
-import { faChevronLeft, faChevronRight, faFilm, faImage, faSpinner } from "@fortawesome/free-solid-svg-icons";
+import { faChevronLeft, faChevronRight, faFilm, faImage } from "@fortawesome/free-solid-svg-icons";
 import { createPortal } from "react-dom";
+import Loader from "@/components/ui/Loader";
 import { PanelIcon } from "@/components/ui/PanelIcon";
 import Toast from "@/components/ui/Toast";
 import { icons } from "@/lib/utils/fontawesome";
@@ -188,7 +189,7 @@ export default function ItemMediaSettings({ item, restaurantId, onUpdated, onBus
                                 )}
                                 {!entry && index === uploadSlot && canUpload && (
                                     <button type="button" aria-label={index === 0 ? "Adicionar foto principal" : "Adicionar mídia"} disabled={uploading} onClick={() => fileInput.current?.click()} className="grid h-full w-full cursor-pointer place-items-center hover:bg-gray-200 disabled:cursor-wait">
-                                        <PanelIcon icon={uploading ? faSpinner : icons.faPlus} className={uploading ? "animate-spin text-brand" : ""} />
+                                        {uploading ? <Loader className="!h-5 !w-5 !border-2" /> : <PanelIcon icon={icons.faPlus} />}
                                     </button>
                                 )}
                                 {!entry && index !== uploadSlot && <PanelIcon icon={faImage} className="text-gray-300" />}

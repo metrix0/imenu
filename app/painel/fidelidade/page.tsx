@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useLoyaltyStore } from "@/lib/stores/restaurant-owner/loyaltyStore";
 import Input from "@/components/ui/Input";
 import SaveStatus from "@/components/ui/SaveStatus";
-import Loader from "@/components/ui/Loader";
+import Loader, { PageLoader } from "@/components/ui/Loader";
 import Card from "@/components/ui/Card";
 import Dropdown from "@/components/ui/Dropdown";
 import ToggleOptionCard from "@/components/ui/ToggleOptionCard";
@@ -190,9 +190,7 @@ export default function FidelidadePage() {
     };
 
     if (loadingProgram) return (
-        <div role="status" aria-label="Carregando programa de fidelidade" className="flex justify-center p-10">
-            <Loader className="border-t-brand" />
-        </div>
+        <PageLoader label="Carregando programa de fidelidade" />
     );
     if (loadError) return <p role="alert" className="p-10 text-center text-red-600">Não foi possível carregar o programa de fidelidade.</p>;
 
@@ -266,7 +264,7 @@ export default function FidelidadePage() {
                     <h2 className="text-lg font-semibold text-gray-900">Recompensa</h2>
                     {itemsLoading ? (
                         <div role="status" aria-label="Carregando itens" className="flex justify-center p-4">
-                            <Loader className="border-t-brand" />
+                            <Loader />
                         </div>
                     ) : (
                         <>

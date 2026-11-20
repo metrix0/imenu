@@ -26,7 +26,7 @@ import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import DataTable from "@/components/ui/DataTable";
 import Pagination from "@/components/ui/Pagination";
-import Loader from "@/components/ui/Loader";
+import { PageLoader } from "@/components/ui/Loader";
 import Toast from "@/components/ui/Toast";
 import WarningBox from "@/components/ui/WarningBox";
 import SaveStatus from "@/components/ui/SaveStatus";
@@ -628,9 +628,7 @@ export default function RoboWhatsAppPage() {
 
     if (loading) {
         return (
-            <div role="status" aria-label="Carregando robô WhatsApp" className="flex justify-center p-10">
-                <Loader className="border-t-brand" />
-            </div>
+            <PageLoader label="Carregando robô WhatsApp" />
         );
     }
 

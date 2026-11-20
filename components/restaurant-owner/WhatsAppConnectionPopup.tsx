@@ -18,6 +18,7 @@ import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
+import Loader from "@/components/ui/Loader";
 
 type WhatsAppConnection = {
     restaurant_id: string;
@@ -288,7 +289,7 @@ export default function WhatsAppConnectionPopup() {
 
                 {!needsQr && !needsPhoneConfirmation && (
                     <div className="mt-7 flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-                        <span className="h-5 w-5 animate-spin rounded-full border-2 border-amber-700 border-t-transparent" />
+                        <Loader className="!h-5 !w-5 !border-2" />
                         Reconectando automaticamente…
                     </div>
                 )}

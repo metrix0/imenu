@@ -1,6 +1,7 @@
 "use client";
 
 import Switch from "@/components/ui/Switch";
+import Loader from "@/components/ui/Loader";
 import Input from "@/components/ui/Input";
 import { useState, useRef, useEffect, ReactNode } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
@@ -8,7 +9,6 @@ import {
     faGear,
     faImage,
     faLayerGroup,
-    faSpinner,
 } from "@fortawesome/free-solid-svg-icons";
 import { icons } from "@/lib/utils/fontawesome";
 import { getMenuItemImageUrl } from "@/lib/menu/itemImages";
@@ -371,10 +371,7 @@ export default function MenuItemRow({
                 onChange={handleImageUpload}
             />
             {isUploading ? (
-                <FontAwesomeIcon
-                    icon={faSpinner}
-                    className="animate-spin text-brand"
-                />
+                <Loader className="!h-5 !w-5 !border-2" />
             ) : imageUrl ? (
                 <>
                     <img

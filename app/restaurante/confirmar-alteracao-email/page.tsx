@@ -106,7 +106,7 @@ export default function ConfirmarAlteracaoEmailPage() {
             <Card className="w-full max-w-md p-6 text-center">
                 {loading ? (
                     <div className="flex flex-col items-center gap-4 py-5">
-                        <Loader className="border-t-brand" />
+                        <Loader />
                         <h1 className="text-xl font-semibold text-gray-900">
                             Confirmando alteração de e-mail...
                         </h1>

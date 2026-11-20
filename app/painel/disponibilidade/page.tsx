@@ -4,7 +4,7 @@ import { PageSaveHeader } from "@/components/ui/SaveStatus";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; // Store Global
-import Loader from "@/components/ui/Loader";
+import { PageLoader } from "@/components/ui/Loader";
 import SaveStatus from "@/components/ui/SaveStatus";
 import WeeklyScheduleClick, { Availability } from "@/components/restaurant-owner/configuracoes/WeeklyScheduleClick";
 import PreorderModeToggle from "@/components/restaurant-owner/configuracoes/PreorderModeToggle";
@@ -180,10 +180,9 @@ export default function DisponibilidadePage() {
 
     if (isLoading) {
         return (
-            <div className="flex flex-col justify-center items-center h-64">
-                <Loader />
+            <PageLoader label="Buscando horários...">
                 <p className="text-gray-400 mt-4 text-sm">Buscando horários...</p>
-            </div>
+            </PageLoader>
         );
     }
 

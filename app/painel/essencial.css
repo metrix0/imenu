@@ -47,10 +47,18 @@
 .panel-essencial .panel-mobile-content {
     container-type: inline-size;
     background: var(--panel-background);
-    padding: 28px;
+    --panel-content-block-padding: 28px;
+    --panel-page-content-height: calc(100dvh - 2 * var(--panel-content-block-padding) - var(--panel-mobile-header-height, 0px));
+    padding: var(--panel-content-block-padding);
     min-height: 100dvh;
 }
 .panel-essencial .panel-mobile-content > div { width: 100%; max-width: 1440px; margin-inline: auto; }
+.panel-essencial .panel-mobile-content:has([data-ui="page-loader"]) {
+    min-height: calc(100dvh - var(--panel-mobile-header-height, 0px));
+}
+.panel-essencial .panel-mobile-content > div > [data-ui="page-loader"] {
+    min-height: var(--panel-page-content-height);
+}
 .panel-essencial .panel-mobile-content > div > :is(div, section):not(.fixed) {
     padding-inline: 0;
     padding-top: 0;
@@ -197,7 +205,7 @@
     .panel-essencial .panel-mobile-content[data-sidebar-expanded="true"] { margin-left: 200px; }
 }
 @media (min-width: 1536px) {
-    .panel-essencial .panel-mobile-content { padding: 32px !important; }
+    .panel-essencial .panel-mobile-content { --panel-content-block-padding: 32px; padding: var(--panel-content-block-padding) !important; }
     .panel-essencial .panel-mobile-content > div { max-width: 1440px !important; }
     .panel-essencial .text-xs { font-size: 12px; line-height: 18px; }
     .panel-essencial .text-sm { font-size: 14px; line-height: 20px; }
@@ -211,7 +219,11 @@
     .panel-essencial .panel-order-heading .rounded-full { font-size: 11px; }
 }
 @media (max-width: 767px) {
-    .panel-essencial .panel-mobile-content { padding: 24px 16px; }
+    .panel-essencial .panel-mobile-content {
+        --panel-content-block-padding: 24px;
+        --panel-mobile-header-height: 64px;
+        padding: var(--panel-content-block-padding) 16px;
+    }
     .panel-essencial .panel-mobile-content[data-panel-path^="/painel/assistente-ia"] {
         height: calc(100dvh - 64px);
         min-height: 0;

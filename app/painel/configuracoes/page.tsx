@@ -29,7 +29,7 @@ import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Switch from "@/components/ui/Switch";
 import SaveStatus from "@/components/ui/SaveStatus";
-import Loader from "@/components/ui/Loader";
+import { PageLoader } from "@/components/ui/Loader";
 import Toast from "@/components/ui/Toast";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Tooltip from "@/components/ui/Tooltip";
@@ -814,9 +814,7 @@ export default function ConfiguracoesPage() {
 
     if (loading) {
         return (
-            <div className="flex justify-center p-10">
-                <Loader className="border-t-brand" />
-            </div>
+            <PageLoader />
         );
     }
 

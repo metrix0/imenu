@@ -6,7 +6,7 @@ import { PanelIcon as FontAwesomeIcon, faMotorRacingHelmet } from "@/components/
 import { faBellConcierge, faCheck, faCopy } from "@fortawesome/free-solid-svg-icons";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
-import Loader from "@/components/ui/Loader";
+import { PageLoader } from "@/components/ui/Loader";
 import { supabase } from "@/lib/database/supabaseClient";
 
 type StaffPanel = "garcom" | "motoboy";
@@ -66,7 +66,7 @@ export default function StaffPanelsPage() {
         );
     };
 
-    if (loading) return <div className="flex h-64 items-center justify-center"><Loader /></div>;
+    if (loading) return <PageLoader />;
 
     return (
         <div className="mx-auto max-w-7xl px-4 pb-20 pt-8 sm:px-6">

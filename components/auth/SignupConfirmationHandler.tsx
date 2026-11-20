@@ -151,7 +151,7 @@ export default function SignupConfirmationHandler({
         <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-white/95 px-4 backdrop-blur-sm">
             {status === "loading" ? (
                 <div className="flex flex-col items-center gap-4 text-center">
-                    <Loader className="border-t-brand" />
+                    <Loader />
                     <p className="font-medium text-gray-700">
                         Confirmando seu e-mail...
                     </p>

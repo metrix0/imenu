@@ -9,7 +9,7 @@ import AddressForm, { saveRestaurantAddress } from "@/components/restaurant-owne
 import Button from "@/components/ui/Button";
 import ToggleOptionCard from "@/components/ui/ToggleOptionCard";
 import ConfirmModal from "@/components/ui/ConfirmModal";
-import Loader from "@/components/ui/Loader";
+import { PageLoader } from "@/components/ui/Loader";
 import { AddressData } from "@/lib/types/types";
 
 export default function PainelTempoETaxaPage() {
@@ -114,7 +114,7 @@ export default function PainelTempoETaxaPage() {
     };
 
     if (isLoading) {
-        return <div className="flex h-64 items-center justify-center"><Loader /></div>;
+        return <PageLoader />;
     }
 
     if (!restaurantId) {

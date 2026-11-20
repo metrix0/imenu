@@ -331,7 +331,7 @@ function Verification() {
     if (pageLoading) {
         return (
             <div className="flex min-h-[60vh] w-full min-w-0 items-center justify-center overflow-x-hidden">
-                <Loader className="border-t-brand" />
+                <Loader />
             </div>
         );
     }
@@ -453,7 +453,7 @@ export default function OtpPage() {
         <Suspense
             fallback={
                 <div className="flex min-h-screen w-full min-w-0 items-center justify-center overflow-x-hidden">
-                    <Loader className="border-t-brand" />
+                    <Loader />
                 </div>
             }
         >

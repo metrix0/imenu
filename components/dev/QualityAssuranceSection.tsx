@@ -12,6 +12,7 @@ import Dropdown from "@/components/ui/Dropdown";
 import { CHART_BRAND, CHART_CATEGORY_AXIS, CHART_VALUE_AXIS, STANDARD_CHART_TOOLTIP, createBrandAreaGradient } from "@/components/restaurant-owner/exibicoes/chartStyles";
 import Badge from "@/components/ui/Badge";
 import PagedTable, { type PageData } from "./PagedTable";
+import { PageLoader } from "@/components/ui/Loader";
 import DevLoading from "./DevLoading";
 import DevDialog from "./DevDialog";
 import { devJson } from "@/lib/dev/client";
@@ -217,7 +218,7 @@ export default function QualityAssuranceSection() {
     const models = costs?.status === "ok" ? costs.models ?? [] : [];
     const modelDailyUsd = models.find(model => model.id === selectedModel)?.dailyUsd;
     const modelTotalUsd = modelDailyUsd?.reduce((sum, usd) => sum + usd, 0);
-    if (!data && loading) return <DevLoading />;
+    if (!data && loading) return <PageLoader />;
 
     return <div className="space-y-6">
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}

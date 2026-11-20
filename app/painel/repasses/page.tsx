@@ -12,7 +12,7 @@ import DateFilterBar, {
     getDateRangeForDays,
     getPreviousMonthRange,
 } from "@/components/restaurant-owner/exibicoes/DateFilterBar";
-import Loader from "@/components/ui/Loader";
+import { PageLoader } from "@/components/ui/Loader";
 
 const FINANCEIRO_PRESETS: DateFilterPreset[] = [
     { label: "7 dias", getRange: () => getDateRangeForDays(7) },
@@ -63,9 +63,7 @@ export default function FinanceiroPage() {
 
     if (isLoading) {
         return (
-            <div className="flex h-64 items-center justify-center">
-                <Loader />
-            </div>
+            <PageLoader />
         );
     }
 

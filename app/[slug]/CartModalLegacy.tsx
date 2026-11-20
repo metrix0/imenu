@@ -1327,7 +1327,7 @@ export default function CartModal({
                                 onClick={handleUseMyLocation}
                                 type="button"
                             >
-                                {loadingUseMyLocation && (<Loader className={"scale-75 absolute !border-[var(--im-menu-accent-border,#f1440033)] !border-t-brand -right-9 md:-left-9 md:right-0"}/>)}
+                                {loadingUseMyLocation && (<Loader className={"scale-75 absolute -right-9 md:-left-9 md:right-0"}/>)}
                                 <FontAwesomeIcon icon={icons.faLocationCrosshairs}/> Usar minha localização
                             </button>
                         </div>

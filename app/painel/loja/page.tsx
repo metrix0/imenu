@@ -4,7 +4,7 @@ import { PageSaveHeader } from "@/components/ui/SaveStatus";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
-import Loader from "@/components/ui/Loader";
+import { PageLoader } from "@/components/ui/Loader";
 import SaveStatus, { type SaveState } from "@/components/ui/SaveStatus";
 import StoreSettings from "@/components/restaurant-owner/loja/StoreSettings";
 import PreparationTimeCard from "@/components/restaurant-owner/loja/PreparationTimeCard";
@@ -67,9 +67,7 @@ export default function LojaPage() {
 
     if (isLoading) {
         return (
-            <div className="flex justify-center p-10">
-                <Loader className="border-t-brand" />
-            </div>
+            <PageLoader />
         );
     }
 
