@@ -1,7 +1,8 @@
 "use client";
 
 import { PageSaveHeader } from "@/components/ui/SaveStatus";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
@@ -13,14 +14,11 @@ import {
     faCrown,
     faDownload,
     faGear,
-    faLink,
     faLock,
     faReceipt,
     faQrcode,
     faSignOutAlt,
     faTrash,
-    faUser,
-    faUtensils,
     faVolumeHigh,
 } from "@fortawesome/free-solid-svg-icons";
 import { supabase } from "@/lib/database/supabaseClient";
@@ -41,7 +39,7 @@ import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSale
 import { qrTableAuthenticatedFetch } from "@/lib/qr-table/clientApi";
 import PizzaSettingsSection from "@/components/restaurant-owner/configuracoes/PizzaSettingsSection";
 import AddressForm, { saveRestaurantAddress } from "@/components/restaurant-owner/configuracoes/AddressForm";
-import StoreWhatsappField from "@/components/restaurant-owner/loja/StoreWhatsappField";
+import StoreWhatsappField, { ResponsiblePhoneField } from "@/components/restaurant-owner/loja/StoreWhatsappField";
 import { CollapsibleContent, useCollapsible } from "@/components/ui/CollapsibleSection";
 import type { AddressData } from "@/lib/types/types";
 
@@ -63,11 +61,8 @@ type Restaurant = {
 };
 
 const SETTINGS_SECTIONS = {
-    conta: { label: "Conta e loja", icon: faUser },
-    cardapio: { label: "Cardápio", icon: faUtensils },
-    pedidos: { label: "Pedidos e entrega", icon: faReceipt },
-    compartilhamento: { label: "Compartilhamento", icon: faLink },
-    avancado: { label: "Avançado", icon: faGear },
+    modos: { label: "Modos", icon: faGear },
+    pedidos: { label: "Pedidos", icon: faReceipt },
 };
 
 function SettingsSection({ id, children }: { id: keyof typeof SETTINGS_SECTIONS; children: ReactNode }) {
@@ -94,15 +89,11 @@ function StoreDetails({ restaurant, onSaveAddress }: { restaurant: Restaurant; o
 
     return (
         <>
-            <div className="py-3">
-                <div className="max-w-xs">
-                    <StoreWhatsappField restaurantId={restaurant.id} initialValue={restaurant.store_whatsapp} />
-                </div>
-            </div>
+            <StoreWhatsappField restaurantId={restaurant.id} initialValue={restaurant.store_whatsapp} />
             <div>
-                <div className="flex min-w-0 items-center justify-between gap-3 py-3">
+                <div className="flex min-w-0 items-center justify-between gap-3">
                     <div className="min-w-0">
-                        <h3 className="text-sm font-medium text-gray-900">Endereço do restaurante</h3>
+                        <h3 className="text-xs font-medium leading-[18px] text-gray-900">Endereço do restaurante</h3>
                         <p className="mt-1 break-words text-sm text-gray-600">{summary || "Endereço não cadastrado."}</p>
                     </div>
                     <Button
@@ -123,6 +114,161 @@ function StoreDetails({ restaurant, onSaveAddress }: { restaurant: Restaurant; o
                         />
                     </div>
                 </CollapsibleContent>
+            </div>
+        </>
+    );
+}
+
+function AccountCredentialFields({ currentEmail, onPasswordChanged }: {
+    currentEmail: string;
+    onPasswordChanged: () => Promise<void>;
+}) {
+    const [email, setEmail] = useState(currentEmail);
+    const [emailError, setEmailError] = useState("");
+    const [pendingEmail, setPendingEmail] = useState("");
+    const [needsSignIn, setNeedsSignIn] = useState(false);
+    const [sendingEmail, setSendingEmail] = useState(false);
+    const [password, setPassword] = useState("");
+    const [confirmation, setConfirmation] = useState("");
+    const [passwordError, setPasswordError] = useState("");
+    const [savingPassword, setSavingPassword] = useState(false);
+    const emailChanged = email.trim().toLowerCase() !== currentEmail.toLowerCase();
+
+    const submitEmail = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        if (!emailChanged || sendingEmail) return;
+        setSendingEmail(true);
+        setEmailError("");
+        setNeedsSignIn(false);
+        const newEmail = email.trim().toLowerCase();
+
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const response = await fetch("/api/auth/change-email", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${session?.access_token || ""}`,
+                },
+                body: JSON.stringify({ email: newEmail }),
+            });
+            const result = await response.json();
+            if (!response.ok) {
+                if (result.code === "reauthentication_needed" || response.status === 401) {
+                    setNeedsSignIn(true);
+                    throw new Error("Entre novamente na sua conta para confirmar a troca de e-mail.");
+                }
+                throw new Error(result.error || "Não foi possível solicitar a troca de e-mail.");
+            }
+            setPendingEmail(newEmail);
+            setEmail(currentEmail);
+        } catch (error) {
+            setEmailError(error instanceof Error ? error.message : "Não foi possível solicitar a troca de e-mail.");
+        } finally {
+            setSendingEmail(false);
+        }
+    };
+
+    const submitPassword = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        if (savingPassword) return;
+        if (password.length < 6 || password !== confirmation) {
+            setPasswordError(password.length < 6 ? "A nova senha deve ter pelo menos 6 caracteres." : "As senhas não coincidem.");
+            return;
+        }
+        setPasswordError("");
+        setSavingPassword(true);
+        try {
+            const { error } = await supabase.auth.updateUser({ password });
+            if (error) throw error;
+            setPassword("");
+            setConfirmation("");
+            await onPasswordChanged();
+        } catch (error) {
+            setPasswordError(error instanceof Error ? `Erro ao alterar senha: ${error.message}` : "Erro ao alterar senha. Tente novamente.");
+        } finally {
+            setSavingPassword(false);
+        }
+    };
+
+    return (
+        <>
+            <form onSubmit={submitEmail} className="space-y-2">
+                <Input label="E-mail" type="email" autoComplete="email" required maxLength={254}
+                    value={email} disabled={sendingEmail} onChange={(event) => {
+                        setEmail(event.target.value);
+                        setEmailError("");
+                        setNeedsSignIn(false);
+                    }} />
+                {emailChanged && <Button type="submit" variant="secondary" loading={sendingEmail}>Enviar link de confirmação</Button>}
+                {emailError && <p role="alert" className="text-sm text-red-600">{emailError}</p>}
+                {needsSignIn && <Link href="/restaurante/login?next=atualizando-email" className="inline-block text-sm font-medium text-brand hover:underline">Entrar novamente</Link>}
+                {pendingEmail && <p role="status" className="break-words text-sm text-gray-600">Enviamos um link de confirmação para {pendingEmail}.</p>}
+            </form>
+
+            <form onSubmit={submitPassword} className="space-y-2">
+                <Input label="Senha" type="password" autoComplete="new-password" placeholder="••••••••"
+                    value={password} disabled={savingPassword} minLength={6} required onChange={(event) => {
+                        setPassword(event.target.value);
+                        setPasswordError("");
+                        if (!event.target.value) setConfirmation("");
+                    }} />
+                {password && <>
+                    <Input label="Confirmar nova senha" type="password" autoComplete="new-password" required
+                        value={confirmation} disabled={savingPassword} onChange={(event) => {
+                            setConfirmation(event.target.value);
+                            setPasswordError("");
+                        }} />
+                    <Button type="submit" variant="secondary" loading={savingPassword}>Salvar nova senha</Button>
+                </>}
+                {passwordError && <p role="alert" className="text-sm text-red-600">{passwordError}</p>}
+            </form>
+        </>
+    );
+}
+
+function MenuShareControls({ url, label, onCopy, onDownload }: {
+    url: string;
+    label: "delivery" | "vitrine";
+    onCopy: () => Promise<void>;
+    onDownload: () => Promise<void>;
+}) {
+    const [showQr, setShowQr] = useState(false);
+    const qrId = useId();
+
+    return (
+        <>
+            <div className="mt-6 flex min-w-0 flex-col gap-3 sm:flex-row">
+                <div className="min-w-0 flex-1">
+                    <Input value={url} readOnly aria-label={`Link do cardápio ${label}`} className="min-w-0" />
+                </div>
+                <Button variant="secondary" onClick={() => void onCopy()} className="shrink-0">
+                    <FontAwesomeIcon icon={faCopy} className="mr-2" />
+                    Copiar link
+                </Button>
+                <Button variant="secondary" onClick={() => window.open(url, "_blank", "noopener,noreferrer")} className="shrink-0">
+                    Abrir cardápio
+                </Button>
+                <Button variant="secondary" aria-expanded={showQr} aria-controls={qrId}
+                    onClick={() => setShowQr((current) => !current)} className="shrink-0">
+                    <FontAwesomeIcon icon={faQrcode} className="mr-2" />
+                    QR Code
+                </Button>
+            </div>
+            <div id={qrId} hidden={!showQr}>
+                {showQr && (
+                    <div className="mt-4 flex flex-col items-center rounded-lg border border-gray-200 bg-gray-50 p-6">
+                        <img
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`}
+                            alt={`QR Code do cardápio ${label}`}
+                            className="mb-4 h-48 w-48 rounded-md border border-gray-200"
+                        />
+                        <Button variant="secondary" onClick={() => void onDownload()}>
+                            <FontAwesomeIcon icon={faDownload} className="mr-2" />
+                            Baixar Imagem
+                        </Button>
+                    </div>
+                )}
             </div>
         </>
     );
@@ -270,13 +416,6 @@ async function playOrderDingleWithDuration(
     }
 }
 
-function formatPhone(value: string): string {
-    const digits = value.replace(/\D/g, "").slice(0, 11);
-    if (digits.length <= 2) return digits ? `(${digits}` : "";
-    if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
-    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
-}
-
 export default function ConfiguracoesPage() {
     const router = useRouter();
     const { restaurantId, setRestaurantId, clear } = useCreationStore();
@@ -284,10 +423,6 @@ export default function ConfiguracoesPage() {
     const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
     const [loading, setLoading] = useState(true);
     const [saveErrors, setSaveErrors] = useState<Record<string, boolean>>({});
-    const [savingField, setSavingField] = useState<"phone" | null>(null);
-    const [isEditingPhone, setIsEditingPhone] = useState(false);
-    const [phone, setPhone] = useState("");
-    const [savedPhone, setSavedPhone] = useState("");
     const [orderDingleDuration, setOrderDingleDuration] =
         useState<OrderDingleDuration>("short");
     const [isTestingOrderDingle, setIsTestingOrderDingle] = useState(false);
@@ -304,7 +439,6 @@ export default function ConfiguracoesPage() {
     const [pdfSalesOpen, setPdfSalesOpen] = useState(false);
     const [darkThemeSalesOpen, setDarkThemeSalesOpen] = useState(false);
     const [isSavingDarkMenu, setIsSavingDarkMenu] = useState(false);
-    const [showVitrineQr, setShowVitrineQr] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -384,11 +518,6 @@ export default function ConfiguracoesPage() {
                         setForceWhatsappOrderConfirmation(
                             restData.force_whatsapp_order_confirmation === true,
                         );
-                        const formattedPhone = formatPhone(
-                            restData.phone || "",
-                        );
-                        setPhone(formattedPhone);
-                        setSavedPhone(formattedPhone);
                         if (restData.url_slug) {
                             setShareableUrl(
                                 `${window.location.origin}/${restData.url_slug}`,
@@ -416,37 +545,6 @@ export default function ConfiguracoesPage() {
             ? { ...current, address: data, latitude: data.latitude, longitude: data.longitude }
             : current);
     }, [currentRestaurantId]);
-
-    const savePhone = async () => {
-        if (!restaurant) return;
-        if (phone === savedPhone) {
-            setIsEditingPhone(false);
-            return;
-        }
-        if (phone.replace(/\D/g, "").length !== 11) {
-            setToast({ message: "Digite um celular válido.", type: "error" });
-            return;
-        }
-
-        setSavingField("phone");
-        setSaveErrors(previous => ({ ...previous, phone: false }));
-        const response = await fetch(`/api/restaurants/${restaurant.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ phone: phone.replace(/\D/g, "") }),
-        });
-        setSavingField(null);
-
-        if (!response.ok) {
-            setSaveErrors(previous => ({ ...previous, phone: true }));
-            setToast({ message: "Erro ao salvar celular.", type: "error" });
-            return;
-        }
-
-        setSavedPhone(phone);
-        setIsEditingPhone(false);
-        setToast({ message: "Celular atualizado!", type: "success" });
-    };
 
     const saveWhatsappOrderConfirmation = async (enabled: boolean) => {
         if (!restaurant || isSavingWhatsappConfirmation) return;
@@ -623,10 +721,10 @@ export default function ConfiguracoesPage() {
         }
     };
 
-    const copyVitrineLink = async () => {
+    const copyLink = async (url: string, message: string) => {
         try {
-            await navigator.clipboard.writeText(vitrineUrl);
-            setToast({ message: "Link da vitrine copiado!", type: "success" });
+            await navigator.clipboard.writeText(url);
+            setToast({ message, type: "success" });
         } catch {
             setToast({ message: "Não foi possível copiar o link.", type: "error" });
         }
@@ -773,12 +871,6 @@ export default function ConfiguracoesPage() {
         }
     };
 
-    const copyLink = async () => {
-        if (!shareableUrl) return;
-        await navigator.clipboard.writeText(shareableUrl);
-        setToast({ message: "Link copiado!", type: "success" });
-    };
-
     const downloadQr = async (url: string, filename: string) => {
         if (!url) return;
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`;
@@ -858,120 +950,30 @@ export default function ConfiguracoesPage() {
                         </div>
                     </PageSaveHeader>
 
-                    <Card className="!p-2">
-                        <nav aria-label="Seções de configurações" className="flex flex-wrap gap-1">
-                            {Object.entries(SETTINGS_SECTIONS).map(([id, { label, icon }]) =>
-                                (id !== "compartilhamento" || restaurant) && (
-                                    <a key={id} href={`#${id}`} className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-[#fff1ea] hover:text-[#c43700] focus-visible:outline-2 focus-visible:outline-brand">
-                                        <FontAwesomeIcon icon={icon} aria-hidden="true" />
-                                        {label}
-                                    </a>
-                                )
-                            )}
-                        </nav>
-                    </Card>
-
-                    <SettingsSection id="conta">
+                    <div className="space-y-4">
                         <div className={`grid gap-4 ${restaurant ? "lg:grid-cols-2" : ""}`}>
-                            <Card className="!p-0 overflow-hidden">
-                                <div className="divide-y divide-gray-100 px-5">
-                                    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-3">
-                                        <p className="text-sm font-medium text-gray-600">
-                                            Celular do Responsável
-                                        </p>
-                                        <div className="col-start-1 row-start-2 min-w-0">
-                                            {isEditingPhone ? (
-                                                <Input
-                                                    value={phone}
-                                                    onChange={(event) =>
-                                                        setPhone(formatPhone(event.target.value))
-                                                    }
-                                                    placeholder="(00) 00000-0000"
-                                                    type="tel"
-                                                    maxLength={15}
-                                                    autoFocus
-                                                />
-                                            ) : (
-                                                <p className="font-medium text-gray-900">
-                                                    {phone || "—"}
-                                                </p>
-                                            )}
-                                            <SaveStatus status={saveErrors.phone ? "error" : savingField === "phone" ? "saving" : "saved"} />
-                                        </div>
-                                        <Button
-                                            variant="secondary"
-                                            onClick={() =>
-                                                isEditingPhone
-                                                    ? void savePhone()
-                                                    : setIsEditingPhone(true)
-                                            }
-                                            loading={savingField === "phone"}
-                                            className="col-start-2 row-start-1 row-span-2 justify-self-end"
-                                        >
-                                            {isEditingPhone ? "Salvar" : "Alterar"}
-                                        </Button>
-                                    </div>
-
-                                    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-3">
-                                        <p className="text-sm font-medium text-gray-600">
-                                            E-mail
-                                        </p>
-                                        <p className="col-start-1 row-start-2 min-w-0 break-all font-medium text-gray-900">
-                                            {user?.email}
-                                        </p>
-                                        <Button
-                                            variant="secondary"
-                                            onClick={() =>
-                                                router.push(
-                                                    "/painel/configuracoes/atualizando-email",
-                                                )
-                                            }
-                                            className="col-start-2 row-start-1 row-span-2 justify-self-end"
-                                        >
-                                            Alterar
-                                        </Button>
-                                    </div>
-
-                                    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-3">
-                                        <p className="text-sm font-medium text-gray-600">
-                                            Senha
-                                        </p>
-                                        <p className="col-start-1 row-start-2 font-medium tracking-[0.08em] text-gray-900">
-                                            ••••••••
-                                        </p>
-                                        <Button
-                                            variant="secondary"
-                                            onClick={() =>
-                                                router.push(
-                                                    "/painel/configuracoes/nova-senha",
-                                                )
-                                            }
-                                            className="col-start-2 row-start-1 row-span-2 justify-self-end"
-                                        >
-                                            Alterar
-                                        </Button>
-                                    </div>
-                                    <div className="flex justify-end py-3">
-                                        <Button
-                                            variant="secondary"
-                                            onClick={handleLogout}
-                                            loading={isLoggingOut}
-                                            className="!min-h-0 !border-0 !bg-transparent !px-0 !py-0 text-sm text-red-600 hover:!bg-transparent hover:text-red-700"
-                                        >
-                                            <FontAwesomeIcon
-                                                icon={faSignOutAlt}
-                                                className="mr-2"
-                                            />
-                                            Sair da Conta
-                                        </Button>
-                                    </div>
+                            <Card className="space-y-4">
+                                <div className="flex min-h-7 items-center justify-between gap-3">
+                                    <h2 className="text-lg font-semibold text-gray-900">Conta</h2>
+                                    <Button
+                                        variant="secondary"
+                                        onClick={handleLogout}
+                                        loading={isLoggingOut}
+                                        className="!min-h-0 !border-0 !bg-transparent !px-0 !py-0 text-sm text-red-600 hover:!bg-transparent hover:text-red-700"
+                                    >
+                                        <FontAwesomeIcon icon={faSignOutAlt} className="mr-2" />
+                                        Sair da conta
+                                    </Button>
                                 </div>
+                                {restaurant && (
+                                    <ResponsiblePhoneField key={restaurant.id} restaurantId={restaurant.id} initialValue={restaurant.phone ?? null} />
+                                )}
+                                {user && <AccountCredentialFields key={user.id} currentEmail={user.email ?? ""} onPasswordChanged={handleLogout} />}
                             </Card>
                             {restaurant && (
-                                <Card className="!p-0">
-                                    <div className="divide-y divide-gray-100 px-5">
-                                        <StoreDetails key={restaurant.id} restaurant={restaurant} onSaveAddress={saveAddress} />
-                                    </div>
+                                <Card className="space-y-4">
+                                    <h2 className="flex min-h-7 items-center text-lg font-semibold text-gray-900">Loja</h2>
+                                    <StoreDetails key={restaurant.id} restaurant={restaurant} onSaveAddress={saveAddress} />
                                 </Card>
                             )}
                         </div>
@@ -999,12 +1001,73 @@ export default function ConfiguracoesPage() {
                                 </span>
                             </button>
                         </Card>
-                    </SettingsSection>
+                    </div>
 
-                    <SettingsSection id="cardapio">
-                        {restaurant && <PizzaSettingsSection restaurantId={restaurant.id} />}
+                    {restaurant && (
+                        <SettingsSection id="modos">
+                            <PizzaSettingsSection restaurantId={restaurant.id} />
 
-                        {restaurant && (
+                            <Card className="border border-gray-200 shadow-sm">
+                                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                    <div>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <h3 className="text-lg font-semibold text-gray-900">Modo Vitrine</h3>
+                                        </div>
+                                        <p id="vitrine-description" className="mt-2 text-sm text-gray-500">
+                                            Crie um cardápio separado dos demais, exclusivo para visualização.
+                                            Seus clientes podem consultar produtos e preços, mas não realizar pedidos.
+                                        </p>
+                                    </div>
+                                    <div className="flex shrink-0 items-start gap-3">
+                                        <SaveStatus status={saveErrors.vitrine ? "error" : isSavingVitrine ? "saving" : "saved"} />
+                                        <Switch
+                                            checked={restaurant.vitrine_enabled === true}
+                                            aria-label="Modo Vitrine"
+                                            aria-describedby="vitrine-description"
+                                            disabled={isSavingVitrine}
+                                            onClick={() => void saveVitrineMode(restaurant.vitrine_enabled !== true)}
+                                        />
+                                    </div>
+                                </div>
+                                {restaurant.vitrine_enabled && vitrineUrl && (
+                                    <MenuShareControls
+                                        url={vitrineUrl}
+                                        label="vitrine"
+                                        onCopy={() => copyLink(vitrineUrl, "Link da vitrine copiado!")}
+                                        onDownload={() => downloadQr(vitrineUrl, `vitrine-${restaurant.url_slug || "cardapio"}`)}
+                                    />
+                                )}
+                            </Card>
+
+                            <Card className="border border-gray-200 shadow-sm">
+                                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                    <div className="min-w-0">
+                                        <h3 className="text-lg font-semibold text-gray-900">
+                                            Modo Cidade Pequena (CEP opcional)
+                                        </h3>
+                                        <p id="small-city-description" className="mt-2 text-sm text-gray-500">
+                                            Permite pedidos sem CEP, calculando a entrega pelo bairro e oferecendo um campo de ponto de referência.
+                                        </p>
+                                    </div>
+                                    <div className="flex shrink-0 items-start gap-3">
+                                        <SaveStatus status={saveErrors.smallCity ? "error" : isSavingSmallCityMode ? "saving" : "saved"} />
+                                        <Switch
+                                            checked={restaurant.small_city_mode_enabled === true}
+                                            aria-label="Modo Cidade Pequena (CEP opcional)"
+                                            aria-describedby="small-city-description"
+                                            disabled={isSavingSmallCityMode}
+                                            onClick={() => {
+                                                if (restaurant.small_city_mode_enabled) {
+                                                    void saveSmallCityMode(false);
+                                                } else {
+                                                    setConfirmSmallCityModeOpen(true);
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            </Card>
+
                             <Card className="border border-gray-200 shadow-sm">
                                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                     <div className="min-w-0">
@@ -1046,8 +1109,8 @@ export default function ConfiguracoesPage() {
                                     </div>
                                 </div>
                             </Card>
-                        )}
-                    </SettingsSection>
+                        </SettingsSection>
+                    )}
 
                     <SettingsSection id="pedidos">
                         <Card className="border border-gray-200 shadow-sm">
@@ -1127,147 +1190,6 @@ export default function ConfiguracoesPage() {
                         {restaurant && (
                             <Card className="border border-gray-200 shadow-sm">
                                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                                    <div className="min-w-0">
-                                        <h3 className="text-lg font-semibold text-gray-900">
-                                            Modo Cidade Pequena (CEP opcional)
-                                        </h3>
-                                        <p id="small-city-description" className="mt-2 text-sm text-gray-500">
-                                            Permite pedidos sem CEP, calculando a entrega pelo bairro e oferecendo um campo de ponto de referência.
-                                        </p>
-                                    </div>
-                                    <div className="flex shrink-0 items-start gap-3">
-                                        <SaveStatus status={saveErrors.smallCity ? "error" : isSavingSmallCityMode ? "saving" : "saved"} />
-                                        <Switch
-                                            checked={restaurant.small_city_mode_enabled === true}
-                                            aria-label="Modo Cidade Pequena (CEP opcional)"
-                                            aria-describedby="small-city-description"
-                                            disabled={isSavingSmallCityMode}
-                                            onClick={() => {
-                                                if (restaurant.small_city_mode_enabled) {
-                                                    void saveSmallCityMode(false);
-                                                } else {
-                                                    setConfirmSmallCityModeOpen(true);
-                                                }
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-                            </Card>
-                        )}
-                    </SettingsSection>
-
-                    {restaurant && (
-                        <SettingsSection id="compartilhamento">
-                            {shareableUrl && (
-                                <Card className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-                                    <div className="min-w-0 flex-1">
-                                        <h3 className="mb-2 text-lg font-semibold text-gray-900">
-                                            Compartilhar Cardápio Delivery
-                                        </h3>
-                                        <p className="mb-6 text-sm text-gray-500">
-                                            Divulgue seu link ou use o QR Code.
-                                        </p>
-
-                                        <div className="flex min-w-0 flex-col gap-3 sm:flex-row">
-                                            <div className="min-w-0 flex-1">
-                                                <Input
-                                                    value={shareableUrl}
-                                                    aria-label="Link do cardápio delivery"
-                                                    readOnly
-                                                    className="min-w-0"
-                                                />
-                                            </div>
-                                            <Button
-                                                variant="secondary"
-                                                onClick={copyLink}
-                                                className="shrink-0"
-                                            >
-                                                <FontAwesomeIcon
-                                                    icon={faCopy}
-                                                    className="mr-2"
-                                                />
-                                                Copiar
-                                            </Button>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex shrink-0 flex-col items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
-                                        <img
-                                            src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(shareableUrl)}`}
-                                            alt="QR Code do cardápio"
-                                            className="h-36 w-36 rounded-md border border-gray-200"
-                                        />
-                                        <Button
-                                            variant="secondary"
-                                            onClick={() => void downloadQr(shareableUrl, restaurant?.url_slug || "cardapio")}
-                                        >
-                                            <FontAwesomeIcon
-                                                icon={faDownload}
-                                                className="mr-2"
-                                            />
-                                            Baixar Imagem
-                                        </Button>
-                                    </div>
-                                </Card>
-                            )}
-
-                            <Card className="border border-gray-200 shadow-sm">
-                                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                                    <div>
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <h3 className="text-lg font-semibold text-gray-900">Modo Vitrine</h3>
-                                        </div>
-                                        <p id="vitrine-description" className="mt-2 text-sm text-gray-500">
-                                            Crie um cardápio separado dos demais, exclusivo para visualização.
-                                            Seus clientes podem consultar produtos e preços, mas não realizar pedidos.
-                                        </p>
-                                    </div>
-                                    <div className="flex shrink-0 items-start gap-3">
-                                        <SaveStatus status={saveErrors.vitrine ? "error" : isSavingVitrine ? "saving" : "saved"} />
-                                        <Switch
-                                            checked={restaurant.vitrine_enabled === true}
-                                            aria-label="Modo Vitrine"
-                                            aria-describedby="vitrine-description"
-                                            disabled={isSavingVitrine}
-                                            onClick={() => void saveVitrineMode(restaurant.vitrine_enabled !== true)}
-                                        />
-                                    </div>
-                                </div>
-                                {restaurant.vitrine_enabled && vitrineUrl && (
-                                    <div className="mt-6 flex min-w-0 flex-col gap-3 sm:flex-row">
-                                        <div className="min-w-0 flex-1">
-                                            <Input value={vitrineUrl} readOnly aria-label="Link do cardápio vitrine" className="min-w-0" />
-                                        </div>
-                                        <Button variant="secondary" onClick={() => void copyVitrineLink()} className="shrink-0">
-                                            <FontAwesomeIcon icon={faCopy} className="mr-2" />
-                                            Copiar link
-                                        </Button>
-                                        <Button variant="secondary" onClick={() => window.open(vitrineUrl, "_blank", "noopener,noreferrer")} className="shrink-0">
-                                            Abrir cardápio
-                                        </Button>
-                                        <Button variant="secondary" onClick={() => setShowVitrineQr(!showVitrineQr)} className="shrink-0">
-                                            <FontAwesomeIcon icon={faQrcode} className="mr-2" />
-                                            QR Code
-                                        </Button>
-                                    </div>
-                                )}
-                                {restaurant.vitrine_enabled && vitrineUrl && showVitrineQr && (
-                                    <div className="mt-4 flex flex-col items-center rounded-lg border border-gray-200 bg-gray-50 p-6">
-                                        <img
-                                            src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(vitrineUrl)}`}
-                                            alt="QR Code do cardápio vitrine"
-                                            className="mb-4 h-48 w-48 rounded-md border border-gray-200"
-                                        />
-                                        <Button variant="secondary" onClick={() => void downloadQr(vitrineUrl, `vitrine-${restaurant.url_slug || "cardapio"}`)}>
-                                            <FontAwesomeIcon icon={faDownload} className="mr-2" />
-                                            Baixar Imagem
-                                        </Button>
-                                    </div>
-                                )}
-                            </Card>
-
-                            <Card className="border border-gray-200 shadow-sm">
-                                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                     <div>
                                         <div className="flex flex-wrap items-center gap-2">
                                             <h3 className="text-lg font-semibold text-gray-900">
@@ -1304,40 +1226,51 @@ export default function ConfiguracoesPage() {
                                     </div>
                                 </div>
                             </Card>
-                        </SettingsSection>
-                    )}
+                        )}
 
-                    <SettingsSection id="avancado">
-                        <div className={`grid gap-4 ${restaurant ? "xl:grid-cols-2" : ""}`}>
-                            {restaurant && (
-                                <ResetOrderCountSection restaurantId={restaurant.id} />
-                            )}
-
-                            <Card className="border-red-200 bg-red-50/30">
-                                <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-                                    <div>
-                                        <h3 className="mb-2 text-lg font-medium text-red-700">
-                                            Deletar Conta
-                                        </h3>
-                                        <p className="text-sm text-red-600/70">
-                                            Ação irreversível. Todos os seus dados serão
-                                            apagados.
-                                        </p>
-                                    </div>
-                                    <Button
-                                        variant="secondary"
-                                        className="w-full bg-red-600 text-white hover:bg-red-700 md:w-auto"
-                                        onClick={() => setDeleteModalOpen(true)}
-                                    >
-                                        <FontAwesomeIcon
-                                            icon={faTrash}
-                                            className="mr-2"
-                                        />
-                                        Deletar Conta
-                                    </Button>
-                                </div>
+                        {restaurant && shareableUrl && (
+                            <Card className="border border-gray-200 shadow-sm">
+                                <h3 className="text-lg font-semibold text-gray-900">
+                                    Compartilhar Cardápio Delivery
+                                </h3>
+                                <p className="mt-2 text-sm text-gray-500">
+                                    Divulgue seu link ou use o QR Code.
+                                </p>
+                                <MenuShareControls
+                                    url={shareableUrl}
+                                    label="delivery"
+                                    onCopy={() => copyLink(shareableUrl, "Link copiado!")}
+                                    onDownload={() => downloadQr(shareableUrl, restaurant.url_slug || "cardapio")}
+                                />
                             </Card>
-                        </div>
+                        )}
+
+                        {restaurant && <ResetOrderCountSection restaurantId={restaurant.id} />}
+
+                        <Card className="border-red-200 bg-red-50/30">
+                            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                                <div>
+                                    <h3 className="mb-2 text-lg font-medium text-red-700">
+                                        Deletar Conta
+                                    </h3>
+                                    <p className="text-sm text-red-600/70">
+                                        Ação irreversível. Todos os seus dados serão
+                                        apagados.
+                                    </p>
+                                </div>
+                                <Button
+                                    variant="secondary"
+                                    className="shrink-0 bg-red-600 text-white hover:bg-red-700"
+                                    onClick={() => setDeleteModalOpen(true)}
+                                >
+                                    <FontAwesomeIcon
+                                        icon={faTrash}
+                                        className="mr-2"
+                                    />
+                                    Deletar Conta
+                                </Button>
+                            </div>
+                        </Card>
                     </SettingsSection>
                 </div>
             </div>
