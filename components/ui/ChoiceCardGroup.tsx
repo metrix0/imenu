@@ -38,13 +38,21 @@ export default function ChoiceCardGroup<T extends string>({
                         aria-pressed={selected}
                         disabled={disabled}
                         onClick={() => onChange(option.value)}
-                        className={`cursor-pointer rounded-[8px] border p-4 text-left transition-[background-color,border-color,color] duration-150 disabled:cursor-not-allowed disabled:opacity-60 ${
+                        className={`relative cursor-pointer rounded-[8px] border p-4 text-left transition-[background-color,border-color,color] duration-150 disabled:cursor-not-allowed disabled:opacity-60 ${
                             selected
                                 ? "border-[#d93d00] bg-[#fff1ea]"
                                 : "border-[#e2e5e9] bg-white hover:bg-[#f1f3f5]"
                         }`}
                     >
-                        <span className={`block font-medium ${selected ? "text-[#c43700]" : "text-[#1d1d1d]"}`}>
+                        <span
+                            aria-hidden="true"
+                            className={`absolute top-4 right-4 grid size-4 place-items-center rounded-full border-2 ${
+                                selected ? "border-[#d93d00] bg-[#d93d00]" : "border-[#adb5bd]"
+                            }`}
+                        >
+                            {selected && <span className="size-1.5 rounded-full bg-white" />}
+                        </span>
+                        <span className={`block pr-6 font-medium ${selected ? "text-[#c43700]" : "text-[#1d1d1d]"}`}>
                             {option.label}
                         </span>
                         {option.description != null && (

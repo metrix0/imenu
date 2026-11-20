@@ -18,7 +18,6 @@ import {
     faReceipt,
     faQrcode,
     faSignOutAlt,
-    faStore,
     faTrash,
     faUser,
     faUtensils,
@@ -64,10 +63,9 @@ type Restaurant = {
 };
 
 const SETTINGS_SECTIONS = {
-    loja: { label: "Loja", icon: faStore },
-    conta: { label: "Conta e assinatura", icon: faUser },
-    pedidos: { label: "Pedidos e entrega", icon: faReceipt },
+    conta: { label: "Conta e loja", icon: faUser },
     cardapio: { label: "Cardápio", icon: faUtensils },
+    pedidos: { label: "Pedidos e entrega", icon: faReceipt },
     compartilhamento: { label: "Compartilhamento", icon: faLink },
     avancado: { label: "Avançado", icon: faGear },
 };
@@ -77,7 +75,7 @@ function SettingsSection({ id, children }: { id: keyof typeof SETTINGS_SECTIONS;
     return (
         <section id={id} aria-labelledby={`${id}-heading`} className="scroll-mt-20 space-y-4">
             <h2 id={`${id}-heading`} className="flex items-center gap-2.5 text-xl font-semibold text-gray-900">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#fff1ea] text-sm text-[#c43700]" aria-hidden="true">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#fff1ea] text-sm text-[#c43700]" aria-hidden="true">
                     <FontAwesomeIcon icon={icon} />
                 </span>
                 {label}
@@ -95,10 +93,14 @@ function StoreDetails({ restaurant, onSaveAddress }: { restaurant: Restaurant; o
     const summary = [streetLine, address?.neighborhood, cityLine].filter(Boolean).join(" · ");
 
     return (
-        <Card>
-            <div className="grid gap-4 sm:grid-cols-2 sm:items-start sm:gap-6">
-                <StoreWhatsappField restaurantId={restaurant.id} initialValue={restaurant.store_whatsapp} />
-                <div className="flex min-w-0 items-center justify-between gap-3 border-t border-gray-200 pt-4 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0">
+        <>
+            <div className="py-3">
+                <div className="max-w-xs">
+                    <StoreWhatsappField restaurantId={restaurant.id} initialValue={restaurant.store_whatsapp} />
+                </div>
+            </div>
+            <div>
+                <div className="flex min-w-0 items-center justify-between gap-3 py-3">
                     <div className="min-w-0">
                         <h3 className="text-sm font-medium text-gray-900">Endereço do restaurante</h3>
                         <p className="mt-1 break-words text-sm text-gray-600">{summary || "Endereço não cadastrado."}</p>
@@ -112,17 +114,17 @@ function StoreDetails({ restaurant, onSaveAddress }: { restaurant: Restaurant; o
                         {addressEditor.expanded ? "Recolher" : "Alterar"}
                     </Button>
                 </div>
+                <CollapsibleContent id={addressEditor.contentId} expanded={addressEditor.expanded}>
+                    <div className="py-5">
+                        <AddressForm
+                            embedded
+                            initialData={{ ...address, latitude: restaurant.latitude, longitude: restaurant.longitude }}
+                            onSubmit={onSaveAddress}
+                        />
+                    </div>
+                </CollapsibleContent>
             </div>
-            <CollapsibleContent id={addressEditor.contentId} expanded={addressEditor.expanded}>
-                <div className="mt-5 border-t border-gray-200 pt-5">
-                    <AddressForm
-                        embedded
-                        initialData={{ ...address, latitude: restaurant.latitude, longitude: restaurant.longitude }}
-                        onSubmit={onSaveAddress}
-                    />
-                </div>
-            </CollapsibleContent>
-        </Card>
+        </>
     );
 }
 
@@ -848,7 +850,7 @@ export default function ConfiguracoesPage() {
             )}
 
             <div className="min-h-screen bg-gray-50 px-4 pb-20 pt-8 sm:px-6">
-                <div className="mx-auto max-w-6xl space-y-8">
+                <div className="mx-auto max-w-6xl space-y-10">
                     <PageSaveHeader>
                         <div>
                             <h1 className="text-3xl font-bold text-gray-900 2xl:text-4xl">Configurações</h1>
@@ -859,7 +861,7 @@ export default function ConfiguracoesPage() {
                     <Card className="!p-2">
                         <nav aria-label="Seções de configurações" className="flex flex-wrap gap-1">
                             {Object.entries(SETTINGS_SECTIONS).map(([id, { label, icon }]) =>
-                                (id !== "loja" || restaurant) && (id !== "compartilhamento" || (restaurant && shareableUrl)) && (
+                                (id !== "compartilhamento" || restaurant) && (
                                     <a key={id} href={`#${id}`} className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-[#fff1ea] hover:text-[#c43700] focus-visible:outline-2 focus-visible:outline-brand">
                                         <FontAwesomeIcon icon={icon} aria-hidden="true" />
                                         {label}
@@ -869,137 +871,180 @@ export default function ConfiguracoesPage() {
                         </nav>
                     </Card>
 
-                    {restaurant && (
-                        <SettingsSection id="loja">
-                            <StoreDetails key={restaurant.id} restaurant={restaurant} onSaveAddress={saveAddress} />
-                        </SettingsSection>
-                    )}
-
                     <SettingsSection id="conta">
-                        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
-                            <Card className="!p-0 overflow-hidden">
-                                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 px-5 py-4">
-                                    <h3 className="text-lg font-semibold text-gray-900">
-                                        Minha Conta
-                                    </h3>
+                        <Card className="!p-0 overflow-hidden">
+                            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 px-5 py-4">
+                                <h3 className="text-lg font-semibold text-gray-900">
+                                    Dados da conta e da loja
+                                </h3>
+                                <Button
+                                    variant="secondary"
+                                    onClick={handleLogout}
+                                    loading={isLoggingOut}
+                                    className="!min-h-0 !border-0 !bg-transparent !px-0 !py-0 text-sm text-red-600 hover:!bg-transparent hover:text-red-700"
+                                >
+                                    <FontAwesomeIcon
+                                        icon={faSignOutAlt}
+                                        className="mr-2"
+                                    />
+                                    Sair da Conta
+                                </Button>
+                            </div>
+
+                            <div className="divide-y divide-gray-100 px-5">
+                                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-3">
+                                    <p className="text-sm font-medium text-gray-600">
+                                        Celular do Responsável
+                                    </p>
+                                    <div className="col-start-1 row-start-2 min-w-0">
+                                        {isEditingPhone ? (
+                                            <Input
+                                                value={phone}
+                                                onChange={(event) =>
+                                                    setPhone(formatPhone(event.target.value))
+                                                }
+                                                placeholder="(00) 00000-0000"
+                                                type="tel"
+                                                maxLength={15}
+                                                autoFocus
+                                            />
+                                        ) : (
+                                            <p className="font-medium text-gray-900">
+                                                {phone || "—"}
+                                            </p>
+                                        )}
+                                        <SaveStatus status={saveErrors.phone ? "error" : savingField === "phone" ? "saving" : "saved"} />
+                                    </div>
                                     <Button
                                         variant="secondary"
-                                        onClick={handleLogout}
-                                        loading={isLoggingOut}
-                                        className="!min-h-0 !border-0 !bg-transparent !px-0 !py-0 text-sm text-red-600 hover:!bg-transparent hover:text-red-700"
+                                        onClick={() =>
+                                            isEditingPhone
+                                                ? void savePhone()
+                                                : setIsEditingPhone(true)
+                                        }
+                                        loading={savingField === "phone"}
+                                        className="col-start-2 row-start-1 row-span-2 justify-self-end"
                                     >
-                                        <FontAwesomeIcon
-                                            icon={faSignOutAlt}
-                                            className="mr-2"
-                                        />
-                                        Sair da Conta
+                                        {isEditingPhone ? "Salvar" : "Alterar"}
                                     </Button>
                                 </div>
 
-                                <div className="divide-y divide-gray-100 px-5">
-                                    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-3">
-                                        <p className="text-sm font-medium text-gray-600">
-                                            Celular do Responsável
-                                        </p>
-                                        <div className="col-start-1 row-start-2 min-w-0">
-                                            {isEditingPhone ? (
-                                                <Input
-                                                    value={phone}
-                                                    onChange={(event) =>
-                                                        setPhone(formatPhone(event.target.value))
-                                                    }
-                                                    placeholder="(00) 00000-0000"
-                                                    type="tel"
-                                                    maxLength={15}
-                                                    autoFocus
-                                                />
-                                            ) : (
-                                                <p className="font-medium text-gray-900">
-                                                    {phone || "—"}
-                                                </p>
-                                            )}
-                                            <SaveStatus status={saveErrors.phone ? "error" : savingField === "phone" ? "saving" : "saved"} />
+                                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-3">
+                                    <p className="text-sm font-medium text-gray-600">
+                                        E-mail
+                                    </p>
+                                    <p className="col-start-1 row-start-2 min-w-0 break-all font-medium text-gray-900">
+                                        {user?.email}
+                                    </p>
+                                    <Button
+                                        variant="secondary"
+                                        onClick={() =>
+                                            router.push(
+                                                "/painel/configuracoes/atualizando-email",
+                                            )
+                                        }
+                                        className="col-start-2 row-start-1 row-span-2 justify-self-end"
+                                    >
+                                        Alterar
+                                    </Button>
+                                </div>
+
+                                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-3">
+                                    <p className="text-sm font-medium text-gray-600">
+                                        Senha
+                                    </p>
+                                    <p className="col-start-1 row-start-2 font-medium tracking-[0.08em] text-gray-900">
+                                        ••••••••
+                                    </p>
+                                    <Button
+                                        variant="secondary"
+                                        onClick={() =>
+                                            router.push(
+                                                "/painel/configuracoes/nova-senha",
+                                            )
+                                        }
+                                        className="col-start-2 row-start-1 row-span-2 justify-self-end"
+                                    >
+                                        Alterar
+                                    </Button>
+                                </div>
+                                {restaurant && (
+                                    <StoreDetails key={restaurant.id} restaurant={restaurant} onSaveAddress={saveAddress} />
+                                )}
+                            </div>
+                        </Card>
+
+                        <Card className="!p-0 overflow-hidden">
+                            <button
+                                type="button"
+                                onClick={() => router.push("/painel/planos")}
+                                className="group flex w-full cursor-pointer items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-gray-100"
+                            >
+                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-gray-100 text-gray-700">
+                                    <FontAwesomeIcon icon={faCrown} />
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                    <span className="block font-medium text-gray-900">
+                                        Planos do iMenu
+                                    </span>
+                                    <span className="mt-0.5 block text-sm text-gray-500">
+                                        Confira seus benefícios e opções disponíveis.
+                                    </span>
+                                </span>
+                                <span className="flex shrink-0 items-center gap-2 text-sm font-medium text-gray-600 transition-colors group-hover:text-gray-900">
+                                    <span className="hidden sm:inline">Ver planos</span>
+                                    <FontAwesomeIcon icon={faChevronRight} />
+                                </span>
+                            </button>
+                        </Card>
+                    </SettingsSection>
+
+                    <SettingsSection id="cardapio">
+                        {restaurant && <PizzaSettingsSection restaurantId={restaurant.id} />}
+
+                        {restaurant && (
+                            <Card className="border border-gray-200 shadow-sm">
+                                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                    <div className="min-w-0">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <h3 className="text-lg font-semibold text-gray-900">
+                                                Cardápio com Tema Escuro
+                                            </h3>
+                                            <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${pdfAccess ? "bg-green-50 text-green-700" : "bg-orange-50 text-orange-800"}`}>
+                                                <FontAwesomeIcon icon={pdfAccess ? faCheck : faLock} />
+                                                {pdfAccess ? "Plano ativo" : "Incluso no iMenu Plus"}
+                                            </span>
                                         </div>
-                                        <Button
-                                            variant="secondary"
-                                            onClick={() =>
-                                                isEditingPhone
-                                                    ? void savePhone()
-                                                    : setIsEditingPhone(true)
-                                            }
-                                            loading={savingField === "phone"}
-                                            className="col-start-2 row-start-1 row-span-2 justify-self-end"
-                                        >
-                                            {isEditingPhone ? "Salvar" : "Alterar"}
-                                        </Button>
+                                        <p id="dark-menu-description" className="mt-2 text-sm text-gray-500">
+                                            Exiba seu cardápio com cores escuras, inclusive em Mesas e Vitrine.{" "}
+                                            <a
+                                                href="https://www.imenuapp.com.br/pizzaria-la-grucia-dark"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="font-medium text-brand underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                                            >
+                                                Ver exemplo de Tema Escuro
+                                            </a>
+                                        </p>
                                     </div>
-
-                                    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-3">
-                                        <p className="text-sm font-medium text-gray-600">
-                                            E-mail
-                                        </p>
-                                        <p className="col-start-1 row-start-2 min-w-0 break-all font-medium text-gray-900">
-                                            {user?.email}
-                                        </p>
-                                        <Button
-                                            variant="secondary"
-                                            onClick={() =>
-                                                router.push(
-                                                    "/painel/configuracoes/atualizando-email",
-                                                )
-                                            }
-                                            className="col-start-2 row-start-1 row-span-2 justify-self-end"
+                                    <div className="flex shrink-0 items-start gap-3">
+                                        <SaveStatus status={saveErrors.dark ? "error" : isSavingDarkMenu ? "saving" : "saved"} />
+                                        <Tooltip
+                                            text={!pdfAccess ? "Disponível com iMenu Plus. Assine o plano para ativar o tema escuro." : ""}
+                                            parentClassName="!block"
                                         >
-                                            Alterar
-                                        </Button>
-                                    </div>
-
-                                    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-3">
-                                        <p className="text-sm font-medium text-gray-600">
-                                            Senha
-                                        </p>
-                                        <p className="col-start-1 row-start-2 font-medium tracking-[0.08em] text-gray-900">
-                                            ••••••••
-                                        </p>
-                                        <Button
-                                            variant="secondary"
-                                            onClick={() =>
-                                                router.push(
-                                                    "/painel/configuracoes/nova-senha",
-                                                )
-                                            }
-                                            className="col-start-2 row-start-1 row-span-2 justify-self-end"
-                                        >
-                                            Alterar
-                                        </Button>
+                                            <Switch
+                                                checked={restaurant.dark_menu_enabled === true && pdfAccess}
+                                                aria-label="Cardápio com Tema Escuro"
+                                                aria-describedby="dark-menu-description"
+                                                disabled={isSavingDarkMenu}
+                                                onClick={() => void saveDarkMenuMode(restaurant.dark_menu_enabled !== true)}
+                                            />
+                                        </Tooltip>
                                     </div>
                                 </div>
                             </Card>
-
-                            <Card className="!p-0 overflow-hidden">
-                                <button
-                                    type="button"
-                                    onClick={() => router.push("/painel/planos")}
-                                    className="group flex w-full cursor-pointer items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-gray-100"
-                                >
-                                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-gray-100 text-gray-700">
-                                        <FontAwesomeIcon icon={faCrown} />
-                                    </span>
-                                    <span className="min-w-0 flex-1">
-                                        <span className="block font-medium text-gray-900">
-                                            Planos do iMenu
-                                        </span>
-                                        <span className="mt-0.5 block text-sm text-gray-500">
-                                            Confira seus benefícios e opções disponíveis.
-                                        </span>
-                                    </span>
-                                    <span className="flex shrink-0 items-center gap-2 text-sm font-medium text-gray-600 transition-colors group-hover:text-gray-900">
-                                        <span className="hidden sm:inline">Ver planos</span>
-                                        <FontAwesomeIcon icon={faChevronRight} />
-                                    </span>
-                                </button>
-                            </Card>
-                        </div>
+                        )}
                     </SettingsSection>
 
                     <SettingsSection id="pedidos">
@@ -1039,7 +1084,7 @@ export default function ConfiguracoesPage() {
                         </Card>
 
                         <Card className="border border-gray-200 shadow-sm">
-                            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
                                 <div className="min-w-0">
                                     <div className="flex flex-wrap items-center gap-2">
                                         <h3 className="text-lg font-semibold text-gray-900">
@@ -1075,11 +1120,9 @@ export default function ConfiguracoesPage() {
                                     />
                                 </div>
                             </div>
-                        </Card>
 
-                        {restaurant && (
-                            <Card className="border border-gray-200 shadow-sm">
-                                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                            {restaurant && (
+                                <div className="mt-5 flex flex-col gap-4 border-t border-gray-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
                                     <div className="min-w-0">
                                         <h3 className="text-lg font-semibold text-gray-900">
                                             Modo Cidade Pequena (CEP opcional)
@@ -1105,14 +1148,65 @@ export default function ConfiguracoesPage() {
                                         />
                                     </div>
                                 </div>
-                            </Card>
-                        )}
+                            )}
+                        </Card>
                     </SettingsSection>
 
-                    <SettingsSection id="cardapio">
-                        {restaurant && <PizzaSettingsSection restaurantId={restaurant.id} />}
+                    {restaurant && (
+                        <SettingsSection id="compartilhamento">
+                            {shareableUrl && (
+                                <Card className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="min-w-0 flex-1">
+                                        <h3 className="mb-2 text-lg font-semibold text-gray-900">
+                                            Compartilhar Cardápio Delivery
+                                        </h3>
+                                        <p className="mb-6 text-sm text-gray-500">
+                                            Divulgue seu link ou use o QR Code.
+                                        </p>
 
-                        {restaurant && (
+                                        <div className="flex min-w-0 flex-col gap-3 sm:flex-row">
+                                            <div className="min-w-0 flex-1">
+                                                <Input
+                                                    value={shareableUrl}
+                                                    aria-label="Link do cardápio delivery"
+                                                    readOnly
+                                                    className="min-w-0"
+                                                />
+                                            </div>
+                                            <Button
+                                                variant="secondary"
+                                                onClick={copyLink}
+                                                className="shrink-0"
+                                            >
+                                                <FontAwesomeIcon
+                                                    icon={faCopy}
+                                                    className="mr-2"
+                                                />
+                                                Copiar
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex shrink-0 flex-col items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                                        <img
+                                            src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(shareableUrl)}`}
+                                            alt="QR Code do cardápio"
+                                            className="h-36 w-36 rounded-md border border-gray-200"
+                                        />
+                                        <Button
+                                            variant="secondary"
+                                            onClick={() => void downloadQr(shareableUrl, restaurant?.url_slug || "cardapio")}
+                                        >
+                                            <FontAwesomeIcon
+                                                icon={faDownload}
+                                                className="mr-2"
+                                            />
+                                            Baixar Imagem
+                                        </Button>
+                                    </div>
+                                </Card>
+                            )}
+
                             <Card className="border border-gray-200 shadow-sm">
                                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                     <div>
@@ -1167,180 +1261,79 @@ export default function ConfiguracoesPage() {
                                     </div>
                                 )}
                             </Card>
-                        )}
 
-                        <div className="grid gap-4 2xl:grid-cols-2">
-                            {restaurant && (
-                                <Card className="border border-gray-200 shadow-sm">
-                                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                                        <div className="min-w-0">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <h3 className="text-lg font-semibold text-gray-900">
-                                                    Cardápio com Tema Escuro
-                                                </h3>
-                                                <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${pdfAccess ? "bg-green-50 text-green-700" : "bg-orange-50 text-orange-800"}`}>
-                                                    <FontAwesomeIcon icon={pdfAccess ? faCheck : faLock} />
-                                                    {pdfAccess ? "Plano ativo" : "Incluso no iMenu Plus"}
-                                                </span>
-                                            </div>
-                                            <p id="dark-menu-description" className="mt-2 text-sm text-gray-500">
-                                                Exiba seu cardápio com cores escuras, inclusive em Mesas e Vitrine.{" "}
-                                                <a
-                                                    href="https://www.imenuapp.com.br/pizzaria-la-grucia-dark"
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="font-medium text-brand underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                                                >
-                                                    Ver exemplo de Tema Escuro
-                                                </a>
-                                            </p>
+                            <Card className="border border-gray-200 shadow-sm">
+                                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                    <div>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <h3 className="text-lg font-semibold text-gray-900">
+                                                Exportar Cardápio para Impressão
+                                            </h3>
+                                            <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${pdfAccess ? "bg-green-50 text-green-700" : "bg-orange-50 text-orange-800"}`}>
+                                                <FontAwesomeIcon icon={pdfAccess ? faCheck : faLock} />
+                                                {pdfAccess ? "Plano ativo" : "Incluso no iMenu Plus"}
+                                            </span>
                                         </div>
-                                        <div className="flex shrink-0 items-start gap-3">
-                                            <SaveStatus status={saveErrors.dark ? "error" : isSavingDarkMenu ? "saving" : "saved"} />
-                                            <Tooltip
-                                                text={!pdfAccess ? "Disponível com iMenu Plus. Assine o plano para ativar o tema escuro." : ""}
-                                                parentClassName="!block"
+                                        <p className="mt-2 text-sm text-gray-500">
+                                            Baixe um PDF pronto para imprimir, com suas categorias, produtos, descrições e preços.
+                                        </p>
+                                    </div>
+                                    <div className="flex shrink-0 items-start">
+                                        {pdfAccess ? (
+                                            <Button
+                                                variant="secondary"
+                                                onClick={() => void exportPrintableMenu()}
+                                                loading={isExportingMenu}
+                                                className="gap-2"
                                             >
-                                                <Switch
-                                                    checked={restaurant.dark_menu_enabled === true && pdfAccess}
-                                                    aria-label="Cardápio com Tema Escuro"
-                                                    aria-describedby="dark-menu-description"
-                                                    disabled={isSavingDarkMenu}
-                                                    onClick={() => void saveDarkMenuMode(restaurant.dark_menu_enabled !== true)}
-                                                />
-                                            </Tooltip>
-                                        </div>
-                                    </div>
-                                </Card>
-                            )}
-
-                            {restaurant && (
-                                <Card className="border border-gray-200 shadow-sm">
-                                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                                        <div>
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <h3 className="text-lg font-semibold text-gray-900">
-                                                    Exportar Cardápio para Impressão
-                                                </h3>
-                                                <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${pdfAccess ? "bg-green-50 text-green-700" : "bg-orange-50 text-orange-800"}`}>
-                                                    <FontAwesomeIcon icon={pdfAccess ? faCheck : faLock} />
-                                                    {pdfAccess ? "Plano ativo" : "Incluso no iMenu Plus"}
-                                                </span>
-                                            </div>
-                                            <p className="mt-2 text-sm text-gray-500">
-                                                Baixe um PDF pronto para imprimir, com suas categorias, produtos, descrições e preços.
-                                            </p>
-                                        </div>
-                                        <div className="flex shrink-0 items-start">
-                                            {pdfAccess ? (
-                                                <Button
-                                                    variant="secondary"
-                                                    onClick={() => void exportPrintableMenu()}
-                                                    loading={isExportingMenu}
-                                                    className="gap-2"
-                                                >
-                                                    <FontAwesomeIcon icon={faDownload} />
-                                                    Exportar PDF
+                                                <FontAwesomeIcon icon={faDownload} />
+                                                Exportar PDF
+                                            </Button>
+                                        ) : (
+                                            <Tooltip text="Disponível com iMenu Plus. Assine o plano para exportar o cardápio." parentClassName="!block">
+                                                <Button onClick={() => setPdfSalesOpen(true)} className="gap-2">
+                                                    Desbloquear exportação
+                                                    <FontAwesomeIcon icon={faLock} />
                                                 </Button>
-                                            ) : (
-                                                <Tooltip text="Disponível com iMenu Plus. Assine o plano para exportar o cardápio." parentClassName="!block">
-                                                    <Button onClick={() => setPdfSalesOpen(true)} className="gap-2">
-                                                        Desbloquear exportação
-                                                        <FontAwesomeIcon icon={faLock} />
-                                                    </Button>
-                                                </Tooltip>
-                                            )}
-                                        </div>
+                                            </Tooltip>
+                                        )}
                                     </div>
-                                </Card>
-                            )}
-                        </div>
-                    </SettingsSection>
-
-                    {restaurant && shareableUrl && (
-                        <SettingsSection id="compartilhamento">
-                            <Card className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-                                <div className="min-w-0 flex-1">
-                                    <h3 className="mb-2 text-lg font-semibold text-gray-900">
-                                        Compartilhar Cardápio Delivery
-                                    </h3>
-                                    <p className="mb-6 text-sm text-gray-500">
-                                        Divulgue seu link ou use o QR Code.
-                                    </p>
-
-                                    <div className="flex min-w-0 flex-col gap-3 sm:flex-row">
-                                        <div className="min-w-0 flex-1">
-                                            <Input
-                                                value={shareableUrl}
-                                                aria-label="Link do cardápio delivery"
-                                                readOnly
-                                                className="min-w-0"
-                                            />
-                                        </div>
-                                        <Button
-                                            variant="secondary"
-                                            onClick={copyLink}
-                                            className="shrink-0"
-                                        >
-                                            <FontAwesomeIcon
-                                                icon={faCopy}
-                                                className="mr-2"
-                                            />
-                                            Copiar
-                                        </Button>
-                                    </div>
-                                </div>
-
-                                <div className="flex shrink-0 flex-col items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
-                                    <img
-                                        src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(shareableUrl)}`}
-                                        alt="QR Code do cardápio"
-                                        className="h-36 w-36 rounded-md border border-gray-200"
-                                    />
-                                    <Button
-                                        variant="secondary"
-                                        onClick={() => void downloadQr(shareableUrl, restaurant?.url_slug || "cardapio")}
-                                    >
-                                        <FontAwesomeIcon
-                                            icon={faDownload}
-                                            className="mr-2"
-                                        />
-                                        Baixar Imagem
-                                    </Button>
                                 </div>
                             </Card>
                         </SettingsSection>
                     )}
 
                     <SettingsSection id="avancado">
-                        {restaurant && (
-                            <ResetOrderCountSection restaurantId={restaurant.id} />
-                        )}
+                        <div className={`grid gap-4 ${restaurant ? "xl:grid-cols-2" : ""}`}>
+                            {restaurant && (
+                                <ResetOrderCountSection restaurantId={restaurant.id} />
+                            )}
 
-                        <Card className="border-red-200 bg-red-50/30">
-                            <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-                                <div>
-                                    <h3 className="mb-2 text-lg font-medium text-red-700">
+                            <Card className="border-red-200 bg-red-50/30">
+                                <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+                                    <div>
+                                        <h3 className="mb-2 text-lg font-medium text-red-700">
+                                            Deletar Conta
+                                        </h3>
+                                        <p className="text-sm text-red-600/70">
+                                            Ação irreversível. Todos os seus dados serão
+                                            apagados.
+                                        </p>
+                                    </div>
+                                    <Button
+                                        variant="secondary"
+                                        className="w-full bg-red-600 text-white hover:bg-red-700 md:w-auto"
+                                        onClick={() => setDeleteModalOpen(true)}
+                                    >
+                                        <FontAwesomeIcon
+                                            icon={faTrash}
+                                            className="mr-2"
+                                        />
                                         Deletar Conta
-                                    </h3>
-                                    <p className="text-sm text-red-600/70">
-                                        Ação irreversível. Todos os seus dados serão
-                                        apagados.
-                                    </p>
+                                    </Button>
                                 </div>
-                                <Button
-                                    variant="secondary"
-                                    className="w-full bg-red-600 text-white hover:bg-red-700 md:w-auto"
-                                    onClick={() => setDeleteModalOpen(true)}
-                                >
-                                    <FontAwesomeIcon
-                                        icon={faTrash}
-                                        className="mr-2"
-                                    />
-                                    Deletar Conta
-                                </Button>
-                            </div>
-                        </Card>
+                            </Card>
+                        </div>
                     </SettingsSection>
                 </div>
             </div>
