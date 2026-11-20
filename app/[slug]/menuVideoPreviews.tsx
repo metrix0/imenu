@@ -6,18 +6,21 @@ import { createPortal } from "react-dom";
 import type { Item, ItemsByCategory } from "@/lib/types/types";
 
 const MOBILE_PREVIEW_DELAY_MS = 2000;
+const FEATURED_PREVIEW_DURATION_MS = 5000;
 const DESKTOP_HOVER_DELAY_MS = 200;
 const DESKTOP_PREVIEW_CACHE_SIZE = 2;
 const PREVIEW_SELECTOR = "[data-menu-preview]";
 const NO_ACTIVE_PREVIEWS: readonly HTMLElement[] = [];
 type Connection = { saveData?: boolean; effectiveType?: string };
+type FeaturedPreviewTurn = { onPlaying: () => void; onFinished: () => void };
+type ActivePreview = { target: HTMLElement; turn?: FeaturedPreviewTurn };
 
 export function MenuVideoPreviews({ menu, visibleItems, enabled }: {
     menu: RefObject<HTMLDivElement | null>;
     visibleItems: ItemsByCategory;
     enabled: boolean;
 }) {
-    const [active, setActive] = useState(NO_ACTIVE_PREVIEWS);
+    const [active, setActive] = useState<ActivePreview | null>(null);
     const [recentDesktopPreviews, setRecentDesktopPreviews] = useState(NO_ACTIVE_PREVIEWS);
 
     useEffect(() => {
@@ -35,6 +38,34 @@ export function MenuVideoPreviews({ menu, visibleItems, enabled }: {
         let timeout = 0;
         let selected = NO_ACTIVE_PREVIEWS;
         const onScreen = new Map<HTMLElement, number>();
+
+        const playFeaturedPreview = (queue: readonly HTMLElement[], startIndex: number) => {
+            if (selected !== queue || document.hidden || motion.matches) return;
+
+            const index = queue.findIndex((target, i) =>
+                i >= startIndex && target.isConnected && onScreen.get(target) === 1,
+            );
+            if (index === -1) {
+                setActive(null);
+                return;
+            }
+
+            let started = false;
+            let finished = false;
+            const isCurrentTurn = () => selected === queue && !finished;
+            const onFinished = () => {
+                if (!isCurrentTurn()) return;
+                finished = true;
+                clearTimeout(timeout);
+                playFeaturedPreview(queue, index + 1);
+            };
+            const onPlaying = () => {
+                if (!isCurrentTurn() || started) return;
+                started = true;
+                timeout = window.setTimeout(onFinished, FEATURED_PREVIEW_DURATION_MS);
+            };
+            setActive({ target: queue[index], turn: { onPlaying, onFinished } });
+        };
 
         const choose = () => {
             frame = 0;
@@ -66,30 +97,39 @@ export function MenuVideoPreviews({ menu, visibleItems, enabled }: {
                 const featuredGrid = next.closest("[data-menu-featured-grid]");
                 if (featuredGrid) {
                     const rowTop = next.getBoundingClientRect().top;
-                    nextPreviews = Array.from(onScreen).flatMap(([preview, ratio]) =>
+                    const row = Array.from(onScreen).flatMap(([preview, ratio]) =>
                         ratio === 1 && featuredGrid.contains(preview) &&
                         Math.abs(preview.getBoundingClientRect().top - rowTop) < 1 ? [preview] : [],
+                    ).sort((left, right) =>
+                        left.compareDocumentPosition(right) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1,
                     );
+                    const first = row.indexOf(next);
+                    nextPreviews = [...row.slice(first), ...row.slice(0, first)];
                 }
             }
 
             if (nextPreviews.length === selected.length && nextPreviews.every(preview => selected.includes(preview))) return;
             selected = nextPreviews;
             clearTimeout(timeout);
-            setActive(NO_ACTIVE_PREVIEWS);
+            setActive(null);
             if (!nextPreviews.length) return;
 
             timeout = window.setTimeout(() => {
                 if (document.hidden || motion.matches) return;
                 if (desktopHover && !next?.closest("button")?.matches(":hover")) return;
 
-                const connectedPreviews = nextPreviews.filter(preview => preview.isConnected);
-                setActive(connectedPreviews);
-                const hovered = connectedPreviews[0];
-                if (desktopHover && hovered) {
-                    setRecentDesktopPreviews(current => current[0] === hovered
+                if (nextPreviews.length > 1) {
+                    playFeaturedPreview(nextPreviews, 0);
+                    return;
+                }
+
+                const target = nextPreviews[0];
+                if (!target.isConnected) return;
+                setActive({ target });
+                if (desktopHover) {
+                    setRecentDesktopPreviews(current => current[0] === target
                         ? current
-                        : [hovered, ...current.filter(preview => preview !== hovered)].slice(0, DESKTOP_PREVIEW_CACHE_SIZE),
+                        : [target, ...current.filter(preview => preview !== target)].slice(0, DESKTOP_PREVIEW_CACHE_SIZE),
                     );
                 }
             }, desktopHover ? DESKTOP_HOVER_DELAY_MS : MOBILE_PREVIEW_DELAY_MS);
@@ -99,7 +139,7 @@ export function MenuVideoPreviews({ menu, visibleItems, enabled }: {
         const onPointerModeChange = () => {
             clearTimeout(timeout);
             selected = NO_ACTIVE_PREVIEWS;
-            setActive(NO_ACTIVE_PREVIEWS);
+            setActive(null);
             setRecentDesktopPreviews(NO_ACTIVE_PREVIEWS);
             schedule();
         };
@@ -131,18 +171,25 @@ export function MenuVideoPreviews({ menu, visibleItems, enabled }: {
             finePointer.removeEventListener("change", onPointerModeChange);
             cancelAnimationFrame(frame);
             clearTimeout(timeout);
-            setActive(NO_ACTIVE_PREVIEWS);
+            selected = NO_ACTIVE_PREVIEWS;
+            setActive(null);
             setRecentDesktopPreviews(NO_ACTIVE_PREVIEWS);
         };
     }, [menu, visibleItems, enabled]);
 
     if (!enabled) return null;
 
-    const previewTargets = [...new Set([...recentDesktopPreviews, ...active])];
-    return previewTargets.map(target => {
+    const previewTargets = new Set(recentDesktopPreviews);
+    if (active) previewTargets.add(active.target);
+    return Array.from(previewTargets, target => {
         const url = target.dataset.menuPreview;
         if (!url || !target.isConnected) return null;
-        return createPortal(<MenuVideoPreview url={url} active={active.includes(target)} />, target, target.dataset.previewItemId);
+        const isActive = active?.target === target;
+        return createPortal(
+            <MenuVideoPreview url={url} active={isActive} turn={isActive ? active.turn : undefined} />,
+            target,
+            target.dataset.previewItemId,
+        );
     });
 }
 
@@ -161,20 +208,29 @@ export function MenuCardMedia({ item, className }: { item: Item; className: stri
     );
 }
 
-function MenuVideoPreview({ url, active }: { url: string; active: boolean }) {
+function MenuVideoPreview({ url, active, turn }: { url: string; active: boolean; turn?: FeaturedPreviewTurn }) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [playing, setPlaying] = useState(false);
 
+    const finishTurn = turn?.onFinished;
     useEffect(() => {
         const video = videoRef.current;
         if (!video) return;
-        if (active) {
-            void video.play().catch(() => {});
-        } else {
+        if (!active) {
             video.pause();
             if (video.currentTime > 0) video.currentTime = 0;
+            return;
         }
-    }, [active, url]);
+
+        let canceled = false;
+        void video.play().catch(() => {
+            if (!canceled) finishTurn?.();
+        });
+        return () => {
+            canceled = true;
+            if (finishTurn) video.pause();
+        };
+    }, [active, finishTurn, url]);
 
     return (
         <video
@@ -182,11 +238,18 @@ function MenuVideoPreview({ url, active }: { url: string; active: boolean }) {
             src={url}
             muted
             playsInline
-            loop
+            loop={!turn}
             aria-hidden="true"
-            onPlaying={() => setPlaying(true)}
+            onPlaying={() => {
+                setPlaying(true);
+                turn?.onPlaying();
+            }}
             onPause={() => setPlaying(false)}
-            onError={() => setPlaying(false)}
+            onEnded={finishTurn}
+            onError={() => {
+                setPlaying(false);
+                finishTurn?.();
+            }}
             className={`pointer-events-none absolute inset-0 h-full w-full object-cover ${active && playing ? "" : "opacity-0"}`}
         />
     );
