@@ -206,7 +206,7 @@ export default function ItemMediaSettings({ item, restaurantId, onUpdated, onBus
                                                 aria-label={`Mover ${label} para a ${side}`}
                                                 disabled={uploading || !movedMedia(media, index, index + direction)}
                                                 onClick={() => move(index, index + direction)}
-                                                className="grid h-8 w-8 cursor-pointer place-items-center rounded text-gray-500"
+                                                className="grid h-8 w-8 cursor-pointer place-items-center rounded text-[var(--panel-muted,#626973)] hover:text-[#414853]"
                                             >
                                                 <PanelIcon icon={direction < 0 ? faChevronLeft : faChevronRight} className="pointer-events-none text-sm" />
                                             </button>
