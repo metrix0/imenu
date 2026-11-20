@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import { faCopy, faGlobe, faUpRightFromSquare } from "@fortawesome/free-solid-svg-icons";
+import { faCopy, faGlobe } from "@fortawesome/free-solid-svg-icons";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Toast from "@/components/ui/Toast";
@@ -345,7 +345,6 @@ export default function StoreProfileManager({
                                 <Button
                                     type="button"
                                     variant="primary"
-                                    rightIcon={<FontAwesomeIcon icon={faUpRightFromSquare} aria-hidden="true" />}
                                     className="h-11 flex-1 whitespace-nowrap md:flex-none"
                                     disabled={!menuHref || (!activeDomain && urlSlug !== savedUrlSlug)}
                                     onClick={() => window.open(menuHref, "_blank", "noopener,noreferrer")}
