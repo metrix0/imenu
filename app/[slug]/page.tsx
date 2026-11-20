@@ -125,14 +125,6 @@ export default async function Page({
   const readOnly = p.origem === "vitrine";
   if (readOnly && restaurantData.vitrine_enabled !== true) return notFound();
 
-  let darkMenuActive = false;
-  if (restaurantData.dark_menu_enabled === true) {
-    try {
-      darkMenuActive = await hasIMenuPlusAccess(restaurantData.id);
-    } catch (error) {
-      console.error("[MENU_DARK_THEME] Unable to check Plus access:", error);
-    }
-  }
   let tableOrder: QrTableMenuContext | null = null;
   if (p.origem === "mesa") {
     const [{ data: settings }, { data: legacyTokens }] = await Promise.all([
@@ -280,6 +272,14 @@ export default async function Page({
   const metaPixelId = tracking?.is_enabled ? cleanMetaPixelId(tracking.meta_pixel_id) : null;
   const categories: Category[] = categoriesResult.data || [];
   const itemsRaw = itemsResult.data || [];
+  const hasPaidMenuFeatures = restaurantData.dark_menu_enabled === true ||
+    itemsRaw.some(item => Array.isArray(item.gallery_media) && item.gallery_media.length > 0);
+  const menuPlusAccess = hasPaidMenuFeatures
+    ? hasIMenuPlusAccess(restaurant.id).catch(error => {
+      console.error("[PUBLIC_MENU] Unable to check Plus access:", error);
+      return false;
+    })
+    : null;
   const promotions = promotionsResult.data;
   const loyaltyProgramActive =
     !tableOrder && loyaltyProgram?.active === true;
@@ -353,12 +353,14 @@ export default async function Page({
     }
   }
 
+  const plusActive = await menuPlusAccess;
+  const darkMenuActive = restaurantData.dark_menu_enabled === true && plusActive === true;
   let allItems: Item[] = itemsRaw
     .filter((item: any) => item.is_available === true && (readOnly || isItemAvailableForChannel(item, tableOrder ? "mesa" : "entrega")))
     .map((item: any) => ({
       ...item,
       image_public_url: getMenuItemImageUrl(supabase, item.image_path),
-      gallery_media: getPublicItemMedia(supabase, item.gallery_media),
+      gallery_media: plusActive ? getPublicItemMedia(supabase, item.gallery_media) : [],
     }));
 
   // ======================

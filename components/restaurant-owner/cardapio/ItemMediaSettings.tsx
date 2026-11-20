@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
-import { faChevronLeft, faChevronRight, faFilm, faImage } from "@fortawesome/free-solid-svg-icons";
+import { faCheck, faChevronLeft, faChevronRight, faFilm, faImage, faLock } from "@fortawesome/free-solid-svg-icons";
 import { createPortal } from "react-dom";
 import Loader from "@/components/ui/Loader";
 import { PanelIcon } from "@/components/ui/PanelIcon";
@@ -26,11 +26,13 @@ function movedMedia(media: Slots, from: number, to: number): Slots | null {
     return next[0]?.type === "image" ? next : null;
 }
 
-export default function ItemMediaSettings({ item, restaurantId, onUpdated, onBusyChange }: {
+export default function ItemMediaSettings({ item, restaurantId, onUpdated, onBusyChange, plusActive, onOpenPlus }: {
     item: MenuItemType;
     restaurantId: string;
     onUpdated: (item: MenuItemSettingsUpdate) => void;
     onBusyChange: (busy: boolean) => void;
+    plusActive: boolean | null;
+    onOpenPlus: () => void;
 }) {
     const [media, setMedia] = useState<Slots>(() => [
         item.image_path ? { type: "image", path: item.image_path } : null,
@@ -45,17 +47,18 @@ export default function ItemMediaSettings({ item, restaurantId, onUpdated, onBus
     const dragged = useRef<number | null>(null);
     const copiedCovers = useRef(new Map<string, string>());
     const saved = useRef({ image_path: item.image_path ?? null, gallery_media: item.gallery_media ?? [] });
+    const galleryEnabled = plusActive === true;
     const save = useAutoSave<Slots>(`${restaurantId}:${item.id}:gallery`, async next => {
         const cover = next[0];
         const imagePath = cover ? copiedCovers.current.get(cover.path) ?? cover.path : null;
-        const gallery = await Promise.all(next.slice(1)
+        const gallery = galleryEnabled ? await Promise.all(next.slice(1)
             .filter((entry): entry is ItemMedia => entry !== null)
             .map(async entry => {
                 if (entry.type !== "image") return entry;
                 const path = copiedCovers.current.get(entry.path) ?? await copyCoverToGallery(entry.path, restaurantId, item.id);
                 if (path !== entry.path) copiedCovers.current.set(entry.path, path);
                 return { ...entry, path };
-            }));
+            })) : saved.current.gallery_media;
         const update = { image_path: imagePath, gallery_media: gallery };
         const previous = saved.current;
         const query = supabase.from("items").update(update)
@@ -86,9 +89,10 @@ export default function ItemMediaSettings({ item, restaurantId, onUpdated, onBus
         save.reset();
     }, [save.error, save.reset, showError]);
 
-    const uploadSlot = media[0] ? media.length : 0;
+    const displayedMedia = galleryEnabled ? media : media.slice(0, 1);
+    const uploadSlot = displayedMedia[0] ? displayedMedia.length : 0;
     const canUpload = uploadSlot < MAX_ITEM_MEDIA;
-    const acceptsVideo = uploadSlot > 0 && !media.some(entry => entry?.type === "video");
+    const acceptsVideo = galleryEnabled && uploadSlot > 0 && !media.some(entry => entry?.type === "video");
 
     const changeMedia = (next: Slots) => {
         setMedia(next);
@@ -96,6 +100,7 @@ export default function ItemMediaSettings({ item, restaurantId, onUpdated, onBus
     };
 
     const move = (from: number, to: number) => {
+        if (!galleryEnabled) return;
         const next = movedMedia(media, from, to);
         if (next) changeMedia(next);
     };
@@ -103,7 +108,7 @@ export default function ItemMediaSettings({ item, restaurantId, onUpdated, onBus
     const upload = async (event: ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         event.target.value = "";
-        if (!file || uploading || !canUpload) return;
+        if (!file || uploading || !canUpload || (uploadSlot > 0 && !galleryEnabled)) return;
         const isVideo = file.type.startsWith("video/");
         if (isVideo && !acceptsVideo) {
             showError("Adicione a foto principal antes do vídeo. Cada item pode ter um vídeo.");
@@ -132,6 +137,10 @@ export default function ItemMediaSettings({ item, restaurantId, onUpdated, onBus
     };
 
     const remove = (index: number) => {
+        if (!galleryEnabled) {
+            if (index === 0) changeMedia([null, ...media.slice(1)]);
+            return;
+        }
         if (index > 0) {
             changeMedia(media.filter((_, position) => position !== index));
             return;
@@ -141,9 +150,17 @@ export default function ItemMediaSettings({ item, restaurantId, onUpdated, onBus
     };
 
     return (
-        <section aria-label="Mídias do item" className="space-y-2">
-            <h3 className="text-sm font-medium text-gray-900">Mídias <span className="ml-1 font-normal text-gray-500">{media.filter(Boolean).length}/{MAX_ITEM_MEDIA}</span></h3>
-            <p className="text-xs text-gray-500">A primeira mídia é a foto principal. Vídeo de até 30 s e 12 MB.</p>
+        <section aria-label="Fotos e Vídeo do item" className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-sm font-medium text-gray-900">Fotos e Vídeo <span className="ml-1 font-normal text-gray-500">{displayedMedia.filter(Boolean).length}/{MAX_ITEM_MEDIA}</span></h3>
+                {plusActive !== null && (
+                    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${plusActive ? "bg-green-50 text-green-700" : "bg-orange-50 text-orange-800"}`}>
+                        <PanelIcon icon={plusActive ? faCheck : faLock} />
+                        {plusActive ? "Plano ativo" : "Incluso no iMenu Plus"}
+                    </span>
+                )}
+            </div>
+            <p className="text-xs text-gray-500">A primeira mídia é a foto principal, o vídeo toca automaticamente ao visualizar o item.</p>
             <input
                 ref={fileInput}
                 type="file"
@@ -154,12 +171,12 @@ export default function ItemMediaSettings({ item, restaurantId, onUpdated, onBus
             />
             <div className="grid grid-cols-3 gap-2">
                 {Array.from({ length: MAX_ITEM_MEDIA }, (_, index) => {
-                    const entry = media[index];
+                    const entry = displayedMedia[index];
                     const label = index === 0 ? "Foto principal" : `Mídia ${index + 1}`;
                     return (
                         <div key={index} className="min-w-0">
                             <div
-                                draggable={Boolean(entry) && !uploading}
+                                draggable={galleryEnabled && Boolean(entry) && !uploading}
                                 onDragStart={event => {
                                     event.stopPropagation();
                                     dragged.current = index;
@@ -178,7 +195,7 @@ export default function ItemMediaSettings({ item, restaurantId, onUpdated, onBus
                                     if (dragged.current !== null && !uploading) move(dragged.current, index);
                                     dragged.current = null;
                                 }}
-                                className={`relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-gray-100 text-gray-500 ${entry && !uploading ? "cursor-grab active:cursor-grabbing" : ""}`}
+                                className={`relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-gray-100 text-gray-500 ${galleryEnabled && entry && !uploading ? "cursor-grab active:cursor-grabbing" : ""}`}
                             >
                                 {entry?.type === "image" && <img src={getMenuItemImageUrl(supabase, entry.path) ?? undefined} alt={label} draggable={false} className="h-full w-full object-cover" />}
                                 {entry?.type === "video" && (
@@ -188,7 +205,10 @@ export default function ItemMediaSettings({ item, restaurantId, onUpdated, onBus
                                     </>
                                 )}
                                 {!entry && index === uploadSlot && canUpload && (
-                                    <button type="button" aria-label={index === 0 ? "Adicionar foto principal" : "Adicionar mídia"} disabled={uploading} onClick={() => fileInput.current?.click()} className="grid h-full w-full cursor-pointer place-items-center hover:bg-gray-200 disabled:cursor-wait">
+                                    <button type="button" aria-label={index === 0 ? "Adicionar foto principal" : "Adicionar mídia"}
+                                        disabled={uploading || (index > 0 && plusActive === null)}
+                                        onClick={() => { if (index > 0 && !galleryEnabled) onOpenPlus(); else fileInput.current?.click(); }}
+                                        className="grid h-full w-full cursor-pointer place-items-center hover:bg-gray-200 disabled:cursor-wait">
                                         {uploading ? <Loader className="!h-5 !w-5 !border-2" /> : <PanelIcon icon={icons.faPlus} />}
                                     </button>
                                 )}
@@ -204,7 +224,7 @@ export default function ItemMediaSettings({ item, restaurantId, onUpdated, onBus
                                                 key={direction}
                                                 title={`Mover para a ${side}`}
                                                 aria-label={`Mover ${label} para a ${side}`}
-                                                disabled={uploading || !movedMedia(media, index, index + direction)}
+                                                disabled={!galleryEnabled || uploading || !movedMedia(media, index, index + direction)}
                                                 onClick={() => move(index, index + direction)}
                                                 className="grid h-8 w-8 cursor-pointer place-items-center rounded text-[var(--panel-muted,#626973)] hover:text-[#414853]"
                                             >

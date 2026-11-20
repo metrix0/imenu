@@ -1,4 +1,5 @@
 import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
+import { hasIMenuPlusAccess } from "@/lib/addons/access";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 import { POST } from "./route";
 
@@ -7,6 +8,7 @@ jest.mock("@/lib/auth/restaurantOwner", () => ({
     requireRestaurantOwner: jest.fn(),
 }));
 jest.mock("@/lib/database/supabaseServerClient", () => ({ createSupabaseServerClient: jest.fn() }));
+jest.mock("@/lib/addons/access", () => ({ hasIMenuPlusAccess: jest.fn() }));
 
 const restaurant = "30000000-0000-4000-8000-000000000001";
 const item = "30000000-0000-4000-8000-000000000002";
@@ -24,6 +26,7 @@ const eq = jest.fn();
 beforeEach(() => {
     jest.clearAllMocks();
     (requireRestaurantOwner as jest.Mock).mockResolvedValue({});
+    (hasIMenuPlusAccess as jest.Mock).mockResolvedValue(true);
     maybeSingle.mockResolvedValue({ data: { image_path: cover, gallery_media: [] }, error: null });
     copy.mockResolvedValue({ error: null });
     exists.mockResolvedValue({ data: false });
@@ -55,6 +58,13 @@ it("rejects a caller who does not own the restaurant before calling storage", as
     (requireRestaurantOwner as jest.Mock).mockRejectedValueOnce(new RestaurantOwnerAuthError("Acesso negado.", 403));
     expect((await POST(request())).status).toBe(403);
     expect(copy).not.toHaveBeenCalled();
+});
+
+it("requires iMenu Plus to move a cover into the gallery", async () => {
+    (hasIMenuPlusAccess as jest.Mock).mockResolvedValueOnce(false);
+    expect((await POST(request())).status).toBe(403);
+    expect(hasIMenuPlusAccess).toHaveBeenCalledWith(restaurant);
+    expect(createSupabaseServerClient).not.toHaveBeenCalled();
 });
 
 it("reuses the same destination when a prior request already copied the cover", async () => {

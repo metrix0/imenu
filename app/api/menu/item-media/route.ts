@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { RestaurantOwnerAuthError, requireRestaurantOwner } from "@/lib/auth/restaurantOwner";
+import { hasIMenuPlusAccess } from "@/lib/addons/access";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 import { MENU_GALLERY_IMAGE_PREFIX, MENU_IMAGE_PREFIX } from "@/lib/menu/itemImages";
 import { readItemMedia } from "@/lib/menu/itemMedia";
@@ -18,6 +19,9 @@ export async function POST(request: Request) {
 
     try {
         await requireRestaurantOwner(request, restaurantId);
+        if (!(await hasIMenuPlusAccess(restaurantId))) {
+            return NextResponse.json({ error: "Fotos extras são exclusivas do iMenu Plus." }, { status: 403 });
+        }
 
         const body = await request.json().catch(() => null);
         const path = body?.path;

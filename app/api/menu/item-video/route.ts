@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 import ffmpegPath from "ffmpeg-static";
 import { NextResponse } from "next/server";
 import { RestaurantOwnerAuthError, requireRestaurantOwner } from "@/lib/auth/restaurantOwner";
+import { hasIMenuPlusAccess } from "@/lib/addons/access";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 import { MAX_MENU_VIDEO_BYTES, MENU_VIDEO_BUCKET, isMenuVideoType } from "@/lib/menu/itemMedia";
 
@@ -51,11 +52,14 @@ export async function POST(request: Request) {
 
     try {
         await requireRestaurantOwner(request, restaurantId);
+        if (!(await hasIMenuPlusAccess(restaurantId))) {
+            return NextResponse.json({ error: "Vídeos no cardápio são exclusivos do iMenu Plus." }, { status: 403 });
+        }
     } catch (error) {
         if (error instanceof RestaurantOwnerAuthError) {
             return NextResponse.json({ error: error.message }, { status: error.status });
         }
-        console.error("[item-video] Owner verification failed", error);
+        console.error("[item-video] Access verification failed", error);
         return NextResponse.json({ error: "Não foi possível verificar sua sessão." }, { status: 500 });
     }
 
