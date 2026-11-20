@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import DeliveryIntegrations from "@/components/restaurant-owner/configuracoes/DeliveryIntegrations";
-import SaveStatus, { PageSaveHeader, type SaveState } from "@/components/ui/SaveStatus";
+import SaveStatus, { PageSaveHeader, PageSaveStatusProvider, type SaveState } from "@/components/ui/SaveStatus";
 
 import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
 import Button from "@/components/ui/Button";
@@ -89,6 +89,14 @@ const META_CAPI_EVENTS = [
 ] as const;
 
 export default function IntegracoesPage() {
+    return (
+        <PageSaveStatusProvider>
+            <IntegracoesContent />
+        </PageSaveStatusProvider>
+    );
+}
+
+function IntegracoesContent() {
     const { restaurantId, setRestaurantId } = useCreationStore();
     const [deliverySaveState, setDeliverySaveState] = useState<SaveState>("idle");
     const [loading, setLoading] = useState(true);
