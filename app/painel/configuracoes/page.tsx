@@ -834,7 +834,7 @@ export default function ConfiguracoesPage() {
                 title="Deletar conta?"
                 description="Ação irreversível. Todos os seus dados serão apagados."
                 confirmLabel="Deletar conta"
-                confirmationText="Eu desejo deletar minha conta"
+                confirmationText="deletar minha conta"
                 isLoading={isDeleting}
                 variant="danger"
             />

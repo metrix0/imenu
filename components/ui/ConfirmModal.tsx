@@ -136,7 +136,7 @@ export default function ConfirmModal({
                     <Button 
                         variant={actionTone === "success" || actionTone === "primary" ? "primary" : "secondary"}
                         onClick={onConfirm}
-                        disabled={requiresConfirmation && typedConfirmation !== confirmationText}
+                        disabled={requiresConfirmation && typedConfirmation.toLowerCase() !== confirmationText.toLowerCase()}
                         loading={isLoading}
                         className={`${actionButtonClass} ${actionTone === "success" ? successButtonClass : actionTone === "danger" ? "bg-red-600 text-white hover:bg-red-700 border-transparent" : ""}`}
                     >
