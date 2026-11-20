@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
-import Switch from "@/components/ui/Switch";
+import ToggleOptionCard from "@/components/ui/ToggleOptionCard";
 import SaveStatus from "@/components/ui/SaveStatus";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
@@ -20,7 +20,6 @@ type Availability = {
     available_for_salao: boolean;
     availability_schedule: CategorySchedule;
 };
-type Channel = "available_for_delivery" | "available_for_salao";
 
 export default function ItemSettingsModal({ item, restaurantId, open, onClose, onUpdated, onOpenComplements }: {
     item: MenuItemType;
@@ -52,7 +51,6 @@ export default function ItemSettingsModal({ item, restaurantId, open, onClose, o
         setAvailability(next);
         save.schedule(next);
     };
-    const update = (field: Channel) => updateAvailability({ [field]: !availability[field] });
     const scheduleEditor = useAvailabilityScheduleEditor(item.availability_schedule, schedule => {
         updateAvailability({ availability_schedule: schedule });
     });
@@ -94,15 +92,21 @@ export default function ItemSettingsModal({ item, restaurantId, open, onClose, o
                 <ItemMediaSettings item={item} restaurantId={restaurantId} onUpdated={onUpdated} onBusyChange={setMediaBusy} />
                 <section className="space-y-2">
                     <h3 className="text-sm font-medium text-gray-900">Disponibilidade</h3>
-                    <div className="grid divide-y divide-gray-100 rounded-lg border border-gray-200 md:grid-cols-2 md:divide-x md:divide-y-0">
-                        <div className="flex items-center justify-between gap-4 p-4">
-                            <span id={`delivery-${item.id}`} className="text-sm font-medium text-gray-900">Disponível para delivery</span>
-                            <Switch checked={availability.available_for_delivery} onClick={() => update("available_for_delivery")} aria-labelledby={`delivery-${item.id}`} />
-                        </div>
-                        <div className="flex items-center justify-between gap-4 p-4">
-                            <span id={`salao-${item.id}`} className="text-sm font-medium text-gray-900">Disponível para salão</span>
-                            <Switch checked={availability.available_for_salao} onClick={() => update("available_for_salao")} aria-labelledby={`salao-${item.id}`} />
-                        </div>
+                    <div className="grid gap-2 md:grid-cols-2">
+                        <ToggleOptionCard
+                            label="Disponível para delivery"
+                            ariaLabel="Disponível para delivery"
+                            checked={availability.available_for_delivery}
+                            onChange={(checked) => updateAvailability({ available_for_delivery: checked })}
+                            className="text-sm"
+                        />
+                        <ToggleOptionCard
+                            label="Disponível para salão"
+                            ariaLabel="Disponível para salão"
+                            checked={availability.available_for_salao}
+                            onChange={(checked) => updateAvailability({ available_for_salao: checked })}
+                            className="text-sm"
+                        />
                     </div>
                     <AvailabilityScheduleEditor editor={scheduleEditor} subject="do item" />
                 </section>
