@@ -595,21 +595,13 @@ export async function POST(request: Request) {
             }
         );
 
-        if (rewardItems.length > 1) {
-            throw new OrderRequestError(
-                "Apenas uma recompensa pode ser usada por pedido."
-            );
-        }
-
-        const rewardItem =
-            rewardItems[0] || null;
+        const rewardItemSet = new Set(rewardItems);
         const cleanPhone = normalizePhone(
             customer_phone
         );
         let pointsToDeduct = 0;
-        let rewardSubitemIds = new Set<string>();
 
-        if (rewardItem) {
+        if (rewardItems.length > 0) {
             if (!program) {
                 throw new OrderRequestError(
                     "Programa de fidelidade inativo."
@@ -625,65 +617,68 @@ export async function POST(request: Request) {
                 );
             }
 
-            const rewardItemId =
-                getCartItemId(rewardItem);
-
-            if (!configuredRewards.has(rewardItemId)) {
-                throw new OrderRequestError(
-                    "Item inválido para resgate."
-                );
+            const redeemedIds = new Set(rewardItems.map(getCartItemId));
+            if (rewardItems.length !== configuredRewards.size ||
+                redeemedIds.size !== configuredRewards.size ||
+                [...redeemedIds].some(id => !configuredRewards.has(id))) {
+                throw new OrderRequestError("A recompensa mudou. Remova o prêmio da sacola e resgate a recompensa completa.");
             }
 
-            if (
-                Number(rewardItem.qty) !== 1 ||
-                Number(rewardItem.total_cents) !==
-                    0 ||
-                Number(
-                    rewardItem.unit_price_cents
-                ) !== 0
-            ) {
-                throw new OrderRequestError(
-                    "A recompensa deve ter quantidade 1 e valor zero."
-                );
-            }
+            for (const rewardItem of rewardItems) {
+                const rewardItemId =
+                    getCartItemId(rewardItem);
 
-            rewardSubitemIds = new Set(
-                parseIdArray(
-                    configuredRewards.get(rewardItemId)
-                )
-            );
+                if (
+                    Number(rewardItem.qty) !== 1 ||
+                    Number(rewardItem.total_cents) !==
+                        0 ||
+                    Number(
+                        rewardItem.unit_price_cents
+                    ) !== 0
+                ) {
+                    throw new OrderRequestError(
+                        "A recompensa deve ter quantidade 1 e valor zero."
+                    );
+                }
 
-            const selectedRewardSubitems =
-                getSelectedSubitems(rewardItem);
-            const selectedRewardIds =
-                selectedRewardSubitems.map(
-                    (subitem: any) =>
-                        String(
-                            subitem?.subitemId || ""
-                        )
+                const rewardSubitemIds = new Set(
+                    parseIdArray(
+                        configuredRewards.get(rewardItemId)
+                    )
                 );
 
-            if (
-                new Set(selectedRewardIds).size !==
-                selectedRewardIds.length
-            ) {
-                throw new OrderRequestError(
-                    "A recompensa possui complementos duplicados."
-                );
-            }
+                const selectedRewardSubitems =
+                    getSelectedSubitems(rewardItem);
+                const selectedRewardIds =
+                    selectedRewardSubitems.map(
+                        (subitem: any) =>
+                            String(
+                                subitem?.subitemId || ""
+                            )
+                    );
 
-            const invalidRewardSubitem =
-                selectedRewardIds.some(
-                    (subitemId: string) =>
-                        !rewardSubitemIds.has(
-                            subitemId
-                        )
-                );
+                if (
+                    new Set(selectedRewardIds).size !==
+                    selectedRewardIds.length
+                ) {
+                    throw new OrderRequestError(
+                        "A recompensa possui complementos duplicados."
+                    );
+                }
 
-            if (invalidRewardSubitem) {
-                throw new OrderRequestError(
-                    "A recompensa contém um complemento não configurado."
-                );
+                const invalidRewardSubitem =
+                    selectedRewardIds.some(
+                        (subitemId: string) =>
+                            !rewardSubitemIds.has(
+                                subitemId
+                            )
+                    );
+
+                if (invalidRewardSubitem) {
+                    throw new OrderRequestError(
+                        "A recompensa contém um complemento não configurado."
+                    );
+                }
             }
 
             pointsToDeduct = Math.max(
@@ -790,7 +785,7 @@ export async function POST(request: Request) {
                     }
                     const pricing = await automaticOrderPricing(client, {
                         restaurantId, promotions: restaurantResult.rows[0].automatic_promotions,
-                        items: items.map((item: any) => item === rewardItem ? Object.assign(item, { is_reward: true }) : item),
+                        items: items.map((item: any) => rewardItemSet.has(item) ? Object.assign(item, { is_reward: true }) : item),
                         subtotal_cents: subtotal, delivery_cents: safeDeliveryFeeCents,
                         coupon_discount_cents: safeCouponDiscount, coupon_type,
                         channel: isTableOrder || isCounterOrder ? "mesa" : "delivery", pickup: isPickup,
@@ -936,7 +931,7 @@ export async function POST(request: Request) {
                         );
                     }
 
-                    if (rewardItem) {
+                    if (rewardItems.length > 0) {
                         const phoneCandidates = [
                             cleanPhone,
                             `55${cleanPhone}`,
@@ -1110,7 +1105,7 @@ export async function POST(request: Request) {
                                 cartItem
                             );
                         const isRewardItem =
-                            rewardItem === cartItem;
+                            rewardItemSet.has(cartItem);
 
                         // This optional cap does not change existing unlimited groups.
                         const quantitiesByOption = new Map<string, number>();

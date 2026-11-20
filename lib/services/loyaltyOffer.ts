@@ -39,6 +39,6 @@ export async function loadLoyaltyOffer(restaurantId: string): Promise<LoyaltyOff
                 subitemId: row.id, subitemName: row.name, price_cents: 0 }));
         return [{ id: item.id, name: item.name, image, complements }];
     });
-    return rewards.length ? { active: true, goal_count: program.goal_count,
+    return rewards.length === selections.length ? { active: true, goal_count: program.goal_count,
         min_order_value_cents: Number(program.min_order_value_cents) || 0, rewards } : null;
 }

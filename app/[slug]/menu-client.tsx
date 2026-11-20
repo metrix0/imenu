@@ -16,6 +16,7 @@ import { faChair, faChevronRight, faGift, faStar } from "@fortawesome/free-solid
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import { supabase } from "@/lib/database/supabaseClient";
 import Input from "@/components/ui/Input";
+import Button from "@/components/ui/Button";
 import { formatPrice, formatPriceNoRS, promotionPrice } from "@/lib/utils/formatPrice";
 import ModalMobile from "@/components/ui/HybridModal";
 import ItemModal from "./ItemModal";
@@ -1250,13 +1251,7 @@ export default function MenuClientPage({
             )}
 
             <div ref={menuCards} className="mt-8 px-4 md:mx-44 space-y-12 pb-20 2xl:mx-80 2xl:mt-12 relative">
-                <div className="absolute top-0 right-4 hidden md:flex justify-end gap-4">
-                    {!readOnly && !isTableOrder && loyaltyOffer && (
-                        <button type="button" aria-label="Fidelidade" title="Fidelidade" onClick={() => setHistoryOpen(true)}
-                            className="grid size-10 cursor-pointer place-items-center rounded-lg border border-[var(--im-menu-border,#e5e7eb)] bg-[var(--im-menu-surface,#fff)] text-[var(--im-menu-link,#f14400)]">
-                            <FontAwesomeIcon icon={faGift} />
-                        </button>
-                    )}
+                <div className="absolute top-0 right-4 hidden md:flex justify-end gap-[8px]!">
                     <button
                         className={`text-sm 2xl:text-base text-[var(--im-menu-link,#f14400)] mt-1 transition-opacity duration-200 ${
                             searchText.length > 0 ? "opacity-100 pointer-events-auto cursor-pointer" : "opacity-0 pointer-events-none"
@@ -1268,6 +1263,18 @@ export default function MenuClientPage({
                     >
                         Cancelar
                     </button>
+                    {!readOnly && !isTableOrder && loyaltyOffer && (
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            aria-label="Fidelidade"
+                            title="Fidelidade"
+                            onClick={() => setHistoryOpen(true)}
+                            className="w-10 shrink-0 border border-[var(--im-menu-border,#d1d5db)] !p-0"
+                        >
+                            <FontAwesomeIcon icon={faGift} />
+                        </Button>
+                    )}
                     <Input
                         icon={<FontAwesomeIcon icon={icons.faMagnifyingGlass} />}
                         placeholder="Buscar..."

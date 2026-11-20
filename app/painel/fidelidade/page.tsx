@@ -228,7 +228,7 @@ export default function FidelidadePage() {
                 checked={safeProgram.active}
                 onChange={(active) => updateProgram({ active })}
                 description={safeProgram.active
-                    ? "Pedidos elegíveis geram selos."
+                    ? "A cada pedido concluído que atingir o valor mínimo, o cliente ganha 1 selo."
                     : "A contagem de selos está pausada."}
             />
 
@@ -239,7 +239,7 @@ export default function FidelidadePage() {
 
                     </div>
                     <Input
-                        label="Meta de pedidos"
+                        label="Meta de pedidos (selos)"
                         type="number"
                         min={1}
                         max={100}

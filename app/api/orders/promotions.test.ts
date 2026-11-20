@@ -60,6 +60,7 @@ let insert: any[] | null;
 let writes: string[];
 let transactions: string[];
 let client: { query: jest.Mock };
+let loyaltyBalance: boolean;
 
 beforeEach(() => {
   (after as jest.Mock).mockReset();
@@ -69,6 +70,7 @@ beforeEach(() => {
   stock = 10;
   activeProductPromotion = null;
   giftProductEnabled = false;
+  loyaltyBalance = false;
   insert = null;
   writes = [];
   transactions = [];
@@ -109,6 +111,10 @@ beforeEach(() => {
             },
           ],
         };
+      if (sql.includes("FROM loyalty_balances") && loyaltyBalance)
+        return { rows: [{ customer_phone: body.customer_phone }] };
+      if (sql.includes("UPDATE loyalty_balances") && loyaltyBalance)
+        return { rows: [{ current_count: 0 }] };
       if (sql.includes("INSERT INTO orders")) {
         insert = values;
         return { rows: [{ id: orderId }] };
@@ -600,4 +606,41 @@ it("saves the online Pix attribution before requesting payment and defers the ev
   expect(result.status).toBe(200);
   expect((await result.json()).payment_type).toBe("pix");
   expect(after).not.toHaveBeenCalled();
+});
+
+function enableLoyaltyBundle() {
+  loyaltyBalance = true;
+  giftProductEnabled = true;
+  offers = [];
+  (query as jest.Mock).mockImplementation(async (sql: string) =>
+    sql.includes("FROM loyalty_programs")
+      ? { rows: [{ goal_count: 10, reward_item_id: itemId, reward_subitem_ids: [],
+        additional_rewards: [{ item_id: giftId, subitem_ids: [] }] }] }
+      : { rows: [], rowCount: 1 },
+  );
+}
+
+const rewardLine = (id: string) => ({
+  base_item_id: id, name: "Prêmio", qty: 1, unit_price_cents: 0,
+  total_cents: 0, selectedSubitems: [], is_reward: true,
+});
+
+it("redeems all configured reward items and deducts the stamp goal once", async () => {
+  enableLoyaltyBundle();
+  const response = await send({ items: [...body.items, rewardLine(itemId), rewardLine(giftId)] });
+  expect(response.status).toBe(200);
+  expect(saved()[12]).toBe(10);
+  const deductions = client.query.mock.calls.filter(([sql]) => sql.includes("UPDATE loyalty_balances"));
+  expect(deductions).toHaveLength(1);
+  expect(deductions[0][1][0]).toBe(10);
+  const rewardInserts = client.query.mock.calls.filter(([sql, values]) => sql.includes("INSERT INTO order_items") && values[3] === 0);
+  expect(rewardInserts.map(([, values]) => values[1])).toEqual([itemId, giftId]);
+});
+
+it.each([[itemId], [itemId, itemId]])("rejects an incomplete or duplicated loyalty bundle (%j)", async (...ids) => {
+  enableLoyaltyBundle();
+  const response = await send({ items: [...body.items, ...ids.map(rewardLine)] });
+  expect(response.status).toBe(400);
+  expect((await response.json()).error).toMatch(/recompensa completa/i);
+  expect(insert).toBeNull();
 });

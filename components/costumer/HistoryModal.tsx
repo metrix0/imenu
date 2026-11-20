@@ -13,7 +13,7 @@ import ModalMobile from "@/components/ui/HybridModal";
 import Toast from "@/components/ui/Toast";
 import { useCartStore } from "@/lib/stores/costumer/cartStore";
 import { formatPrice } from "@/lib/utils/formatPrice";
-import type { LoyaltyOffer, LoyaltyReward } from "@/lib/types/types";
+import type { LoyaltyOffer } from "@/lib/types/types";
 import { useHistoryStore } from "@/lib/stores/costumer/historyStore";
 
 type Props = {
@@ -87,8 +87,8 @@ export default function HistoryModal({
     } = useHistoryStore();
 
     const cartItems = useCartStore((state) => state.items);
-    const addToCart = useCartStore(
-        (state) => state.addItem
+    const addRewards = useCartStore(
+        (state) => state.addRewards
     );
 
     const [toast, setToast] =
@@ -109,11 +109,11 @@ export default function HistoryModal({
         await fetchHistory(restaurantId);
     };
 
-    const program = (loadedRestaurantId === restaurantId ? loadedOffer : null) ?? offer;
+    const program = loadedRestaurantId === restaurantId ? loadedOffer : offer;
     const visibleStep = loadedRestaurantId === restaurantId ? step : "input_phone";
 
-    const handleRedeem = (reward: LoyaltyReward) => {
-        if (!canRedeem) return;
+    const handleRedeem = () => {
+        if (!program || !canRedeem) return;
 
         if (rewardAlreadyInCart) {
             setToast({
@@ -124,7 +124,7 @@ export default function HistoryModal({
             return;
         }
 
-        addToCart({
+        addRewards(program.rewards.map(reward => ({
             id: crypto.randomUUID(),
             base_item_id: reward.id,
             name: `(PRÊMIO) ${reward.name}`,
@@ -134,7 +134,7 @@ export default function HistoryModal({
             selectedSubitems: reward.complements,
             unit_price_cents: 0,
             is_reward: true,
-        });
+        })));
 
         setToast({
             message:
@@ -197,17 +197,13 @@ export default function HistoryModal({
                             prêmio.
                         </p>
 
-                        <div className="grid gap-2">
-                            {program?.rewards.map(reward => (
-                                <Button key={reward.id} variant="primary" onClick={() => handleRedeem(reward)}>
-                                    <FontAwesomeIcon icon={faTrophy} className="mr-2" />
-                                    Resgatar {reward.name}
-                                </Button>
-                            ))}
-                        </div>
+                        <Button variant="primary" onClick={handleRedeem} className="w-full">
+                            <FontAwesomeIcon icon={faTrophy} className="mr-2" />
+                            Resgatar recompensa
+                        </Button>
 
                         <p className="mt-2 text-[10px] text-[var(--im-menu-subtle,#9ca3af)]">
-                            O item será adicionado à sua sacola
+                            A recompensa será adicionada à sua sacola
                             gratuitamente.
                         </p>
                     </div>
@@ -247,8 +243,8 @@ export default function HistoryModal({
                         <h3 className="font-semibold">Como funciona</h3>
                         <p className="text-sm">
                             Ganhe 1 selo por pedido concluído{program.min_order_value_cents > 0
-                                ? ` a partir de ${formatPrice(program.min_order_value_cents)}` : ""}, sem resgate de prêmio.
-                            {" "}Junte {goal} {goal === 1 ? "selo" : "selos"} e escolha sua recompensa.
+                                ? ` a partir de ${formatPrice(program.min_order_value_cents)}` : ""}.
+                            {" "}Junte {goal} {goal === 1 ? "selo" : "selos"} e ganhe a recompensa completa.
                         </p>
                         <ul className="space-y-2">
                             {program.rewards.map(reward => (
