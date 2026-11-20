@@ -14,6 +14,7 @@ import PromotionSummary from "@/components/costumer/PromotionSummary";
 import type { AppliedPromotion } from "@/lib/promotions/automatic";
 import { Order } from "./OrdersTable"; 
 import { withCashChangeAmount } from "./cashChange";
+import OrderBadge from "./OrderBadge";
 
 interface OrderDetailsModalProps {
     isOpen: boolean;
@@ -228,45 +229,22 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
     };
 
 
-    const renderStatus = (status: string) => {
-        const labels: Record<string, string> = {
-            pending_online_payment: "À Pagar",
-            pending_physical_payment: isReadyOnSite ? "Pendente" : "Pendente (Pgt. Entrega)",
-            paid: "Pendente (Pago)",
-            preparing: "Preparando",
-            delivering: isReadyOnSite ? "Pronto" : "Em Rota",
-            done: "Concluído",
-            canceled: "Cancelado",
-            dinheiro: "Dinheiro",
-            "pix-entrega": "Pix Entrega",
-            cartao: "Cartão (Online)",
-            pix: "Pix (Online)",
-            "trazer-maquininha": "Maquininha",
-            retirada: "Retirada",
-            balcao: "Balcão",
-        };
-        const colors: Record<string, string> = {
-            pending_online_payment: "bg-yellow-100 text-yellow-800",
-            pending_physical_payment: "bg-yellow-100 text-yellow-800",
-            paid: "bg-yellow-100 text-yellow-800",
-            preparing: "bg-blue-100 text-blue-800 border-blue-200",
-            delivering: isReadyOnSite ? "bg-green-100 text-green-800 border-green-200" : "bg-purple-100 text-purple-800",
-            done: "bg-green-100 text-green-800 border-green-200",
-            canceled: "bg-red-200 text-red-800 border-red-200",
-            dinheiro: "bg-gray-200 text-gray-800",
-            "pix-entrega": "bg-gray-200 text-gray-800",
-            cartao: "bg-gray-200 text-gray-800",
-            pix: "bg-gray-200 text-gray-800",
-            "trazer-maquininha": "bg-gray-200 text-gray-800",
-            retirada: "bg-gray-200 text-gray-800 font-bold",
-            balcao: "bg-gray-200 text-gray-800 font-bold",
-        };
-        return (
-            <span className={`2xl:text-base 2xl:px-3 px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[status] || "bg-gray-100"}`}>
-                {labels[status] || status}
-            </span>
-        );
+    const status = details?.status ?? order?.status;
+    const pendingLabels: Partial<Record<Order["status"], string>> = {
+        pending_online_payment: "À Pagar",
+        pending_physical_payment: isReadyOnSite ? undefined : "Pendente (Pgt. Entrega)",
+        paid: "Pendente (Pago)",
     };
+    const paymentLabels: Record<string, string> = {
+        dinheiro: "Dinheiro",
+        "pix-entrega": "Pix Entrega",
+        cartao: "Cartão (Online)",
+        pix: "Pix (Online)",
+        "trazer-maquininha": "Maquininha",
+        retirada: "Retirada",
+        balcao: "Balcão",
+    };
+    const payment = isCounterOrder ? "balcao" : isPickup ? "retirada" : order?.payment_method;
 
     const canReject = showStatusActions && !isUpdating && details && (
         details.status === "pending_online_payment" ||
@@ -324,13 +302,12 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                 <h2 className="text-xl 2xl:text-2xl font-bold text-gray-900">
                                     Pedido #{order?.display_id}
                                 </h2>
-                                {(details || order) && renderStatus(details?.status || order!.status)}
+                                {status && <OrderBadge status={status} readyOnSite={isReadyOnSite}>{pendingLabels[status]}</OrderBadge>}
                                 {order && (isTableOrder ? (
-                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-brand/10 px-2.5 py-0.5 text-xs font-medium text-brand 2xl:px-3 2xl:text-base">
-                                        <FontAwesomeIcon icon={faChair} />
+                                    <OrderBadge kind="table">
                                         {details?.table_name_snapshot || order.table_name_snapshot || "Mesa"}
-                                    </span>
-                                ) : renderStatus(isCounterOrder ? "balcao" : isPickup ? "retirada" : order.payment_method))}
+                                    </OrderBadge>
+                                ) : payment && <OrderBadge kind="payment">{paymentLabels[payment] || payment}</OrderBadge>)}
                             </div>
                             <p className="text-xs text-gray-500 flex items-center gap-1 2xl:text-base">
                                 <FontAwesomeIcon icon={faClock} /> Realizado em {order && fmtDate(order.created_at)}

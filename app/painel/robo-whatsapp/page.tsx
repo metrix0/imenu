@@ -22,7 +22,7 @@ import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import OrderNotificationSettings from "@/components/restaurant-owner/pedidos/OrderNotificationSettings";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import Badge from "@/components/ui/Badge";
+import Badge, { type BadgeVariant } from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import DataTable from "@/components/ui/DataTable";
 import Pagination from "@/components/ui/Pagination";
@@ -180,11 +180,11 @@ function isHandoffAttended(handoff: HandoffConversation): boolean {
     );
 }
 
-function connectionPresentation(connection: WhatsAppConnection | null) {
+function connectionPresentation(connection: WhatsAppConnection | null): { label: string; variant: BadgeVariant; description: string } {
     if (!connection || connection.desired_state === "disconnected") {
         return {
             label: "Não conectado",
-            badge: "bg-gray-100 text-gray-600",
+            variant: "neutral",
             description: "Conecte o WhatsApp do restaurante pelo QR Code.",
         };
     }
@@ -193,43 +193,43 @@ function connectionPresentation(connection: WhatsAppConnection | null) {
         case "WORKING":
             return {
                 label: "Conectado",
-                badge: "bg-green-50 text-green-700",
+                variant: "success",
                 description: "O atendimento automático está funcionando.",
             };
         case "SCAN_QR_CODE":
             return {
                 label: "Escaneie o QR",
-                badge: "bg-blue-50 text-blue-700",
+                variant: "info",
                 description: "Abra os aparelhos conectados no WhatsApp e escaneie o código.",
             };
         case "PASSKEY_REQUIRED":
             return {
                 label: "Novo QR necessário",
-                badge: "bg-blue-50 text-blue-700",
+                variant: "info",
                 description: "Gere um novo QR Code para tentar o vínculo novamente.",
             };
         case "PASSKEY_CONFIRMATION_REQUIRED":
             return {
                 label: "Confirme no celular",
-                badge: "bg-blue-50 text-blue-700",
+                variant: "info",
                 description: "O WhatsApp pediu uma confirmação no aparelho principal.",
             };
         case "FAILED":
             return {
                 label: "Reconexão necessária",
-                badge: "bg-red-50 text-red-700",
+                variant: "danger",
                 description: "Gere um novo QR Code para reconectar o número.",
             };
         case "STARTING":
             return {
                 label: "Conectando",
-                badge: "bg-amber-50 text-amber-700",
+                variant: "warning",
                 description: "A conexão está sendo iniciada automaticamente.",
             };
         default:
             return {
                 label: "Reconectando",
-                badge: "bg-amber-50 text-amber-700",
+                variant: "warning",
                 description: "O sistema está tentando restaurar a conexão.",
             };
     }
@@ -654,9 +654,7 @@ export default function RoboWhatsAppPage() {
                                 <h2 className="!text-base !leading-6 font-semibold text-gray-900">
                                     WhatsApp do restaurante
                                 </h2>
-                                <span className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-medium leading-none ${status.badge}`}>
-                                    {status.label}
-                                </span>
+                                <Badge variant={status.variant}>{status.label}</Badge>
                             </div>
                             <p className="mt-1 text-sm text-gray-600">{status.description}</p>
                             {isConnected && (

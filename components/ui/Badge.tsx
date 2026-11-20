@@ -9,7 +9,9 @@ export type BadgeVariant =
     | "warning"
     | "notRecommended"
     | "info"
-    | "danger";
+    | "danger"
+    | "orange"
+    | "purple";
 
 export type BadgeMode = "default" | "pill" | "page";
 
@@ -28,29 +30,31 @@ const variants: Record<BadgeVariant, string> = {
     notRecommended: "bg-yellow-50 !text-yellow-700 ring-yellow-200",
     info: "bg-blue-50 !text-blue-700 ring-blue-200",
     danger: "bg-red-50 !text-red-700 ring-red-200",
+    orange: "bg-orange-50 !text-orange-800 ring-orange-200",
+    purple: "bg-purple-50 !text-purple-700 ring-purple-200",
 };
 
 const modes: Record<BadgeMode, string> = {
     default:
-        "inline-flex shrink-0 items-center align-middle rounded-full px-2 py-1 !text-[11px] leading-none font-semibold ring-1 ring-inset",
-    pill: "inline-flex shrink-0 items-center justify-center align-middle rounded-full px-1.5 pt-[3px] pb-px !text-[9px] leading-none font-semibold tracking-wide ring-1 ring-inset",
-    page: "inline-flex shrink-0 items-center gap-1.5 align-middle rounded-md px-2.5 py-1.5 !text-[12px] leading-none font-medium ring-1 ring-inset",
+        "inline-flex shrink-0 items-center align-middle rounded-full px-2 py-1 !text-[11px] leading-none font-semibold",
+    pill: "inline-flex shrink-0 items-center justify-center align-middle rounded-full px-1.5 pt-[3px] pb-px !text-[9px] leading-none font-semibold tracking-wide",
+    page: "inline-flex shrink-0 items-center gap-1.5 align-middle rounded-md px-2.5 py-1.5 !text-[12px] leading-none font-medium",
 };
 
 const presetBase = "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium";
 
 const presets = {
     plusIncluded: {
-        colors: "bg-orange-50 text-orange-800",
+        variant: "orange",
         icon: faLock,
         label: "Incluso no iMenu Plus",
     },
     featureAvailable: {
-        colors: "bg-green-50 text-green-700",
+        variant: "success",
         icon: faCheck,
         label: "Plano ativo",
     },
-};
+} as const;
 
 export default function Badge({
     children,
@@ -63,16 +67,16 @@ export default function Badge({
 }: BadgeProps) {
     const selectedPreset = preset ? presets[preset] : undefined;
     const style = selectedPreset ? presetBase : modes[mode];
-    const colors = selectedPreset?.colors ?? variants[variant];
+    const badgeVariant = selectedPreset?.variant ?? variant;
     const shouldUppercase = uppercase ?? (!selectedPreset && mode === "pill");
 
     return (
         <span
             data-ui="badge"
-            data-variant={selectedPreset ? undefined : variant}
+            data-variant={badgeVariant}
             data-mode={selectedPreset ? undefined : mode}
             data-preset={preset}
-            className={`${style} ${shouldUppercase ? "uppercase" : ""} ${colors} ${className}`}
+            className={`${style} ring-1 ring-inset ${shouldUppercase ? "uppercase" : ""} ${variants[badgeVariant]} ${className}`}
             {...props}
         >
             {selectedPreset && <PanelIcon icon={selectedPreset.icon} aria-hidden="true" />}

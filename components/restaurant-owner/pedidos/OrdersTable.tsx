@@ -5,6 +5,8 @@ import { faChair, faEye, faTrash, faStore, faBagShopping, faPersonBiking } from 
 import DataTable from "@/components/ui/DataTable";
 import Card from "@/components/ui/Card";
 import ListLoader from "@/components/ui/ListLoader";
+import type { OrderStatus } from "../OrderCard";
+import OrderBadge from "./OrderBadge";
 
 export type Order = {
     payment_method: "dinheiro" | "cartao" | "pix" | "trazer-maquininha";
@@ -13,7 +15,7 @@ export type Order = {
     created_at: string;
     customer_name: string;
     customer_address?: string | null;
-    status: "pending_online_payment" | "pending_physical_payment" | "paid" | "preparing" | "delivering" | "done" | "canceled";
+    status: OrderStatus;
     total_cents: number;
     is_delivery?: string | null;
     table_name_snapshot?: string | null;
@@ -31,31 +33,12 @@ export default function OrdersTable({ orders, isLoading, onViewOrder, onDeleteOr
     const fmtMoney = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
     const fmtDate = (dateStr: string) => new Date(dateStr).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 
-    const getStatusBadge = (status: string, isPickup: boolean) => {
-        const map: Record<string, string> = {
-            pending_online_payment: "bg-yellow-100 text-yellow-700 border-yellow-200",
-            pending_physical_payment: "bg-yellow-100 text-yellow-700 border-yellow-200",
-            paid: "bg-yellow-100 text-yellow-700 border-yellow-200",
-            preparing: "bg-blue-100 text-blue-800 border-blue-200",
-            delivering: isPickup ? "bg-green-100 text-green-800 border-green-200" : "bg-purple-100 text-purple-800 border-purple-800",
-            done: "bg-green-100 text-green-800 border-green-200",
-            canceled: "bg-red-100 text-red-800 border-red-200",
-        };
-        const label: Record<string, string> = {
-            pending_online_payment: "Pendente",
-            pending_physical_payment: "Pendente",
-            paid: "Pendente",
-            preparing: "Preparando",
-            delivering: isPickup ? "Pronto" : "Em Rota",
-            done: "Concluído",
-            canceled: "Cancelado",
-        };
-        return (
-            <span className={`px-3 py-1 rounded-full text-xs 2xl:text-base font-medium ${map[status] || "bg-gray-100"}`}>
-                {label[status] || status}
-            </span>
-        );
-    };
+    const statusBadge = (order: Order) => (
+        <OrderBadge
+            status={order.status}
+            readyOnSite={order.is_delivery === "mesa" || order.is_delivery === "retirada" || order.is_delivery === "balcao"}
+        />
+    );
 
     return (
         <Card className="panel-history-table p-0 overflow-hidden border border-gray-200 shadow-sm">
@@ -90,10 +73,7 @@ export default function OrdersTable({ orders, isLoading, onViewOrder, onDeleteOr
                                             <span className="font-bold text-gray-900">
                                                 #{order.display_id || order.id.slice(0, 4)}
                                             </span>
-                                            {getStatusBadge(
-                                                order.status,
-                                                order.is_delivery === "mesa" || order.is_delivery === "retirada" || order.is_delivery === "balcao"
-                                            )}
+                                            {statusBadge(order)}
                                         </div>
                                         <div className="mt-2 flex min-w-0 items-center gap-2">
                                             <p className="min-w-0 truncate text-sm font-medium text-gray-800">
@@ -161,7 +141,7 @@ export default function OrdersTable({ orders, isLoading, onViewOrder, onDeleteOr
                         { key: "type", label: "Tipo", render: order => <span className="inline-flex items-center gap-1 whitespace-nowrap text-gray-500">{order.is_delivery === "balcao" ? <><FontAwesomeIcon icon={faStore} />Balcão</> : order.is_delivery === "retirada" ? <><FontAwesomeIcon icon={faBagShopping} />Retirada</> : order.is_delivery === "mesa" ? <><FontAwesomeIcon icon={faChair} />{order.table_name_snapshot || "Mesa"}</> : order.is_delivery === "entrega" ? <><FontAwesomeIcon icon={faPersonBiking} />Entrega</> : "—"}</span> },
                         { key: "date", label: "Data", render: order => <span className="whitespace-nowrap text-gray-500">{fmtDate(order.created_at)}</span> },
                         { key: "total", label: "Valor", render: order => <span className="whitespace-nowrap font-medium">{fmtMoney(order.total_cents)}</span> },
-                        { key: "status", label: "Situação", render: order => getStatusBadge(order.status, order.is_delivery === "mesa" || order.is_delivery === "retirada" || order.is_delivery === "balcao") },
+                        { key: "status", label: "Situação", render: order => statusBadge(order) },
                         { key: "action", label: "", render: order => <div className="flex items-center gap-1">
                             <button type="button" title="Ver detalhes" aria-label={"Ver detalhes do pedido #" + (order.display_id || order.id.slice(0, 4))} onClick={event => { event.stopPropagation(); onViewOrder?.(order); }} className="cursor-pointer rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-brand"><FontAwesomeIcon icon={faEye} /></button>
                             {onDeleteOrder && <button type="button" title="Excluir pedido" aria-label={"Excluir pedido #" + (order.display_id || order.id.slice(0, 4))} onClick={event => { event.stopPropagation(); onDeleteOrder(order); }} className="cursor-pointer rounded-md p-2 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600"><FontAwesomeIcon icon={faTrash} /></button>}

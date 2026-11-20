@@ -3,7 +3,6 @@
 import {useEffect, useState} from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { 
-    faClock,
     faCalendarDays,
     faMapMarkerAlt, 
     faArrowLeft, 
@@ -19,6 +18,7 @@ import CustomerNotificationButton from "@/components/restaurant-owner/pedidos/Cu
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Tooltip from "@/components/ui/Tooltip";
+import OrderBadge from "./pedidos/OrderBadge";
 import { supabase } from "@/lib/database/supabaseClient";
 import { CASH_CHANGE_OBSERVATION, withCashChangeAmount } from "./pedidos/cashChange";
 
@@ -96,17 +96,13 @@ function CashChangeInfo({ text, children }: { text: string; children: React.Reac
 
 function TimeInfo({ text, time, scheduled }: { text: string; time: string; scheduled: boolean }) {
     const badge = (
-        <div
+        <OrderBadge
+            kind={scheduled ? "scheduled" : "elapsed"}
             tabIndex={text ? 0 : undefined}
-            className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium outline-none min-[1800px]:px-3 min-[1800px]:py-1 min-[1800px]:text-base ${text ? "cursor-help" : ""} ${
-                scheduled
-                    ? "bg-green-50 text-green-700"
-                    : "bg-red-50 text-red-600"
-            }`}
+            className={text ? "cursor-help" : undefined}
         >
-            <FontAwesomeIcon icon={scheduled ? faCalendarDays : faClock} />
             {time}
-        </div>
+        </OrderBadge>
     );
 
     if (!text) {
@@ -315,53 +311,38 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
         }
     };
 
-    const statusConfig: Record<string, { label: string; extra?: string | null;color: string; borderColor: string; btn: string | null; btnColor: string; }> = {
+    const statusConfig: Record<OrderStatus, { borderColor: string; btn: string | null; btnColor: string }> = {
         pending_online_payment: { 
-            label: "Pendente",
-            color: "bg-yellow-100 text-yellow-700 border-yellow-200",
             borderColor: "border-l-yellow-500",
             btn: "Aceitar", 
             btnColor: "primary" 
         },
         pending_physical_payment: { 
-            label: "Pendente",
-            color: "bg-yellow-100 text-yellow-700 border-yellow-200",
             borderColor: "border-l-yellow-500", 
             btn: "Aceitar", 
-            btnColor: "primary" ,
-            extra: "Pgt. Entrega"
+            btnColor: "primary"
         },
         paid: {
-            label: "Pendente",
-            color: "bg-yellow-100 text-yellow-700 border-yellow-200",
             borderColor: "border-l-yellow-500",
             btn: "Aceitar",
             btnColor: "primary"
         },
         preparing: { 
-            label: "Preparando", 
-            color: "bg-blue-100 text-blue-800 border-blue-200", 
             borderColor: "border-l-blue-500",
             btn: isReadyOnSite ? "Pronto" : "Enviado", 
             btnColor: "primary" 
         },
         delivering: {
-            label: isReadyOnSite ? "Pronto" : "Em Rota",
-            color: isReadyOnSite ? "bg-green-100 text-green-800 border-green-200" : "bg-purple-100 text-purple-800 border-purple-800",
             borderColor: isReadyOnSite ? "border-l-green-500" : "border-l-purple-500",
             btn: isTableOrder ? "Pago" : isCounterOrder ? "Concluir" : isPickup ? "Entregue" : "Concluir",
             btnColor: "primary"
         },
         done: { 
-            label: "Concluído", 
-            color: "bg-green-100 text-green-800 border-green-200",
             borderColor: "border-l-green-500", 
             btn: null, 
             btnColor: "secondary" 
         },
         canceled: { 
-            label: "Cancelado", 
-            color: "bg-red-100 text-red-800 border-red-200",
             borderColor: "border-l-red-500", 
             btn: null, 
             btnColor: "secondary" 
@@ -386,7 +367,8 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
             .find(Boolean)
         : undefined;
 
-    const config = statusConfig[order.status] || statusConfig.pending_online_payment;
+    const cardStatus = Object.hasOwn(statusConfig, order.status) ? order.status : "pending_online_payment";
+    const config = statusConfig[cardStatus];
     const showBackButton = !deliveryOnly && ["preparing", "delivering", "done"].includes(order.status);
     const actionLabel = deliveryOnly
         ? order.status === "delivering" ? "Entregue" : null
@@ -407,14 +389,11 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
         : "";
     const deliveryEtaTooltip = !isScheduled && !isCounterOrder ? formatEtaRange(order.delivery_eta) : "";
     const paymentBadge = (
-        <div
+        <OrderBadge
+            kind={paymentMethod === "pix" ? "paymentConfirmed" : "payment"}
             tabIndex={cashChangeObservation ? 0 : undefined}
             aria-label={cashChangeObservation ? "Informações sobre troco" : undefined}
-            className={`flex shrink-0 items-center text-xs -ml-1 px-2 py-0.5 rounded-full font-medium min-[1800px]:text-base min-[1800px]:px-3 min-[1800px]:py-1 ${
-                paymentMethod === "pix"
-                    ? "bg-green-100 text-green-800"
-                    : "bg-gray-200 text-gray-700"
-            } ${cashChangeObservation ? "cursor-help" : ""}`}
+            className={cashChangeObservation ? "-ml-1 cursor-help" : "-ml-1"}
         >
             <span>{paymentLabel}</span>
             {cashChangeObservation && (
@@ -422,7 +401,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
                     <FontAwesomeIcon icon={faCircleInfo} />
                 </span>
             )}
-        </div>
+        </OrderBadge>
     );
 
     // LÓGICA DE VISUALIZAÇÃO LIMITADA
@@ -438,9 +417,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
                     <span className="shrink-0 font-bold text-gray-900 text-lg">
                         #{order.display_id || order.id.slice(0, 4)}
                     </span>
-                    <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium min-[1800px]:text-base min-[1800px]:px-3 min-[1800px]:py-1 ${config.color}`}>
-                        {config.label}
-                    </span>
+                    <OrderBadge status={cardStatus} readyOnSite={isReadyOnSite} />
                 </div>
                 <div className="panel-order-meta flex items-center gap-2">
                     {!isTableOrder && (
