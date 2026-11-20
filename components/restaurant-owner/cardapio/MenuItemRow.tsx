@@ -19,6 +19,7 @@ import { supabase } from "@/lib/database/supabaseClient";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Button from "@/components/ui/Button";
 import ItemSettingsModal from "./ItemSettingsModal";
+import AvailabilityScheduleLabel from "./AvailabilityScheduleLabel";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import Toast from "@/components/ui/Toast";
 
@@ -438,6 +439,7 @@ export default function MenuItemRow({
                                     Sem descrição...
                                 </span>
                             )}
+                            <AvailabilityScheduleLabel schedule={item.availability_schedule} />
                             <span className="mt-1 font-medium text-gray-900 tabular-nums md:hidden">
                                 {(priceCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                             </span>

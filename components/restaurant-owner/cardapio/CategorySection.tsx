@@ -7,7 +7,7 @@ import { faClock, faGripVertical, faStar } from "@fortawesome/free-solid-svg-ico
 import { supabase } from "@/lib/database/supabaseClient";
 import Tooltip from "@/components/ui/Tooltip";
 import MenuItemRow, { MenuItemType } from "./MenuItemRow";
-import { categoryScheduleDetails, categoryScheduleLabel } from "@/lib/menu/categorySchedule";
+import AvailabilityScheduleLabel from "./AvailabilityScheduleLabel";
 import type { Category } from "@/lib/types/types";
 
 interface CategorySectionProps {
@@ -269,13 +269,9 @@ export default function CategorySection({
                 </div>
 
                 <div className="flex shrink-0 items-center justify-end gap-3">
-                    {categoryScheduleLabel(category.availability_schedule) && (
-                        <span className="hidden max-w-[220px] truncate text-xs text-gray-500 md:inline" title={categoryScheduleDetails(category.availability_schedule) || undefined}>
-                            {categoryScheduleLabel(category.availability_schedule)}
-                        </span>
-                    )}
+                    <AvailabilityScheduleLabel schedule={category.availability_schedule} className="hidden md:inline" />
                     <button onClick={onEditCategory} className="whitespace-nowrap text-xs 2xl:text-base font-medium text-gray-400 hover:text-brand transition-colors cursor-pointer">
-                        {categoryScheduleLabel(category.availability_schedule) && (
+                        {Boolean(category.availability_schedule?.length) && (
                             <FontAwesomeIcon icon={faClock} className="mr-1.5 text-xs md:hidden" aria-label="Categoria agendada" />
                         )}
                         Editar categoria
