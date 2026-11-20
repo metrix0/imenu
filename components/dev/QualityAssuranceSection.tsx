@@ -6,7 +6,8 @@ import { Line } from "react-chartjs-2";
 import { faCircleInfo, faCopy } from "@fortawesome/free-solid-svg-icons";
 import { PanelIcon } from "@/components/ui/PanelIcon";
 import InfoTooltip from "@/components/ui/Tooltip";
-import DataTable from "@/components/ui/DataTable";
+import DataTable, { type TableColumn } from "@/components/ui/DataTable";
+import { CollapsibleChevron, CollapsibleContent, useCollapsible } from "@/components/ui/CollapsibleSection";
 import Dropdown from "@/components/ui/Dropdown";
 import { CHART_BRAND, CHART_CATEGORY_AXIS, CHART_VALUE_AXIS, STANDARD_CHART_TOOLTIP, createBrandAreaGradient } from "@/components/restaurant-owner/exibicoes/chartStyles";
 import Badge from "@/components/ui/Badge";
@@ -216,23 +217,6 @@ export default function QualityAssuranceSection() {
     const models = costs?.status === "ok" ? costs.models ?? [] : [];
     const modelDailyUsd = models.find(model => model.id === selectedModel)?.dailyUsd;
     const modelTotalUsd = modelDailyUsd?.reduce((sum, usd) => sum + usd, 0);
-    const costRows = [
-        ...(costs?.status === "ok" ? costs.breakdown.map(row => ({
-            label: row.label,
-            usage: row.usage,
-            cost: formatBrl(row.usd * costs.usdBrlRate),
-            daily: formatBrl(row.usd * costs.usdBrlRate / costs.period.days),
-            share: percentageFormatter.format(row.share) + "%",
-        })) : []),
-        {
-            label: "Gemini",
-            usage: "Importação de Cardápio — Leitura IA",
-            cost: "Faturamento indisponível",
-            daily: "—",
-            share: "—",
-        },
-    ];
-
     if (!data && loading) return <DevLoading />;
 
     return <div className="space-y-6">
@@ -416,26 +400,86 @@ export default function QualityAssuranceSection() {
                             </div>
                         </div>
                     )}
-                {costs !== null && (
-                    <div className="mt-5">
-                        <h3 className="mb-3 text-sm font-semibold">Fontes de custo</h3>
-                        <div className={styles.section}>
-                            <DataTable
-                                rows={costRows}
-                                rowKey={row => row.label}
-                                columns={[
-                                    { key: "item", label: "Item de cobrança", render: row => <span className="break-words">{row.label}</span> },
-                                    { key: "usage", label: "Uso no iMenu", render: row => <span title={row.usage}>{row.usage}</span> },
-                                    { key: "cost", label: "Gasto (R$)", className: "whitespace-nowrap", render: row => row.cost },
-                                    { key: "daily", label: "Média diária (R$)", className: "whitespace-nowrap", render: row => row.daily },
-                                    { key: "share", label: "% dos gastos OpenAI", className: "whitespace-nowrap", render: row => row.share },
-                                ]}
-                            />
-                        </div>
-                    </div>
-                )}
+                {costs !== null && <CostSources costs={costs} />}
             </section>
         </>}
+    </div>;
+}
+
+type CostSourceRow = {
+    id: string;
+    label: string;
+    usage: string;
+    cost: string;
+    daily: string;
+    share: string;
+};
+
+function CostSources({ costs }: { costs: OpenAiCosts }) {
+    const disclosure = useCollapsible();
+    const rows: CostSourceRow[] = [{
+        id: "gemini",
+        label: "Gemini",
+        usage: "Importação de Cardápio — Leitura IA",
+        cost: "Faturamento indisponível",
+        daily: "—",
+        share: "—",
+    }];
+    let otherRows: CostSourceRow[] = [];
+
+    if (costs.status === "ok") {
+        const { breakdown, period, totalUsd, usdBrlRate } = costs;
+        const standaloneCount = 9;
+        const formatRow = (row: typeof breakdown[number]): CostSourceRow => ({
+            id: `openai:${row.label}`,
+            label: row.label,
+            usage: row.usage,
+            cost: formatBrl(row.usd * usdBrlRate),
+            daily: formatBrl(row.usd * usdBrlRate / period.days),
+            share: percentageFormatter.format(row.share) + "%",
+        });
+
+        rows.unshift(...breakdown.slice(0, standaloneCount).map(formatRow));
+        const otherItems = breakdown.slice(standaloneCount);
+        if (otherItems.length > 0) {
+            const usd = otherItems.reduce((sum, item) => sum + item.usd, 0);
+            rows.push({
+                ...formatRow({ label: "Outros itens", usage: "Demais itens agrupados", usd, share: totalUsd === 0 ? 0 : usd / totalUsd * 100 }),
+                id: "other",
+            });
+            otherRows = otherItems.map(formatRow);
+        }
+    }
+
+    const columns: TableColumn<CostSourceRow>[] = [
+        {
+            key: "item",
+            label: "Item de cobrança",
+            render: row => row.id === "other"
+                ? <button {...disclosure.triggerProps} className="inline-flex cursor-pointer items-center gap-2 text-left font-medium hover:text-brand">
+                    {row.label}
+                    <CollapsibleChevron expanded={disclosure.expanded} size="sm" />
+                </button>
+                : <span className="break-words">{row.label}</span>,
+        },
+        { key: "usage", label: "Uso no iMenu", render: row => <span title={row.usage}>{row.usage}</span> },
+        { key: "cost", label: "Gasto (R$)", className: "whitespace-nowrap", render: row => row.cost },
+        { key: "daily", label: "Média diária (R$)", className: "whitespace-nowrap", render: row => row.daily },
+        { key: "share", label: "% dos gastos OpenAI", className: "whitespace-nowrap", render: row => row.share },
+    ];
+
+    return <div className="mt-5">
+        <h3 className="mb-3 text-sm font-semibold">Fontes de custo</h3>
+        <div className={styles.section}>
+            <DataTable rows={rows} rowKey={row => row.id} columns={columns} />
+            {otherRows.length > 0 && (
+                <CollapsibleContent id={disclosure.contentId} expanded={disclosure.expanded}>
+                    <div className="pt-2">
+                        <DataTable rows={otherRows} rowKey={row => row.id} columns={columns} />
+                    </div>
+                </CollapsibleContent>
+            )}
+        </div>
     </div>;
 }
 
