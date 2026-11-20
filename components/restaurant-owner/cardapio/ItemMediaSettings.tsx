@@ -209,10 +209,14 @@ export default function ItemMediaSettings({ item, restaurantId, onUpdated, onBus
                                         onClick={() => { if (index > 0 && !galleryEnabled) onOpenPlus(); else fileInput.current?.click(); }}
                                         className="grid h-full w-full cursor-pointer place-items-center hover:bg-gray-200 disabled:cursor-wait">
                                         {uploading ? <Loader className="!h-5 !w-5 !border-2" /> : (
-                                            <span className="flex flex-col items-center gap-1">
-                                                {index === 0 && <Badge id={`free-cover-${item.id}`} preset="featureAvailable">Grátis</Badge>}
+                                            <>
+                                                {index === 0 && (
+                                                    <Badge id={`free-cover-${item.id}`} preset="featureAvailable" className="absolute left-1 top-1 max-[389px]:px-1.5 max-[389px]:py-0.5 max-[389px]:text-[10px] max-[389px]:leading-none">
+                                                        Grátis
+                                                    </Badge>
+                                                )}
                                                 <PanelIcon icon={icons.faPlus} />
-                                            </span>
+                                            </>
                                         )}
                                     </button>
                                 )}
