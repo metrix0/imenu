@@ -114,7 +114,7 @@ function StoreDetails({ restaurant, onSaveAddress }: { restaurant: Restaurant; o
                         className="group inline-flex rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                     >
                         <Badge
-                            variant={robotConnected === null ? "neutral" : robotConnected ? "success" : "brand"}
+                            variant={robotConnected ? "success" : "neutral"}
                             className="group-hover:underline"
                         >
                             {robotConnected === null ? "Robô WhatsApp" : robotConnected ? "Robô conectado" : "Conectar robô WhatsApp"}

@@ -145,7 +145,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         return (
             <div data-ui="field" className={wrapperClassName}>
                 {labelAction ? (
-                    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         {fieldLabel}
                         {labelAction}
                     </div>
