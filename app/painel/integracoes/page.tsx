@@ -324,7 +324,7 @@ function IntegracoesContent() {
                             {isMeta && (
                                 <div className="space-y-3 text-sm text-gray-600">
                                     <p>O Pixel registra eventos no navegador. Com a API de Conversões configurada, o iMenu também envia eventos pelo servidor. Quando um evento é enviado pelos dois canais, o mesmo ID ajuda a Meta a contar uma única vez.</p>
-                                    <CollapsibleSection title="Eventos enviados pela API de Conversões" chevronSize="sm" inlineChevron>
+                                    <CollapsibleSection title="Eventos enviados pela API de Conversões" inlineChevron>
                                         <dl className="space-y-2">
                                             {META_CAPI_EVENTS.map(([event, when]) => (
                                                 <div key={event} className="grid gap-0.5 sm:grid-cols-[9rem_1fr] sm:gap-3">
