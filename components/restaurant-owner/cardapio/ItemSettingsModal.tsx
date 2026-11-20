@@ -76,7 +76,7 @@ export default function ItemSettingsModal({ item, restaurantId, open, onClose, o
 
     return <>
         <SaveStatus status={scheduleEditor.scheduleError && save.status !== "saving" ? "error" : save.status} />
-        <Modal height={680} open={open} onClose={() => { if (!isBusy) onClose(); }} showCloseButton>
+        <Modal height={680} open={open} onClose={() => { if (!isBusy) onClose(); }} bodyClassName="[scrollbar-gutter:stable]" showCloseButton>
             <div className="space-y-5 p-6">
                 <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 pr-10">
                     <div className="min-w-0 flex-[1_1_7.5rem]">
