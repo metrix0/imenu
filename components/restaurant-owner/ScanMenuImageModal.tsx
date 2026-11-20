@@ -100,16 +100,20 @@ const normalizeItemName = (name: string) =>
 const MAX_MENU_FILES = 8;
 const SLOW_SCAN_NOTICE_MS = 120_000;
 
-function isIfoodMenuUrl(value: string): boolean {
+function getBlockedMenuLinkProvider(value: string): "iFood" | "Claude" | "ChatGPT" | null {
     const url = value.trim();
-    if (!url) return false;
+    if (!url) return null;
 
     try {
         const hostname = new URL(/^https?:/i.test(url) ? url : `https://${url}`).hostname.replace(/\.$/, "");
-        return hostname === "ifood.com.br" || hostname.endsWith(".ifood.com.br");
+        const matchesDomain = (domain: string) => hostname === domain || hostname.endsWith(`.${domain}`);
+        if (matchesDomain("ifood.com.br")) return "iFood";
+        if (matchesDomain("claude.ai")) return "Claude";
+        if (matchesDomain("chatgpt.com") || matchesDomain("chat.openai.com")) return "ChatGPT";
     } catch {
-        return false;
+        return null;
     }
+    return null;
 }
 
 export default function ScanMenuModal({
@@ -156,8 +160,8 @@ function ScanModal({
     const [uploads, setUploads] = useState<SelectedUpload[]>([]);
     const [menuUrl, setMenuUrl] = useState("");
     const [showLinkField, setShowLinkField] = useState(false);
-    const ifoodWarningId = useId();
-    const isIfoodLink = showLinkField && isIfoodMenuUrl(menuUrl);
+    const linkWarningId = useId();
+    const blockedLinkProvider = showLinkField ? getBlockedMenuLinkProvider(menuUrl) : null;
     const [toast, setToast] = useState<{
         message: string;
         type: "success" | "error";
@@ -511,7 +515,7 @@ function ScanModal({
     }
 
     async function handleContinue() {
-        if (isIfoodLink) return;
+        if (blockedLinkProvider) return;
         if (showLinkField) {
             if (!menuUrl.trim()) {
                 setToast({
@@ -857,20 +861,31 @@ function ScanModal({
                                         onChange={(event) => setMenuUrl(event.target.value)}
                                         maxLength={2048}
                                         autoFocus
-                                        aria-describedby={isIfoodLink ? ifoodWarningId : undefined}
+                                        aria-describedby={blockedLinkProvider ? linkWarningId : undefined}
                                     />
                                     <div
-                                        key="ifood-warning"
-                                        aria-hidden={!isIfoodLink}
+                                        key="link-warning"
+                                        aria-hidden={!blockedLinkProvider}
                                         className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out motion-reduce:transition-none ${
-                                            isIfoodLink ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                                            blockedLinkProvider ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
                                         }`}
                                     >
                                         <div className="min-h-0 overflow-hidden">
-                                            <WarningBox id={ifoodWarningId} role="alert" icon={icons.faTriangleExclamation} className="mt-3">
-                                                <strong>O iFood bloqueia a leitura automática.</strong>{" "}
-                                                Use fotos ou PDF do cardápio.
-                                            </WarningBox>
+                                            {blockedLinkProvider && (
+                                                <WarningBox id={linkWarningId} role="alert" icon={icons.faTriangleExclamation} className="mt-3">
+                                                    {blockedLinkProvider === "iFood" ? (
+                                                        <>
+                                                            <strong>O iFood bloqueia a leitura automática.</strong>{" "}
+                                                            Use fotos ou PDF do cardápio.
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <strong>O {blockedLinkProvider} pode bloquear a leitura automática.</strong>{" "}
+                                                            Baixe o cardápio como imagem ou PDF e envie por aqui!
+                                                        </>
+                                                    )}
+                                                </WarningBox>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -1027,7 +1042,7 @@ function ScanModal({
                                     variant="primary"
                                     onClick={handleContinue}
                                     loading={isScanning}
-                                    disabled={isScanning || isIfoodLink}
+                                    disabled={isScanning || Boolean(blockedLinkProvider)}
                                 >
                                     Continuar
                                 </Button>
