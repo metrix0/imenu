@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import { faCopy, faGlobe } from "@fortawesome/free-solid-svg-icons";
+import { faCopy, faGlobe, faUpRightFromSquare } from "@fortawesome/free-solid-svg-icons";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Toast from "@/components/ui/Toast";
@@ -83,11 +83,16 @@ export default function StoreProfileManager({
         onPixPayoutValidationChange?.(needsPixType || pixAutoDetectionFailed);
     }, [needsPixType, onPixPayoutValidationChange, pixAutoDetectionFailed]);
     const [urlSlug, setUrlSlug] = useState(restaurant.url_slug || "");
+    const [savedUrlSlug, setSavedUrlSlug] = useState(restaurant.url_slug || "");
     const [customDomain, setCustomDomain] = useState(
         restaurant.custom_domain || ""
     );
     const [customDomainVerified, setCustomDomainVerified] = useState(false);
     const [customDomainOpen, setCustomDomainOpen] = useState(false);
+    const activeDomain = customDomainVerified ? customDomain : "";
+    const menuHref = activeDomain
+        ? `https://${activeDomain}`
+        : savedUrlSlug ? `/${encodeURIComponent(savedUrlSlug)}` : "";
 
     useEffect(() => {
         if (restaurant.logo_url) {
@@ -172,6 +177,7 @@ export default function StoreProfileManager({
 
     const saveSlug = async () => {
         const normalized = sanitizeSlug(urlSlug);
+        if (normalized === savedUrlSlug && savedUrlSlug) return;
         if (normalized.length < 3) {
             setToast({
                 msg: "O endereço precisa ter pelo menos 3 caracteres.",
@@ -182,10 +188,12 @@ export default function StoreProfileManager({
         setUrlSlug(normalized);
         try {
             const saved = await saveFields({ url_slug: normalized });
-            setRestaurantSlug(saved.url_slug ?? normalized);
+            const savedSlug = saved.url_slug ?? normalized;
+            setSavedUrlSlug(savedSlug);
+            setRestaurantSlug(savedSlug);
             setToast({ msg: "Endereço atualizado!", type: "success" });
         } catch {
-            setUrlSlug(restaurant.url_slug || "");
+            setUrlSlug(savedUrlSlug);
         }
     };
 
@@ -256,7 +264,7 @@ export default function StoreProfileManager({
                         onSave={saveFields}
                     />
 
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)_auto] md:items-end">
+                    <div className={`grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] md:items-end ${hideCustomDomainButton ? "" : "xl:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)_auto]"}`}>
                         <StoreWhatsappField
                             key={restaurant.id}
                             restaurantId={restaurant.id}
@@ -324,21 +332,27 @@ export default function StoreProfileManager({
                         )}
 
                         {!hideCustomDomainButton && (
-                            <Button
-                                type="button"
-                                variant={
-                                    customDomain && customDomainVerified
-                                        ? "secondary"
-                                        : "primary"
-                                }
-                                onClick={() => setCustomDomainOpen(true)}
-                                className="h-11 w-full shrink-0 md:w-auto"
-                            >
-                                <FontAwesomeIcon icon={faGlobe} className="mr-2" />
-                                {customDomain && customDomainVerified
-                                    ? "Domínio conectado"
-                                    : "Usar meu domínio"}
-                            </Button>
+                            <div className="flex flex-wrap gap-3 md:col-span-2 md:justify-end xl:col-span-1">
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    leftIcon={<FontAwesomeIcon icon={faGlobe} aria-hidden="true" />}
+                                    onClick={() => setCustomDomainOpen(true)}
+                                    className="h-11 flex-1 whitespace-nowrap md:flex-none"
+                                >
+                                    {activeDomain ? "Domínio conectado" : "Usar meu domínio"}
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="primary"
+                                    rightIcon={<FontAwesomeIcon icon={faUpRightFromSquare} aria-hidden="true" />}
+                                    className="h-11 flex-1 whitespace-nowrap md:flex-none"
+                                    disabled={!menuHref || (!activeDomain && urlSlug !== savedUrlSlug)}
+                                    onClick={() => window.open(menuHref, "_blank", "noopener,noreferrer")}
+                                >
+                                    Abrir cardápio
+                                </Button>
+                            </div>
                         )}
                     </div>
                 </div>
