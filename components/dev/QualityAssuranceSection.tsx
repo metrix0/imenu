@@ -216,6 +216,22 @@ export default function QualityAssuranceSection() {
     const models = costs?.status === "ok" ? costs.models ?? [] : [];
     const modelDailyUsd = models.find(model => model.id === selectedModel)?.dailyUsd;
     const modelTotalUsd = modelDailyUsd?.reduce((sum, usd) => sum + usd, 0);
+    const costRows = [
+        ...(costs?.status === "ok" ? costs.breakdown.map(row => ({
+            label: row.label,
+            usage: row.usage,
+            cost: formatBrl(row.usd * costs.usdBrlRate),
+            daily: formatBrl(row.usd * costs.usdBrlRate / costs.period.days),
+            share: percentageFormatter.format(row.share) + "%",
+        })) : []),
+        {
+            label: "Gemini",
+            usage: "Importação de Cardápio — Leitura IA",
+            cost: "Faturamento indisponível",
+            daily: "—",
+            share: "—",
+        },
+    ];
 
     if (!data && loading) return <DevLoading />;
 
@@ -339,16 +355,16 @@ export default function QualityAssuranceSection() {
             </section>
             {selectedScan && <MenuScanDialog key={selectedScan.id} scan={selectedScan} onClose={() => setSelectedScan(null)} />}
             <section className={`${styles.tableSection} ${styles.fitTable}`}>
-                <h2>Gastos OpenAI</h2>
+                <h2>Gastos de IA</h2>
                 {costs === null ? <div className={styles.section}><div className="p-6"><DevLoading /></div></div>
                     : costs.status !== "ok" ? <div className={styles.section}>
                         <p className="p-6 text-sm text-gray-500">{costs.status === "unconfigured"
                             ? "Consulta de custos OpenAI não configurada."
                             : "Não foi possível consultar os gastos OpenAI."}</p>
-                    </div> : <>
+                    </div> : (
                         <div className={styles.chart}>
                             <div className="flex flex-wrap items-center justify-between gap-2">
-                                <h3 className="text-sm font-semibold text-[#1d1d1d]">Gasto por dia</h3>
+                                <h3 className="text-sm font-semibold text-[#1d1d1d]">Gasto OpenAI por dia</h3>
                                 <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
                                     <span className="text-sm font-medium tabular-nums">
                                         {formatBrl((modelTotalUsd ?? costs.totalUsd) * costs.usdBrlRate)} no período
@@ -399,24 +415,25 @@ export default function QualityAssuranceSection() {
                                 />
                             </div>
                         </div>
-                        <div className="mt-5">
-                            <h3 className="mb-3 text-sm font-semibold">Fontes de custo</h3>
-                            <div className={styles.section}>
-                                <DataTable
-                                    rows={costs.breakdown}
-                                    rowKey={row => row.label}
-                                    emptyMessage="Nenhum gasto registrado no período."
-                                    columns={[
-                                        { key: "item", label: "Item cobrado pela OpenAI", render: row => <span className="break-words">{row.label}</span> },
-                                        { key: "usage", label: "Uso no iMenu", render: row => <span title={row.usage}>{row.usage}</span> },
-                                        { key: "cost", label: "Gasto (R$)", className: "whitespace-nowrap", render: row => formatBrl(row.usd * costs.usdBrlRate) },
-                                        { key: "daily", label: "Média diária (R$)", className: "whitespace-nowrap", render: row => formatBrl(row.usd * costs.usdBrlRate / costs.period.days) },
-                                        { key: "share", label: "% do total", className: "whitespace-nowrap", render: row => percentageFormatter.format(row.share) + "%" },
-                                    ]}
-                                />
-                            </div>
+                    )}
+                {costs !== null && (
+                    <div className="mt-5">
+                        <h3 className="mb-3 text-sm font-semibold">Fontes de custo</h3>
+                        <div className={styles.section}>
+                            <DataTable
+                                rows={costRows}
+                                rowKey={row => row.label}
+                                columns={[
+                                    { key: "item", label: "Item de cobrança", render: row => <span className="break-words">{row.label}</span> },
+                                    { key: "usage", label: "Uso no iMenu", render: row => <span title={row.usage}>{row.usage}</span> },
+                                    { key: "cost", label: "Gasto (R$)", className: "whitespace-nowrap", render: row => row.cost },
+                                    { key: "daily", label: "Média diária (R$)", className: "whitespace-nowrap", render: row => row.daily },
+                                    { key: "share", label: "% dos gastos OpenAI", className: "whitespace-nowrap", render: row => row.share },
+                                ]}
+                            />
                         </div>
-                    </>}
+                    </div>
+                )}
             </section>
         </>}
     </div>;

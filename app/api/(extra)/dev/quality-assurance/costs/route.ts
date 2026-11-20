@@ -50,7 +50,6 @@ function lineItemMatchesModel(lineItem: string, model: string): boolean {
 }
 
 function usageForLineItem(lineItem: string): string {
-    if (lineItem === "Outros itens") return "Demais itens agrupados";
     // Model usage can span features; this is a code association, not exact
     // attribution of organization-wide OpenAI costs to individual features.
     const uses: Array<{ model: string; feature: string }> = [
@@ -63,6 +62,7 @@ function usageForLineItem(lineItem: string): string {
         { model: "gpt-4o-mini-transcribe", feature: "Suporte Chatbot IA — Transcrever áudios" },
         { model: process.env.OPENAI_MENU_SCAN_MODEL?.trim() || "gpt-6-luna", feature: "Importação de Cardápio — Leitura IA" },
         { model: "gpt-4.1", feature: "Importação de Cardápio — Leitura IA" },
+        { model: "text-embedding-3-small", feature: "Vendas IA — Comparação de cardápios" },
     ];
     const matched = uses
         .filter(({ model }) => lineItemMatchesModel(lineItem, model))
@@ -144,12 +144,8 @@ async function loadCosts(adminKey: string): Promise<CostPayload> {
         return { date, usd: daily.get(date) || 0 };
     });
     const totalUsd = series.reduce((sum, day) => sum + day.usd, 0);
-    const sorted = Array.from(categories, ([label, usd]) => ({ label, usd }))
+    const breakdown = Array.from(categories, ([label, usd]) => ({ label, usd }))
         .filter(item => item.usd !== 0).sort((a, b) => b.usd - a.usd);
-    const top = sorted.slice(0, 9);
-    if (sorted.length > 9) {
-        top.push({ label: "Outros itens", usd: sorted.slice(9).reduce((sum, item) => sum + item.usd, 0) });
-    }
     const usdBrlRate = await getUsdBrlRate();
 
     return {
@@ -166,7 +162,7 @@ async function loadCosts(adminKey: string): Promise<CostPayload> {
         models: Array.from(dailyByModel.keys()).sort().map(id => ({
             id, dailyUsd: series.map(({ date }) => dailyByModel.get(id)?.get(date) ?? 0),
         })),
-        breakdown: top.map(item => ({
+        breakdown: breakdown.map(item => ({
             ...item, share: totalUsd === 0 ? 0 : (item.usd / totalUsd) * 100,
             usage: usageForLineItem(item.label),
         })),
