@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
     Bot, ChevronDown, Crown, ExternalLink, FileDown, Headset, Info, Megaphone, MessageCircle,
-    Moon, ScanLine, ShoppingCart, TrendingUp,
+    Film, Moon, ScanLine, ShoppingCart, TrendingUp,
     type LucideIcon,
 } from "lucide-react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -59,6 +59,8 @@ const RESOURCE_SECTIONS: readonly { title: string; imenu?: string; competitor?: 
             ["Pedidos ilimitados", "checkOnly", "limited"],
             ["Zero Taxas", "zeroFees", "taxed"],
             ["Fotos em Alta qualidade", "check", "limited"],
+            ["Vídeos e múltiplas fotos por item no cardápio", "iMenu Plus", "limited"],
+            ["Horários de exibição por item do cardápio", "check", "limited"],
             ["Cardápio com Tema Escuro", "iMenu Plus", "limited"],
             ["Aplicativo para celular", "check", "limited"],
             ["Impressão dos pedidos", "check", "limited"],
@@ -155,6 +157,7 @@ const PLUS_BONUS_ICONS: Record<string, LucideIcon> = {
     "Scan de cardápio com IA": ScanLine,
     "Download Cardápio em PDF": FileDown,
     "Cardápio Tema Escuro": Moon,
+    "Fotos extras e vídeo no cardápio": Film,
 };
 
 const LANDING_HERO_PRIMARY_BUTTON =

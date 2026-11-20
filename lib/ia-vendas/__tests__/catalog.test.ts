@@ -1,4 +1,4 @@
-import { actionValuesSchema, validate } from "../catalog";
+import { actionValuesSchema, validate, validateMerged } from "../catalog";
 import { FIELDS } from "../fields";
 
 const uuid = "11111111-1111-4111-8111-111111111111";
@@ -19,6 +19,7 @@ const samples: Record<string, unknown> = {
   url_slug: "teste",
   min_order_cents: 100,
   availability_json: week,
+  availability_schedule: [{ days: [5], start: "19:00", end: "01:00" }],
   is_closed: "2026-10-04T18:00:00",
   pickup_enabled: true,
   allowed_payment_methods: ["pix"],
@@ -87,6 +88,7 @@ const samples: Record<string, unknown> = {
   min_order_value_cents: 1000,
   reward_item_id: uuid,
   reward_subitem_ids: [uuid],
+  additional_rewards: [{ item_id: uuid, subitem_ids: [] }],
   ga4_id: "G-TEST",
   gtm_id: "GTM-TEST",
   meta_pixel_id: "123",
@@ -148,4 +150,25 @@ test("structured proposal fields reject malformed shapes instead of crashing lat
       availability_json: { "0": [{ open: "03:00", close: "01:00" }] },
     }),
   ).toThrow("Horário inválido.");
+});
+
+test("item display hours use the catalog schedule rules and can be cleared", () => {
+  expect(validate("items", { availability_schedule: samples.availability_schedule }))
+    .toEqual({ availability_schedule: samples.availability_schedule });
+  expect(validate("items", { availability_schedule: null })).toEqual({ availability_schedule: null });
+  expect(() => validate("items", { availability_schedule: [{ days: [7], start: null, end: null }] }))
+    .toThrow("Selecione dias válidos");
+  expect(() => validate("items", { availability_schedule: [{ days: [5], start: "10:00", end: null }] }))
+    .toThrow("Informe o início e o fim");
+});
+
+test("loyalty rewards reject invalid extras and a duplicate of the primary item", () => {
+  const reward = { item_id: uuid, subitem_ids: [] };
+  expect(validate("loyalty_programs", { additional_rewards: [reward] }))
+    .toEqual({ additional_rewards: [reward] });
+  expect(() => validate("loyalty_programs", { additional_rewards: [{ ...reward, subitem_ids: [uuid, uuid] }] }))
+    .toThrow("Itens extras da recompensa inválidos");
+  expect(() => validateMerged("loyalty_programs", {
+    active: true, goal_count: 10, reward_item_id: uuid, additional_rewards: [reward],
+  })).toThrow("Selecione itens de recompensa diferentes");
 });

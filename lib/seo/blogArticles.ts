@@ -17,6 +17,18 @@ export type BlogArticleDefinition = {
 
 export const BLOG_ARTICLES: BlogArticleDefinition[] = [
     {
+        slug: "cardapio-digital-com-fotos-e-videos",
+        title: "Cardápio digital com fotos e vídeos: como mostrar melhor seus pratos",
+        shortTitle: "Cardápio digital com fotos e vídeos",
+        metaTitle: "Cardápio Digital com Fotos e Vídeos | iMenu",
+        metaDescription: "Aprenda a adicionar várias fotos e um vídeo por item no cardápio digital do iMenu. Veja como escolher a capa e gravar um vídeo para o seu prato.",
+        excerpt: "Monte a galeria de um prato com uma boa foto de capa, imagens de outros ângulos e um vídeo curto. Veja o passo a passo no iMenu.",
+        category: "Cardápio",
+        readingTime: "4 min de leitura",
+        publishedAt: "2026-11-20",
+        updatedAt: "2026-11-20",
+    },
+    {
         slug: "programa-de-afiliados-imenu",
         title: "Programa de Afiliados iMenu: ganhe 50% de comissão recorrente",
         shortTitle: "Programa de Afiliados iMenu",
@@ -278,7 +290,7 @@ export const BLOG_ARTICLES: BlogArticleDefinition[] = [
         category: "Cardápio",
         readingTime: "10 min de leitura",
         publishedAt: "2026-08-17",
-        updatedAt: "2026-10-17",
+        updatedAt: "2026-11-20",
     },
     {
         slug: "programa-fidelidade-restaurante",
@@ -292,7 +304,7 @@ export const BLOG_ARTICLES: BlogArticleDefinition[] = [
         category: "Vendas",
         readingTime: "9 min de leitura",
         publishedAt: "2026-08-17",
-        updatedAt: "2026-08-17",
+        updatedAt: "2026-11-20",
     },
     {
         slug: "controle-estoque-cardapio-digital",

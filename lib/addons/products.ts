@@ -17,5 +17,6 @@ export const IA_PLUS_BONUSES = [
   { title: "Atualizações de pedidos pelo WhatsApp", description: "Notifique clientes pelo WhatsApp quando o pedido estiver pronto ou sair para entrega." },
   { title: "Download Cardápio em PDF", description: "Baixe seu cardápio em PDF para imprimir ou compartilhar." },
   { title: "Cardápio Tema Escuro", description: "Personalize seu cardápio com uma aparência escura." },
+  { title: "Fotos extras e vídeo no cardápio", description: "Mostre cada produto com até três mídias no total, com fotos extras e até um vídeo." },
 ] as const;
 export const IA_PLUS_PRICE_LABEL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(IA_PLUS.priceCents / 100);

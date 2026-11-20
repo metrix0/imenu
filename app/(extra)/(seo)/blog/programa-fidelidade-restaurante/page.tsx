@@ -46,7 +46,7 @@ const faq = [
     {
         question: "A recompensa pode incluir complementos?",
         answer:
-            "Sim. No iMenu o restaurante escolhe um item principal gratuito e pode definir quais complementos daquele item já vêm incluídos na recompensa.",
+            "Sim. Você pode configurar um ou mais itens do cardápio e definir os complementos incluídos em cada um. Quando há vários itens, o cliente resgata o conjunto de uma vez.",
     },
 ];
 
@@ -129,12 +129,12 @@ export default function ProgramaFidelidadeRestaurantePage() {
                         </p>
                     </div>
                 </div>
-                <BlogSubheading>Use um item do próprio cardápio</BlogSubheading>
+                <BlogSubheading>Monte a recompensa com itens do próprio cardápio</BlogSubheading>
                 <p>
-                    Isso deixa a operação previsível. No iMenu, o restaurante seleciona o
-                    <strong> item principal gratuito</strong> e pode marcar quais
-                    complementos daquele produto já fazem parte do prêmio. Assim, a
-                    recompensa não depende de um texto solto que a equipe precisa interpretar.
+                    No iMenu, você pode combinar <strong>vários itens gratuitos no mesmo prêmio</strong>
+                    e marcar os complementos incluídos em cada um. Por exemplo, monte uma
+                    recompensa com um hambúrguer e uma bebida. Ao atingir a meta, o cliente
+                    resgata os dois juntos usando os selos de um único resgate.
                 </p>
                 <BlogCallout title="Calcule pelo custo, não pelo preço de venda" variant="tip">
                     Um item vendido por R$ 25 não custa necessariamente R$ 25 para você. Use
@@ -179,16 +179,16 @@ export default function ProgramaFidelidadeRestaurantePage() {
                         "Ative o programa no painel de Fidelidade",
                         "Defina a meta de pedidos ou selos",
                         "Escolha o valor mínimo para um pedido contar, se necessário",
-                        "Selecione o item principal que será dado como recompensa",
-                        "Marque os complementos que já vêm grátis no prêmio",
-                        "Salve a configuração e faça um pedido de teste",
+                        "Selecione os itens que farão parte da recompensa",
+                        "Marque os complementos incluídos em cada item",
+                        "Confira se a configuração foi salva e faça um pedido de teste",
                         "Conclua o pedido de teste para conferir o crédito do selo",
                         "Valide o fluxo de resgate antes de divulgar aos clientes",
                     ]}
                 />
                 <p>
-                    No fluxo atual do iMenu, o progresso é creditado quando um pedido elegível
-                    é marcado como <strong>concluído</strong>. Se o pedido for cancelado depois
+                    O cliente pode consultar o progresso no cardápio. Um pedido que atinge o valor
+                    mínimo gera um selo quando é marcado como <strong>concluído</strong>. Se o pedido for cancelado depois
                     de ter gerado fidelidade, o sistema também trata a reversão do crédito.
                 </p>
                 <BlogCallout title="Teste o ciclo inteiro" variant="warning">

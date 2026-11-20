@@ -8,7 +8,7 @@ import type { MouseEvent } from "react";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
-import { Bot, FileDown, Headset, Megaphone, MessageCircle, Moon, ScanLine, ShoppingCart, Sparkles, TrendingUp, type LucideIcon } from "lucide-react";
+import { Bot, FileDown, Film, Headset, Megaphone, MessageCircle, Moon, ScanLine, ShoppingCart, Sparkles, TrendingUp, type LucideIcon } from "lucide-react";
 
 export const PLUS_FEATURE_ICONS: Record<string, LucideIcon> = {
     "Automações de Marketing WhatsApp": Megaphone,
@@ -24,6 +24,7 @@ export const PLUS_BONUS_ICONS: Record<string, LucideIcon> = {
     "Scan de cardápio com IA": ScanLine,
     "Download Cardápio em PDF": FileDown,
     "Cardápio Tema Escuro": Moon,
+    "Fotos extras e vídeo no cardápio": Film,
 };
 
 type ProductCardContent = {

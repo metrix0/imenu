@@ -8,6 +8,7 @@ import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
 import { IA_PLUS_FEATURE_MESSAGE } from "@/lib/addons/products";
 import type { Action, Data, Operation } from "@/lib/ia-vendas/types";
+import { categoryScheduleDetails } from "@/lib/menu/categorySchedule";
 export function SalesDisclosure({ label, children }: { label: string; children: ReactNode }) {
   const disclosure = useCollapsible();
 
@@ -65,12 +66,15 @@ const labels: Record<string, string> = {
   min_order_value_cents: "Pedido mínimo",
   reward_item_id: "Recompensa",
   reward_subitem_ids: "Complementos da recompensa",
+  additional_rewards: "Itens extras da recompensa",
+  subitem_ids: "Complementos incluídos",
   min_select: "Seleção mínima",
   max_select: "Seleção máxima",
   allow_multiple_units: "Permitir várias unidades",
   url_slug: "Link público",
   min_order_cents: "Pedido mínimo",
   availability_json: "Horários",
+  availability_schedule: "Horários de exibição do item",
   is_closed: "Fechamento manual até",
   pickup_enabled: "Retirada",
   allowed_payment_methods: "Formas de pagamento",
@@ -168,6 +172,7 @@ function display(
   refs: Record<string, string>,
   op?: Data,
 ): string {
+  if (k === "availability_schedule") return categoryScheduleDetails(v) ?? "Sem agendamento no item";
   if (v == null || v === "") return "Não definido";
   if (typeof v === "boolean") return v ? "Sim" : "Não";
   if (typeof v === "number") {
@@ -192,7 +197,13 @@ function display(
       return v.map((day) => weekdayNames[Number(day)] || String(day)).join(", ");
     if (["allowed_payment_methods", "origins"].includes(k))
       return v.map((value) => values[String(value)] || String(value)).join(", ");
-    if (["reward_subitem_ids", "category_ids"].includes(k))
+    if (k === "additional_rewards")
+      return v.length ? v.map((reward) => {
+        const name = refs[reward.item_id] || reward.item_id;
+        const complements = display("subitem_ids", reward.subitem_ids, refs);
+        return complements ? `${name} (${complements})` : name;
+      }).join("\n") : "Sem itens extras";
+    if (["reward_subitem_ids", "subitem_ids", "category_ids"].includes(k))
       return v.map((value) => refs[String(value)] || String(value)).join(", ");
     return v.map((x) => display("", x, refs)).join("\n");
   }
