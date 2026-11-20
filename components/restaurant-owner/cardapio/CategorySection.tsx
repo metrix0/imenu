@@ -229,6 +229,7 @@ export default function CategorySection({
             is_available: false,
             available_for_delivery: originalItem.available_for_delivery !== false,
             available_for_salao: originalItem.available_for_salao !== false,
+            availability_schedule: originalItem.availability_schedule ?? null,
             position: items.length
         });
 

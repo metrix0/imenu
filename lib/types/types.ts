@@ -71,6 +71,7 @@ export type Item = {
     is_available: boolean;
     available_for_delivery?: boolean;
     available_for_salao?: boolean;
+    availability_schedule?: import("@/lib/menu/categorySchedule").CategorySchedule;
     position: number;
     category?: Category | null;
     image_public_url?: string | null;

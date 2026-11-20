@@ -1,4 +1,5 @@
 import { isItemAvailableForChannel } from "@/lib/menu/itemAvailability";
+import { isCategoryAvailable, type CategorySchedule } from "@/lib/menu/categorySchedule";
 import { metaCommerceData, metaPurchaseEventId, type MetaCommerceData } from "@/lib/analytics/metaEvents";
 import {
     discardMetaPixPurchase, metaContext, metaCustomerFromOrder, metaDestination,
@@ -37,6 +38,17 @@ class OrderRequestError extends Error {
         this.name = "OrderRequestError";
         this.status = status;
         this.details = details;
+    }
+}
+
+function assertItemSchedule(item: {
+    name: string;
+    availability_schedule?: CategorySchedule;
+    category_schedule?: CategorySchedule;
+}, at: Date) {
+    if (!isCategoryAvailable(item.availability_schedule, at) ||
+        !isCategoryAvailable(item.category_schedule, at)) {
+        throw new OrderRequestError(`${item.name} não está disponível no horário escolhido.`, 409);
     }
 }
 
@@ -314,6 +326,8 @@ export async function POST(request: Request) {
         }
 
         if (stockCheckOnly) {
+            const requestedTime = !isTableOrder && scheduled_for ? new Date(scheduled_for) : null;
+            const availabilityTime = requestedTime && Number.isFinite(requestedTime.getTime()) ? requestedTime : new Date();
             const requestedQuantities = new Map<string, number>();
 
             for (const cartItem of items) {
@@ -356,7 +370,9 @@ export async function POST(request: Request) {
                             stock_quantity,
                             is_available,
                             available_for_delivery,
-                            available_for_salao
+                            available_for_salao,
+                            availability_schedule,
+                            (SELECT availability_schedule FROM categories WHERE id = items.category_id) AS category_schedule
                         FROM items
                         WHERE id = $1
                         LIMIT 1
@@ -397,6 +413,8 @@ export async function POST(request: Request) {
                 if (!isItemAvailableForChannel(databaseItem, is_delivery)) {
                     throw new OrderRequestError(`${databaseItem.name} não está disponível para este destino.`, 409);
                 }
+
+                if (panel_order !== true) assertItemSchedule(databaseItem, availabilityTime);
 
                 if (databaseItem.is_available === false) {
                     throw new OrderRequestError(
@@ -831,6 +849,7 @@ export async function POST(request: Request) {
                         }
                     }
 
+                    const availabilityTime = scheduledFor ?? new Date();
                     for (const [
                         itemId,
                         requestedQuantity,
@@ -846,7 +865,9 @@ export async function POST(request: Request) {
                                         stock_quantity,
                                         is_available,
                                         available_for_delivery,
-                                        available_for_salao
+                                        available_for_salao,
+                                        availability_schedule,
+                                        (SELECT availability_schedule FROM categories WHERE id = items.category_id) AS category_schedule
                                     FROM items
                                     WHERE id = $1
                                     FOR UPDATE
@@ -874,6 +895,8 @@ export async function POST(request: Request) {
                         if (!isItemAvailableForChannel(databaseItem, is_delivery)) {
                             throw new OrderRequestError(`${databaseItem.name} não está disponível para este destino.`, 409);
                         }
+
+                        if (panel_order !== true) assertItemSchedule(databaseItem, availabilityTime);
 
                         const availableStock =
                             Number(

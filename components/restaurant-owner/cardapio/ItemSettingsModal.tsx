@@ -12,8 +12,15 @@ import { useAutoSave } from "@/lib/utils/useAutoSave";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import type { MenuItemSettingsUpdate, MenuItemType } from "./MenuItemRow";
 import ItemMediaSettings from "./ItemMediaSettings";
+import AvailabilityScheduleEditor, { useAvailabilityScheduleEditor } from "./AvailabilityScheduleEditor";
+import type { CategorySchedule } from "@/lib/menu/categorySchedule";
 
-type Availability = { available_for_delivery: boolean; available_for_salao: boolean };
+type Availability = {
+    available_for_delivery: boolean;
+    available_for_salao: boolean;
+    availability_schedule: CategorySchedule;
+};
+type Channel = "available_for_delivery" | "available_for_salao";
 
 export default function ItemSettingsModal({ item, restaurantId, open, onClose, onUpdated, onOpenComplements }: {
     item: MenuItemType;
@@ -28,6 +35,7 @@ export default function ItemSettingsModal({ item, restaurantId, open, onClose, o
     const [availability, setAvailability] = useState<Availability>({
         available_for_delivery: item.available_for_delivery !== false,
         available_for_salao: item.available_for_salao !== false,
+        availability_schedule: item.availability_schedule ?? null,
     });
     const [mediaBusy, setMediaBusy] = useState(false);
     const [copied, setCopied] = useState(false);
@@ -35,15 +43,19 @@ export default function ItemSettingsModal({ item, restaurantId, open, onClose, o
     const save = useAutoSave<Availability>(`${restaurantId}:${item.id}`, async value => {
         const { data, error } = await supabase.from("items").update(value)
             .eq("id", item.id).eq("restaurant_id", restaurantId)
-            .select("available_for_delivery, available_for_salao").single();
+            .select("available_for_delivery, available_for_salao, availability_schedule").single();
         if (error || !data) throw new Error("Não foi possível salvar a disponibilidade.");
         onUpdated({ id: item.id, ...data });
     });
-    const update = (field: keyof Availability) => {
-        const next = { ...availability, [field]: !availability[field] };
+    const updateAvailability = (change: Partial<Availability>) => {
+        const next = { ...availability, ...change };
         setAvailability(next);
         save.schedule(next);
     };
+    const update = (field: Channel) => updateAvailability({ [field]: !availability[field] });
+    const scheduleEditor = useAvailabilityScheduleEditor(item.availability_schedule, schedule => {
+        updateAvailability({ availability_schedule: schedule });
+    });
     const copyLink = async () => {
         setCopyError("");
         try {
@@ -65,7 +77,7 @@ export default function ItemSettingsModal({ item, restaurantId, open, onClose, o
     const isBusy = mediaBusy || save.status === "saving";
 
     return <>
-        <SaveStatus status={save.status} />
+        <SaveStatus status={scheduleEditor.scheduleError && save.status !== "saving" ? "error" : save.status} />
         <Modal height={680} open={open} onClose={() => { if (!isBusy) onClose(); }} showCloseButton>
             <div className="space-y-5 p-6">
                 <div>
@@ -85,6 +97,7 @@ export default function ItemSettingsModal({ item, restaurantId, open, onClose, o
                             <Switch checked={availability.available_for_salao} onClick={() => update("available_for_salao")} aria-labelledby={`salao-${item.id}`} />
                         </div>
                     </div>
+                    <AvailabilityScheduleEditor editor={scheduleEditor} subject="do item" />
                 </section>
                 {save.error && <p role="alert" className="text-sm text-red-600">{save.error}</p>}
                 <Button variant="secondary" onClick={() => void copyLink()} className="gap-2">

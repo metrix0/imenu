@@ -109,16 +109,29 @@ export default function MenuClientPage({
 
     const router = useRouter();
     const [menuTime, setMenuTime] = useState(initialMenuTime ?? new Date().toISOString());
-    const categoryTime = sourceCategories.some(category => category.availability_schedule != null) ? menuTime : null;
-    const categories = useMemo(() => sourceCategories.filter(category =>
-        isCategoryAvailable(category.availability_schedule, new Date(categoryTime ?? initialMenuTime ?? Date.now())),
-    ), [sourceCategories, categoryTime, initialMenuTime]);
-    const itemsByCategory: ItemsByCategory = useMemo(() => {
-        const visibleCategoryIds = new Set(categories.map(category => category.id));
-        return Object.fromEntries(
-            Object.entries(sourceItemsByCategory).filter(([id]) => visibleCategoryIds.has(id)),
-        );
-    }, [sourceItemsByCategory, categories]);
+    const hasSchedules = useMemo(() => sourceCategories.some(category =>
+        category.availability_schedule != null ||
+        sourceItemsByCategory[category.id]?.some(item => item.availability_schedule != null),
+    ), [sourceCategories, sourceItemsByCategory]);
+    const scheduleTime = hasSchedules ? menuTime : null;
+    const { categories, itemsByCategory } = useMemo(() => {
+        const at = new Date(scheduleTime ?? initialMenuTime ?? Date.now());
+        const visibleCategories: Category[] = [];
+        const visibleItems: ItemsByCategory = {};
+
+        for (const category of sourceCategories) {
+            if (!isCategoryAvailable(category.availability_schedule, at)) continue;
+            const sourceItems = sourceItemsByCategory[category.id] ?? [];
+            const items = hasSchedules
+                ? sourceItems.filter(item => isCategoryAvailable(item.availability_schedule, at))
+                : sourceItems;
+            if (!items.length) continue;
+            visibleCategories.push(category);
+            visibleItems[category.id] = items;
+        }
+
+        return { categories: visibleCategories, itemsByCategory: visibleItems };
+    }, [sourceCategories, sourceItemsByCategory, scheduleTime, initialMenuTime, hasSchedules]);
 
     useEffect(() => {
         const refresh = () => setMenuTime(new Date().toISOString());
@@ -164,7 +177,7 @@ export default function MenuClientPage({
             items.some(item => item.id === openedItem.item.id))) {
             setOpenedItem(null);
         }
-    }, [menuTime]);
+    }, [itemsByCategory, openedItem]);
     const [restaurantCartWarningVisible, setRestaurantCartWarningVisible] = useState(false);
     const [orderId, setOrderId] = useState<string | null>(null);
     const isTableOrder = Boolean(tableOrder);
@@ -187,7 +200,7 @@ export default function MenuClientPage({
         if (!categories.some(category => category.name === activeTab)) {
             setActiveTab(categories[0]?.name ?? "");
         }
-    }, [menuTime]);
+    }, [categories, activeTab]);
     const [manualScrollLock, setManualScrollLock] = useState(false);
     const [debouncedSearch, setDebouncedSearch] = useState("");
     const [couponUsed, setCouponUsed] = useState("");

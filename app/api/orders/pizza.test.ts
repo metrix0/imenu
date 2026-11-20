@@ -1,6 +1,7 @@
 jest.mock("next/server", () => ({ ...jest.requireActual("next/server"), after: jest.fn() }));
 jest.mock("@/lib/push/server", () => ({ notifyOrderReady: jest.fn() }));
 import { POST } from "./route";
+import type { CategorySchedule } from "@/lib/menu/categorySchedule";
 import { query, withTransaction } from "@/lib/database/sql";
 import { createMercadoPagoPixCharge } from "@/lib/payments/mercadoPagoPix";
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn(), withTransaction: jest.fn() }));
@@ -19,7 +20,12 @@ const payload = { restaurantId: restaurant, customer_name: "Teste", customer_pho
 let writes: Array<{ sql: string; values: any[] }>;
 let rollback: boolean;
 let secondaryStock: number;
-let secondaryAvailability: { available_for_delivery?: boolean; available_for_salao?: boolean };
+let secondaryAvailability: {
+    available_for_delivery?: boolean;
+    available_for_salao?: boolean;
+    availability_schedule?: CategorySchedule;
+    category_schedule?: CategorySchedule;
+};
 beforeEach(() => {
     writes = []; rollback = false; secondaryStock = 5; secondaryAvailability = {};
     jest.spyOn(console, "error").mockImplementation(() => undefined);
@@ -110,4 +116,35 @@ it("checks channel availability during the stock preflight too", async () => {
     }));
     expect(response.status).toBe(409);
     expect(withTransaction).not.toHaveBeenCalled();
+});
+
+
+it.each(["availability_schedule", "category_schedule"] as const)(
+    "rejects a pizza flavor outside its %s before creating an order",
+    async (scheduleKey) => {
+        jest.useFakeTimers().setSystemTime(new Date("2026-11-23T15:00:00Z"));
+        try {
+            secondaryAvailability = { [scheduleKey]: [{ days: [2], start: null, end: null }] };
+            const response = await send();
+            expect(response.status).toBe(409);
+            expect(rollback).toBe(true);
+            expect(writes).toHaveLength(0);
+        } finally {
+            jest.useRealTimers();
+        }
+    },
+);
+
+it("checks a scheduled order against its chosen time in stock preflight", async () => {
+    (query as jest.Mock).mockImplementation(async (_sql, values) => ({ rows: [{
+        id: values[0], restaurant_id: restaurant, name: "Pizza", is_available: true,
+        stock_enabled: false,
+        availability_schedule: [{ days: [1], start: "11:00", end: "14:00" }],
+    }] }));
+    const preflight = (scheduled_for: string) => POST(new Request("https://preview.imenuapp.com.br/api/orders?stock_check=1", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...payload, scheduled_for }),
+    }));
+    expect((await preflight("2026-11-23T15:00:00Z")).status).toBe(200);
+    expect((await preflight("2026-11-23T20:00:00Z")).status).toBe(409);
 });

@@ -13,6 +13,7 @@ import {
 import { icons } from "@/lib/utils/fontawesome";
 import { getMenuItemImageUrl } from "@/lib/menu/itemImages";
 import type { ItemMedia } from "@/lib/menu/itemMedia";
+import type { CategorySchedule } from "@/lib/menu/categorySchedule";
 import { uploadMenuImage } from "@/lib/database/uploadMenuImage";
 import { supabase } from "@/lib/database/supabaseClient";
 import ConfirmModal from "@/components/ui/ConfirmModal";
@@ -32,6 +33,7 @@ export type MenuItemType = {
     is_available: boolean;
     available_for_delivery?: boolean;
     available_for_salao?: boolean;
+    availability_schedule?: CategorySchedule;
     category_id: string;
     position?: number;
     stock_enabled?: boolean | null;
