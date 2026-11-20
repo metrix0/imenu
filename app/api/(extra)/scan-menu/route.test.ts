@@ -3,7 +3,7 @@ import { query, withTransaction } from "@/lib/database/sql";
 import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
 import { MenuLinkError, readPublicMenuLink } from "@/lib/menu/readPublicMenuLink";
 import { recordGeminiMenuFallback } from "@/lib/dev/health";
-import { importMenuPhotos } from "@/lib/menu/importMenuPhotos";
+import { importMenuPhotos, importScannedProductPhoto } from "@/lib/menu/importMenuPhotos";
 import { menuPhotoPdfParts } from "@/lib/menu/menuPhotoPdf";
 
 const mockOpenAiCreate = jest.fn();
@@ -20,7 +20,10 @@ jest.mock("@/lib/menu/readPublicMenuLink", () => ({
     },
 }));
 
-jest.mock("@/lib/menu/importMenuPhotos", () => ({ importMenuPhotos: jest.fn() }));
+jest.mock("@/lib/menu/importMenuPhotos", () => ({
+    importMenuPhotos: jest.fn(),
+    importScannedProductPhoto: jest.fn(),
+}));
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn(), withTransaction: jest.fn() }));
 jest.mock("@/lib/dev/health", () => ({ recordGeminiMenuFallback: jest.fn().mockResolvedValue(undefined) }));
 jest.mock("@/lib/auth/restaurantOwner", () => {
@@ -267,6 +270,34 @@ it.each(["gemini", "openai"])("imports a standalone product photo with %s", asyn
         ? String(providerFetch.mock.calls[3][1]?.body)
         : JSON.stringify(mockOpenAiCreate.mock.calls[0][0]);
     expect(providerRequest).toContain("single_product_photo=true");
+});
+
+it.each(["image/jpeg", "application/pdf"])("attaches a confirmed single product's owned %s", async mimeType => {
+    setExistingItems(0);
+    const standardQuery = (query as jest.Mock).getMockImplementation()!;
+    (query as jest.Mock).mockImplementation((sql, params) =>
+        sql.includes("FROM unnest") ? Promise.resolve({ rows: [{ size: "5", etag: null }] }) : standardQuery(sql, params));
+    (requireRestaurantOwner as jest.Mock).mockResolvedValue({ user: { id: "test-owner" } });
+    jest.replaceProperty(process, "env", { ...process.env, NEXT_PUBLIC_SUPABASE_URL: "https://storage.example.test" });
+    const extension = mimeType === "application/pdf" ? "pdf" : "jpg";
+    const photoUrl = `https://storage.example.test/storage/v1/object/public/full-menu-images-ai/10000000-1000-1000-1000-100000000000-photo.${extension}`;
+    const photoFetch = jest.spyOn(global, "fetch").mockImplementation(async () =>
+        new Response("image", { headers: { "content-type": mimeType } }));
+    const imagePath = "menu-images/restaurant-1/photo.webp";
+    (importScannedProductPhoto as jest.Mock).mockResolvedValue(imagePath);
+    mockOpenAiCreate.mockResolvedValue({ output_text: JSON.stringify({
+        single_product_photo: true,
+        items: [{ name: "Hambúrguer", price_cents: null, category_name: "Lanches" }],
+        categories: [{ name: "Lanches" }],
+    }) });
+    const response = await POST(new Request(url, {
+        method: "POST", headers: { Authorization: "Bearer test", "Content-Type": "application/json" },
+        body: JSON.stringify({ restaurantId, urls: [photoUrl] }),
+    }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ items: [{ image_path: imagePath }] });
+    expect(importScannedProductPhoto).toHaveBeenCalledWith(restaurantId, Buffer.from("image"), mimeType);
+    expect(photoFetch).toHaveBeenLastCalledWith(photoUrl, expect.objectContaining({ redirect: "error" }));
 });
 
 it("keeps a one-item menu on the regular review path", async () => {

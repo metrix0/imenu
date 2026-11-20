@@ -1,7 +1,8 @@
 import sharp from "sharp";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 import { downloadPublicMenuPhoto } from "@/lib/menu/readPublicMenuLink";
-import { importMenuPhotos } from "./importMenuPhotos";
+import { importMenuPhotos, importScannedProductPhoto } from "./importMenuPhotos";
+import { menuPhotoPdfParts } from "./menuPhotoPdf";
 
 jest.mock("@/lib/database/supabaseServerClient", () => ({ createSupabaseServerClient: jest.fn() }));
 jest.mock("@/lib/menu/readPublicMenuLink", () => ({ downloadPublicMenuPhoto: jest.fn() }));
@@ -44,6 +45,22 @@ it("stores a normalized WebP photo once for products sharing the source image", 
     expect(await sharp(bytes).metadata()).toMatchObject({ format: "webp", width: 500, height: 333 });
     expect(options).toMatchObject({ contentType: "image/webp", upsert: false });
     expect(items.map(product => product.image_path)).toEqual([key, key, null, null, null]);
+});
+
+it.each(["image/jpeg", "application/pdf"])("stores the whole %s as the product photo", async mimeType => {
+    const jpeg = await sharp({ create: { width: 900, height: 600, channels: 3, background: "#802808" } })
+        .jpeg().toBuffer();
+    const { before, after } = menuPhotoPdfParts(900, 600, jpeg.length);
+    const source = mimeType === "application/pdf"
+        ? Buffer.concat([Buffer.from(before), jpeg, Buffer.from(after)]) : jpeg;
+
+    const path = await importScannedProductPhoto("test-restaurant", source, mimeType);
+
+    expect(path).toMatch(/^menu-images\/test-restaurant\/[0-9a-f]{64}\.webp$/);
+    expect(upload).toHaveBeenCalledTimes(1);
+    const [key, bytes] = upload.mock.calls[0];
+    expect(key).toBe(path);
+    expect(await sharp(bytes).metadata()).toMatchObject({ format: "webp", width: 500, height: 333 });
 });
 
 it("keeps an item without a corrupt photo and reuses an existing identical photo", async () => {

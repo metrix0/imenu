@@ -839,6 +839,7 @@ function ScanModal({
                             setAccess(value);
                         }).catch(error => setAccessError(error instanceof Error ? error.message : String(error)))}>Tentar novamente</Button>
                     </div>}
+                    {access?.allowed && <h2 className="mb-4 pr-10 text-xl font-semibold">Scanear Cardápio</h2>}
                     {access?.allowed && !scanResult && (
                         <div className="space-y-4">
                             {showLinkField ? (
@@ -894,7 +895,7 @@ function ScanModal({
                             <div className="rounded-lg p-4 2xl:text-xl">
                                 <div className="mb-6">
                                     <p className="font-semibold 2xl:mb-2">
-                                        Adicione fotos ou PDF
+                                        Adicione fotos ou PDF do cardápio
                                     </p>
                                     <p className="text-sm text-gray-500 2xl:text-base">
                                         JPG, PNG, PDF. <b>Use os arquivos de imagem do seu cardápio para melhores resultados.</b> Limite: 8 PDFs e/ou imagens.
@@ -1053,11 +1054,6 @@ function ScanModal({
 
                     {access?.allowed && scanResult && (
                         <div className="space-y-6">
-                            {scanResult.single_product_photo && (
-                                <WarningBox role="alert" icon={icons.faTriangleExclamation}>
-                                    O scan não é feito para ser usado por produtos individuais. Se quiser adicionar um único produto com imagem, basta clicar em Adicionar produto.
-                                </WarningBox>
-                            )}
                             <p className="text-sm text-gray-600">
                                 Revise os itens encontrados. Itens já cadastrados são ignorados por padrão.
                                 Atualizar altera nome, descrição e preço; complementos existentes são mantidos.
@@ -1086,46 +1082,35 @@ function ScanModal({
                                             key={categoryName}
                                             className="bg-white p-4 rounded-lg shadow-sm"
                                         >
-                                            <div className="flex items-start justify-between gap-4 mb-6">
-                                                <div className="flex-1">
-                                                    <div className="text-sm text-gray-500 2xl:text-base">
-                                                        Categoria detectada
-                                                    </div>
-                                                    <div className="font-semibold text-lg">
-                                                        {categoryName}
-                                                    </div>
-                                                </div>
-
-                                                <div className="w-[320px]">
-                                                    <Dropdown
-                                                        label="Mapear para"
-                                                        value={
-                                                            mapping.mappedId ??
+                                            <div className="mb-6 w-full sm:max-w-xs">
+                                                <Dropdown
+                                                    label="Categoria"
+                                                    value={
+                                                        mapping.mappedId ??
+                                                        "__create_new__"
+                                                    }
+                                                    options={dropdownOptions}
+                                                    onChange={(event: ChangeEvent<HTMLSelectElement>) => {
+                                                        const value =
+                                                            event.target.value;
+                                                        if (
+                                                            value ===
                                                             "__create_new__"
+                                                        ) {
+                                                            handleMapCategory(
+                                                                categoryName,
+                                                                null,
+                                                                true
+                                                            );
+                                                        } else {
+                                                            handleMapCategory(
+                                                                categoryName,
+                                                                value,
+                                                                false
+                                                            );
                                                         }
-                                                        options={dropdownOptions}
-                                                        onChange={(event: ChangeEvent<HTMLSelectElement>) => {
-                                                            const value =
-                                                                event.target.value;
-                                                            if (
-                                                                value ===
-                                                                "__create_new__"
-                                                            ) {
-                                                                handleMapCategory(
-                                                                    categoryName,
-                                                                    null,
-                                                                    true
-                                                                );
-                                                            } else {
-                                                                handleMapCategory(
-                                                                    categoryName,
-                                                                    value,
-                                                                    false
-                                                                );
-                                                            }
-                                                        }}
-                                                    />
-                                                </div>
+                                                    }}
+                                                />
                                             </div>
 
                                             <div className="space-y-3">
@@ -1170,13 +1155,13 @@ function ScanModal({
                                                                         {item.pizza_crusts?.length ? ` · Bordas: ${item.pizza_crusts.map(crust => crust.name).join(", ")}` : ""}
                                                                     </div>
                                                                 )}
-                                                                <div className="text-sm font-semibold mt-2">
-                                                                    {(typeof item.price_cents === "number" ||
-                                                                        (item.is_pizza_flavor && prepareScannedPizza(item).complements.some(group => group.name === "Tamanho"))) &&
-                                                                    prepareScannedPizza(item).price_cents >= 0
-                                                                        ? `R$ ${(prepareScannedPizza(item).price_cents / 100).toFixed(2).replace(".", ",")}`
-                                                                        : "—"}
-                                                                </div>
+                                                                {(typeof item.price_cents === "number" ||
+                                                                    (item.is_pizza_flavor && prepareScannedPizza(item).complements.some(group => group.name === "Tamanho"))) &&
+                                                                    prepareScannedPizza(item).price_cents >= 0 && (
+                                                                        <div className="mt-2 text-sm font-semibold">
+                                                                            {`R$ ${(prepareScannedPizza(item).price_cents / 100).toFixed(2).replace(".", ",")}`}
+                                                                        </div>
+                                                                    )}
                                                             </div>
 
                                                             <div className="w-24 h-24 rounded-xl overflow-hidden bg-gray-100 flex items-center justify-center">
@@ -1184,7 +1169,7 @@ function ScanModal({
                                                                     <img
                                                                         src={getMenuItemImageUrl(supabase, item.image_path) ?? "/placeholders/item.png"}
                                                                         loading="lazy"
-                                                                        className="w-full h-full object-cover"
+                                                                        className={`h-full w-full ${scanResult.single_product_photo ? "object-contain" : "object-cover"}`}
                                                                         alt={item.name}
                                                                     />
                                                                 ) : (

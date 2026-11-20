@@ -367,7 +367,7 @@ export default function CardapioTab({
         return matchesSearch && matchesSelect;
     });
 
-    const scanAction = (label: string, className = "") => (
+    const scanAction = (className = "") => (
         <Button
             type="button"
             onClick={() => onAIScanMenu?.(true)}
@@ -375,7 +375,7 @@ export default function CardapioTab({
             className={`gap-2 !border-violet-600 !bg-violet-600 hover:!border-violet-700 hover:!bg-violet-700 focus-visible:!outline-violet-600 ${className}`}
         >
             <FontAwesomeIcon icon={faWandMagicSparkles} />
-            {label}
+            Scanear com IA
         </Button>
     );
 
@@ -404,7 +404,7 @@ export default function CardapioTab({
                         <FontAwesomeIcon icon={faPlus} className="mr-2" />
                         Adicionar categoria
                     </Button>
-                    {scanAction("Scanear Cardápio com IA")}
+                    {scanAction()}
                 </div>
             </div>
         );
@@ -470,7 +470,7 @@ export default function CardapioTab({
                     >
                         Organizar categ.
                     </Button>
-                    {scanAction("Scanear itens com IA", "col-span-2 w-full")}
+                    {scanAction("col-span-2 w-full")}
                 </div>
 
                 <div className="hidden min-w-0 max-w-full gap-4 md:flex md:flex-row">
@@ -505,7 +505,7 @@ export default function CardapioTab({
                     >
                         Organizar categorias
                     </Button>
-                    {scanAction("Scanear itens com IA", "whitespace-nowrap")}
+                    {scanAction("whitespace-nowrap")}
                 </div>
             </div>
 

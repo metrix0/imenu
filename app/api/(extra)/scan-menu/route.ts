@@ -4,7 +4,7 @@ import { openAiAlertFetch } from "@/lib/services/openAiAlerts";
 import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
 import { readPublicMenuLink, MenuLinkError, type MenuPhoto } from "@/lib/menu/readPublicMenuLink";
 import { query } from "@/lib/database/sql";
-import { importMenuPhotos } from "@/lib/menu/importMenuPhotos";
+import { importMenuPhotos, importScannedProductPhoto } from "@/lib/menu/importMenuPhotos";
 import { menuPhotoPdfParts } from "@/lib/menu/menuPhotoPdf";
 import { recordGeminiMenuFallback } from "@/lib/dev/health";
 import {
@@ -412,15 +412,19 @@ async function throwForGeminiError(response: Response): Promise<void> {
     );
 }
 
-async function fetchSourceFile(url: string): Promise<{
+async function fetchSourceFile(
+    url: string,
+    redirect: RequestRedirect = "follow",
+    signal = AbortSignal.timeout(30_000),
+): Promise<{
     bytes: ArrayBuffer;
     mimeType: string;
     displayName: string;
 }> {
     const response = await fetch(url, {
         cache: "no-store",
-        redirect: "follow",
-        signal: AbortSignal.timeout(30_000),
+        redirect,
+        signal,
     });
 
     if (!response.ok) {
@@ -974,6 +978,16 @@ function buildResponse(parsed: ParsedMenu, restaurantId: string, isSingleFile: b
     return { items, categories, ...(singleProductPhoto ? { single_product_photo: true as const } : {}) };
 }
 
+async function attachScannedProductPhoto(
+    result: ReturnType<typeof buildResponse>, restaurantId: string, sourceUrl: string | undefined,
+) {
+    const item = result.items[0];
+    if (!result.single_product_photo || !item || item.image_path || !sourceUrl) return;
+
+    const { bytes, mimeType } = await fetchSourceFile(sourceUrl, "error", AbortSignal.timeout(6000));
+    item.image_path = await importScannedProductPhoto(restaurantId, Buffer.from(bytes), mimeType);
+}
+
 export async function PATCH(request: Request) {
     const payload = await request.json().catch(() => null);
     const { restaurantId, attemptId, event, itemId, inputType, stage, reason } = payload ?? {};
@@ -1104,12 +1118,14 @@ export async function POST(req: Request) {
         }
 
         let retryFingerprint: string | undefined;
+        let ownedSingleSourceUrl: string | undefined;
         const source = diagnostic.source;
         if (source && "files" in source && user?.id && source.files.length === urls.length &&
             urls.every(url => !/[?#]/.test(url))) {
             try {
                 const metadata = await menuScanFileMetadata(user.id, source.files, existingMenuContext);
                 source.totalBytes = metadata?.totalBytes;
+                if (metadata && urls.length === 1) ownedSingleSourceUrl = urls[0];
                 if (attemptId) retryFingerprint = metadata?.fingerprint;
             } catch {
                 console.warn("[SCAN_MENU] Não foi possível identificar os arquivos da importação.");
@@ -1128,6 +1144,7 @@ export async function POST(req: Request) {
 
                     const finished = await waitForMenuScanResult(restaurantId, prior, req.signal);
                     if (finished?.outcome === "success" && finished.result) {
+                        await attachScannedProductPhoto(finished.result, restaurantId, ownedSingleSourceUrl);
                         if (diagnostic) diagnostic.outcome = "success";
                         return NextResponse.json(finished.result);
                     }
@@ -1200,6 +1217,7 @@ export async function POST(req: Request) {
             });
         }
         const result = buildResponse(parsed, restaurantId, !isLinkImport && urls.length === 1);
+        await attachScannedProductPhoto(result, restaurantId, ownedSingleSourceUrl);
         diagnostic.outcome = "success";
         // The interruption event can arrive just after the analysis finishes.
         if (retryFingerprint) diagnostic.retryDraft = { fingerprint: retryFingerprint, result };
