@@ -182,6 +182,31 @@ it("rejects a delivery checkout without registered distance ranges", async () =>
   expect(writes).toEqual([]);
 });
 
+it("rejects a same-day slot before the maximum delivery time while the store is open", async () => {
+  jest.useFakeTimers().setSystemTime(new Date("2026-11-20T13:00:00-03:00"));
+  try {
+    (query as jest.Mock).mockImplementation(async (sql: string) =>
+      sql.includes("SELECT preorder_only, preorder_availability_json")
+        ? { rows: [{
+            availability_json: { 5: [{ open: "12:00", close: "18:00" }] },
+            delivery_fee_mode: "radius",
+            delivery_fee_json: [{ time_minutes: 30 }, { time_minutes: 60 }],
+          }] }
+        : { rows: [], rowCount: 1 },
+    );
+    const response = await send({
+      scheduled_for: "2026-11-20T13:45:00-03:00",
+      delivery_time_minutes: 30,
+    });
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toMatch(/prazo máximo de entrega/);
+    expect(transactions).toEqual([]);
+    expect(writes).toEqual([]);
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
 it("requires a schedule for customer checkout in preorder-only mode", async () => {
   enablePreorders();
   const response = await send();

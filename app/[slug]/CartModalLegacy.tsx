@@ -3,7 +3,7 @@
 import { createMenuRequestCache } from "@/lib/menu/requestCache";
 import { getMenuItemImageUrl } from "@/lib/menu/itemImages";
 import CheckoutCustomerFields from "@/components/costumer/CheckoutCustomerFields";
-import { getOrderScheduleOptions } from "@/lib/menu/orderAvailability";
+import { getOrderScheduleDate, getOrderScheduleOptions, getSameDayOrderEarliestAt } from "@/lib/menu/orderAvailability";
 
 import PromotionSummary from "@/components/costumer/PromotionSummary";
 import { faGift } from "@fortawesome/free-solid-svg-icons";
@@ -70,6 +70,7 @@ const PAYMENT_OPTIONS = [
 ];
 
 const scheduleDateLabel = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "UTC",
     weekday: "short",
     day: "2-digit",
     month: "2-digit",
@@ -79,16 +80,8 @@ function isCitywideCep(address: GeoAddress | null) {
     return Boolean(address && !address.street?.trim() && !address.neighborhood?.trim());
 }
 
-function formatDateInputValue(date: Date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-}
-
 function dateFromInput(value: string) {
-    const [year, month, day] = value.split("-").map(Number);
-    return new Date(year, month - 1, day, 12, 0, 0, 0);
+    return new Date(value + "T12:00:00Z");
 }
 
 const loadManualUpsells = createMenuRequestCache(async (restaurantId: string): Promise<Item[]> => {
@@ -218,7 +211,7 @@ export default function CartModal({
     const [showOptionalSchedule, setShowOptionalSchedule] = useState(false);
     const [scheduleDropdownOpen, setScheduleDropdownOpen] = useState(false);
     const now = new Date();
-    const todayInput = formatDateInputValue(now);
+    const todayInput = getOrderScheduleDate(now);
     const preorderOnly = restaurant?.preorder_only === true && !isTableOrder;
     const minAdvanceDays = preorderOnly ? Math.max(0, Math.min(59, Number(restaurant?.preorder_min_days) || 0)) : 0;
     const allowFutureScheduling = restaurant?.allow_future_order_scheduling === true || preorderOnly;
@@ -226,11 +219,11 @@ export default function CartModal({
     const availability = preorderOnly
         ? restaurant?.preorder_availability_json
         : restaurant?.availability_json;
+    const earliestSameDayAt = isTableOrder ? null : getSameDayOrderEarliestAt(restaurant, now, neighborhoodDeliveryRules);
     const scheduleDateOptions = Array.from({ length: 60 - minAdvanceDays }, (_, index) => {
-        const date = new Date(now);
-        date.setHours(12, 0, 0, 0);
-        date.setDate(date.getDate() + minAdvanceDays + index);
-        const value = formatDateInputValue(date);
+        const date = dateFromInput(todayInput);
+        date.setUTCDate(date.getUTCDate() + minAdvanceDays + index);
+        const value = date.toISOString().slice(0, 10);
         const dateLabel = scheduleDateLabel.format(date);
         return {
             value,
@@ -240,9 +233,9 @@ export default function CartModal({
     const availableScheduleDates = allowFutureScheduling
         ? scheduleDateOptions.filter(({ value }) => {
             if (value === todayInput) {
-                return getOrderScheduleOptions(availability, now, now, manuallyClosedToday).length > 0;
+                return getOrderScheduleOptions(availability, value, now, manuallyClosedToday, earliestSameDayAt).length > 0;
             }
-            const slots = availability?.[dateFromInput(value).getDay()];
+            const slots = availability?.[dateFromInput(value).getUTCDay()];
             return Array.isArray(slots) && slots.length > 0;
         })
         : [];
@@ -258,9 +251,10 @@ export default function CartModal({
 
     const scheduledOptions = getOrderScheduleOptions(
         availability,
-        allowFutureScheduling ? dateFromInput(scheduleDate) : now,
+        allowFutureScheduling ? scheduleDate : todayInput,
         now,
         manuallyClosedToday,
+        earliestSameDayAt,
     );
     const mustSchedule = preorderOnly || manuallyClosedToday || requiresSchedule;
     const hasSchedulingChoice = !isTableOrder && (mustSchedule ||

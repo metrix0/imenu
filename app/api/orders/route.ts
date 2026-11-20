@@ -1,5 +1,6 @@
 import { isItemAvailableForChannel } from "@/lib/menu/itemAvailability";
 import { isCategoryAvailable, type CategorySchedule } from "@/lib/menu/categorySchedule";
+import { getOrderScheduleDate, getSameDayOrderEarliestAt } from "@/lib/menu/orderAvailability";
 import { metaCommerceData, metaPurchaseEventId, type MetaCommerceData } from "@/lib/analytics/metaEvents";
 import {
     discardMetaPixPurchase, metaContext, metaCustomerFromOrder, metaDestination,
@@ -442,7 +443,7 @@ export async function POST(request: Request) {
 
         const preorderSettings = !isTableOrder
             ? (await query(
-                "SELECT preorder_only, preorder_availability_json, preorder_min_days, delivery_disabled, delivery_fee_mode, delivery_fee_json FROM public.restaurants WHERE id = $1 LIMIT 1",
+                "SELECT preorder_only, preorder_availability_json, preorder_min_days, delivery_disabled, delivery_fee_mode, delivery_fee_json, delivery_neighborhood_fee_json, availability_json, is_closed, manual_open_until FROM public.restaurants WHERE id = $1 LIMIT 1",
                 [restaurantId]
             )).rows[0]
             : null;
@@ -460,14 +461,22 @@ export async function POST(request: Request) {
 
         let scheduledFor: Date | null = null;
         if (!isTableOrder && scheduled_for) {
+            const now = new Date();
             const parsedScheduledFor = new Date(scheduled_for);
             if (
                 Number.isNaN(parsedScheduledFor.getTime()) ||
-                parsedScheduledFor.getTime() <= Date.now()
+                parsedScheduledFor.getTime() <= now.getTime()
             ) {
                 throw new OrderRequestError(
                     "Horário de agendamento inválido."
                 );
+            }
+            if (panel_order !== true && preorderSettings &&
+                getOrderScheduleDate(parsedScheduledFor) === getOrderScheduleDate(now)) {
+                const earliest = getSameDayOrderEarliestAt(preorderSettings, now);
+                if (earliest !== null && parsedScheduledFor.getTime() < earliest) {
+                    throw new OrderRequestError("O horário escolhido é anterior ao prazo máximo de entrega. Selecione um horário mais tarde.");
+                }
             }
             scheduledFor = parsedScheduledFor;
         }
