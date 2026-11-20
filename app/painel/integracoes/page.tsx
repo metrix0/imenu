@@ -281,11 +281,11 @@ function IntegracoesContent() {
                             title={title}
                             description={description}
                             icon={<Image src={logo} alt="" width={36} height={36} className="h-9 w-9 object-contain" />}
-                            badge={
-                                !configured ? <Badge variant="warning">Configurar</Badge> :
-                                active ? <Badge variant="success">{isMeta ? "Pixel ativado" : "Ativo"}</Badge> :
-                                <Badge variant="neutral">Desativado</Badge>
-                            }
+                            badge={active && (
+                                configured
+                                    ? <Badge variant="success">{isMeta ? "Pixel ativado" : "Ativo"}</Badge>
+                                    : <Badge variant="warning">Configurar</Badge>
+                            )}
                             toggle={{
                                 checked: active,
                                 disabled: !restaurantId,
