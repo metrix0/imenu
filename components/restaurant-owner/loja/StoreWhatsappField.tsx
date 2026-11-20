@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useState, type ReactNode } from "react";
 import Input from "@/components/ui/Input";
 import SaveStatus, { type SaveState } from "@/components/ui/SaveStatus";
 import { useAutoSave } from "@/lib/utils/useAutoSave";
@@ -18,6 +18,7 @@ type Props = {
     restaurantId: string;
     initialValue: string | null;
     onSaveStatusChange?: (status: SaveState) => void;
+    labelAction?: ReactNode;
 };
 
 type PhoneField = "store_whatsapp" | "phone";
@@ -35,7 +36,7 @@ const phoneFields = {
     },
 };
 
-function RestaurantPhoneField({ restaurantId, initialValue, onSaveStatusChange, field }: Props & { field: PhoneField }) {
+function RestaurantPhoneField({ restaurantId, initialValue, onSaveStatusChange, labelAction, field }: Props & { field: PhoneField }) {
     const feedbackId = useId();
     const { label, invalidMessage, saveError } = phoneFields[field];
     const [value, setValue] = useState(() => formatPhone(initialValue || "", field));
@@ -76,6 +77,7 @@ function RestaurantPhoneField({ restaurantId, initialValue, onSaveStatusChange, 
         <div className="min-w-0">
             <Input
                 label={label}
+                labelAction={labelAction}
                 placeholder="(00) 00000-0000"
                 type="tel"
                 inputMode="tel"

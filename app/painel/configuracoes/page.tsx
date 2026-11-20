@@ -1,7 +1,7 @@
 "use client";
 
 import { PageSaveHeader } from "@/components/ui/SaveStatus";
-import { useCallback, useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
@@ -82,6 +82,22 @@ function SettingsSection({ id, children }: { id: keyof typeof SETTINGS_SECTIONS;
 
 function StoreDetails({ restaurant, onSaveAddress }: { restaurant: Restaurant; onSaveAddress: (data: AddressData) => Promise<void> }) {
     const addressEditor = useCollapsible();
+    const [robotConnected, setRobotConnected] = useState<boolean | null>(null);
+    const restaurantId = restaurant.id;
+
+    useEffect(() => {
+        const controller = new AbortController();
+        void qrTableAuthenticatedFetch(
+            `/api/whatsapp/connection?restaurantId=${encodeURIComponent(restaurantId)}&statusOnly=1`,
+            { cache: "no-store", signal: controller.signal },
+        ).then(async (response) => {
+            if (!response.ok) return;
+            const data = await response.json() as { connected: boolean };
+            if (!controller.signal.aborted) setRobotConnected(data.connected);
+        }).catch(() => {});
+        return () => controller.abort();
+    }, [restaurantId]);
+
     const address = restaurant.address;
     const streetLine = [address?.street, address?.number].filter(Boolean).join(", ");
     const cityLine = [address?.city, address?.state].filter(Boolean).join(" - ");
@@ -89,7 +105,23 @@ function StoreDetails({ restaurant, onSaveAddress }: { restaurant: Restaurant; o
 
     return (
         <>
-            <StoreWhatsappField restaurantId={restaurant.id} initialValue={restaurant.store_whatsapp} />
+            <StoreWhatsappField
+                restaurantId={restaurantId}
+                initialValue={restaurant.store_whatsapp}
+                labelAction={
+                    <Link
+                        href="/painel/robo-whatsapp"
+                        className="group inline-flex rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                    >
+                        <Badge
+                            variant={robotConnected === null ? "neutral" : robotConnected ? "success" : "brand"}
+                            className="group-hover:underline"
+                        >
+                            {robotConnected === null ? "Robô WhatsApp" : robotConnected ? "Robô conectado" : "Conectar robô WhatsApp"}
+                        </Badge>
+                    </Link>
+                }
+            />
             <div>
                 <div className="flex min-w-0 items-center justify-between gap-3">
                     <div className="min-w-0">
@@ -115,114 +147,6 @@ function StoreDetails({ restaurant, onSaveAddress }: { restaurant: Restaurant; o
                     </div>
                 </CollapsibleContent>
             </div>
-        </>
-    );
-}
-
-function AccountCredentialFields({ currentEmail, onPasswordChanged }: {
-    currentEmail: string;
-    onPasswordChanged: () => Promise<void>;
-}) {
-    const [email, setEmail] = useState(currentEmail);
-    const [emailError, setEmailError] = useState("");
-    const [pendingEmail, setPendingEmail] = useState("");
-    const [needsSignIn, setNeedsSignIn] = useState(false);
-    const [sendingEmail, setSendingEmail] = useState(false);
-    const [password, setPassword] = useState("");
-    const [confirmation, setConfirmation] = useState("");
-    const [passwordError, setPasswordError] = useState("");
-    const [savingPassword, setSavingPassword] = useState(false);
-    const emailChanged = email.trim().toLowerCase() !== currentEmail.toLowerCase();
-
-    const submitEmail = async (event: FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        if (!emailChanged || sendingEmail) return;
-        setSendingEmail(true);
-        setEmailError("");
-        setNeedsSignIn(false);
-        const newEmail = email.trim().toLowerCase();
-
-        try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const response = await fetch("/api/auth/change-email", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${session?.access_token || ""}`,
-                },
-                body: JSON.stringify({ email: newEmail }),
-            });
-            const result = await response.json();
-            if (!response.ok) {
-                if (result.code === "reauthentication_needed" || response.status === 401) {
-                    setNeedsSignIn(true);
-                    throw new Error("Entre novamente na sua conta para confirmar a troca de e-mail.");
-                }
-                throw new Error(result.error || "Não foi possível solicitar a troca de e-mail.");
-            }
-            setPendingEmail(newEmail);
-            setEmail(currentEmail);
-        } catch (error) {
-            setEmailError(error instanceof Error ? error.message : "Não foi possível solicitar a troca de e-mail.");
-        } finally {
-            setSendingEmail(false);
-        }
-    };
-
-    const submitPassword = async (event: FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        if (savingPassword) return;
-        if (password.length < 6 || password !== confirmation) {
-            setPasswordError(password.length < 6 ? "A nova senha deve ter pelo menos 6 caracteres." : "As senhas não coincidem.");
-            return;
-        }
-        setPasswordError("");
-        setSavingPassword(true);
-        try {
-            const { error } = await supabase.auth.updateUser({ password });
-            if (error) throw error;
-            setPassword("");
-            setConfirmation("");
-            await onPasswordChanged();
-        } catch (error) {
-            setPasswordError(error instanceof Error ? `Erro ao alterar senha: ${error.message}` : "Erro ao alterar senha. Tente novamente.");
-        } finally {
-            setSavingPassword(false);
-        }
-    };
-
-    return (
-        <>
-            <form onSubmit={submitEmail} className="space-y-2">
-                <Input label="E-mail" type="email" autoComplete="email" required maxLength={254}
-                    value={email} disabled={sendingEmail} onChange={(event) => {
-                        setEmail(event.target.value);
-                        setEmailError("");
-                        setNeedsSignIn(false);
-                    }} />
-                {emailChanged && <Button type="submit" variant="secondary" loading={sendingEmail}>Enviar link de confirmação</Button>}
-                {emailError && <p role="alert" className="text-sm text-red-600">{emailError}</p>}
-                {needsSignIn && <Link href="/restaurante/login?next=atualizando-email" className="inline-block text-sm font-medium text-brand hover:underline">Entrar novamente</Link>}
-                {pendingEmail && <p role="status" className="break-words text-sm text-gray-600">Enviamos um link de confirmação para {pendingEmail}.</p>}
-            </form>
-
-            <form onSubmit={submitPassword} className="space-y-2">
-                <Input label="Senha" type="password" autoComplete="new-password" placeholder="••••••••"
-                    value={password} disabled={savingPassword} minLength={6} required onChange={(event) => {
-                        setPassword(event.target.value);
-                        setPasswordError("");
-                        if (!event.target.value) setConfirmation("");
-                    }} />
-                {password && <>
-                    <Input label="Confirmar nova senha" type="password" autoComplete="new-password" required
-                        value={confirmation} disabled={savingPassword} onChange={(event) => {
-                            setConfirmation(event.target.value);
-                            setPasswordError("");
-                        }} />
-                    <Button type="submit" variant="secondary" loading={savingPassword}>Salvar nova senha</Button>
-                </>}
-                {passwordError && <p role="alert" className="text-sm text-red-600">{passwordError}</p>}
-            </form>
         </>
     );
 }
@@ -968,7 +892,29 @@ export default function ConfiguracoesPage() {
                                 {restaurant && (
                                     <ResponsiblePhoneField key={restaurant.id} restaurantId={restaurant.id} initialValue={restaurant.phone ?? null} />
                                 )}
-                                {user && <AccountCredentialFields key={user.id} currentEmail={user.email ?? ""} onPasswordChanged={handleLogout} />}
+                                {user && (
+                                    <div className="flex flex-wrap items-end gap-2 sm:flex-nowrap">
+                                        <div className="w-full min-w-0 sm:flex-1">
+                                            <Input label="E-mail" type="email" value={user.email ?? ""} readOnly locked />
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            variant="secondary"
+                                            className="flex-1 sm:flex-none"
+                                            onClick={() => router.push("/painel/configuracoes/atualizando-email")}
+                                        >
+                                            Alterar e-mail
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="secondary"
+                                            className="flex-1 sm:flex-none"
+                                            onClick={() => router.push("/painel/configuracoes/nova-senha")}
+                                        >
+                                            Mudar senha
+                                        </Button>
+                                    </div>
+                                )}
                             </Card>
                             {restaurant && (
                                 <Card className="space-y-4">
@@ -1042,35 +988,6 @@ export default function ConfiguracoesPage() {
                             <Card className="border border-gray-200 shadow-sm">
                                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                     <div className="min-w-0">
-                                        <h3 className="text-lg font-semibold text-gray-900">
-                                            Modo Cidade Pequena (CEP opcional)
-                                        </h3>
-                                        <p id="small-city-description" className="mt-2 text-sm text-gray-500">
-                                            Permite pedidos sem CEP, calculando a entrega pelo bairro e oferecendo um campo de ponto de referência.
-                                        </p>
-                                    </div>
-                                    <div className="flex shrink-0 items-start gap-3">
-                                        <SaveStatus status={saveErrors.smallCity ? "error" : isSavingSmallCityMode ? "saving" : "saved"} />
-                                        <Switch
-                                            checked={restaurant.small_city_mode_enabled === true}
-                                            aria-label="Modo Cidade Pequena (CEP opcional)"
-                                            aria-describedby="small-city-description"
-                                            disabled={isSavingSmallCityMode}
-                                            onClick={() => {
-                                                if (restaurant.small_city_mode_enabled) {
-                                                    void saveSmallCityMode(false);
-                                                } else {
-                                                    setConfirmSmallCityModeOpen(true);
-                                                }
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-                            </Card>
-
-                            <Card className="border border-gray-200 shadow-sm">
-                                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                                    <div className="min-w-0">
                                         <div className="flex flex-wrap items-center gap-2">
                                             <h3 className="text-lg font-semibold text-gray-900">
                                                 Cardápio com Tema Escuro
@@ -1106,6 +1023,35 @@ export default function ConfiguracoesPage() {
                                                 onClick={() => void saveDarkMenuMode(restaurant.dark_menu_enabled !== true)}
                                             />
                                         </Tooltip>
+                                    </div>
+                                </div>
+                            </Card>
+
+                            <Card className="border border-gray-200 shadow-sm">
+                                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                    <div className="min-w-0">
+                                        <h3 className="text-lg font-semibold text-gray-900">
+                                            Modo Cidade Pequena (CEP opcional)
+                                        </h3>
+                                        <p id="small-city-description" className="mt-2 text-sm text-gray-500">
+                                            Permite pedidos sem CEP, calculando a entrega pelo bairro e oferecendo um campo de ponto de referência.
+                                        </p>
+                                    </div>
+                                    <div className="flex shrink-0 items-start gap-3">
+                                        <SaveStatus status={saveErrors.smallCity ? "error" : isSavingSmallCityMode ? "saving" : "saved"} />
+                                        <Switch
+                                            checked={restaurant.small_city_mode_enabled === true}
+                                            aria-label="Modo Cidade Pequena (CEP opcional)"
+                                            aria-describedby="small-city-description"
+                                            disabled={isSavingSmallCityMode}
+                                            onClick={() => {
+                                                if (restaurant.small_city_mode_enabled) {
+                                                    void saveSmallCityMode(false);
+                                                } else {
+                                                    setConfirmSmallCityModeOpen(true);
+                                                }
+                                            }}
+                                        />
                                     </div>
                                 </div>
                             </Card>

@@ -46,11 +46,11 @@ export default function ChoiceCardGroup<T extends string>({
                     >
                         <span
                             aria-hidden="true"
-                            className={`absolute top-4 right-4 grid size-4 place-items-center rounded-full border-2 ${
+                            className={`absolute top-4 right-4 grid size-4 place-items-center rounded-full border ${
                                 selected ? "border-[#d93d00] bg-[#d93d00]" : "border-[#cbd1d8]"
                             }`}
                         >
-                            {selected && <span className="size-1.5 rounded-full bg-white" />}
+                            {selected && <span className="size-2.5 rounded-full bg-white" />}
                         </span>
                         <span className={`block pr-6 font-medium ${selected ? "text-[#c43700]" : "text-[#1d1d1d]"}`}>
                             {option.label}

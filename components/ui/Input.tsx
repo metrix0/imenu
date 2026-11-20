@@ -8,6 +8,7 @@ type InputProps = Omit<
     "size"
 > & {
     label?: string;
+    labelAction?: React.ReactNode;
     icon?: React.ReactNode | string;
     iconPosition?: "left" | "right";
     numeric?: boolean;
@@ -20,6 +21,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     (
         {
             label,
+            labelAction,
             icon,
             iconPosition = "left",
             numeric = false,
@@ -134,13 +136,20 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
                 ${className}
                 ${locked ? "bg-[var(--im-menu-soft,#f3f4f6)] cursor-not-allowed text-[var(--im-menu-muted,#6b7280)]" : "bg-[var(--im-menu-soft,#fff)]"}`;
 
+        const fieldLabel = label && (
+            <label data-ui="field-label" htmlFor={inputId} className={labelClassName}>
+                {label}
+            </label>
+        );
+
         return (
             <div data-ui="field" className={wrapperClassName}>
-                {label && (
-                    <label data-ui="field-label" htmlFor={inputId} className={labelClassName}>
-                        {label}
-                    </label>
-                )}
+                {labelAction ? (
+                    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                        {fieldLabel}
+                        {labelAction}
+                    </div>
+                ) : fieldLabel}
 
                 <div className="relative">
                     {withIcon && (
