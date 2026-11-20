@@ -239,7 +239,7 @@ export default function MenuClientPage({
     const [debouncedSearch, setDebouncedSearch] = useState("");
     const [couponUsed, setCouponUsed] = useState("");
     const menuCards = useRef<HTMLDivElement>(null);
-    const activeVideoPreview = useMenuVideoPreviews(menuCards, categories, itemsByCategory, debouncedSearch,
+    const activeVideoPreviews = useMenuVideoPreviews(menuCards, categories, itemsByCategory, debouncedSearch,
         !openedItem && !cartOpen && !searchOpen && !historyOpen && !restaurantInfoOpen && !restaurantCartWarningVisible,
     );
     useEffect(() => {
@@ -906,7 +906,7 @@ export default function MenuClientPage({
                         <div id={`cat-${cat.id}`} />
                         {cat.name}
                     </h2>
-                    <div className="grid grid-cols-3 md:grid-cols-4 gap-[4dvw] w-full relative ">
+                    <div data-menu-featured-grid className="grid grid-cols-3 md:grid-cols-4 gap-[4dvw] w-full relative ">
                         {filteredItemsByCat[cat.id]?.map((item) => (
                             <button
                                 key={item.id}
@@ -917,7 +917,7 @@ export default function MenuClientPage({
                                         : ""
                                 }`}
                             >
-                                <MenuCardMedia item={item} activeVideoId={activeVideoPreview} className="w-full aspect-square rounded-2xl overflow-hidden bg-[var(--im-menu-raised,#e5e7eb)] shadow-sm" />
+                                <MenuCardMedia item={item} previewActive={activeVideoPreviews.includes(item.id)} className="w-full aspect-square rounded-2xl overflow-hidden bg-[var(--im-menu-raised,#e5e7eb)] shadow-sm" />
 
                                 <div className="mt-3 flex flex-col h-[55px] justify-start ">
                                     <p className="font-semibold text-sm 2xl:text-lg">
@@ -967,14 +967,14 @@ export default function MenuClientPage({
                                     </p>
                                 </div>
 
-                                <MenuCardMedia item={item} activeVideoId={activeVideoPreview} className="w-[22vw] h-[22vw] md:w-[10vw] md:h-[10vw] rounded-2xl overflow-hidden bg-[var(--im-menu-raised,#e5e7eb)] shadow-sm flex-shrink-0" />
+                                <MenuCardMedia item={item} previewActive={activeVideoPreviews.includes(item.id)} className="w-[22vw] h-[22vw] md:w-[10vw] md:h-[10vw] rounded-2xl overflow-hidden bg-[var(--im-menu-raised,#e5e7eb)] shadow-sm flex-shrink-0" />
                             </button>
                         ))}
                     </div>
                 </div>
             }
             </div>
-    )), [categories, filteredItemsByCat, handleItemClick, loadingItemId, activeVideoPreview]);
+    )), [categories, filteredItemsByCat, handleItemClick, loadingItemId, activeVideoPreviews]);
 
     return (
 

@@ -6,6 +6,7 @@ import type { Category, Item, ItemsByCategory } from "@/lib/types/types";
 
 const PREVIEW_DELAY = 2000;
 const PREVIEW_SELECTOR = "[data-menu-preview]";
+const NO_ACTIVE_PREVIEWS: readonly string[] = [];
 type Connection = { saveData?: boolean; effectiveType?: string };
 
 export function useMenuVideoPreviews(
@@ -15,7 +16,7 @@ export function useMenuVideoPreviews(
     search: string,
     enabled: boolean,
 ) {
-    const [active, setActive] = useState<string | null>(null);
+    const [active, setActive] = useState<readonly string[]>(NO_ACTIVE_PREVIEWS);
     const previewKey = useMemo(() => JSON.stringify(Object.entries(items).flatMap(([category, products]) =>
         products.filter(product => product.gallery_media?.some(media => media.type === "video"))
             .map(product => [category, product.id]),
@@ -39,9 +40,9 @@ export function useMenuVideoPreviews(
 
         let frame = 0;
         let timeout = 0;
-        let selected: HTMLElement | null = null;
+        let selected: readonly string[] = NO_ACTIVE_PREVIEWS;
         let pointer = { x: -1, y: -1 };
-        const onScreen = new Set<HTMLElement>();
+        const onScreen = new Map<HTMLElement, number>();
 
         const choose = () => {
             frame = 0;
@@ -53,9 +54,13 @@ export function useMenuVideoPreviews(
                     if (preview && onScreen.has(preview)) next = preview;
                 } else {
                     let nearest = Infinity;
-                    for (const preview of onScreen) {
+                    const screenCenterY = window.innerHeight / 2;
+                    for (const [preview, ratio] of onScreen) {
+                        if (ratio < 1) continue;
                         const rect = preview.getBoundingClientRect();
-                        const distance = Math.hypot(rect.top + rect.height / 2 - window.innerHeight / 2, (rect.left + rect.width / 2 - window.innerWidth / 2) * 0.3);
+                        const verticalDistance = rect.top + rect.height / 2 - screenCenterY;
+                        if (Math.abs(verticalDistance) > screenCenterY / 2) continue;
+                        const distance = Math.hypot(verticalDistance, (rect.left + rect.width / 2 - window.innerWidth / 2) * 0.3);
                         if (distance >= nearest) continue;
                         nearest = distance;
                         next = preview;
@@ -63,13 +68,25 @@ export function useMenuVideoPreviews(
                 }
             }
 
-            if (next === selected) return;
-            selected = next;
+            let nextPreviews = next ? [next] : [];
+            if (next && !finePointer.matches) {
+                const featuredGrid = next.closest("[data-menu-featured-grid]");
+                if (featuredGrid) {
+                    const rowTop = next.getBoundingClientRect().top;
+                    nextPreviews = Array.from(onScreen).flatMap(([preview, ratio]) =>
+                        ratio === 1 && featuredGrid.contains(preview) &&
+                        Math.abs(preview.getBoundingClientRect().top - rowTop) < 1 ? [preview] : [],
+                    );
+                }
+            }
+
+            const nextIds = nextPreviews.flatMap(preview => preview.dataset.menuPreview ? [preview.dataset.menuPreview] : []);
+            if (nextIds.length === selected.length && nextIds.every(id => selected.includes(id))) return;
+            selected = nextIds;
             clearTimeout(timeout);
-            setActive(null);
-            const id = selected?.dataset.menuPreview;
-            if (id) timeout = window.setTimeout(() => {
-                if (!document.hidden && !motion.matches) setActive(id);
+            setActive(NO_ACTIVE_PREVIEWS);
+            if (nextIds.length) timeout = window.setTimeout(() => {
+                if (!document.hidden && !motion.matches) setActive(nextIds);
             }, PREVIEW_DELAY);
         };
 
@@ -84,11 +101,11 @@ export function useMenuVideoPreviews(
         };
         const observer = new IntersectionObserver(entries => {
             for (const entry of entries) {
-                if (entry.intersectionRatio >= 0.65) onScreen.add(entry.target as HTMLElement);
+                if (entry.intersectionRatio >= 0.65) onScreen.set(entry.target as HTMLElement, entry.intersectionRatio);
                 else onScreen.delete(entry.target as HTMLElement);
             }
             schedule();
-        }, { threshold: 0.65 });
+        }, { threshold: [0.65, 1] });
 
         previews.forEach(preview => observer.observe(preview));
         window.addEventListener("pointermove", onPointerMove, { passive: true });
@@ -97,6 +114,7 @@ export function useMenuVideoPreviews(
         window.addEventListener("resize", schedule);
         document.addEventListener("visibilitychange", schedule);
         motion.addEventListener("change", schedule);
+        finePointer.addEventListener("change", schedule);
 
         return () => {
             observer.disconnect();
@@ -106,9 +124,10 @@ export function useMenuVideoPreviews(
             window.removeEventListener("resize", schedule);
             document.removeEventListener("visibilitychange", schedule);
             motion.removeEventListener("change", schedule);
+            finePointer.removeEventListener("change", schedule);
             cancelAnimationFrame(frame);
             clearTimeout(timeout);
-            setActive(null);
+            setActive(NO_ACTIVE_PREVIEWS);
         };
     }, [menu, previewKey, search, enabled]);
 
@@ -164,12 +183,12 @@ export function useMenuVideoPreviews(
         };
     }, [warmKey]);
 
-    return enabled ? active : null;
+    return enabled ? active : NO_ACTIVE_PREVIEWS;
 }
 
-export function MenuCardMedia({ item, activeVideoId, className }: {
+export function MenuCardMedia({ item, previewActive, className }: {
     item: Item;
-    activeVideoId: string | null;
+    previewActive: boolean;
     className: string;
 }) {
     const videoUrl = item.gallery_media?.find(media => media.type === "video")?.url;
@@ -182,7 +201,7 @@ export function MenuCardMedia({ item, activeVideoId, className }: {
                 className="w-full h-full object-cover"
                 alt={item.name}
             />
-            {videoUrl && activeVideoId === item.id && <MenuVideoPreview key={videoUrl} url={videoUrl} />}
+            {videoUrl && previewActive && <MenuVideoPreview key={videoUrl} url={videoUrl} />}
         </div>
     );
 }
