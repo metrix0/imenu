@@ -19,7 +19,7 @@ export default function PizzaSettingsSection({ restaurantId }: { restaurantId: s
     const [loaded, setLoaded] = useState(false);
     const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
     const [error, setError] = useState("");
-    const [detailsOpen, setDetailsOpen] = useState(true);
+    const [detailsOpen, setDetailsOpen] = useState(false);
     const canExpand = loaded && settings.enabled;
     const details = useCollapsible({ open: canExpand && detailsOpen, onOpenChange: setDetailsOpen });
 
@@ -66,7 +66,7 @@ export default function PizzaSettingsSection({ restaurantId }: { restaurantId: s
     return <Card className="border border-gray-200 shadow-sm">
         <div className="flex items-center justify-between gap-4 sm:gap-13">
             <div>
-                <h2 id="pizza-settings-title" className="text-xl font-medium text-gray-900">Modo Pizza</h2>
+                <h3 id="pizza-settings-title" className="text-lg font-semibold text-gray-900">Modo Pizza</h3>
                 <p className="mt-2 text-sm text-gray-500">Permita combinar sabores das categorias escolhidas em uma única pizza.</p>
             </div>
             <div className="relative flex shrink-0 items-center">

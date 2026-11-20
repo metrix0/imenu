@@ -872,107 +872,109 @@ export default function ConfiguracoesPage() {
                     </Card>
 
                     <SettingsSection id="conta">
-                        <Card className="!p-0 overflow-hidden">
-                            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 px-5 py-4">
-                                <h3 className="text-lg font-semibold text-gray-900">
-                                    Dados da conta e da loja
-                                </h3>
-                                <Button
-                                    variant="secondary"
-                                    onClick={handleLogout}
-                                    loading={isLoggingOut}
-                                    className="!min-h-0 !border-0 !bg-transparent !px-0 !py-0 text-sm text-red-600 hover:!bg-transparent hover:text-red-700"
-                                >
-                                    <FontAwesomeIcon
-                                        icon={faSignOutAlt}
-                                        className="mr-2"
-                                    />
-                                    Sair da Conta
-                                </Button>
-                            </div>
-
-                            <div className="divide-y divide-gray-100 px-5">
-                                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-3">
-                                    <p className="text-sm font-medium text-gray-600">
-                                        Celular do Responsável
-                                    </p>
-                                    <div className="col-start-1 row-start-2 min-w-0">
-                                        {isEditingPhone ? (
-                                            <Input
-                                                value={phone}
-                                                onChange={(event) =>
-                                                    setPhone(formatPhone(event.target.value))
-                                                }
-                                                placeholder="(00) 00000-0000"
-                                                type="tel"
-                                                maxLength={15}
-                                                autoFocus
-                                            />
-                                        ) : (
-                                            <p className="font-medium text-gray-900">
-                                                {phone || "—"}
-                                            </p>
-                                        )}
-                                        <SaveStatus status={saveErrors.phone ? "error" : savingField === "phone" ? "saving" : "saved"} />
+                        <div className={`grid gap-4 ${restaurant ? "lg:grid-cols-2" : ""}`}>
+                            <Card className="!p-0 overflow-hidden">
+                                <div className="divide-y divide-gray-100 px-5">
+                                    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-3">
+                                        <p className="text-sm font-medium text-gray-600">
+                                            Celular do Responsável
+                                        </p>
+                                        <div className="col-start-1 row-start-2 min-w-0">
+                                            {isEditingPhone ? (
+                                                <Input
+                                                    value={phone}
+                                                    onChange={(event) =>
+                                                        setPhone(formatPhone(event.target.value))
+                                                    }
+                                                    placeholder="(00) 00000-0000"
+                                                    type="tel"
+                                                    maxLength={15}
+                                                    autoFocus
+                                                />
+                                            ) : (
+                                                <p className="font-medium text-gray-900">
+                                                    {phone || "—"}
+                                                </p>
+                                            )}
+                                            <SaveStatus status={saveErrors.phone ? "error" : savingField === "phone" ? "saving" : "saved"} />
+                                        </div>
+                                        <Button
+                                            variant="secondary"
+                                            onClick={() =>
+                                                isEditingPhone
+                                                    ? void savePhone()
+                                                    : setIsEditingPhone(true)
+                                            }
+                                            loading={savingField === "phone"}
+                                            className="col-start-2 row-start-1 row-span-2 justify-self-end"
+                                        >
+                                            {isEditingPhone ? "Salvar" : "Alterar"}
+                                        </Button>
                                     </div>
-                                    <Button
-                                        variant="secondary"
-                                        onClick={() =>
-                                            isEditingPhone
-                                                ? void savePhone()
-                                                : setIsEditingPhone(true)
-                                        }
-                                        loading={savingField === "phone"}
-                                        className="col-start-2 row-start-1 row-span-2 justify-self-end"
-                                    >
-                                        {isEditingPhone ? "Salvar" : "Alterar"}
-                                    </Button>
-                                </div>
 
-                                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-3">
-                                    <p className="text-sm font-medium text-gray-600">
-                                        E-mail
-                                    </p>
-                                    <p className="col-start-1 row-start-2 min-w-0 break-all font-medium text-gray-900">
-                                        {user?.email}
-                                    </p>
-                                    <Button
-                                        variant="secondary"
-                                        onClick={() =>
-                                            router.push(
-                                                "/painel/configuracoes/atualizando-email",
-                                            )
-                                        }
-                                        className="col-start-2 row-start-1 row-span-2 justify-self-end"
-                                    >
-                                        Alterar
-                                    </Button>
-                                </div>
+                                    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-3">
+                                        <p className="text-sm font-medium text-gray-600">
+                                            E-mail
+                                        </p>
+                                        <p className="col-start-1 row-start-2 min-w-0 break-all font-medium text-gray-900">
+                                            {user?.email}
+                                        </p>
+                                        <Button
+                                            variant="secondary"
+                                            onClick={() =>
+                                                router.push(
+                                                    "/painel/configuracoes/atualizando-email",
+                                                )
+                                            }
+                                            className="col-start-2 row-start-1 row-span-2 justify-self-end"
+                                        >
+                                            Alterar
+                                        </Button>
+                                    </div>
 
-                                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-3">
-                                    <p className="text-sm font-medium text-gray-600">
-                                        Senha
-                                    </p>
-                                    <p className="col-start-1 row-start-2 font-medium tracking-[0.08em] text-gray-900">
-                                        ••••••••
-                                    </p>
-                                    <Button
-                                        variant="secondary"
-                                        onClick={() =>
-                                            router.push(
-                                                "/painel/configuracoes/nova-senha",
-                                            )
-                                        }
-                                        className="col-start-2 row-start-1 row-span-2 justify-self-end"
-                                    >
-                                        Alterar
-                                    </Button>
+                                    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-3">
+                                        <p className="text-sm font-medium text-gray-600">
+                                            Senha
+                                        </p>
+                                        <p className="col-start-1 row-start-2 font-medium tracking-[0.08em] text-gray-900">
+                                            ••••••••
+                                        </p>
+                                        <Button
+                                            variant="secondary"
+                                            onClick={() =>
+                                                router.push(
+                                                    "/painel/configuracoes/nova-senha",
+                                                )
+                                            }
+                                            className="col-start-2 row-start-1 row-span-2 justify-self-end"
+                                        >
+                                            Alterar
+                                        </Button>
+                                    </div>
+                                    <div className="flex justify-end py-3">
+                                        <Button
+                                            variant="secondary"
+                                            onClick={handleLogout}
+                                            loading={isLoggingOut}
+                                            className="!min-h-0 !border-0 !bg-transparent !px-0 !py-0 text-sm text-red-600 hover:!bg-transparent hover:text-red-700"
+                                        >
+                                            <FontAwesomeIcon
+                                                icon={faSignOutAlt}
+                                                className="mr-2"
+                                            />
+                                            Sair da Conta
+                                        </Button>
+                                    </div>
                                 </div>
-                                {restaurant && (
-                                    <StoreDetails key={restaurant.id} restaurant={restaurant} onSaveAddress={saveAddress} />
-                                )}
-                            </div>
-                        </Card>
+                            </Card>
+                            {restaurant && (
+                                <Card className="!p-0">
+                                    <div className="divide-y divide-gray-100 px-5">
+                                        <StoreDetails key={restaurant.id} restaurant={restaurant} onSaveAddress={saveAddress} />
+                                    </div>
+                                </Card>
+                            )}
+                        </div>
 
                         <Card className="!p-0 overflow-hidden">
                             <button
@@ -1084,7 +1086,7 @@ export default function ConfiguracoesPage() {
                         </Card>
 
                         <Card className="border border-gray-200 shadow-sm">
-                            <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
                                 <div className="min-w-0">
                                     <div className="flex flex-wrap items-center gap-2">
                                         <h3 className="text-lg font-semibold text-gray-900">
@@ -1120,9 +1122,11 @@ export default function ConfiguracoesPage() {
                                     />
                                 </div>
                             </div>
+                        </Card>
 
-                            {restaurant && (
-                                <div className="mt-5 flex flex-col gap-4 border-t border-gray-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
+                        {restaurant && (
+                            <Card className="border border-gray-200 shadow-sm">
+                                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                     <div className="min-w-0">
                                         <h3 className="text-lg font-semibold text-gray-900">
                                             Modo Cidade Pequena (CEP opcional)
@@ -1148,8 +1152,8 @@ export default function ConfiguracoesPage() {
                                         />
                                     </div>
                                 </div>
-                            )}
-                        </Card>
+                            </Card>
+                        )}
                     </SettingsSection>
 
                     {restaurant && (
