@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
     faStar,
     faTrophy,
+    faTriangleExclamation,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
@@ -11,6 +12,8 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import ModalMobile from "@/components/ui/HybridModal";
 import Toast from "@/components/ui/Toast";
+import WarningBox from "@/components/ui/WarningBox";
+import RestaurantWhatsappBadge, { type RestaurantWhatsapp } from "./RestaurantWhatsappBadge";
 import { useCartStore } from "@/lib/stores/costumer/cartStore";
 import { formatPrice } from "@/lib/utils/formatPrice";
 import type { LoyaltyOffer } from "@/lib/types/types";
@@ -21,6 +24,7 @@ type Props = {
     onClose: () => void;
     restaurantId: string;
     offer: LoyaltyOffer | null;
+    restaurantWhatsapp?: RestaurantWhatsapp | null;
 };
 
 type ToastState = {
@@ -129,6 +133,7 @@ export default function HistoryModal({
     onClose,
     restaurantId,
     offer,
+    restaurantWhatsapp,
 }: Props) {
     const {
         step,
@@ -152,11 +157,21 @@ export default function HistoryModal({
     const [toast, setToast] =
         useState<ToastState | null>(null);
 
+    const [rewardWarning, setRewardWarning] = useState(false);
+    const [checkingReward, setCheckingReward] = useState(false);
+    const rewardCheck = useRef<AbortController | null>(null);
+
     useEffect(() => {
         if (open) {
             setToast(null);
+            setRewardWarning(false);
+            setCheckingReward(false);
         }
-    }, [open]);
+        return () => {
+            rewardCheck.current?.abort();
+            rewardCheck.current = null;
+        };
+    }, [open, restaurantId]);
 
     const rewardAlreadyInCart = useMemo(
         () => cartItems.some((item) => item.is_reward),
@@ -170,8 +185,8 @@ export default function HistoryModal({
     const program = loadedRestaurantId === restaurantId ? loadedOffer : offer;
     const visibleStep = loadedRestaurantId === restaurantId ? step : "input_phone";
 
-    const handleRedeem = () => {
-        if (!program || !canRedeem) return;
+    const handleRedeem = async () => {
+        if (!program || !canRedeem || rewardCheck.current) return;
 
         if (rewardAlreadyInCart) {
             setToast({
@@ -182,7 +197,40 @@ export default function HistoryModal({
             return;
         }
 
-        addRewards(program.rewards.map(reward => ({
+        const request = new AbortController();
+        rewardCheck.current = request;
+        setCheckingReward(true);
+        let currentOffer: LoyaltyOffer | null;
+        try {
+            const response = await fetch(`/api/loyalty/status?restaurant_id=${encodeURIComponent(restaurantId)}`, {
+                cache: "no-store",
+                signal: request.signal,
+            });
+            if (!response.ok) throw new Error("Não foi possível consultar a recompensa.");
+            currentOffer = await response.json();
+            if (request.signal.aborted) return;
+        } catch {
+            if (!request.signal.aborted) {
+                setToast({ message: "Não foi possível consultar a recompensa. Tente novamente.", type: "error" });
+            }
+            return;
+        } finally {
+            if (rewardCheck.current === request) {
+                rewardCheck.current = null;
+                setCheckingReward(false);
+            }
+        }
+
+        if (!currentOffer?.rewards.length || currentOffer.reward_unavailable) {
+            setRewardWarning(true);
+            return;
+        }
+        if (current < currentOffer.goal_count) {
+            await fetchHistory(restaurantId);
+            return;
+        }
+
+        addRewards(currentOffer.rewards.map(reward => ({
             id: crypto.randomUUID(),
             base_item_id: reward.id,
             name: `(PRÊMIO) ${reward.name}`,
@@ -216,7 +264,7 @@ export default function HistoryModal({
     const canRedeem =
         program?.active === true &&
         current >= goal &&
-        visibleStep === "view_history" && program.rewards.length > 0;
+        visibleStep === "view_history" && (program.rewards.length > 0 || program.reward_unavailable);
 
     const renderProgress = () => {
         return (
@@ -230,7 +278,7 @@ export default function HistoryModal({
                             prêmio.
                         </p>
 
-                        <Button variant="primary" onClick={handleRedeem} className="w-full">
+                        <Button variant="primary" onClick={handleRedeem} loading={checkingReward} className="w-full">
                             <FontAwesomeIcon icon={faTrophy} className="mr-2" />
                             Resgatar recompensa
                         </Button>
@@ -250,6 +298,22 @@ export default function HistoryModal({
             </div>
         );
     };
+
+    if (rewardWarning) {
+        return (
+            <ModalMobile open={open} onClose={onClose} title="Recompensa indisponível" height={0.45}>
+                <div className="space-y-4 p-4">
+                    <WarningBox icon={faTriangleExclamation} role="alert">
+                        Um ou mais produtos da recompensa estão indisponíveis. Seus selos continuam salvos.
+                    </WarningBox>
+                    {restaurantWhatsapp && <RestaurantWhatsappBadge whatsapp={restaurantWhatsapp} />}
+                    <Button variant="secondary" onClick={() => setRewardWarning(false)} className="w-full">
+                        Voltar
+                    </Button>
+                </div>
+            </ModalMobile>
+        );
+    }
 
     return (
         <ModalMobile

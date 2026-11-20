@@ -106,16 +106,6 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        if (active && !rewardItemId) {
-            return NextResponse.json(
-                {
-                    error:
-                        "Selecione o item da recompensa antes de ativar o programa.",
-                },
-                { status: 400 }
-            );
-        }
-
         for (const { item_id: rewardItemId, subitem_ids: rewardSubitemIds } of rewards) {
             const itemResult = await query(
                 `

@@ -6,6 +6,7 @@ import { useLoyaltyStore } from "@/lib/stores/restaurant-owner/loyaltyStore";
 import Input from "@/components/ui/Input";
 import SaveStatus from "@/components/ui/SaveStatus";
 import Loader, { PageLoader } from "@/components/ui/Loader";
+import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import Dropdown from "@/components/ui/Dropdown";
 import ToggleOptionCard from "@/components/ui/ToggleOptionCard";
@@ -44,8 +45,6 @@ export default function FidelidadePage() {
     } = useLoyaltyStore();
 
     const { status: saveStatus, error: saveError, schedule: scheduleSave, reset: resetSave } = useAutoSave<LoyaltyProgram>(restaurantId, async (snapshot) => {
-        if (snapshot.active && !snapshot.reward_item_id)
-            throw new Error("Selecione o item da recompensa para salvar a ativação do programa.");
         if (!Number.isInteger(snapshot.goal_count) || snapshot.goal_count < 1 || snapshot.goal_count > 100)
             throw new Error("Informe uma meta entre 1 e 100 pedidos.");
         if (!(await saveProgram(snapshot))) throw new Error("Não foi possível salvar o programa de fidelidade.");
@@ -202,6 +201,9 @@ export default function FidelidadePage() {
         reward_subitem_ids: []
     };
 
+    const configured = Boolean(safeProgram.reward_item_id) &&
+        Number.isInteger(safeProgram.goal_count) && safeProgram.goal_count >= 1 && safeProgram.goal_count <= 100;
+
     const rewardOptions = (current?: string) => [
         { value: "", label: menuItems.length ? "Selecione um item" : "Nenhum item disponível", disabled: true },
         ...menuItems.filter(item => item.id === current || !rewards.some(reward => reward.item_id === item.id))
@@ -224,6 +226,11 @@ export default function FidelidadePage() {
                 className="flex-nowrap!"
                 ariaLabel="Ativar programa de fidelidade"
                 checked={safeProgram.active}
+                badge={safeProgram.active && (
+                    <Badge variant={configured ? "success" : "warning"}>
+                        {configured ? "Ativo" : "Não configurado"}
+                    </Badge>
+                )}
                 onChange={(active) => updateProgram({ active })}
                 description={safeProgram.active
                     ? "A cada pedido concluído que atingir o valor mínimo, o cliente ganha 1 selo."

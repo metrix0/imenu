@@ -223,6 +223,7 @@ export type LoyaltyOffer = {
     goal_count: number;
     min_order_value_cents: number;
     rewards: LoyaltyReward[];
+    reward_unavailable: boolean;
 };
 
 export type LoyaltyBalance = {

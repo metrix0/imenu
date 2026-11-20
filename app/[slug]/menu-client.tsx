@@ -13,7 +13,7 @@ import { useCartStore } from "@/lib/stores/costumer/cartStore";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/utils/fontawesome";
 import { faChair, faChevronRight, faGift, faStar } from "@fortawesome/free-solid-svg-icons";
-import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
+import RestaurantWhatsappBadge from "@/components/costumer/RestaurantWhatsappBadge";
 import { supabase } from "@/lib/database/supabaseClient";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
@@ -290,7 +290,7 @@ export default function MenuClientPage({
     );
 
     useEffect(() => {
-        if (!restaurantInfoOpen || isTableOrder || restaurantWhatsapp !== undefined) return;
+        if ((!restaurantInfoOpen && !historyOpen) || isTableOrder || restaurantWhatsapp !== undefined) return;
 
         let active = true;
         void fetch(`/api/restaurants/${restaurant.id}`)
@@ -306,7 +306,7 @@ export default function MenuClientPage({
         return () => {
             active = false;
         };
-    }, [restaurantInfoOpen, isTableOrder, restaurant.id, restaurantWhatsapp]);
+    }, [restaurantInfoOpen, historyOpen, isTableOrder, restaurant.id, restaurantWhatsapp]);
 
     useEffect(() => {
         if (!tableOrder) return;
@@ -1373,6 +1373,7 @@ export default function MenuClientPage({
                     open={historyOpen}
                     onClose={() => setHistoryOpen(false)}
                     offer={loyaltyOffer}
+                    restaurantWhatsapp={restaurantWhatsapp}
                     restaurantId={restaurant.id}
                 />
             )}
@@ -1406,16 +1407,7 @@ export default function MenuClientPage({
 
                     {!isTableOrder && restaurantWhatsapp && (
                         <div className="mt-4">
-                            <a
-                                href={restaurantWhatsapp.href}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                aria-label={`Abrir WhatsApp da loja no número ${restaurantWhatsapp.formatted}`}
-                                className="inline-flex items-center gap-2 rounded-full border border-[var(--im-menu-border,#e5e7eb)] bg-[var(--im-menu-soft,#f9fafb)] px-3 py-2 text-sm font-medium text-[var(--im-menu-text-soft,#374151)] transition hover:border-[var(--im-menu-success-border,#bbf7d0)] hover:bg-[var(--im-menu-success-bg,#f0fdf4)] hover:text-[var(--im-menu-success-text,#15803d)] 2xl:text-lg"
-                            >
-                                <FontAwesomeIcon icon={faWhatsapp} className="text-lg text-[var(--im-menu-success-text,#16a34a)] 2xl:text-xl" />
-                                <span>{restaurantWhatsapp.formatted}</span>
-                            </a>
+                            <RestaurantWhatsappBadge whatsapp={restaurantWhatsapp} />
                         </div>
                     )}
 

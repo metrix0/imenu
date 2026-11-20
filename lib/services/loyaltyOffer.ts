@@ -19,8 +19,8 @@ export async function loadLoyaltyOffer(restaurantId: string): Promise<LoyaltyOff
     if (!selections.length) return null;
 
     const [items, subitems] = await Promise.all([
-        query(`SELECT id, name, image_path FROM items
-               WHERE restaurant_id = $1 AND is_available IS DISTINCT FROM false AND id::text = ANY($2::text[])`,
+        query(`SELECT id, name, image_path, is_available FROM items
+               WHERE restaurant_id = $1 AND id::text = ANY($2::text[])`,
         [restaurantId, selections.map(item => item.item_id)]),
         query(`SELECT s.id, s.name, g.id AS group_id, g.name AS group_name, g.item_id
                FROM subitems s JOIN item_subcategories g ON s.item_subcategory_id = g.id
@@ -39,6 +39,12 @@ export async function loadLoyaltyOffer(restaurantId: string): Promise<LoyaltyOff
                 subitemId: row.id, subitemName: row.name, price_cents: 0 }));
         return [{ id: item.id, name: item.name, image, complements }];
     });
-    return rewards.length === selections.length ? { active: true, goal_count: program.goal_count,
-        min_order_value_cents: Number(program.min_order_value_cents) || 0, rewards } : null;
+    return {
+        active: true,
+        goal_count: program.goal_count,
+        min_order_value_cents: Number(program.min_order_value_cents) || 0,
+        rewards,
+        reward_unavailable: rewards.length !== selections.length ||
+            items.rows.some(item => item.is_available === false),
+    };
 }

@@ -891,6 +891,7 @@ export default function CartModal({
             - (promotionResult?.promotion?.discount_cents || 0));
     const loyaltyShortfall = Math.max(0, (loyaltyOffer?.min_order_value_cents ?? 0) - eligibleTotal);
     const redeemingReward = items.some(item => item.is_reward);
+    const rewardEarned = loyaltyOffer && currentStamps !== null && currentStamps >= loyaltyOffer.goal_count;
 
     return (
         <div className={`fixed inset-0 z-41 flex justify-center items-end`}>
@@ -1101,10 +1102,11 @@ export default function CartModal({
                             <span className="min-w-0 flex-1 space-y-1">
                                 <span className="block text-sm font-medium">
                                     {redeemingReward ? "Você está resgatando uma recompensa"
+                                        : rewardEarned ? "Você ganhou uma recompensa!"
                                         : loyaltyShortfall > 0 ? `Faltam ${formatPrice(loyaltyShortfall)} para ganhar 1 selo`
                                         : "Este pedido vale 1 selo"}
                                 </span>
-                                {currentStamps !== null && (
+                                {!redeemingReward && !rewardEarned && currentStamps !== null && (
                                     <span className="flex items-center gap-2 text-xs">
                                         <progress aria-label="Progresso da fidelidade" value={currentStamps} max={loyaltyOffer.goal_count}
                                             className="h-2 min-w-0 flex-1 appearance-none overflow-hidden rounded-full bg-[var(--im-menu-border,#e5e7eb)] [&::-webkit-progress-bar]:bg-[var(--im-menu-border,#e5e7eb)] [&::-webkit-progress-value]:bg-[var(--im-menu-action,#f14400)] [&::-moz-progress-bar]:bg-[var(--im-menu-action,#f14400)]" />
