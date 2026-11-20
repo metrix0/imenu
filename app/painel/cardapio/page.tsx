@@ -8,7 +8,7 @@ import { PanelIcon } from "@/components/ui/PanelIcon";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import Button from "@/components/ui/Button";
-import Loader from "@/components/ui/Loader";
+import { PageLoader } from "@/components/ui/Loader";
 import Tabs from "@/components/ui/Tabs";
 import Toast from "@/components/ui/Toast";
 
@@ -189,9 +189,7 @@ export default function MenuManagerPage() {
 
     if (isLoading) {
         return (
-            <div className="flex justify-center items-center h-64">
-                <Loader />
-            </div>
+            <PageLoader />
         );
     }
 

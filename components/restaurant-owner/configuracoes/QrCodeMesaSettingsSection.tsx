@@ -334,7 +334,7 @@ export default function QrCodeMesaSettingsSection({
     const BillingContainer = presentation === "plans" ? "section" : Card;
     const productCards = loading ? (
         <div className="flex justify-center py-10">
-            <Loader className="border-t-brand" />
+            <Loader />
         </div>
     ) : (
         <MenuProductCards

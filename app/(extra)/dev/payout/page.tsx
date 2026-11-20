@@ -7,7 +7,7 @@ import Button from "@/components/ui/Button";
 import styles from "@/components/dev/dashboard.module.css";
 import Card from "@/components/ui/Card";
 import Dropdown from "@/components/ui/Dropdown";
-import Loader from "@/components/ui/Loader";
+import { PageLoader } from "@/components/ui/Loader";
 import Modal from "@/components/ui/Modal";
 import PayoutRetryDialog from "@/components/dev/PayoutRetryDialog";
 import { PAYOUT_RETRY_CONFIRMATION_REQUIRED } from "@/lib/services/payoutAutomation";
@@ -662,9 +662,7 @@ export default function DevPayoutPage() {
 
     if (accessState === "checking" || (loading && !data)) {
         return (
-            <div className="flex min-h-[60vh] items-center justify-center">
-                <Loader />
-            </div>
+            <PageLoader />
         );
     }
 

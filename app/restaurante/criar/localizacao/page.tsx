@@ -193,7 +193,7 @@ export default function LocalizacaoPage() {
     if (loading) {
         return (
             <main className="flex min-h-[50vh] items-center justify-center">
-                <Loader className="border-t-brand" />
+                <Loader />
             </main>
         );
     }

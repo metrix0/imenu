@@ -4,8 +4,9 @@ import { useState, useRef } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { uploadLogoImage } from "@/lib/database/uploadLogoImage"; // Usando a helper function
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import { faCamera, faSpinner } from "@fortawesome/free-solid-svg-icons";
+import { faCamera } from "@fortawesome/free-solid-svg-icons";
 import Input from "@/components/ui/Input";
+import Loader from "@/components/ui/Loader";
 import Card from "@/components/ui/Card"; // Usando o componente de Card
 
 interface RestaurantIdentityProps {
@@ -91,7 +92,7 @@ export default function RestaurantIdentity({
 
                 {isUploading && (
                     <div className="absolute inset-0 flex items-center justify-center">
-                        <FontAwesomeIcon icon={faSpinner} spin className="text-brand text-xl" />
+                        <Loader className="!h-5 !w-5 !border-2" />
                     </div>
                 )}
             </div>

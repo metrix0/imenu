@@ -133,7 +133,7 @@ export default function WhatsappRedirectPage() {
             <div className="flex w-full max-w-md flex-col items-center">
                 {!whatsappOpened ? (
                     <>
-                        <Loader className="border-t-brand" />
+                        <Loader />
                         <h1 className="mt-5 text-lg font-semibold text-gray-900">
                             Abrindo WhatsApp...
                         </h1>

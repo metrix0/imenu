@@ -9,10 +9,12 @@ import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
 import HybridModal from "@/components/ui/HybridModal";
 import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {formatPrice, promotionPrice} from "@/lib/utils/formatPrice";
 import { captureConsumerEvent } from "@/lib/analytics/captureConsumerEvent";
 import { CONSUMER_EVENTS } from "@/lib/analytics/consumerEvents";
+import { rememberPixPixelPurchase, trackMetaPixel } from "@/lib/analytics/metaBrowser";
+import { metaCommerceData, metaPurchaseEventId, type TrackMetaFunnelEvent } from "@/lib/analytics/metaEvents";
 import { useRouter } from "next/navigation";
 import type { PromotionResult } from "@/lib/promotions/automatic";
 import type { QrTableMenuContext } from "@/lib/qr-table/types";
@@ -23,7 +25,7 @@ export default function CartBar({
                                     cartOpen,
                                     restaurant,
                                     setCartOpenAction,
-    closeItemModalOpen, trackMeta, slug, tableOrder, selectedTableId,
+    closeItemModalOpen, trackMeta, metaPixelId, slug, tableOrder, selectedTableId,
     selectedTableName, promotionResult, requiresSchedule = false
                                 }: {
     onOpenCartAction: () => void,
@@ -31,7 +33,8 @@ export default function CartBar({
     restaurant: any,
     setCartOpenAction: React.Dispatch<React.SetStateAction<boolean>>;
     closeItemModalOpen: () => void;
-    trackMeta?: (slug: string, eventName: string, customData: Record<string, any>) => void;
+    trackMeta?: TrackMetaFunnelEvent;
+    metaPixelId?: string | null;
     slug?: string;
     tableOrder?: QrTableMenuContext | null;
     selectedTableId?: string | null;
@@ -41,6 +44,10 @@ export default function CartBar({
 }) {
     const router = useRouter();
     const items = useCartStore((s) => s.items);
+    const metaCheckout = useRef({ started: false, payment: false });
+    useEffect(() => {
+        if (!cartOpen || items.length === 0) metaCheckout.current = { started: false, payment: false };
+    }, [cartOpen, items.length]);
 
     const step = useCheckoutStore((s) => s.step);
     const setStep = useCheckoutStore((s) => s.setStep);
@@ -244,6 +251,13 @@ export default function CartBar({
                     consumerProperties()
                 );
             }
+            if (trackMeta && !metaCheckout.current.started) {
+                metaCheckout.current.started = true;
+                trackMeta("InitiateCheckout", metaCommerceData(
+                    items.map(item => ({ id: item.base_item_id, quantity: item.qty })),
+                    finalTotalCents,
+                ));
+            }
             setStep("info");
             return;
         }
@@ -407,17 +421,23 @@ export default function CartBar({
         const currentPromotion = promotionResult;
         const total_cents = currentPromotion?.total_cents ?? subtotal_cents + delivery_fee_cents - discount_cents;
 
-        if (trackMeta && slug) {
-            trackMeta?.(slug, "Purchase", {
-                content_ids: cart.items.map(i => i.id),
-                content_type: "product",
-                value: total_cents / 100,
-                currency: "BRL"
+        if (trackMeta && !isTableOrder && checkout.pagamento && !metaCheckout.current.payment) {
+            metaCheckout.current.payment = true;
+            trackMeta("AddPaymentInfo", metaCommerceData(
+                cart.items.map(item => ({ id: item.base_item_id, quantity: item.qty })),
+                total_cents,
+            ), {
+                name: checkout.nome,
+                phone: checkout.celular,
+                city: pickup ? undefined : checkout.cidade,
+                state: pickup ? undefined : checkout.estado,
+                postalCode: pickup ? undefined : checkout.cep,
             });
         }
 
         const body = {
             restaurantId: restaurant.id,
+            ...(metaPixelId ? { meta_tracking: true } : {}),
             expected_promotion: { id: currentPromotion?.promotion?.id || null, total_cents },
             customer_name: checkout.nome,
             customer_address_details: pickup || isTableOrder ? null : {cep:checkout.cep,rua:checkout.rua,bairro:checkout.bairro,numero:checkout.numero,cidade:checkout.cidade,estado:checkout.estado,complemento:checkout.complemento,referencia:checkout.referencia},
@@ -557,6 +577,13 @@ export default function CartBar({
         useCheckoutStore.setState({ is_pickup: false, scheduled_for: null } as any);
 
         const createdOrderId = data.order_id || data.id;
+        if (data.meta_purchase && metaPixelId && createdOrderId) {
+            if (data.payment_type === "pix") {
+                rememberPixPixelPurchase({ pixelId: metaPixelId, data: data.meta_purchase });
+            } else if (data.payment_type === "offline") {
+                trackMetaPixel(metaPixelId, "Purchase", data.meta_purchase, metaPurchaseEventId(createdOrderId));
+            }
+        }
         if (shouldOpenWhatsappHandoff && createdOrderId) {
             try {
                 const confirmationResponse = await fetch(

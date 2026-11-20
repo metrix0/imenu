@@ -1,6 +1,7 @@
 import { query } from "@/lib/database/sql";
 import { getCrm } from "../crm";
 import { getTodayRecoveryForecast } from "../abandonedBlastPlan";
+import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGE } from "../plusFeedbackBlast";
 
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn() }));
 jest.mock("../abandonedBlastPlan", () => ({
@@ -182,14 +183,28 @@ test.each([
     expect(listSql).toContain("churn_blast.error AS blast_error");
     expect(listSql).toContain(`regexp_replace(BTRIM(campaign.message), '\\s+', ' ', 'g') = ANY($${hasPeriod ? 6 : 4}::text[])`);
     expect(listSql).toContain(`regexp_replace(BTRIM(message.body), '\\s+', ' ', 'g') ~ ANY($${hasPeriod ? 7 : 5}::text[])`);
-    expect(listArgs).toHaveLength(hasPeriod ? 7 : 5);
-    const expectedCopy = activity === "churned_plus" ? [message, "atendimento exclusivo", "chegou ao fim"] : [message];
+    const feedback = activity === "churned_plus";
+    expect(listArgs).toHaveLength((hasPeriod ? 7 : 5) + Number(feedback));
+    const [templates, patterns] = listArgs.slice(hasPeriod ? 5 : 3);
+    const expectedCopy = feedback ? [message, "atendimento exclusivo", "chegou ao fim"] : [message];
     for (const copy of expectedCopy) {
-        expect(listArgs.at(-2)).toContainEqual(expect.stringContaining(copy));
-        expect(listArgs.at(-1)).toContainEqual(expect.stringContaining(copy));
+        expect(templates).toContainEqual(expect.stringContaining(copy));
+        expect(patterns).toContainEqual(expect.stringContaining(copy));
     }
-    expect(listArgs.at(-2)).toHaveLength(expectedCopy.length);
-    expect(listArgs.at(-1)).toHaveLength(expectedCopy.length);
+    expect(templates).toHaveLength(expectedCopy.length);
+    expect(patterns).toHaveLength(expectedCopy.length);
+    if (feedback) {
+        expect(listArgs.at(-1)).toEqual([
+            PLUS_FIRST_MONTH_FEEDBACK_MESSAGE,
+            PLUS_FIRST_MONTH_FEEDBACK_MESSAGE.replace("Sou a Ellen", "Sou o João"),
+        ]);
+        expect(listSql).toContain("feedback_blast.status AS feedback_blast_status");
+        expect(listSql).toContain("campaign.sender = 'support' AND campaign.message = ANY($8::text[])");
+        expect(listSql).toContain("(churn.event_at AT TIME ZONE 'America/Sao_Paulo')::date - 7");
+        expect(listSql).toContain("'support:bulk:support:'");
+    } else {
+        expect(listSql).not.toContain("feedback_blast");
+    }
     expect(listSql).toContain("ORDER BY sort_at DESC NULLS LAST");
     expect(countSql).not.toContain("support_blast_recipients");
     expect(countArgs).toHaveLength(hasPeriod ? 3 : 1);
@@ -201,7 +216,7 @@ test("Churn displays a forecast without replacing today's confirmed delivery sta
     });
     sqlQuery.mockReset()
         .mockResolvedValueOnce({ rows: [
-            { id: "a", blast_account_id: "account-a", blast_status: null },
+            { id: "a", blast_account_id: "account-a", blast_status: null, feedback_blast_status: "sent" },
             { id: "b", blast_account_id: "account-b", blast_status: "sent", blast_at: "2026-11-15T18:00:00Z" },
             { id: "c", blast_account_id: "account-c", blast_status: null },
         ] })
@@ -210,7 +225,7 @@ test("Churn displays a forecast without replacing today's confirmed delivery sta
         activity: "churned_plus", includeBlast: "1", startDate: "2026-11-09", endDate: "2026-11-15",
     }));
     expect(page).toMatchObject({ rows: [
-        { id: "a", blast_status: "predicted" },
+        { id: "a", blast_status: "predicted", feedback_blast_status: "sent" },
         { id: "b", blast_status: "sent" },
         { id: "c", blast_status: null },
     ] });

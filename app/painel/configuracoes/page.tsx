@@ -1,18 +1,20 @@
 "use client";
 
 import { PageSaveHeader } from "@/components/ui/SaveStatus";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faChevronRight,
-    faCheck,
     faCircleInfo,
     faCopy,
     faCrown,
     faDownload,
+    faGear,
     faLock,
+    faReceipt,
     faQrcode,
     faSignOutAlt,
     faTrash,
@@ -26,7 +28,7 @@ import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Switch from "@/components/ui/Switch";
 import SaveStatus from "@/components/ui/SaveStatus";
-import Loader from "@/components/ui/Loader";
+import { PageLoader } from "@/components/ui/Loader";
 import Toast from "@/components/ui/Toast";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Tooltip from "@/components/ui/Tooltip";
@@ -35,6 +37,10 @@ import ResetOrderCountSection from "@/components/restaurant-owner/configuracoes/
 import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
 import { qrTableAuthenticatedFetch } from "@/lib/qr-table/clientApi";
 import PizzaSettingsSection from "@/components/restaurant-owner/configuracoes/PizzaSettingsSection";
+import AddressForm, { saveRestaurantAddress } from "@/components/restaurant-owner/configuracoes/AddressForm";
+import StoreWhatsappField, { ResponsiblePhoneField } from "@/components/restaurant-owner/loja/StoreWhatsappField";
+import { CollapsibleContent, useCollapsible } from "@/components/ui/CollapsibleSection";
+import type { AddressData } from "@/lib/types/types";
 
 type Restaurant = {
     id: string;
@@ -42,12 +48,151 @@ type Restaurant = {
     url_slug?: string | null;
     user_id?: string | null;
     phone?: string | null;
+    store_whatsapp: string | null;
+    address: Partial<AddressData> | null;
+    latitude: number | null;
+    longitude: number | null;
     force_whatsapp_order_confirmation?: boolean | null;
     vitrine_enabled?: boolean;
     dark_menu_enabled?: boolean;
     delivery_fee_mode?: "radius" | "neighborhood" | null;
     small_city_mode_enabled?: boolean | null;
 };
+
+const SETTINGS_SECTIONS = {
+    modos: { label: "Modos", icon: faGear },
+    pedidos: { label: "Pedidos", icon: faReceipt },
+};
+
+function SettingsSection({ id, children }: { id: keyof typeof SETTINGS_SECTIONS; children: ReactNode }) {
+    const { label, icon } = SETTINGS_SECTIONS[id];
+    return (
+        <section id={id} aria-labelledby={`${id}-heading`} className="scroll-mt-20 space-y-4">
+            <h2 id={`${id}-heading`} className="flex items-center gap-2.5 text-xl font-semibold text-gray-900">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#fff1ea] text-sm text-[#c43700]" aria-hidden="true">
+                    <FontAwesomeIcon icon={icon} />
+                </span>
+                {label}
+            </h2>
+            {children}
+        </section>
+    );
+}
+
+function StoreDetails({ restaurant, onSaveAddress }: { restaurant: Restaurant; onSaveAddress: (data: AddressData) => Promise<void> }) {
+    const addressEditor = useCollapsible();
+    const [robotConnected, setRobotConnected] = useState<boolean | null>(null);
+    const restaurantId = restaurant.id;
+
+    useEffect(() => {
+        const controller = new AbortController();
+        void qrTableAuthenticatedFetch(
+            `/api/whatsapp/connection?restaurantId=${encodeURIComponent(restaurantId)}&statusOnly=1`,
+            { cache: "no-store", signal: controller.signal },
+        ).then(async (response) => {
+            if (!response.ok) return;
+            const data = await response.json() as { connected: boolean };
+            if (!controller.signal.aborted) setRobotConnected(data.connected);
+        }).catch(() => {});
+        return () => controller.abort();
+    }, [restaurantId]);
+
+    const address = restaurant.address;
+    const streetLine = [address?.street, address?.number].filter(Boolean).join(", ");
+    const cityLine = [address?.city, address?.state].filter(Boolean).join(" - ");
+    const summary = [streetLine, address?.neighborhood, cityLine].filter(Boolean).join(" · ");
+
+    return (
+        <>
+            <StoreWhatsappField
+                restaurantId={restaurantId}
+                initialValue={restaurant.store_whatsapp}
+                labelAction={
+                    <Link
+                        href="/painel/robo-whatsapp"
+                        className="inline-flex rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                    >
+                        <Badge variant={robotConnected ? "success" : "neutral"}>
+                            {robotConnected === null ? "Robô WhatsApp" : robotConnected ? "Robô conectado" : "Conectar robô WhatsApp"}
+                        </Badge>
+                    </Link>
+                }
+            />
+            <div>
+                <div className="flex min-w-0 items-center justify-between gap-3">
+                    <div className="min-w-0">
+                        <h3 className="text-xs font-medium leading-[18px] text-gray-900">Endereço do restaurante</h3>
+                        <p className="mt-1 break-words text-sm text-gray-600">{summary || "Endereço não cadastrado."}</p>
+                    </div>
+                    <Button
+                        {...addressEditor.triggerProps}
+                        variant="secondary"
+                        aria-label={addressEditor.expanded ? "Recolher endereço" : "Alterar endereço"}
+                        className="shrink-0"
+                    >
+                        {addressEditor.expanded ? "Recolher" : "Alterar"}
+                    </Button>
+                </div>
+                <CollapsibleContent id={addressEditor.contentId} expanded={addressEditor.expanded}>
+                    <div className="py-5">
+                        <AddressForm
+                            embedded
+                            initialData={{ ...address, latitude: restaurant.latitude, longitude: restaurant.longitude }}
+                            onSubmit={onSaveAddress}
+                        />
+                    </div>
+                </CollapsibleContent>
+            </div>
+        </>
+    );
+}
+
+function MenuShareControls({ url, label, onCopy, onDownload }: {
+    url: string;
+    label: "delivery" | "vitrine";
+    onCopy: () => Promise<void>;
+    onDownload: () => Promise<void>;
+}) {
+    const [showQr, setShowQr] = useState(false);
+    const qrId = useId();
+
+    return (
+        <>
+            <div className="mt-6 flex min-w-0 flex-col gap-3 sm:flex-row">
+                <div className="min-w-0 flex-1">
+                    <Input value={url} readOnly aria-label={`Link do cardápio ${label}`} className="min-w-0" />
+                </div>
+                <Button variant="secondary" onClick={() => void onCopy()} className="shrink-0">
+                    <FontAwesomeIcon icon={faCopy} className="mr-2" />
+                    Copiar link
+                </Button>
+                <Button variant="secondary" onClick={() => window.open(url, "_blank", "noopener,noreferrer")} className="shrink-0">
+                    Abrir cardápio
+                </Button>
+                <Button variant="secondary" aria-expanded={showQr} aria-controls={qrId}
+                    onClick={() => setShowQr((current) => !current)} className="shrink-0">
+                    <FontAwesomeIcon icon={faQrcode} className="mr-2" />
+                    QR Code
+                </Button>
+            </div>
+            <div id={qrId} hidden={!showQr}>
+                {showQr && (
+                    <div className="mt-4 flex flex-col items-center rounded-lg border border-gray-200 bg-gray-50 p-6">
+                        <img
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`}
+                            alt={`QR Code do cardápio ${label}`}
+                            className="mb-4 h-48 w-48 rounded-md border border-gray-200"
+                        />
+                        <Button variant="secondary" onClick={() => void onDownload()}>
+                            <FontAwesomeIcon icon={faDownload} className="mr-2" />
+                            Baixar Imagem
+                        </Button>
+                    </div>
+                )}
+            </div>
+        </>
+    );
+}
 
 type OrderDingleDuration = "short" | "medium" | "long";
 
@@ -191,13 +336,6 @@ async function playOrderDingleWithDuration(
     }
 }
 
-function formatPhone(value: string): string {
-    const digits = value.replace(/\D/g, "").slice(0, 11);
-    if (digits.length <= 2) return digits ? `(${digits}` : "";
-    if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
-    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
-}
-
 export default function ConfiguracoesPage() {
     const router = useRouter();
     const { restaurantId, setRestaurantId, clear } = useCreationStore();
@@ -205,10 +343,6 @@ export default function ConfiguracoesPage() {
     const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
     const [loading, setLoading] = useState(true);
     const [saveErrors, setSaveErrors] = useState<Record<string, boolean>>({});
-    const [savingField, setSavingField] = useState<"phone" | null>(null);
-    const [isEditingPhone, setIsEditingPhone] = useState(false);
-    const [phone, setPhone] = useState("");
-    const [savedPhone, setSavedPhone] = useState("");
     const [orderDingleDuration, setOrderDingleDuration] =
         useState<OrderDingleDuration>("short");
     const [isTestingOrderDingle, setIsTestingOrderDingle] = useState(false);
@@ -225,7 +359,6 @@ export default function ConfiguracoesPage() {
     const [pdfSalesOpen, setPdfSalesOpen] = useState(false);
     const [darkThemeSalesOpen, setDarkThemeSalesOpen] = useState(false);
     const [isSavingDarkMenu, setIsSavingDarkMenu] = useState(false);
-    const [showVitrineQr, setShowVitrineQr] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -295,7 +428,7 @@ export default function ConfiguracoesPage() {
                     const { data: restData } = await supabase
                         .from("restaurants")
                         .select(
-                            "id, name, url_slug, user_id, phone, force_whatsapp_order_confirmation, vitrine_enabled, dark_menu_enabled, delivery_fee_mode, small_city_mode_enabled",
+                            "id, name, url_slug, user_id, phone, store_whatsapp, address, latitude, longitude, force_whatsapp_order_confirmation, vitrine_enabled, dark_menu_enabled, delivery_fee_mode, small_city_mode_enabled",
                         )
                         .eq("id", targetId)
                         .single();
@@ -305,11 +438,6 @@ export default function ConfiguracoesPage() {
                         setForceWhatsappOrderConfirmation(
                             restData.force_whatsapp_order_confirmation === true,
                         );
-                        const formattedPhone = formatPhone(
-                            restData.phone || "",
-                        );
-                        setPhone(formattedPhone);
-                        setSavedPhone(formattedPhone);
                         if (restData.url_slug) {
                             setShareableUrl(
                                 `${window.location.origin}/${restData.url_slug}`,
@@ -329,36 +457,14 @@ export default function ConfiguracoesPage() {
         void loadData();
     }, [restaurantId, router, setRestaurantId, loadPdfAccess]);
 
-    const savePhone = async () => {
-        if (!restaurant) return;
-        if (phone === savedPhone) {
-            setIsEditingPhone(false);
-            return;
-        }
-        if (phone.replace(/\D/g, "").length !== 11) {
-            setToast({ message: "Digite um celular válido.", type: "error" });
-            return;
-        }
-
-        setSavingField("phone");
-        setSaveErrors(previous => ({ ...previous, phone: false }));
-        const response = await fetch(`/api/restaurants/${restaurant.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ phone: phone.replace(/\D/g, "") }),
-        });
-        setSavingField(null);
-
-        if (!response.ok) {
-            setSaveErrors(previous => ({ ...previous, phone: true }));
-            setToast({ message: "Erro ao salvar celular.", type: "error" });
-            return;
-        }
-
-        setSavedPhone(phone);
-        setIsEditingPhone(false);
-        setToast({ message: "Celular atualizado!", type: "success" });
-    };
+    const currentRestaurantId = restaurant?.id;
+    const saveAddress = useCallback(async (data: AddressData) => {
+        if (!currentRestaurantId) return;
+        await saveRestaurantAddress(currentRestaurantId, data);
+        setRestaurant((current) => current?.id === currentRestaurantId
+            ? { ...current, address: data, latitude: data.latitude, longitude: data.longitude }
+            : current);
+    }, [currentRestaurantId]);
 
     const saveWhatsappOrderConfirmation = async (enabled: boolean) => {
         if (!restaurant || isSavingWhatsappConfirmation) return;
@@ -535,10 +641,10 @@ export default function ConfiguracoesPage() {
         }
     };
 
-    const copyVitrineLink = async () => {
+    const copyLink = async (url: string, message: string) => {
         try {
-            await navigator.clipboard.writeText(vitrineUrl);
-            setToast({ message: "Link da vitrine copiado!", type: "success" });
+            await navigator.clipboard.writeText(url);
+            setToast({ message, type: "success" });
         } catch {
             setToast({ message: "Não foi possível copiar o link.", type: "error" });
         }
@@ -642,24 +748,24 @@ export default function ConfiguracoesPage() {
 
             if (!session?.access_token) throw new Error("Sessão expirada.");
 
-            const { data: ownedRestaurants, error: restaurantsError } = await supabase
-                .from("restaurants")
-                .select("id")
-                .eq("user_id", user.id);
-            if (restaurantsError) throw restaurantsError;
+            const restaurantResponse = await fetch("/api/restaurants/delete-restaurant", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({ allOwned: true }),
+            });
 
-            for (const owned of ownedRestaurants || []) {
-                const restaurantResponse = await fetch("/api/restaurants/delete-restaurant", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${session.access_token}`,
-                    },
-                    body: JSON.stringify({ restaurantId: owned.id }),
-                });
-                if (!restaurantResponse.ok) {
-                    throw new Error("Não foi possível excluir o restaurante e desconectar seu WhatsApp.");
+            if (!restaurantResponse.ok) {
+                const failure = await restaurantResponse.json().catch(() => null);
+                if (failure?.error === "restaurant_has_payouts") {
+                    throw new Error("Há repasses registrados nesta conta. Fale com o suporte para solicitar a exclusão.");
                 }
+                if (failure?.error === "restaurant_has_linked_records") {
+                    throw new Error("Há registros vinculados ao restaurante. Fale com o suporte para solicitar a exclusão.");
+                }
+                throw new Error("Não foi possível excluir os dados do restaurante. Tente novamente.");
             }
 
             const response = await fetch("/api/auth/delete-account", {
@@ -685,12 +791,6 @@ export default function ConfiguracoesPage() {
         }
     };
 
-    const copyLink = async () => {
-        if (!shareableUrl) return;
-        await navigator.clipboard.writeText(shareableUrl);
-        setToast({ message: "Link copiado!", type: "success" });
-    };
-
     const downloadQr = async (url: string, filename: string) => {
         if (!url) return;
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`;
@@ -710,9 +810,7 @@ export default function ConfiguracoesPage() {
 
     if (loading) {
         return (
-            <div className="flex justify-center p-10">
-                <Loader className="border-t-brand" />
-            </div>
+            <PageLoader />
         );
     }
 
@@ -736,6 +834,7 @@ export default function ConfiguracoesPage() {
                 title="Deletar conta?"
                 description="Ação irreversível. Todos os seus dados serão apagados."
                 confirmLabel="Deletar conta"
+                confirmationText="deletar minha conta"
                 isLoading={isDeleting}
                 variant="danger"
             />
@@ -762,472 +861,352 @@ export default function ConfiguracoesPage() {
             )}
 
             <div className="min-h-screen bg-gray-50 px-4 pb-20 pt-8 sm:px-6">
-                <div className="mx-auto max-w-6xl space-y-8">
+                <div className="mx-auto max-w-6xl space-y-10">
                     <PageSaveHeader>
-<div>
-                        <h1 className="text-3xl font-bold text-gray-900 2xl:text-4xl">
-                            Configurações
-                        </h1>
-                        <p className="mt-1 text-gray-600 2xl:text-lg">
-                            Gerencie sua conta e seu acesso.
-                        </p>
-                    </div>
-</PageSaveHeader>
+                        <div>
+                            <h1 className="text-3xl font-bold text-gray-900 2xl:text-4xl">Configurações</h1>
+                            <p className="mt-1 text-gray-600">Gerencie sua loja, sua conta e as preferências do painel.</p>
+                        </div>
+                    </PageSaveHeader>
 
-                    <section className="space-y-4">
-                        <div className="flex items-center justify-between gap-4">
-                            <h2 className="text-xl font-medium text-gray-900">
-                                Minha Conta
-                            </h2>
-                            <Button
-                                variant="secondary"
-                                onClick={handleLogout}
-                                loading={isLoggingOut}
-                                className="!min-h-0 !border-0 !bg-transparent !px-0 !py-0 text-sm text-red-600 hover:!bg-transparent hover:text-red-700"
-                            >
-                                <FontAwesomeIcon
-                                    icon={faSignOutAlt}
-                                    className="mr-2"
-                                />
-                                Sair da Conta
-                            </Button>
+                    <div className="space-y-4">
+                        <div className={`grid gap-4 ${restaurant ? "lg:grid-cols-2" : ""}`}>
+                            <Card className="space-y-4">
+                                <div className="flex min-h-7 items-center justify-between gap-3">
+                                    <h2 className="text-lg font-semibold text-gray-900">Conta</h2>
+                                    <Button
+                                        variant="secondary"
+                                        onClick={handleLogout}
+                                        loading={isLoggingOut}
+                                        className="!min-h-0 !border-0 !bg-transparent !px-0 !py-0 text-sm text-red-600 hover:!bg-transparent hover:text-red-700"
+                                    >
+                                        <FontAwesomeIcon icon={faSignOutAlt} className="mr-2" />
+                                        Sair da conta
+                                    </Button>
+                                </div>
+                                {restaurant && (
+                                    <ResponsiblePhoneField key={restaurant.id} restaurantId={restaurant.id} initialValue={restaurant.phone ?? null} />
+                                )}
+                                {user && (
+                                    <div className="flex flex-wrap items-end gap-2 sm:flex-nowrap">
+                                        <div className="w-full min-w-0 sm:flex-1">
+                                            <Input label="E-mail" type="email" value={user.email ?? ""} readOnly locked />
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            variant="secondary"
+                                            className="flex-1 sm:flex-none"
+                                            onClick={() => router.push("/painel/configuracoes/atualizando-email")}
+                                        >
+                                            Alterar e-mail
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="secondary"
+                                            className="flex-1 sm:flex-none"
+                                            onClick={() => router.push("/painel/configuracoes/nova-senha")}
+                                        >
+                                            Mudar senha
+                                        </Button>
+                                    </div>
+                                )}
+                            </Card>
+                            {restaurant && (
+                                <Card className="space-y-4">
+                                    <h2 className="flex min-h-7 items-center text-lg font-semibold text-gray-900">Loja</h2>
+                                    <StoreDetails key={restaurant.id} restaurant={restaurant} onSaveAddress={saveAddress} />
+                                </Card>
+                            )}
                         </div>
 
                         <Card className="!p-0 overflow-hidden">
-                            <div className="divide-y divide-gray-100 px-5">
-                                <div className="grid gap-3 py-4 sm:grid-cols-[180px_minmax(0,1fr)_auto] sm:items-center sm:gap-6">
-                                    <p className="text-sm font-medium text-gray-600">
-                                        Celular do Responsável
-                                    </p>
-                                    <div className="min-w-0">
-                                        {isEditingPhone ? (
-                                            <Input
-                                                value={phone}
-                                                onChange={(event) =>
-                                                    setPhone(formatPhone(event.target.value))
-                                                }
-                                                placeholder="(00) 00000-0000"
-                                                type="tel"
-                                                maxLength={15}
-                                                autoFocus
-                                            />
-                                        ) : (
-                                            <p className="font-medium text-gray-900">
-                                                {phone || "—"}
-                                            </p>
-                                        )}
-                                        <SaveStatus status={saveErrors.phone ? "error" : savingField === "phone" ? "saving" : "saved"} />
-                                    </div>
-                                    <Button
-                                        variant="secondary"
-                                        onClick={() =>
-                                            isEditingPhone
-                                                ? void savePhone()
-                                                : setIsEditingPhone(true)
-                                        }
-                                        loading={savingField === "phone"}
-                                        className="justify-self-start sm:justify-self-end"
-                                    >
-                                        {isEditingPhone ? "Salvar" : "Alterar"}
-                                    </Button>
-                                </div>
-
-                                <div className="grid gap-3 py-4 sm:grid-cols-[180px_minmax(0,1fr)_auto] sm:items-center sm:gap-6">
-                                    <p className="text-sm font-medium text-gray-600">
-                                        E-mail
-                                    </p>
-                                    <p className="min-w-0 break-all font-medium text-gray-900">
-                                        {user?.email}
-                                    </p>
-                                    <Button
-                                        variant="secondary"
-                                        onClick={() =>
-                                            router.push(
-                                                "/painel/configuracoes/atualizando-email",
-                                            )
-                                        }
-                                        className="justify-self-start sm:justify-self-end"
-                                    >
-                                        Alterar
-                                    </Button>
-                                </div>
-
-                                <div className="grid gap-3 py-4 sm:grid-cols-[180px_minmax(0,1fr)_auto] sm:items-center sm:gap-6">
-                                    <p className="text-sm font-medium text-gray-600">
-                                        Senha
-                                    </p>
-                                    <p className="font-medium tracking-[0.08em] text-gray-900">
-                                        ••••••••
-                                    </p>
-                                    <Button
-                                        variant="secondary"
-                                        onClick={() =>
-                                            router.push(
-                                                "/painel/configuracoes/nova-senha",
-                                            )
-                                        }
-                                        className="justify-self-start sm:justify-self-end"
-                                    >
-                                        Alterar
-                                    </Button>
-                                </div>
-                            </div>
-                        </Card>
-
-                    </section>
-
-                    <Card className="!p-0 overflow-hidden">
-                        <button
-                            type="button"
-                            onClick={() => router.push("/painel/planos")}
-                            className="group flex w-full cursor-pointer items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-gray-100"
-                        >
-                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-gray-100 text-gray-700">
-                                <FontAwesomeIcon icon={faCrown} />
-                            </span>
-                            <span className="min-w-0 flex-1">
-                                <span className="block font-medium text-gray-900">
-                                    Planos do iMenu
-                                </span>
-                                <span className="mt-0.5 block text-sm text-gray-500">
-                                    Confira seus benefícios e opções disponíveis.
-                                </span>
-                            </span>
-                            <span className="flex shrink-0 items-center gap-2 text-sm font-medium text-gray-600 transition-colors group-hover:text-gray-900">
-                                <span className="hidden sm:inline">Ver planos</span>
-                                <FontAwesomeIcon icon={faChevronRight} />
-                            </span>
-                        </button>
-                    </Card>
-
-                    <Card className="border border-gray-200 shadow-sm">
-                        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                            <div>
-                                <h2 className="mb-2 text-xl font-medium text-gray-900">
-                                    Som de novos pedidos
-                                </h2>
-                                <p className="text-sm text-gray-500">
-                                    Escolha por quanto tempo o aviso sonoro de chegada de
-                                    pedido deve tocar.
-                                </p>
-                            </div>
-
-                            <Button
+                            <button
                                 type="button"
-                                variant="secondary"
-                                onClick={testOrderDingle}
-                                disabled={isTestingOrderDingle}
-                                className="shrink-0 cursor-pointer bg-white"
+                                onClick={() => router.push("/painel/planos")}
+                                className="group flex w-full cursor-pointer items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-gray-100"
                             >
-                                <FontAwesomeIcon
-                                    icon={faVolumeHigh}
-                                    className="mr-2"
-                                />
-                                {isTestingOrderDingle ? "Tocando..." : "Testar som"}
-                            </Button>
-                        </div>
-
-                        <ChoiceCardGroup
-                            value={orderDingleDuration}
-                            options={ORDER_DINGLE_OPTIONS}
-                            onChange={saveOrderDingleDuration}
-                            className="md:grid-cols-3"
-                        />
-                    </Card>
-
-                    <Card className="border border-gray-200 shadow-sm">
-                        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-                            <div className="min-w-0">
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <h2 className="text-xl font-medium text-gray-900">
-                                        Forçar envio de Notificação no WhatsApp
-                                    </h2>
-                                    <Tooltip
-                                        text="Isso adiciona uma etapa extra à finalização e pode criar atrito no pedido. O pedido é criado antes do WhatsApp: o cliente pode simplesmente não enviar a mensagem e o pedido continuará válido."
-                                        position="top"
-                                        size="medium"
-                                        showOnClick
-                                        parentClassName="inline-flex items-center self-center leading-none"
-                                    >
-                                        <Badge variant="notRecommended" className="gap-1 cursor-help">
-                                            Não recomendado
-                                            <FontAwesomeIcon icon={faCircleInfo} className="text-[11px] leading-none text-yellow-700" />
-                                        </Badge>
-                                    </Tooltip>
-                                </div>
-                                <p className="mt-2 text-sm text-gray-500">
-                                    Após confirmar o pedido, o cliente será direcionado ao
-                                    WhatsApp do restaurante com a comanda completa já
-                                    preenchida.
-                                </p>
-                            </div>
-
-                            <div className="flex shrink-0 items-start gap-3">
-                                <SaveStatus status={saveErrors.whatsapp ? "error" : isSavingWhatsappConfirmation ? "saving" : "saved"} />
-                                <Switch
-                                    checked={forceWhatsappOrderConfirmation}
-                                    aria-label="Obrigar envio de notificação no WhatsApp"
-                                    disabled={isSavingWhatsappConfirmation}
-                                    onClick={() => void saveWhatsappOrderConfirmation(!forceWhatsappOrderConfirmation)}
-                                />
-                            </div>
-                        </div>
-                    </Card>
-
-                    {restaurant && <PizzaSettingsSection restaurantId={restaurant.id} />}
+                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-gray-100 text-gray-700">
+                                    <FontAwesomeIcon icon={faCrown} />
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                    <span className="block font-medium text-gray-900">
+                                        Planos do iMenu
+                                    </span>
+                                    <span className="mt-0.5 block text-sm text-gray-500">
+                                        Confira seus benefícios e opções disponíveis.
+                                    </span>
+                                </span>
+                                <span className="flex shrink-0 items-center gap-2 text-sm font-medium text-gray-600 transition-colors group-hover:text-gray-900">
+                                    <span className="hidden sm:inline">Ver planos</span>
+                                    <FontAwesomeIcon icon={faChevronRight} />
+                                </span>
+                            </button>
+                        </Card>
+                    </div>
 
                     {restaurant && (
-                        <Card className="border border-gray-200 shadow-sm">
-                            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                                <div>
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <h2 className="text-xl font-medium text-gray-900">Modo Vitrine</h2>
+                        <SettingsSection id="modos">
+                            <PizzaSettingsSection restaurantId={restaurant.id} />
+
+                            <Card className="border border-gray-200 shadow-sm">
+                                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                    <div>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <h3 className="text-lg font-semibold text-gray-900">Modo Vitrine</h3>
+                                        </div>
+                                        <p id="vitrine-description" className="mt-2 text-sm text-gray-500">
+                                            Crie um cardápio separado dos demais, exclusivo para visualização.
+                                            Seus clientes podem consultar produtos e preços, mas não realizar pedidos.
+                                        </p>
                                     </div>
-                                    <p id="vitrine-description" className="mt-2 text-sm text-gray-500">
-                                        Crie um cardápio separado dos demais, exclusivo para visualização.
-                                        Seus clientes podem consultar produtos e preços, mas não realizar pedidos.
-                                    </p>
-                                </div>
-                                <div className="flex shrink-0 items-start gap-3">
-                                    <SaveStatus status={saveErrors.vitrine ? "error" : isSavingVitrine ? "saving" : "saved"} />
-                                    <Switch
-                                        checked={restaurant.vitrine_enabled === true}
-                                        aria-label="Modo Vitrine"
-                                        aria-describedby="vitrine-description"
-                                        disabled={isSavingVitrine}
-                                        onClick={() => void saveVitrineMode(restaurant.vitrine_enabled !== true)}
-                                    />
-                                </div>
-                            </div>
-                            {restaurant.vitrine_enabled && vitrineUrl && (
-                                <div className="mt-6 flex min-w-0 flex-col gap-3 sm:flex-row">
-                                    <div className="min-w-0 flex-1">
-                                        <Input value={vitrineUrl} readOnly aria-label="Link do cardápio vitrine" className="min-w-0" />
+                                    <div className="flex shrink-0 items-start gap-3">
+                                        <SaveStatus status={saveErrors.vitrine ? "error" : isSavingVitrine ? "saving" : "saved"} />
+                                        <Switch
+                                            checked={restaurant.vitrine_enabled === true}
+                                            aria-label="Modo Vitrine"
+                                            aria-describedby="vitrine-description"
+                                            disabled={isSavingVitrine}
+                                            onClick={() => void saveVitrineMode(restaurant.vitrine_enabled !== true)}
+                                        />
                                     </div>
-                                    <Button variant="secondary" onClick={() => void copyVitrineLink()} className="shrink-0">
-                                        <FontAwesomeIcon icon={faCopy} className="mr-2" />
-                                        Copiar link
-                                    </Button>
-                                    <Button variant="secondary" onClick={() => window.open(vitrineUrl, "_blank", "noopener,noreferrer")} className="shrink-0">
-                                        Abrir cardápio
-                                    </Button>
-                                    <Button variant="secondary" onClick={() => setShowVitrineQr(!showVitrineQr)} className="shrink-0">
-                                        <FontAwesomeIcon icon={faQrcode} className="mr-2" />
-                                        QR Code
-                                    </Button>
                                 </div>
-                            )}
-                            {restaurant.vitrine_enabled && vitrineUrl && showVitrineQr && (
-                                <div className="mt-4 flex flex-col items-center rounded-lg border border-gray-200 bg-gray-50 p-6">
-                                    <img
-                                        src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(vitrineUrl)}`}
-                                        alt="QR Code do cardápio vitrine"
-                                        className="mb-4 h-48 w-48 rounded-md border border-gray-200"
+                                {restaurant.vitrine_enabled && vitrineUrl && (
+                                    <MenuShareControls
+                                        url={vitrineUrl}
+                                        label="vitrine"
+                                        onCopy={() => copyLink(vitrineUrl, "Link da vitrine copiado!")}
+                                        onDownload={() => downloadQr(vitrineUrl, `vitrine-${restaurant.url_slug || "cardapio"}`)}
                                     />
-                                    <Button variant="secondary" onClick={() => void downloadQr(vitrineUrl, `vitrine-${restaurant.url_slug || "cardapio"}`)}>
-                                        <FontAwesomeIcon icon={faDownload} className="mr-2" />
-                                        Baixar Imagem
-                                    </Button>
+                                )}
+                            </Card>
+
+                            <Card className="border border-gray-200 shadow-sm">
+                                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                    <div className="min-w-0">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <h3 className="text-lg font-semibold text-gray-900">
+                                                Cardápio com Tema Escuro
+                                            </h3>
+                                            <Badge preset={pdfAccess ? "featureAvailable" : "plusIncluded"} />
+                                        </div>
+                                        <p id="dark-menu-description" className="mt-2 text-sm text-gray-500">
+                                            Exiba seu cardápio com cores escuras, inclusive em Mesas e Vitrine.{" "}
+                                            <a
+                                                href="https://www.imenuapp.com.br/pizzaria-la-grucia-dark"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="font-medium text-brand underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                                            >
+                                                Ver exemplo de Tema Escuro
+                                            </a>
+                                        </p>
+                                    </div>
+                                    <div className="flex shrink-0 items-start gap-3">
+                                        <SaveStatus status={saveErrors.dark ? "error" : isSavingDarkMenu ? "saving" : "saved"} />
+                                        <Tooltip
+                                            text={!pdfAccess ? "Disponível com iMenu Plus. Assine o plano para ativar o tema escuro." : ""}
+                                            parentClassName="!block"
+                                        >
+                                            <Switch
+                                                checked={restaurant.dark_menu_enabled === true && pdfAccess}
+                                                aria-label="Cardápio com Tema Escuro"
+                                                aria-describedby="dark-menu-description"
+                                                disabled={isSavingDarkMenu}
+                                                onClick={() => void saveDarkMenuMode(restaurant.dark_menu_enabled !== true)}
+                                            />
+                                        </Tooltip>
+                                    </div>
                                 </div>
-                            )}
-                        </Card>
+                            </Card>
+
+                            <Card className="border border-gray-200 shadow-sm">
+                                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                    <div className="min-w-0">
+                                        <h3 className="text-lg font-semibold text-gray-900">
+                                            Modo Cidade Pequena (CEP opcional)
+                                        </h3>
+                                        <p id="small-city-description" className="mt-2 text-sm text-gray-500">
+                                            Permite pedidos sem CEP, calculando a entrega pelo bairro e oferecendo um campo de ponto de referência.
+                                        </p>
+                                    </div>
+                                    <div className="flex shrink-0 items-start gap-3">
+                                        <SaveStatus status={saveErrors.smallCity ? "error" : isSavingSmallCityMode ? "saving" : "saved"} />
+                                        <Switch
+                                            checked={restaurant.small_city_mode_enabled === true}
+                                            aria-label="Modo Cidade Pequena (CEP opcional)"
+                                            aria-describedby="small-city-description"
+                                            disabled={isSavingSmallCityMode}
+                                            onClick={() => {
+                                                if (restaurant.small_city_mode_enabled) {
+                                                    void saveSmallCityMode(false);
+                                                } else {
+                                                    setConfirmSmallCityModeOpen(true);
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            </Card>
+                        </SettingsSection>
                     )}
 
-                    {restaurant && (
+                    <SettingsSection id="pedidos">
                         <Card className="border border-gray-200 shadow-sm">
-                            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                    <h3 className="mb-2 text-lg font-semibold text-gray-900">
+                                        Som de novos pedidos
+                                    </h3>
+                                    <p className="text-sm text-gray-500">
+                                        Escolha por quanto tempo o aviso sonoro de chegada de
+                                        pedido deve tocar.
+                                    </p>
+                                </div>
+
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={testOrderDingle}
+                                    disabled={isTestingOrderDingle}
+                                    className="shrink-0 cursor-pointer bg-white"
+                                >
+                                    <FontAwesomeIcon
+                                        icon={faVolumeHigh}
+                                        className="mr-2"
+                                    />
+                                    {isTestingOrderDingle ? "Tocando..." : "Testar som"}
+                                </Button>
+                            </div>
+
+                            <ChoiceCardGroup
+                                value={orderDingleDuration}
+                                options={ORDER_DINGLE_OPTIONS}
+                                onChange={saveOrderDingleDuration}
+                                className="md:grid-cols-3"
+                            />
+                        </Card>
+
+                        <Card className="border border-gray-200 shadow-sm">
+                            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
                                 <div className="min-w-0">
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <h2 className="text-xl font-medium text-gray-900">
-                                            Cardápio com Tema Escuro
-                                        </h2>
-                                        <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${pdfAccess ? "bg-green-50 text-green-700" : "bg-orange-50 text-orange-800"}`}>
-                                            <FontAwesomeIcon icon={pdfAccess ? faCheck : faLock} />
-                                            {pdfAccess ? "Plano ativo" : "Incluso no iMenu Plus"}
-                                        </span>
-                                    </div>
-                                    <p id="dark-menu-description" className="mt-2 text-sm text-gray-500">
-                                        Exiba seu cardápio com cores escuras, inclusive em Mesas e Vitrine.{" "}
-                                        <a
-                                            href="https://www.imenuapp.com.br/pizzaria-la-grucia-dark"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="font-medium text-brand underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                                        <h3 className="text-lg font-semibold text-gray-900">
+                                            Forçar envio de Notificação no WhatsApp
+                                        </h3>
+                                        <Tooltip
+                                            text="Isso adiciona uma etapa extra à finalização e pode criar atrito no pedido. O pedido é criado antes do WhatsApp: o cliente pode simplesmente não enviar a mensagem e o pedido continuará válido."
+                                            position="top"
+                                            size="medium"
+                                            showOnClick
+                                            parentClassName="inline-flex items-center self-center leading-none"
                                         >
-                                            Ver exemplo de Tema Escuro
-                                        </a>
-                                    </p>
-                                </div>
-                                <div className="flex shrink-0 items-start gap-3">
-                                    <SaveStatus status={saveErrors.dark ? "error" : isSavingDarkMenu ? "saving" : "saved"} />
-                                    <Tooltip
-                                        text={!pdfAccess ? "Disponível com iMenu Plus. Assine o plano para ativar o tema escuro." : ""}
-                                        parentClassName="!block"
-                                    >
-                                        <Switch
-                                            checked={restaurant.dark_menu_enabled === true && pdfAccess}
-                                            aria-label="Cardápio com Tema Escuro"
-                                            aria-describedby="dark-menu-description"
-                                            disabled={isSavingDarkMenu}
-                                            onClick={() => void saveDarkMenuMode(restaurant.dark_menu_enabled !== true)}
-                                        />
-                                    </Tooltip>
-                                </div>
-                            </div>
-                        </Card>
-                    )}
-
-                    {restaurant && (
-                        <Card className="border border-gray-200 shadow-sm">
-                            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                                <div>
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <h2 className="text-xl font-medium text-gray-900">
-                                            Exportar Cardápio para Impressão
-                                        </h2>
-                                        <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${pdfAccess ? "bg-green-50 text-green-700" : "bg-orange-50 text-orange-800"}`}>
-                                            <FontAwesomeIcon icon={pdfAccess ? faCheck : faLock} />
-                                            {pdfAccess ? "Plano ativo" : "Incluso no iMenu Plus"}
-                                        </span>
+                                            <Badge variant="notRecommended" className="gap-1 cursor-help">
+                                                Não recomendado
+                                                <FontAwesomeIcon icon={faCircleInfo} className="text-[11px] leading-none text-yellow-700" />
+                                            </Badge>
+                                        </Tooltip>
                                     </div>
                                     <p className="mt-2 text-sm text-gray-500">
-                                        Baixe um PDF pronto para imprimir, com suas categorias, produtos, descrições e preços.
+                                        Após confirmar o pedido, o cliente será direcionado ao
+                                        WhatsApp do restaurante com a comanda completa já
+                                        preenchida.
                                     </p>
                                 </div>
-                                <div className="flex shrink-0 items-start">
-                                    {pdfAccess ? (
-                                        <Button
-                                            variant="secondary"
-                                            onClick={() => void exportPrintableMenu()}
-                                            loading={isExportingMenu}
-                                            className="gap-2"
-                                        >
-                                            <FontAwesomeIcon icon={faDownload} />
-                                            Exportar PDF
-                                        </Button>
-                                    ) : (
-                                        <Tooltip text="Disponível com iMenu Plus. Assine o plano para exportar o cardápio." parentClassName="!block">
-                                            <Button onClick={() => setPdfSalesOpen(true)} className="gap-2">
-                                                Desbloquear exportação
-                                                <FontAwesomeIcon icon={faLock} />
-                                            </Button>
-                                        </Tooltip>
-                                    )}
-                                </div>
-                            </div>
-                        </Card>
-                    )}
 
-                    {restaurant && (
-                        <Card className="border border-gray-200 shadow-sm">
-                            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                                <div className="min-w-0">
-                                    <h2 className="text-xl font-medium text-gray-900">
-                                        Modo Cidade Pequena (CEP opcional)
-                                    </h2>
-                                    <p id="small-city-description" className="mt-2 text-sm text-gray-500">
-                                        Permite pedidos sem CEP, calculando a entrega pelo bairro e oferecendo um campo de ponto de referência.
-                                    </p>
-                                </div>
                                 <div className="flex shrink-0 items-start gap-3">
-                                    <SaveStatus status={saveErrors.smallCity ? "error" : isSavingSmallCityMode ? "saving" : "saved"} />
+                                    <SaveStatus status={saveErrors.whatsapp ? "error" : isSavingWhatsappConfirmation ? "saving" : "saved"} />
                                     <Switch
-                                        checked={restaurant.small_city_mode_enabled === true}
-                                        aria-label="Modo Cidade Pequena (CEP opcional)"
-                                        aria-describedby="small-city-description"
-                                        disabled={isSavingSmallCityMode}
-                                        onClick={() => {
-                                            if (restaurant.small_city_mode_enabled) {
-                                                void saveSmallCityMode(false);
-                                            } else {
-                                                setConfirmSmallCityModeOpen(true);
-                                            }
-                                        }}
+                                        checked={forceWhatsappOrderConfirmation}
+                                        aria-label="Obrigar envio de notificação no WhatsApp"
+                                        disabled={isSavingWhatsappConfirmation}
+                                        onClick={() => void saveWhatsappOrderConfirmation(!forceWhatsappOrderConfirmation)}
                                     />
                                 </div>
                             </div>
                         </Card>
-                    )}
 
-                    {restaurant && shareableUrl && (
-                        <Card className="border border-gray-200 shadow-sm">
-                            <h2 className="mb-2 text-xl font-medium text-gray-900">
-                                Compartilhar Cardápio Delivery
-                            </h2>
-                            <p className="mb-6 text-sm text-gray-500">
-                                Divulgue seu link ou use o QR Code.
-                            </p>
-
-                            <div className="flex min-w-0 flex-col gap-3 sm:flex-row">
-                                <div className="min-w-0 flex-1">
-                                    <Input
-                                        value={shareableUrl}
-                                        readOnly
-                                        className="min-w-0"
-                                    />
+                        {restaurant && (
+                            <Card className="border border-gray-200 shadow-sm">
+                                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                    <div>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <h3 className="text-lg font-semibold text-gray-900">
+                                                Exportar Cardápio para Impressão
+                                            </h3>
+                                            <Badge preset={pdfAccess ? "featureAvailable" : "plusIncluded"} />
+                                        </div>
+                                        <p className="mt-2 text-sm text-gray-500">
+                                            Baixe um PDF pronto para imprimir, com suas categorias, produtos, descrições e preços.
+                                        </p>
+                                    </div>
+                                    <div className="flex shrink-0 items-start">
+                                        {pdfAccess ? (
+                                            <Button
+                                                variant="secondary"
+                                                onClick={() => void exportPrintableMenu()}
+                                                loading={isExportingMenu}
+                                                className="gap-2"
+                                            >
+                                                <FontAwesomeIcon icon={faDownload} />
+                                                Exportar PDF
+                                            </Button>
+                                        ) : (
+                                            <Tooltip text="Disponível com iMenu Plus. Assine o plano para exportar o cardápio." parentClassName="!block">
+                                                <Button onClick={() => setPdfSalesOpen(true)} className="gap-2">
+                                                    Desbloquear exportação
+                                                    <FontAwesomeIcon icon={faLock} />
+                                                </Button>
+                                            </Tooltip>
+                                        )}
+                                    </div>
                                 </div>
-                                <Button
-                                    variant="secondary"
-                                    onClick={copyLink}
-                                    className="shrink-0"
-                                >
-                                    <FontAwesomeIcon
-                                        icon={faCopy}
-                                        className="mr-2"
-                                    />
-                                    Copiar
-                                </Button>
-                            </div>
+                            </Card>
+                        )}
 
-                            <div className="mt-6 flex flex-col items-center rounded-lg border border-gray-200 bg-gray-50 p-6">
-                                <img
-                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(shareableUrl)}`}
-                                    alt="QR Code do cardápio"
-                                    className="mb-4 h-48 w-48 rounded-md border border-gray-200"
-                                />
-                                <Button
-                                    variant="secondary"
-                                    onClick={() => void downloadQr(shareableUrl, restaurant?.url_slug || "cardapio")}
-                                >
-                                    <FontAwesomeIcon
-                                        icon={faDownload}
-                                        className="mr-2"
-                                    />
-                                    Baixar Imagem
-                                </Button>
-                            </div>
-                        </Card>
-                    )}
-
-                    {restaurant && (
-                        <ResetOrderCountSection restaurantId={restaurant.id} />
-                    )}
-
-
-                    <Card className="border-red-200 bg-red-50/30">
-                        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-                            <div>
-                                <h2 className="mb-2 text-lg font-medium text-red-700">
-                                    Deletar Conta
-                                </h2>
-                                <p className="text-sm text-red-600/70">
-                                    Ação irreversível. Todos os seus dados serão
-                                    apagados.
+                        {restaurant && shareableUrl && (
+                            <Card className="border border-gray-200 shadow-sm">
+                                <h3 className="text-lg font-semibold text-gray-900">
+                                    Compartilhar Cardápio Delivery
+                                </h3>
+                                <p className="mt-2 text-sm text-gray-500">
+                                    Divulgue seu link ou use o QR Code.
                                 </p>
-                            </div>
-                            <Button
-                                variant="secondary"
-                                className="w-full bg-red-600 text-white hover:bg-red-700 md:w-auto"
-                                onClick={() => setDeleteModalOpen(true)}
-                            >
-                                <FontAwesomeIcon
-                                    icon={faTrash}
-                                    className="mr-2"
+                                <MenuShareControls
+                                    url={shareableUrl}
+                                    label="delivery"
+                                    onCopy={() => copyLink(shareableUrl, "Link copiado!")}
+                                    onDownload={() => downloadQr(shareableUrl, restaurant.url_slug || "cardapio")}
                                 />
-                                Deletar Conta
-                            </Button>
-                        </div>
-                    </Card>
+                            </Card>
+                        )}
+
+                        {restaurant && <ResetOrderCountSection restaurantId={restaurant.id} />}
+
+                        <Card className="border-red-200 bg-red-50/30">
+                            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                                <div>
+                                    <h3 className="mb-2 text-lg font-medium text-red-700">
+                                        Deletar Conta
+                                    </h3>
+                                    <p className="text-sm text-red-600/70">
+                                        Ação irreversível. Todos os seus dados serão
+                                        apagados.
+                                    </p>
+                                </div>
+                                <Button
+                                    variant="secondary"
+                                    className="shrink-0 bg-red-600 text-white hover:bg-red-700"
+                                    onClick={() => setDeleteModalOpen(true)}
+                                >
+                                    <FontAwesomeIcon
+                                        icon={faTrash}
+                                        className="mr-2"
+                                    />
+                                    Deletar Conta
+                                </Button>
+                            </div>
+                        </Card>
+                    </SettingsSection>
                 </div>
             </div>
         </>

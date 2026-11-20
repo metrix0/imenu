@@ -1,11 +1,16 @@
 "use client";
 
 import Script from "next/script";
+import { META_PIXEL_READY } from "@/lib/analytics/metaBrowser";
+import { cleanMetaPixelId } from "@/lib/analytics/metaEvents";
 
 type Props = {
     ga4Id?: string | null;
     gtmId?: string | null;
+    ga4Enabled?: boolean;
+    gtmEnabled?: boolean;
     metaPixelId?: string | null;
+    metaPageView?: boolean;
 };
 
 const unique = (values: Array<string | null>) =>
@@ -20,15 +25,18 @@ const extractAll = (value: string, pattern: RegExp) =>
 export default function TrackingScripts({
     ga4Id,
     gtmId,
+    ga4Enabled = true,
+    gtmEnabled = true,
     metaPixelId,
+    metaPageView = true,
 }: Props) {
     // Accept clean IDs and also recover IDs from legacy rows where a complete
     // Google snippet was pasted into one of the fields.
     const googleSource = `${ga4Id ?? ""} ${gtmId ?? ""}`;
 
-    const ga4MeasurementId = extractFirst(googleSource, /G-[A-Z0-9]+/);
-    const gtmContainerId = extractFirst(googleSource, /GTM-[A-Z0-9]+/);
-    const googleAdsIds = extractAll(googleSource, /AW-[0-9]+/g);
+    const ga4MeasurementId = ga4Enabled ? extractFirst(googleSource, /G-[A-Z0-9]+/) : null;
+    const gtmContainerId = gtmEnabled ? extractFirst(googleSource, /GTM-[A-Z0-9]+/) : null;
+    const googleAdsIds = gtmEnabled ? extractAll(googleSource, /AW-[0-9]+/g) : [];
 
     const googleDestinationIds = unique([
         ga4MeasurementId,
@@ -36,7 +44,7 @@ export default function TrackingScripts({
     ]);
 
     const googleLoaderId = googleDestinationIds[0] ?? null;
-    const cleanMetaPixelId = metaPixelId?.trim().match(/^[0-9]{5,25}$/)?.[0] ?? null;
+    const pixelId = cleanMetaPixelId(metaPixelId);
 
     return (
         <>
@@ -97,10 +105,10 @@ export default function TrackingScripts({
             )}
 
             {/* Meta / Facebook Pixel */}
-            {cleanMetaPixelId && (
+            {pixelId && (
                 <>
                     <Script
-                        id={`meta-pixel-${cleanMetaPixelId}`}
+                        id={`meta-pixel-${pixelId}`}
                         strategy="afterInteractive"
                     >
                         {`
@@ -124,19 +132,24 @@ export default function TrackingScripts({
                             }(window, document,'script',
                             'https://connect.facebook.net/en_US/fbevents.js');
 
-                            fbq('init', '${cleanMetaPixelId}');
-                            fbq('track', 'PageView');
+                            window.imenuMetaPixels = window.imenuMetaPixels || {};
+                            if (!window.imenuMetaPixels['${pixelId}']) {
+                                fbq('init', '${pixelId}');
+                                window.imenuMetaPixels['${pixelId}'] = true;
+                            }
+                            ${metaPageView ? `fbq('trackSingle', '${pixelId}', 'PageView');` : ""}
+                            window.dispatchEvent(new Event('${META_PIXEL_READY}'));
                         `}
                     </Script>
-                    <noscript>
+                    {metaPageView && <noscript>
                         <img
                             height="1"
                             width="1"
                             style={{ display: "none" }}
-                            src={`https://www.facebook.com/tr?id=${cleanMetaPixelId}&ev=PageView&noscript=1`}
+                            src={`https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1`}
                             alt=""
                         />
-                    </noscript>
+                    </noscript>}
                 </>
             )}
         </>

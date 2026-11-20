@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-    faGift,
     faStar,
     faTrophy,
+    faTriangleExclamation,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
@@ -12,13 +12,19 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import ModalMobile from "@/components/ui/HybridModal";
 import Toast from "@/components/ui/Toast";
+import WarningBox from "@/components/ui/WarningBox";
+import RestaurantWhatsappBadge, { type RestaurantWhatsapp } from "./RestaurantWhatsappBadge";
 import { useCartStore } from "@/lib/stores/costumer/cartStore";
+import { formatPrice } from "@/lib/utils/formatPrice";
+import type { LoyaltyOffer } from "@/lib/types/types";
 import { useHistoryStore } from "@/lib/stores/costumer/historyStore";
 
 type Props = {
     open: boolean;
     onClose: () => void;
     restaurantId: string;
+    offer: LoyaltyOffer | null;
+    restaurantWhatsapp?: RestaurantWhatsapp | null;
 };
 
 type ToastState = {
@@ -64,16 +70,77 @@ function phoneIsValid(value: string): boolean {
     return digits.length === 10 || digits.length === 11;
 }
 
+function LoyaltyStampRows({ goal, current }: { goal: number; current: number }) {
+    const container = useRef<HTMLDivElement>(null);
+    const [capacity, setCapacity] = useState(5);
+
+    useEffect(() => {
+        const element = container.current;
+        if (!element) return;
+
+        const measure = () => {
+            const row = element.firstElementChild;
+            const stamp = row?.firstElementChild;
+            if (!(stamp instanceof HTMLElement) || !row || !element.clientWidth) return;
+            const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
+            setCapacity(Math.max(1, Math.floor((element.clientWidth + gap) / (stamp.offsetWidth + gap))));
+        };
+
+        const observer = new ResizeObserver(measure);
+        measure();
+        observer.observe(element);
+        return () => observer.disconnect();
+    }, []);
+
+    const rowCount = Math.ceil(goal / capacity);
+    const stampsPerRow = Math.floor(goal / rowCount);
+    const extraStamps = goal % rowCount;
+
+    return (
+        <div ref={container} className="flex w-full min-w-0 flex-col gap-2 py-6" aria-hidden="true">
+            {Array.from({ length: rowCount }, (_, rowIndex) => {
+                const start = rowIndex * stampsPerRow + Math.min(rowIndex, extraStamps);
+                const length = stampsPerRow + (rowIndex < extraStamps ? 1 : 0);
+
+                return (
+                    <div key={rowIndex} className="flex justify-center gap-2">
+                        {Array.from({ length }, (_, index) => {
+                            const position = start + index + 1;
+                            const filled = position <= current;
+
+                            return (
+                                <div
+                                    key={position}
+                                    className={`flex size-8 shrink-0 items-center justify-center rounded-full border-2 transition-all duration-300 ${
+                                        filled
+                                            ? "scale-110 border-[var(--im-menu-action,#f14400)] bg-[var(--im-menu-action,#f14400)] text-white"
+                                            : "border-[var(--im-menu-border,#e5e7eb)] text-[var(--im-menu-subtle,#e5e7eb)]"
+                                    }`}
+                                >
+                                    <FontAwesomeIcon icon={faStar} className="text-xs" />
+                                </div>
+                            );
+                        })}
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
 export default function HistoryModal({
     open,
     onClose,
     restaurantId,
+    offer,
+    restaurantWhatsapp,
 }: Props) {
     const {
         step,
         customer_phone,
         loyaltyBalance,
-        program,
+        program: loadedOffer,
+        restaurantId: loadedRestaurantId,
         orders,
         loading,
         error,
@@ -83,19 +150,28 @@ export default function HistoryModal({
     } = useHistoryStore();
 
     const cartItems = useCartStore((state) => state.items);
-    const addToCart = useCartStore(
-        (state) => state.addItem
+    const addRewards = useCartStore(
+        (state) => state.addRewards
     );
 
     const [toast, setToast] =
         useState<ToastState | null>(null);
 
+    const [rewardWarning, setRewardWarning] = useState(false);
+    const [checkingReward, setCheckingReward] = useState(false);
+    const rewardCheck = useRef<AbortController | null>(null);
+
     useEffect(() => {
         if (open) {
-            reset();
             setToast(null);
+            setRewardWarning(false);
+            setCheckingReward(false);
         }
-    }, [open, reset]);
+        return () => {
+            rewardCheck.current?.abort();
+            rewardCheck.current = null;
+        };
+    }, [open, restaurantId]);
 
     const rewardAlreadyInCart = useMemo(
         () => cartItems.some((item) => item.is_reward),
@@ -106,18 +182,11 @@ export default function HistoryModal({
         await fetchHistory(restaurantId);
     };
 
-    const handleRedeem = () => {
-        if (
-            !program?.active ||
-            !program.reward_item_id
-        ) {
-            setToast({
-                message:
-                    "A recompensa ainda não está configurada.",
-                type: "error",
-            });
-            return;
-        }
+    const program = loadedRestaurantId === restaurantId ? loadedOffer : offer;
+    const visibleStep = loadedRestaurantId === restaurantId ? step : "input_phone";
+
+    const handleRedeem = async () => {
+        if (!program || !canRedeem || rewardCheck.current) return;
 
         if (rewardAlreadyInCart) {
             setToast({
@@ -128,40 +197,50 @@ export default function HistoryModal({
             return;
         }
 
-        const expandedSubitems = Array.isArray(
-            (program as any).expanded_reward_subitems
-        )
-            ? (program as any).expanded_reward_subitems
-            : [];
+        const request = new AbortController();
+        rewardCheck.current = request;
+        setCheckingReward(true);
+        let currentOffer: LoyaltyOffer | null;
+        try {
+            const response = await fetch(`/api/loyalty/status?restaurant_id=${encodeURIComponent(restaurantId)}`, {
+                cache: "no-store",
+                signal: request.signal,
+            });
+            if (!response.ok) throw new Error("Não foi possível consultar a recompensa.");
+            currentOffer = await response.json();
+            if (request.signal.aborted) return;
+        } catch {
+            if (!request.signal.aborted) {
+                setToast({ message: "Não foi possível consultar a recompensa. Tente novamente.", type: "error" });
+            }
+            return;
+        } finally {
+            if (rewardCheck.current === request) {
+                rewardCheck.current = null;
+                setCheckingReward(false);
+            }
+        }
 
-        const selectedSubitems = expandedSubitems.map(
-            (subitem: any) => ({
-                subcategoryId: subitem.subcategory_id,
-                subcategoryName:
-                    subitem.subcategory_name,
-                subitemId: subitem.subitem_id,
-                subitemName: subitem.subitem_name,
-                price_cents: 0,
-            })
-        );
+        if (!currentOffer?.rewards.length || currentOffer.reward_unavailable) {
+            setRewardWarning(true);
+            return;
+        }
+        if (current < currentOffer.goal_count) {
+            await fetchHistory(restaurantId);
+            return;
+        }
 
-        addToCart({
+        addRewards(currentOffer.rewards.map(reward => ({
             id: crypto.randomUUID(),
-            base_item_id: program.reward_item_id,
-            name: `(PRÊMIO) ${
-                (program as any).reward_item_name ||
-                program.reward_description ||
-                "Recompensa"
-            }`,
+            base_item_id: reward.id,
+            name: `(PRÊMIO) ${reward.name}`,
             total_cents: 0,
             qty: 1,
-            image:
-                (program as any).reward_item_image ||
-                null,
-            selectedSubitems,
+            image: reward.image,
+            selectedSubitems: reward.complements,
             unit_price_cents: 0,
             is_reward: true,
-        });
+        })));
 
         setToast({
             message:
@@ -180,42 +259,17 @@ export default function HistoryModal({
     );
     const current = Math.max(
         0,
-        Number(loyaltyBalance?.current_count) || 0
+        Number(loadedRestaurantId === restaurantId ? loyaltyBalance?.current_count : 0) || 0
     );
     const canRedeem =
         program?.active === true &&
         current >= goal &&
-        Boolean(program.reward_item_id);
+        visibleStep === "view_history" && (program.rewards.length > 0 || program.reward_unavailable);
 
     const renderProgress = () => {
         return (
             <div className="flex flex-col items-center">
-                <div className="flex flex-wrap gap-2 justify-center py-6">
-                    {Array.from(
-                        { length: goal },
-                        (_, index) => {
-                            const position = index + 1;
-                            const filled =
-                                position <= current;
-
-                            return (
-                                <div
-                                    key={position}
-                                    className={`flex h-8 w-8 items-center justify-center rounded-full border-2 transition-all duration-300 ${
-                                        filled
-                                            ? "scale-110 border-[var(--im-menu-action,#f14400)] bg-[var(--im-menu-action,#f14400)] text-white"
-                                            : "border-[var(--im-menu-border,#e5e7eb)] text-[var(--im-menu-subtle,#e5e7eb)]"
-                                    }`}
-                                >
-                                    <FontAwesomeIcon
-                                        icon={faStar}
-                                        className="text-xs"
-                                    />
-                                </div>
-                            );
-                        }
-                    )}
-                </div>
+                <LoyaltyStampRows goal={goal} current={current} />
 
                 {canRedeem ? (
                     <div className="w-full animate-fadeUp">
@@ -224,20 +278,13 @@ export default function HistoryModal({
                             prêmio.
                         </p>
 
-                        <Button
-                            variant="primary"
-                            onClick={handleRedeem}
-                            className="w-full shadow-lg shadow-brand/20"
-                        >
-                            <FontAwesomeIcon
-                                icon={faTrophy}
-                                className="mr-2"
-                            />
-                            RESGATAR AGORA
+                        <Button variant="primary" onClick={handleRedeem} loading={checkingReward} className="w-full">
+                            <FontAwesomeIcon icon={faTrophy} className="mr-2" />
+                            Resgatar recompensa
                         </Button>
 
                         <p className="mt-2 text-[10px] text-[var(--im-menu-subtle,#9ca3af)]">
-                            O item será adicionado à sua sacola
+                            A recompensa será adicionada à sua sacola
                             gratuitamente.
                         </p>
                     </div>
@@ -252,11 +299,27 @@ export default function HistoryModal({
         );
     };
 
+    if (rewardWarning) {
+        return (
+            <ModalMobile open={open} onClose={onClose} title="Recompensa indisponível" height={0.45}>
+                <div className="space-y-4 p-4">
+                    <WarningBox icon={faTriangleExclamation} role="alert">
+                        Um ou mais produtos da recompensa estão indisponíveis. Seus selos continuam salvos.
+                    </WarningBox>
+                    {restaurantWhatsapp && <RestaurantWhatsappBadge whatsapp={restaurantWhatsapp} />}
+                    <Button variant="secondary" onClick={() => setRewardWarning(false)} className="w-full">
+                        Voltar
+                    </Button>
+                </div>
+            </ModalMobile>
+        );
+    }
+
     return (
         <ModalMobile
             open={open}
             onClose={onClose}
-            title="Fidelidade"
+            title={program ? "Peça e Ganhe com Fidelidade" : "Histórico"}
             height={0.85}
         >
             <div className="relative space-y-6 p-4">
@@ -272,22 +335,39 @@ export default function HistoryModal({
                     </div>
                 )}
 
-                {step === "input_phone" && (
-                    <div className="space-y-4 pt-10">
-                        <div className="mb-4 flex justify-center">
-                            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--im-menu-accent-soft,#f144001a)] text-2xl text-[var(--im-menu-link,#f14400)]">
-                                <FontAwesomeIcon
-                                    icon={faGift}
-                                />
-                            </div>
-                        </div>
+                {program && (
+                    <h2 className="text-[22px]/7 font-semibold text-[var(--im-menu-text,#111827)]">Peça e Ganhe com Fidelidade</h2>
+                )}
 
-                        <p className="text-center font-medium text-[var(--im-menu-muted,#4b5563)]">
-                            Digite seu WhatsApp para consultar
-                            seus selos e pedidos.
+                {program && (
+                    <div className="space-y-3 rounded-xl border border-[var(--im-menu-border,#e5e7eb)] bg-[var(--im-menu-soft,#f9fafb)] p-4">
+                        <h3 className="font-semibold">Como funciona</h3>
+                        <p className="text-sm">
+                            Ganhe 1 selo por pedido concluído{program.min_order_value_cents > 0
+                                ? ` a partir de ${formatPrice(program.min_order_value_cents)}` : ""}.
+                            {" "}Junte {goal} {goal === 1 ? "selo" : "selos"} e ganhe a recompensa completa.
                         </p>
+                        <ul className="space-y-2">
+                            {program.rewards.map(reward => (
+                                <li key={reward.id} className="flex items-center gap-3 text-sm font-medium">
+                                    {reward.image && <img src={reward.image} alt="" className="size-10 shrink-0 rounded-lg object-cover" />}
+                                    {reward.name}{reward.complements.length > 0 ? " + Complementos" : ""}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+
+                {visibleStep === "input_phone" && (
+                    <div className="space-y-4">
+                        {!program && (
+                            <p className="text-center font-medium text-[var(--im-menu-muted,#4b5563)]">
+                                Digite seu WhatsApp para consultar seus pedidos.
+                            </p>
+                        )}
 
                         <Input
+                            label={program ? "Use seu número do celular para consultar suas compras." : undefined}
                             placeholder="(00) 00000-0000"
                             value={customer_phone}
                             onChange={(event) =>
@@ -312,7 +392,8 @@ export default function HistoryModal({
                             inputMode="tel"
                             autoComplete="tel"
                             maxLength={15}
-                            className="text-center text-lg tracking-widest"
+                            aria-label={program ? undefined : "Número do celular"}
+                            className={program ? undefined : "text-center text-lg tracking-widest"}
                         />
 
                         {error && (
@@ -331,7 +412,7 @@ export default function HistoryModal({
                             }
                             className="mt-4 w-full"
                         >
-                            Acessar fidelidade
+                            {program ? "Consultar minhas compras" : "Consultar pedidos"}
                         </Button>
 
                         <p className="px-4 text-center text-xs text-[var(--im-menu-subtle,#9ca3af)]">
@@ -342,31 +423,14 @@ export default function HistoryModal({
                     </div>
                 )}
 
-                {step === "view_history" && (
+                {visibleStep === "view_history" && (
                     <div className="space-y-8 animate-fadeIn">
-                        <div className="relative overflow-hidden rounded-2xl border border-[var(--im-menu-border,#f3f4f6)] bg-[var(--im-menu-surface,#fff)] p-6 text-center shadow-sm">
-                            <div className="absolute left-0 top-0 h-1 w-full bg-gradient-to-r from-brand/50 to-brand" />
-
-                            <h3 className="mb-1 text-xl font-bold text-[var(--im-menu-text,#111827)]">
-                                {program?.reward_description ||
-                                    "Programa de Fidelidade"}
-                            </h3>
-
-                            {program?.active ? (
-                                <>
-                                    <p className="mb-2 text-sm text-[var(--im-menu-muted,#6b7280)]">
-                                        Complete a cartela para
-                                        ganhar.
-                                    </p>
-                                    {renderProgress()}
-                                </>
-                            ) : (
-                                <p className="py-4 text-sm text-[var(--im-menu-muted,#6b7280)]">
-                                    Este restaurante não possui
-                                    programa ativo no momento.
-                                </p>
-                            )}
-                        </div>
+                        {program && (
+                            <div className="rounded-xl border border-[var(--im-menu-border,#e5e7eb)] p-4 text-center">
+                                <h3 className="font-semibold">Seus selos · {current}/{goal}</h3>
+                                {renderProgress()}
+                            </div>
+                        )}
 
                         <div>
                             <h3 className="mb-3 ml-1 text-sm font-bold uppercase tracking-wider text-[var(--im-menu-subtle,#9ca3af)]">

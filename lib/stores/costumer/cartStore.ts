@@ -51,6 +51,7 @@ type CartState = {
     items: CartItem[];
 
     addItem: (item: CartItem) => void;
+    addRewards: (items: CartItem[]) => void;
     changeQty: (id: string, qty: number) => void;
     removeItem: (id: string) => void;
     clear: () => void;
@@ -98,6 +99,9 @@ export const useCartStore = create<CartState>()(
                         items: [...state.items, item],
                     };
                 }),
+            addRewards: (rewards) => set(state => state.items.some(item => item.is_reward)
+                ? state : { items: [...state.items, ...rewards] }),
+
             changeQty: (id: string, qty: number) =>
                 set((state) => {
                     const item = state.items.find(i => i.id === id);
@@ -123,10 +127,10 @@ export const useCartStore = create<CartState>()(
                     };
                 }),
 
-            removeItem: (id: string) =>
-                set((state) => ({
-                    items: state.items.filter((i) => i.id !== id),
-                })),
+            removeItem: (id: string) => set(state => {
+                const removeReward = state.items.some(item => item.id === id && item.is_reward);
+                return { items: state.items.filter(item => removeReward ? !item.is_reward : item.id !== id) };
+            }),
 
             clear: () => set({ items: [] }),
         }),

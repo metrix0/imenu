@@ -1,10 +1,14 @@
 // app/[slug]/CartModal.tsx
 "use client";
+import { createMenuRequestCache } from "@/lib/menu/requestCache";
 import { getMenuItemImageUrl } from "@/lib/menu/itemImages";
 import CheckoutCustomerFields from "@/components/costumer/CheckoutCustomerFields";
-import { getOrderScheduleOptions } from "@/lib/menu/orderAvailability";
+import { getOrderScheduleDate, getOrderScheduleOptions, getSameDayOrderEarliestAt } from "@/lib/menu/orderAvailability";
 
 import PromotionSummary from "@/components/costumer/PromotionSummary";
+import { faGift } from "@fortawesome/free-solid-svg-icons";
+import type { LoyaltyOffer } from "@/lib/types/types";
+import { useHistoryStore } from "@/lib/stores/costumer/historyStore";
 import type { PromotionResult } from "@/lib/promotions/automatic";
 
 import { useEffect, useState, useRef, useMemo } from "react";
@@ -65,30 +69,64 @@ const PAYMENT_OPTIONS = [
     },
 ];
 
+const scheduleDateLabel = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "UTC",
+    weekday: "short",
+    day: "2-digit",
+    month: "2-digit",
+});
+
 function isCitywideCep(address: GeoAddress | null) {
     return Boolean(address && !address.street?.trim() && !address.neighborhood?.trim());
 }
 
-function formatDateInputValue(date: Date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
+function dateFromInput(value: string) {
+    return new Date(value + "T12:00:00Z");
 }
 
-function dateFromInput(value: string) {
-    const [year, month, day] = value.split("-").map(Number);
-    return new Date(year, month - 1, day, 12, 0, 0, 0);
-}
+const loadManualUpsells = createMenuRequestCache(async (restaurantId: string): Promise<Item[]> => {
+    const { data: rows, error } = await supabase
+        .from("upsell")
+        .select("item_id, position")
+        .eq("restaurant_id", restaurantId)
+        .order("position", { ascending: true });
+    if (error) throw error;
+    if (!rows?.length) return [];
+
+    const { data: products, error: productsError } = await supabase
+        .from("items")
+        .select("*")
+        .in("id", rows.map(row => row.item_id))
+        .eq("is_available", true);
+    if (productsError) throw productsError;
+
+    const byId = new Map(products?.map(product => [product.id, product]));
+    return rows.flatMap(row => {
+        const product = byId.get(row.item_id);
+        return product ? [{
+            ...product,
+            image_public_url: getMenuItemImageUrl(supabase, product.image_path),
+        }] : [];
+    });
+});
+
+const loadAutomaticUpsells = createMenuRequestCache(async (restaurantId: string) => {
+    const { data, error } = await supabase.from("automatic_upsell").select("recommendations")
+        .eq("restaurant_id", restaurantId).maybeSingle();
+    if (error) throw error;
+    return (data?.recommendations as AutomaticUpsellRecommendations | null) ?? null;
+});
 
 export default function CartModal({
                                        onClose,
                                        restaurant,
     catalogItemsByCategory,
     selectedCouponCode, onSelectItem, tableOrder, selectedTableId,
-    selectedTableName, onTableChange, promotionResult, neighborhoodDeliveryRules, smallCityMode = false, requiresSchedule = false, manuallyClosedToday: closedToday
+    selectedTableName, onTableChange, promotionResult, neighborhoodDeliveryRules, smallCityMode = false, requiresSchedule = false, manuallyClosedToday: closedToday, loyaltyOffer, onOpenLoyalty
                                    }: {
     promotionResult?: PromotionResult;
+    loyaltyOffer?: LoyaltyOffer | null;
+    onOpenLoyalty?: () => void;
     requiresSchedule?: boolean;
     manuallyClosedToday: boolean;
     onClose: () => void;
@@ -141,6 +179,13 @@ export default function CartModal({
         : "";
 
     const [openModal, setOpenModal] = useState(false);
+    const [visitedInfo, setVisitedInfo] = useState(false);
+    const [visitedCheckout, setVisitedCheckout] = useState(false);
+
+    useEffect(() => {
+        if (step !== "cart") setVisitedInfo(true);
+        if (step === "checkout") setVisitedCheckout(true);
+    }, [step]);
 
     const [deliveryFeeCents, setDeliveryFeeCents] = useState<number | null>(null);
     const [loadingCepLookup, setLoadingCepLookup] = useState(false);
@@ -163,11 +208,10 @@ export default function CartModal({
     const [showDiscountInput, setShowDiscountInput] = useState(false);
     const [manualUpsells, setManualUpsells] = useState<Item[]>([]);
     const [automaticRecommendations, setAutomaticRecommendations] = useState<AutomaticUpsellRecommendations | null>(null);
-    const [loadingUpsells, setLoadingUpsells] = useState(false);
     const [showOptionalSchedule, setShowOptionalSchedule] = useState(false);
     const [scheduleDropdownOpen, setScheduleDropdownOpen] = useState(false);
     const now = new Date();
-    const todayInput = formatDateInputValue(now);
+    const todayInput = getOrderScheduleDate(now);
     const preorderOnly = restaurant?.preorder_only === true && !isTableOrder;
     const minAdvanceDays = preorderOnly ? Math.max(0, Math.min(59, Number(restaurant?.preorder_min_days) || 0)) : 0;
     const allowFutureScheduling = restaurant?.allow_future_order_scheduling === true || preorderOnly;
@@ -175,16 +219,12 @@ export default function CartModal({
     const availability = preorderOnly
         ? restaurant?.preorder_availability_json
         : restaurant?.availability_json;
+    const earliestSameDayAt = isTableOrder ? null : getSameDayOrderEarliestAt(restaurant, now, neighborhoodDeliveryRules);
     const scheduleDateOptions = Array.from({ length: 60 - minAdvanceDays }, (_, index) => {
-        const date = new Date(now);
-        date.setHours(12, 0, 0, 0);
-        date.setDate(date.getDate() + minAdvanceDays + index);
-        const value = formatDateInputValue(date);
-        const dateLabel = date.toLocaleDateString("pt-BR", {
-            weekday: "short",
-            day: "2-digit",
-            month: "2-digit",
-        });
+        const date = dateFromInput(todayInput);
+        date.setUTCDate(date.getUTCDate() + minAdvanceDays + index);
+        const value = date.toISOString().slice(0, 10);
+        const dateLabel = scheduleDateLabel.format(date);
         return {
             value,
             label: minAdvanceDays === 0 && index === 0 ? `Hoje • ${dateLabel}` : dateLabel,
@@ -193,9 +233,9 @@ export default function CartModal({
     const availableScheduleDates = allowFutureScheduling
         ? scheduleDateOptions.filter(({ value }) => {
             if (value === todayInput) {
-                return getOrderScheduleOptions(availability, now, now, manuallyClosedToday).length > 0;
+                return getOrderScheduleOptions(availability, value, now, manuallyClosedToday, earliestSameDayAt).length > 0;
             }
-            const slots = availability?.[dateFromInput(value).getDay()];
+            const slots = availability?.[dateFromInput(value).getUTCDay()];
             return Array.isArray(slots) && slots.length > 0;
         })
         : [];
@@ -211,9 +251,10 @@ export default function CartModal({
 
     const scheduledOptions = getOrderScheduleOptions(
         availability,
-        allowFutureScheduling ? dateFromInput(scheduleDate) : now,
+        allowFutureScheduling ? scheduleDate : todayInput,
         now,
         manuallyClosedToday,
+        earliestSameDayAt,
     );
     const mustSchedule = preorderOnly || manuallyClosedToday || requiresSchedule;
     const hasSchedulingChoice = !isTableOrder && (mustSchedule ||
@@ -692,66 +733,17 @@ export default function CartModal({
 
     useEffect(() => {
         if (!restaurant?.id) return;
-
-        const loadUpsells = async () => {
-            setLoadingUpsells(true);
-
-            const { data: upsellRows } = await supabase
-                .from("upsell")
-                .select("item_id, position")
-                .eq("restaurant_id", restaurant.id)
-                .order("position", { ascending: true });
-
-            if (!upsellRows || upsellRows.length === 0) {
-                setManualUpsells([]);
-                setLoadingUpsells(false);
-                return;
-            }
-
-            const itemIds = upsellRows.map(u => u.item_id);
-
-            const { data: items } = await supabase
-                .from("items")
-                .select("*")
-                .in("id", itemIds)
-                .eq("is_available", true);
-
-            if (!items) {
-                setManualUpsells([]);
-                setLoadingUpsells(false);
-                return;
-            }
-
-            const ordered: Item[] = upsellRows
-                .map(u => {
-                    const item = items.find(i => i.id === u.item_id);
-                    if (!item) return null;
-
-                    return {
-                        ...item,
-                        image_public_url: getMenuItemImageUrl(supabase, item.image_path),
-                    };
-                })
-                .filter((i): i is Item => i !== null);
-
-            setManualUpsells(ordered);
-            setLoadingUpsells(false);
-        };
-
-        loadUpsells();
-    }, [restaurant?.id]);
-
-    useEffect(() => {
-        if (!restaurant?.id) return;
         let active = true;
+        setManualUpsells([]);
         setAutomaticRecommendations(null);
-        supabase.from("automatic_upsell").select("recommendations")
-            .eq("restaurant_id", restaurant.id).maybeSingle()
-            .then(({ data, error }) => {
-                if (active && !error && data?.recommendations) {
-                    setAutomaticRecommendations(data.recommendations as AutomaticUpsellRecommendations);
-                }
-            });
+
+        void loadManualUpsells(restaurant.id).then(products => {
+            if (active) setManualUpsells(products);
+        }).catch(() => undefined);
+        void loadAutomaticUpsells(restaurant.id).then(recommendations => {
+            if (active) setAutomaticRecommendations(recommendations);
+        }).catch(() => undefined);
+
         return () => { active = false; };
     }, [restaurant?.id]);
 
@@ -891,6 +883,16 @@ export default function CartModal({
     const effectiveDeliveryFeeCents =
         isPickup || isTableOrder ? 0 : deliveryFeeCents;
 
+    const currentStamps = useHistoryStore(state => state.restaurantId === String(restaurant.id)
+        ? state.loyaltyBalance?.current_count ?? (state.step === "view_history" ? 0 : null) : null);
+    const eligibleTotal = Math.max(0,
+        items.reduce((total, item) => total + (promotionPrice(item) || item.total_cents), 0)
+            + (effectiveDeliveryFeeCents ?? 0) - Number(coupon_discount_cents || 0)
+            - (promotionResult?.promotion?.discount_cents || 0));
+    const loyaltyShortfall = Math.max(0, (loyaltyOffer?.min_order_value_cents ?? 0) - eligibleTotal);
+    const redeemingReward = items.some(item => item.is_reward);
+    const rewardEarned = loyaltyOffer && currentStamps !== null && currentStamps >= loyaltyOffer.goal_count;
+
     return (
         <div className={`fixed inset-0 z-41 flex justify-center items-end`}>
             <ModalMobile
@@ -979,7 +981,7 @@ export default function CartModal({
                         }}
                     >
 
-                <div className="w-1/3 shrink-0 min-w-0 h-full min-h-0 px-4 2xl:px-8 overflow-y-auto pt-2 ">
+                <div className="w-1/3 shrink-0 min-w-0 h-full min-h-0 px-4 2xl:px-8 overflow-y-auto pt-2 " inert={step !== "cart"}>
                     <div className="flex items-center gap-3 mt-2 mb-4">
                         {restaurant?.logo_url && (
                             <Image
@@ -1089,6 +1091,32 @@ export default function CartModal({
                     );})}
 
                     <PromotionSummary promotion={promotionResult?.promotion} />
+                    {!isTableOrder && items.length > 0 && loyaltyOffer && onOpenLoyalty && (
+                        <button type="button" onClick={onOpenLoyalty}
+                            className="mt-4 flex w-full cursor-pointer items-center gap-3 rounded-xl border border-[var(--im-menu-border,#e5e7eb)] bg-[var(--im-menu-soft,#f9fafb)] p-3 text-left">
+                            <span className="flex shrink-0 -space-x-2">
+                                {loyaltyOffer.rewards.slice(0, 3).map(reward => reward.image
+                                    ? <img key={reward.id} src={reward.image} alt="" className="size-9 rounded-lg border border-[var(--im-menu-surface,#fff)] object-cover" />
+                                    : <span key={reward.id} className="grid size-9 place-items-center rounded-lg bg-[var(--im-menu-surface,#fff)] text-[var(--im-menu-link,#f14400)]"><FontAwesomeIcon icon={faGift} /></span>)}
+                            </span>
+                            <span className="min-w-0 flex-1 space-y-1">
+                                <span className="block text-sm font-medium">
+                                    {redeemingReward ? "Você está resgatando uma recompensa"
+                                        : rewardEarned ? "Você ganhou uma recompensa!"
+                                        : loyaltyShortfall > 0 ? `Faltam ${formatPrice(loyaltyShortfall)} para ganhar 1 selo`
+                                        : "Este pedido vale 1 selo"}
+                                </span>
+                                {!redeemingReward && !rewardEarned && currentStamps !== null && (
+                                    <span className="flex items-center gap-2 text-xs">
+                                        <progress aria-label="Progresso da fidelidade" value={currentStamps} max={loyaltyOffer.goal_count}
+                                            className="h-2 min-w-0 flex-1 appearance-none overflow-hidden rounded-full bg-[var(--im-menu-border,#e5e7eb)] [&::-webkit-progress-bar]:bg-[var(--im-menu-border,#e5e7eb)] [&::-webkit-progress-value]:bg-[var(--im-menu-action,#f14400)] [&::-moz-progress-bar]:bg-[var(--im-menu-action,#f14400)]" />
+                                        {currentStamps}/{loyaltyOffer.goal_count}
+                                    </span>
+                                )}
+                                <span className="block text-xs font-semibold text-[var(--im-menu-link,#f14400)]">Ver recompensa</span>
+                            </span>
+                        </button>
+                    )}
                     <div className="mt-6 mb-20">
                         <button
                             onClick={closeWithAnimation}
@@ -1138,8 +1166,8 @@ export default function CartModal({
 
                 </div>
 
-                <form className="w-1/3 shrink-0 min-w-0 h-full min-h-0 px-4 overflow-y-auto pt-4 pb-32 2xl:pb-10 2xl:px-8" autoComplete="on">
-                    {isTableOrder ? (
+                <form className="w-1/3 shrink-0 min-w-0 h-full min-h-0 px-4 overflow-y-auto pt-4 pb-32 2xl:pb-10 2xl:px-8" autoComplete="on" inert={step !== "info"}>
+                    {(visitedInfo || step !== "cart") && (isTableOrder ? (
                         <div className="space-y-6">
                             {tableOrder?.requiresTableSelection ? (
                                 <Dropdown
@@ -1279,7 +1307,7 @@ export default function CartModal({
                                 onClick={handleUseMyLocation}
                                 type="button"
                             >
-                                {loadingUseMyLocation && (<Loader className={"scale-75 absolute !border-[var(--im-menu-accent-border,#f1440033)] !border-t-brand -right-9 md:-left-9 md:right-0"}/>)}
+                                {loadingUseMyLocation && (<Loader className={"scale-75 absolute -right-9 md:-left-9 md:right-0"}/>)}
                                 <FontAwesomeIcon icon={icons.faLocationCrosshairs}/> Usar minha localização
                             </button>
                         </div>
@@ -1387,12 +1415,11 @@ export default function CartModal({
                     )}
 
                         </>
-                    )}
+                    ))}
                 </form>
 
-                <div className="w-1/3 shrink-0 min-w-0 h-full min-h-0 px-4 overflow-y-auto pt-4 md:pb-32 2xl:px-8">
-
-                    <>
+                <div className="w-1/3 shrink-0 min-w-0 h-full min-h-0 px-4 overflow-y-auto pt-4 md:pb-32 2xl:px-8" inert={step !== "checkout"}>
+                    {(visitedCheckout || step === "checkout") && <>
                         {hasSchedulingChoice && (
                             <div
                                 className={`relative grid transition-all duration-300 ease-out ${scheduleDropdownOpen ? "z-[90]" : "z-auto"} ${
@@ -1682,7 +1709,7 @@ export default function CartModal({
                                     .replace(".", ",")}
                             </span>
                         </div>
-                    </>
+                    </>}
                 </div>
                     </div>
                 </div>

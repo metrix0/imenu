@@ -1,4 +1,7 @@
+import { PLUS_FEEDBACK_BLAST } from "./plusFeedbackBlast";
+
 export const RECOVERY_DAILY_LIMIT = 20;
+export const RECOVERY_COOLDOWN_DAYS = 10;
 
 export const LEGACY_PLUS_ABANDONED_BLAST_MESSAGE = `Oi! Tudo bem? Sou o João, do iMenu 🍔
 
@@ -69,10 +72,14 @@ export const CHURN_BLAST_AUTOMATIONS = {
     },
 } as const;
 
-export const CHURN_BLASTS = Object.values(CHURN_BLAST_AUTOMATIONS).map(automation => ({
-    ...automation,
-    sender: "blast",
-    trigger: "Cron diário às 19:00 (São Paulo) · maior GMV primeiro",
-    limit: RECOVERY_DAILY_LIMIT,
-    category: "churn" as const,
-}));
+export const CHURN_BLASTS = [
+    ...Object.values(CHURN_BLAST_AUTOMATIONS).map(automation => ({
+        ...automation,
+        sender: "blast",
+        trigger: "Cron diário às 19:00 (São Paulo) · maior GMV primeiro",
+        limit: RECOVERY_DAILY_LIMIT,
+        sharedLimit: true,
+        category: "churn" as const,
+    })),
+    PLUS_FEEDBACK_BLAST,
+];

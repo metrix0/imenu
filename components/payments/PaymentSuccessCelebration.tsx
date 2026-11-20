@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
@@ -18,6 +18,7 @@ import Modal from "@/components/ui/Modal";
 
 const CHECKOUT_RECONCILE_ATTEMPTS = 40;
 const CHECKOUT_RECONCILE_DELAY_MS = 5000;
+const HANDOFF_MAX_AGE_MS = 5 * 60 * 1000;
 
 export type PaymentSuccessBenefit = {
     icon: IconDefinition;
@@ -32,15 +33,33 @@ type PaymentSuccessCelebrationProps = {
         activatedNow?: boolean;
     }>;
     onActivated?: () => void;
-    title: string;
-    description: string;
-    benefits: readonly PaymentSuccessBenefit[];
-    bonusTitle: string;
-    bonusDescription: string;
-    actionLabel: string;
+    restaurantId?: string | null;
     checkoutQueryParam?: string;
     checkoutSuccessValue?: string;
-};
+} & (
+    | {
+        renderSetup: (props: {
+            restaurantId: string | null;
+            onClose: () => void;
+            onSavingChange: (saving: boolean) => void;
+        }) => ReactNode;
+        title?: never;
+        description?: never;
+        benefits?: never;
+        bonusTitle?: never;
+        bonusDescription?: never;
+        actionLabel?: never;
+    }
+    | {
+        renderSetup?: never;
+        title: string;
+        description: string;
+        benefits: readonly PaymentSuccessBenefit[];
+        bonusTitle: string;
+        bonusDescription: string;
+        actionLabel: string;
+    }
+);
 
 function launchPartyPoppers(): () => void {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -140,10 +159,20 @@ export default function PaymentSuccessCelebration({
     bonusTitle,
     bonusDescription,
     actionLabel,
+    restaurantId = null,
+    renderSetup,
     checkoutQueryParam = "checkout",
     checkoutSuccessValue = "success",
 }: PaymentSuccessCelebrationProps) {
     const [requested, setRequested] = useState(false);
+    const [purchasedRestaurantId, setPurchasedRestaurantId] = useState<string | null>(null);
+    const [savingSetup, setSavingSetup] = useState(false);
+    const savingSetupRef = useRef(false);
+    const setupHandoffKey = renderSetup ? `payment-success:${successEventName}` : null;
+    const changeSetupSaving = useCallback((saving: boolean) => {
+        savingSetupRef.current = saving;
+        setSavingSetup(saving);
+    }, []);
     const popup = useAutoPopup({
         id: `payment-success:${successEventName}`,
         priority: AUTO_POPUP_PRIORITY.paymentSuccess,
@@ -172,9 +201,33 @@ export default function PaymentSuccessCelebration({
             setRequested(true);
         };
 
-        const handleInternalActivation = () => {
+        const handleInternalActivation = (event: Event) => {
+            const id = (event as CustomEvent<{ restaurantId?: string }>).detail?.restaurantId;
+            if (setupHandoffKey && id) {
+                setPurchasedRestaurantId(id);
+                // Some checkout callbacks reload the page immediately after payment.
+                try {
+                    sessionStorage.setItem(setupHandoffKey, JSON.stringify({ id, time: Date.now() }));
+                } catch {
+                    // The celebration still opens in this page when storage is unavailable.
+                }
+            }
             celebrateActivation();
         };
+
+        let restoredHandoff = false;
+        if (setupHandoffKey && restaurantId) {
+            try {
+                const handoff = JSON.parse(sessionStorage.getItem(setupHandoffKey) || "null");
+                if (handoff?.id === restaurantId && Date.now() - handoff.time < HANDOFF_MAX_AGE_MS) {
+                    setPurchasedRestaurantId(restaurantId);
+                    celebrateActivation();
+                    restoredHandoff = true;
+                }
+            } catch {
+                // Browser storage is optional.
+            }
+        }
 
         window.addEventListener(
             successEventName,
@@ -211,7 +264,7 @@ export default function PaymentSuccessCelebration({
             }
         };
 
-        if (returnPaths.includes(window.location.pathname)) {
+        if (!restoredHandoff && returnPaths.includes(window.location.pathname)) {
             void reconcile();
         }
 
@@ -230,6 +283,8 @@ export default function PaymentSuccessCelebration({
         onActivated,
         reconcilePayment,
         returnPaths,
+        restaurantId,
+        setupHandoffKey,
         successEventName,
     ]);
 
@@ -245,10 +300,19 @@ export default function PaymentSuccessCelebration({
     }, [popup.open]);
 
     const closeCelebration = () => {
+        if (savingSetupRef.current) return;
+        if (setupHandoffKey) {
+            try {
+                sessionStorage.removeItem(setupHandoffKey);
+            } catch {
+                // Browser storage is optional.
+            }
+        }
         partyCleanupRef.current?.();
         partyCleanupRef.current = null;
         popup.dismiss();
         setRequested(false);
+        setPurchasedRestaurantId(null);
 
         if (reloadAfterCloseRef.current) {
             reloadAfterCloseRef.current = false;
@@ -259,11 +323,17 @@ export default function PaymentSuccessCelebration({
     return (
         <Modal height={560}
             open={popup.open}
-            onClose={closeCelebration}
-            className="max-w-xl"
-            showCloseButton
+            onClose={() => closeCelebration()}
+            className={renderSetup ? "max-w-xl overflow-y-hidden!" : "max-w-xl"}
+            bodyClassName={renderSetup ? "h-full min-h-0" : undefined}
+            fixedHeight={Boolean(renderSetup)}
+            showCloseButton={!savingSetup}
         >
-            <div className="px-6 pb-6 pt-7 text-center sm:px-8 sm:pb-8 sm:pt-8">
+            {renderSetup ? popup.open && renderSetup({
+                restaurantId: purchasedRestaurantId ?? restaurantId,
+                onClose: closeCelebration,
+                onSavingChange: changeSetupSaving,
+            }) : <div className="px-6 pb-6 pt-7 text-center sm:px-8 sm:pb-8 sm:pt-8">
                 <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-brand/10 p-2">
                     <Image
                         src="/images/party_popper_emoji.png"
@@ -282,7 +352,7 @@ export default function PaymentSuccessCelebration({
                 </p>
 
                 <div className="mt-6 space-y-3 text-left">
-                    {benefits.map((benefit) => (
+                    {benefits?.map((benefit) => (
                         <div
                             key={benefit.text}
                             className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3"
@@ -320,11 +390,11 @@ export default function PaymentSuccessCelebration({
                 <Button
                     type="button"
                     className="mt-6 w-full"
-                    onClick={closeCelebration}
+                    onClick={() => closeCelebration()}
                 >
                     {actionLabel}
                 </Button>
-            </div>
+            </div>}
         </Modal>
     );
 }

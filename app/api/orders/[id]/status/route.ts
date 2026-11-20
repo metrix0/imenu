@@ -14,7 +14,7 @@ export async function GET(
 
         const { rows: [order] } = await query(
             `
-            SELECT status
+            SELECT status, payment_paid_at IS NOT NULL AS online_payment_confirmed
             FROM orders
             WHERE id = $1
             LIMIT 1

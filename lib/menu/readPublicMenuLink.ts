@@ -1,4 +1,4 @@
-import puppeteer from "puppeteer";
+import puppeteer, { type Frame } from "puppeteer";
 import { get as httpGet } from "node:http";
 import { get as httpsGet } from "node:https";
 import { brotliDecompressSync, gunzipSync, inflateSync } from "node:zlib";
@@ -9,6 +9,7 @@ const MAX_PAGE_BYTES = 4 * 1024 * 1024;
 const MAX_TEXT_LENGTH = 120_000;
 const PUBLIC_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/avif", "image/gif"]);
 const MAX_IMAGE_CANDIDATES = 200;
+const MAX_EMBEDDED_FRAMES = 12;
 const PAGE_TIMEOUT_MS = 20_000;
 const NETWORK_IDLE_MS = 800;
 const PRICE_PATTERN = /(?:R\$|US\$|€|£|\$)\s*\d|\d[.,]\d{2}\s*(?:€|£)/;
@@ -167,6 +168,33 @@ export async function downloadPublicMenuPhoto(raw: string, signal: AbortSignal):
     throw new MenuLinkError("Não foi possível ler a foto do produto.");
 }
 
+async function visibleMenuFrames(mainFrame: Frame): Promise<Frame[]> {
+    const candidates = mainFrame.childFrames().slice(0, MAX_EMBEDDED_FRAMES);
+    const visibleFrames: Frame[] = [];
+    for (const frame of candidates) {
+        try {
+            const url = frame.url();
+            if (url !== "about:srcdoc" && url !== "about:blank") validateUrl(url);
+            const element = await frame.frameElement();
+            if (!element) continue;
+            try {
+                const visible = await element.evaluate(iframe =>
+                    iframe.clientWidth > 0 && iframe.clientHeight > 0 &&
+                    iframe.checkVisibility({ opacityProperty: true, visibilityProperty: true })
+                );
+                if (!visible) continue;
+            } finally {
+                await element.dispose();
+            }
+            visibleFrames.push(frame);
+            candidates.push(...frame.childFrames().slice(0, MAX_EMBEDDED_FRAMES - candidates.length));
+        } catch {
+            // A blocked or detached frame should not prevent reading the rest of the menu.
+        }
+    }
+    return visibleFrames;
+}
+
 async function renderPublicPage(url: URL): Promise<MenuPage> {
     const network = await startPublicMenuBrowserNetwork();
     let browser: Awaited<ReturnType<typeof puppeteer.launch>> | undefined;
@@ -225,7 +253,7 @@ async function renderPublicPage(url: URL): Promise<MenuPage> {
         await page.waitForNetworkIdle({ idleTime: NETWORK_IDLE_MS, timeout: 3000 }).catch(() => undefined);
         // A visible price can be an order minimum or a featured item. Scroll
         // through the page to trigger the rest of the catalog's lazy sections.
-        await page.evaluate(async () => {
+        const scrollMenuFrame = (frame: Frame) => frame.evaluate(async () => {
             const root = document.scrollingElement;
             if (!root) return;
 
@@ -253,9 +281,17 @@ async function renderPublicPage(url: URL): Promise<MenuPage> {
                 ) ? stableAtEnd + 1 : 0;
             }
         });
+        const mainFrame = page.mainFrame();
+        await scrollMenuFrame(mainFrame);
         await page.waitForNetworkIdle({ idleTime: NETWORK_IDLE_MS, timeout: 3000 }).catch(() => undefined);
-        const rendered = await page.evaluate((maxImages, pricePattern) => {
-            const text = document.body?.innerText || "";
+        const embeddedFrames = await visibleMenuFrames(mainFrame);
+        if (embeddedFrames.length) {
+            await Promise.allSettled(embeddedFrames.map(scrollMenuFrame));
+            await page.waitForNetworkIdle({ idleTime: NETWORK_IDLE_MS, timeout: 3000 }).catch(() => undefined);
+        }
+
+        const readMenuFrame = (frame: Frame) => frame.evaluate((maxImages, pricePattern, maxTextLength) => {
+            const text = (document.body?.innerText || "").slice(0, maxTextLength);
             const images: MenuPhoto[] = [];
             const titleSelector = "h2,h3,h4,h5,[itemprop='name'],[class*='__name'],[class*='__title'],[class*='product-name'],[class*='item-name']";
             const itemContainer = "article, li, [itemscope], [class~='product'], [class~='item'], [class*='product-card'], [class*='item-card']";
@@ -319,7 +355,13 @@ async function renderPublicPage(url: URL): Promise<MenuPage> {
                 }
             }
             return { text, images };
-        }, MAX_IMAGE_CANDIDATES, PRICE_PATTERN.source);
+        }, MAX_IMAGE_CANDIDATES, PRICE_PATTERN.source, MAX_TEXT_LENGTH);
+        const rendered = await readMenuFrame(mainFrame);
+        const embedded = (await Promise.allSettled(embeddedFrames.map(readMenuFrame)))
+            .flatMap(result => result.status === "fulfilled" && result.value.text.trim() ? [result.value] : []);
+        const visibleText = [...new Set([rendered.text, ...embedded.map(frame => frame.text)])].join("\n");
+        const images = [...rendered.images, ...embedded.flatMap(frame => frame.images)]
+            .slice(0, MAX_IMAGE_CANDIDATES);
         const html = await page.content();
         // Include published structured data as a generic fallback for pages whose
         // menu is present in hydration payloads but not visible as ordinary text.
@@ -338,9 +380,9 @@ async function renderPublicPage(url: URL): Promise<MenuPage> {
             .slice(0, 75_000);
 
         return {
-            images: rendered.images,
+            images,
             text: ("Texto visível após carregar a página:\n" +
-                rendered.text.slice(0, MAX_TEXT_LENGTH - structured.length - 100) +
+                visibleText.slice(0, MAX_TEXT_LENGTH - structured.length - 100) +
                 (structured ? "\nDados estruturados:\n" + structured : "")
             ).slice(0, MAX_TEXT_LENGTH),
         };

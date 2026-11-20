@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useDevProfile } from "./DevProfileProvider";
 import PagedTable, { type PageData } from "./PagedTable";
-import DevLoading from "./DevLoading";
+import { PageLoader } from "@/components/ui/Loader";
 import Badge from "@/components/ui/Badge";
 import { devJson } from "@/lib/dev/client";
 import { formatCount, formatCurrencyFromCents, formatDateTime, formatPurchaseElapsedTime, formatRatio } from "@/lib/dev/dashboardFormat";
@@ -80,7 +80,7 @@ export default function RevenueSection() {
         return () => controller.abort();
     }, [page]);
 
-    if (!data && loading) return <DevLoading />;
+    if (!data && loading) return <PageLoader />;
     return <div className="space-y-6">
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
         {data && <>

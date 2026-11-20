@@ -1,3 +1,4 @@
+import { getPublicItemMedia } from "@/lib/menu/itemMedia";
 import { getMenuItemImageUrl } from "@/lib/menu/itemImages";
 import { isItemAvailableForChannel } from "@/lib/menu/itemAvailability";
 // app/[slug]/page.tsx
@@ -13,10 +14,12 @@ import {
   Restaurant,
 } from "@/lib/types/types";
 import TrackingScripts from "@/components/costumer/TrackingScripts";
+import { cleanMetaPixelId } from "@/lib/analytics/metaEvents";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import PickupAvailabilityGuard from "./PickupAvailabilityGuard";
 
+import { query } from "@/lib/database/sql";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 import { getPublicMenuRestaurant } from "./restaurant-data";
 import { hasIMenuPlusAccess } from "@/lib/addons/access";
@@ -123,14 +126,6 @@ export default async function Page({
   const readOnly = p.origem === "vitrine";
   if (readOnly && restaurantData.vitrine_enabled !== true) return notFound();
 
-  let darkMenuActive = false;
-  if (restaurantData.dark_menu_enabled === true) {
-    try {
-      darkMenuActive = await hasIMenuPlusAccess(restaurantData.id);
-    } catch (error) {
-      console.error("[MENU_DARK_THEME] Unable to check Plus access:", error);
-    }
-  }
   let tableOrder: QrTableMenuContext | null = null;
   if (p.origem === "mesa") {
     const [{ data: settings }, { data: legacyTokens }] = await Promise.all([
@@ -204,7 +199,7 @@ export default async function Page({
     ),
     banner_url:
       getPublicUrl(supabase, "menu-banners", restaurantData.banner_url) ||
-      "/placeholders/banner.png",
+      "/placeholders/banner.webp",
     rating: restaurantData.rating,
     min_order_cents: restaurantData.min_order_cents,
     availability_json: normalizeEndOfDayAvailability(
@@ -231,6 +226,42 @@ export default async function Page({
     preorder_min_days: restaurantData.preorder_min_days ?? 0,
   };
 
+  // A mandatory group with more than one available price requires a starting-price label.
+  const startingPrices = query<{ id: string }>(
+    `SELECT item.id
+     FROM public.items AS item
+     WHERE item.restaurant_id = $1 AND item.is_available IS TRUE
+       AND EXISTS (
+         SELECT 1
+         FROM public.item_subcategories AS addon_group
+         JOIN public.subitems AS option ON option.item_subcategory_id = addon_group.id
+         WHERE addon_group.item_id = item.id AND addon_group.min_select > 0 AND option.is_available IS TRUE
+         GROUP BY addon_group.id
+         HAVING MIN(COALESCE(option.price_cents, 0)) <> MAX(COALESCE(option.price_cents, 0))
+       )`,
+    [restaurant.id],
+  ).then(({ rows }) => rows.map(row => row.id)).catch(error => {
+    console.error("Erro ao verificar preços dos complementos obrigatórios:", error);
+    return [];
+  });
+
+  const catalogItems = supabase
+    .from("items")
+    .select(
+      "id, name, description, price_cents, image_path, gallery_media, is_available, available_for_delivery, available_for_salao, availability_schedule, position, category_id, category:category_id(id, name, position)",
+    )
+    .eq("restaurant_id", restaurant.id)
+    .order("position", { ascending: true }).then(async ({ data }) => {
+    const itemsRaw = data || [];
+    const hasPaidMenuFeatures = restaurantData.dark_menu_enabled === true ||
+      itemsRaw.some(item => Array.isArray(item.gallery_media) && item.gallery_media.length > 0);
+    const plusActive = hasPaidMenuFeatures && await hasIMenuPlusAccess(restaurant.id).catch(error => {
+      console.error("[PUBLIC_MENU] Unable to check Plus access:", error);
+      return false;
+    });
+    return { itemsRaw, plusActive };
+  });
+
   // These reads only depend on the restaurant and do not depend on each other.
   // Running them together removes avoidable database round trips from the TTFB.
   const now = new Date().toISOString();
@@ -238,8 +269,9 @@ export default async function Page({
     loyaltyResult,
     trackingResult,
     categoriesResult,
-    itemsResult,
+    { itemsRaw, plusActive },
     promotionsResult,
+    startingPriceItemIds,
   ] = await Promise.all([
     supabase
       .from("loyalty_programs")
@@ -248,7 +280,7 @@ export default async function Page({
       .maybeSingle(),
     supabase
       .from("tracking_integrations")
-      .select("ga4_id, gtm_id, meta_pixel_id")
+      .select("ga4_id, gtm_id, ga4_enabled, gtm_enabled, meta_pixel_id, meta_capi_token, is_enabled")
       .eq("restaurant_id", restaurantData.id)
       .order("updated_at", { ascending: false })
       .limit(1)
@@ -258,103 +290,31 @@ export default async function Page({
       .select("id, name, position, availability_schedule")
       .eq("restaurant_id", restaurant.id)
       .order("position", { ascending: true }),
-    supabase
-      .from("items")
-      .select(
-        "id, name, description, price_cents, image_path, is_available, available_for_delivery, available_for_salao, position, category_id, category:category_id(id, name, position)",
-      )
-      .eq("restaurant_id", restaurant.id)
-      .order("position", { ascending: true }),
+    catalogItems,
     supabase
       .from("promotions")
       .select("id,item_id , type, value, starts_at, ends_at")
       .eq("restaurant_id", restaurant.id)
       .lte("starts_at", now)
       .or(`ends_at.gte.${now},ends_at.is.null`),
+    startingPrices,
   ]);
 
   const loyaltyProgram = loyaltyResult.data;
   const tracking = trackingResult.data;
+  const metaPixelId = tracking?.is_enabled ? cleanMetaPixelId(tracking.meta_pixel_id) : null;
   const categories: Category[] = categoriesResult.data || [];
-  const itemsRaw = itemsResult.data || [];
   const promotions = promotionsResult.data;
   const loyaltyProgramActive =
     !tableOrder && loyaltyProgram?.active === true;
-  const itemIds = itemsRaw.map((item: any) => item.id);
 
-  // Show "A partir de" when at least one mandatory complemento group
-  // has available options with different prices, including R$ 0 options.
-  const itemIdsWithVariableMandatoryGroup = new Set<string>();
-
-  if (itemIds.length > 0) {
-    const { data: mandatoryGroups, error: mandatoryGroupsError } =
-      await supabase
-        .from("item_subcategories")
-        .select("id, item_id")
-        .in("item_id", itemIds)
-        .gt("min_select", 0);
-
-    if (mandatoryGroupsError) {
-      console.error(
-        "Erro ao verificar complementos obrigatórios:",
-        mandatoryGroupsError,
-      );
-    } else {
-      const groups = mandatoryGroups || [];
-      const groupIds = groups.map((group: any) => group.id);
-
-      if (groupIds.length > 0) {
-        const pricesByGroupId = new Map<string, number[]>();
-        const pageSize = 1000;
-        let loadedAllPages = true;
-
-        for (let offset = 0; ; offset += pageSize) {
-          const { data: availableSubitems, error: availableSubitemsError } =
-            await supabase
-              .from("subitems")
-              .select("item_subcategory_id, price_cents")
-              .in("item_subcategory_id", groupIds)
-              .eq("is_available", true)
-              .order("id", { ascending: true })
-              .range(offset, offset + pageSize - 1);
-
-          if (availableSubitemsError) {
-            console.error(
-              "Erro ao verificar opções dos complementos obrigatórios:",
-              availableSubitemsError,
-            );
-            loadedAllPages = false;
-            break;
-          }
-
-          (availableSubitems || []).forEach((subitem: any) => {
-            const prices =
-              pricesByGroupId.get(subitem.item_subcategory_id) || [];
-            prices.push(Number(subitem.price_cents) || 0);
-            pricesByGroupId.set(subitem.item_subcategory_id, prices);
-          });
-
-          if ((availableSubitems?.length ?? 0) < pageSize) break;
-        }
-
-        if (loadedAllPages) {
-          groups.forEach((group: any) => {
-            const prices = pricesByGroupId.get(group.id) || [];
-
-            if (new Set(prices).size > 1) {
-              itemIdsWithVariableMandatoryGroup.add(group.item_id);
-            }
-          });
-        }
-      }
-    }
-  }
-
+  const darkMenuActive = restaurantData.dark_menu_enabled === true && plusActive === true;
   let allItems: Item[] = itemsRaw
     .filter((item: any) => item.is_available === true && (readOnly || isItemAvailableForChannel(item, tableOrder ? "mesa" : "entrega")))
     .map((item: any) => ({
       ...item,
       image_public_url: getMenuItemImageUrl(supabase, item.image_path),
+      gallery_media: plusActive ? getPublicItemMedia(supabase, item.gallery_media) : [],
     }));
 
   // ======================
@@ -373,8 +333,6 @@ export default async function Page({
     ...item,
     promotion: promotionByItemId.get(item.id) ?? undefined,
   }));
-
-  const startingPriceItemIds = itemIdsWithVariableMandatoryGroup;
 
   // --- 5. Group Items by Category ---
 
@@ -399,7 +357,9 @@ export default async function Page({
         <TrackingScripts
           ga4Id={tracking?.ga4_id}
           gtmId={tracking?.gtm_id}
-          metaPixelId={tracking?.meta_pixel_id}
+          ga4Enabled={tracking.ga4_enabled}
+          gtmEnabled={tracking.gtm_enabled}
+          metaPixelId={metaPixelId}
         />
       )}
 
@@ -422,9 +382,11 @@ export default async function Page({
           `}</style>
         )}
 
-        <StartingPriceLabels items={Array.from(startingPriceItemIds)}>
+        <StartingPriceLabels items={startingPriceItemIds}>
         <MenuClientPage
           slug={slug}
+          metaPixelId={metaPixelId}
+          metaCapiEnabled={Boolean(metaPixelId && tracking?.meta_capi_token?.trim())}
           readOnly={readOnly}
           darkTheme={darkMenuActive}
           restaurant={restaurant}

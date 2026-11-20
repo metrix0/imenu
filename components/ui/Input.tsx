@@ -8,6 +8,7 @@ type InputProps = Omit<
     "size"
 > & {
     label?: string;
+    labelAction?: React.ReactNode;
     icon?: React.ReactNode | string;
     iconPosition?: "left" | "right";
     numeric?: boolean;
@@ -20,11 +21,12 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     (
         {
             label,
+            labelAction,
             icon,
             iconPosition = "left",
             numeric = false,
             float = false,
-            className = "",
+            className: providedClassName = "",
             locked = false,
             inline = false,
             defaultValue: providedDefaultValue,
@@ -107,8 +109,22 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         const isControlled =
             value !== undefined && value !== null;
 
+        const className = inputProps.readOnly
+            ? `${providedClassName} select-none`
+            : providedClassName;
+        const readOnlyInteractionProps: React.InputHTMLAttributes<HTMLInputElement> | undefined =
+            inputProps.readOnly ? {
+                tabIndex: -1,
+                autoFocus: false,
+                onPointerDown: (event) => {
+                    event.preventDefault();
+                    inputProps.onPointerDown?.(event);
+                },
+                onFocus: (event) => event.currentTarget.blur(),
+            } : undefined;
+
         if (inline) {
-            return <input {...inputProps} data-ui="input" ref={ref} type={type}
+            return <input {...inputProps} {...readOnlyInteractionProps} data-ui="input" ref={ref} type={type}
                 inputMode={numeric || float ? "numeric" : inputMode}
                 onKeyDown={handleKeyDown} onInput={handleInput}
                 {...(isControlled ? { value } : { defaultValue })}
@@ -134,13 +150,25 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
                 ${className}
                 ${locked ? "bg-[var(--im-menu-soft,#f3f4f6)] cursor-not-allowed text-[var(--im-menu-muted,#6b7280)]" : "bg-[var(--im-menu-soft,#fff)]"}`;
 
+        const fieldLabel = label && (
+            <label
+                data-ui="field-label"
+                htmlFor={inputId}
+                className={labelClassName}
+                onClick={inputProps.readOnly ? (event) => event.preventDefault() : undefined}
+            >
+                {label}
+            </label>
+        );
+
         return (
             <div data-ui="field" className={wrapperClassName}>
-                {label && (
-                    <label data-ui="field-label" htmlFor={inputId} className={labelClassName}>
-                        {label}
-                    </label>
-                )}
+                {labelAction ? (
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        {fieldLabel}
+                        {labelAction}
+                    </div>
+                ) : fieldLabel}
 
                 <div className="relative">
                     {withIcon && (
@@ -156,6 +184,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
                     <input
                         data-ui="input"
                         {...inputProps}
+                        {...readOnlyInteractionProps}
                         id={inputId}
                         ref={ref}
                         type={type}

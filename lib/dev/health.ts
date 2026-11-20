@@ -31,6 +31,7 @@ export type DevAlertInput = {
     operation?: string;
     httpStatus?: number | null;
     incidentKey?: string;
+    deliveryKey?: string;
 };
 
 export function isProductionAlertRuntime(): boolean {
@@ -57,19 +58,25 @@ export async function recordDevAlert(input: DevAlertInput) {
         ? `TRIGGER ALARM · ${input.title}` : input.title;
     // Only incident-producing failures are grouped. Explicit outbound events remain distinct.
     const incidentKey = input.incidentKey ||
-        (!input.notification && ["warning", "error", "critical"].includes(severity)
+        (!input.deliveryKey && !input.notification && ["warning", "error", "critical"].includes(severity)
             ? createHash("sha256").update(`${source}:${input.operation || input.title}:${new Date().toISOString().slice(0, 10)}`).digest("hex")
             : null);
     let alertId: string | undefined;
     let storageFailed = false;
     try {
+        // A keyed alarm can be retried after failed delivery or an interrupted attempt.
+        const conflict = input.deliveryKey ? `ON CONFLICT (fingerprint) DO UPDATE SET
+                delivery_error=NULL, last_seen_at=NOW(), occurrences=dev_alerts.occurrences+1
+            WHERE NOT dev_alerts.phone_notified
+              AND (dev_alerts.delivery_error IS NOT NULL OR dev_alerts.last_seen_at < NOW() - INTERVAL '2 minutes')`
+            : "ON CONFLICT DO NOTHING";
         const claimed = await query<{ id: string }>(
             `INSERT INTO public.dev_alerts
               (source,title,message,severity,fingerprint,phone_notified,alarm_triggered,trigger_type,operation,http_status,incident_key,last_seen_at)
-             VALUES ($1,$2,$3,$4,NULL,false,false,$5,$6,$7,$8,NOW())
-             ON CONFLICT DO NOTHING RETURNING id`,
+             VALUES ($1,$2,$3,$4,$9,false,false,$5,$6,$7,$8,NOW())
+             ${conflict} RETURNING id`,
             [source, title.slice(0, 200), input.message.slice(0, 4000), severity, trigger,
-                input.operation?.slice(0, 150) || null, input.httpStatus ?? null, incidentKey]
+                input.operation?.slice(0, 150) || null, input.httpStatus ?? null, incidentKey, input.deliveryKey ?? null]
         );
         alertId = claimed.rows[0]?.id;
         if (!alertId && incidentKey) {
@@ -81,6 +88,7 @@ export async function recordDevAlert(input: DevAlertInput) {
             return { phoneNotified: false, deliveryError: null };
         }
     } catch (error) {
+        if (input.deliveryKey) throw error;
         // If PostgreSQL is unavailable, still attempt the urgent notification.
         storageFailed = true;
         console.error("[DEV_HEALTH] Não foi possível registrar alerta:", error instanceof Error ? error.name : "unknown");

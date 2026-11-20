@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState, useMemo } from "react";
-import { faCheck, faLock } from "@fortawesome/free-solid-svg-icons";
 import { supabase } from "@/lib/database/supabaseClient";
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
+import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
@@ -210,10 +210,7 @@ export default function UpsellTab({ restaurantId, items }: Props) {
                         <div className="flex flex-wrap items-center gap-2">
                             <h2 className="text-xl font-medium text-gray-900">Upsell Automático</h2>
                             {plusActive !== null && (
-                                <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${plusActive ? "bg-green-50 text-green-700" : "bg-orange-50 text-orange-800"}`}>
-                                    <FontAwesomeIcon icon={plusActive ? faCheck : faLock} />
-                                    {plusActive ? "Plano ativo" : "Incluso no iMenu Plus"}
-                                </span>
+                                <Badge preset={plusActive ? "featureAvailable" : "plusIncluded"} />
                             )}
                         </div>
                         <p id="automatic-upsell-description" className="mt-2 text-sm text-gray-500">

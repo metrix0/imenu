@@ -13,6 +13,7 @@ import type { SaveState } from "@/components/ui/SaveStatus";
 import PixPayoutFields from "@/components/restaurant-owner/PixPayoutFields";
 import StoreVisuals from "./StoreVisuals";
 import CustomDomainModal from "./CustomDomainModal";
+import StoreWhatsappField from "./StoreWhatsappField";
 
 interface StoreProfileProps {
     restaurant: {
@@ -47,15 +48,6 @@ function sanitizeSlug(value: string): string {
         .slice(0, 80);
 }
 
-function formatPhone(value: string): string {
-    let digits = value.replace(/\D/g, "");
-    if (digits.startsWith("55") && digits.length > 11) digits = digits.slice(2);
-    digits = digits.slice(0, 11);
-    if (digits.length <= 2) return digits ? `(${digits}` : "";
-    if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
-    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
-}
-
 export default function StoreProfileManager({
     restaurant,
     hideCustomDomainButton = false,
@@ -69,8 +61,9 @@ export default function StoreProfileManager({
     const [logoUrl, setLogoUrl] = useState<string | null>(null);
     const [bannerUrl, setBannerUrl] = useState<string | null>(null);
     const [fieldStatuses, setFieldStatuses] = useState<Record<string, SaveState>>({});
-    const isSaving = Object.values(fieldStatuses).includes("saving");
-    const hasSaveError = Object.values(fieldStatuses).includes("error");
+    const [whatsappStatus, setWhatsappStatus] = useState<SaveState>("idle");
+    const isSaving = whatsappStatus === "saving" || Object.values(fieldStatuses).includes("saving");
+    const hasSaveError = whatsappStatus === "error" || Object.values(fieldStatuses).includes("error");
     useEffect(() => {
         onSaveStatusChange(hasSaveError ? "error" : isSaving ? "saving" : "saved");
     }, [hasSaveError, isSaving, onSaveStatusChange]);
@@ -89,15 +82,17 @@ export default function StoreProfileManager({
     useEffect(() => {
         onPixPayoutValidationChange?.(needsPixType || pixAutoDetectionFailed);
     }, [needsPixType, onPixPayoutValidationChange, pixAutoDetectionFailed]);
-    const [storeWhatsapp, setStoreWhatsapp] = useState(
-        formatPhone(restaurant.store_whatsapp || "")
-    );
     const [urlSlug, setUrlSlug] = useState(restaurant.url_slug || "");
+    const [savedUrlSlug, setSavedUrlSlug] = useState(restaurant.url_slug || "");
     const [customDomain, setCustomDomain] = useState(
         restaurant.custom_domain || ""
     );
     const [customDomainVerified, setCustomDomainVerified] = useState(false);
     const [customDomainOpen, setCustomDomainOpen] = useState(false);
+    const activeDomain = customDomainVerified ? customDomain : "";
+    const menuHref = activeDomain
+        ? `https://${activeDomain}`
+        : savedUrlSlug ? `/${encodeURIComponent(savedUrlSlug)}` : "";
 
     useEffect(() => {
         if (restaurant.logo_url) {
@@ -182,6 +177,7 @@ export default function StoreProfileManager({
 
     const saveSlug = async () => {
         const normalized = sanitizeSlug(urlSlug);
+        if (normalized === savedUrlSlug && savedUrlSlug) return;
         if (normalized.length < 3) {
             setToast({
                 msg: "O endereço precisa ter pelo menos 3 caracteres.",
@@ -192,10 +188,12 @@ export default function StoreProfileManager({
         setUrlSlug(normalized);
         try {
             const saved = await saveFields({ url_slug: normalized });
-            setRestaurantSlug(saved.url_slug ?? normalized);
+            const savedSlug = saved.url_slug ?? normalized;
+            setSavedUrlSlug(savedSlug);
+            setRestaurantSlug(savedSlug);
             setToast({ msg: "Endereço atualizado!", type: "success" });
         } catch {
-            setUrlSlug(restaurant.url_slug || "");
+            setUrlSlug(savedUrlSlug);
         }
     };
 
@@ -266,23 +264,12 @@ export default function StoreProfileManager({
                         onSave={saveFields}
                     />
 
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)_auto] md:items-end">
-                        <Input
-                            label="WhatsApp da loja"
-                            placeholder="(00) 00000-0000"
-                            type="tel"
-                            inputMode="tel"
-                            value={storeWhatsapp}
-                            onChange={(event) =>
-                                setStoreWhatsapp(formatPhone(event.target.value))
-                            }
-                            onBlur={() =>
-                                void saveFields({
-                                    store_whatsapp: storeWhatsapp.replace(/\D/g, ""),
-                                })
-                            }
-                            maxLength={15}
-                            autoComplete="tel"
+                    <div className={`grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] md:items-end ${hideCustomDomainButton ? "" : "xl:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)_auto]"}`}>
+                        <StoreWhatsappField
+                            key={restaurant.id}
+                            restaurantId={restaurant.id}
+                            initialValue={restaurant.store_whatsapp}
+                            onSaveStatusChange={setWhatsappStatus}
                         />
 
                         {customDomain && customDomainVerified ? (
@@ -345,21 +332,26 @@ export default function StoreProfileManager({
                         )}
 
                         {!hideCustomDomainButton && (
-                            <Button
-                                type="button"
-                                variant={
-                                    customDomain && customDomainVerified
-                                        ? "secondary"
-                                        : "primary"
-                                }
-                                onClick={() => setCustomDomainOpen(true)}
-                                className="h-11 w-full shrink-0 md:w-auto"
-                            >
-                                <FontAwesomeIcon icon={faGlobe} className="mr-2" />
-                                {customDomain && customDomainVerified
-                                    ? "Domínio conectado"
-                                    : "Usar meu domínio"}
-                            </Button>
+                            <div className="flex flex-wrap gap-3 md:col-span-2 md:justify-end xl:col-span-1">
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    leftIcon={<FontAwesomeIcon icon={faGlobe} aria-hidden="true" />}
+                                    onClick={() => setCustomDomainOpen(true)}
+                                    className="h-11 flex-1 whitespace-nowrap md:flex-none"
+                                >
+                                    {activeDomain ? "Domínio conectado" : "Usar meu domínio"}
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="primary"
+                                    className="h-11 flex-1 whitespace-nowrap md:flex-none"
+                                    disabled={!menuHref || (!activeDomain && urlSlug !== savedUrlSlug)}
+                                    onClick={() => window.open(menuHref, "_blank", "noopener,noreferrer")}
+                                >
+                                    Abrir cardápio
+                                </Button>
+                            </div>
                         )}
                     </div>
                 </div>

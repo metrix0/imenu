@@ -6,7 +6,7 @@ import { faMobileScreenButton } from "@fortawesome/free-solid-svg-icons";
 
 import ApplicationPanelContent from "@/components/restaurant-owner/aplicativo/ApplicationPanelContent";
 import Card from "@/components/ui/Card";
-import Loader from "@/components/ui/Loader";
+import { PageLoader } from "@/components/ui/Loader";
 
 const MOBILE_MEDIA_QUERY = "(max-width: 767px)";
 
@@ -29,9 +29,7 @@ export default function AplicativoPage() {
 
     if (isMobileViewport === null) {
         return (
-            <div className="flex min-h-[50vh] items-center justify-center p-6">
-                <Loader />
-            </div>
+            <PageLoader />
         );
     }
 

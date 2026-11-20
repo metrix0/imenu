@@ -1,8 +1,9 @@
 "use client";
 
-import { Children, isValidElement, type ReactNode } from "react";
+import { Children, isValidElement, useEffect, useState, type ReactNode } from "react";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faClock, faExclamationTriangle } from "@fortawesome/free-solid-svg-icons";
 
@@ -14,6 +15,7 @@ interface ConfirmModalProps {
     description?: ReactNode;
     descriptionAfter?: ReactNode;
     confirmLabel?: string;
+    confirmationText?: string;
     cancelLabel?: string;
     isLoading?: boolean;
     extraAction?: { label: string; onClick: () => void; tone?: "success" };
@@ -30,6 +32,7 @@ export default function ConfirmModal({
     description,
     descriptionAfter,
     confirmLabel = "Confirmar",
+    confirmationText,
     cancelLabel = "Cancelar",
     isLoading = false,
     extraAction,
@@ -37,6 +40,13 @@ export default function ConfirmModal({
     inlineActions = false,
     variant = "danger"
 }: ConfirmModalProps) {
+    const [typedConfirmation, setTypedConfirmation] = useState("");
+    const requiresConfirmation = confirmationText !== undefined;
+
+    useEffect(() => {
+        if (!open) setTypedConfirmation("");
+    }, [open]);
+
     const descriptionLength = typeof description === "string" ? description.trim().length : 0;
     const actionTone = confirmTone ?? variant;
     const actionButtonClass = inlineActions
@@ -53,7 +63,7 @@ export default function ConfirmModal({
             ? Children.toArray(descriptionAfter.props.children)
             : [descriptionAfter]
         : [];
-    const height = extraAction ? (typeof description === "string" ? 380 : 430) : descriptionAfter
+    const baseHeight = extraAction ? (typeof description === "string" ? 380 : 430) : descriptionAfter
         ? 370
         : !description
           ? 260
@@ -62,9 +72,13 @@ export default function ConfirmModal({
             : descriptionLength > 70
               ? 330
               : 310;
+    const height = baseHeight + (requiresConfirmation ? 104 : 0);
+    const close = () => {
+        if (!requiresConfirmation || !isLoading) onClose();
+    };
 
     return (
-        <Modal height={height} open={open} onClose={onClose} className={inlineActions ? "max-w-lg" : "max-w-md 2xl:max-w-lg"}>
+        <Modal height={height} open={open} onClose={close} className={inlineActions ? "max-w-lg" : "max-w-md 2xl:max-w-lg"}>
             <div className="p-4 sm:p-6 2xl:p-7 text-center">
                 <div className={`mx-auto mb-4 flex h-12 w-12 2xl:h-16 2xl:w-16 items-center justify-center rounded-full ${badgeStyle}`}>
                     <FontAwesomeIcon icon={variant === "neutral" ? faClock : faExclamationTriangle} className="text-xl 2xl:text-2xl" />
@@ -93,6 +107,20 @@ export default function ConfirmModal({
                     </p>
                 )}
 
+                {requiresConfirmation && (
+                    <div className="mb-5 text-left">
+                        <Input
+                            label={`Digite “${confirmationText}” para confirmar`}
+                            value={typedConfirmation}
+                            onChange={(event) => setTypedConfirmation(event.target.value)}
+                            autoComplete="off"
+                            autoCorrect="off"
+                            spellCheck={false}
+                            disabled={isLoading}
+                        />
+                    </div>
+                )}
+
                 <div className={inlineActions
                     ? "flex flex-nowrap justify-center gap-2 sm:gap-3"
                     : `flex flex-col sm:flex-row justify-center gap-3 ${extraAction ? "sm:flex-wrap" : ""}`}>
@@ -108,6 +136,7 @@ export default function ConfirmModal({
                     <Button 
                         variant={actionTone === "success" || actionTone === "primary" ? "primary" : "secondary"}
                         onClick={onConfirm}
+                        disabled={requiresConfirmation && typedConfirmation.toLowerCase() !== confirmationText.toLowerCase()}
                         loading={isLoading}
                         className={`${actionButtonClass} ${actionTone === "success" ? successButtonClass : actionTone === "danger" ? "bg-red-600 text-white hover:bg-red-700 border-transparent" : ""}`}
                     >

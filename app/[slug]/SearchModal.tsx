@@ -25,31 +25,24 @@ const PAGE_SIZE = 10;
 export default function SearchModal({ categories, itemsByCategory, onClose, onSelect, flavorStep, getFinalPrice }: SearchModalProps) {
     const [searchText, setSearchText] = useState("");
     const [openModal, setOpenModal] = useState(false);
-    const [debouncedSearch, setDebouncedSearch] = useState("");
     const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
     const [sentinel, setSentinel] = useState<HTMLDivElement | null>(null);
 
-    useEffect(() => {
-        const timer = setTimeout(() => { setDebouncedSearch(searchText.trim()); setVisibleCount(PAGE_SIZE); }, 300);
-        return () => clearTimeout(timer);
-    }, [searchText]);
+    const searchQuery = searchText.trim();
     useEffect(() => { const frame = requestAnimationFrame(() => setOpenModal(true)); return () => cancelAnimationFrame(frame); }, []);
     const closeWithAnimation = () => { setOpenModal(false); setTimeout(onClose, 250); };
-    const selectWithAnimation = (item: Item) => {
-        setOpenModal(false);
-        setTimeout(() => onSelect(item), 250);
-    };
 
     const allItems = useMemo(() => {
+        const normalizedQuery = searchQuery.toLocaleLowerCase("pt-BR");
         const orderedCategories = [...categories, ...Object.keys(itemsByCategory).filter(id => !categories.some(c => c.id === id)).map(id => ({ id, name: "Outros", position: 0 }))];
         return orderedCategories.flatMap(category => (itemsByCategory[category.id] || [])
             .filter(item => {
                 if (!item.is_available) return false;
                 if (flavorStep && getFinalPrice?.(item).error === SAME_CATEGORY_PIZZA_ERROR) return false;
-                return !debouncedSearch || item.name.toLocaleLowerCase("pt-BR").includes(debouncedSearch.toLocaleLowerCase("pt-BR"));
+                return !searchQuery || item.name.toLocaleLowerCase("pt-BR").includes(normalizedQuery);
             })
             .map(item => ({ item, category })));
-    }, [categories, itemsByCategory, debouncedSearch, flavorStep, getFinalPrice]);
+    }, [categories, itemsByCategory, searchQuery, flavorStep, getFinalPrice]);
     const hasMore = visibleCount < allItems.length;
     useEffect(() => {
         // Desktop modals mount their portal after the parent effect runs.
@@ -59,24 +52,24 @@ export default function SearchModal({ categories, itemsByCategory, onClose, onSe
         }, { rootMargin: "100px" });
         observer.observe(sentinel);
         return () => observer.disconnect();
-    }, [sentinel, hasMore, openModal, visibleCount, debouncedSearch]);
+    }, [sentinel, hasMore, openModal, visibleCount, searchQuery]);
 
     return <DraggableModal open={openModal} onClose={closeWithAnimation} height={1} handle>
         <div className="sticky top-0 z-10 w-full bg-[var(--im-menu-surface,#fff)] pb-3 pt-5 md:px-6 md:pt-6">
             {flavorStep && <h2 className="mb-3 font-semibold">Escolha o sabor {flavorStep.current} de {flavorStep.total}</h2>}
             <div className="flex items-center gap-3">
-                <div className="min-w-0 flex-1"><Input icon={<FontAwesomeIcon icon={icons.faMagnifyingGlass} />} placeholder={flavorStep ? "Buscar sabores..." : "Buscar no cardápio..."} value={searchText} onChange={e => setSearchText(e.target.value)} /></div>
+                <div className="min-w-0 flex-1"><Input icon={<FontAwesomeIcon icon={icons.faMagnifyingGlass} />} placeholder={flavorStep ? "Buscar sabores..." : "Buscar no cardápio..."} value={searchText} onChange={e => { setSearchText(e.target.value); setVisibleCount(PAGE_SIZE); }} /></div>
                 <button className="shrink-0 cursor-pointer text-[var(--im-menu-link,#f14400)] transition-colors hover:text-[var(--im-menu-link-hover,#c93f0b)]" onClick={closeWithAnimation}>Cancelar</button>
             </div>
             {flavorStep && <p className="mt-2 text-sm text-[var(--im-menu-muted,#6b7280)]">Preço final com os sabores escolhidos e os complementos do primeiro sabor.</p>}
         </div>
-        {!allItems.length && <p className="px-4 py-16 text-center text-[var(--im-menu-muted,#6b7280)] md:px-6">{debouncedSearch ? `Nenhum item encontrado para “${debouncedSearch}”.` : "Nenhum item disponível."}</p>}
+        {!allItems.length && <p className="px-4 py-16 text-center text-[var(--im-menu-muted,#6b7280)] md:px-6">{searchQuery ? `Nenhum item encontrado para “${searchQuery}”.` : "Nenhum item disponível."}</p>}
         <div className="mt-3 pb-8 md:px-6">
             {allItems.slice(0, visibleCount).map(({ item, category }, index, visible) => {
                 const quote = getFinalPrice?.(item);
                 return <div key={item.id}>
                     {(index === 0 || visible[index - 1].category.id !== category.id) && <h3 className="mb-2 mt-5 text-lg font-semibold">{category.name}</h3>}
-                    <button disabled={Boolean(quote?.error)} className={`flex w-full cursor-pointer items-center gap-3 py-3 text-left transition-colors hover:bg-[var(--im-menu-raised,#f9fafb)] active:bg-[var(--im-menu-soft,#f3f4f6)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent ${flavorStep ? "mb-1 rounded-xl px-3" : "border-b border-[var(--im-menu-border,#e5e7eb)]"}`} onClick={() => selectWithAnimation(item)}>
+                    <button disabled={Boolean(quote?.error)} className={`flex w-full cursor-pointer items-center gap-3 py-3 text-left transition-colors hover:bg-[var(--im-menu-raised,#f9fafb)] active:bg-[var(--im-menu-soft,#f3f4f6)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent ${flavorStep ? "mb-1 rounded-xl px-3" : "border-b border-[var(--im-menu-border,#e5e7eb)]"}`} onClick={() => onSelect(item)}>
                         <Image src={item.image_public_url || "/placeholders/item.png"} alt="" width={64} height={64} className="h-16 w-16 shrink-0 rounded object-cover" />
                         <div className="min-w-0 flex-1"><p className="font-semibold">{item.name}</p>{item.description && <p className="line-clamp-2 text-sm text-[var(--im-menu-muted,#4b5563)]">{item.description}</p>}{quote?.error && <p className="mt-1 text-xs text-[var(--im-menu-muted,#4b5563)]">{quote.error}</p>}</div>
                         <div className="shrink-0 text-right">{getFinalPrice && <p className="text-xs text-[var(--im-menu-muted,#6b7280)]">Preço Final</p>}<p className="font-semibold">{quote?.error ? "Indisponível" : <><StartingPriceLabel itemId={item.id} />{formatPrice(quote?.price ?? promotionPrice(item) ?? item.price_cents)}</>}</p></div>

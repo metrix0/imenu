@@ -1,4 +1,11 @@
 import { isItemAvailableForChannel } from "@/lib/menu/itemAvailability";
+import { isCategoryAvailable, type CategorySchedule } from "@/lib/menu/categorySchedule";
+import { getOrderScheduleDate, getSameDayOrderEarliestAt } from "@/lib/menu/orderAvailability";
+import { metaCommerceData, metaPurchaseEventId, type MetaCommerceData } from "@/lib/analytics/metaEvents";
+import {
+    discardMetaPixPurchase, metaContext, metaCustomerFromOrder, metaDestination,
+    saveMetaPixPurchase, sendMetaEvent,
+} from "@/lib/analytics/metaServer";
 import { readCookie, checkoutCookie, structuredAddress, trustCustomer, trustedPhone } from "@/lib/services/checkoutCustomer";
 import { normalizeCustomerPhone } from "@/lib/services/crmRules";
 // app/api/orders/route.ts
@@ -32,6 +39,17 @@ class OrderRequestError extends Error {
         this.name = "OrderRequestError";
         this.status = status;
         this.details = details;
+    }
+}
+
+function assertItemSchedule(item: {
+    name: string;
+    availability_schedule?: CategorySchedule;
+    category_schedule?: CategorySchedule;
+}, at: Date) {
+    if (!isCategoryAvailable(item.availability_schedule, at) ||
+        !isCategoryAvailable(item.category_schedule, at)) {
+        throw new OrderRequestError(`${item.name} não está disponível no horário escolhido.`, 409);
     }
 }
 
@@ -309,6 +327,8 @@ export async function POST(request: Request) {
         }
 
         if (stockCheckOnly) {
+            const requestedTime = !isTableOrder && scheduled_for ? new Date(scheduled_for) : null;
+            const availabilityTime = requestedTime && Number.isFinite(requestedTime.getTime()) ? requestedTime : new Date();
             const requestedQuantities = new Map<string, number>();
 
             for (const cartItem of items) {
@@ -351,7 +371,9 @@ export async function POST(request: Request) {
                             stock_quantity,
                             is_available,
                             available_for_delivery,
-                            available_for_salao
+                            available_for_salao,
+                            availability_schedule,
+                            (SELECT availability_schedule FROM categories WHERE id = items.category_id) AS category_schedule
                         FROM items
                         WHERE id = $1
                         LIMIT 1
@@ -393,6 +415,8 @@ export async function POST(request: Request) {
                     throw new OrderRequestError(`${databaseItem.name} não está disponível para este destino.`, 409);
                 }
 
+                if (panel_order !== true) assertItemSchedule(databaseItem, availabilityTime);
+
                 if (databaseItem.is_available === false) {
                     throw new OrderRequestError(
                         `${databaseItem.name} não está disponível.`,
@@ -419,7 +443,7 @@ export async function POST(request: Request) {
 
         const preorderSettings = !isTableOrder
             ? (await query(
-                "SELECT preorder_only, preorder_availability_json, preorder_min_days, delivery_disabled, delivery_fee_mode, delivery_fee_json FROM public.restaurants WHERE id = $1 LIMIT 1",
+                "SELECT preorder_only, preorder_availability_json, preorder_min_days, delivery_disabled, delivery_fee_mode, delivery_fee_json, delivery_neighborhood_fee_json, availability_json, is_closed, manual_open_until FROM public.restaurants WHERE id = $1 LIMIT 1",
                 [restaurantId]
             )).rows[0]
             : null;
@@ -437,14 +461,22 @@ export async function POST(request: Request) {
 
         let scheduledFor: Date | null = null;
         if (!isTableOrder && scheduled_for) {
+            const now = new Date();
             const parsedScheduledFor = new Date(scheduled_for);
             if (
                 Number.isNaN(parsedScheduledFor.getTime()) ||
-                parsedScheduledFor.getTime() <= Date.now()
+                parsedScheduledFor.getTime() <= now.getTime()
             ) {
                 throw new OrderRequestError(
                     "Horário de agendamento inválido."
                 );
+            }
+            if (panel_order !== true && preorderSettings &&
+                getOrderScheduleDate(parsedScheduledFor) === getOrderScheduleDate(now)) {
+                const earliest = getSameDayOrderEarliestAt(preorderSettings, now);
+                if (earliest !== null && parsedScheduledFor.getTime() < earliest) {
+                    throw new OrderRequestError("O horário escolhido é anterior ao prazo máximo de entrega. Selecione um horário mais tarde.");
+                }
             }
             scheduledFor = parsedScheduledFor;
         }
@@ -539,10 +571,12 @@ export async function POST(request: Request) {
                 SELECT
                     goal_count,
                     reward_item_id,
-                    reward_subitem_ids
+                    reward_subitem_ids,
+                    to_jsonb(loyalty_programs)->'additional_rewards' AS additional_rewards
                 FROM loyalty_programs
                 WHERE restaurant_id = $1
                   AND active = true
+                  AND goal_count > 0
                 LIMIT 1
             `,
             [restaurantId]
@@ -551,15 +585,17 @@ export async function POST(request: Request) {
         const program =
             programResult.rows[0] || null;
 
+        const configuredRewards = new Map<string, unknown>();
+        if (program?.reward_item_id) configuredRewards.set(String(program.reward_item_id), program.reward_subitem_ids);
+        for (const reward of program?.additional_rewards ?? []) {
+            configuredRewards.set(reward.item_id, reward.subitem_ids);
+        }
+
         const rewardItems = items.filter(
             (item: any) => {
                 const itemId = getCartItemId(item);
                 const matchesConfiguredReward =
-                    program &&
-                    String(itemId) ===
-                        String(
-                            program.reward_item_id
-                        ) &&
+                    program?.reward_item_id && String(itemId) === String(program.reward_item_id) &&
                     Number(item.total_cents) === 0;
 
                 return (
@@ -569,21 +605,13 @@ export async function POST(request: Request) {
             }
         );
 
-        if (rewardItems.length > 1) {
-            throw new OrderRequestError(
-                "Apenas uma recompensa pode ser usada por pedido."
-            );
-        }
-
-        const rewardItem =
-            rewardItems[0] || null;
+        const rewardItemSet = new Set(rewardItems);
         const cleanPhone = normalizePhone(
             customer_phone
         );
         let pointsToDeduct = 0;
-        let rewardSubitemIds = new Set<string>();
 
-        if (rewardItem) {
+        if (rewardItems.length > 0) {
             if (!program) {
                 throw new OrderRequestError(
                     "Programa de fidelidade inativo."
@@ -599,68 +627,68 @@ export async function POST(request: Request) {
                 );
             }
 
-            const rewardItemId =
-                getCartItemId(rewardItem);
-
-            if (
-                String(program.reward_item_id) !==
-                rewardItemId
-            ) {
-                throw new OrderRequestError(
-                    "Item inválido para resgate."
-                );
+            const redeemedIds = new Set(rewardItems.map(getCartItemId));
+            if (rewardItems.length !== configuredRewards.size ||
+                redeemedIds.size !== configuredRewards.size ||
+                [...redeemedIds].some(id => !configuredRewards.has(id))) {
+                throw new OrderRequestError("A recompensa mudou. Remova o prêmio da sacola e resgate a recompensa completa.");
             }
 
-            if (
-                Number(rewardItem.qty) !== 1 ||
-                Number(rewardItem.total_cents) !==
-                    0 ||
-                Number(
-                    rewardItem.unit_price_cents
-                ) !== 0
-            ) {
-                throw new OrderRequestError(
-                    "A recompensa deve ter quantidade 1 e valor zero."
-                );
-            }
+            for (const rewardItem of rewardItems) {
+                const rewardItemId =
+                    getCartItemId(rewardItem);
 
-            rewardSubitemIds = new Set(
-                parseIdArray(
-                    program.reward_subitem_ids
-                )
-            );
+                if (
+                    Number(rewardItem.qty) !== 1 ||
+                    Number(rewardItem.total_cents) !==
+                        0 ||
+                    Number(
+                        rewardItem.unit_price_cents
+                    ) !== 0
+                ) {
+                    throw new OrderRequestError(
+                        "A recompensa deve ter quantidade 1 e valor zero."
+                    );
+                }
 
-            const selectedRewardSubitems =
-                getSelectedSubitems(rewardItem);
-            const selectedRewardIds =
-                selectedRewardSubitems.map(
-                    (subitem: any) =>
-                        String(
-                            subitem?.subitemId || ""
-                        )
+                const rewardSubitemIds = new Set(
+                    parseIdArray(
+                        configuredRewards.get(rewardItemId)
+                    )
                 );
 
-            if (
-                new Set(selectedRewardIds).size !==
-                selectedRewardIds.length
-            ) {
-                throw new OrderRequestError(
-                    "A recompensa possui complementos duplicados."
-                );
-            }
+                const selectedRewardSubitems =
+                    getSelectedSubitems(rewardItem);
+                const selectedRewardIds =
+                    selectedRewardSubitems.map(
+                        (subitem: any) =>
+                            String(
+                                subitem?.subitemId || ""
+                            )
+                    );
 
-            const invalidRewardSubitem =
-                selectedRewardIds.some(
-                    (subitemId: string) =>
-                        !rewardSubitemIds.has(
-                            subitemId
-                        )
-                );
+                if (
+                    new Set(selectedRewardIds).size !==
+                    selectedRewardIds.length
+                ) {
+                    throw new OrderRequestError(
+                        "A recompensa possui complementos duplicados."
+                    );
+                }
 
-            if (invalidRewardSubitem) {
-                throw new OrderRequestError(
-                    "A recompensa contém um complemento não configurado."
-                );
+                const invalidRewardSubitem =
+                    selectedRewardIds.some(
+                        (subitemId: string) =>
+                            !rewardSubitemIds.has(
+                                subitemId
+                            )
+                    );
+
+                if (invalidRewardSubitem) {
+                    throw new OrderRequestError(
+                        "A recompensa contém um complemento não configurado."
+                    );
+                }
             }
 
             pointsToDeduct = Math.max(
@@ -767,7 +795,7 @@ export async function POST(request: Request) {
                     }
                     const pricing = await automaticOrderPricing(client, {
                         restaurantId, promotions: restaurantResult.rows[0].automatic_promotions,
-                        items: items.map((item: any) => item === rewardItem ? Object.assign(item, { is_reward: true }) : item),
+                        items: items.map((item: any) => rewardItemSet.has(item) ? Object.assign(item, { is_reward: true }) : item),
                         subtotal_cents: subtotal, delivery_cents: safeDeliveryFeeCents,
                         coupon_discount_cents: safeCouponDiscount, coupon_type,
                         channel: isTableOrder || isCounterOrder ? "mesa" : "delivery", pickup: isPickup,
@@ -826,6 +854,7 @@ export async function POST(request: Request) {
                         }
                     }
 
+                    const availabilityTime = scheduledFor ?? new Date();
                     for (const [
                         itemId,
                         requestedQuantity,
@@ -841,7 +870,9 @@ export async function POST(request: Request) {
                                         stock_quantity,
                                         is_available,
                                         available_for_delivery,
-                                        available_for_salao
+                                        available_for_salao,
+                                        availability_schedule,
+                                        (SELECT availability_schedule FROM categories WHERE id = items.category_id) AS category_schedule
                                     FROM items
                                     WHERE id = $1
                                     FOR UPDATE
@@ -869,6 +900,8 @@ export async function POST(request: Request) {
                         if (!isItemAvailableForChannel(databaseItem, is_delivery)) {
                             throw new OrderRequestError(`${databaseItem.name} não está disponível para este destino.`, 409);
                         }
+
+                        if (panel_order !== true) assertItemSchedule(databaseItem, availabilityTime);
 
                         const availableStock =
                             Number(
@@ -908,7 +941,7 @@ export async function POST(request: Request) {
                         );
                     }
 
-                    if (rewardItem) {
+                    if (rewardItems.length > 0) {
                         const phoneCandidates = [
                             cleanPhone,
                             `55${cleanPhone}`,
@@ -1082,7 +1115,7 @@ export async function POST(request: Request) {
                                 cartItem
                             );
                         const isRewardItem =
-                            rewardItem === cartItem;
+                            rewardItemSet.has(cartItem);
 
                         // This optional cap does not change existing unlimited groups.
                         const quantitiesByOption = new Map<string, number>();
@@ -1289,6 +1322,43 @@ export async function POST(request: Request) {
             slug,
         } = transactionResult;
 
+        let metaPurchase: MetaCommerceData | undefined;
+        let savedPixAttribution = false;
+        if (body.meta_tracking === true && panel_order !== true && !isCounterOrder && slug) {
+            try {
+                const destination = await metaDestination({ id: restaurantId });
+                if (destination) {
+                    metaPurchase = metaCommerceData(
+                        items.map((item: any) => ({ id: getCartItemId(item) || "", quantity: Number(item.qty) })),
+                        total,
+                        orderId,
+                    );
+                    if (destination.token) {
+                        const customer = metaCustomerFromOrder(
+                            { ...body, customer_phone: isTableOrder ? null : customer_phone },
+                            !isTableOrder && !isPickup,
+                        );
+                        const context = metaContext(request, slug, restaurantId, customer);
+                        if (isOnlinePix) {
+                            await saveMetaPixPurchase(orderId, destination.pixelId, metaPurchase, context);
+                            savedPixAttribution = true;
+                        } else {
+                            const purchase = metaPurchase;
+                            after(async () => {
+                                try {
+                                    await sendMetaEvent(destination, "Purchase", metaPurchaseEventId(orderId), purchase, context);
+                                } catch (error) {
+                                    console.warn("[META] Offline purchase delivery failed", error);
+                                }
+                            });
+                        }
+                    }
+                }
+            } catch (error) {
+                console.warn("[META] Could not prepare purchase tracking", error);
+            }
+        }
+
         if (!isOnlinePix) {
             after(async () => {
                 try {
@@ -1300,6 +1370,7 @@ export async function POST(request: Request) {
             return trustCustomer(NextResponse.json({
                 order_id: orderId,
                 payment_type: "offline",
+                ...(metaPurchase ? { meta_purchase: metaPurchase } : {}),
                 redirect: `/${slug}/${orderId}`,
             }),restaurantId,customer_phone,trustedPhone(request,restaurantId)===normalizeCustomerPhone(customer_phone) ? undefined : {name:String(customer_name || "").slice(0,100),address:structuredAddress(body.customer_address_details)});
         }
@@ -1319,6 +1390,11 @@ export async function POST(request: Request) {
                 idempotencyKey: orderId.toString(),
             });
         } catch (paymentError) {
+            if (savedPixAttribution) {
+                await discardMetaPixPurchase(orderId).catch(error => {
+                    console.warn("[META] Could not clear failed Pix attribution", error);
+                });
+            }
             try {
                 await cancelUnpaidOnlineOrder(
                     orderId
@@ -1358,6 +1434,7 @@ export async function POST(request: Request) {
         return trustCustomer(NextResponse.json({
             id: orderId,
             payment_type: "pix",
+            ...(metaPurchase ? { meta_purchase: metaPurchase } : {}),
         }),restaurantId,customer_phone,trustedPhone(request,restaurantId)===normalizeCustomerPhone(customer_phone) ? undefined : {name:String(customer_name || "").slice(0,100),address:structuredAddress(body.customer_address_details)});
     } catch (error) {
         console.error(

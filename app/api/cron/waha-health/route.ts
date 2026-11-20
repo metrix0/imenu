@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { query } from "@/lib/database/sql";
 import { isProductionAlertRuntime, recordDevAlert, resolveDevIncident } from "@/lib/dev/health";
 import { checkWahaApi, getWahaSession } from "@/lib/services/wahaClient";
+import { processRestaurantWhatsappSessionDeletions } from "@/lib/services/whatsappSessionDeletion";
 import { OFFICIAL_WAHA_SESSIONS, reportOfficialWahaFailure, resolveOfficialWahaFailure } from "@/lib/services/wahaAlerts";
 
 export const runtime = "nodejs";
@@ -68,6 +69,8 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
     }
     if (!isProductionAlertRuntime()) return NextResponse.json({ skipped: true });
+
+    after(processRestaurantWhatsappSessionDeletions);
 
     try {
         // Count a retry of the same scheduled minute only once.

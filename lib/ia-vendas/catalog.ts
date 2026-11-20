@@ -1,3 +1,4 @@
+import { validateCategorySchedule } from "@/lib/menu/categorySchedule";
 import { FIELDS } from "./fields";
 import { object, SalesError, type Data } from "./types";
 import { isUuid, validateAutomaticPromotion } from "@/lib/promotions/automatic";
@@ -127,6 +128,21 @@ const automaticPromotionBenefitSchema = {
   ],
 };
 const ACTION_SPECIAL_SCHEMAS: Record<string, Data> = {
+  availability_schedule: {
+    type: "array",
+    description: "Agenda completa de exibição deste item, no horário de Brasília. Dias de 0 (domingo) a 6 (sábado); dias vazios aplicam o intervalo a todos os dias. Para dia inteiro use start e end nulos. Use null no campo da agenda para remover o agendamento do item. A disponibilidade da categoria continua valendo.",
+    minItems: 1,
+    items: {
+      type: "object",
+      properties: {
+        days: { type: "array", maxItems: 7, items: { type: "integer", minimum: 0, maximum: 6 } },
+        start: { anyOf: [availabilitySlotSchema.properties.open, { type: "null" }] },
+        end: { anyOf: [availabilitySlotSchema.properties.close, { type: "null" }] },
+      },
+      required: ["days", "start", "end"],
+      additionalProperties: false,
+    },
+  },
   availability_json: {
     type: "object",
     description:
@@ -266,6 +282,19 @@ const ACTION_SPECIAL_SCHEMAS: Record<string, Data> = {
     enum: ["percent", "fixed", "delivery"],
   },
   type: { type: "string", enum: ["percent", "fixed"] },
+  additional_rewards: {
+    type: "array",
+    description: "Lista completa de produtos extras da recompensa de fidelidade, resgatados junto com o item principal. Use [] para remover todos os extras. Não inclua o reward_item_id nesta lista.",
+    items: {
+      type: "object",
+      properties: {
+        item_id: UUID_SCHEMA,
+        subitem_ids: { type: "array", items: UUID_SCHEMA, maxItems: 100 },
+      },
+      required: ["item_id", "subitem_ids"],
+      additionalProperties: false,
+    },
+  },
   reward_subitem_ids: {
     type: "array",
     description:
@@ -481,6 +510,10 @@ export function validate(entity: string, input: unknown, create = false): Data {
           throw new SalesError("Bairro obrigatório.");
       }
     }
+  if (value.availability_schedule !== undefined) {
+    const error = validateCategorySchedule(value.availability_schedule);
+    if (error) throw new SalesError(error);
+  }
   if (value.availability_json != null)
     for (const [day, slots] of Object.entries(
       object(value.availability_json),
@@ -502,6 +535,20 @@ export function validate(entity: string, input: unknown, create = false): Data {
       !value.reward_subitem_ids.every(isUuid))
   )
     throw new SalesError("Complementos da recompensa inválidos.");
+  if (value.additional_rewards !== undefined) {
+    if (!Array.isArray(value.additional_rewards))
+      throw new SalesError("Itens extras da recompensa inválidos.");
+    for (const reward of value.additional_rewards) {
+      const entry = object(reward);
+      if (!isUuid(entry.item_id) ||
+        !Array.isArray(entry.subitem_ids) ||
+        entry.subitem_ids.length > 100 ||
+        !entry.subitem_ids.every(isUuid) ||
+        new Set(entry.subitem_ids).size !== entry.subitem_ids.length ||
+        Object.keys(entry).some(key => key !== "item_id" && key !== "subitem_ids"))
+        throw new SalesError("Itens extras da recompensa inválidos.");
+    }
+  }
   if (value.automatic_promotions != null) {
     if (
       !Array.isArray(value.automatic_promotions) ||
@@ -582,6 +629,14 @@ export function validateMerged(entity: string, v: Data) {
     (v.goal_count < 1 || v.goal_count > 100 || (v.active && !v.reward_item_id))
   )
     throw new SalesError("Configure a meta e a recompensa.");
+  if (entity === "loyalty_programs") {
+    const itemIds = [v.reward_item_id, ...(v.additional_rewards ?? []).map((reward: Data) => reward.item_id)]
+      .filter(Boolean);
+    if (new Set(itemIds).size !== itemIds.length)
+      throw new SalesError("Selecione itens de recompensa diferentes.");
+    if (!v.reward_item_id && (v.reward_subitem_ids?.length || v.additional_rewards?.length))
+      throw new SalesError("Selecione o item principal da recompensa.");
+  }
   if (
     v.prep_time_min_minutes != null &&
     v.prep_time_max_minutes != null &&

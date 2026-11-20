@@ -1,4 +1,4 @@
-import { categoryScheduleLabel, isCategoryAvailable, validateCategorySchedule, type CategorySchedule } from "./categorySchedule";
+import { categoryScheduleDetails, categoryScheduleLabel, isCategoryAvailable, validateCategorySchedule, type CategorySchedule } from "./categorySchedule";
 
 const instant = (value: string) => new Date(value);
 
@@ -25,6 +25,13 @@ describe("category scheduling", () => {
         expect(isCategoryAvailable(schedule, instant("2026-10-24T04:00:00Z"))).toBe(true);
         expect(isCategoryAvailable(schedule, instant("2026-10-24T06:00:00Z"))).toBe(false);
         expect(categoryScheduleLabel(schedule)).toContain("(+1)");
+    });
+    test("shows only the weekday for all-day rules in both summaries", () => {
+        const allDay = { days: [1], start: null, end: null };
+        const lunch = { days: [2], start: "11:00", end: "14:00" };
+        expect(categoryScheduleLabel([allDay])).toBe("Seg");
+        expect(categoryScheduleLabel([allDay, lunch])).toBe("Seg (+1)");
+        expect(categoryScheduleDetails([allDay, lunch])).toBe("Seg | Ter · 11:00–14:00");
     });
     test("rejects ineffective schedules and identical hours", () => {
         expect(validateCategorySchedule([{ days: [], start: null, end: null }])).not.toBeNull();

@@ -42,6 +42,14 @@
     .cadence { border-left: 0; border-top: 1px solid #e2e5e9; padding: 20px 0 0; }
 }
 
+.page:has(> .content > :global([data-ui="page-loader"])) {
+    display: flex;
+    min-height: var(--panel-page-content-height, 24rem);
+    flex-direction: column;
+}
+.content:has(> :global([data-ui="page-loader"])) {
+    flex: 1;
+}
 .content :global([style*="imenu-loader-spin"]){margin-inline:auto;align-self:center;justify-self:center}.externalSection{min-width:0}.externalSection>h2{font-size:15px;font-weight:600;margin-bottom:14px}.headingWithActions{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px}.headingWithActions>div:first-child{min-width:0}
 
 /* Compact CRM tables retain the shared DataTable and Pagination behaviors. */
@@ -307,6 +315,11 @@
 .crmTable.churnBlastTable .numericCell { padding-inline: 8px; white-space: nowrap; overflow-wrap: normal; }
 .crmTable.churnBlastTable :global(th:nth-child(7)){width:calc(15% - var(--churn-gmv-extra-width) / 2)}
 .crmTable.churnBlastTable :global(th:nth-child(8)){width:11%}
+.crmTable.churnFeedbackTable { --churn-gmv-extra-width: calc(max(0px, 144px - 13cqw) + 10cqw); }
+.crmTable.churnFeedbackTable :global(th:nth-child(9)){width:10%}
+@container dev-table (min-width: 641px) {
+    .crmTable.churnFeedbackTable :global(:is(th, td):is(:nth-child(8), :nth-child(9))) { padding-inline: 8px; }
+}
 
 .crmTable.churnBlastTable :global(:is(th, td)),
 .crmTable.churnBlastTable :global(:is(th, td) :is(button, a, span)) {

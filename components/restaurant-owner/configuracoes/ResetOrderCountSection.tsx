@@ -91,18 +91,18 @@ export default function ResetOrderCountSection({ restaurantId }: Props) {
             )}
 
             <Card className="border border-gray-200 shadow-sm">
-                <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+                <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                     <div>
-                        <h2 className="mb-2 text-xl font-medium text-gray-900">
+                        <h3 className="mb-2 text-lg font-semibold text-gray-900">
                             Reiniciar numeração dos pedidos
-                        </h2>
+                        </h3>
                         <p className="text-sm text-gray-500">
                             Reinicie a numeração exibida nos pedidos. O próximo pedido será #1.
                         </p>
                     </div>
                     <Button
                         variant="secondary"
-                        className="w-full bg-white md:w-auto"
+                        className="shrink-0 bg-white"
                         onClick={() => setModalOpen(true)}
                     >
                         Reiniciar numeração

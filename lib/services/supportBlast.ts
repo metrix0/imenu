@@ -1,8 +1,8 @@
 import { isSupportContactExcluded } from "@/lib/services/supportExclusions";
 import { randomUUID } from "node:crypto";
-import { ABANDONED_BLAST_MESSAGE, LEGACY_PLUS_ABANDONED_BLAST_MESSAGE, PLUS_EXPIRY_BLAST_MESSAGES, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE, RECOVERY_DAILY_LIMIT } from "@/lib/dev/abandonedBlast";
+import { ABANDONED_BLAST_MESSAGE, LEGACY_PLUS_ABANDONED_BLAST_MESSAGE, PLUS_EXPIRY_BLAST_MESSAGES, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE, RECOVERY_DAILY_LIMIT, RECOVERY_COOLDOWN_DAYS } from "@/lib/dev/abandonedBlast";
 import { ACTIVE_PLUS_FOR_ACCOUNT, PLUS_CHURN_EVENTS, RECOVERY_CUTOFF } from "@/lib/dev/plusChurn";
-import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGE, PLUS_FEEDBACK_DAILY_LIMIT } from "@/lib/dev/plusFeedbackBlast";
+import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGES, PLUS_FEEDBACK_DAILY_LIMIT } from "@/lib/dev/plusFeedbackBlast";
 import { query, withTransaction } from "@/lib/database/sql";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 import {
@@ -286,11 +286,11 @@ async function claimNextRecipient(): Promise<ClaimedRecipient | null> {
                         (NOW() AT TIME ZONE 'America/Sao_Paulo')::date + TIME '00:00'
                       ) AT TIME ZONE 'America/Sao_Paulo'
                   ) < $2::int
-                  WHEN c.message = $3::text THEN (
+                  WHEN c.message = ANY($3::text[]) THEN (
                     SELECT COUNT(*)
                     FROM support_blast_recipients today
                     JOIN support_blast_campaigns counted ON counted.id = today.campaign_id
-                    WHERE counted.message = $3::text
+                    WHERE counted.message = ANY($3::text[])
                       AND today.attempted_at >= (
                         (NOW() AT TIME ZONE 'America/Sao_Paulo')::date + TIME '00:00'
                       ) AT TIME ZONE 'America/Sao_Paulo'
@@ -309,7 +309,7 @@ async function claimNextRecipient(): Promise<ClaimedRecipient | null> {
         RETURNING r.id, r.campaign_id, r.phone, r.message, c.sender, c.skip_recent, c.message AS campaign_message, c.image_path AS campaign_image_path
         `,
         [RECOVERY_MESSAGES, RECOVERY_DAILY_LIMIT,
-         PLUS_FIRST_MONTH_FEEDBACK_MESSAGE, PLUS_FEEDBACK_DAILY_LIMIT]
+         PLUS_FIRST_MONTH_FEEDBACK_MESSAGES, PLUS_FEEDBACK_DAILY_LIMIT]
     );
     return result.rows[0] || null;
 }
@@ -422,7 +422,7 @@ LIMIT 1`, [accountIds]);
 
     const isAbandonedBlast = RECOVERY_MESSAGES.includes(item.campaign_message);
     // Do not send a stale first-month check-in if the subscription has changed.
-    if (item.campaign_message === PLUS_FIRST_MONTH_FEEDBACK_MESSAGE) {
+    if (PLUS_FIRST_MONTH_FEEDBACK_MESSAGES.includes(item.campaign_message)) {
         const stillFirstMonth = await query(
             `SELECT 1 FROM public.restaurant_addons addon
              WHERE addon.restaurant_id = ANY($1::uuid[])
@@ -445,15 +445,14 @@ LIMIT 1`, [accountIds]);
     if (item.skip_recent || isAbandonedBlast) {
         const recent = await query(
             `
+            WITH feedback_campaigns AS (
+                SELECT id FROM support_blast_campaigns WHERE $4::boolean AND message = ANY($5::text[])
+            )
             SELECT 1 FROM whatsapp_outbound_messages
             WHERE dedupe_key LIKE 'support:bulk:%'
-              AND (
-                  status = 'sent'
-                  OR ($4::boolean AND dedupe_key LIKE 'support:bulk:abandoned:%'
-                      AND status IN ('sending', 'failed'))
-              )
-              AND updated_at >= NOW() - CASE WHEN $4::boolean
-                  THEN INTERVAL '60 days' ELSE INTERVAL '7 days' END
+              AND split_part(dedupe_key, ':', 4) NOT IN (SELECT id::text FROM feedback_campaigns)
+              AND status = 'sent'
+              AND updated_at >= NOW() - ($6::int * INTERVAL '1 day')
               AND (
                 chat_id = $2
                 OR (cardinality($1::uuid[]) > 0 AND restaurant_id = ANY($1::uuid[]))
@@ -472,20 +471,23 @@ LIMIT 1`, [accountIds]);
             UNION ALL
             SELECT 1 FROM support_blast_recipients
             WHERE phone = $3 AND status = 'sent'
-              AND sent_at >= NOW() - CASE WHEN $4::boolean
-                  THEN INTERVAL '60 days' ELSE INTERVAL '7 days' END
+              AND campaign_id NOT IN (SELECT id FROM feedback_campaigns)
+              AND sent_at >= NOW() - ($6::int * INTERVAL '1 day')
             LIMIT 1
             `,
-            [restaurantIds, chatId, phone, isAbandonedBlast]
+            [restaurantIds, chatId, phone, isAbandonedBlast, PLUS_FIRST_MONTH_FEEDBACK_MESSAGES,
+                isAbandonedBlast ? RECOVERY_COOLDOWN_DAYS : 7]
         );
         if (recent.rowCount) {
-            await finishRecipient(item.id, isAbandonedBlast ? "skipped_60d" : "skipped_recent");
+            await finishRecipient(item.id, "skipped_recent", isAbandonedBlast
+                ? `O contato recebeu um blast nos últimos ${RECOVERY_COOLDOWN_DAYS} dias.`
+                : null);
             return "skipped";
         }
     }
 
     // One stable key per account and daily campaign, including cron retries.
-    // The rolling 60-day history check governs recovery eligibility across campaigns.
+    // The recovery cooldown applies to sent blasts across campaigns.
     const dedupeKey = isAbandonedBlast
         ? "support:bulk:abandoned:" + item.campaign_id + ":" +
             (matched.rows[0]?.account_id || "phone:" + phone)
@@ -496,7 +498,9 @@ LIMIT 1`, [accountIds]);
         [dedupeKey, restaurantId, chatId, item.campaign_image_path ? "image" : "text"]
     );
     if (!outbound.rowCount) {
-        await finishRecipient(item.id, isAbandonedBlast ? "skipped_60d" : "skipped_recent");
+        await finishRecipient(item.id, "skipped_recent", isAbandonedBlast
+            ? "Este contato já foi processado nesta campanha."
+            : null);
         return "skipped";
     }
 

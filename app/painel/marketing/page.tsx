@@ -21,7 +21,7 @@ import RecommendedBadge from "@/components/ui/RecommendedBadge";
 import Dropdown from "@/components/ui/Dropdown";
 import Switch from "@/components/ui/Switch";
 import SaveStatus from "@/components/ui/SaveStatus";
-import Loader from "@/components/ui/Loader";
+import { PageLoader } from "@/components/ui/Loader";
 import Button from "@/components/ui/Button";
 import Image from "next/image";
 import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
@@ -161,9 +161,7 @@ export default function MarketingPage() {
   }
   if (!settings && !error) {
     return (
-      <div role="status" aria-label="Carregando automações" className="flex justify-center p-10">
-        <Loader className="border-t-brand" />
-      </div>
+      <PageLoader label="Carregando automações" />
     );
   }
   return (

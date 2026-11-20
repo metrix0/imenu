@@ -4,7 +4,7 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { supabase } from "@/lib/database/supabaseClient"; // Ajustado para o seu import padrão
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; // Ajustado para o seu import padrão
-import Loader from "@/components/ui/Loader";
+import { PageLoader } from "@/components/ui/Loader";
 import Toast from "@/components/ui/Toast";
 import Button from "@/components/ui/Button";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
@@ -239,10 +239,9 @@ export default function PainelPedidosAtivosPage() {
 
     if (isLoading) {
         return (
-            <div className="flex flex-col justify-center items-center h-64">
-                <Loader />
+            <PageLoader label="Carregando painel...">
                 <p className="text-gray-400 mt-4">Carregando painel...</p>
-            </div>
+            </PageLoader>
         );
     }
 

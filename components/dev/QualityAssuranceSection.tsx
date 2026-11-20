@@ -6,11 +6,13 @@ import { Line } from "react-chartjs-2";
 import { faCircleInfo, faCopy } from "@fortawesome/free-solid-svg-icons";
 import { PanelIcon } from "@/components/ui/PanelIcon";
 import InfoTooltip from "@/components/ui/Tooltip";
-import DataTable from "@/components/ui/DataTable";
+import DataTable, { type TableColumn } from "@/components/ui/DataTable";
+import { CollapsibleChevron, CollapsibleContent, useCollapsible } from "@/components/ui/CollapsibleSection";
 import Dropdown from "@/components/ui/Dropdown";
 import { CHART_BRAND, CHART_CATEGORY_AXIS, CHART_VALUE_AXIS, STANDARD_CHART_TOOLTIP, createBrandAreaGradient } from "@/components/restaurant-owner/exibicoes/chartStyles";
 import Badge from "@/components/ui/Badge";
 import PagedTable, { type PageData } from "./PagedTable";
+import { PageLoader } from "@/components/ui/Loader";
 import DevLoading from "./DevLoading";
 import DevDialog from "./DevDialog";
 import { devJson } from "@/lib/dev/client";
@@ -216,8 +218,7 @@ export default function QualityAssuranceSection() {
     const models = costs?.status === "ok" ? costs.models ?? [] : [];
     const modelDailyUsd = models.find(model => model.id === selectedModel)?.dailyUsd;
     const modelTotalUsd = modelDailyUsd?.reduce((sum, usd) => sum + usd, 0);
-
-    if (!data && loading) return <DevLoading />;
+    if (!data && loading) return <PageLoader />;
 
     return <div className="space-y-6">
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
@@ -339,16 +340,16 @@ export default function QualityAssuranceSection() {
             </section>
             {selectedScan && <MenuScanDialog key={selectedScan.id} scan={selectedScan} onClose={() => setSelectedScan(null)} />}
             <section className={`${styles.tableSection} ${styles.fitTable}`}>
-                <h2>Gastos OpenAI</h2>
+                <h2>Gastos de IA</h2>
                 {costs === null ? <div className={styles.section}><div className="p-6"><DevLoading /></div></div>
                     : costs.status !== "ok" ? <div className={styles.section}>
                         <p className="p-6 text-sm text-gray-500">{costs.status === "unconfigured"
                             ? "Consulta de custos OpenAI não configurada."
                             : "Não foi possível consultar os gastos OpenAI."}</p>
-                    </div> : <>
+                    </div> : (
                         <div className={styles.chart}>
                             <div className="flex flex-wrap items-center justify-between gap-2">
-                                <h3 className="text-sm font-semibold text-[#1d1d1d]">Gasto por dia</h3>
+                                <h3 className="text-sm font-semibold text-[#1d1d1d]">Gasto OpenAI por dia</h3>
                                 <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
                                     <span className="text-sm font-medium tabular-nums">
                                         {formatBrl((modelTotalUsd ?? costs.totalUsd) * costs.usdBrlRate)} no período
@@ -399,26 +400,87 @@ export default function QualityAssuranceSection() {
                                 />
                             </div>
                         </div>
-                        <div className="mt-5">
-                            <h3 className="mb-3 text-sm font-semibold">Fontes de custo</h3>
-                            <div className={styles.section}>
-                                <DataTable
-                                    rows={costs.breakdown}
-                                    rowKey={row => row.label}
-                                    emptyMessage="Nenhum gasto registrado no período."
-                                    columns={[
-                                        { key: "item", label: "Item cobrado pela OpenAI", render: row => <span className="break-words">{row.label}</span> },
-                                        { key: "usage", label: "Uso no iMenu", render: row => <span title={row.usage}>{row.usage}</span> },
-                                        { key: "cost", label: "Gasto (R$)", className: "whitespace-nowrap", render: row => formatBrl(row.usd * costs.usdBrlRate) },
-                                        { key: "daily", label: "Média diária (R$)", className: "whitespace-nowrap", render: row => formatBrl(row.usd * costs.usdBrlRate / costs.period.days) },
-                                        { key: "share", label: "% do total", className: "whitespace-nowrap", render: row => percentageFormatter.format(row.share) + "%" },
-                                    ]}
-                                />
-                            </div>
-                        </div>
-                    </>}
+                    )}
+                {costs !== null && <CostSources costs={costs} />}
             </section>
         </>}
+    </div>;
+}
+
+type CostSourceRow = {
+    id: string;
+    label: string;
+    usage: string;
+    cost: string;
+    daily: string;
+    share: string;
+};
+
+function CostSources({ costs }: { costs: OpenAiCosts }) {
+    const disclosure = useCollapsible();
+    const rows: CostSourceRow[] = [{
+        id: "gemini",
+        label: "Gemini",
+        usage: "Importação de Cardápio — Leitura IA",
+        cost: "Faturamento indisponível",
+        daily: "—",
+        share: "—",
+    }];
+    let otherRows: CostSourceRow[] = [];
+
+    if (costs.status === "ok") {
+        const { breakdown, period, totalUsd, usdBrlRate } = costs;
+        const standaloneCount = 9;
+        const formatRow = (row: typeof breakdown[number]): CostSourceRow => ({
+            id: `openai:${row.label}`,
+            label: row.label,
+            usage: row.usage,
+            cost: formatBrl(row.usd * usdBrlRate),
+            daily: formatBrl(row.usd * usdBrlRate / period.days),
+            share: percentageFormatter.format(row.share) + "%",
+        });
+
+        rows.unshift(...breakdown.slice(0, standaloneCount).map(formatRow));
+        const otherItems = breakdown.slice(standaloneCount);
+        if (otherItems.length > 0) {
+            const usd = otherItems.reduce((sum, item) => sum + item.usd, 0);
+            rows.push({
+                ...formatRow({ label: "Outros itens", usage: "Demais itens agrupados", usd, share: totalUsd === 0 ? 0 : usd / totalUsd * 100 }),
+                id: "other",
+            });
+            otherRows = otherItems.map(formatRow);
+        }
+    }
+
+    const columns: TableColumn<CostSourceRow>[] = [
+        {
+            key: "item",
+            label: "Item de cobrança",
+            render: row => row.id === "other"
+                ? <button {...disclosure.triggerProps} className="inline-flex cursor-pointer items-center gap-2 text-left font-medium hover:text-brand">
+                    {row.label}
+                    <CollapsibleChevron expanded={disclosure.expanded} size="sm" />
+                </button>
+                : <span className="break-words">{row.label}</span>,
+        },
+        { key: "usage", label: "Uso no iMenu", render: row => <span title={row.usage}>{row.usage}</span> },
+        { key: "cost", label: "Gasto (R$)", className: "whitespace-nowrap", render: row => row.cost },
+        { key: "daily", label: "Média diária (R$)", className: "whitespace-nowrap", render: row => row.daily },
+        { key: "share", label: "% dos gastos OpenAI", className: "whitespace-nowrap", render: row => row.share },
+    ];
+
+    return <div className="mt-5">
+        <h3 className="mb-3 text-sm font-semibold">Fontes de custo</h3>
+        <div className={styles.section}>
+            <DataTable rows={rows} rowKey={row => row.id} columns={columns} />
+            {otherRows.length > 0 && (
+                <CollapsibleContent id={disclosure.contentId} expanded={disclosure.expanded}>
+                    <div className="pt-2">
+                        <DataTable rows={otherRows} rowKey={row => row.id} columns={columns} />
+                    </div>
+                </CollapsibleContent>
+            )}
+        </div>
     </div>;
 }
 

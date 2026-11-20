@@ -131,8 +131,8 @@ export default function CriarCardapioComIaPage() {
                 <p>
                     Para importar por link, cole uma página pública que exiba produtos.
                     Sites que exigem login, bloqueiam leitura automática ou carregam
-                    conteúdo inacessível ao importador podem não funcionar. Links do
-                    iFood ainda não são compatíveis.
+                    conteúdo inacessível ao importador podem não funcionar. Para cardápios no
+                    iFood, Claude ou ChatGPT, salve uma imagem ou um PDF do cardápio e envie o arquivo.
                 </p>
             </BlogSection>
 

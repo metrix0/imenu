@@ -1,6 +1,7 @@
 "use client";
 
 import Switch from "@/components/ui/Switch";
+import Loader from "@/components/ui/Loader";
 import Input from "@/components/ui/Input";
 import { useState, useRef, useEffect, ReactNode } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
@@ -8,14 +9,17 @@ import {
     faGear,
     faImage,
     faLayerGroup,
-    faSpinner,
 } from "@fortawesome/free-solid-svg-icons";
 import { icons } from "@/lib/utils/fontawesome";
+import { getMenuItemImageUrl } from "@/lib/menu/itemImages";
+import type { ItemMedia } from "@/lib/menu/itemMedia";
+import type { CategorySchedule } from "@/lib/menu/categorySchedule";
 import { uploadMenuImage } from "@/lib/database/uploadMenuImage";
 import { supabase } from "@/lib/database/supabaseClient";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Button from "@/components/ui/Button";
 import ItemSettingsModal from "./ItemSettingsModal";
+import AvailabilityScheduleLabel from "./AvailabilityScheduleLabel";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import Toast from "@/components/ui/Toast";
 
@@ -26,14 +30,18 @@ export type MenuItemType = {
     description?: string | null;
     image_url?: string | null;
     image_path?: string | null;
+    gallery_media?: ItemMedia[];
     is_available: boolean;
     available_for_delivery?: boolean;
     available_for_salao?: boolean;
+    availability_schedule?: CategorySchedule;
     category_id: string;
     position?: number;
     stock_enabled?: boolean | null;
     stock_quantity?: number | null;
 };
+
+export type MenuItemSettingsUpdate = Pick<MenuItemType, "id"> & Partial<MenuItemType>;
 
 interface MenuItemRowProps {
     item: MenuItemType;
@@ -43,7 +51,7 @@ interface MenuItemRowProps {
     onDuplicate?: (item: MenuItemType) => void;
     onCancel?: () => void;
     onOpenDetails?: () => void;
-    onSettingsUpdated?: (item: MenuItemType) => void;
+    onSettingsUpdated?: (item: MenuItemSettingsUpdate) => void;
     onEditingChange?: (isEditing: boolean) => void;
     dragHandle?: ReactNode;
 }
@@ -142,42 +150,32 @@ export default function MenuItemRow({
         setStockInput(String(item.stock_quantity ?? 0));
     }, [item.stock_quantity]);
 
-    const autoSave = async (overrideData?: Partial<MenuItemType>) => {
-        if (isNew) return;
+    useEffect(() => {
+        setImageUrl(item.image_url ?? null);
+        setImagePath(item.image_path ?? null);
+    }, [item.image_url, item.image_path]);
 
-        setIsLoading(true);
-        try {
-            await onSave({
-                ...item,
-                ...overrideData,
-            });
-        } catch (error) {
-            console.error("Erro no auto-save:", error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-    const handleImageUpload = async (
-        e: React.ChangeEvent<HTMLInputElement>
-    ) => {
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (!file) return;
+        e.target.value = "";
+        if (!file || isUploading) return;
 
         setIsUploading(true);
         try {
             const path = await uploadMenuImage(file, restaurantId);
-            const { data } = supabase.storage
-                .from("menu-images")
-                .getPublicUrl(path);
-            setImagePath(path);
-            setImageUrl(data.publicUrl);
+            const url = getMenuItemImageUrl(supabase, path);
 
             if (!isNew) {
-                await autoSave({
-                    image_path: path,
-                    image_url: data.publicUrl,
-                });
+                const { error } = await supabase.from("items")
+                    .update({ image_path: path })
+                    .eq("id", item.id).eq("restaurant_id", restaurantId)
+                    .select("id").single();
+                if (error) throw error;
+                onSettingsUpdated?.({ id: item.id, image_path: path, image_url: url });
             }
+
+            setImagePath(path);
+            setImageUrl(url);
         } catch (error) {
             console.error(error);
             alert("Erro ao enviar imagem.");
@@ -361,7 +359,7 @@ export default function MenuItemRow({
             key={`menu-item-image-${item.id || "new"}`}
             onClick={(e) => {
                 e.stopPropagation();
-                fileInputRef.current?.click();
+                if (!isUploading) fileInputRef.current?.click();
             }}
             className="w-12 h-12 2xl:h-18 2xl:w-18 shrink-0 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 overflow-hidden border border-gray-200 cursor-pointer hover:bg-gray-200 transition-all relative group/img"
         >
@@ -374,10 +372,7 @@ export default function MenuItemRow({
                 onChange={handleImageUpload}
             />
             {isUploading ? (
-                <FontAwesomeIcon
-                    icon={faSpinner}
-                    className="animate-spin text-brand"
-                />
+                <Loader className="!h-5 !w-5 !border-2" />
             ) : imageUrl ? (
                 <>
                     <img
@@ -444,14 +439,18 @@ export default function MenuItemRow({
                                     Sem descrição...
                                 </span>
                             )}
-                            <span className="mt-1 font-medium text-gray-900 tabular-nums md:hidden">
-                                {(priceCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                            </span>
+                            <div className="mt-1 flex min-w-0 items-center gap-2 md:hidden">
+                                <span className="shrink-0 whitespace-nowrap font-medium text-gray-900 tabular-nums">
+                                    {(priceCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                                </span>
+                                <AvailabilityScheduleLabel schedule={item.availability_schedule} iconOnly className="inline-flex shrink-0" />
+                            </div>
                         </div>
                         {renderStockQuantity()}
                     </div>
 
                     <div className="flex items-center gap-4 2xl:gap-6 pl-4 2xl:text-lg">
+                        <AvailabilityScheduleLabel schedule={item.availability_schedule} className="hidden md:inline-flex" />
                         <span className="hidden font-medium text-gray-900 whitespace-nowrap md:inline">
                             {(priceCents / 100).toLocaleString("pt-BR", {
                                 style: "currency",
@@ -492,6 +491,7 @@ export default function MenuItemRow({
 
                                 <button
                                     type="button"
+                                    disabled={isUploading}
                                     aria-label={`Configurações de ${name}`}
                                     onClick={(e) => { e.stopPropagation(); setSettingsMounted(true); setSettingsOpen(true); }}
                                     className="cursor-pointer w-8 h-8 2xl:text-2xl flex items-center justify-center text-gray-400 hover:text-brand hover:bg-gray-50 rounded-full transition-colors"

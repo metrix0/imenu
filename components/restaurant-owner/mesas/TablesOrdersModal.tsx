@@ -4,10 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faChair, faEye } from "@fortawesome/free-solid-svg-icons";
 
-import type {
-    OrderData,
-    OrderStatus,
-} from "@/components/restaurant-owner/OrderCard";
+import type { OrderData } from "@/components/restaurant-owner/OrderCard";
+import OrderBadge from "@/components/restaurant-owner/pedidos/OrderBadge";
 import Card from "@/components/ui/Card";
 import Loader from "@/components/ui/Loader";
 import Modal from "@/components/ui/Modal";
@@ -17,26 +15,6 @@ import { supabase } from "@/lib/database/supabaseClient";
 type RestaurantTable = {
     id: string;
     name: string;
-};
-
-const STATUS_LABELS: Record<OrderStatus, string> = {
-    pending_online_payment: "Pendente",
-    pending_physical_payment: "Pendente",
-    paid: "Pendente",
-    preparing: "Preparando",
-    delivering: "Pronto",
-    done: "Concluído",
-    canceled: "Cancelado",
-};
-
-const STATUS_CLASSES: Record<OrderStatus, string> = {
-    pending_online_payment: "bg-yellow-100 text-yellow-700",
-    pending_physical_payment: "bg-yellow-100 text-yellow-700",
-    paid: "bg-yellow-100 text-yellow-700",
-    preparing: "bg-blue-100 text-blue-800",
-    delivering: "bg-green-100 text-green-800",
-    done: "bg-green-100 text-green-800",
-    canceled: "bg-red-100 text-red-800",
 };
 
 function formatMoney(cents: number): string {
@@ -151,7 +129,7 @@ export default function TablesOrdersModal({
             <div className="px-6 py-6 sm:px-8">
                 {loading && (
                     <div className="flex min-h-48 items-center justify-center">
-                        <Loader className="border-t-brand" />
+                        <Loader />
                     </div>
                 )}
 
@@ -204,12 +182,12 @@ export default function TablesOrdersModal({
                                                 )}
                                             </div>
                                         </div>
-                                        <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-600">
+                                        <OrderBadge kind="count">
                                             {tableOrders.length}{" "}
                                             {tableOrders.length === 1
                                                 ? "pedido"
                                                 : "pedidos"}
-                                        </span>
+                                        </OrderBadge>
                                     </div>
 
                                     {tableOrders.length === 0 ? (
@@ -247,9 +225,7 @@ export default function TablesOrdersModal({
                                                         </p>
                                                     </div>
                                                     <div className="shrink-0 text-right">
-                                                        <span className={`inline-flex rounded-full px-2 py-1 text-[11px] font-semibold ${STATUS_CLASSES[order.status]}`}>
-                                                            {STATUS_LABELS[order.status]}
-                                                        </span>
+                                                        <OrderBadge status={order.status} readyOnSite />
                                                         <p className="mt-1 text-xs font-semibold text-gray-700">
                                                             {formatMoney(order.total_cents)}
                                                         </p>

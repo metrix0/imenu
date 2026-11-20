@@ -22,7 +22,7 @@ import Card from "@/components/ui/Card";
 import DataTable from "@/components/ui/DataTable";
 import Dropdown from "@/components/ui/Dropdown";
 import Input from "@/components/ui/Input";
-import Loader from "@/components/ui/Loader";
+import { PageLoader } from "@/components/ui/Loader";
 import DevDialog from "./DevDialog";
 import DevPage from "./DevPage";
 import Badge from "@/components/ui/Badge";
@@ -649,9 +649,7 @@ export default function SupportSection({ section = "support" }: { section?: "sup
 
     if (accessState === "checking" || loading) {
         return (
-            <main className="flex min-h-screen items-center justify-center bg-gray-50">
-                <Loader />
-            </main>
+            <PageLoader />
         );
     }
 

@@ -1,5 +1,6 @@
 // lib/uploadMenuImage.ts
 import { supabase } from "@/lib/database/supabaseClient";
+import { MENU_GALLERY_IMAGE_PREFIX, MENU_IMAGE_PREFIX } from "@/lib/menu/itemImages";
 
 async function compressMenuImage500(file: File): Promise<Blob> {
     const imageBitmap = await createImageBitmap(file);
@@ -69,11 +70,21 @@ function sanitizeFileName(name: string): string {
 
 export async function uploadMenuImage(
     file: File,
-    restaurantId?: string | null
+    restaurantId?: string | null,
+    prefix: typeof MENU_IMAGE_PREFIX | typeof MENU_GALLERY_IMAGE_PREFIX = MENU_IMAGE_PREFIX,
 ): Promise<string> {
     const imageBlob = await compressMenuImage500(file);
-    const extension = imageBlob.type === "image/webp" ? "webp" : "jpg";
-    const safeName = sanitizeFileName(file.name);
+    return storeMenuImage(imageBlob, file.name, restaurantId, prefix);
+}
+
+async function storeMenuImage(
+    imageBlob: Blob,
+    name: string,
+    restaurantId: string | null | undefined,
+    prefix: string,
+): Promise<string> {
+    const extension = imageBlob.type === "image/webp" ? "webp" : imageBlob.type === "image/png" ? "png" : "jpg";
+    const safeName = sanitizeFileName(name);
 
     // Identical uploads within a restaurant share a single Storage object.
     // Keep the previous unique-name behavior if the restaurant isn't known yet.
@@ -87,8 +98,8 @@ export async function uploadMenuImage(
           ).join("")
         : null;
     const key = hash
-        ? `menu-images/${restaurantId}/${hash}.${extension}`
-        : `menu-images/${crypto.randomUUID()}-${safeName}.${extension}`;
+        ? `${prefix}/${restaurantId}/${hash}.${extension}`
+        : `${prefix}/${crypto.randomUUID()}-${safeName}.${extension}`;
 
     const { error } = await supabase.storage
         .from("menu-images")
@@ -111,4 +122,22 @@ export async function uploadMenuImage(
     }
 
     return key;
+}
+
+export async function copyCoverToGallery(path: string, restaurantId: string, itemId: string): Promise<string> {
+    if (!path.startsWith(`${MENU_IMAGE_PREFIX}/`)) return path;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error("Entre novamente para mover a foto principal.");
+
+    const params = new URLSearchParams({ restaurantId, itemId });
+    const response = await fetch(`/api/menu/item-media?${params}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ path }),
+    }).catch(() => null);
+    const result = await response?.json().catch(() => null);
+    if (!response?.ok || typeof result?.path !== "string") {
+        throw new Error(result?.error || "Não foi possível mover a foto principal.");
+    }
+    return result.path;
 }

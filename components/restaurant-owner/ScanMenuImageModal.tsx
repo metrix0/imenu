@@ -10,6 +10,7 @@ import {
     useRef,
     useState,
 } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { supabase } from "@/lib/database/supabaseClient";
@@ -25,7 +26,9 @@ import { parsePizzaSettings } from "@/lib/pizza/pricing";
 import Loader from "@/components/ui/Loader";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
-import { faCamera, faImages } from "@fortawesome/free-solid-svg-icons";
+import { faCamera, faImages, faPen } from "@fortawesome/free-solid-svg-icons";
+
+const PRODUCT_DESCRIPTIONS_PROMPT = "Melhorar descrições dos meus produtos";
 
 type ScannedItem = {
     name: string;
@@ -42,6 +45,7 @@ type ScannedItem = {
 
 type ScannedResult = {
     items: ScannedItem[];
+    single_product_photo?: true;
     categories: { name: string }[];
 };
 
@@ -98,17 +102,22 @@ const normalizeItemName = (name: string) =>
     name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().replace(/\s+/g, " ").toLocaleLowerCase("pt-BR");
 
 const MAX_MENU_FILES = 8;
+const SLOW_SCAN_NOTICE_MS = 120_000;
 
-function isIfoodMenuUrl(value: string): boolean {
+function getBlockedMenuLinkProvider(value: string): "iFood" | "Claude" | "ChatGPT" | null {
     const url = value.trim();
-    if (!url) return false;
+    if (!url) return null;
 
     try {
         const hostname = new URL(/^https?:/i.test(url) ? url : `https://${url}`).hostname.replace(/\.$/, "");
-        return hostname === "ifood.com.br" || hostname.endsWith(".ifood.com.br");
+        const matchesDomain = (domain: string) => hostname === domain || hostname.endsWith(`.${domain}`);
+        if (matchesDomain("ifood.com.br")) return "iFood";
+        if (matchesDomain("claude.ai")) return "Claude";
+        if (matchesDomain("chatgpt.com") || matchesDomain("chat.openai.com")) return "ChatGPT";
     } catch {
-        return false;
+        return null;
     }
+    return null;
 }
 
 export default function ScanMenuModal({
@@ -148,6 +157,8 @@ function ScanModal({
     existingCategories: { id: string; name: string; position: number }[];
     onRefresh: () => void;
 }) {
+    const pathname = usePathname();
+    const router = useRouter();
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const previewUrlsRef = useRef<Set<string>>(new Set());
     const scanAttempt = useRef<ScanAttempt | null>(null);
@@ -155,13 +166,19 @@ function ScanModal({
     const [uploads, setUploads] = useState<SelectedUpload[]>([]);
     const [menuUrl, setMenuUrl] = useState("");
     const [showLinkField, setShowLinkField] = useState(false);
-    const ifoodWarningId = useId();
-    const isIfoodLink = showLinkField && isIfoodMenuUrl(menuUrl);
+    const linkWarningId = useId();
+    const blockedLinkProvider = showLinkField ? getBlockedMenuLinkProvider(menuUrl) : null;
     const [toast, setToast] = useState<{
         message: string;
         type: "success" | "error";
+        duration?: number;
     } | null>(null);
+    const dismissToast = useCallback(() => {
+        setToast((current) => current === toast ? null : current);
+    }, [toast]);
     const [isScanning, setIsScanning] = useState(false);
+    const [showSlowScanNotice, setShowSlowScanNotice] = useState(false);
+    const [scanDurationSeconds, setScanDurationSeconds] = useState(40);
     const [isSaving, setIsSaving] = useState(false);
     const [scanResult, setScanResult] = useState<ScannedResult | null>(null);
     const [access, setAccess] = useState<ScanAccess | null>(null);
@@ -212,6 +229,12 @@ function ScanModal({
         interruptScan("modal");
         setIsScanning(false);
     }, [open, interruptScan]);
+
+    useEffect(() => {
+        if (!open || !isScanning) return;
+        const timer = window.setTimeout(() => setShowSlowScanNotice(true), SLOW_SCAN_NOTICE_MS);
+        return () => window.clearTimeout(timer);
+    }, [open, isScanning]);
 
     useEffect(() => {
         if (!open || !scanResult) return;
@@ -289,7 +312,13 @@ function ScanModal({
     }
 
     function scheduleToastClear(delay = 3000) {
-        window.setTimeout(() => setToast(null), delay);
+        window.setTimeout(() => {
+            setToast((current) => current?.duration === undefined ? null : current);
+        }, delay);
+    }
+
+    function showScanError(message: string) {
+        setToast({ message, type: "error", duration: 10_000 });
     }
 
     async function handleFilesSelected(selectedFiles: FileList | null) {
@@ -425,6 +454,8 @@ function ScanModal({
             stage: "analysis",
         };
         scanAttempt.current = attempt;
+        setScanDurationSeconds(40 + Math.max(0, urls.length - 1) * 10);
+        setShowSlowScanNotice(false);
         setIsScanning(true);
 
         try {
@@ -446,7 +477,7 @@ function ScanModal({
             if (!response.ok) {
                 scanAttempt.current = null;
                 setIsScanning(false);
-                setToast({ message: json?.error || "O Scan com IA falhou", type: "error" });
+                showScanError(json?.error || "O Scan com IA falhou");
                 return;
             }
 
@@ -456,10 +487,7 @@ function ScanModal({
         } catch (error: unknown) {
             if (scanAttempt.current !== attempt) return;
             console.error(error);
-            setToast({
-                message: "AI scan error: " + (error instanceof Error ? error.message : String(error)),
-                type: "error",
-            });
+            showScanError("AI scan error: " + (error instanceof Error ? error.message : String(error)));
         } finally {
             if (scanAttempt.current === attempt) setIsScanning(false);
         }
@@ -493,7 +521,7 @@ function ScanModal({
     }
 
     async function handleContinue() {
-        if (isIfoodLink) return;
+        if (blockedLinkProvider) return;
         if (showLinkField) {
             if (!menuUrl.trim()) {
                 setToast({
@@ -816,6 +844,7 @@ function ScanModal({
                             setAccess(value);
                         }).catch(error => setAccessError(error instanceof Error ? error.message : String(error)))}>Tentar novamente</Button>
                     </div>}
+                    {access?.allowed && <h2 className="mb-4 pr-10 text-xl font-semibold">Scanear Cardápio</h2>}
                     {access?.allowed && !scanResult && (
                         <div className="space-y-4">
                             {showLinkField ? (
@@ -839,20 +868,31 @@ function ScanModal({
                                         onChange={(event) => setMenuUrl(event.target.value)}
                                         maxLength={2048}
                                         autoFocus
-                                        aria-describedby={isIfoodLink ? ifoodWarningId : undefined}
+                                        aria-describedby={blockedLinkProvider ? linkWarningId : undefined}
                                     />
                                     <div
-                                        key="ifood-warning"
-                                        aria-hidden={!isIfoodLink}
+                                        key="link-warning"
+                                        aria-hidden={!blockedLinkProvider}
                                         className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out motion-reduce:transition-none ${
-                                            isIfoodLink ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                                            blockedLinkProvider ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
                                         }`}
                                     >
                                         <div className="min-h-0 overflow-hidden">
-                                            <WarningBox id={ifoodWarningId} role="alert" icon={icons.faTriangleExclamation} className="mt-3">
-                                                <strong>O iFood bloqueia a leitura automática.</strong>{" "}
-                                                Use fotos ou PDF do cardápio.
-                                            </WarningBox>
+                                            {blockedLinkProvider && (
+                                                <WarningBox id={linkWarningId} role="alert" icon={icons.faTriangleExclamation} className="mt-3">
+                                                    {blockedLinkProvider === "iFood" ? (
+                                                        <>
+                                                            <strong>O iFood bloqueia a leitura automática.</strong>{" "}
+                                                            Use fotos ou PDF do cardápio.
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <strong>O {blockedLinkProvider} pode bloquear a leitura automática.</strong>{" "}
+                                                            Baixe o cardápio como imagem ou PDF e envie por aqui!
+                                                        </>
+                                                    )}
+                                                </WarningBox>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -860,7 +900,7 @@ function ScanModal({
                             <div className="rounded-lg p-4 2xl:text-xl">
                                 <div className="mb-6">
                                     <p className="font-semibold 2xl:mb-2">
-                                        Adicione fotos ou PDF
+                                        Adicione fotos ou PDF do cardápio
                                     </p>
                                     <p className="text-sm text-gray-500 2xl:text-base">
                                         JPG, PNG, PDF. <b>Use os arquivos de imagem do seu cardápio para melhores resultados.</b> Limite: 8 PDFs e/ou imagens.
@@ -908,6 +948,18 @@ function ScanModal({
                                                     <FontAwesomeIcon icon={icons.faLink} />
                                                     Importar cardápio usando um Link
                                                 </span>
+                                            </Button>
+                                        )}
+                                        {pathname === "/painel/cardapio" && uploads.length === 0 && (
+                                            <Button
+                                                variant="secondary"
+                                                leftIcon={<FontAwesomeIcon icon={faPen} />}
+                                                onClick={() => {
+                                                    handleClose();
+                                                    router.push(`/painel/assistente-ia?draft=${encodeURIComponent(PRODUCT_DESCRIPTIONS_PROMPT)}`);
+                                                }}
+                                            >
+                                                {PRODUCT_DESCRIPTIONS_PROMPT}
                                             </Button>
                                         )}
                                     </div>
@@ -985,11 +1037,16 @@ function ScanModal({
                             </div>
                             )}
 
-                            <div className="h-10 px-4" aria-live="polite">
+                            <div className="relative h-16 px-4 pt-6 sm:h-10 sm:pt-0" aria-live="polite">
+                                {isScanning && showSlowScanNotice && (
+                                    <p className="absolute inset-x-4 bottom-10 pb-1 text-xs leading-tight text-gray-600">
+                                        Essa análise está levando mais tempo que o normal, por favor aguarde alguns minutos
+                                    </p>
+                                )}
                                 {isScanning && (
                                     <LoadingBar
                                         key={String(isScanning)}
-                                        durationSeconds={40}
+                                        durationSeconds={scanDurationSeconds}
                                         targetProgress={95}
                                         showLabel={true}
                                     />
@@ -1004,7 +1061,7 @@ function ScanModal({
                                     variant="primary"
                                     onClick={handleContinue}
                                     loading={isScanning}
-                                    disabled={isScanning || isIfoodLink}
+                                    disabled={isScanning || Boolean(blockedLinkProvider)}
                                 >
                                     Continuar
                                 </Button>
@@ -1042,46 +1099,35 @@ function ScanModal({
                                             key={categoryName}
                                             className="bg-white p-4 rounded-lg shadow-sm"
                                         >
-                                            <div className="flex items-start justify-between gap-4 mb-6">
-                                                <div className="flex-1">
-                                                    <div className="text-sm text-gray-500 2xl:text-base">
-                                                        Categoria detectada
-                                                    </div>
-                                                    <div className="font-semibold text-lg">
-                                                        {categoryName}
-                                                    </div>
-                                                </div>
-
-                                                <div className="w-[320px]">
-                                                    <Dropdown
-                                                        label="Mapear para"
-                                                        value={
-                                                            mapping.mappedId ??
+                                            <div className="mb-6 w-full sm:max-w-xs">
+                                                <Dropdown
+                                                    label="Categoria"
+                                                    value={
+                                                        mapping.mappedId ??
+                                                        "__create_new__"
+                                                    }
+                                                    options={dropdownOptions}
+                                                    onChange={(event: ChangeEvent<HTMLSelectElement>) => {
+                                                        const value =
+                                                            event.target.value;
+                                                        if (
+                                                            value ===
                                                             "__create_new__"
+                                                        ) {
+                                                            handleMapCategory(
+                                                                categoryName,
+                                                                null,
+                                                                true
+                                                            );
+                                                        } else {
+                                                            handleMapCategory(
+                                                                categoryName,
+                                                                value,
+                                                                false
+                                                            );
                                                         }
-                                                        options={dropdownOptions}
-                                                        onChange={(event: ChangeEvent<HTMLSelectElement>) => {
-                                                            const value =
-                                                                event.target.value;
-                                                            if (
-                                                                value ===
-                                                                "__create_new__"
-                                                            ) {
-                                                                handleMapCategory(
-                                                                    categoryName,
-                                                                    null,
-                                                                    true
-                                                                );
-                                                            } else {
-                                                                handleMapCategory(
-                                                                    categoryName,
-                                                                    value,
-                                                                    false
-                                                                );
-                                                            }
-                                                        }}
-                                                    />
-                                                </div>
+                                                    }}
+                                                />
                                             </div>
 
                                             <div className="space-y-3">
@@ -1126,13 +1172,13 @@ function ScanModal({
                                                                         {item.pizza_crusts?.length ? ` · Bordas: ${item.pizza_crusts.map(crust => crust.name).join(", ")}` : ""}
                                                                     </div>
                                                                 )}
-                                                                <div className="text-sm font-semibold mt-2">
-                                                                    {(typeof item.price_cents === "number" ||
-                                                                        (item.is_pizza_flavor && prepareScannedPizza(item).complements.some(group => group.name === "Tamanho"))) &&
-                                                                    prepareScannedPizza(item).price_cents >= 0
-                                                                        ? `R$ ${(prepareScannedPizza(item).price_cents / 100).toFixed(2).replace(".", ",")}`
-                                                                        : "—"}
-                                                                </div>
+                                                                {(typeof item.price_cents === "number" ||
+                                                                    (item.is_pizza_flavor && prepareScannedPizza(item).complements.some(group => group.name === "Tamanho"))) &&
+                                                                    prepareScannedPizza(item).price_cents >= 0 && (
+                                                                        <div className="mt-2 text-sm font-semibold">
+                                                                            {`R$ ${(prepareScannedPizza(item).price_cents / 100).toFixed(2).replace(".", ",")}`}
+                                                                        </div>
+                                                                    )}
                                                             </div>
 
                                                             <div className="w-24 h-24 rounded-xl overflow-hidden bg-gray-100 flex items-center justify-center">
@@ -1140,7 +1186,7 @@ function ScanModal({
                                                                     <img
                                                                         src={getMenuItemImageUrl(supabase, item.image_path) ?? "/placeholders/item.png"}
                                                                         loading="lazy"
-                                                                        className="w-full h-full object-cover"
+                                                                        className={`h-full w-full ${scanResult.single_product_photo ? "object-contain" : "object-cover"}`}
                                                                         alt={item.name}
                                                                     />
                                                                 ) : (
@@ -1188,7 +1234,8 @@ function ScanModal({
                 <Toast
                     message={toast.message}
                     type={toast.type}
-                    onClose={() => setToast(null)}
+                    duration={toast.duration}
+                    onClose={dismissToast}
                 />
             )}
         </>

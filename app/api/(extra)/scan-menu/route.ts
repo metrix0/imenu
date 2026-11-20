@@ -4,11 +4,11 @@ import { openAiAlertFetch } from "@/lib/services/openAiAlerts";
 import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
 import { readPublicMenuLink, MenuLinkError, type MenuPhoto } from "@/lib/menu/readPublicMenuLink";
 import { query } from "@/lib/database/sql";
-import { importMenuPhotos } from "@/lib/menu/importMenuPhotos";
+import { importMenuPhotos, importScannedProductPhoto } from "@/lib/menu/importMenuPhotos";
 import { menuPhotoPdfParts } from "@/lib/menu/menuPhotoPdf";
 import { recordGeminiMenuFallback } from "@/lib/dev/health";
 import {
-    beginMenuScan, claimMenuScanFileAnalysis, menuScanFileFingerprint, menuScanFilePaths,
+    beginMenuScan, claimMenuScanFileAnalysis, menuScanFileMetadata, menuScanFilePaths,
     menuScanLinkDomain, menuScanSourceUrl, recordMenuScan, recordMenuScanProgress,
     scanAttemptIdPattern, waitForMenuScanResult, type MenuScanDiagnostics, type MenuScanTimings,
 } from "@/lib/menu/scanDiagnostics";
@@ -87,6 +87,7 @@ type ScanRequest = {
 };
 
 type ParsedMenu = {
+    single_product_photo: boolean;
     items: Array<{
         name: string;
         description: string | null;
@@ -127,6 +128,8 @@ type GeminiGenerateResponse = {
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com";
 const MAX_FILE_BYTES = 50 * 1024 * 1024;
 const FILE_PROCESSING_TIMEOUT_MS = 30_000;
+const GEMINI_GENERATION_TIMEOUT_MS = 300_000;
+const GEMINI_FILE_FALLBACK_TIMEOUT_MS = 120_000;
 
 const PIZZA_OPTION_SCHEMA = {
     type: "object",
@@ -149,10 +152,17 @@ const PIZZA_SCAN_INSTRUCTIONS = [
     "Para outros produtos, is_pizza_flavor=false e os dois arrays devem ser vazios.",
 ].join("\n- ");
 
+const SINGLE_PRODUCT_PHOTO_INSTRUCTIONS = [
+    "Se o material enviado for apenas uma imagem de um único produto alimentício (ou um PDF contendo apenas essa imagem), sem uma lista ou descrição de cardápio, retorne exatamente um item e marque single_product_photo=true.",
+    "Nesse caso, use um nome em português baseado no que pode ser reconhecido visualmente, infira a categoria e use null para descrição e preço ausentes. Use is_pizza_flavor=false e deixe pizza_sizes e pizza_crusts vazios.",
+    "Use single_product_photo=false para links, cardápios com um único produto anunciado, imagens decorativas ou com vários produtos e todo outro caso.",
+].join("\n- ");
+
 const MENU_RESPONSE_SCHEMA = {
     type: "object",
     additionalProperties: false,
     properties: {
+        single_product_photo: { type: "boolean" },
         items: {
             type: "array",
             items: {
@@ -161,7 +171,7 @@ const MENU_RESPONSE_SCHEMA = {
                 properties: {
                     name: {
                         type: "string",
-                        description: "Nome exato do item visível no cardápio.",
+                        description: "Nome exato visível no cardápio ou nome descritivo para uma foto de produto único.",
                     },
                     description: {
                         type: ["string", "null"],
@@ -214,7 +224,7 @@ const MENU_RESPONSE_SCHEMA = {
             },
         },
     },
-    required: ["items", "categories"],
+    required: ["items", "categories", "single_product_photo"],
 } as const;
 
 class GeminiHttpError extends Error {
@@ -354,6 +364,7 @@ function parseMenuJson(outputText: string): ParsedMenu {
     }
 
     return {
+        single_product_photo: candidate.single_product_photo === true,
         categories: candidate.categories
             .filter(
                 (category) =>
@@ -401,15 +412,19 @@ async function throwForGeminiError(response: Response): Promise<void> {
     );
 }
 
-async function fetchSourceFile(url: string): Promise<{
+async function fetchSourceFile(
+    url: string,
+    redirect: RequestRedirect = "follow",
+    signal = AbortSignal.timeout(30_000),
+): Promise<{
     bytes: ArrayBuffer;
     mimeType: string;
     displayName: string;
 }> {
     const response = await fetch(url, {
         cache: "no-store",
-        redirect: "follow",
-        signal: AbortSignal.timeout(30_000),
+        redirect,
+        signal,
     });
 
     if (!response.ok) {
@@ -604,6 +619,7 @@ async function generateGeminiMenuJson(
     apiKey: string,
     model: string,
     files: GeminiFile[],
+    generationTimeoutMs: number,
     pageText?: string,
     existingMenuContext?: string
 ): Promise<string> {
@@ -636,6 +652,7 @@ Regras:
 - ${PIZZA_SCAN_INSTRUCTIONS}
 - Não combine itens diferentes.
 - Preserve nomes e descrições conforme aparecem no cardápio.
+- ${SINGLE_PRODUCT_PHOTO_INSTRUCTIONS}
 `,
                         },
                     ],
@@ -665,7 +682,7 @@ Regras:
                     responseJsonSchema: MENU_RESPONSE_SCHEMA,
                 },
             }),
-            signal: AbortSignal.timeout(300_000),
+            signal: AbortSignal.timeout(generationTimeoutMs),
         }
     );
 
@@ -694,6 +711,7 @@ async function scanWithGemini(
     apiKey: string,
     urls: string[],
     timings: MenuScanTimings,
+    generationTimeoutMs: number,
     pageText?: string,
     existingMenuContext?: string
 ): Promise<ParsedMenu> {
@@ -712,6 +730,7 @@ async function scanWithGemini(
             apiKey,
             process.env.GEMINI_MENU_SCAN_MODEL || "gemini-3.5-flash",
             uploadedFiles,
+            generationTimeoutMs,
             pageText,
             existingMenuContext
         ));
@@ -825,6 +844,7 @@ Você analisa fotos, capturas e PDFs de cardápios de restaurantes.
 
 Retorne somente um objeto JSON neste formato:
 {
+  "single_product_photo": false,
   "items": [
     {
       "name": "string",
@@ -850,6 +870,7 @@ Regras:
 - Não invente itens que não estejam visíveis no cardápio.
 - image_path deve ser sempre null.
 - ${PIZZA_SCAN_INSTRUCTIONS}
+- ${SINGLE_PRODUCT_PHOTO_INSTRUCTIONS}
 `,
                     },
                 ],
@@ -926,7 +947,7 @@ function shouldUseOpenAIFallback(error: unknown): boolean {
     ].some((fragment) => message.includes(fragment));
 }
 
-function buildResponse(parsed: ParsedMenu, restaurantId: string) {
+function buildResponse(parsed: ParsedMenu, restaurantId: string, isSingleFile: boolean) {
     const categoryNames = new Set(
         parsed.categories.map((category) => category.name)
     );
@@ -953,7 +974,18 @@ function buildResponse(parsed: ParsedMenu, restaurantId: string) {
         position: index,
     }));
 
-    return { items, categories };
+    const singleProductPhoto = isSingleFile && parsed.single_product_photo && items.length === 1;
+    return { items, categories, ...(singleProductPhoto ? { single_product_photo: true as const } : {}) };
+}
+
+async function attachScannedProductPhoto(
+    result: ReturnType<typeof buildResponse>, restaurantId: string, sourceUrl: string | undefined,
+) {
+    const item = result.items[0];
+    if (!result.single_product_photo || !item || item.image_path || !sourceUrl) return;
+
+    const { bytes, mimeType } = await fetchSourceFile(sourceUrl, "error", AbortSignal.timeout(6000));
+    item.image_path = await importScannedProductPhoto(restaurantId, Buffer.from(bytes), mimeType);
 }
 
 export async function PATCH(request: Request) {
@@ -1086,15 +1118,19 @@ export async function POST(req: Request) {
         }
 
         let retryFingerprint: string | undefined;
-        const files = diagnostic.source && "files" in diagnostic.source ? diagnostic.source.files : [];
-        if (!isLinkImport && attemptId && user?.id && files.length === urls.length &&
+        let ownedSingleSourceUrl: string | undefined;
+        const source = diagnostic.source;
+        if (source && "files" in source && user?.id && source.files.length === urls.length &&
             urls.every(url => !/[?#]/.test(url))) {
             try {
-                retryFingerprint = await menuScanFileFingerprint(user.id, files, existingMenuContext);
+                const metadata = await menuScanFileMetadata(user.id, source.files, existingMenuContext);
+                source.totalBytes = metadata?.totalBytes;
+                if (metadata && urls.length === 1) ownedSingleSourceUrl = urls[0];
+                if (attemptId) retryFingerprint = metadata?.fingerprint;
             } catch {
                 console.warn("[SCAN_MENU] Não foi possível identificar os arquivos da importação.");
             }
-            if (retryFingerprint) {
+            if (attemptId && retryFingerprint) {
                 const prior = await claimMenuScanFileAnalysis<ReturnType<typeof buildResponse>>(
                     restaurantId, attemptId, retryFingerprint,
                 );
@@ -1108,6 +1144,7 @@ export async function POST(req: Request) {
 
                     const finished = await waitForMenuScanResult(restaurantId, prior, req.signal);
                     if (finished?.outcome === "success" && finished.result) {
+                        await attachScannedProductPhoto(finished.result, restaurantId, ownedSingleSourceUrl);
                         if (diagnostic) diagnostic.outcome = "success";
                         return NextResponse.json(finished.result);
                     }
@@ -1131,7 +1168,12 @@ export async function POST(req: Request) {
         let fallbackReason: string | undefined;
         if (geminiApiKey) {
             try {
-                parsed = await scanWithGemini(geminiApiKey, urls, timingsMs, pageText, existingMenuContext);
+                const generationTimeoutMs = !isLinkImport && openAiApiKey
+                    ? GEMINI_FILE_FALLBACK_TIMEOUT_MS
+                    : GEMINI_GENERATION_TIMEOUT_MS;
+                parsed = await scanWithGemini(
+                    geminiApiKey, urls, timingsMs, generationTimeoutMs, pageText, existingMenuContext,
+                );
                 diagnostic.geminiItems = parsed.items.length;
             } catch (geminiError) {
                 diagnostic.geminiError = geminiFallbackReason(geminiError);
@@ -1174,7 +1216,8 @@ export async function POST(req: Request) {
                 console.warn("[SCAN_MENU] Não foi possível preparar as fotos do cardápio.");
             });
         }
-        const result = buildResponse(parsed, restaurantId);
+        const result = buildResponse(parsed, restaurantId, !isLinkImport && urls.length === 1);
+        await attachScannedProductPhoto(result, restaurantId, ownedSingleSourceUrl);
         diagnostic.outcome = "success";
         // The interruption event can arrive just after the analysis finishes.
         if (retryFingerprint) diagnostic.retryDraft = { fingerprint: retryFingerprint, result };

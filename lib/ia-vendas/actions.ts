@@ -68,7 +68,13 @@ async function references(
     for (const r of [...p.rules, ...p.benefits])
       if (r.item_id) refs.push(["items", r.item_id]);
       else if (r.category_id) refs.push(["categories", r.category_id]);
-  for (const id of value.reward_subitem_ids || []) refs.push(["subitems", id]);
+  const rewards = entity === "loyalty_programs"
+    ? [
+        ...(value.reward_item_id ? [{ item_id: value.reward_item_id, subitem_ids: value.reward_subitem_ids ?? [] }] : []),
+        ...(value.additional_rewards ?? []),
+      ]
+    : [];
+  for (const reward of value.additional_rewards ?? []) refs.push(["items", reward.item_id]);
   for (const [parent, id] of refs)
     if (
       !planned.some(
@@ -77,14 +83,15 @@ async function references(
       !(await row(c, restaurant, parent, id))
     )
       throw new SalesError("Uma referência não pertence ao restaurante.");
-  if (entity === "loyalty_programs" && value.reward_subitem_ids?.length) {
+  for (const { item_id, subitem_ids } of rewards) {
+    if (!subitem_ids.length) continue;
     const ids = (
       await c.query(
         "SELECT s.id FROM public.subitems s JOIN public.item_subcategories g ON g.id=s.item_subcategory_id WHERE g.item_id=$1 AND s.id=ANY($2::uuid[])",
-        [value.reward_item_id, value.reward_subitem_ids],
+        [item_id, subitem_ids],
       )
     ).rows;
-    if (ids.length !== value.reward_subitem_ids.length)
+    if (ids.length !== subitem_ids.length)
       throw new SalesError("Os complementos devem pertencer à recompensa.");
   }
 }
@@ -128,7 +135,8 @@ const selectFields = (r: Data, names: string[]) =>
   Object.fromEntries(names.map((k) => [k, k === "automations" && r[k]
     ? readAutomationSettings(r[k]) : r[k] ?? null]));
 const parameter = (e: string, k: string, v: any) =>
-  fields(e)[k]?.type === "jsonb" ? JSON.stringify(v) : v;
+  (k !== "availability_schedule" || v !== null) && fields(e)[k]?.type === "jsonb"
+    ? JSON.stringify(v) : v;
 async function write(c: PoolClient, restaurant: string, op: Operation) {
   if (op.kind === "delete") {
     await deletable(c, op.entity, op.id);
@@ -226,8 +234,12 @@ export async function propose(
         throw new SalesError("Agrupe alterações do mesmo registro.");
       const old =
         d.kind === "create" ? null : await row(c, restaurant, d.entity, id);
-      if (d.kind === "create" && SINGLETONS.includes(d.entity) && await row(c, restaurant, d.entity, id))
-        throw new SalesError("Configuração já existe. Use uma atualização.");
+      if (d.kind === "create" && SINGLETONS.includes(d.entity)) {
+        const existing = d.entity === "loyalty_programs"
+          ? (await c.query("SELECT id FROM public.loyalty_programs WHERE restaurant_id=$1 FOR UPDATE", [restaurant])).rows[0]
+          : await row(c, restaurant, d.entity, id);
+        if (existing) throw new SalesError("Configuração já existe. Use uma atualização.");
+      }
       if (d.kind !== "create" && !old)
         throw new SalesError("Registro não encontrado.", 404);
       const values =

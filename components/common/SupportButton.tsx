@@ -36,10 +36,15 @@ export function SupportWhatsappBadge({ compact = false }: { compact?: boolean } 
 }
 
 export interface SupportButtonRef { open: () => void; }
-type SupportButtonProps = { bottomClassName?: string; showFloating?: boolean; floatingClassName?: string };
+type SupportButtonProps = {
+    bottomClassName?: string;
+    showFloating?: boolean;
+    floatingClassName?: string;
+    modalInstructions?: string;
+};
 
 const SupportButton = forwardRef<SupportButtonRef, SupportButtonProps>(
-    ({ bottomClassName = "bottom-6", showFloating = true, floatingClassName = "" }, ref) => {
+    ({ bottomClassName = "bottom-6", showFloating = true, floatingClassName = "", modalInstructions }, ref) => {
         const [open, setOpen] = useState(false);
         const [copied, setCopied] = useState(false);
         const [qrLoaded, setQrLoaded] = useState(false);
@@ -47,7 +52,7 @@ const SupportButton = forwardRef<SupportButtonRef, SupportButtonProps>(
 
         const openSupport = () => {
             const mobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-            if (mobile) window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+            if (mobile && !modalInstructions) window.open(whatsappUrl, "_blank", "noopener,noreferrer");
             else {
                 setQrLoaded(false);
                 setOpen(true);
@@ -74,9 +79,10 @@ const SupportButton = forwardRef<SupportButtonRef, SupportButtonProps>(
                     <FontAwesomeIcon icon={icons.faWhatsapp} className="!h-6 !w-6" />
                 </button>}
 
-                <Modal height={470} open={open} onClose={() => setOpen(false)} className="max-w-sm" showCloseButton>
+                <Modal height={modalInstructions ? 550 : 470} open={open} onClose={() => setOpen(false)} className="max-w-sm" showCloseButton>
                     <div className="relative p-6 text-center">
                         <h3 className="mb-4 text-lg font-semibold text-gray-900">Escaneie o QR Code</h3>
+                        {modalInstructions && <p className="mb-4 text-sm text-gray-600">{modalInstructions}</p>}
                         <div className="relative mx-auto flex h-[214px] w-[214px] items-center justify-center rounded-lg border border-gray-200 bg-white p-4" aria-busy={!qrLoaded}>
                             {!qrLoaded && <Loader className="absolute" />}
                             <img

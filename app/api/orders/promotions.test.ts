@@ -60,6 +60,7 @@ let insert: any[] | null;
 let writes: string[];
 let transactions: string[];
 let client: { query: jest.Mock };
+let loyaltyBalance: boolean;
 
 beforeEach(() => {
   (after as jest.Mock).mockReset();
@@ -69,6 +70,7 @@ beforeEach(() => {
   stock = 10;
   activeProductPromotion = null;
   giftProductEnabled = false;
+  loyaltyBalance = false;
   insert = null;
   writes = [];
   transactions = [];
@@ -109,6 +111,10 @@ beforeEach(() => {
             },
           ],
         };
+      if (sql.includes("FROM loyalty_balances") && loyaltyBalance)
+        return { rows: [{ customer_phone: body.customer_phone }] };
+      if (sql.includes("UPDATE loyalty_balances") && loyaltyBalance)
+        return { rows: [{ current_count: 0 }] };
       if (sql.includes("INSERT INTO orders")) {
         insert = values;
         return { rows: [{ id: orderId }] };
@@ -174,6 +180,31 @@ it("rejects a delivery checkout without registered distance ranges", async () =>
   expect((await response.json()).error).toBe("O restaurante não tem faixas de entrega cadastradas.");
   expect(insert).toBeNull();
   expect(writes).toEqual([]);
+});
+
+it("rejects a same-day slot before the maximum delivery time while the store is open", async () => {
+  jest.useFakeTimers().setSystemTime(new Date("2026-11-20T13:00:00-03:00"));
+  try {
+    (query as jest.Mock).mockImplementation(async (sql: string) =>
+      sql.includes("SELECT preorder_only, preorder_availability_json")
+        ? { rows: [{
+            availability_json: { 5: [{ open: "12:00", close: "18:00" }] },
+            delivery_fee_mode: "radius",
+            delivery_fee_json: [{ time_minutes: 30 }, { time_minutes: 60 }],
+          }] }
+        : { rows: [], rowCount: 1 },
+    );
+    const response = await send({
+      scheduled_for: "2026-11-20T13:45:00-03:00",
+      delivery_time_minutes: 30,
+    });
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toMatch(/prazo máximo de entrega/);
+    expect(transactions).toEqual([]);
+    expect(writes).toEqual([]);
+  } finally {
+    jest.useRealTimers();
+  }
 });
 
 it("requires a schedule for customer checkout in preorder-only mode", async () => {
@@ -560,4 +591,81 @@ it("online PIX waits for payment confirmation before sending a push", async () =
   expect((await send({ paymentMethod: "pix" })).status).toBe(200);
   expect(after).not.toHaveBeenCalled();
   expect(notifyOrderReady).not.toHaveBeenCalled();
+});
+
+it("returns confirmed Pixel purchase data only after creating the order", async () => {
+  (query as jest.Mock).mockImplementation(async (sql: string) => ({
+    rows: sql.includes("FROM public.tracking_integrations") ? [{
+      restaurant_id: restaurantId, meta_pixel_id: "123456", meta_capi_token: null,
+    }] : [],
+    rowCount: 1,
+  }));
+  const result = await send({ meta_tracking: true });
+  expect(result.status).toBe(200);
+  expect(transactions).toEqual(["commit"]);
+  expect((await result.json()).meta_purchase).toMatchObject({
+    order_id: orderId, content_ids: [itemId], value: 45, currency: "BRL",
+  });
+
+  stock = 0;
+  const failure = await send({ meta_tracking: true });
+  expect(failure.status).toBe(409);
+  expect((await failure.json()).meta_purchase).toBeUndefined();
+});
+
+it("saves the online Pix attribution before requesting payment and defers the event", async () => {
+  const db = query as jest.Mock;
+  db.mockImplementation(async (sql: string) => ({
+    rows: sql.includes("FROM public.tracking_integrations") ? [{
+      restaurant_id: restaurantId, meta_pixel_id: "123456", meta_capi_token: "test-token",
+    }] : [],
+    rowCount: 1,
+  }));
+  (createMercadoPagoPixCharge as jest.Mock).mockImplementationOnce(async () => {
+    expect(db).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO meta_private.pix_purchase"), [
+      orderId, "123456", expect.any(String), expect.any(String),
+    ]);
+    return { id: "payment-test", qrCodeText: "test" };
+  });
+  const result = await send({ meta_tracking: true, paymentMethod: "pix" });
+  expect(result.status).toBe(200);
+  expect((await result.json()).payment_type).toBe("pix");
+  expect(after).not.toHaveBeenCalled();
+});
+
+function enableLoyaltyBundle() {
+  loyaltyBalance = true;
+  giftProductEnabled = true;
+  offers = [];
+  (query as jest.Mock).mockImplementation(async (sql: string) =>
+    sql.includes("FROM loyalty_programs")
+      ? { rows: [{ goal_count: 10, reward_item_id: itemId, reward_subitem_ids: [],
+        additional_rewards: [{ item_id: giftId, subitem_ids: [] }] }] }
+      : { rows: [], rowCount: 1 },
+  );
+}
+
+const rewardLine = (id: string) => ({
+  base_item_id: id, name: "Prêmio", qty: 1, unit_price_cents: 0,
+  total_cents: 0, selectedSubitems: [], is_reward: true,
+});
+
+it("redeems all configured reward items and deducts the stamp goal once", async () => {
+  enableLoyaltyBundle();
+  const response = await send({ items: [...body.items, rewardLine(itemId), rewardLine(giftId)] });
+  expect(response.status).toBe(200);
+  expect(saved()[12]).toBe(10);
+  const deductions = client.query.mock.calls.filter(([sql]) => sql.includes("UPDATE loyalty_balances"));
+  expect(deductions).toHaveLength(1);
+  expect(deductions[0][1][0]).toBe(10);
+  const rewardInserts = client.query.mock.calls.filter(([sql, values]) => sql.includes("INSERT INTO order_items") && values[3] === 0);
+  expect(rewardInserts.map(([, values]) => values[1])).toEqual([itemId, giftId]);
+});
+
+it.each([[itemId], [itemId, itemId]])("rejects an incomplete or duplicated loyalty bundle (%j)", async (...ids) => {
+  enableLoyaltyBundle();
+  const response = await send({ items: [...body.items, ...ids.map(rewardLine)] });
+  expect(response.status).toBe(400);
+  expect((await response.json()).error).toMatch(/recompensa completa/i);
+  expect(insert).toBeNull();
 });

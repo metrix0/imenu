@@ -3,11 +3,11 @@
 import { useState, ReactNode, useEffect, useRef, useCallback } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
-import { faClock, faGripVertical, faStar } from "@fortawesome/free-solid-svg-icons";
+import { faGripVertical, faStar } from "@fortawesome/free-solid-svg-icons";
 import { supabase } from "@/lib/database/supabaseClient";
 import Tooltip from "@/components/ui/Tooltip";
 import MenuItemRow, { MenuItemType } from "./MenuItemRow";
-import { categoryScheduleDetails, categoryScheduleLabel } from "@/lib/menu/categorySchedule";
+import AvailabilityScheduleLabel from "./AvailabilityScheduleLabel";
 import type { Category } from "@/lib/types/types";
 
 interface CategorySectionProps {
@@ -195,7 +195,6 @@ export default function CategorySection({
                 name: updatedItem.name,
                 description: updatedItem.description,
                 price_cents: updatedItem.price_cents,
-                image_path: updatedItem.image_path,
                 is_available: updatedItem.is_available
             })
             .eq("id", updatedItem.id);
@@ -224,11 +223,13 @@ export default function CategorySection({
             description: originalItem.description,
             price_cents: originalItem.price_cents,
             image_path: originalItem.image_path,
+            gallery_media: originalItem.gallery_media ?? [],
             category_id: category.id,
             restaurant_id: restaurantId,
             is_available: false,
             available_for_delivery: originalItem.available_for_delivery !== false,
             available_for_salao: originalItem.available_for_salao !== false,
+            availability_schedule: originalItem.availability_schedule ?? null,
             position: items.length
         });
 
@@ -261,23 +262,17 @@ export default function CategorySection({
                     )}
                     <h3 className="min-w-0 truncate text-xl font-bold text-gray-800 tracking-tight md:overflow-visible md:whitespace-normal md:text-clip md:break-words" title={category.name}>{category.name}</h3>
                     {isFeatured && (
-                        <Tooltip text="A primeira categoria é destacada no cardápio." position="right" showOnClick>
+                        <Tooltip text="A primeira categoria é destacada no cardápio." position="right" parentClassName="!flex shrink-0 items-center" showOnClick>
                             <FontAwesomeIcon icon={faStar} className="text-brand text-sm cursor-help" />
                         </Tooltip>
                     )}
                 </div>
 
                 <div className="flex shrink-0 items-center justify-end gap-3">
-                    {categoryScheduleLabel(category.availability_schedule) && (
-                        <span className="hidden max-w-[220px] truncate text-xs text-gray-500 md:inline" title={categoryScheduleDetails(category.availability_schedule) || undefined}>
-                            {categoryScheduleLabel(category.availability_schedule)}
-                        </span>
-                    )}
-                    <button onClick={onEditCategory} className="whitespace-nowrap text-xs 2xl:text-base font-medium text-gray-400 hover:text-brand transition-colors cursor-pointer">
-                        {categoryScheduleLabel(category.availability_schedule) && (
-                            <FontAwesomeIcon icon={faClock} className="mr-1.5 text-xs md:hidden" aria-label="Categoria agendada" />
-                        )}
-                        Editar categoria
+                    <AvailabilityScheduleLabel schedule={category.availability_schedule} className="hidden md:inline-flex" />
+                    <button onClick={onEditCategory} className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs 2xl:text-base font-medium text-gray-400 hover:text-brand transition-colors cursor-pointer">
+                        <span>Editar categoria</span>
+                        <AvailabilityScheduleLabel schedule={category.availability_schedule} iconOnly className="inline-flex md:hidden" />
                     </button>
                 </div>
             </div>
@@ -298,7 +293,7 @@ export default function CategorySection({
                             onSave={handleUpdateItem}
                             onSettingsUpdated={(updatedItem) => {
                                 const nextItems = localItemsRef.current.map(current => current.id === updatedItem.id
-                                    ? { ...current, available_for_delivery: updatedItem.available_for_delivery, available_for_salao: updatedItem.available_for_salao }
+                                    ? { ...current, ...updatedItem }
                                     : current);
                                 localItemsRef.current = nextItems;
                                 setLocalItems(nextItems);

@@ -28,7 +28,8 @@ export async function GET(request: NextRequest) {
     try {
         const result = await query(
             `
-                SELECT *
+                SELECT id, restaurant_id, active, goal_count, min_order_value_cents, reward_item_id, reward_subitem_ids,
+                       to_jsonb(loyalty_programs)->'additional_rewards' AS additional_rewards
                 FROM loyalty_programs
                 WHERE restaurant_id = $1
                 LIMIT 1
@@ -64,13 +65,10 @@ export async function POST(request: NextRequest) {
             body?.restaurant_id ?? ""
         ).trim();
         const active = body?.active === true;
-        const goalCount = Math.min(
-            100,
-            Math.max(
-                1,
-                Math.round(Number(body?.goal_count) || 10)
-            )
-        );
+        const requestedGoal = Number(body?.goal_count ?? 10);
+        const goalCount = Number.isFinite(requestedGoal)
+            ? Math.max(0, Math.min(100, Math.round(requestedGoal)))
+            : 10;
         const minOrderValueCents = Math.max(
             0,
             Math.round(
@@ -83,9 +81,20 @@ export async function POST(request: NextRequest) {
         const rewardSubitemIds = parseIdArray(
             body?.reward_subitem_ids
         );
-        const rewardDescription = String(
-            body?.reward_description ?? ""
-        ).trim();
+        const requestedRewards: unknown = body?.additional_rewards;
+        const additionalRewards = Array.isArray(requestedRewards)
+            ? requestedRewards.map((reward: { item_id?: unknown; subitem_ids?: unknown } | null) => ({
+                item_id: String(reward?.item_id ?? ""),
+                subitem_ids: parseIdArray(reward?.subitem_ids),
+            }))
+            : null;
+        const rewards = [
+            ...(rewardItemId ? [{ item_id: rewardItemId, subitem_ids: rewardSubitemIds }] : []),
+            ...(additionalRewards ?? []),
+        ];
+        if (new Set(rewards.map(reward => reward.item_id)).size !== rewards.length) {
+            return NextResponse.json({ error: "Selecione itens de recompensa diferentes." }, { status: 400 });
+        }
 
         if (!restaurantId) {
             return NextResponse.json(
@@ -94,22 +103,12 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        if (active && !rewardItemId) {
-            return NextResponse.json(
-                {
-                    error:
-                        "Selecione o item da recompensa antes de ativar o programa.",
-                },
-                { status: 400 }
-            );
-        }
-
-        if (rewardItemId) {
+        for (const { item_id: rewardItemId, subitem_ids: rewardSubitemIds } of rewards) {
             const itemResult = await query(
                 `
                     SELECT id
                     FROM items
-                    WHERE id = $1
+                    WHERE id::text = $1
                       AND restaurant_id = $2
                     LIMIT 1
                 `,
@@ -170,11 +169,11 @@ export async function POST(request: NextRequest) {
                 INSERT INTO loyalty_programs (
                     restaurant_id,
                     goal_count,
-                    reward_description,
                     active,
                     min_order_value_cents,
                     reward_item_id,
                     reward_subitem_ids,
+                    additional_rewards,
                     updated_at
                 )
                 VALUES (
@@ -183,29 +182,30 @@ export async function POST(request: NextRequest) {
                     $3,
                     $4,
                     $5,
-                    $6,
-                    $7::jsonb,
+                    $6::jsonb,
+                    COALESCE($7::jsonb, '[]'::jsonb),
                     NOW()
                 )
                 ON CONFLICT (restaurant_id)
                 DO UPDATE SET
                     goal_count = EXCLUDED.goal_count,
-                    reward_description = EXCLUDED.reward_description,
                     active = EXCLUDED.active,
                     min_order_value_cents = EXCLUDED.min_order_value_cents,
                     reward_item_id = EXCLUDED.reward_item_id,
                     reward_subitem_ids = EXCLUDED.reward_subitem_ids,
+                    additional_rewards = COALESCE($7::jsonb, loyalty_programs.additional_rewards),
                     updated_at = NOW()
-                RETURNING *
+                RETURNING id, restaurant_id, active, goal_count, min_order_value_cents,
+                          reward_item_id, reward_subitem_ids, additional_rewards
             `,
             [
                 restaurantId,
                 goalCount,
-                rewardDescription,
                 active,
                 minOrderValueCents,
                 rewardItemId,
                 JSON.stringify(rewardSubitemIds),
+                additionalRewards === null ? null : JSON.stringify(additionalRewards),
             ]
         );
 

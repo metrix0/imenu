@@ -4,9 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PanelIcon as FontAwesomeIcon, faMotorRacingHelmet } from "@/components/ui/PanelIcon";
 import { faBellConcierge, faCheck, faCopy } from "@fortawesome/free-solid-svg-icons";
+import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
-import Loader from "@/components/ui/Loader";
+import { PageLoader } from "@/components/ui/Loader";
 import { supabase } from "@/lib/database/supabaseClient";
 
 type StaffPanel = "garcom" | "motoboy";
@@ -66,7 +67,7 @@ export default function StaffPanelsPage() {
         );
     };
 
-    if (loading) return <div className="flex h-64 items-center justify-center"><Loader /></div>;
+    if (loading) return <PageLoader />;
 
     return (
         <div className="mx-auto max-w-7xl px-4 pb-20 pt-8 sm:px-6">
@@ -83,7 +84,8 @@ export default function StaffPanelsPage() {
                             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-brand" aria-hidden="true">
                                 <FontAwesomeIcon icon={faBellConcierge} className="text-xl" />
                             </span>
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700"><FontAwesomeIcon icon={faCheck} />Grátis</span>                       </div>
+                            <Badge preset="featureAvailable">Grátis</Badge>
+                        </div>
                         <h2 className="text-xl font-bold text-gray-900">Painel Garçom</h2>
                         <p className="mt-2 text-sm leading-relaxed text-gray-500">
                             Da chegada do cliente ao fechamento da mesa, organize o atendimento em um só lugar.
@@ -110,7 +112,7 @@ export default function StaffPanelsPage() {
                             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-brand" aria-hidden="true">
                                 <FontAwesomeIcon icon={faMotorRacingHelmet} className="text-xl" />
                             </span>
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700"><FontAwesomeIcon icon={faCheck} />Grátis</span>
+                            <Badge preset="featureAvailable">Grátis</Badge>
                         </div>
                         <h2 className="text-xl font-bold text-gray-900">Painel Motoboy</h2>
                         <p className="mt-2 text-sm leading-relaxed text-gray-500">

@@ -4,6 +4,8 @@ import sharp from "sharp";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 
 import { cleanupExpiredWhatsAppPairing } from "@/lib/services/whatsappPairingCleanup";
+import { MENU_GALLERY_IMAGE_PREFIX, MENU_IMAGE_PREFIX } from "@/lib/menu/itemImages";
+import { MENU_VIDEO_BUCKET, readItemMedia } from "@/lib/menu/itemMedia";
 import { cleanupExpiredMenuScans } from "@/lib/menu/scanDiagnostics";
 
 export const runtime = "nodejs";
@@ -14,7 +16,6 @@ const PAGE_SIZE = 1000;
 const DELETE_BATCH_SIZE = 500;
 const MIN_ORPHAN_AGE_MS = 24 * 60 * 60 * 1000;
 const MENU_IMAGE_BUCKET = "menu-images";
-const MENU_ITEM_PREFIX = "menu-images";
 const VISUAL_ORPHAN_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 const VISUAL_OPTIMIZATION_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const VISUAL_OPTIMIZATION_BUDGET_MS = 210 * 1000;
@@ -303,7 +304,7 @@ export async function GET(request: Request) {
         const supabase = createSupabaseServerClient();
 
         const [items, itemMedia, actions, restaurants] = await Promise.all([
-            fetchAllRows(supabase, "items", "image_path"),
+            fetchAllRows(supabase, "items", "image_path,gallery_media"),
             fetchAllRows(supabase, "item_media", "url,media_type"),
             fetchAllRows(
                 supabase,
@@ -314,10 +315,16 @@ export async function GET(request: Request) {
         ]);
 
         const references = new Set<string>();
+        const videoReferences = new Set<string>();
 
         for (const item of items) {
             const path = normalizeStorageReference(item.image_path, MENU_IMAGE_BUCKET);
             if (path) references.add(path);
+            for (const media of readItemMedia(item.gallery_media)) {
+                const isVideo = media.type === "video";
+                const key = normalizeStorageReference(media.path, isVideo ? MENU_VIDEO_BUCKET : MENU_IMAGE_BUCKET);
+                if (key) (isVideo ? videoReferences : references).add(key);
+            }
         }
 
         for (const media of itemMedia) {
@@ -329,7 +336,8 @@ export async function GET(request: Request) {
 
         const actionText = JSON.stringify(actions);
         const cutoff = Date.now() - MIN_ORPHAN_AGE_MS;
-        const files = await listBucketFiles(supabase, MENU_IMAGE_BUCKET, MENU_ITEM_PREFIX);
+        const files = (await Promise.all([MENU_IMAGE_PREFIX, MENU_GALLERY_IMAGE_PREFIX]
+            .map(prefix => listBucketFiles(supabase, MENU_IMAGE_BUCKET, prefix)))).flat();
 
         const orphaned = files.filter((file) => {
             if (!file.createdAt) return false;
@@ -361,17 +369,29 @@ export async function GET(request: Request) {
             deleted += data?.length ?? batch.length;
         }
 
+        const videoFiles = await listBucketFiles(supabase, MENU_VIDEO_BUCKET);
+        const orphanedVideos = videoFiles.filter(file => !videoReferences.has(file.path) &&
+            file.createdAt !== null && Date.parse(file.createdAt) < cutoff);
+        let videosDeleted = 0;
+        for (let index = 0; index < orphanedVideos.length; index += DELETE_BATCH_SIZE) {
+            const batch = orphanedVideos.slice(index, index + DELETE_BATCH_SIZE).map(file => file.path);
+            const { data, error } = await supabase.storage.from(MENU_VIDEO_BUCKET).remove(batch);
+            if (error) throw error;
+            videosDeleted += data?.length ?? batch.length;
+        }
+
         const visuals = await cleanupAndOptimizeVisuals(supabase, restaurants, actionText);
 
         return NextResponse.json({
             cutoff: new Date(cutoff).toISOString(),
-            prefix: MENU_ITEM_PREFIX,
+            prefix: MENU_IMAGE_PREFIX,
             scanned: files.length,
             deleted,
             freedBytes: orphaned.reduce(
                 (total, file) => total + file.size,
                 0
             ),
+            videosDeleted,
             visuals,
             whatsappPairing,
             menuScansDeleted,

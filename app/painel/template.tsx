@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import { getCreationStepPath } from "@/lib/restaurantCreation";
-import Loader from "@/components/ui/Loader";
+import { PageLoader } from "@/components/ui/Loader";
 import WhatsAppConnectionPopup from "@/components/restaurant-owner/WhatsAppConnectionPopup";
 
 export default function PanelTemplate({
@@ -74,9 +74,7 @@ export default function PanelTemplate({
 
     if (!ready) {
         return (
-            <div className="flex min-h-[60vh] items-center justify-center">
-                <Loader className="border-t-brand" />
-            </div>
+            <PageLoader />
         );
     }
 

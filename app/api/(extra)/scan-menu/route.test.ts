@@ -3,7 +3,7 @@ import { query, withTransaction } from "@/lib/database/sql";
 import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
 import { MenuLinkError, readPublicMenuLink } from "@/lib/menu/readPublicMenuLink";
 import { recordGeminiMenuFallback } from "@/lib/dev/health";
-import { importMenuPhotos } from "@/lib/menu/importMenuPhotos";
+import { importMenuPhotos, importScannedProductPhoto } from "@/lib/menu/importMenuPhotos";
 import { menuPhotoPdfParts } from "@/lib/menu/menuPhotoPdf";
 
 const mockOpenAiCreate = jest.fn();
@@ -20,7 +20,10 @@ jest.mock("@/lib/menu/readPublicMenuLink", () => ({
     },
 }));
 
-jest.mock("@/lib/menu/importMenuPhotos", () => ({ importMenuPhotos: jest.fn() }));
+jest.mock("@/lib/menu/importMenuPhotos", () => ({
+    importMenuPhotos: jest.fn(),
+    importScannedProductPhoto: jest.fn(),
+}));
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn(), withTransaction: jest.fn() }));
 jest.mock("@/lib/dev/health", () => ({ recordGeminiMenuFallback: jest.fn().mockResolvedValue(undefined) }));
 jest.mock("@/lib/auth/restaurantOwner", () => {
@@ -156,7 +159,7 @@ it("retries a hydrated public menu with OpenAI when Gemini returns HTTP 503", as
                     name: "menu_scan",
                     strict: true,
                     schema: expect.objectContaining({
-                        required: ["items", "categories"],
+                        required: ["items", "categories", "single_product_photo"],
                         additionalProperties: false,
                     }),
                 },
@@ -235,6 +238,83 @@ it("sends wrapped menu photos as the original high-detail JPEG and keeps other i
     ]);
 });
 
+it.each(["gemini", "openai"])("imports a standalone product photo with %s", async (provider) => {
+    setExistingItems(0);
+    const output = {
+        single_product_photo: true,
+        items: [{ name: "Hambúrguer", price_cents: null, category_name: "Lanches" }],
+        categories: [{ name: "Lanches" }],
+    };
+    const providerFetch = jest.spyOn(global, "fetch");
+    if (provider === "gemini") {
+        process.env.GEMINI_API_KEY = "test-gemini-key";
+        providerFetch
+            .mockResolvedValueOnce(new Response("image", { headers: { "content-type": "image/png" } }))
+            .mockResolvedValueOnce(new Response(null, { headers: { "x-goog-upload-url": "https://example.test/upload" } }))
+            .mockResolvedValueOnce(Response.json({
+                file: { name: "files/photo", uri: "https://example.test/file", mimeType: "image/png", state: "ACTIVE" },
+            }))
+            .mockResolvedValueOnce(Response.json({ candidates: [{ content: { parts: [{ text: JSON.stringify(output) }] } }] }))
+            .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    } else {
+        mockOpenAiCreate.mockResolvedValue({ output_text: JSON.stringify(output) });
+    }
+
+    const response = await POST(post());
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+        single_product_photo: true,
+        items: [{ name: "Hambúrguer", price_cents: null }],
+    });
+    const providerRequest = provider === "gemini"
+        ? String(providerFetch.mock.calls[3][1]?.body)
+        : JSON.stringify(mockOpenAiCreate.mock.calls[0][0]);
+    expect(providerRequest).toContain("single_product_photo=true");
+});
+
+it.each(["image/jpeg", "application/pdf"])("attaches a confirmed single product's owned %s", async mimeType => {
+    setExistingItems(0);
+    const standardQuery = (query as jest.Mock).getMockImplementation()!;
+    (query as jest.Mock).mockImplementation((sql, params) =>
+        sql.includes("FROM unnest") ? Promise.resolve({ rows: [{ size: "5", etag: null }] }) : standardQuery(sql, params));
+    (requireRestaurantOwner as jest.Mock).mockResolvedValue({ user: { id: "test-owner" } });
+    jest.replaceProperty(process, "env", { ...process.env, NEXT_PUBLIC_SUPABASE_URL: "https://storage.example.test" });
+    const extension = mimeType === "application/pdf" ? "pdf" : "jpg";
+    const photoUrl = `https://storage.example.test/storage/v1/object/public/full-menu-images-ai/10000000-1000-1000-1000-100000000000-photo.${extension}`;
+    const photoFetch = jest.spyOn(global, "fetch").mockImplementation(async () =>
+        new Response("image", { headers: { "content-type": mimeType } }));
+    const imagePath = "menu-images/restaurant-1/photo.webp";
+    (importScannedProductPhoto as jest.Mock).mockResolvedValue(imagePath);
+    mockOpenAiCreate.mockResolvedValue({ output_text: JSON.stringify({
+        single_product_photo: true,
+        items: [{ name: "Hambúrguer", price_cents: null, category_name: "Lanches" }],
+        categories: [{ name: "Lanches" }],
+    }) });
+    const response = await POST(new Request(url, {
+        method: "POST", headers: { Authorization: "Bearer test", "Content-Type": "application/json" },
+        body: JSON.stringify({ restaurantId, urls: [photoUrl] }),
+    }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ items: [{ image_path: imagePath }] });
+    expect(importScannedProductPhoto).toHaveBeenCalledWith(restaurantId, Buffer.from("image"), mimeType);
+    expect(photoFetch).toHaveBeenLastCalledWith(photoUrl, expect.objectContaining({ redirect: "error" }));
+});
+
+it("keeps a one-item menu on the regular review path", async () => {
+    setExistingItems(0);
+    mockOpenAiCreate.mockResolvedValue({ output_text: JSON.stringify({
+        single_product_photo: false,
+        items: [{ name: "Hambúrguer", price_cents: 1600, category_name: "Lanches" }],
+        categories: [{ name: "Lanches" }],
+    }) });
+
+    const response = await POST(post());
+    expect(response.status).toBe(200);
+    const result = await response.json();
+    expect(result.items).toHaveLength(1);
+    expect(result).not.toHaveProperty("single_product_photo");
+});
+
 it("keeps the source as a PDF if the photo inspection fails", async () => {
     setExistingItems(0);
     jest.replaceProperty(process, "env", { ...process.env, NEXT_PUBLIC_SUPABASE_URL: "https://storage.example.test" });
@@ -286,13 +366,23 @@ it("records a Gemini rate-limit fallback without exposing the response body", as
     }
 });
 
-it("falls back to OpenAI when the Gemini request times out", async () => {
+it.each(["link", "files"] as const)("falls back to OpenAI when Gemini generation times out (%s)", async (inputType) => {
     setExistingItems(0);
     process.env.GEMINI_API_KEY = "test-gemini-key";
     (readPublicMenuLink as jest.Mock).mockResolvedValue({ text: "Suco R$ 9,00", images: [] });
-    const geminiFetch = jest.spyOn(globalThis, "fetch").mockRejectedValue(
-        new DOMException("The operation was aborted due to timeout", "TimeoutError"),
-    );
+    const timeout = jest.spyOn(AbortSignal, "timeout");
+    const geminiFetch = jest.spyOn(globalThis, "fetch");
+    if (inputType === "files") {
+        geminiFetch
+            .mockResolvedValueOnce(new Response("image", { headers: { "content-type": "image/png" } }))
+            .mockResolvedValueOnce(new Response(null, { headers: { "x-goog-upload-url": "https://example.test/upload" } }))
+            .mockResolvedValueOnce(Response.json({
+                file: { name: "files/menu", uri: "https://example.test/file", mimeType: "image/png", state: "ACTIVE" },
+            }));
+    }
+    geminiFetch
+        .mockRejectedValueOnce(new DOMException("The operation was aborted due to timeout", "TimeoutError"))
+        .mockResolvedValueOnce(new Response(null, { status: 204 }));
     mockOpenAiCreate.mockResolvedValue({
         output_text: JSON.stringify({
             items: [{
@@ -304,8 +394,9 @@ it("falls back to OpenAI when the Gemini request times out", async () => {
     });
 
     try {
-        const response = await POST(submitLink());
+        const response = await POST(inputType === "files" ? post() : submitLink());
         expect(response.status).toBe(200);
+        expect(timeout).toHaveBeenCalledWith(inputType === "files" ? 120_000 : 300_000);
         expect((await response.json()).items).toEqual([
             expect.objectContaining({ name: "Suco", price_cents: 900 }),
         ]);
@@ -541,11 +632,11 @@ const retryOriginalAttempt = "72ce4307-3e13-4f41-b3a7-909155ff1876";
 const fileMetadata = { etag: '"a8cfb0e4c0bd45cbbb08686865b3b137"', mime: "application/pdf", size: "710", pdf: true };
 
 describe("interrupted file retry drafts", () => {
-    const trackedFile = (attemptId = trackedAttempt) => new Request(url, {
+    const trackedFile = (attemptId = trackedAttempt, paths = [retryUploadPath]) => new Request(url, {
         method: "POST", headers: { Authorization: "Bearer test", "Content-Type": "application/json" },
         body: JSON.stringify({
             restaurantId: trackedRestaurant, attemptId,
-            urls: [retryStorage + "/storage/v1/object/public/full-menu-images-ai/" + retryUploadPath],
+            urls: paths.map(path => retryStorage + "/storage/v1/object/public/full-menu-images-ai/" + path),
         }),
     });
     const priorStorage = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -561,11 +652,14 @@ describe("interrupted file retry drafts", () => {
         else process.env.NEXT_PUBLIC_SUPABASE_URL = priorStorage;
     });
 
-    function mockDraftQueries(draft?: { attempt_id: string; result: object }) {
+    function mockDraftQueries(
+        draft?: { attempt_id: string; result: object },
+        metadata: Array<Omit<typeof fileMetadata, "etag"> & { etag: string | null }> = [fileMetadata],
+    ) {
         setExistingItems(0);
         const defaultQuery = (query as jest.Mock).getMockImplementation()!;
         (query as jest.Mock).mockImplementation(async (sql, params) => {
-            if (sql.includes("FROM unnest")) return { rows: [fileMetadata] };
+            if (sql.includes("FROM unnest")) return { rows: metadata };
             return defaultQuery(sql, params);
         });
 
@@ -610,9 +704,23 @@ describe("interrupted file retry drafts", () => {
         expect(response.status).toBe(foundProducts ? 200 : 422);
         const payload = await response.json();
         expect(mockOpenAiCreate).toHaveBeenCalledTimes(1);
+        expect(diagnostics()[1][1][12]).toEqual({ files: [retryUploadPath], totalBytes: 710 });
         expect(diagnostics()[1][1].slice(14)).toEqual(foundProducts
             ? [expect.stringMatching(/^[0-9a-f]{64}$/), payload, null, { openai_fallback: expect.any(Number) }]
             : [null, null, null, { openai_fallback: expect.any(Number) }]);
+    });
+
+    it("sums upload bytes even when the files cannot be fingerprinted for retries", async () => {
+        mockDraftQueries(undefined, [fileMetadata, { ...fileMetadata, etag: null, size: "290" }]);
+        const paths = [retryUploadPath, "2b8d3c6c-7545-4cc1-be37-9911aac77559-menu.pdf"];
+        mockOpenAiCreate.mockResolvedValue({ output_text: JSON.stringify({
+            items: [{ name: "Suco", price_cents: 900, category_name: "Bebidas" }],
+            categories: [],
+        }) });
+
+        expect((await POST(trackedFile(trackedAttempt, paths))).status).toBe(200);
+        expect(diagnostics()[1][1][12]).toEqual({ files: paths, totalBytes: 1000 });
+        expect(withTransaction).not.toHaveBeenCalled();
     });
 
     it.each([true, false])("joins analysis in progress even after closing the modal (products: %s)", async foundProducts => {
@@ -688,21 +796,23 @@ describe("interrupted file retry drafts", () => {
     });
 
     it("scopes the fingerprint to owned file content, file order and menu context", async () => {
-        const { menuScanFileFingerprint } = await import("@/lib/menu/scanDiagnostics");
+        const { menuScanFileMetadata } = await import("@/lib/menu/scanDiagnostics");
+        const fingerprint = async (paths: string[], context: string) =>
+            (await menuScanFileMetadata(retryUploadOwner, paths, context))?.fingerprint;
         const other = { ...fileMetadata, etag: '"00000000000000000000000000000000"' };
         const sql = query as jest.Mock;
         sql.mockResolvedValueOnce({ rows: [fileMetadata, other] });
-        const initial = await menuScanFileFingerprint(retryUploadOwner, ["a.pdf", "b.pdf"], "context");
+        const initial = await fingerprint(["a.pdf", "b.pdf"], "context");
         sql.mockResolvedValueOnce({ rows: [fileMetadata, other] });
-        expect(await menuScanFileFingerprint(retryUploadOwner, ["c.pdf", "d.pdf"], "context")).toBe(initial);
+        expect(await fingerprint(["c.pdf", "d.pdf"], "context")).toBe(initial);
         sql.mockResolvedValueOnce({ rows: [fileMetadata, other, fileMetadata] });
-        expect(await menuScanFileFingerprint(retryUploadOwner, ["a.pdf", "b.pdf", "c.pdf"], "context")).toBe(initial);
+        expect(await fingerprint(["a.pdf", "b.pdf", "c.pdf"], "context")).toBe(initial);
         sql.mockResolvedValueOnce({ rows: [other, fileMetadata] });
-        expect(await menuScanFileFingerprint(retryUploadOwner, ["b.pdf", "a.pdf"], "context")).not.toBe(initial);
+        expect(await fingerprint(["b.pdf", "a.pdf"], "context")).not.toBe(initial);
         sql.mockResolvedValueOnce({ rows: [fileMetadata, other] });
-        expect(await menuScanFileFingerprint(retryUploadOwner, ["a.pdf", "b.pdf"], "new context")).not.toBe(initial);
+        expect(await fingerprint(["a.pdf", "b.pdf"], "new context")).not.toBe(initial);
         sql.mockResolvedValueOnce({ rows: [fileMetadata] });
-        expect(await menuScanFileFingerprint(retryUploadOwner, ["a.pdf", "unavailable.pdf"], "context")).toBeUndefined();
+        expect(await menuScanFileMetadata(retryUploadOwner, ["a.pdf", "unavailable.pdf"], "context")).toBeUndefined();
     });
 
     it("continues with fresh analysis if file metadata lookup fails", async () => {

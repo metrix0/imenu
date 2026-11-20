@@ -82,15 +82,18 @@ function daysLabel(days: number[]): string {
     return chosen.map(d => d.label).join(", ");
 }
 
+function ruleLabel({ days, start, end }: CategoryScheduleRule): string {
+    const label = daysLabel(days);
+    return start && end ? `${label} · ${start}–${end}` : label;
+}
+
 export function categoryScheduleDetails(schedule: CategorySchedule | undefined): string | null {
     if (!Array.isArray(schedule) || !schedule.length) return null;
-    return schedule.map(rule => `${daysLabel(rule.days)} · ${rule.start && rule.end ? `${rule.start}–${rule.end}` : "Dia inteiro"}`).join(" | ");
+    return schedule.map(ruleLabel).join(" | ");
 }
 
 export function categoryScheduleLabel(schedule: CategorySchedule | undefined): string | null {
     if (!Array.isArray(schedule) || !schedule.length) return null;
-    const first = schedule[0];
-    const period = first.start && first.end ? `${first.start}–${first.end}` : "Dia inteiro";
-    const summary = `${daysLabel(first.days)} · ${period}`;
+    const summary = ruleLabel(schedule[0]);
     return schedule.length === 1 ? summary : `${summary} (+${schedule.length - 1})`;
 }

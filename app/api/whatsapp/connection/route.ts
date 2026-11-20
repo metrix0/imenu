@@ -216,6 +216,19 @@ export async function GET(request: NextRequest) {
             request,
             restaurantId
         );
+        if (request.nextUrl.searchParams.get("statusOnly") === "1") {
+            const { data, error } = await supabase
+                .from("whatsapp_connections")
+                .select("desired_state, status")
+                .eq("restaurant_id", restaurantId)
+                .maybeSingle();
+
+            if (error) throw error;
+            return NextResponse.json({
+                connected: data?.desired_state === "connected" && data.status === "WORKING",
+            });
+        }
+
         return await withWhatsAppPairingLock(restaurantId, async () => {
             let connection = await readConnection(supabase, restaurantId);
 

@@ -32,15 +32,20 @@ export function useCollapsible({ open, defaultOpen = false, onOpenChange }: {
     };
 }
 
-type ChevronSize = "sm" | "default";
+const chevronSizes = {
+    sm: { pixels: 12, dimensions: "!h-3 !w-3" },
+    md: { pixels: 16, dimensions: "!h-4 !w-4" },
+    default: { pixels: 24, dimensions: "!h-6 !w-6" },
+};
+
+type ChevronSize = keyof typeof chevronSizes;
 
 export function CollapsibleChevron({ expanded, size = "default", className = "" }: {
     expanded: boolean;
     size?: ChevronSize;
     className?: string;
 }) {
-    const pixels = size === "sm" ? 12 : 24;
-    const dimensions = size === "sm" ? "!h-3 !w-3" : "!h-6 !w-6";
+    const { pixels, dimensions } = chevronSizes[size];
 
     return (
         <PanelIcon
@@ -78,6 +83,7 @@ type CollapsibleSectionProps = {
     children: ReactNode;
     footer?: ReactNode;
     chevronSize?: ChevronSize;
+    inlineChevron?: boolean;
     className?: string;
     defaultOpen?: boolean;
     open?: boolean;
@@ -98,6 +104,7 @@ export default function CollapsibleSection({
     children,
     footer,
     chevronSize,
+    inlineChevron = false,
     className = "",
     defaultOpen = false,
     open,
@@ -130,30 +137,46 @@ export default function CollapsibleSection({
                         </span>
                     )}
                     <span className="min-w-0 flex-1">
-                        <span id={titleId} className="block text-sm font-medium text-gray-900">{title}</span>
+                        <span
+                            id={titleId}
+                            className={`${inlineChevron ? "flex items-center gap-2" : "block"} text-sm font-medium text-gray-900`}
+                        >
+                            {inlineChevron ? (
+                                <>
+                                    <span>{title}</span>
+                                    <CollapsibleChevron expanded={expanded} size={chevronSize} />
+                                </>
+                            ) : title}
+                        </span>
                         {description && <span id={descriptionId} className="mt-1 block text-sm text-gray-500">{description}</span>}
                     </span>
                 </button>
-                <div className="flex shrink-0 flex-col items-end sm:flex-row sm:items-center sm:gap-3">
-                    <div className="flex h-9 items-center gap-2 sm:gap-3">
-                        {toggle && (
-                            <Switch
-                                aria-label={toggle.label ?? `Ativar ${title}`}
-                                checked={toggle.checked}
-                                disabled={toggle.disabled}
-                                onClick={changeToggle}
-                            />
+                {(!inlineChevron || toggle || badge) && (
+                    <div className="flex shrink-0 flex-col items-end sm:flex-row sm:items-center sm:gap-3">
+                        {(toggle || !inlineChevron) && (
+                            <div className="flex h-9 items-center gap-2 sm:gap-3">
+                                {toggle && (
+                                    <Switch
+                                        aria-label={toggle.label ?? `Ativar ${title}`}
+                                        checked={toggle.checked}
+                                        disabled={toggle.disabled}
+                                        onClick={changeToggle}
+                                    />
+                                )}
+                                {!inlineChevron && (
+                                    <button
+                                        {...triggerProps}
+                                        aria-label={`${expanded ? "Recolher" : "Expandir"} ${title}`}
+                                        className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-gray-500 hover:bg-gray-50"
+                                    >
+                                        <CollapsibleChevron expanded={expanded} size={chevronSize} />
+                                    </button>
+                                )}
+                            </div>
                         )}
-                        <button
-                            {...triggerProps}
-                            aria-label={`${expanded ? "Recolher" : "Expandir"} ${title}`}
-                            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-gray-500 hover:bg-gray-50"
-                        >
-                            <CollapsibleChevron expanded={expanded} size={chevronSize} />
-                        </button>
+                        {badge && <span className="sm:order-first">{badge}</span>}
                     </div>
-                    {badge && <span className="sm:order-first">{badge}</span>}
-                </div>
+                )}
             </div>
             <CollapsibleContent id={contentId} expanded={expanded}>
                 <div className={`space-y-4 pt-4 ${icon ? "sm:pl-[52px]" : ""}`}>{children}</div>

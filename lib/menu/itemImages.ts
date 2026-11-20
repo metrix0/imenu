@@ -1,5 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+export const MENU_IMAGE_PREFIX = "menu-images";
+export const MENU_GALLERY_IMAGE_PREFIX = "menu-gallery";
+
 export const MENU_EXAMPLE_IMAGES = {
     cola: "/images/menu-examples/coca-cola-350ml.webp",
     pizza: "/images/menu-examples/pizza-de-exemplo.webp",

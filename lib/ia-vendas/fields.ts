@@ -150,6 +150,11 @@ export const FIELDS = {
       nullable: false,
       required: false,
     },
+    availability_schedule: {
+      type: "jsonb",
+      nullable: true,
+      required: false,
+    },
     stock_enabled: {
       type: "boolean",
       nullable: false,
@@ -362,11 +367,6 @@ export const FIELDS = {
       nullable: false,
       required: false,
     },
-    reward_description: {
-      type: "text",
-      nullable: true,
-      required: false,
-    },
     active: {
       type: "boolean",
       nullable: true,
@@ -385,6 +385,11 @@ export const FIELDS = {
     reward_subitem_ids: {
       type: "jsonb",
       nullable: true,
+      required: false,
+    },
+    additional_rewards: {
+      type: "jsonb",
+      nullable: false,
       required: false,
     },
   },

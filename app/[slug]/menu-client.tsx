@@ -1,7 +1,10 @@
 // app/[slug]/menu-client.tsx
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { trackMetaFunnel } from "@/lib/analytics/metaBrowser";
+import { metaCommerceData, type TrackMetaFunnelEvent } from "@/lib/analytics/metaEvents";
+
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { Restaurant, Menu, Category, ItemsByCategory, Item, Subitem, Subcategory } from "@/lib/types/types";
@@ -9,13 +12,15 @@ import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
 import { useCartStore } from "@/lib/stores/costumer/cartStore";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/utils/fontawesome";
-import { faChair, faChevronRight, faStar } from "@fortawesome/free-solid-svg-icons";
-import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
+import { faChair, faChevronRight, faGift, faStar } from "@fortawesome/free-solid-svg-icons";
+import RestaurantWhatsappBadge from "@/components/costumer/RestaurantWhatsappBadge";
 import { supabase } from "@/lib/database/supabaseClient";
 import Input from "@/components/ui/Input";
+import Button from "@/components/ui/Button";
 import { formatPrice, formatPriceNoRS, promotionPrice } from "@/lib/utils/formatPrice";
 import ModalMobile from "@/components/ui/HybridModal";
 import ItemModal from "./ItemModal";
+import { MenuCardMedia, MenuVideoPreviews } from "./menuVideoPreviews";
 import CartBar from "@/components/costumer/CartBar"
 import CartModal from "./CartModal"
 import WarningBox from "@/components/ui/WarningBox";
@@ -23,6 +28,8 @@ import Tabs from "@/components/ui/Tabs";
 import SearchModal from "./SearchModal";
 import { StartingPriceLabel } from "./StartingPriceLabels";
 import HistoryModal from "@/components/costumer/HistoryModal";
+import { useHistoryStore } from "@/lib/stores/costumer/historyStore";
+import type { LoyaltyOffer } from "@/lib/types/types";
 import type { QrTableMenuContext } from "@/lib/qr-table/types";
 import PromotionBanner from "@/components/costumer/PromotionBanner";
 import { evaluateAutomaticPromotions, parseAutomaticPromotions, promotionAvailable, promotionCartSubtotal } from "@/lib/promotions/automatic";
@@ -31,6 +38,14 @@ import { getCheckoutFulfillment } from "@/lib/delivery/restaurantLocation";
 import { isManualOpeningActive, isStoreManuallyClosed } from "@/lib/menu/storeHoursOverride";
 import { isCategoryAvailable } from "@/lib/menu/categorySchedule";
 import { hasOrderHours } from "@/lib/menu/orderAvailability";
+
+import { createMenuRequestCache } from "@/lib/menu/requestCache";
+
+const loadItemOptions = createMenuRequestCache(async (itemId: string): Promise<Subcategory[]> => {
+    const response = await fetch(`/api/items/${itemId}/subcategories`);
+    if (!response.ok) throw new Error("Não foi possível carregar os complementos. Tente novamente.");
+    return response.json();
+});
 
 const RESTAURANT_INFO_DAYS = [
     { day: 1, label: "Segunda-feira" },
@@ -81,6 +96,8 @@ export default function MenuClientPage({
     tableOrder,
     readOnly = false,
     darkTheme = false,
+    metaPixelId,
+    metaCapiEnabled = false,
                                        }: {
     slug: string;
     restaurant: Restaurant;
@@ -92,6 +109,8 @@ export default function MenuClientPage({
     tableOrder?: QrTableMenuContext | null;
     readOnly?: boolean;
     darkTheme?: boolean;
+    metaPixelId?: string | null;
+    metaCapiEnabled?: boolean;
 }) {
     useEffect(() => {
         if (!darkTheme) return;
@@ -101,16 +120,29 @@ export default function MenuClientPage({
 
     const router = useRouter();
     const [menuTime, setMenuTime] = useState(initialMenuTime ?? new Date().toISOString());
-    const categoryTime = sourceCategories.some(category => category.availability_schedule != null) ? menuTime : null;
-    const categories = useMemo(() => sourceCategories.filter(category =>
-        isCategoryAvailable(category.availability_schedule, new Date(categoryTime ?? initialMenuTime ?? Date.now())),
-    ), [sourceCategories, categoryTime, initialMenuTime]);
-    const itemsByCategory: ItemsByCategory = useMemo(() => {
-        const visibleCategoryIds = new Set(categories.map(category => category.id));
-        return Object.fromEntries(
-            Object.entries(sourceItemsByCategory).filter(([id]) => visibleCategoryIds.has(id)),
-        );
-    }, [sourceItemsByCategory, categories]);
+    const hasSchedules = useMemo(() => sourceCategories.some(category =>
+        category.availability_schedule != null ||
+        sourceItemsByCategory[category.id]?.some(item => item.availability_schedule != null),
+    ), [sourceCategories, sourceItemsByCategory]);
+    const scheduleTime = hasSchedules ? menuTime : null;
+    const { categories, itemsByCategory } = useMemo(() => {
+        const at = new Date(scheduleTime ?? initialMenuTime ?? Date.now());
+        const visibleCategories: Category[] = [];
+        const visibleItems: ItemsByCategory = {};
+
+        for (const category of sourceCategories) {
+            if (!isCategoryAvailable(category.availability_schedule, at)) continue;
+            const sourceItems = sourceItemsByCategory[category.id] ?? [];
+            const items = hasSchedules
+                ? sourceItems.filter(item => isCategoryAvailable(item.availability_schedule, at))
+                : sourceItems;
+            if (!items.length) continue;
+            visibleCategories.push(category);
+            visibleItems[category.id] = items;
+        }
+
+        return { categories: visibleCategories, itemsByCategory: visibleItems };
+    }, [sourceCategories, sourceItemsByCategory, scheduleTime, initialMenuTime, hasSchedules]);
 
     useEffect(() => {
         const refresh = () => setMenuTime(new Date().toISOString());
@@ -136,7 +168,6 @@ export default function MenuClientPage({
     const coupon_id = useCheckoutStore((s) => s.coupon_id);
     const coupon_discount_cents = useCheckoutStore((s) => s.coupon_discount_cents);
     const setField = useCheckoutStore((s) => s.setField);
-    const [loadingItemId, setLoadingItemId] = useState<string | null>(null);
     const [cartOpen, setCartOpen] = useState(false);
     const [cartStep, setCartStep] = useState<"cart" | "info" | "checkout">("cart");
     const [nextOpening, setNextOpening] = useState<Date | null>(null);
@@ -156,10 +187,41 @@ export default function MenuClientPage({
             items.some(item => item.id === openedItem.item.id))) {
             setOpenedItem(null);
         }
-    }, [menuTime]);
+    }, [itemsByCategory, openedItem]);
     const [restaurantCartWarningVisible, setRestaurantCartWarningVisible] = useState(false);
     const [orderId, setOrderId] = useState<string | null>(null);
     const isTableOrder = Boolean(tableOrder);
+    const [loyalty, setLoyalty] = useState<{ restaurantId: string; offer: LoyaltyOffer | null } | null>(null);
+    const loyaltyOffer = loyalty?.restaurantId === restaurant.id ? loyalty.offer : null;
+    const savedPhone = useCheckoutStore(state => state.celular);
+    const showLoyaltyLookup = historyOpen || (cartOpen && Boolean(loyaltyOffer));
+
+    useEffect(() => {
+        if (readOnly || isTableOrder) return;
+        const controller = new AbortController();
+        void fetch(`/api/loyalty/status?restaurant_id=${encodeURIComponent(restaurant.id)}`, { signal: controller.signal })
+            .then(async response => response.ok ? await response.json() as LoyaltyOffer | null : null)
+            .then(offer => {
+                if (!controller.signal.aborted) setLoyalty({ restaurantId: restaurant.id, offer });
+            })
+            .catch(() => undefined);
+        return () => {
+            controller.abort();
+            useHistoryStore.getState().reset();
+        };
+    }, [restaurant.id, readOnly, isTableOrder]);
+
+    useEffect(() => {
+        if (readOnly || isTableOrder || !showLoyaltyLookup) return;
+        const history = useHistoryStore.getState();
+        if (history.restaurantId === restaurant.id || history.loading) return;
+        const digits = savedPhone.replace(/\D/g, "");
+        const phone = /^55\d{10,11}$/.test(digits) ? digits.slice(2) : digits;
+        if (phone.length === 10 || phone.length === 11) {
+            history.setPhone(savedPhone);
+            void history.fetchHistory(restaurant.id);
+        }
+    }, [showLoyaltyLookup, savedPhone, restaurant.id, readOnly, isTableOrder]);
     const now = new Date(menuTime);
     const manuallyOpen = (isTableOrder || restaurant.preorder_only !== true) && isManualOpeningActive(restaurant.manual_open_until, now);
     const closedForToday = !manuallyOpen && isStoreManuallyClosed(restaurant.is_closed, now);
@@ -179,11 +241,11 @@ export default function MenuClientPage({
         if (!categories.some(category => category.name === activeTab)) {
             setActiveTab(categories[0]?.name ?? "");
         }
-    }, [menuTime]);
+    }, [categories, activeTab]);
     const [manualScrollLock, setManualScrollLock] = useState(false);
-    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const query = searchText.trim();
     const [couponUsed, setCouponUsed] = useState("");
-    const isItemModalOpen = Boolean(openedItem);
+    const menuCards = useRef<HTMLDivElement>(null);
     useEffect(() => {
         if (isTableOrder || restaurant.delivery_disabled !== true) return;
         useCheckoutStore.setState({ is_pickup: true, delivery_fee_cents: "0", delivery_time_minutes: null } as any);
@@ -228,7 +290,7 @@ export default function MenuClientPage({
     );
 
     useEffect(() => {
-        if (!restaurantInfoOpen || isTableOrder || restaurantWhatsapp !== undefined) return;
+        if ((!restaurantInfoOpen && !historyOpen) || isTableOrder || restaurantWhatsapp !== undefined) return;
 
         let active = true;
         void fetch(`/api/restaurants/${restaurant.id}`)
@@ -244,7 +306,7 @@ export default function MenuClientPage({
         return () => {
             active = false;
         };
-    }, [restaurantInfoOpen, isTableOrder, restaurant.id, restaurantWhatsapp]);
+    }, [restaurantInfoOpen, historyOpen, isTableOrder, restaurant.id, restaurantWhatsapp]);
 
     useEffect(() => {
         if (!tableOrder) return;
@@ -263,43 +325,15 @@ export default function MenuClientPage({
         } as any);
     }, [tableOrder]);
 
-    function trackMeta(slug: string, eventName: string, customData?: any) {
-        const eventID =
-            crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
-
-        const fbq = (window as any).fbq;
-        if (typeof fbq === "function") {
-            fbq("track", eventName, customData ?? {}, { eventID });
-        }
-
-        fetch("/api/meta", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-                slug,
-                event_name: eventName,
-                event_id: eventID,
-                custom_data: customData ?? {},
-                fbp: document.cookie.match(/_fbp=([^;]+)/)?.[1],
-                fbc: document.cookie.match(/_fbc=([^;]+)/)?.[1],
-            }),
-        }).catch(() => {});
-    }
+    const trackMeta = useMemo<TrackMetaFunnelEvent | undefined>(() => metaPixelId
+        ? (...event) => trackMetaFunnel(metaPixelId, slug, metaCapiEnabled, ...event)
+        : undefined, [metaPixelId, slug, metaCapiEnabled]);
 
     useEffect(() => {
         if (readOnly || !selectedCouponCode) return;
         if (coupon_code === selectedCouponCode) return;
         setField("coupon_code", selectedCouponCode);
     }, [selectedCouponCode, readOnly]);
-
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setDebouncedSearch(searchText);
-        }, 300);
-
-        return () => clearTimeout(timer);
-    }, [searchText]);
-
 
     useEffect(() => {
         if (readOnly) return;
@@ -475,8 +509,12 @@ export default function MenuClientPage({
     }, []);
 
 
-    const handleItemClick = async (item: Item) => {
+    const handleItemClick = useCallback(async (item: Item, retry = false) => {
         if (!item.id) return;
+
+        if (!retry) {
+            trackMeta?.("ViewContent", metaCommerceData([{ id: item.id, quantity: 1 }], item.price_cents));
+        }
 
         setOpenedItem({
             item,
@@ -484,16 +522,8 @@ export default function MenuClientPage({
             loading: true,
         });
 
-        setLoadingItemId(item.id);
-
         try {
-            const res = await fetch(`/api/items/${item.id}/subcategories`);
-            if (!res.ok) {
-                throw new Error("Não foi possível carregar os complementos. Tente novamente.");
-            }
-
-
-            const normalized = await res.json();
+            const normalized = await loadItemOptions(item.id);
 
             setOpenedItem(current => current?.item.id === item.id ? {
                 item, subcategories: normalized, loading: false,
@@ -502,10 +532,8 @@ export default function MenuClientPage({
             setOpenedItem(current => current?.item.id === item.id ? {
                 item, subcategories: [], loading: false, error: "Não foi possível carregar os complementos. Tente novamente.",
             } : current);
-        } finally {
-            setLoadingItemId(null);
         }
-    };
+    }, [trackMeta]);
 
     const handleTabChange = (tab: string) => {
         setManualScrollLock(true);
@@ -532,16 +560,16 @@ export default function MenuClientPage({
     };
 
 
-    const filteredItemsByCat = Object.fromEntries(
+    const filteredItemsByCat = useMemo(() => Object.fromEntries(
         Object.entries(itemsByCategory).map(([catId, arr]) => [
             catId,
-            debouncedSearch
+            query
                 ? arr.filter(i =>
-                    i.name.toLowerCase().includes(debouncedSearch.toLowerCase())
+                    i.name.toLowerCase().includes(query.toLowerCase())
                 )
                 : arr,
         ])
-    );
+    ), [itemsByCategory, query]);
     const taxText = () => {
         if (!deliveryTax) return null;
 
@@ -853,6 +881,80 @@ export default function MenuClientPage({
             ? restaurant.allowed_payment_methods
             : ["pix", "dinheiro", "trazer-maquininha"];
 
+    const catalog = useMemo(() => categories.filter(cat => filteredItemsByCat[cat.id]?.length > 0).map((cat) => (
+            <div key={cat.id}>
+            {cat.position === 1
+                ?
+                <div key={cat.id}>
+
+                    <h2 className="text-xl 2xl:text-2xl font-medium mb-4 md:mb-8">
+                        <div id={`cat-${cat.id}`} />
+                        {cat.name}
+                    </h2>
+                    <div data-menu-featured-grid className="grid grid-cols-3 md:grid-cols-4 gap-[4dvw] w-full relative ">
+                        {filteredItemsByCat[cat.id]?.map((item) => (
+                            <button
+                                key={item.id}
+                                onClick={() => handleItemClick(item)}
+                                className="text-left cursor-pointer"
+                            >
+                                <MenuCardMedia item={item} className="w-full aspect-square rounded-2xl overflow-hidden bg-[var(--im-menu-raised,#e5e7eb)] shadow-sm" />
+
+                                <div className="mt-3 flex flex-col h-[55px] justify-start ">
+                                    <p className="font-semibold text-sm 2xl:text-lg">
+                                        {(item.promotion && item.promotion.value > 0) ? <><span className={"text-[var(--im-menu-success-text,#15b058)]"}><StartingPriceLabel itemId={item.id} />{formatPrice(promotionPrice(item) || item.price_cents)}</span> <span className={"font-normal text-[var(--im-menu-subtle,#9ca3af)] line-through text-xs"}>{formatPrice(item.price_cents)}</span></>
+                                            : <><StartingPriceLabel itemId={item.id} />{formatPrice(item.price_cents)}</>
+                                        }
+                                    </p>
+
+                                    <p className="text-sm 2xl:text-lg text-[var(--im-menu-text-soft,#374151)] line-clamp-2 leading-snug">
+                                        {item.name}
+                                    </p>
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+                :
+                <div key={cat.id}>
+
+                    <h2 className="text-xl 2xl:text-2xl font-medium mb-6 md:mb-8">
+                        <div id={`cat-${cat.id}`} />
+                        {cat.name}
+                    </h2>
+
+                    <div className="space-y-6 md:space-y-0 w-full md:grid md:grid-cols-2 md:gap-x-[4dvw] md:gap-y-[2dvw]">
+                        {filteredItemsByCat[cat.id]?.map((item) => (
+                            <button
+                                key={item.id}
+                                onClick={() => handleItemClick(item)}
+                                className="cursor-pointer w-full flex justify-between items-start text-left border-b-1 pb-4 border-[var(--im-menu-border,#e5e7eb)]"
+                            >
+                                <div className="flex flex-col pr-4 flex-1 items-start justify-start max-w-[70%] ">
+                                    <p className="text-sm 2xl:text-lg font-semibold leading-tight">
+                                        {item.name}
+                                    </p>
+
+                                    <p className="text-sm 2xl:text-lg text-[var(--im-menu-muted,#4b5563)] line-clamp-2 mt-1 leading-tight">
+                                        {(item.description ?? "").slice(0, 60)}{item.description && item.description.length > 60 ? "…" : ""}
+                                    </p>
+
+                                    <p className="text-sm 2xl:text-lg font-bold mt-2">
+                                        {(item.promotion && item.promotion.value > 0) ? <><span className={"text-[var(--im-menu-success-text,#15b058)]"}><StartingPriceLabel itemId={item.id} />{formatPrice(promotionPrice(item) || item.price_cents)}</span> <span className={"font-normal text-[var(--im-menu-subtle,#9ca3af)] line-through text-xs"}>{formatPrice(item.price_cents)}</span></>
+                                            : <><StartingPriceLabel itemId={item.id} />{formatPrice(item.price_cents)}</>
+                                            }
+                                    </p>
+                                </div>
+
+                                <MenuCardMedia item={item} className="w-[22vw] h-[22vw] md:w-[10vw] md:h-[10vw] rounded-2xl overflow-hidden bg-[var(--im-menu-raised,#e5e7eb)] shadow-sm flex-shrink-0" />
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            }
+            </div>
+    )), [categories, filteredItemsByCat, handleItemClick]);
+
     return (
 
         <div className="imenu-menu-canvas min-h-screen bg-[var(--im-menu-bg,#fff)] text-[var(--im-menu-text,#111827)] pb-10">
@@ -1067,11 +1169,12 @@ export default function MenuClientPage({
                     : "opacity-100 translate-y-0"}
     `}
             >
-                {!isTableOrder && (
-                    <div onClick={() => setHistoryOpen(true)}
+                {!readOnly && !isTableOrder && (
+                    <button type="button" aria-label={loyaltyOffer ? "Fidelidade" : "Histórico de pedidos"}
+                        onClick={() => setHistoryOpen(true)}
                         className="cursor-pointer pointer-events-auto h-10 w-10 rounded-full bg-black/50 text-white flex justify-center items-center">
-                        <FontAwesomeIcon icon={icons.faHistory} />
-                    </div>
+                        <FontAwesomeIcon icon={loyaltyOffer ? faGift : icons.faHistory} />
+                    </button>
                 )}
 
                 <div
@@ -1120,25 +1223,36 @@ export default function MenuClientPage({
             </div>
 
 
-            {!readOnly && !debouncedSearch && visiblePromotions.length > 0 && (
+            {!readOnly && !query && visiblePromotions.length > 0 && (
                 <div className="mt-8 mx-5 md:mx-48 2xl:mx-80 space-y-3">
                     {visiblePromotions.map(p => <PromotionBanner key={p.id} promotion={p} products={promotionProducts} categories={categories} applied={promotionResult?.promotion?.id === p.id} />)}
                 </div>
             )}
 
-            <div className="mt-8 px-4 md:mx-44 space-y-12 pb-20 2xl:mx-80 2xl:mt-12 relative">
-                <div className="absolute top-0 right-4 hidden md:flex justify-end gap-4">
+            <div ref={menuCards} className="mt-8 px-4 md:mx-44 space-y-12 pb-20 2xl:mx-80 2xl:mt-12 relative">
+                <div className="absolute top-0 right-4 hidden md:flex justify-end gap-[8px]!">
                     <button
                         className={`text-sm 2xl:text-base text-[var(--im-menu-link,#f14400)] mt-1 transition-opacity duration-200 ${
                             searchText.length > 0 ? "opacity-100 pointer-events-auto cursor-pointer" : "opacity-0 pointer-events-none"
                         }`}
                         onClick={() => {
                             setSearchText("");
-                            setDebouncedSearch("");
                         }}
                     >
                         Cancelar
                     </button>
+                    {!readOnly && !isTableOrder && loyaltyOffer && (
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            aria-label="Fidelidade"
+                            title="Fidelidade"
+                            onClick={() => setHistoryOpen(true)}
+                            className="border border-[var(--im-menu-border,#d1d5db)]"
+                        >
+                            <FontAwesomeIcon icon={faGift} className="text-[var(--im-menu-muted,#6b7280)]" />
+                        </Button>
+                    )}
                     <Input
                         icon={<FontAwesomeIcon icon={icons.faMagnifyingGlass} />}
                         placeholder="Buscar..."
@@ -1149,110 +1263,19 @@ export default function MenuClientPage({
                 </div>
 
 
-                {debouncedSearch && Object.values(filteredItemsByCat).every(arr => arr.length === 0) && (
+                {query && Object.values(filteredItemsByCat).every(arr => arr.length === 0) && (
                     <div className="flex flex-col items-center justify-center text-center mx-10 pt-16">
                         <img src="/images/meh_emoji.png" alt="Nada encontrado" className="w-38 h-38 mb-4 2xl:w-46 2xl:h-46" />
                         <p className="text-[var(--im-menu-muted,#6b7280)] text-md 2xl:text-xl">Nenhum item encontrado para <b>{searchText}</b>.</p>
                     </div>
                 )}
 
-                {categories.filter(cat => filteredItemsByCat[cat.id]?.length > 0).map((cat) => (
-                    <div key={cat.id}>
-                    {cat.position === 1
-                        ?
-                        <div key={cat.id}>
-
-                            <h2 className="text-xl 2xl:text-2xl font-medium mb-4 md:mb-8">
-                                <div id={`cat-${cat.id}`} />
-                                {cat.name}
-                            </h2>
-                            <div className="grid grid-cols-3 md:grid-cols-4 gap-[4dvw] w-full relative ">
-                                {filteredItemsByCat[cat.id]?.map((item) => (
-                                    <button
-                                        key={item.id}
-                                        onClick={() => handleItemClick(item)}
-                                        className={`text-left cursor-pointer ${
-                                            loadingItemId === item.id
-                                                ? "opacity-60"
-                                                : ""
-                                        }`}
-                                    >
-                                        <div className=" w-full aspect-square rounded-2xl overflow-hidden bg-[var(--im-menu-raised,#e5e7eb)] shadow-sm">
-                                            <Image
-                                                src={item.image_public_url || "/placeholders/item.png"}
-                                                width={320}
-                                                height={320}
-                                                className="w-full h-full object-cover"
-                                                alt={item.name}
-                                            />
-                                        </div>
-
-                                        <div className="mt-3 flex flex-col h-[55px] justify-start ">
-                                            <p className="font-semibold text-sm 2xl:text-lg">
-                                                {(item.promotion && item.promotion.value > 0) ? <><span className={"text-[var(--im-menu-success-text,#15b058)]"}><StartingPriceLabel itemId={item.id} />{formatPrice(promotionPrice(item) || item.price_cents)}</span> <span className={"font-normal text-[var(--im-menu-subtle,#9ca3af)] line-through text-xs"}>{formatPrice(item.price_cents)}</span></>
-                                                    : <><StartingPriceLabel itemId={item.id} />{formatPrice(item.price_cents)}</>
-                                                }
-                                            </p>
-
-                                            <p className="text-sm 2xl:text-lg text-[var(--im-menu-text-soft,#374151)] line-clamp-2 leading-snug">
-                                                {item.name}
-                                            </p>
-                                        </div>
-                                    </button>
-                                )
-                                )}
-                            </div>
-                        </div>
-                        :
-                        <div key={cat.id}>
-
-                            <h2 className="text-xl 2xl:text-2xl font-medium mb-6 md:mb-8">
-                                <div id={`cat-${cat.id}`} />
-                                {cat.name}
-                            </h2>
-
-                            <div className="space-y-6 md:space-y-0 w-full md:grid md:grid-cols-2 md:gap-x-[4dvw] md:gap-y-[2dvw]">
-                                {filteredItemsByCat[cat.id]?.map((item) => (
-                                    <button
-                                        key={item.id}
-                                        onClick={() => handleItemClick(item)}
-                                        className={`cursor-pointer w-full flex justify-between items-start text-left border-b-1 pb-4 border-[var(--im-menu-border,#e5e7eb)] ${
-                                            loadingItemId === item.id ? "opacity-60" : ""
-                                        }`}
-                                    >
-                                        <div className="flex flex-col pr-4 flex-1 items-start justify-start max-w-[70%] ">
-                                            <p className="text-sm 2xl:text-lg font-semibold leading-tight">
-                                                {item.name}
-                                            </p>
-
-                                            <p className="text-sm 2xl:text-lg text-[var(--im-menu-muted,#4b5563)] line-clamp-2 mt-1 leading-tight">
-                                                {(item.description ?? "").slice(0, 60)}{item.description && item.description.length > 60 ? "…" : ""}
-                                            </p>
-
-                                            <p className="text-sm 2xl:text-lg font-bold mt-2">
-                                                {(item.promotion && item.promotion.value > 0) ? <><span className={"text-[var(--im-menu-success-text,#15b058)]"}><StartingPriceLabel itemId={item.id} />{formatPrice(promotionPrice(item) || item.price_cents)}</span> <span className={"font-normal text-[var(--im-menu-subtle,#9ca3af)] line-through text-xs"}>{formatPrice(item.price_cents)}</span></>
-                                                    : <><StartingPriceLabel itemId={item.id} />{formatPrice(item.price_cents)}</>
-                                                    }
-                                            </p>
-                                        </div>
-
-                                        <div className="w-[22vw] h-[22vw] md:w-[10vw] md:h-[10vw] rounded-2xl overflow-hidden
-                    bg-[var(--im-menu-raised,#e5e7eb)] shadow-sm flex-shrink-0">
-                                            <Image
-                                                src={item.image_public_url || "/placeholders/item.png"}
-                                                width={320}
-                                                height={320}
-                                                className="w-full h-full object-cover"
-                                                alt={item.name}
-                                            />
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    }
-                    </div>
-                ))}
+                {catalog}
+                <MenuVideoPreviews
+                    menu={menuCards}
+                    visibleItems={filteredItemsByCat}
+                    enabled={!openedItem && !cartOpen && !searchOpen && !historyOpen && !restaurantInfoOpen && !restaurantCartWarningVisible}
+                />
             </div>
 
             {openedItem && (
@@ -1266,7 +1289,7 @@ export default function MenuClientPage({
                     subcategories={openedItem.subcategories}
                     loading={openedItem.loading}
                     error={openedItem.error}
-                    onRetry={() => void handleItemClick(openedItem.item)}
+                    onRetry={() => void handleItemClick(openedItem.item, true)}
                     onClose={() => setOpenedItem(null)}
                     deliveryTax={deliveryTax}
                     deliveryTime={deliveryTime}
@@ -1299,6 +1322,7 @@ export default function MenuClientPage({
                     requiresSchedule={requiresSchedule}
                     closeItemModalOpen={() => setOpenedItem(null)}
                     trackMeta={trackMeta}
+                    metaPixelId={metaPixelId}
                     slug={slug}
                     tableOrder={tableOrder || null}
                     selectedTableId={selectedTableId || null}
@@ -1315,6 +1339,11 @@ export default function MenuClientPage({
                     requiresSchedule={requiresSchedule}
                     manuallyClosedToday={closedForToday}
                     promotionResult={promotionResult}
+                    loyaltyOffer={loyaltyOffer}
+                    onOpenLoyalty={() => {
+                        setCartOpen(false);
+                        setHistoryOpen(true);
+                    }}
                     restaurant={restaurant}
                     onClose={() => {
                         setCartOpen(false);
@@ -1343,6 +1372,8 @@ export default function MenuClientPage({
                 <HistoryModal
                     open={historyOpen}
                     onClose={() => setHistoryOpen(false)}
+                    offer={loyaltyOffer}
+                    restaurantWhatsapp={restaurantWhatsapp}
                     restaurantId={restaurant.id}
                 />
             )}
@@ -1376,16 +1407,7 @@ export default function MenuClientPage({
 
                     {!isTableOrder && restaurantWhatsapp && (
                         <div className="mt-4">
-                            <a
-                                href={restaurantWhatsapp.href}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                aria-label={`Abrir WhatsApp da loja no número ${restaurantWhatsapp.formatted}`}
-                                className="inline-flex items-center gap-2 rounded-full border border-[var(--im-menu-border,#e5e7eb)] bg-[var(--im-menu-soft,#f9fafb)] px-3 py-2 text-sm font-medium text-[var(--im-menu-text-soft,#374151)] transition hover:border-[var(--im-menu-success-border,#bbf7d0)] hover:bg-[var(--im-menu-success-bg,#f0fdf4)] hover:text-[var(--im-menu-success-text,#15803d)] 2xl:text-lg"
-                            >
-                                <FontAwesomeIcon icon={faWhatsapp} className="text-lg text-[var(--im-menu-success-text,#16a34a)] 2xl:text-xl" />
-                                <span>{restaurantWhatsapp.formatted}</span>
-                            </a>
+                            <RestaurantWhatsappBadge whatsapp={restaurantWhatsapp} />
                         </div>
                     )}
 

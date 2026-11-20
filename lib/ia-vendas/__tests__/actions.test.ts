@@ -268,3 +268,69 @@ test("Marketing apply and undo preserve independent order notification settings"
     expect(current.automations.cart.message).toBe(DEFAULT_AUTOMATIONS.cart.message);
   } finally { c.query.mockImplementation(originalImpl); }
 });
+
+test("item display schedules apply and undo through the existing proposal", async () => {
+  const schedule = [{ days: [5], start: "18:00", end: "01:00" }];
+  current.availability_schedule = null;
+  action.operations[0] = {
+    ...action.operations[0],
+    values: { availability_schedule: schedule },
+    before: { availability_schedule: null },
+  };
+  const originalQuery = c.query.getMockImplementation()!;
+  await c.query.withImplementation(async (sql, params = []) => {
+    if (!sql.includes('SET "availability_schedule"=')) return originalQuery(sql, params);
+    calls.push({ sql, params });
+    current.availability_schedule = params[2] === null ? null : JSON.parse(params[2]);
+    return { rows: [structuredClone(current)] };
+  }, async () => {
+    action = await execute(restaurant, id, false);
+    expect(action.status).toBe("applied");
+    expect(current.availability_schedule).toEqual(schedule);
+    await expect(execute(restaurant, id, true)).resolves.toMatchObject({ status: "undone" });
+    expect(current.availability_schedule).toBeNull();
+  });
+});
+
+test("extra loyalty rewards must belong to the restaurant and their complements to the selected item", async () => {
+  const primary = "33333333-3333-4333-8333-333333333333";
+  const extra = "44444444-4444-4444-8444-444444444444";
+  const complement = "55555555-5555-4555-8555-555555555555";
+  const originalQuery = c.query.getMockImplementation()!;
+  let extraOwned = false;
+  let complementMatches = false;
+  const draft = {
+    title: "Recompensa de fidelidade",
+    reason: "Incluir um item na recompensa",
+    operations: [{
+      entity: "loyalty_programs",
+      kind: "update",
+      id,
+      values: { additional_rewards: [{ item_id: extra, subitem_ids: [complement] }] },
+    }],
+  };
+
+  await c.query.withImplementation(async (sql, params = []) => {
+    if (sql.includes("SELECT t.* FROM public.loyalty_programs")) {
+      return { rows: [{ restaurant_id: restaurant, id, active: true, goal_count: 5, reward_item_id: primary }] };
+    }
+    if (sql.includes("SELECT t.* FROM public.items")) {
+      return { rows: params[0] === restaurant && (params[1] === primary || (params[1] === extra && extraOwned))
+        ? [{ id: params[1], restaurant_id: restaurant }] : [] };
+    }
+    if (sql.startsWith("SELECT s.id FROM public.subitems")) {
+      expect(params).toEqual([extra, [complement]]);
+      return { rows: complementMatches ? [{ id: complement }] : [] };
+    }
+    return originalQuery(sql, params);
+  }, async () => {
+    await expect(propose(restaurant, id, id, draft)).rejects.toThrow("referência não pertence");
+    extraOwned = true;
+    await expect(propose(restaurant, id, id, draft)).rejects.toThrow("complementos devem pertencer");
+    complementMatches = true;
+    await expect(propose(restaurant, id, id, draft)).resolves.toMatchObject({
+      status: "pending",
+      operations: [{ values: draft.operations[0].values }],
+    });
+  });
+});

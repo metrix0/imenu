@@ -157,7 +157,7 @@ export default function NovaSenhaPage() {
     if (checkingSession) {
         return (
             <div className="flex min-h-screen items-center justify-center bg-gray-50">
-                <Loader className="border-t-brand" />
+                <Loader />
             </div>
         );
     }

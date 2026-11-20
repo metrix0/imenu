@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 type LoaderProps = {
     className?: string;
 };
@@ -5,11 +7,15 @@ type LoaderProps = {
 export default function Loader({ className = "" }: LoaderProps) {
     return (
         <>
-            <div
-                className={`w-8 h-8 border-4 border-[var(--im-menu-border,#e5e7eb)] border-t-[var(--im-menu-subtle,#9ca3af)] rounded-full ${className}`}
+            <span
+                aria-hidden="true"
+                data-ui="loader"
+                className={`block h-8 w-8 shrink-0 rounded-full border-4 ${className}`}
                 style={{
                     animation: "imenu-loader-spin 800ms linear infinite",
                     background: "transparent",
+                    borderColor: "#e5e7eb",
+                    borderTopColor: "#9ca3af",
                 }}
             />
             <style>{`
@@ -18,5 +24,14 @@ export default function Loader({ className = "" }: LoaderProps) {
                 }
             `}</style>
         </>
+    );
+}
+
+export function PageLoader({ label = "Carregando", children }: { label?: string; children?: ReactNode }) {
+    return (
+        <div data-ui="page-loader" role="status" aria-label={label} className="flex min-h-48 w-full flex-col items-center justify-center">
+            <Loader />
+            {children}
+        </div>
     );
 }
