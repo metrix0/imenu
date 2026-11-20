@@ -10,10 +10,12 @@ export default function Loader({ className = "" }: LoaderProps) {
             <span
                 aria-hidden="true"
                 data-ui="loader"
-                className={`block h-8 w-8 shrink-0 rounded-full border-4 border-gray-200 border-t-gray-400 ${className}`}
+                className={`block h-8 w-8 shrink-0 rounded-full border-4 ${className}`}
                 style={{
                     animation: "imenu-loader-spin 800ms linear infinite",
                     background: "transparent",
+                    borderColor: "#e5e7eb",
+                    borderTopColor: "#9ca3af",
                 }}
             />
             <style>{`
