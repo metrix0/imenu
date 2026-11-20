@@ -1270,7 +1270,6 @@ export default function MenuClientPage({
                             aria-label="Fidelidade"
                             title="Fidelidade"
                             onClick={() => setHistoryOpen(true)}
-                            className="w-10 shrink-0 border border-[var(--im-menu-border,#d1d5db)] !p-0"
                         >
                             <FontAwesomeIcon icon={faGift} />
                         </Button>
