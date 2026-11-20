@@ -334,14 +334,6 @@ export default function IntegracoesPage() {
                     }}
                 />
             )}
-
-            {showToast && (
-                <Toast
-                    message={toastConfig.message}
-                    type={toastConfig.type}
-                    onClose={() => setShowToast(false)}
-                />
-            )}
         </div>
     );
 }
