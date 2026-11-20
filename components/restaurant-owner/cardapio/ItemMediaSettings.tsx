@@ -204,10 +204,16 @@ export default function ItemMediaSettings({ item, restaurantId, onUpdated, onBus
                                 )}
                                 {!entry && index === uploadSlot && canUpload && (
                                     <button type="button" aria-label={index === 0 ? "Adicionar foto principal" : "Adicionar mídia"}
+                                        aria-describedby={index === 0 && !uploading ? `free-cover-${item.id}` : undefined}
                                         disabled={uploading || (index > 0 && plusActive === null)}
                                         onClick={() => { if (index > 0 && !galleryEnabled) onOpenPlus(); else fileInput.current?.click(); }}
                                         className="grid h-full w-full cursor-pointer place-items-center hover:bg-gray-200 disabled:cursor-wait">
-                                        {uploading ? <Loader className="!h-5 !w-5 !border-2" /> : <PanelIcon icon={icons.faPlus} />}
+                                        {uploading ? <Loader className="!h-5 !w-5 !border-2" /> : (
+                                            <span className="flex flex-col items-center gap-1">
+                                                {index === 0 && <Badge id={`free-cover-${item.id}`} preset="featureAvailable">Grátis</Badge>}
+                                                <PanelIcon icon={icons.faPlus} />
+                                            </span>
+                                        )}
                                     </button>
                                 )}
                                 {!entry && index !== uploadSlot && <PanelIcon icon={faImage} className="text-gray-300" />}
