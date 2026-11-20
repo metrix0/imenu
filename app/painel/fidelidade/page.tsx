@@ -6,15 +6,13 @@ import { useLoyaltyStore } from "@/lib/stores/restaurant-owner/loyaltyStore";
 import Input from "@/components/ui/Input";
 import SaveStatus from "@/components/ui/SaveStatus";
 import Loader from "@/components/ui/Loader";
-import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Dropdown from "@/components/ui/Dropdown";
 import ToggleOptionCard from "@/components/ui/ToggleOptionCard";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import { faStar, faMoneyBillWave } from "@fortawesome/free-solid-svg-icons";
+import { faStar, faMoneyBillWave, faPlus, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import { supabase } from "@/lib/database/supabaseClient";
-import { formatPrice } from "@/lib/utils/formatPrice";
 import { useAutoSave } from "@/lib/utils/useAutoSave";
 import type { LoyaltyProgram, LoyaltyRewardSelection } from "@/lib/types/types";
 
@@ -31,7 +29,6 @@ type ItemDetails = {
         subitems: {
             id: string;
             name: string;
-            price_cents: number;
         }[];
     }[];
 };
@@ -61,6 +58,7 @@ export default function FidelidadePage() {
     const [loadError, setLoadError] = useState(false);
     const [menuItems, setMenuItems] = useState<MenuItemOption[]>([]);
     const [itemsLoading, setItemsLoading] = useState(false);
+    const [addingReward, setAddingReward] = useState(false);
 
     const [itemDetails, setItemDetails] = useState<Record<string, ItemDetails>>({});
     const itemIds = [program?.reward_item_id, ...(program?.additional_rewards ?? []).map(reward => reward.item_id)]
@@ -71,6 +69,7 @@ export default function FidelidadePage() {
         setLoadingProgram(true);
         setLoadError(false);
         setIsInitialized(false);
+        setAddingReward(false);
         setMinOrderDisplay("");
         if (restaurantId) {
             void fetchProgram(restaurantId).then((loaded) => {
@@ -121,7 +120,7 @@ export default function FidelidadePage() {
             const groupIds = groups.map(g => g.id);
             const { data: subitems } = await supabase
                 .from("subitems")
-                .select("id, name, price_cents, item_subcategory_id")
+                .select("id, name, item_subcategory_id")
                 .in("item_subcategory_id", groupIds)
                 .order("position");
 
@@ -290,56 +289,76 @@ export default function FidelidadePage() {
                                                 />
                                             </div>
                                             {rewards.length > 1 && (
-                                                <Button variant="secondary" onClick={() => saveRewards(rewards.filter((_, position) => position !== index))}>
-                                                    Remover
-                                                </Button>
+                                                <button
+                                                    type="button"
+                                                    aria-label={`Remover ${menuItems.find(item => item.id === reward.item_id)?.name ?? "item de recompensa"}`}
+                                                    onClick={() => saveRewards(rewards.filter((_, position) => position !== index))}
+                                                    className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-lg text-gray-400 transition-colors hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+                                                >
+                                                    <FontAwesomeIcon icon={faTrash} className="text-xs" />
+                                                </button>
                                             )}
                                         </div>
                                         {details && details.groups.length > 0 && (
                                             <div className="space-y-3">
                                                 <h3 className="text-sm font-semibold text-gray-900">Complementos inclusos</h3>
-                                    {details.groups.map(group => (
-                                        <fieldset key={group.id} className="min-w-0 rounded-lg border border-gray-200 bg-gray-50 p-3">
-                                            <legend className="px-1 text-sm font-medium text-gray-700">{group.name}</legend>
-                                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-                                                {group.subitems.map(sub => (
-                                                    <label
-                                                        key={sub.id}
-                                                        className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 transition-colors hover:bg-gray-50 has-checked:border-brand has-checked:bg-[#fff1ea] has-disabled:cursor-not-allowed"
-                                                    >
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={reward.subitem_ids.includes(sub.id)}
-                                                            onChange={event => replaceReward(index, {
-                                                                ...reward,
-                                                                subitem_ids: event.target.checked
-                                                                    ? [...reward.subitem_ids, sub.id]
-                                                                    : reward.subitem_ids.filter(id => id !== sub.id),
-                                                            })}
-                                                            className="size-5 shrink-0 cursor-pointer accent-brand disabled:cursor-not-allowed"
-                                                        />
-                                                        <span className="min-w-0 flex-1 wrap-break-word">{sub.name}</span>
-                                                        <span className="shrink-0 text-xs text-gray-600">
-                                                            {sub.price_cents > 0 ? `+${formatPrice(sub.price_cents)}` : "Grátis"}
-                                                        </span>
-                                                    </label>
+                                                {details.groups.map(group => (
+                                                    <fieldset key={group.id} className="min-w-0 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                                                        <legend className={details.groups.length === 1 || /^complementos ad[i]?cionais$/i.test(group.name.trim()) ? "sr-only" : "px-1 text-sm font-medium text-gray-700"}>
+                                                            {group.name}
+                                                        </legend>
+                                                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                                                            {group.subitems.map(sub => (
+                                                                <label
+                                                                    key={sub.id}
+                                                                    className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 transition-colors hover:bg-gray-50 has-checked:border-brand has-checked:bg-[#fff1ea] has-disabled:cursor-not-allowed"
+                                                                >
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={reward.subitem_ids.includes(sub.id)}
+                                                                        onChange={event => replaceReward(index, {
+                                                                            ...reward,
+                                                                            subitem_ids: event.target.checked
+                                                                                ? [...reward.subitem_ids, sub.id]
+                                                                                : reward.subitem_ids.filter(id => id !== sub.id),
+                                                                        })}
+                                                                        className="size-4 shrink-0 cursor-pointer accent-brand disabled:cursor-not-allowed"
+                                                                    />
+                                                                    <span className="min-w-0 flex-1 wrap-break-word">{sub.name}</span>
+                                                                </label>
+                                                            ))}
+                                                        </div>
+                                                    </fieldset>
                                                 ))}
-                                            </div>
-                                        </fieldset>
-                                    ))}
                                             </div>
                                         )}
                                     </div>
                                 );
                             })}
                             {rewards.length > 0 && rewardOptions().length > 1 && (
-                                <Dropdown
-                                    label="Adicionar item de recompensa"
-                                    disabled={!safeProgram.active}
-                                    options={rewardOptions()}
-                                    value=""
-                                    onChange={event => saveRewards([...rewards, { item_id: event.target.value, subitem_ids: [] }])}
-                                />
+                                <div className="space-y-3">
+                                    <button
+                                        type="button"
+                                        aria-expanded={addingReward}
+                                        onClick={() => setAddingReward(open => !open)}
+                                        className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-brand/30 py-3 text-sm font-medium text-brand transition-colors hover:bg-brand/5 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        <FontAwesomeIcon icon={faPlus} className="text-xs" />
+                                        Adicionar item de recompensa
+                                    </button>
+                                    {addingReward && (
+                                        <Dropdown
+                                            label="Selecione o item de recompensa"
+                                            disabled={!safeProgram.active}
+                                            options={rewardOptions()}
+                                            value=""
+                                            onChange={event => {
+                                                saveRewards([...rewards, { item_id: event.target.value, subitem_ids: [] }]);
+                                                setAddingReward(false);
+                                            }}
+                                        />
+                                    )}
+                                </div>
                             )}
                         </>
                     )}
