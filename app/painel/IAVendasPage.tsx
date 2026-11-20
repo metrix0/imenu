@@ -253,6 +253,18 @@ export default function SalesPage() {
                 ) : Date.parse(m.created_at) >= emptyThreadStart.current),
           )
         : sales.messages;
+  useEffect(() => {
+    if (pathname !== "/painel/assistente-ia" || !modeReady || useSalesStore.getState().loading) return;
+
+    const url = new URL(window.location.href);
+    const draft = url.searchParams.get("draft")?.trim();
+    if (!draft) return;
+
+    setText(draft.slice(0, 8000));
+    url.searchParams.delete("draft");
+    window.history.replaceState(null, "", url);
+  }, [pathname, modeReady, sales.loading, sales.conversation_id]);
+
   const locked = sales.access?.plus !== true;
   const freeApply = !isAnalysis && locked && sales.access?.free_applications_remaining === 1;
   const applyLocked = locked && !freeApply;

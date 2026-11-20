@@ -10,6 +10,7 @@ import {
     useRef,
     useState,
 } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { supabase } from "@/lib/database/supabaseClient";
@@ -25,7 +26,9 @@ import { parsePizzaSettings } from "@/lib/pizza/pricing";
 import Loader from "@/components/ui/Loader";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
-import { faCamera, faImages } from "@fortawesome/free-solid-svg-icons";
+import { faCamera, faImages, faPen } from "@fortawesome/free-solid-svg-icons";
+
+const PRODUCT_DESCRIPTIONS_PROMPT = "Melhorar descrições dos meus produtos";
 
 type ScannedItem = {
     name: string;
@@ -154,6 +157,8 @@ function ScanModal({
     existingCategories: { id: string; name: string; position: number }[];
     onRefresh: () => void;
 }) {
+    const pathname = usePathname();
+    const router = useRouter();
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const previewUrlsRef = useRef<Set<string>>(new Set());
     const scanAttempt = useRef<ScanAttempt | null>(null);
@@ -943,6 +948,18 @@ function ScanModal({
                                                     <FontAwesomeIcon icon={icons.faLink} />
                                                     Importar cardápio usando um Link
                                                 </span>
+                                            </Button>
+                                        )}
+                                        {pathname === "/painel/cardapio" && uploads.length === 0 && (
+                                            <Button
+                                                variant="secondary"
+                                                leftIcon={<FontAwesomeIcon icon={faPen} />}
+                                                onClick={() => {
+                                                    handleClose();
+                                                    router.push(`/painel/assistente-ia?draft=${encodeURIComponent(PRODUCT_DESCRIPTIONS_PROMPT)}`);
+                                                }}
+                                            >
+                                                {PRODUCT_DESCRIPTIONS_PROMPT}
                                             </Button>
                                         )}
                                     </div>
