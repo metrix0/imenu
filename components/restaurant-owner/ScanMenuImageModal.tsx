@@ -98,6 +98,7 @@ const normalizeItemName = (name: string) =>
     name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().replace(/\s+/g, " ").toLocaleLowerCase("pt-BR");
 
 const MAX_MENU_FILES = 8;
+const SLOW_SCAN_NOTICE_MS = 120_000;
 
 function isIfoodMenuUrl(value: string): boolean {
     const url = value.trim();
@@ -166,6 +167,7 @@ function ScanModal({
         setToast((current) => current === toast ? null : current);
     }, [toast]);
     const [isScanning, setIsScanning] = useState(false);
+    const [showSlowScanNotice, setShowSlowScanNotice] = useState(false);
     const [scanDurationSeconds, setScanDurationSeconds] = useState(40);
     const [isSaving, setIsSaving] = useState(false);
     const [scanResult, setScanResult] = useState<ScannedResult | null>(null);
@@ -217,6 +219,12 @@ function ScanModal({
         interruptScan("modal");
         setIsScanning(false);
     }, [open, interruptScan]);
+
+    useEffect(() => {
+        if (!open || !isScanning) return;
+        const timer = window.setTimeout(() => setShowSlowScanNotice(true), SLOW_SCAN_NOTICE_MS);
+        return () => window.clearTimeout(timer);
+    }, [open, isScanning]);
 
     useEffect(() => {
         if (!open || !scanResult) return;
@@ -437,6 +445,7 @@ function ScanModal({
         };
         scanAttempt.current = attempt;
         setScanDurationSeconds(40 + Math.max(0, urls.length - 1) * 10);
+        setShowSlowScanNotice(false);
         setIsScanning(true);
 
         try {
@@ -994,7 +1003,12 @@ function ScanModal({
                             </div>
                             )}
 
-                            <div className="h-10 px-4" aria-live="polite">
+                            <div className="relative h-16 px-4 pt-6 sm:h-10 sm:pt-0" aria-live="polite">
+                                {isScanning && showSlowScanNotice && (
+                                    <p className="absolute inset-x-4 bottom-10 pb-1 text-xs leading-tight text-gray-600">
+                                        Essa análise está levando mais tempo que o normal, por favor aguarde alguns minutos
+                                    </p>
+                                )}
                                 {isScanning && (
                                     <LoadingBar
                                         key={String(isScanning)}
