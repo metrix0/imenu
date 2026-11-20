@@ -96,7 +96,7 @@ export default function ItemMediaGallery({ name, image, media = [] }: {
                     </button>
                 );
             })}
-            <div className="absolute top-6 right-4 flex items-center rounded-full bg-black/50 px-1 text-white">
+            <div className="absolute right-4 bottom-4 flex items-center rounded-full bg-black/50 px-1 text-white">
                 {slides.map((slide, index) => (
                     <button key={index} type="button" aria-label={slide.type === "video" ? "Ver vídeo" : `Ver foto ${index - firstPhotoIndex + 1}`} aria-current={active === index} className="grid h-7 w-5 cursor-pointer place-items-center" onClick={() => goTo(index)}>
                         <span className={`h-1.5 w-1.5 rounded-full bg-white ${active === index ? "" : "opacity-50"}`} />
