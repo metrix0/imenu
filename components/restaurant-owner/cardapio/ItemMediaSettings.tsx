@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { faArrowRight, faFilm, faImage, faSpinner } from "@fortawesome/free-solid-svg-icons";
-import Button from "@/components/ui/Button";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
+import { faChevronLeft, faChevronRight, faFilm, faImage, faSpinner } from "@fortawesome/free-solid-svg-icons";
+import { createPortal } from "react-dom";
 import { PanelIcon } from "@/components/ui/PanelIcon";
-import SaveStatus from "@/components/ui/SaveStatus";
+import Toast from "@/components/ui/Toast";
 import { icons } from "@/lib/utils/fontawesome";
 import { useAutoSave } from "@/lib/utils/useAutoSave";
 import { supabase } from "@/lib/database/supabaseClient";
@@ -36,7 +36,10 @@ export default function ItemMediaSettings({ item, restaurantId, onUpdated, onBus
         ...readItemMedia(item.gallery_media),
     ]);
     const [uploading, setUploading] = useState(false);
-    const [uploadError, setUploadError] = useState("");
+    const [toast, setToast] = useState<{ id: number; message: string } | null>(null);
+    const showError = useCallback((message: string) => {
+        setToast(current => ({ id: (current?.id ?? 0) + 1, message }));
+    }, []);
     const fileInput = useRef<HTMLInputElement>(null);
     const dragged = useRef<number | null>(null);
     const copiedCovers = useRef(new Map<string, string>());
@@ -48,7 +51,7 @@ export default function ItemMediaSettings({ item, restaurantId, onUpdated, onBus
             .filter((entry): entry is ItemMedia => entry !== null)
             .map(async entry => {
                 if (entry.type !== "image") return entry;
-                const path = copiedCovers.current.get(entry.path) ?? await copyCoverToGallery(entry.path, restaurantId);
+                const path = copiedCovers.current.get(entry.path) ?? await copyCoverToGallery(entry.path, restaurantId, item.id);
                 if (path !== entry.path) copiedCovers.current.set(entry.path, path);
                 return { ...entry, path };
             }));
@@ -61,7 +64,7 @@ export default function ItemMediaSettings({ item, restaurantId, onUpdated, onBus
             ? query.is("image_path", null)
             : query.eq("image_path", previous.image_path);
         const { error } = await guarded.select("id").single();
-        if (error) throw new Error("Não foi possível salvar as mídias. Se o item foi alterado em outra aba, reabra as configurações.");
+        if (error) throw new Error("Não foi possível salvar as mídias.");
         saved.current = update;
         setMedia(current => current.map(entry => {
             if (!entry) return entry;
@@ -73,6 +76,14 @@ export default function ItemMediaSettings({ item, restaurantId, onUpdated, onBus
 
     const isBusy = uploading || save.status === "saving";
     useEffect(() => { onBusyChange(isBusy); }, [isBusy, onBusyChange]);
+
+    useEffect(() => {
+        if (!save.error) return;
+        const { image_path, gallery_media } = saved.current;
+        setMedia([image_path ? { type: "image", path: image_path } : null, ...readItemMedia(gallery_media)]);
+        showError(save.error);
+        save.reset();
+    }, [save.error, save.reset, showError]);
 
     const uploadSlot = media[0] ? media.length : 0;
     const canUpload = uploadSlot < MAX_ITEM_MEDIA;
@@ -94,15 +105,14 @@ export default function ItemMediaSettings({ item, restaurantId, onUpdated, onBus
         if (!file || uploading || !canUpload) return;
         const isVideo = file.type.startsWith("video/");
         if (isVideo && !acceptsVideo) {
-            setUploadError("Adicione a foto principal antes do vídeo. Cada item pode ter um vídeo.");
+            showError("Adicione a foto principal antes do vídeo. Cada item pode ter um vídeo.");
             return;
         }
         if (!isVideo && !file.type.startsWith("image/")) {
-            setUploadError("Escolha uma imagem.");
+            showError("Escolha uma imagem.");
             return;
         }
 
-        setUploadError("");
         setUploading(true);
         try {
             const path = isVideo
@@ -112,7 +122,9 @@ export default function ItemMediaSettings({ item, restaurantId, onUpdated, onBus
             next[uploadSlot] = { type: isVideo ? "video" : "image", path };
             changeMedia(next);
         } catch (error) {
-            setUploadError(isVideo && error instanceof Error ? error.message : "Não foi possível enviar a imagem.");
+            showError(isVideo && error instanceof Error && !(error instanceof TypeError)
+                ? error.message
+                : isVideo ? "Não foi possível enviar o vídeo." : "Não foi possível enviar a imagem.");
         } finally {
             setUploading(false);
         }
@@ -129,7 +141,6 @@ export default function ItemMediaSettings({ item, restaurantId, onUpdated, onBus
 
     return (
         <section aria-label="Mídias do item" className="space-y-2">
-            <SaveStatus status={uploading ? "saving" : save.status} />
             <h3 className="text-sm font-medium text-gray-900">Mídias <span className="ml-1 font-normal text-gray-500">{media.filter(Boolean).length}/{MAX_ITEM_MEDIA}</span></h3>
             <p className="text-xs text-gray-500">A primeira mídia é a foto principal. Vídeo de até 30 s e 12 MB.</p>
             <input
@@ -194,9 +205,9 @@ export default function ItemMediaSettings({ item, restaurantId, onUpdated, onBus
                                                 aria-label={`Mover ${label} para a ${side}`}
                                                 disabled={uploading || !movedMedia(media, index, index + direction)}
                                                 onClick={() => move(index, index + direction)}
-                                                className={`${mediaControl} enabled:hover:bg-orange-50 enabled:hover:text-brand`}
+                                                className="grid h-8 w-8 cursor-pointer place-items-center rounded text-gray-500"
                                             >
-                                                <PanelIcon icon={direction < 0 ? icons.faArrowLeft : faArrowRight} className="text-xl" />
+                                                <PanelIcon icon={direction < 0 ? faChevronLeft : faChevronRight} className="pointer-events-none text-sm" />
                                             </button>
                                         );
                                     })}
@@ -216,8 +227,7 @@ export default function ItemMediaSettings({ item, restaurantId, onUpdated, onBus
                     );
                 })}
             </div>
-            {uploadError && <p role="alert" className="text-sm text-red-600">{uploadError}</p>}
-            {save.error && <div className="flex flex-wrap items-center gap-2"><p role="alert" className="text-sm text-red-600">{save.error}</p><Button variant="secondary" onClick={() => save.retry()} disabled={uploading}>Tentar novamente</Button></div>}
+            {toast && createPortal(<Toast key={toast.id} type="error" message={toast.message} />, document.body)}
         </section>
     );
 }

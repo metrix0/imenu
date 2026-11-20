@@ -1,6 +1,6 @@
 // lib/uploadMenuImage.ts
 import { supabase } from "@/lib/database/supabaseClient";
-import { getMenuItemImageUrl, MENU_GALLERY_IMAGE_PREFIX, MENU_IMAGE_PREFIX } from "@/lib/menu/itemImages";
+import { MENU_GALLERY_IMAGE_PREFIX, MENU_IMAGE_PREFIX } from "@/lib/menu/itemImages";
 
 async function compressMenuImage500(file: File): Promise<Blob> {
     const imageBitmap = await createImageBitmap(file);
@@ -124,18 +124,20 @@ async function storeMenuImage(
     return key;
 }
 
-export async function copyCoverToGallery(path: string, restaurantId: string): Promise<string> {
+export async function copyCoverToGallery(path: string, restaurantId: string, itemId: string): Promise<string> {
     if (!path.startsWith(`${MENU_IMAGE_PREFIX}/`)) return path;
-    const url = getMenuItemImageUrl(supabase, path);
-    if (!url) throw new Error("Não foi possível carregar a foto principal.");
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error("Entre novamente para mover a foto principal.");
 
-    const response = await fetch(url);
-    if (!response.ok) throw new Error("Não foi possível carregar a foto principal.");
-    const blob = await response.blob();
-    if (!["image/jpeg", "image/png", "image/webp"].includes(blob.type)) {
-        throw new Error("Não foi possível mover a foto principal.");
+    const params = new URLSearchParams({ restaurantId, itemId });
+    const response = await fetch(`/api/menu/item-media?${params}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ path }),
+    }).catch(() => null);
+    const result = await response?.json().catch(() => null);
+    if (!response?.ok || typeof result?.path !== "string") {
+        throw new Error(result?.error || "Não foi possível mover a foto principal.");
     }
-
-    // Older storage cleanup only protects covers under the legacy prefix.
-    return storeMenuImage(blob, "foto", restaurantId, MENU_GALLERY_IMAGE_PREFIX);
+    return result.path;
 }
