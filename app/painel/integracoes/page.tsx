@@ -293,7 +293,7 @@ function IntegracoesContent() {
                                 onChange: checked => changeTracking({ [enabled]: checked }),
                             }}
                         >
-                            <div className="space-y-1">
+                            <div className={isMeta ? "space-y-2" : "space-y-1"}>
                                 <Input
                                     label={label}
                                     placeholder={placeholder}
@@ -309,17 +309,18 @@ function IntegracoesContent() {
                             {isMeta && (
                                 <div className="space-y-3 text-sm text-gray-600">
                                     <p>O Pixel registra eventos no navegador. Com a API de Conversões configurada, o iMenu também envia eventos pelo servidor. Quando um evento é enviado pelos dois canais, o mesmo ID ajuda a Meta a contar uma única vez.</p>
-                                    <h3 className="font-medium text-gray-900">Eventos enviados pela API de Conversões</h3>
-                                    <dl className="space-y-2">
-                                        {META_CAPI_EVENTS.map(([event, when]) => (
-                                            <div key={event} className="grid gap-0.5 sm:grid-cols-[9rem_1fr] sm:gap-3">
-                                                <dt className="font-medium text-gray-900">{event}</dt>
-                                                <dd>{when}</dd>
-                                            </div>
-                                        ))}
-                                    </dl>
+                                    <CollapsibleSection title="Eventos enviados pela API de Conversões" chevronSize="sm">
+                                        <dl className="space-y-2">
+                                            {META_CAPI_EVENTS.map(([event, when]) => (
+                                                <div key={event} className="grid gap-0.5 sm:grid-cols-[9rem_1fr] sm:gap-3">
+                                                    <dt className="font-medium text-gray-900">{event}</dt>
+                                                    <dd>{when}</dd>
+                                                </div>
+                                            ))}
+                                        </dl>
+                                    </CollapsibleSection>
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <p>Para configurar a API de Conversões, fale com o suporte.</p>
+                                        <p>Caso tenha alguma dúvida, contate</p>
                                         <SupportWhatsappBadge />
                                     </div>
                                 </div>
