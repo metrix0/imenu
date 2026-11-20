@@ -166,6 +166,7 @@ function ScanModal({
         setToast((current) => current === toast ? null : current);
     }, [toast]);
     const [isScanning, setIsScanning] = useState(false);
+    const [scanDurationSeconds, setScanDurationSeconds] = useState(40);
     const [isSaving, setIsSaving] = useState(false);
     const [scanResult, setScanResult] = useState<ScannedResult | null>(null);
     const [access, setAccess] = useState<ScanAccess | null>(null);
@@ -435,6 +436,7 @@ function ScanModal({
             stage: "analysis",
         };
         scanAttempt.current = attempt;
+        setScanDurationSeconds(40 + Math.max(0, urls.length - 1) * 10);
         setIsScanning(true);
 
         try {
@@ -996,7 +998,7 @@ function ScanModal({
                                 {isScanning && (
                                     <LoadingBar
                                         key={String(isScanning)}
-                                        durationSeconds={40}
+                                        durationSeconds={scanDurationSeconds}
                                         targetProgress={95}
                                         showLabel={true}
                                     />

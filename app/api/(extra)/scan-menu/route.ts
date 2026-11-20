@@ -8,7 +8,7 @@ import { importMenuPhotos } from "@/lib/menu/importMenuPhotos";
 import { menuPhotoPdfParts } from "@/lib/menu/menuPhotoPdf";
 import { recordGeminiMenuFallback } from "@/lib/dev/health";
 import {
-    beginMenuScan, claimMenuScanFileAnalysis, menuScanFileFingerprint, menuScanFilePaths,
+    beginMenuScan, claimMenuScanFileAnalysis, menuScanFileMetadata, menuScanFilePaths,
     menuScanLinkDomain, menuScanSourceUrl, recordMenuScan, recordMenuScanProgress,
     scanAttemptIdPattern, waitForMenuScanResult, type MenuScanDiagnostics, type MenuScanTimings,
 } from "@/lib/menu/scanDiagnostics";
@@ -127,6 +127,8 @@ type GeminiGenerateResponse = {
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com";
 const MAX_FILE_BYTES = 50 * 1024 * 1024;
 const FILE_PROCESSING_TIMEOUT_MS = 30_000;
+const GEMINI_GENERATION_TIMEOUT_MS = 300_000;
+const GEMINI_FILE_FALLBACK_TIMEOUT_MS = 120_000;
 
 const PIZZA_OPTION_SCHEMA = {
     type: "object",
@@ -604,6 +606,7 @@ async function generateGeminiMenuJson(
     apiKey: string,
     model: string,
     files: GeminiFile[],
+    generationTimeoutMs: number,
     pageText?: string,
     existingMenuContext?: string
 ): Promise<string> {
@@ -665,7 +668,7 @@ Regras:
                     responseJsonSchema: MENU_RESPONSE_SCHEMA,
                 },
             }),
-            signal: AbortSignal.timeout(300_000),
+            signal: AbortSignal.timeout(generationTimeoutMs),
         }
     );
 
@@ -694,6 +697,7 @@ async function scanWithGemini(
     apiKey: string,
     urls: string[],
     timings: MenuScanTimings,
+    generationTimeoutMs: number,
     pageText?: string,
     existingMenuContext?: string
 ): Promise<ParsedMenu> {
@@ -712,6 +716,7 @@ async function scanWithGemini(
             apiKey,
             process.env.GEMINI_MENU_SCAN_MODEL || "gemini-3.5-flash",
             uploadedFiles,
+            generationTimeoutMs,
             pageText,
             existingMenuContext
         ));
@@ -1086,15 +1091,17 @@ export async function POST(req: Request) {
         }
 
         let retryFingerprint: string | undefined;
-        const files = diagnostic.source && "files" in diagnostic.source ? diagnostic.source.files : [];
-        if (!isLinkImport && attemptId && user?.id && files.length === urls.length &&
+        const source = diagnostic.source;
+        if (source && "files" in source && user?.id && source.files.length === urls.length &&
             urls.every(url => !/[?#]/.test(url))) {
             try {
-                retryFingerprint = await menuScanFileFingerprint(user.id, files, existingMenuContext);
+                const metadata = await menuScanFileMetadata(user.id, source.files, existingMenuContext);
+                source.totalBytes = metadata?.totalBytes;
+                if (attemptId) retryFingerprint = metadata?.fingerprint;
             } catch {
                 console.warn("[SCAN_MENU] Não foi possível identificar os arquivos da importação.");
             }
-            if (retryFingerprint) {
+            if (attemptId && retryFingerprint) {
                 const prior = await claimMenuScanFileAnalysis<ReturnType<typeof buildResponse>>(
                     restaurantId, attemptId, retryFingerprint,
                 );
@@ -1131,7 +1138,12 @@ export async function POST(req: Request) {
         let fallbackReason: string | undefined;
         if (geminiApiKey) {
             try {
-                parsed = await scanWithGemini(geminiApiKey, urls, timingsMs, pageText, existingMenuContext);
+                const generationTimeoutMs = !isLinkImport && openAiApiKey
+                    ? GEMINI_FILE_FALLBACK_TIMEOUT_MS
+                    : GEMINI_GENERATION_TIMEOUT_MS;
+                parsed = await scanWithGemini(
+                    geminiApiKey, urls, timingsMs, generationTimeoutMs, pageText, existingMenuContext,
+                );
                 diagnostic.geminiItems = parsed.items.length;
             } catch (geminiError) {
                 diagnostic.geminiError = geminiFallbackReason(geminiError);

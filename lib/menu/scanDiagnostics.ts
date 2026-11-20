@@ -41,7 +41,7 @@ export type MenuScanDiagnostics = {
     errorCode?: string;
     linkDomain?: string;
     extractedText?: string;
-    source?: { input: string; url?: string } | { files: string[] };
+    source?: { input: string; url?: string } | { files: string[]; totalBytes?: number };
     elapsedMs: number;
     timingsMs: MenuScanTimings;
     retryDraft?: { fingerprint: string; result: object };
@@ -50,17 +50,15 @@ export type MenuScanDiagnostics = {
 
 const RETRY_DRAFT_TTL = "15 minutes";
 
-export async function menuScanFileFingerprint(
+export async function menuScanFileMetadata(
     ownerId: string, paths: string[], existingMenuContext: string | undefined,
-): Promise<string | undefined> {
-    // Storage assigns content ETags, so a new upload path can still identify the same bytes.
-    const { rows } = await query<{ etag: string; mime: string; size: string; pdf: boolean }>(
+): Promise<{ totalBytes: number; fingerprint?: string } | undefined> {
+    const { rows } = await query<{ etag: string | null; mime: string; size: string; pdf: boolean }>(
         `SELECT object.metadata->>'eTag' AS etag, object.metadata->>'mimetype' AS mime,
                 object.metadata->>'size' AS size, lower(file.path) LIKE '%.pdf' AS pdf
          FROM unnest($1::text[]) WITH ORDINALITY AS file(path, position)
          JOIN storage.objects object ON object.bucket_id = $2 AND object.name = file.path
          WHERE object.owner_id = $3
-           AND object.metadata->>'eTag' ~ '^"[0-9a-f]{32}"$'
            AND object.metadata->>'size' ~ '^[1-9][0-9]*$'
            AND (object.metadata->>'mimetype' = 'application/pdf' OR object.metadata->>'mimetype' LIKE 'image/%')
          ORDER BY file.position`,
@@ -68,12 +66,17 @@ export async function menuScanFileFingerprint(
     );
     if (rows.length !== paths.length) return undefined;
 
+    const totalBytes = rows.reduce((sum, { size }) => sum + Number(size), 0);
+    if (rows.some(({ etag }) => !etag || !/^"[0-9a-f]{32}"$/.test(etag))) return { totalBytes };
+
+    // Storage ETags identify the same bytes even when the upload path changes.
     // The modal retains selected uploads after closing. Re-adding an identical file
     // must not prevent reuse, while the order of different files still matters.
     const files = [...new Set(rows.map(({ etag, mime, size, pdf }) => JSON.stringify([etag, mime, size, pdf])))];
-    return createHash("sha256")
+    const fingerprint = createHash("sha256")
         .update(JSON.stringify([1, ownerId, existingMenuContext ?? "", files]))
         .digest("hex");
+    return { totalBytes, fingerprint };
 }
 
 type MenuScanResult<Result> = {
