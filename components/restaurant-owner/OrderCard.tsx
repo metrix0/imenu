@@ -3,7 +3,6 @@
 import {useEffect, useState} from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { 
-    faCalendarDays,
     faMapMarkerAlt, 
     faArrowLeft, 
     faEye,
@@ -469,12 +468,13 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
                 {/* Itens */}
                 <div className="space-y-2 min-[1800px]:space-y-3">
                     {isScheduled ? (
-                        <div className="mb-3 flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-xs font-bold text-green-700 min-[1800px]:text-base">
-                            <FontAwesomeIcon icon={faCalendarDays} />
-                            <span>
-                                Agendado para {allowFutureOrderScheduling ? `${scheduledDay} ` : ""}{scheduledTime}{" "}
-                                <span className="font-medium">({scheduledRelativeTime})</span>
-                            </span>
+                        <div className="mb-3">
+                            <OrderBadge kind="scheduled">
+                                <span>
+                                    Agendado para {allowFutureOrderScheduling ? `${scheduledDay} ` : ""}{scheduledTime}{" "}
+                                    ({scheduledRelativeTime})
+                                </span>
+                            </OrderBadge>
                         </div>
                     ) : null}
                     {itemsToShow.map((item, idx) => (
