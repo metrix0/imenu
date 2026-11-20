@@ -443,7 +443,7 @@ export default function MenuItemRow({
                                 <span className="shrink-0 whitespace-nowrap font-medium text-gray-900 tabular-nums">
                                     {(priceCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                                 </span>
-                                <AvailabilityScheduleLabel schedule={item.availability_schedule} iconOnly className="ml-auto inline-flex shrink-0" />
+                                <AvailabilityScheduleLabel schedule={item.availability_schedule} iconOnly className="inline-flex shrink-0" />
                             </div>
                         </div>
                         {renderStockQuantity()}

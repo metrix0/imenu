@@ -19,8 +19,8 @@ export default function AvailabilityScheduleLabel({
             className={`min-w-0 max-w-[220px] items-center gap-1.5 text-xs text-gray-500 ${className}`}
             title={categoryScheduleDetails(schedule) ?? undefined}
         >
-            <PanelIcon icon={faClock} className="shrink-0" style={{ width: "1em", height: "1em" }} aria-hidden="true" />
             <span className={iconOnly ? "sr-only" : "truncate"}>{label}</span>
+            <PanelIcon icon={faClock} className="shrink-0" style={{ width: "1em", height: "1em" }} aria-hidden="true" />
         </span>
     );
 }

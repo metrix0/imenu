@@ -271,8 +271,8 @@ export default function CategorySection({
                 <div className="flex shrink-0 items-center justify-end gap-3">
                     <AvailabilityScheduleLabel schedule={category.availability_schedule} className="hidden md:inline-flex" />
                     <button onClick={onEditCategory} className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs 2xl:text-base font-medium text-gray-400 hover:text-brand transition-colors cursor-pointer">
-                        <AvailabilityScheduleLabel schedule={category.availability_schedule} iconOnly className="inline-flex md:hidden" />
                         <span>Editar categoria</span>
+                        <AvailabilityScheduleLabel schedule={category.availability_schedule} iconOnly className="inline-flex md:hidden" />
                     </button>
                 </div>
             </div>
