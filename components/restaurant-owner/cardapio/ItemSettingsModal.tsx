@@ -94,7 +94,7 @@ export default function ItemSettingsModal({ item, restaurantId, open, onClose, o
                 <ItemMediaSettings item={item} restaurantId={restaurantId} onUpdated={onUpdated} onBusyChange={setMediaBusy} />
                 <section className="space-y-2">
                     <h3 className="text-sm font-medium text-gray-900">Disponibilidade</h3>
-                    <div className="divide-y divide-gray-100 rounded-lg border border-gray-200">
+                    <div className="grid divide-y divide-gray-100 rounded-lg border border-gray-200 md:grid-cols-2 md:divide-x md:divide-y-0">
                         <div className="flex items-center justify-between gap-4 p-4">
                             <span id={`delivery-${item.id}`} className="text-sm font-medium text-gray-900">Disponível para delivery</span>
                             <Switch checked={availability.available_for_delivery} onClick={() => update("available_for_delivery")} aria-labelledby={`delivery-${item.id}`} />
