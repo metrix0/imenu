@@ -9,6 +9,7 @@ type ToggleOptionCardProps = {
     onChange: (checked: boolean) => void;
     icon?: ReactNode;
     badge?: ReactNode;
+    switchBadge?: ReactNode;
     description?: ReactNode;
     variant?: "default" | "section";
     disabled?: boolean;
@@ -22,6 +23,7 @@ export default function ToggleOptionCard({
     onChange,
     icon,
     badge,
+    switchBadge,
     description,
     variant = "default",
     disabled = false,
@@ -30,6 +32,15 @@ export default function ToggleOptionCard({
 }: ToggleOptionCardProps) {
     const isSection = variant === "section";
     const Label = isSection ? "h2" : "span";
+
+    const toggle = (
+        <Switch
+            checked={checked}
+            disabled={disabled}
+            onClick={() => onChange(!checked)}
+            aria-label={ariaLabel || `${checked ? "Desativar" : "Ativar"} ${label}`}
+        />
+    );
 
     return (
         <div
@@ -69,12 +80,12 @@ export default function ToggleOptionCard({
                 </div>
             </div>
 
-            <Switch
-                checked={checked}
-                disabled={disabled}
-                onClick={() => onChange(!checked)}
-                aria-label={ariaLabel || `${checked ? "Desativar" : "Ativar"} ${label}`}
-            />
+            {switchBadge ? (
+                <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+                    {switchBadge}
+                    {toggle}
+                </div>
+            ) : toggle}
         </div>
     );
 }

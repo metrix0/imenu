@@ -269,6 +269,7 @@ export async function PATCH(
                             WHERE restaurant_id = $1
                               AND active = true
                               AND reward_item_id IS NOT NULL
+                              AND goal_count > 0
                             LIMIT 1
                         `,
                     [order.restaurant_id]

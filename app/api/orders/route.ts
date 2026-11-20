@@ -576,6 +576,7 @@ export async function POST(request: Request) {
                 FROM loyalty_programs
                 WHERE restaurant_id = $1
                   AND active = true
+                  AND goal_count > 0
                 LIMIT 1
             `,
             [restaurantId]

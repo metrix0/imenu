@@ -10,7 +10,7 @@ export async function loadLoyaltyOffer(restaurantId: string): Promise<LoyaltyOff
         [restaurantId]
     );
     const program = rows[0];
-    if (!program?.active) return null;
+    if (!program?.active || program.goal_count <= 0) return null;
 
     const selections: LoyaltyRewardSelection[] = [
         ...(program.reward_item_id ? [{ item_id: program.reward_item_id, subitem_ids: program.reward_subitem_ids ?? [] }] : []),

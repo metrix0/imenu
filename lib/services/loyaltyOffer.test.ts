@@ -29,3 +29,9 @@ it("keeps a switched-on draft private until a reward is configured", async () =>
     await expect(loadLoyaltyOffer("store")).resolves.toBeNull();
     expect(database).toHaveBeenCalledTimes(1);
 });
+
+it("keeps a saved goal of zero private even when the reward is set", async () => {
+    database.mockResolvedValueOnce({ rows: [{ active: true, goal_count: 0, reward_item_id: "main" }] } as never);
+    await expect(loadLoyaltyOffer("store")).resolves.toBeNull();
+    expect(database).toHaveBeenCalledTimes(1);
+});

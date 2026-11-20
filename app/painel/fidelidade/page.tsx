@@ -4,6 +4,7 @@ import { PageSaveHeader } from "@/components/ui/SaveStatus";
 import { useEffect, useState } from "react";
 import { useLoyaltyStore } from "@/lib/stores/restaurant-owner/loyaltyStore";
 import Input from "@/components/ui/Input";
+import Toast from "@/components/ui/Toast";
 import SaveStatus from "@/components/ui/SaveStatus";
 import Loader, { PageLoader } from "@/components/ui/Loader";
 import Badge from "@/components/ui/Badge";
@@ -45,8 +46,8 @@ export default function FidelidadePage() {
     } = useLoyaltyStore();
 
     const { status: saveStatus, error: saveError, schedule: scheduleSave, reset: resetSave } = useAutoSave<LoyaltyProgram>(restaurantId, async (snapshot) => {
-        if (!Number.isInteger(snapshot.goal_count) || snapshot.goal_count < 1 || snapshot.goal_count > 100)
-            throw new Error("Informe uma meta entre 1 e 100 pedidos.");
+        if (!Number.isInteger(snapshot.goal_count) || snapshot.goal_count < 0 || snapshot.goal_count > 100)
+            throw new Error("Informe uma meta entre 0 e 100 pedidos.");
         if (!(await saveProgram(snapshot))) throw new Error("Não foi possível salvar o programa de fidelidade.");
     });
     
@@ -218,7 +219,7 @@ export default function FidelidadePage() {
                 <SaveStatus status={saveStatus} />
             </PageSaveHeader>
 
-            {saveError && <p role="alert" className="text-sm text-red-600">{saveError}</p>}
+            {saveError && <Toast key={saveError} type="error" message={saveError} />}
 
             <ToggleOptionCard
                 label="Status do programa"
@@ -226,7 +227,7 @@ export default function FidelidadePage() {
                 className="flex-nowrap!"
                 ariaLabel="Ativar programa de fidelidade"
                 checked={safeProgram.active}
-                badge={safeProgram.active && (
+                switchBadge={safeProgram.active && (
                     <Badge variant={configured ? "success" : "warning"}>
                         {configured ? "Ativo" : "Não configurado"}
                     </Badge>
@@ -246,10 +247,10 @@ export default function FidelidadePage() {
                     <Input
                         label="Meta de pedidos (selos)"
                         type="number"
-                        min={1}
+                        min={0}
                         max={100}
                         value={safeProgram.goal_count}
-                        onChange={(e) => updateProgram({ goal_count: Number(e.target.value) })}
+                        onChange={(e) => updateProgram({ goal_count: Math.max(0, Math.min(100, Math.round(Number(e.target.value) || 0))) })}
                         icon={<FontAwesomeIcon icon={faStar} className="text-gray-400" />}
                     />
                     <div>

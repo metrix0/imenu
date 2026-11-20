@@ -65,13 +65,10 @@ export async function POST(request: NextRequest) {
             body?.restaurant_id ?? ""
         ).trim();
         const active = body?.active === true;
-        const goalCount = Math.min(
-            100,
-            Math.max(
-                1,
-                Math.round(Number(body?.goal_count) || 10)
-            )
-        );
+        const requestedGoal = Number(body?.goal_count ?? 10);
+        const goalCount = Number.isFinite(requestedGoal)
+            ? Math.max(0, Math.min(100, Math.round(requestedGoal)))
+            : 10;
         const minOrderValueCents = Math.max(
             0,
             Math.round(
