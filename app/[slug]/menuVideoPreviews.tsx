@@ -1,11 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import type { Item, ItemsByCategory } from "@/lib/types/types";
 
-const PREVIEW_DELAY = 2000;
+const MOBILE_PREVIEW_DELAY_MS = 2000;
+const DESKTOP_PREVIEW_CACHE_SIZE = 2;
 const PREVIEW_SELECTOR = "[data-menu-preview]";
 const NO_ACTIVE_PREVIEWS: readonly HTMLElement[] = [];
 type Connection = { saveData?: boolean; effectiveType?: string };
@@ -16,6 +17,7 @@ export function MenuVideoPreviews({ menu, visibleItems, enabled }: {
     enabled: boolean;
 }) {
     const [active, setActive] = useState(NO_ACTIVE_PREVIEWS);
+    const [recentDesktopPreviews, setRecentDesktopPreviews] = useState(NO_ACTIVE_PREVIEWS);
 
     useEffect(() => {
         const container = menu.current;
@@ -36,8 +38,9 @@ export function MenuVideoPreviews({ menu, visibleItems, enabled }: {
         const choose = () => {
             frame = 0;
             let next: HTMLElement | null = null;
+            const desktopHover = finePointer.matches;
             if (!document.hidden && !motion.matches) {
-                if (finePointer.matches) {
+                if (desktopHover) {
                     const hovered = container.querySelector<HTMLButtonElement>("button:hover");
                     const preview = hovered?.querySelector<HTMLElement>(PREVIEW_SELECTOR);
                     if (preview && onScreen.has(preview)) next = preview;
@@ -58,7 +61,7 @@ export function MenuVideoPreviews({ menu, visibleItems, enabled }: {
             }
 
             let nextPreviews = next ? [next] : [];
-            if (next && !finePointer.matches) {
+            if (next && !desktopHover) {
                 const featuredGrid = next.closest("[data-menu-featured-grid]");
                 if (featuredGrid) {
                     const rowTop = next.getBoundingClientRect().top;
@@ -72,15 +75,33 @@ export function MenuVideoPreviews({ menu, visibleItems, enabled }: {
             if (nextPreviews.length === selected.length && nextPreviews.every(preview => selected.includes(preview))) return;
             selected = nextPreviews;
             clearTimeout(timeout);
+            if (desktopHover) {
+                setActive(nextPreviews);
+                if (next) {
+                    setRecentDesktopPreviews(current => current[0] === next
+                        ? current
+                        : [next, ...current.filter(preview => preview !== next)].slice(0, DESKTOP_PREVIEW_CACHE_SIZE),
+                    );
+                }
+                return;
+            }
+
             setActive(NO_ACTIVE_PREVIEWS);
             if (nextPreviews.length) timeout = window.setTimeout(() => {
                 if (!document.hidden && !motion.matches) {
                     setActive(nextPreviews.filter(preview => preview.isConnected));
                 }
-            }, PREVIEW_DELAY);
+            }, MOBILE_PREVIEW_DELAY_MS);
         };
 
         const schedule = () => { if (!frame) frame = requestAnimationFrame(choose); };
+        const onPointerModeChange = () => {
+            clearTimeout(timeout);
+            selected = NO_ACTIVE_PREVIEWS;
+            setActive(NO_ACTIVE_PREVIEWS);
+            setRecentDesktopPreviews(NO_ACTIVE_PREVIEWS);
+            schedule();
+        };
         const observer = new IntersectionObserver(entries => {
             for (const entry of entries) {
                 if (entry.intersectionRatio >= 0.65) onScreen.set(entry.target as HTMLElement, entry.intersectionRatio);
@@ -96,7 +117,7 @@ export function MenuVideoPreviews({ menu, visibleItems, enabled }: {
         window.addEventListener("resize", schedule);
         document.addEventListener("visibilitychange", schedule);
         motion.addEventListener("change", schedule);
-        finePointer.addEventListener("change", schedule);
+        finePointer.addEventListener("change", onPointerModeChange);
 
         return () => {
             observer.disconnect();
@@ -106,17 +127,22 @@ export function MenuVideoPreviews({ menu, visibleItems, enabled }: {
             window.removeEventListener("resize", schedule);
             document.removeEventListener("visibilitychange", schedule);
             motion.removeEventListener("change", schedule);
-            finePointer.removeEventListener("change", schedule);
+            finePointer.removeEventListener("change", onPointerModeChange);
             cancelAnimationFrame(frame);
             clearTimeout(timeout);
             setActive(NO_ACTIVE_PREVIEWS);
+            setRecentDesktopPreviews(NO_ACTIVE_PREVIEWS);
         };
     }, [menu, visibleItems, enabled]);
 
-    return enabled ? active.map(target => {
+    if (!enabled) return null;
+
+    const previewTargets = [...new Set([...recentDesktopPreviews, ...active])];
+    return previewTargets.map(target => {
         const url = target.dataset.menuPreview;
-        return url && createPortal(<MenuVideoPreview url={url} />, target, target.dataset.previewItemId);
-    }) : null;
+        if (!url || !target.isConnected) return null;
+        return createPortal(<MenuVideoPreview url={url} active={active.includes(target)} />, target, target.dataset.previewItemId);
+    });
 }
 
 export function MenuCardMedia({ item, className }: { item: Item; className: string }) {
@@ -134,19 +160,33 @@ export function MenuCardMedia({ item, className }: { item: Item; className: stri
     );
 }
 
-function MenuVideoPreview({ url }: { url: string }) {
+function MenuVideoPreview({ url, active }: { url: string; active: boolean }) {
+    const videoRef = useRef<HTMLVideoElement>(null);
     const [playing, setPlaying] = useState(false);
+
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+        if (active) {
+            void video.play().catch(() => {});
+        } else {
+            video.pause();
+            if (video.currentTime > 0) video.currentTime = 0;
+        }
+    }, [active, url]);
+
     return (
         <video
+            ref={videoRef}
             src={url}
-            autoPlay
             muted
             playsInline
             loop
             aria-hidden="true"
             onPlaying={() => setPlaying(true)}
+            onPause={() => setPlaying(false)}
             onError={() => setPlaying(false)}
-            className={`pointer-events-none absolute inset-0 h-full w-full object-cover ${playing ? "" : "opacity-0"}`}
+            className={`pointer-events-none absolute inset-0 h-full w-full object-cover ${active && playing ? "" : "opacity-0"}`}
         />
     );
 }
