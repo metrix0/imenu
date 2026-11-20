@@ -272,7 +272,7 @@ export default function HistoryModal({
                 )}
 
                 {program && (
-                    <h2 className="text-xl font-semibold text-[var(--im-menu-text,#111827)]">Peça e Ganhe com Fidelidade</h2>
+                    <h2 className="text-[22px]/7 font-semibold text-[var(--im-menu-text,#111827)]">Peça e Ganhe com Fidelidade</h2>
                 )}
 
                 {program && (
