@@ -15,6 +15,8 @@ export const runtime = "nodejs";
 
 const run = promisify(execFile);
 const MAX_SECONDS = 30;
+// Allow decoder-aligned buffers for 4K video frames.
+const MAX_DECODE_PIXELS = 9_000_000;
 let activeEncodes = 0;
 
 async function readVideo(request: Request): Promise<Buffer | null> {
@@ -85,7 +87,7 @@ export async function POST(request: Request) {
         try {
             const { stdout } = await run(ffmpegPath ?? "ffmpeg", [
                 "-nostdin", "-v", "error", "-progress", "pipe:1", "-nostats",
-                "-filter_threads", "1", "-threads", "1", "-max_pixels", "8847360",
+                "-filter_threads", "1", "-threads", "1", "-max_pixels", String(MAX_DECODE_PIXELS),
                 ...inputOptions, "-i", input, "-t", String(MAX_SECONDS + 1), "-map", "0:V:0", "-map_metadata", "-1",
                 "-an", "-sn", "-dn",
                 "-vf", "scale=w='min(iw,854)':h='min(ih,480)':force_original_aspect_ratio=decrease:force_divisible_by=2,setsar=1",
