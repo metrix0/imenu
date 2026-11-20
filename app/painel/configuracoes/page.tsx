@@ -748,24 +748,24 @@ export default function ConfiguracoesPage() {
 
             if (!session?.access_token) throw new Error("Sessão expirada.");
 
-            const { data: ownedRestaurants, error: restaurantsError } = await supabase
-                .from("restaurants")
-                .select("id")
-                .eq("user_id", user.id);
-            if (restaurantsError) throw restaurantsError;
+            const restaurantResponse = await fetch("/api/restaurants/delete-restaurant", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({ allOwned: true }),
+            });
 
-            for (const owned of ownedRestaurants || []) {
-                const restaurantResponse = await fetch("/api/restaurants/delete-restaurant", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${session.access_token}`,
-                    },
-                    body: JSON.stringify({ restaurantId: owned.id }),
-                });
-                if (!restaurantResponse.ok) {
-                    throw new Error("Não foi possível excluir o restaurante e desconectar seu WhatsApp.");
+            if (!restaurantResponse.ok) {
+                const failure = await restaurantResponse.json().catch(() => null);
+                if (failure?.error === "restaurant_has_payouts") {
+                    throw new Error("Há repasses registrados nesta conta. Fale com o suporte para solicitar a exclusão.");
                 }
+                if (failure?.error === "restaurant_has_linked_records") {
+                    throw new Error("Há registros vinculados ao restaurante. Fale com o suporte para solicitar a exclusão.");
+                }
+                throw new Error("Não foi possível excluir os dados do restaurante. Tente novamente.");
             }
 
             const response = await fetch("/api/auth/delete-account", {
@@ -834,6 +834,7 @@ export default function ConfiguracoesPage() {
                 title="Deletar conta?"
                 description="Ação irreversível. Todos os seus dados serão apagados."
                 confirmLabel="Deletar conta"
+                confirmationText="Eu desejo deletar minha conta"
                 isLoading={isDeleting}
                 variant="danger"
             />
