@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import type { Item, ItemsByCategory } from "@/lib/types/types";
 
 const MOBILE_PREVIEW_DELAY_MS = 2000;
+const DESKTOP_HOVER_DELAY_MS = 200;
 const DESKTOP_PREVIEW_CACHE_SIZE = 2;
 const PREVIEW_SELECTOR = "[data-menu-preview]";
 const NO_ACTIVE_PREVIEWS: readonly HTMLElement[] = [];
@@ -75,23 +76,23 @@ export function MenuVideoPreviews({ menu, visibleItems, enabled }: {
             if (nextPreviews.length === selected.length && nextPreviews.every(preview => selected.includes(preview))) return;
             selected = nextPreviews;
             clearTimeout(timeout);
-            if (desktopHover) {
-                setActive(nextPreviews);
-                if (next) {
-                    setRecentDesktopPreviews(current => current[0] === next
+            setActive(NO_ACTIVE_PREVIEWS);
+            if (!nextPreviews.length) return;
+
+            timeout = window.setTimeout(() => {
+                if (document.hidden || motion.matches) return;
+                if (desktopHover && !next?.closest("button")?.matches(":hover")) return;
+
+                const connectedPreviews = nextPreviews.filter(preview => preview.isConnected);
+                setActive(connectedPreviews);
+                const hovered = connectedPreviews[0];
+                if (desktopHover && hovered) {
+                    setRecentDesktopPreviews(current => current[0] === hovered
                         ? current
-                        : [next, ...current.filter(preview => preview !== next)].slice(0, DESKTOP_PREVIEW_CACHE_SIZE),
+                        : [hovered, ...current.filter(preview => preview !== hovered)].slice(0, DESKTOP_PREVIEW_CACHE_SIZE),
                     );
                 }
-                return;
-            }
-
-            setActive(NO_ACTIVE_PREVIEWS);
-            if (nextPreviews.length) timeout = window.setTimeout(() => {
-                if (!document.hidden && !motion.matches) {
-                    setActive(nextPreviews.filter(preview => preview.isConnected));
-                }
-            }, MOBILE_PREVIEW_DELAY_MS);
+            }, desktopHover ? DESKTOP_HOVER_DELAY_MS : MOBILE_PREVIEW_DELAY_MS);
         };
 
         const schedule = () => { if (!frame) frame = requestAnimationFrame(choose); };
