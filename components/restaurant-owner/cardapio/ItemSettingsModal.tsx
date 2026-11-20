@@ -80,9 +80,16 @@ export default function ItemSettingsModal({ item, restaurantId, open, onClose, o
         <SaveStatus status={scheduleEditor.scheduleError && save.status !== "saving" ? "error" : save.status} />
         <Modal height={680} open={open} onClose={() => { if (!isBusy) onClose(); }} showCloseButton>
             <div className="space-y-5 p-6">
-                <div>
-                    <h2 className="text-xl font-semibold text-gray-900">Configurações do item</h2>
-                    <p className="mt-1 text-sm text-gray-500">{item.name}</p>
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 pr-10">
+                    <div className="min-w-0 flex-[1_1_7.5rem]">
+                        <h2 className="text-xl font-semibold text-gray-900">Configurações do item</h2>
+                        <p className="mt-1 break-words text-sm text-gray-500">{item.name}</p>
+                    </div>
+                    <Button variant="secondary" onClick={() => void copyLink()} className="shrink-0 gap-2 whitespace-nowrap">
+                        <FontAwesomeIcon icon={copied ? icons.faCheck : icons.faLink} />
+                        {copied ? "Link copiado" : "Copiar link do item"}
+                    </Button>
+                    {copyError && <p role="alert" className="w-full text-sm text-red-600">{copyError}</p>}
                 </div>
                 <ItemMediaSettings item={item} restaurantId={restaurantId} onUpdated={onUpdated} onBusyChange={setMediaBusy} />
                 <section className="space-y-2">
@@ -100,11 +107,6 @@ export default function ItemSettingsModal({ item, restaurantId, open, onClose, o
                     <AvailabilityScheduleEditor editor={scheduleEditor} subject="do item" />
                 </section>
                 {save.error && <p role="alert" className="text-sm text-red-600">{save.error}</p>}
-                <Button variant="secondary" onClick={() => void copyLink()} className="gap-2">
-                    <FontAwesomeIcon icon={copied ? icons.faCheck : icons.faLink} />
-                    {copied ? "Link copiado" : "Copiar link do item"}
-                </Button>
-                {copyError && <p role="alert" className="text-sm text-red-600">{copyError}</p>}
                 <p className="text-sm text-gray-500">
                     Quer adicionar opções ao produto?{" "}
                     <button type="button" disabled={isBusy} onClick={() => { onClose(); onOpenComplements?.(); }} className="cursor-pointer font-medium text-brand hover:underline disabled:opacity-50">Acesse Complementos.</button>
