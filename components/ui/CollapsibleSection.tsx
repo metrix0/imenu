@@ -32,15 +32,20 @@ export function useCollapsible({ open, defaultOpen = false, onOpenChange }: {
     };
 }
 
-type ChevronSize = "sm" | "default";
+const chevronSizes = {
+    sm: { pixels: 12, dimensions: "!h-3 !w-3" },
+    md: { pixels: 16, dimensions: "!h-4 !w-4" },
+    default: { pixels: 24, dimensions: "!h-6 !w-6" },
+};
+
+type ChevronSize = keyof typeof chevronSizes;
 
 export function CollapsibleChevron({ expanded, size = "default", className = "" }: {
     expanded: boolean;
     size?: ChevronSize;
     className?: string;
 }) {
-    const pixels = size === "sm" ? 12 : 24;
-    const dimensions = size === "sm" ? "!h-3 !w-3" : "!h-6 !w-6";
+    const { pixels, dimensions } = chevronSizes[size];
 
     return (
         <PanelIcon
