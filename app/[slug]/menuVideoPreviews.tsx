@@ -9,6 +9,7 @@ const MOBILE_PREVIEW_DELAY_MS = 2000;
 const FEATURED_PREVIEW_DURATION_MS = 5000;
 const DESKTOP_HOVER_DELAY_MS = 200;
 const DESKTOP_PREVIEW_CACHE_SIZE = 2;
+const PREVIEW_FADE_MS = 120;
 const PREVIEW_SELECTOR = "[data-menu-preview]";
 const NO_ACTIVE_PREVIEWS: readonly HTMLElement[] = [];
 type Connection = { saveData?: boolean; effectiveType?: string };
@@ -24,8 +25,23 @@ export function MenuVideoPreviews({ menu, visibleItems, enabled }: {
     visibleItems: ItemsByCategory;
     enabled: boolean;
 }) {
-    const [active, setActive] = useState<ActivePreview | null>(null);
+    const [{ active, fadingTarget }, setPlayback] = useState<{
+        active: ActivePreview | null;
+        fadingTarget: HTMLElement | null;
+    }>({ active: null, fadingTarget: null });
     const [recentDesktopPreviews, setRecentDesktopPreviews] = useState(NO_ACTIVE_PREVIEWS);
+
+    useEffect(() => {
+        if (!fadingTarget) return;
+        // Keep the paused frame mounted long enough for the opacity transition to finish.
+        const timeout = window.setTimeout(() => {
+            setPlayback(current => current.fadingTarget === fadingTarget
+                ? { ...current, fadingTarget: null }
+                : current,
+            );
+        }, PREVIEW_FADE_MS + 50);
+        return () => clearTimeout(timeout);
+    }, [fadingTarget]);
 
     useEffect(() => {
         const container = menu.current;
@@ -43,16 +59,32 @@ export function MenuVideoPreviews({ menu, visibleItems, enabled }: {
         let selected = NO_ACTIVE_PREVIEWS;
         const onScreen = new Map<HTMLElement, number>();
 
+        const setActive = (next: ActivePreview | null) => {
+            setPlayback(current => {
+                if (current.active === next) return current;
+                const outgoing = current.active?.target ?? current.fadingTarget;
+                return { active: next, fadingTarget: outgoing === next?.target ? null : outgoing };
+            });
+        };
+
+        const resetMobilePreview = () => {
+            selected = NO_ACTIVE_PREVIEWS;
+            setActive(null);
+            schedule();
+        };
+
         const playFeaturedPreview = (queue: readonly HTMLElement[], startIndex: number, failed: Set<HTMLElement>) => {
             if (selected !== queue || document.hidden || motion.matches) return;
 
-            const target = [...queue.slice(startIndex), ...queue.slice(0, startIndex)].find(preview =>
-                !failed.has(preview) && preview.isConnected && onScreen.get(preview) === 1,
+            const index = queue.findIndex((preview, i) =>
+                i >= startIndex && !failed.has(preview) && preview.isConnected && onScreen.get(preview) === 1,
             );
-            if (!target) {
-                setActive(null);
+            if (index === -1) {
+                if (failed.size === queue.length) setActive(null);
+                else resetMobilePreview();
                 return;
             }
+            const target = queue[index];
 
             let started = false;
             let finished = false;
@@ -61,7 +93,7 @@ export function MenuVideoPreviews({ menu, visibleItems, enabled }: {
                 if (!isCurrentTurn()) return;
                 finished = true;
                 clearTimeout(timeout);
-                playFeaturedPreview(queue, (queue.indexOf(target) + 1) % queue.length, failed);
+                playFeaturedPreview(queue, index + 1, failed);
             };
             const onPlaying = () => {
                 if (!isCurrentTurn() || started) return;
@@ -138,9 +170,7 @@ export function MenuVideoPreviews({ menu, visibleItems, enabled }: {
                 if (!target.isConnected) return;
                 const onEnded = desktopHover ? undefined : () => {
                     if (selected !== nextPreviews) return;
-                    selected = NO_ACTIVE_PREVIEWS;
-                    setActive(null);
-                    schedule();
+                    resetMobilePreview();
                 };
                 setActive({ target, onEnded });
                 if (desktopHover) {
@@ -197,12 +227,17 @@ export function MenuVideoPreviews({ menu, visibleItems, enabled }: {
     if (!enabled) return null;
 
     const previewTargets = new Set(recentDesktopPreviews);
+    if (fadingTarget) previewTargets.add(fadingTarget);
     if (active) previewTargets.add(active.target);
     return Array.from(previewTargets, target => {
         const url = target.dataset.menuPreview;
         if (!url || !target.isConnected) return null;
         return createPortal(
-            <MenuVideoPreview url={url} playback={active?.target === target ? active : undefined} />,
+            <MenuVideoPreview
+                url={url}
+                playback={active?.target === target ? active : undefined}
+                fadingOut={fadingTarget === target}
+            />,
             target,
             target.dataset.previewItemId,
         );
@@ -224,7 +259,7 @@ export function MenuCardMedia({ item, className }: { item: Item; className: stri
     );
 }
 
-function MenuVideoPreview({ url, playback }: { url: string; playback?: ActivePreview }) {
+function MenuVideoPreview({ url, playback, fadingOut }: { url: string; playback?: ActivePreview; fadingOut: boolean }) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [playing, setPlaying] = useState(false);
 
@@ -235,7 +270,7 @@ function MenuVideoPreview({ url, playback }: { url: string; playback?: ActivePre
         if (!video) return;
         if (!active) {
             video.pause();
-            if (video.currentTime > 0) video.currentTime = 0;
+            if (!fadingOut && video.currentTime > 0) video.currentTime = 0;
             return;
         }
 
@@ -247,7 +282,7 @@ function MenuVideoPreview({ url, playback }: { url: string; playback?: ActivePre
             canceled = true;
             if (onEnded) video.pause();
         };
-    }, [active, onEnded, onError, url]);
+    }, [active, fadingOut, onEnded, onError, url]);
 
     return (
         <video
@@ -255,7 +290,7 @@ function MenuVideoPreview({ url, playback }: { url: string; playback?: ActivePre
             src={url}
             muted
             playsInline
-            loop={!onEnded}
+            loop={!onEnded && !fadingOut}
             aria-hidden="true"
             onPlaying={() => {
                 setPlaying(true);
@@ -267,7 +302,8 @@ function MenuVideoPreview({ url, playback }: { url: string; playback?: ActivePre
                 setPlaying(false);
                 onError?.();
             }}
-            className={`pointer-events-none absolute inset-0 h-full w-full object-cover ${active && playing ? "" : "opacity-0"}`}
+            style={{ transitionDuration: `${PREVIEW_FADE_MS}ms` }}
+            className={`pointer-events-none absolute inset-0 h-full w-full object-cover transition-opacity ease-out motion-reduce:transition-none ${active && playing ? "opacity-100" : "opacity-0"}`}
         />
     );
 }
