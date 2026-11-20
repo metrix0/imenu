@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import DeliveryIntegrations from "@/components/restaurant-owner/configuracoes/DeliveryIntegrations";
 import SaveStatus, { PageSaveHeader, PageSaveStatusProvider, type SaveState } from "@/components/ui/SaveStatus";
@@ -10,7 +10,7 @@ import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
-import { SupportWhatsappBadge } from "@/components/common/SupportButton";
+import SupportButton, { SupportWhatsappBadge, type SupportButtonRef } from "@/components/common/SupportButton";
 import Input from "@/components/ui/Input";
 import ListLoader from "@/components/ui/ListLoader";
 import { useAutoSave } from "@/lib/utils/useAutoSave";
@@ -101,7 +101,10 @@ function IntegracoesContent() {
     const [deliverySaveState, setDeliverySaveState] = useState<SaveState>("idle");
     const [loading, setLoading] = useState(true);
     const [iaPlusOpen, setIaPlusOpen] = useState(false);
-    const [iaPlusActive, setIaPlusActive] = useState(false);
+    const [plusAccess, setPlusAccess] = useState<{ restaurantId: string; active: boolean } | null>(null);
+    const hasLoadedPlusAccess = Boolean(restaurantId && plusAccess?.restaurantId === restaurantId);
+    const iaPlusActive = hasLoadedPlusAccess && plusAccess?.active === true;
+    const integrationSupportRef = useRef<SupportButtonRef>(null);
     const [tracking, setTracking] = useState(EMPTY_TRACKING);
     const [trackingLoadError, setTrackingLoadError] = useState(false);
     const autosave = useAutoSave<Tracking>(restaurantId || null, async value => {
@@ -201,6 +204,7 @@ function IntegracoesContent() {
         if (!restaurantId) return;
         let canceled = false;
         const loadIaPlus = async () => {
+            let active = false;
             try {
                 const response = await qrTableAuthenticatedFetch(
                     `/api/addons/billing?restaurantId=${encodeURIComponent(restaurantId)}`,
@@ -210,13 +214,13 @@ function IntegracoesContent() {
                 const payload = await response.json() as {
                     addons: { addon: { product_key: string }; active: boolean }[];
                 };
-                if (!canceled) {
-                    setIaPlusActive(payload.addons.some(
-                        (item) => item.addon.product_key === "ia_plus" && item.active
-                    ));
-                }
+                active = payload.addons.some(
+                    (item) => item.addon.product_key === "ia_plus" && item.active
+                );
             } catch (error) {
                 console.error("[INTEGRACOES] Erro ao carregar iMenu Plus:", error);
+            } finally {
+                if (!canceled) setPlusAccess({ restaurantId, active });
             }
         };
         void loadIaPlus();
@@ -247,15 +251,26 @@ function IntegracoesContent() {
             <Card className="mb-6 !p-5 sm:!p-7">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h2 className="text-xl font-semibold text-gray-900">
-                            Solicitar integrações
-                        </h2>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h2 className="text-xl font-semibold text-gray-900">
+                                Solicitar integrações
+                            </h2>
+                            <Badge preset={iaPlusActive ? "featureAvailable" : "plusIncluded"} />
+                        </div>
                         <p className="mt-2 text-sm text-gray-600">
                             Com o iMenu Plus, solicite integrações e novas funcionalidades
                             para serem adicionadas em até 3 dias úteis.
                         </p>
                     </div>
-                    <Button type="button" className="shrink-0" disabled={!restaurantId} onClick={() => setIaPlusOpen(true)}>
+                    <Button
+                        type="button"
+                        className="shrink-0"
+                        disabled={!hasLoadedPlusAccess}
+                        onClick={() => {
+                            if (iaPlusActive) integrationSupportRef.current?.open();
+                            else setIaPlusOpen(true);
+                        }}
+                    >
                         Solicitar integração
                     </Button>
                 </div>
@@ -330,6 +345,12 @@ function IntegracoesContent() {
                 })}
             </Card>
 
+            <SupportButton
+                ref={integrationSupportRef}
+                showFloating={false}
+                modalInstructions="No WhatsApp, diga qual integração você gostaria de ver e peça para encaminhar a solicitação ao suporte técnico. Realizaremos a integração em poucos dias!"
+            />
+
             {restaurantId && (
                 <IaPlusSalesModal
                     open={iaPlusOpen}
@@ -338,7 +359,7 @@ function IntegracoesContent() {
                     active={iaPlusActive}
                     contextMessage="Com o iMenu Plus, você pode solicitar novas integrações e funcionalidades para o seu restaurante."
                     onPaid={() => {
-                        setIaPlusActive(true);
+                        setPlusAccess({ restaurantId, active: true });
                         setIaPlusOpen(false);
                     }}
                 />
