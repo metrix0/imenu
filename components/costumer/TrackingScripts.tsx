@@ -7,6 +7,8 @@ import { cleanMetaPixelId } from "@/lib/analytics/metaEvents";
 type Props = {
     ga4Id?: string | null;
     gtmId?: string | null;
+    ga4Enabled?: boolean;
+    gtmEnabled?: boolean;
     metaPixelId?: string | null;
     metaPageView?: boolean;
 };
@@ -23,6 +25,8 @@ const extractAll = (value: string, pattern: RegExp) =>
 export default function TrackingScripts({
     ga4Id,
     gtmId,
+    ga4Enabled = true,
+    gtmEnabled = true,
     metaPixelId,
     metaPageView = true,
 }: Props) {
@@ -30,9 +34,9 @@ export default function TrackingScripts({
     // Google snippet was pasted into one of the fields.
     const googleSource = `${ga4Id ?? ""} ${gtmId ?? ""}`;
 
-    const ga4MeasurementId = extractFirst(googleSource, /G-[A-Z0-9]+/);
-    const gtmContainerId = extractFirst(googleSource, /GTM-[A-Z0-9]+/);
-    const googleAdsIds = extractAll(googleSource, /AW-[0-9]+/g);
+    const ga4MeasurementId = ga4Enabled ? extractFirst(googleSource, /G-[A-Z0-9]+/) : null;
+    const gtmContainerId = gtmEnabled ? extractFirst(googleSource, /GTM-[A-Z0-9]+/) : null;
+    const googleAdsIds = gtmEnabled ? extractAll(googleSource, /AW-[0-9]+/g) : [];
 
     const googleDestinationIds = unique([
         ga4MeasurementId,

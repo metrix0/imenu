@@ -280,7 +280,7 @@ export default async function Page({
       .maybeSingle(),
     supabase
       .from("tracking_integrations")
-      .select("ga4_id, gtm_id, meta_pixel_id, meta_capi_token, is_enabled")
+      .select("ga4_id, gtm_id, ga4_enabled, gtm_enabled, meta_pixel_id, meta_capi_token, is_enabled")
       .eq("restaurant_id", restaurantData.id)
       .order("updated_at", { ascending: false })
       .limit(1)
@@ -357,6 +357,8 @@ export default async function Page({
         <TrackingScripts
           ga4Id={tracking?.ga4_id}
           gtmId={tracking?.gtm_id}
+          ga4Enabled={tracking.ga4_enabled}
+          gtmEnabled={tracking.gtm_enabled}
           metaPixelId={metaPixelId}
         />
       )}
