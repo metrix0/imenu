@@ -9,7 +9,7 @@ import { NextResponse } from "next/server";
 import { RestaurantOwnerAuthError, requireRestaurantOwner } from "@/lib/auth/restaurantOwner";
 import { hasIMenuPlusAccess } from "@/lib/addons/access";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
-import { MAX_MENU_VIDEO_BYTES, MENU_VIDEO_BUCKET, isMenuVideoType } from "@/lib/menu/itemMedia";
+import { MAX_MENU_VIDEO_BYTES, MAX_MENU_VIDEO_MB, MENU_VIDEO_BUCKET, isMenuVideoType } from "@/lib/menu/itemMedia";
 
 export const runtime = "nodejs";
 
@@ -64,7 +64,7 @@ export async function POST(request: Request) {
     }
 
     if (Number(request.headers.get("content-length")) > MAX_MENU_VIDEO_BYTES) {
-        return NextResponse.json({ error: "Escolha um vídeo de até 12 MB." }, { status: 413 });
+        return NextResponse.json({ error: `Escolha um vídeo de até ${MAX_MENU_VIDEO_MB} MB.` }, { status: 413 });
     }
     if (activeEncodes >= 2) {
         return NextResponse.json({ error: "Aguarde um momento e tente novamente." }, { status: 429 });
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
     let directory: string | undefined;
     try {
         const source = await readVideo(request);
-        if (!source) return NextResponse.json({ error: "Escolha um vídeo de até 12 MB." }, { status: 413 });
+        if (!source) return NextResponse.json({ error: `Escolha um vídeo de até ${MAX_MENU_VIDEO_MB} MB.` }, { status: 413 });
         directory = await mkdtemp(join(tmpdir(), "imenu-video-"));
         const input = join(directory, "source");
         const output = join(directory, "menu.mp4");

@@ -3,7 +3,8 @@ import { getMenuItemImageUrl } from "./itemImages";
 
 export const MAX_ITEM_MEDIA = 3;
 export const MENU_VIDEO_BUCKET = "menu-videos";
-export const MAX_MENU_VIDEO_BYTES = 12 * 1024 * 1024;
+export const MAX_MENU_VIDEO_MB = 50;
+export const MAX_MENU_VIDEO_BYTES = MAX_MENU_VIDEO_MB * 1024 * 1024;
 export const MENU_VIDEO_TYPES = ["video/mp4", "video/quicktime", "video/webm"] as const;
 
 export function isMenuVideoType(value: string): boolean {

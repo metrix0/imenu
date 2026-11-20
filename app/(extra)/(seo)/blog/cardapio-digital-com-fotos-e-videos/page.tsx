@@ -6,6 +6,7 @@ import BlogArticle, {
     BlogSection,
     BlogSteps,
 } from "@/components/common/blog/BlogArticle";
+import { MAX_MENU_VIDEO_MB } from "@/lib/menu/itemMedia";
 import { createBlogArticleMetadata, getBlogArticle } from "@/lib/seo/blogArticles";
 
 const article = getBlogArticle("cardapio-digital-com-fotos-e-videos")!;
@@ -29,7 +30,7 @@ const faq = [
     },
     {
         question: "Qual é o limite de duração do vídeo do cardápio?",
-        answer: "Cada item pode ter um vídeo de até 30 segundos e 12 MB. Adicione a foto principal antes de enviar o vídeo.",
+        answer: `Cada item pode ter um vídeo de até 30 segundos e ${MAX_MENU_VIDEO_MB} MB. Adicione a foto principal antes de enviar o vídeo.`,
     },
     {
         question: "O que acontece com as fotos extras e o vídeo se o Plus vencer?",

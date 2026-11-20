@@ -1,12 +1,12 @@
 import { supabase } from "@/lib/database/supabaseClient";
-import { MAX_MENU_VIDEO_BYTES, isMenuVideoType } from "@/lib/menu/itemMedia";
+import { MAX_MENU_VIDEO_BYTES, MAX_MENU_VIDEO_MB, isMenuVideoType } from "@/lib/menu/itemMedia";
 
 export async function uploadMenuVideo(file: File, restaurantId: string): Promise<string> {
     if (!isMenuVideoType(file.type)) {
         throw new Error("Escolha um vídeo MP4, MOV ou WebM.");
     }
     if (file.size > MAX_MENU_VIDEO_BYTES || file.size === 0) {
-        throw new Error("Escolha um vídeo de até 12 MB.");
+        throw new Error(`Escolha um vídeo de até ${MAX_MENU_VIDEO_MB} MB.`);
     }
 
     const { data: { session } } = await supabase.auth.getSession();
