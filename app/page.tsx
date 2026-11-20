@@ -58,6 +58,7 @@ const RESOURCE_SECTIONS: readonly { title: string; imenu?: string; competitor?: 
         rows: [
             ["Pedidos ilimitados", "checkOnly", "limited"],
             ["Zero Taxas", "zeroFees", "taxed"],
+            ["Scanear cardápio com IA", "Grátis", "limited"],
             ["Fotos em Alta qualidade", "check", "limited"],
             ["Vídeos e múltiplas fotos por item no cardápio", "iMenu Plus", "limited"],
             ["Horários de exibição por item do cardápio", "check", "limited"],
@@ -120,7 +121,6 @@ const RESOURCE_SECTIONS: readonly { title: string; imenu?: string; competitor?: 
     {
         title: "Inteligência Artificial",
         rows: [
-            ["Scanear Cardápio com IA", "scan", "limited"],
             ["Assistente IA: para Melhorar o Cardápio", "assistantLimited", "limited"],
             ["Análise avançada com IA", "iMenu Plus", "limited"],
             ["Geração de imagens com IA", "assistantLimited", "limited"],
@@ -202,7 +202,6 @@ function ResourceImenuValue({ value }: { value?: string }) {
     if (value === "tracking") return <ResourceAvailabilityLabel kind="free" label="Grátis (Página e WhatsApp)" />;
     if (value === "notification") return <ResourceAvailabilityLabel kind="free" label="No seu e do cliente (WhatsApp/Painel)" />;
     if (value === "support") return <ResourceAvailabilityLabel kind="free" label="Todos os dias" />;
-    if (value === "scan") return <ResourceAvailabilityLabel kind="free" label="Grátis. Fotos, PDFs ou links e tenha o cardápio pronto em segundos" />;
     if (value === "analyticsDetails") return <ResourceAvailabilityLabel kind="free" label="Cliques, visualizações do cardápio, valor médio do carrinho e origem dos acessos" />;
     if (value === "assistantLimited") return <ResourceAvailabilityLabel kind="free" label="Grátis, com limites" />;
     if (value === "plusLink" || value === "iMenu Plus") {

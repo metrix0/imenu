@@ -228,7 +228,13 @@ async function flow(browser, method, pickupMode = "only", width = 800) {
         await click(page, "Ver Sacola");
         await click(page, "Continuar");
         await page.waitForSelector('input[autocomplete="name"]');
-        if (width !== 800) await page.setViewport({ width, height: 844 });
+        if (width !== 800) {
+            await page.setViewport({ width, height: 844 });
+            // The mobile sheet replaces the desktop form after the resize event.
+            if (width < 768) {
+                await page.waitForSelector('[data-ui="sheet"] input[autocomplete="name"]', { visible: true });
+            }
+        }
         if (pickupMode !== "only") {
             const fulfillment = await page.evaluate(() => {
                 const pickup = Array.from(document.querySelectorAll("label"))
