@@ -49,14 +49,8 @@ export function useMenuVideoPreviews(
             if (!document.hidden && !motion.matches) {
                 if (finePointer.matches) {
                     const hovered = document.elementFromPoint(pointer.x, pointer.y)?.closest<HTMLButtonElement>("button");
-                    const focused = document.activeElement?.matches("button:focus-visible") ? document.activeElement : null;
-                    for (const button of [hovered, focused]) {
-                        const preview = button?.querySelector<HTMLElement>(PREVIEW_SELECTOR);
-                        if (preview && onScreen.has(preview)) {
-                            next = preview;
-                            break;
-                        }
-                    }
+                    const preview = hovered?.querySelector<HTMLElement>(PREVIEW_SELECTOR);
+                    if (preview && onScreen.has(preview)) next = preview;
                 } else {
                     let nearest = Infinity;
                     for (const preview of onScreen) {
@@ -101,8 +95,6 @@ export function useMenuVideoPreviews(
         document.documentElement.addEventListener("pointerleave", resetPointer);
         window.addEventListener("scroll", schedule, { passive: true });
         window.addEventListener("resize", schedule);
-        container.addEventListener("focusin", schedule);
-        container.addEventListener("focusout", schedule);
         document.addEventListener("visibilitychange", schedule);
         motion.addEventListener("change", schedule);
 
@@ -112,8 +104,6 @@ export function useMenuVideoPreviews(
             document.documentElement.removeEventListener("pointerleave", resetPointer);
             window.removeEventListener("scroll", schedule);
             window.removeEventListener("resize", schedule);
-            container.removeEventListener("focusin", schedule);
-            container.removeEventListener("focusout", schedule);
             document.removeEventListener("visibilitychange", schedule);
             motion.removeEventListener("change", schedule);
             cancelAnimationFrame(frame);
