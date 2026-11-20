@@ -348,7 +348,7 @@ export default function HistoryModal({
                             }
                             className="mt-4 w-full"
                         >
-                            {program ? "Consultar meus selos" : "Consultar pedidos"}
+                            {program ? "Consultar minhas compras" : "Consultar pedidos"}
                         </Button>
 
                         <p className="px-4 text-center text-xs text-[var(--im-menu-subtle,#9ca3af)]">
