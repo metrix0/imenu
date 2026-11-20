@@ -4,7 +4,7 @@
 import { trackMetaFunnel } from "@/lib/analytics/metaBrowser";
 import { metaCommerceData, type TrackMetaFunnelEvent } from "@/lib/analytics/metaEvents";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { Restaurant, Menu, Category, ItemsByCategory, Item, Subitem, Subcategory } from "@/lib/types/types";
@@ -320,9 +320,9 @@ export default function MenuClientPage({
         } as any);
     }, [tableOrder]);
 
-    const trackMeta: TrackMetaFunnelEvent | undefined = metaPixelId
+    const trackMeta = useMemo<TrackMetaFunnelEvent | undefined>(() => metaPixelId
         ? (...event) => trackMetaFunnel(metaPixelId, slug, metaCapiEnabled, ...event)
-        : undefined;
+        : undefined, [metaPixelId, slug, metaCapiEnabled]);
 
     useEffect(() => {
         if (readOnly || !selectedCouponCode) return;
@@ -513,7 +513,7 @@ export default function MenuClientPage({
     }, []);
 
 
-    const handleItemClick = async (item: Item, retry = false) => {
+    const handleItemClick = useCallback(async (item: Item, retry = false) => {
         if (!item.id) return;
 
         if (!retry) {
@@ -547,7 +547,7 @@ export default function MenuClientPage({
         } finally {
             setLoadingItemId(null);
         }
-    };
+    }, [trackMeta]);
 
     const handleTabChange = (tab: string) => {
         setManualScrollLock(true);
@@ -574,7 +574,7 @@ export default function MenuClientPage({
     };
 
 
-    const filteredItemsByCat = Object.fromEntries(
+    const filteredItemsByCat = useMemo(() => Object.fromEntries(
         Object.entries(itemsByCategory).map(([catId, arr]) => [
             catId,
             debouncedSearch
@@ -583,7 +583,7 @@ export default function MenuClientPage({
                 )
                 : arr,
         ])
-    );
+    ), [itemsByCategory, debouncedSearch]);
     const taxText = () => {
         if (!deliveryTax) return null;
 
@@ -895,6 +895,86 @@ export default function MenuClientPage({
             ? restaurant.allowed_payment_methods
             : ["pix", "dinheiro", "trazer-maquininha"];
 
+    const catalog = useMemo(() => categories.filter(cat => filteredItemsByCat[cat.id]?.length > 0).map((cat) => (
+            <div key={cat.id}>
+            {cat.position === 1
+                ?
+                <div key={cat.id}>
+
+                    <h2 className="text-xl 2xl:text-2xl font-medium mb-4 md:mb-8">
+                        <div id={`cat-${cat.id}`} />
+                        {cat.name}
+                    </h2>
+                    <div className="grid grid-cols-3 md:grid-cols-4 gap-[4dvw] w-full relative ">
+                        {filteredItemsByCat[cat.id]?.map((item) => (
+                            <button
+                                key={item.id}
+                                onClick={() => handleItemClick(item)}
+                                className={`text-left cursor-pointer ${
+                                    loadingItemId === item.id
+                                        ? "opacity-60"
+                                        : ""
+                                }`}
+                            >
+                                <MenuCardMedia item={item} activeVideoId={activeVideoPreview} className="w-full aspect-square rounded-2xl overflow-hidden bg-[var(--im-menu-raised,#e5e7eb)] shadow-sm" />
+
+                                <div className="mt-3 flex flex-col h-[55px] justify-start ">
+                                    <p className="font-semibold text-sm 2xl:text-lg">
+                                        {(item.promotion && item.promotion.value > 0) ? <><span className={"text-[var(--im-menu-success-text,#15b058)]"}><StartingPriceLabel itemId={item.id} />{formatPrice(promotionPrice(item) || item.price_cents)}</span> <span className={"font-normal text-[var(--im-menu-subtle,#9ca3af)] line-through text-xs"}>{formatPrice(item.price_cents)}</span></>
+                                            : <><StartingPriceLabel itemId={item.id} />{formatPrice(item.price_cents)}</>
+                                        }
+                                    </p>
+
+                                    <p className="text-sm 2xl:text-lg text-[var(--im-menu-text-soft,#374151)] line-clamp-2 leading-snug">
+                                        {item.name}
+                                    </p>
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+                :
+                <div key={cat.id}>
+
+                    <h2 className="text-xl 2xl:text-2xl font-medium mb-6 md:mb-8">
+                        <div id={`cat-${cat.id}`} />
+                        {cat.name}
+                    </h2>
+
+                    <div className="space-y-6 md:space-y-0 w-full md:grid md:grid-cols-2 md:gap-x-[4dvw] md:gap-y-[2dvw]">
+                        {filteredItemsByCat[cat.id]?.map((item) => (
+                            <button
+                                key={item.id}
+                                onClick={() => handleItemClick(item)}
+                                className={`cursor-pointer w-full flex justify-between items-start text-left border-b-1 pb-4 border-[var(--im-menu-border,#e5e7eb)] ${
+                                    loadingItemId === item.id ? "opacity-60" : ""
+                                }`}
+                            >
+                                <div className="flex flex-col pr-4 flex-1 items-start justify-start max-w-[70%] ">
+                                    <p className="text-sm 2xl:text-lg font-semibold leading-tight">
+                                        {item.name}
+                                    </p>
+
+                                    <p className="text-sm 2xl:text-lg text-[var(--im-menu-muted,#4b5563)] line-clamp-2 mt-1 leading-tight">
+                                        {(item.description ?? "").slice(0, 60)}{item.description && item.description.length > 60 ? "…" : ""}
+                                    </p>
+
+                                    <p className="text-sm 2xl:text-lg font-bold mt-2">
+                                        {(item.promotion && item.promotion.value > 0) ? <><span className={"text-[var(--im-menu-success-text,#15b058)]"}><StartingPriceLabel itemId={item.id} />{formatPrice(promotionPrice(item) || item.price_cents)}</span> <span className={"font-normal text-[var(--im-menu-subtle,#9ca3af)] line-through text-xs"}>{formatPrice(item.price_cents)}</span></>
+                                            : <><StartingPriceLabel itemId={item.id} />{formatPrice(item.price_cents)}</>
+                                            }
+                                    </p>
+                                </div>
+
+                                <MenuCardMedia item={item} activeVideoId={activeVideoPreview} className="w-[22vw] h-[22vw] md:w-[10vw] md:h-[10vw] rounded-2xl overflow-hidden bg-[var(--im-menu-raised,#e5e7eb)] shadow-sm flex-shrink-0" />
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            }
+            </div>
+    )), [categories, filteredItemsByCat, handleItemClick, loadingItemId, activeVideoPreview]);
+
     return (
 
         <div className="imenu-menu-canvas min-h-screen bg-[var(--im-menu-bg,#fff)] text-[var(--im-menu-text,#111827)] pb-10">
@@ -1205,85 +1285,7 @@ export default function MenuClientPage({
                     </div>
                 )}
 
-                {categories.filter(cat => filteredItemsByCat[cat.id]?.length > 0).map((cat) => (
-                    <div key={cat.id}>
-                    {cat.position === 1
-                        ?
-                        <div key={cat.id}>
-
-                            <h2 className="text-xl 2xl:text-2xl font-medium mb-4 md:mb-8">
-                                <div id={`cat-${cat.id}`} />
-                                {cat.name}
-                            </h2>
-                            <div className="grid grid-cols-3 md:grid-cols-4 gap-[4dvw] w-full relative ">
-                                {filteredItemsByCat[cat.id]?.map((item) => (
-                                    <button
-                                        key={item.id}
-                                        onClick={() => handleItemClick(item)}
-                                        className={`text-left cursor-pointer ${
-                                            loadingItemId === item.id
-                                                ? "opacity-60"
-                                                : ""
-                                        }`}
-                                    >
-                                        <MenuCardMedia item={item} activeVideoId={activeVideoPreview} className="w-full aspect-square rounded-2xl overflow-hidden bg-[var(--im-menu-raised,#e5e7eb)] shadow-sm" />
-
-                                        <div className="mt-3 flex flex-col h-[55px] justify-start ">
-                                            <p className="font-semibold text-sm 2xl:text-lg">
-                                                {(item.promotion && item.promotion.value > 0) ? <><span className={"text-[var(--im-menu-success-text,#15b058)]"}><StartingPriceLabel itemId={item.id} />{formatPrice(promotionPrice(item) || item.price_cents)}</span> <span className={"font-normal text-[var(--im-menu-subtle,#9ca3af)] line-through text-xs"}>{formatPrice(item.price_cents)}</span></>
-                                                    : <><StartingPriceLabel itemId={item.id} />{formatPrice(item.price_cents)}</>
-                                                }
-                                            </p>
-
-                                            <p className="text-sm 2xl:text-lg text-[var(--im-menu-text-soft,#374151)] line-clamp-2 leading-snug">
-                                                {item.name}
-                                            </p>
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                        :
-                        <div key={cat.id}>
-
-                            <h2 className="text-xl 2xl:text-2xl font-medium mb-6 md:mb-8">
-                                <div id={`cat-${cat.id}`} />
-                                {cat.name}
-                            </h2>
-
-                            <div className="space-y-6 md:space-y-0 w-full md:grid md:grid-cols-2 md:gap-x-[4dvw] md:gap-y-[2dvw]">
-                                {filteredItemsByCat[cat.id]?.map((item) => (
-                                    <button
-                                        key={item.id}
-                                        onClick={() => handleItemClick(item)}
-                                        className={`cursor-pointer w-full flex justify-between items-start text-left border-b-1 pb-4 border-[var(--im-menu-border,#e5e7eb)] ${
-                                            loadingItemId === item.id ? "opacity-60" : ""
-                                        }`}
-                                    >
-                                        <div className="flex flex-col pr-4 flex-1 items-start justify-start max-w-[70%] ">
-                                            <p className="text-sm 2xl:text-lg font-semibold leading-tight">
-                                                {item.name}
-                                            </p>
-
-                                            <p className="text-sm 2xl:text-lg text-[var(--im-menu-muted,#4b5563)] line-clamp-2 mt-1 leading-tight">
-                                                {(item.description ?? "").slice(0, 60)}{item.description && item.description.length > 60 ? "…" : ""}
-                                            </p>
-
-                                            <p className="text-sm 2xl:text-lg font-bold mt-2">
-                                                {(item.promotion && item.promotion.value > 0) ? <><span className={"text-[var(--im-menu-success-text,#15b058)]"}><StartingPriceLabel itemId={item.id} />{formatPrice(promotionPrice(item) || item.price_cents)}</span> <span className={"font-normal text-[var(--im-menu-subtle,#9ca3af)] line-through text-xs"}>{formatPrice(item.price_cents)}</span></>
-                                                    : <><StartingPriceLabel itemId={item.id} />{formatPrice(item.price_cents)}</>
-                                                    }
-                                            </p>
-                                        </div>
-
-                                        <MenuCardMedia item={item} activeVideoId={activeVideoPreview} className="w-[22vw] h-[22vw] md:w-[10vw] md:h-[10vw] rounded-2xl overflow-hidden bg-[var(--im-menu-raised,#e5e7eb)] shadow-sm flex-shrink-0" />
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    }
-                    </div>
-                ))}
+                {catalog}
             </div>
 
             {openedItem && (

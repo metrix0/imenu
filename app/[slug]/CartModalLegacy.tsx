@@ -68,6 +68,12 @@ const PAYMENT_OPTIONS = [
     },
 ];
 
+const scheduleDateLabel = new Intl.DateTimeFormat("pt-BR", {
+    weekday: "short",
+    day: "2-digit",
+    month: "2-digit",
+});
+
 function isCitywideCep(address: GeoAddress | null) {
     return Boolean(address && !address.street?.trim() && !address.neighborhood?.trim());
 }
@@ -146,6 +152,13 @@ export default function CartModal({
         : "";
 
     const [openModal, setOpenModal] = useState(false);
+    const [visitedInfo, setVisitedInfo] = useState(false);
+    const [visitedCheckout, setVisitedCheckout] = useState(false);
+
+    useEffect(() => {
+        if (step !== "cart") setVisitedInfo(true);
+        if (step === "checkout") setVisitedCheckout(true);
+    }, [step]);
 
     const [deliveryFeeCents, setDeliveryFeeCents] = useState<number | null>(null);
     const [loadingCepLookup, setLoadingCepLookup] = useState(false);
@@ -185,11 +198,7 @@ export default function CartModal({
         date.setHours(12, 0, 0, 0);
         date.setDate(date.getDate() + minAdvanceDays + index);
         const value = formatDateInputValue(date);
-        const dateLabel = date.toLocaleDateString("pt-BR", {
-            weekday: "short",
-            day: "2-digit",
-            month: "2-digit",
-        });
+        const dateLabel = scheduleDateLabel.format(date);
         return {
             value,
             label: minAdvanceDays === 0 && index === 0 ? `Hoje • ${dateLabel}` : dateLabel,
@@ -993,7 +1002,7 @@ export default function CartModal({
                         }}
                     >
 
-                <div className="w-1/3 shrink-0 min-w-0 h-full min-h-0 px-4 2xl:px-8 overflow-y-auto pt-2 ">
+                <div className="w-1/3 shrink-0 min-w-0 h-full min-h-0 px-4 2xl:px-8 overflow-y-auto pt-2 " inert={step !== "cart"}>
                     <div className="flex items-center gap-3 mt-2 mb-4">
                         {restaurant?.logo_url && (
                             <Image
@@ -1177,8 +1186,8 @@ export default function CartModal({
 
                 </div>
 
-                <form className="w-1/3 shrink-0 min-w-0 h-full min-h-0 px-4 overflow-y-auto pt-4 pb-32 2xl:pb-10 2xl:px-8" autoComplete="on">
-                    {isTableOrder ? (
+                <form className="w-1/3 shrink-0 min-w-0 h-full min-h-0 px-4 overflow-y-auto pt-4 pb-32 2xl:pb-10 2xl:px-8" autoComplete="on" inert={step !== "info"}>
+                    {(visitedInfo || step !== "cart") && (isTableOrder ? (
                         <div className="space-y-6">
                             {tableOrder?.requiresTableSelection ? (
                                 <Dropdown
@@ -1426,12 +1435,11 @@ export default function CartModal({
                     )}
 
                         </>
-                    )}
+                    ))}
                 </form>
 
-                <div className="w-1/3 shrink-0 min-w-0 h-full min-h-0 px-4 overflow-y-auto pt-4 md:pb-32 2xl:px-8">
-
-                    <>
+                <div className="w-1/3 shrink-0 min-w-0 h-full min-h-0 px-4 overflow-y-auto pt-4 md:pb-32 2xl:px-8" inert={step !== "checkout"}>
+                    {(visitedCheckout || step === "checkout") && <>
                         {hasSchedulingChoice && (
                             <div
                                 className={`relative grid transition-all duration-300 ease-out ${scheduleDropdownOpen ? "z-[90]" : "z-auto"} ${
@@ -1721,7 +1729,7 @@ export default function CartModal({
                                     .replace(".", ",")}
                             </span>
                         </div>
-                    </>
+                    </>}
                 </div>
                     </div>
                 </div>
