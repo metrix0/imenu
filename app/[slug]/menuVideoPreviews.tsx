@@ -12,8 +12,12 @@ const DESKTOP_PREVIEW_CACHE_SIZE = 2;
 const PREVIEW_SELECTOR = "[data-menu-preview]";
 const NO_ACTIVE_PREVIEWS: readonly HTMLElement[] = [];
 type Connection = { saveData?: boolean; effectiveType?: string };
-type FeaturedPreviewTurn = { onPlaying: () => void; onFinished: () => void };
-type ActivePreview = { target: HTMLElement; turn?: FeaturedPreviewTurn };
+type ActivePreview = {
+    target: HTMLElement;
+    onPlaying?: () => void;
+    onEnded?: () => void;
+    onError?: () => void;
+};
 
 export function MenuVideoPreviews({ menu, visibleItems, enabled }: {
     menu: RefObject<HTMLDivElement | null>;
@@ -39,13 +43,13 @@ export function MenuVideoPreviews({ menu, visibleItems, enabled }: {
         let selected = NO_ACTIVE_PREVIEWS;
         const onScreen = new Map<HTMLElement, number>();
 
-        const playFeaturedPreview = (queue: readonly HTMLElement[], startIndex: number) => {
+        const playFeaturedPreview = (queue: readonly HTMLElement[], startIndex: number, failed: Set<HTMLElement>) => {
             if (selected !== queue || document.hidden || motion.matches) return;
 
-            const index = queue.findIndex((target, i) =>
-                i >= startIndex && target.isConnected && onScreen.get(target) === 1,
+            const target = [...queue.slice(startIndex), ...queue.slice(0, startIndex)].find(preview =>
+                !failed.has(preview) && preview.isConnected && onScreen.get(preview) === 1,
             );
-            if (index === -1) {
+            if (!target) {
                 setActive(null);
                 return;
             }
@@ -57,14 +61,23 @@ export function MenuVideoPreviews({ menu, visibleItems, enabled }: {
                 if (!isCurrentTurn()) return;
                 finished = true;
                 clearTimeout(timeout);
-                playFeaturedPreview(queue, index + 1);
+                playFeaturedPreview(queue, (queue.indexOf(target) + 1) % queue.length, failed);
             };
             const onPlaying = () => {
                 if (!isCurrentTurn() || started) return;
                 started = true;
                 timeout = window.setTimeout(onFinished, FEATURED_PREVIEW_DURATION_MS);
             };
-            setActive({ target: queue[index], turn: { onPlaying, onFinished } });
+            setActive({
+                target,
+                onPlaying,
+                onEnded: onFinished,
+                onError: () => {
+                    if (!isCurrentTurn()) return;
+                    failed.add(target);
+                    onFinished();
+                },
+            });
         };
 
         const choose = () => {
@@ -97,14 +110,12 @@ export function MenuVideoPreviews({ menu, visibleItems, enabled }: {
                 const featuredGrid = next.closest("[data-menu-featured-grid]");
                 if (featuredGrid) {
                     const rowTop = next.getBoundingClientRect().top;
-                    const row = Array.from(onScreen).flatMap(([preview, ratio]) =>
+                    nextPreviews = Array.from(onScreen).flatMap(([preview, ratio]) =>
                         ratio === 1 && featuredGrid.contains(preview) &&
                         Math.abs(preview.getBoundingClientRect().top - rowTop) < 1 ? [preview] : [],
                     ).sort((left, right) =>
                         left.compareDocumentPosition(right) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1,
                     );
-                    const first = row.indexOf(next);
-                    nextPreviews = [...row.slice(first), ...row.slice(0, first)];
                 }
             }
 
@@ -119,13 +130,19 @@ export function MenuVideoPreviews({ menu, visibleItems, enabled }: {
                 if (desktopHover && !next?.closest("button")?.matches(":hover")) return;
 
                 if (nextPreviews.length > 1) {
-                    playFeaturedPreview(nextPreviews, 0);
+                    playFeaturedPreview(nextPreviews, 0, new Set());
                     return;
                 }
 
                 const target = nextPreviews[0];
                 if (!target.isConnected) return;
-                setActive({ target });
+                const onEnded = desktopHover ? undefined : () => {
+                    if (selected !== nextPreviews) return;
+                    selected = NO_ACTIVE_PREVIEWS;
+                    setActive(null);
+                    schedule();
+                };
+                setActive({ target, onEnded });
                 if (desktopHover) {
                     setRecentDesktopPreviews(current => current[0] === target
                         ? current
@@ -184,9 +201,8 @@ export function MenuVideoPreviews({ menu, visibleItems, enabled }: {
     return Array.from(previewTargets, target => {
         const url = target.dataset.menuPreview;
         if (!url || !target.isConnected) return null;
-        const isActive = active?.target === target;
         return createPortal(
-            <MenuVideoPreview url={url} active={isActive} turn={isActive ? active.turn : undefined} />,
+            <MenuVideoPreview url={url} playback={active?.target === target ? active : undefined} />,
             target,
             target.dataset.previewItemId,
         );
@@ -208,11 +224,12 @@ export function MenuCardMedia({ item, className }: { item: Item; className: stri
     );
 }
 
-function MenuVideoPreview({ url, active, turn }: { url: string; active: boolean; turn?: FeaturedPreviewTurn }) {
+function MenuVideoPreview({ url, playback }: { url: string; playback?: ActivePreview }) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [playing, setPlaying] = useState(false);
 
-    const finishTurn = turn?.onFinished;
+    const active = Boolean(playback);
+    const { onPlaying, onEnded, onError } = playback ?? {};
     useEffect(() => {
         const video = videoRef.current;
         if (!video) return;
@@ -224,13 +241,13 @@ function MenuVideoPreview({ url, active, turn }: { url: string; active: boolean;
 
         let canceled = false;
         void video.play().catch(() => {
-            if (!canceled) finishTurn?.();
+            if (!canceled) onError?.();
         });
         return () => {
             canceled = true;
-            if (finishTurn) video.pause();
+            if (onEnded) video.pause();
         };
-    }, [active, finishTurn, url]);
+    }, [active, onEnded, onError, url]);
 
     return (
         <video
@@ -238,17 +255,17 @@ function MenuVideoPreview({ url, active, turn }: { url: string; active: boolean;
             src={url}
             muted
             playsInline
-            loop={!turn}
+            loop={!onEnded}
             aria-hidden="true"
             onPlaying={() => {
                 setPlaying(true);
-                turn?.onPlaying();
+                onPlaying?.();
             }}
             onPause={() => setPlaying(false)}
-            onEnded={finishTurn}
+            onEnded={onEnded}
             onError={() => {
                 setPlaying(false);
-                finishTurn?.();
+                onError?.();
             }}
             className={`pointer-events-none absolute inset-0 h-full w-full object-cover ${active && playing ? "" : "opacity-0"}`}
         />
