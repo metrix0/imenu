@@ -297,7 +297,7 @@ export default function HistoryModal({
                 {visibleStep === "input_phone" && (
                     <div className="space-y-4">
                         <p className="text-center font-medium text-[var(--im-menu-muted,#4b5563)]">
-                            {program ? "Use seu WhatsApp para consultar seus selos." : "Digite seu WhatsApp para consultar seus pedidos."}
+                            {program ? "Use seu número do celular para consultar suas compras." : "Digite seu WhatsApp para consultar seus pedidos."}
                         </p>
 
                         <Input
@@ -325,7 +325,8 @@ export default function HistoryModal({
                             inputMode="tel"
                             autoComplete="tel"
                             maxLength={15}
-                            className="text-center text-lg tracking-widest"
+                            aria-label="Número do celular"
+                            className={program ? undefined : "text-center text-lg tracking-widest"}
                         />
 
                         {error && (
