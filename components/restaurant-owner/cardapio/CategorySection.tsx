@@ -3,7 +3,7 @@
 import { useState, ReactNode, useEffect, useRef, useCallback } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
-import { faClock, faGripVertical, faStar } from "@fortawesome/free-solid-svg-icons";
+import { faGripVertical, faStar } from "@fortawesome/free-solid-svg-icons";
 import { supabase } from "@/lib/database/supabaseClient";
 import Tooltip from "@/components/ui/Tooltip";
 import MenuItemRow, { MenuItemType } from "./MenuItemRow";
@@ -262,19 +262,17 @@ export default function CategorySection({
                     )}
                     <h3 className="min-w-0 truncate text-xl font-bold text-gray-800 tracking-tight md:overflow-visible md:whitespace-normal md:text-clip md:break-words" title={category.name}>{category.name}</h3>
                     {isFeatured && (
-                        <Tooltip text="A primeira categoria é destacada no cardápio." position="right" showOnClick>
+                        <Tooltip text="A primeira categoria é destacada no cardápio." position="right" parentClassName="!flex shrink-0 items-center" showOnClick>
                             <FontAwesomeIcon icon={faStar} className="text-brand text-sm cursor-help" />
                         </Tooltip>
                     )}
                 </div>
 
                 <div className="flex shrink-0 items-center justify-end gap-3">
-                    <AvailabilityScheduleLabel schedule={category.availability_schedule} className="hidden md:inline" />
-                    <button onClick={onEditCategory} className="whitespace-nowrap text-xs 2xl:text-base font-medium text-gray-400 hover:text-brand transition-colors cursor-pointer">
-                        {Boolean(category.availability_schedule?.length) && (
-                            <FontAwesomeIcon icon={faClock} className="mr-1.5 text-xs md:hidden" aria-label="Categoria agendada" />
-                        )}
-                        Editar categoria
+                    <AvailabilityScheduleLabel schedule={category.availability_schedule} className="hidden md:inline-flex" />
+                    <button onClick={onEditCategory} className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs 2xl:text-base font-medium text-gray-400 hover:text-brand transition-colors cursor-pointer">
+                        <AvailabilityScheduleLabel schedule={category.availability_schedule} iconOnly className="inline-flex md:hidden" />
+                        <span>Editar categoria</span>
                     </button>
                 </div>
             </div>

@@ -440,17 +440,17 @@ export default function MenuItemRow({
                                 </span>
                             )}
                             <div className="mt-1 flex min-w-0 items-center gap-2 md:hidden">
-                                <AvailabilityScheduleLabel schedule={item.availability_schedule} showClock />
                                 <span className="shrink-0 whitespace-nowrap font-medium text-gray-900 tabular-nums">
                                     {(priceCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                                 </span>
+                                <AvailabilityScheduleLabel schedule={item.availability_schedule} iconOnly className="ml-auto inline-flex shrink-0" />
                             </div>
                         </div>
                         {renderStockQuantity()}
                     </div>
 
                     <div className="flex items-center gap-4 2xl:gap-6 pl-4 2xl:text-lg">
-                        <AvailabilityScheduleLabel schedule={item.availability_schedule} showClock className="hidden md:inline" />
+                        <AvailabilityScheduleLabel schedule={item.availability_schedule} className="hidden md:inline-flex" />
                         <span className="hidden font-medium text-gray-900 whitespace-nowrap md:inline">
                             {(priceCents / 100).toLocaleString("pt-BR", {
                                 style: "currency",

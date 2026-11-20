@@ -4,23 +4,23 @@ import { categoryScheduleDetails, categoryScheduleLabel, type CategorySchedule }
 
 export default function AvailabilityScheduleLabel({
     schedule,
-    className = "",
-    showClock = false,
+    className = "inline-flex",
+    iconOnly = false,
 }: {
     schedule?: CategorySchedule;
     className?: string;
-    showClock?: boolean;
+    iconOnly?: boolean;
 }) {
     const label = categoryScheduleLabel(schedule);
     if (!label) return null;
 
     return (
         <span
-            className={`max-w-[220px] truncate text-xs text-gray-500 ${className}`}
+            className={`min-w-0 max-w-[220px] items-center gap-1.5 text-xs text-gray-500 ${className}`}
             title={categoryScheduleDetails(schedule) ?? undefined}
         >
-            {showClock && <PanelIcon icon={faClock} className="mr-1 text-[10px]" aria-hidden="true" />}
-            {label}
+            <PanelIcon icon={faClock} className="shrink-0" style={{ width: "1em", height: "1em" }} aria-hidden="true" />
+            <span className={iconOnly ? "sr-only" : "truncate"}>{label}</span>
         </span>
     );
 }
