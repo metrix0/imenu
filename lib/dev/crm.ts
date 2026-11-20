@@ -9,6 +9,7 @@ import {
 import { SUPPORT_CONVERSATION_VISIBLE_SQL } from "@/lib/services/supportExclusions";
 import { brazilClock, getTodayRecoveryForecast } from "./abandonedBlastPlan";
 import { PLUS_CHURN_EVENTS, RECOVERY_CUTOFF } from "./plusChurn";
+import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGE } from "./plusFeedbackBlast";
 import { formatSignupOrigin } from "@/lib/analytics/signupOrigin";
 
 const CRM_PAGE_SIZE = 10;
@@ -207,7 +208,8 @@ function blastMessagePattern(message: string): string {
         .map(part => part.replace(/[.*+?^$(){}|[\]\\]/g, "\\$&")).join(".{1,200}") + "$";
 }
 
-function churnBlastJoin(templatesParam: number, patternsParam: number): string {
+function churnBlastJoin(templatesParam: number, patternsParam?: number): string {
+    const feedback = patternsParam === undefined;
     return `LEFT JOIN LATERAL (
     WITH contact_phones AS (
         SELECT DISTINCT CASE
@@ -223,8 +225,12 @@ function churnBlastJoin(templatesParam: number, patternsParam: number): string {
     ), matching_campaigns AS (
         SELECT campaign.id, campaign.status
         FROM support_blast_campaigns campaign
-        WHERE campaign.sender = 'blast'
-          AND regexp_replace(BTRIM(campaign.message), '\\s+', ' ', 'g') = ANY($${templatesParam}::text[])
+        WHERE ${feedback
+            ? `campaign.sender = 'support' AND campaign.message = $${templatesParam}
+              AND (campaign.created_at AT TIME ZONE 'America/Sao_Paulo')::date =
+                  (churn.event_at AT TIME ZONE 'America/Sao_Paulo')::date - 7`
+            : `campaign.sender = 'blast'
+              AND regexp_replace(BTRIM(campaign.message), '\\s+', ' ', 'g') = ANY($${templatesParam}::text[])`}
     ), history AS (
         SELECT CASE
             WHEN recipient.status = 'pending' AND campaign.status = 'paused' THEN 'paused'
@@ -244,15 +250,22 @@ function churnBlastJoin(templatesParam: number, patternsParam: number): string {
             recipient.phone IN (SELECT phone FROM contact_phones)
             OR EXISTS (
                 SELECT 1 FROM whatsapp_outbound_messages outbound
-                WHERE outbound.dedupe_key =
-                    'support:bulk:abandoned:' || campaign.id::text || ':' || COALESCE(r.user_id, r.id)::text
+                WHERE ${feedback
+                    ? `outbound.dedupe_key = 'support:bulk:support:' || campaign.id::text || ':' || outbound.restaurant_id::text
+                      AND EXISTS (
+                          SELECT 1 FROM restaurants contacted
+                          WHERE contacted.id = outbound.restaurant_id
+                            AND (contacted.id = r.id OR contacted.user_id = r.user_id)
+                      )`
+                    : `outbound.dedupe_key =
+                        'support:bulk:abandoned:' || campaign.id::text || ':' || COALESCE(r.user_id, r.id)::text`}
                   AND outbound.chat_id = recipient.phone || '@c.us'
             )
         ) AND (
             recipient.status IN ('sent', 'failed', 'cancelled', 'skipped_60d', 'skipped_recent', 'skipped_reactivated')
             OR (recipient.status IN ('pending', 'processing') AND campaign.status IN ('running', 'paused'))
         )
-        UNION ALL
+        ${feedback ? "" : `UNION ALL
         SELECT 'sent', message.created_at, message.created_at, NULL::text
         FROM support_messages message
         JOIN support_conversations c ON c.id = message.conversation_id
@@ -264,13 +277,13 @@ function churnBlastJoin(templatesParam: number, patternsParam: number): string {
                    SELECT 1 FROM restaurants contacted
                    WHERE contacted.id = c.restaurant_id
                      AND (contacted.id = r.id OR contacted.user_id = r.user_id)
-               ))
+               ))`}
     )
     SELECT status, event_at, error
     FROM history
     ORDER BY sort_at DESC NULLS LAST, (status = 'sent') DESC
     LIMIT 1
-) churn_blast ON TRUE`;
+) ${feedback ? "feedback_blast" : "churn_blast"} ON TRUE`;
 }
 
 export async function getCrm(params: URLSearchParams) {
@@ -338,7 +351,9 @@ export async function getCrm(params: URLSearchParams) {
         ? CHURN_BLAST_TEMPLATES[activityKey as keyof typeof CHURN_BLAST_TEMPLATES].map(normalizedBlastMessage)
         : null;
     const rowParams: (string | number | string[])[] = [...listParams, CRM_PAGE_SIZE, page * CRM_PAGE_SIZE];
+    const includeFeedback = includeBlast && activityKey === "churned_plus";
     if (blastTemplates) rowParams.push(blastTemplates, blastTemplates.map(blastMessagePattern));
+    if (includeFeedback) rowParams.push(PLUS_FIRST_MONTH_FEEDBACK_MESSAGE);
     const conditions = [
         `($1='' OR r.name ILIKE '%'||$1||'%' OR u.email ILIKE '%'||$1||'%' OR r.phone ILIKE '%'||$1||'%' OR r.store_whatsapp ILIKE '%'||$1||'%' OR u.raw_user_meta_data->>'phone' ILIKE '%'||$1||'%')`,
         ...(paidOnly ? [`(${PAID})`] : []),
@@ -367,6 +382,7 @@ export async function getCrm(params: URLSearchParams) {
             COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'phone'),''),NULLIF(TRIM(r.phone),'')) AS owner_phone,(${PLUS_SINCE}) AS plus_since,u.email,(${PAID}) AS has_paid,(${PLUS}) AS plus,
             COALESCE(gmv.gmv_cents,0) AS gmv_cents,support.conversation_id AS support_conversation_id,support.mode AS support_mode,support.last_message,support.last_message_at
             ${blastTemplates ? ",churn_blast.status AS blast_status,churn_blast.event_at AS blast_at,churn_blast.error AS blast_error,COALESCE(r.user_id,r.id)::text AS blast_account_id" : ""}
+            ${includeFeedback ? ",feedback_blast.status AS feedback_blast_status,feedback_blast.event_at AS feedback_blast_at,feedback_blast.error AS feedback_blast_error" : ""}
             ${from}
             LEFT JOIN LATERAL (
                 SELECT COALESCE(SUM(o.total_cents),0)::bigint AS gmv_cents
@@ -376,6 +392,7 @@ export async function getCrm(params: URLSearchParams) {
             ) gmv ON true
             ${LAST_SUPPORT_JOIN}
             ${blastTemplates ? churnBlastJoin(offset + 1, offset + 2) : ""}
+            ${includeFeedback ? churnBlastJoin(offset + 3) : ""}
             WHERE ${where}
             ORDER BY ${orderBy} LIMIT $${limit} OFFSET $${offset}`, rowParams),
         query<{ total: number }>(`${bounds} SELECT COUNT(*)::int total ${from} WHERE ${where}`, listParams),

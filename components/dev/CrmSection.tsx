@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Input from "@/components/ui/Input";
 import Badge from "@/components/ui/Badge";
 import styles from "./dashboard.module.css";
-import { Search, Eye } from "lucide-react";
+import { Search, Eye, Info } from "lucide-react";
 import Dropdown from "@/components/ui/Dropdown";
 import Tooltip from "@/components/ui/Tooltip";
 import type { DateRange } from "@/lib/utils/dateRange";
@@ -31,7 +31,38 @@ type CrmRow = Restaurant & {
     blast_status?: keyof typeof blastStatus | null;
     blast_at?: string | null;
     blast_error?: string | null;
+    feedback_blast_status?: keyof typeof blastStatus | null;
+    feedback_blast_at?: string | null;
+    feedback_blast_error?: string | null;
 };
+
+function BlastColumnHeader({ label, detail }: { label: string; detail: string }) {
+    return <span className="inline-flex flex-wrap items-center gap-1">
+        {label}
+        <Tooltip text={detail} size="medium" showOnClick>
+            <button type="button" aria-label={`Informações sobre ${label}`} className="inline-flex h-6 w-6 cursor-pointer items-center justify-center text-gray-400 hover:text-brand">
+                <Info size={14} aria-hidden="true" />
+            </button>
+        </Tooltip>
+    </span>;
+}
+
+function BlastStatusBadge({ status, timestamp, error, feedback = false }: {
+    status?: keyof typeof blastStatus | null;
+    timestamp?: string | null;
+    error?: string | null;
+    feedback?: boolean;
+}) {
+    const presentation = status && blastStatus[status];
+    if (!presentation) return feedback
+        ? <span title="Sem registro do aviso de 7 dias para este vencimento.">—</span>
+        : <Badge variant="neutral" title="Sem registro deste Blast para esta conta.">Ignorado</Badge>;
+    const detail = error || ("detail" in presentation ? presentation.detail : null);
+    const date = timestamp && status !== "paused" ? formatDateTime(timestamp) : null;
+    return <Badge variant={presentation.variant} title={[detail, date].filter(Boolean).join("\n") || undefined}>
+        {presentation.label}
+    </Badge>;
+}
 
 export function CrmList({ search = "", plan = "all", activity, title, range, showBlast = false, onTotalChange }: {
     search?: string;
@@ -82,10 +113,11 @@ export function CrmList({ search = "", plan = "all", activity, title, range, sho
             .finally(() => { if (!controller.signal.aborted) setLoading(false); });
         return () => controller.abort();
     }, [search, plan, activity, page, sort, range, showBlast, onTotalChange]);
+    const showFeedback = showBlast && activity === "churned_plus";
     return <section className={styles.tableSection} aria-label={title}>
         {title && <h2>{title}</h2>}
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-        <div className={showBlast ? `${styles.crmTable} ${styles.churnBlastTable}` : styles.crmTable}>
+        <div className={`${styles.crmTable} ${showBlast ? styles.churnBlastTable : ""} ${showFeedback ? styles.churnFeedbackTable : ""}`}>
             <PagedTable pageSize={10} data={data} loading={loading} rowKey={r => r.id} onPage={setPage}
                 onRowClick={openProfile} sortKey={sort?.key} sortDirection={sort?.direction} onSort={onSort} columns={[
                 { key: "name", label: "Restaurante", sortable: true, render: r => <span className="block min-w-0 truncate whitespace-nowrap font-medium" title={r.name}>{r.name}</span> },
@@ -106,17 +138,14 @@ export function CrmList({ search = "", plan = "all", activity, title, range, sho
                     ) : "—",
                 },
                 ...(showBlast ? [{
-                    key: "blast", label: "Blast",
-                    render: (row: CrmRow) => {
-                        const status = row.blast_status && blastStatus[row.blast_status];
-                        if (!status) return <Badge variant="neutral" title="Sem registro deste Blast para esta conta.">Ignorado</Badge>;
-                        const detail = row.blast_error || ("detail" in status ? status.detail : null);
-                        const date = row.blast_at && row.blast_status !== "paused" ? formatDateTime(row.blast_at) : null;
-                        return <Badge variant={status.variant}
-                            title={[detail, date].filter(Boolean).join("\n") || undefined}>
-                            {status.label}
-                        </Badge>;
-                    },
+                    key: "blast", label: showFeedback ? "End Blast" : "Blast",
+                    header: showFeedback ? <BlastColumnHeader label="End Blast" detail="WhatsApp de recuperação após o fim do período pago do Plus, quando a conta segue sem acesso. Ignorado também pode indicar ausência de registro." /> : undefined,
+                    render: (row: CrmRow) => <BlastStatusBadge status={row.blast_status} timestamp={row.blast_at} error={row.blast_error} />,
+                }] : []),
+                ...(showFeedback ? [{
+                    key: "feedback_blast", label: "7d Blast",
+                    header: <BlastColumnHeader label="7d Blast" detail="WhatsApp de feedback previsto para 7 dias antes de terminar o primeiro mês pago do Plus. O traço indica ausência de registro para esse vencimento." />,
+                    render: (row: CrmRow) => <BlastStatusBadge status={row.feedback_blast_status} timestamp={row.feedback_blast_at} error={row.feedback_blast_error} feedback />,
                 }] : []),
                 { key: "open", label: "", render: r => <button type="button" title="Ver detalhes" aria-label={`Ver detalhes de ${r.name}`} onClick={e => { e.stopPropagation(); openProfile(r); }} className="cursor-pointer rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-brand"><Eye size={16} aria-hidden="true" /></button> },
             ]} />

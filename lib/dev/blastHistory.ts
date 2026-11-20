@@ -1,7 +1,7 @@
 import {buildExpiryMessage} from "@/lib/services/addonExpiryMessage";
 import { PAYOUT_BLAST_AUTOMATIONS } from "@/lib/services/payoutAutomation";
 import { ABANDONED_BLAST_MESSAGE, LEGACY_PLUS_ABANDONED_BLAST_MESSAGE, PLUS_EXPIRY_BLAST_MESSAGES, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE, CHURN_BLASTS } from "./abandonedBlast";
-import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGE, PLUS_FEEDBACK_DAILY_LIMIT } from "./plusFeedbackBlast";
+import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGE } from "./plusFeedbackBlast";
 import { DID_NOT_ACTIVATE_BLAST_MESSAGE } from "./didNotActivateBlast";
 import { MESSAGE_ROWS_SQL } from "./messageHistory";
 import { query } from "@/lib/database/sql";
@@ -10,7 +10,6 @@ import { DEV_BLAST_PAGE_SIZE, devPage, paged } from "./pagination";
 // Existing campaign and send logs are the source of truth; no additional registry/table.
 export const AUTOMATED_BLASTS = [
     ...CHURN_BLASTS,
-    {id:"plus-feedback",name:"Feedback · 1º mês Plus",sender:"support",message:PLUS_FIRST_MONTH_FEEDBACK_MESSAGE,criteria:"7 dias antes da 1ª renovação/vencimento · Pix primeiro",trigger:"Cron diário às 19:00 (São Paulo)",limit:PLUS_FEEDBACK_DAILY_LIMIT},
     {id:"expiry",name:"Vencimento iMenu Plus · Pix",sender:"support",message:buildExpiryMessage({pix:["ia_plus"],card:[]}),criteria:"Plus Pix · 1 dia antes do fim do período pago",trigger:"Cron diário às 15:00 (São Paulo)",limit:null},
     {id:"expiry-card",name:"Cancelamento iMenu Plus · Cartão",sender:"support",message:buildExpiryMessage({pix:[],card:["ia_plus"]}),criteria:"Cartão cancelado · 1 dia antes do fim do período pago",trigger:"Cron diário às 15:00 (São Paulo)",limit:null},
     ...Object.values(PAYOUT_BLAST_AUTOMATIONS),
