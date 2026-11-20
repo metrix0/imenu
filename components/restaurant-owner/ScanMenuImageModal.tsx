@@ -42,6 +42,7 @@ type ScannedItem = {
 
 type ScannedResult = {
     items: ScannedItem[];
+    single_product_photo?: true;
     categories: { name: string }[];
 };
 
@@ -1052,6 +1053,11 @@ function ScanModal({
 
                     {access?.allowed && scanResult && (
                         <div className="space-y-6">
+                            {scanResult.single_product_photo && (
+                                <WarningBox role="alert" icon={icons.faTriangleExclamation}>
+                                    O scan não é feito para ser usado por produtos individuais. Se quiser adicionar um único produto com imagem, basta clicar em Adicionar produto.
+                                </WarningBox>
+                            )}
                             <p className="text-sm text-gray-600">
                                 Revise os itens encontrados. Itens já cadastrados são ignorados por padrão.
                                 Atualizar altera nome, descrição e preço; complementos existentes são mantidos.

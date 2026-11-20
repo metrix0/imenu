@@ -156,7 +156,7 @@ it("retries a hydrated public menu with OpenAI when Gemini returns HTTP 503", as
                     name: "menu_scan",
                     strict: true,
                     schema: expect.objectContaining({
-                        required: ["items", "categories"],
+                        required: ["items", "categories", "single_product_photo"],
                         additionalProperties: false,
                     }),
                 },
@@ -233,6 +233,55 @@ it("sends wrapped menu photos as the original high-detail JPEG and keeps other i
         { type: "input_file", file_url: external },
         { type: "input_image", image_url: direct, detail: "high" },
     ]);
+});
+
+it.each(["gemini", "openai"])("imports a standalone product photo with %s", async (provider) => {
+    setExistingItems(0);
+    const output = {
+        single_product_photo: true,
+        items: [{ name: "Hambúrguer", price_cents: null, category_name: "Lanches" }],
+        categories: [{ name: "Lanches" }],
+    };
+    const providerFetch = jest.spyOn(global, "fetch");
+    if (provider === "gemini") {
+        process.env.GEMINI_API_KEY = "test-gemini-key";
+        providerFetch
+            .mockResolvedValueOnce(new Response("image", { headers: { "content-type": "image/png" } }))
+            .mockResolvedValueOnce(new Response(null, { headers: { "x-goog-upload-url": "https://example.test/upload" } }))
+            .mockResolvedValueOnce(Response.json({
+                file: { name: "files/photo", uri: "https://example.test/file", mimeType: "image/png", state: "ACTIVE" },
+            }))
+            .mockResolvedValueOnce(Response.json({ candidates: [{ content: { parts: [{ text: JSON.stringify(output) }] } }] }))
+            .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    } else {
+        mockOpenAiCreate.mockResolvedValue({ output_text: JSON.stringify(output) });
+    }
+
+    const response = await POST(post());
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+        single_product_photo: true,
+        items: [{ name: "Hambúrguer", price_cents: null }],
+    });
+    const providerRequest = provider === "gemini"
+        ? String(providerFetch.mock.calls[3][1]?.body)
+        : JSON.stringify(mockOpenAiCreate.mock.calls[0][0]);
+    expect(providerRequest).toContain("single_product_photo=true");
+});
+
+it("keeps a one-item menu on the regular review path", async () => {
+    setExistingItems(0);
+    mockOpenAiCreate.mockResolvedValue({ output_text: JSON.stringify({
+        single_product_photo: false,
+        items: [{ name: "Hambúrguer", price_cents: 1600, category_name: "Lanches" }],
+        categories: [{ name: "Lanches" }],
+    }) });
+
+    const response = await POST(post());
+    expect(response.status).toBe(200);
+    const result = await response.json();
+    expect(result.items).toHaveLength(1);
+    expect(result).not.toHaveProperty("single_product_photo");
 });
 
 it("keeps the source as a PDF if the photo inspection fails", async () => {
