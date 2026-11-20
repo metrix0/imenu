@@ -8,7 +8,6 @@ import type { User } from "@supabase/supabase-js";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faChevronRight,
-    faCheck,
     faCircleInfo,
     faCopy,
     faCrown,
@@ -987,10 +986,7 @@ export default function ConfiguracoesPage() {
                                             <h3 className="text-lg font-semibold text-gray-900">
                                                 Cardápio com Tema Escuro
                                             </h3>
-                                            <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${pdfAccess ? "bg-green-50 text-green-700" : "bg-orange-50 text-orange-800"}`}>
-                                                <FontAwesomeIcon icon={pdfAccess ? faCheck : faLock} />
-                                                {pdfAccess ? "Plano ativo" : "Incluso no iMenu Plus"}
-                                            </span>
+                                            <Badge preset={pdfAccess ? "featureAvailable" : "plusIncluded"} />
                                         </div>
                                         <p id="dark-menu-description" className="mt-2 text-sm text-gray-500">
                                             Exiba seu cardápio com cores escuras, inclusive em Mesas e Vitrine.{" "}
@@ -1136,10 +1132,7 @@ export default function ConfiguracoesPage() {
                                             <h3 className="text-lg font-semibold text-gray-900">
                                                 Exportar Cardápio para Impressão
                                             </h3>
-                                            <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${pdfAccess ? "bg-green-50 text-green-700" : "bg-orange-50 text-orange-800"}`}>
-                                                <FontAwesomeIcon icon={pdfAccess ? faCheck : faLock} />
-                                                {pdfAccess ? "Plano ativo" : "Incluso no iMenu Plus"}
-                                            </span>
+                                            <Badge preset={pdfAccess ? "featureAvailable" : "plusIncluded"} />
                                         </div>
                                         <p className="mt-2 text-sm text-gray-500">
                                             Baixe um PDF pronto para imprimir, com suas categorias, produtos, descrições e preços.

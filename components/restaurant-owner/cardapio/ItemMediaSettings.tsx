@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
-import { faCheck, faChevronLeft, faChevronRight, faFilm, faImage, faLock } from "@fortawesome/free-solid-svg-icons";
+import { faChevronLeft, faChevronRight, faFilm, faImage } from "@fortawesome/free-solid-svg-icons";
 import { createPortal } from "react-dom";
+import Badge from "@/components/ui/Badge";
 import Loader from "@/components/ui/Loader";
 import { PanelIcon } from "@/components/ui/PanelIcon";
 import Toast from "@/components/ui/Toast";
@@ -154,10 +155,7 @@ export default function ItemMediaSettings({ item, restaurantId, onUpdated, onBus
             <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-sm font-medium text-gray-900">Fotos e Vídeo <span className="ml-1 font-normal text-gray-500">{displayedMedia.filter(Boolean).length}/{MAX_ITEM_MEDIA}</span></h3>
                 {plusActive !== null && (
-                    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${plusActive ? "bg-green-50 text-green-700" : "bg-orange-50 text-orange-800"}`}>
-                        <PanelIcon icon={plusActive ? faCheck : faLock} />
-                        {plusActive ? "Plano ativo" : "Incluso no iMenu Plus"}
-                    </span>
+                    <Badge preset={plusActive ? "featureAvailable" : "plusIncluded"} />
                 )}
             </div>
             <p className="text-xs text-gray-500">A primeira mídia é a foto principal, o vídeo toca automaticamente ao visualizar o item.</p>

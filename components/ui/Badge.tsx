@@ -1,4 +1,6 @@
+import { faCheck, faLock } from "@fortawesome/free-solid-svg-icons";
 import * as React from "react";
+import { PanelIcon } from "./PanelIcon";
 
 export type BadgeVariant =
     | "brand"
@@ -12,6 +14,7 @@ export type BadgeVariant =
 export type BadgeMode = "default" | "pill" | "page";
 
 type BadgeProps = React.HTMLAttributes<HTMLSpanElement> & {
+    preset?: keyof typeof presets;
     variant?: BadgeVariant;
     mode?: BadgeMode;
     uppercase?: boolean;
@@ -34,25 +37,46 @@ const modes: Record<BadgeMode, string> = {
     page: "inline-flex shrink-0 items-center gap-1.5 align-middle rounded-md px-2.5 py-1.5 !text-[12px] leading-none font-medium ring-1 ring-inset",
 };
 
+const presetBase = "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium";
+
+const presets = {
+    plusIncluded: {
+        colors: "bg-orange-50 text-orange-800",
+        icon: faLock,
+        label: "Incluso no iMenu Plus",
+    },
+    featureAvailable: {
+        colors: "bg-green-50 text-green-700",
+        icon: faCheck,
+        label: "Plano ativo",
+    },
+};
+
 export default function Badge({
     children,
+    preset,
     variant = "brand",
     mode = "default",
     uppercase,
     className = "",
     ...props
 }: BadgeProps) {
-    const shouldUppercase = uppercase ?? mode === "pill";
+    const selectedPreset = preset ? presets[preset] : undefined;
+    const style = selectedPreset ? presetBase : modes[mode];
+    const colors = selectedPreset?.colors ?? variants[variant];
+    const shouldUppercase = uppercase ?? (!selectedPreset && mode === "pill");
 
     return (
         <span
             data-ui="badge"
-            data-variant={variant}
-            data-mode={mode}
-            className={`${modes[mode]} ${shouldUppercase ? "uppercase" : ""} ${variants[variant]} ${className}`}
+            data-variant={selectedPreset ? undefined : variant}
+            data-mode={selectedPreset ? undefined : mode}
+            data-preset={preset}
+            className={`${style} ${shouldUppercase ? "uppercase" : ""} ${colors} ${className}`}
             {...props}
         >
-            {children}
+            {selectedPreset && <PanelIcon icon={selectedPreset.icon} aria-hidden="true" />}
+            {children ?? selectedPreset?.label}
         </span>
     );
 }

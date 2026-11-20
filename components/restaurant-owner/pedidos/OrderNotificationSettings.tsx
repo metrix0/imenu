@@ -3,12 +3,11 @@
 import { CollapsibleChevron, CollapsibleContent, useCollapsible } from "@/components/ui/CollapsibleSection";
 
 import { useState, type ReactNode } from "react";
-import { faCheck, faLock } from "@fortawesome/free-solid-svg-icons";
+import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import Switch from "@/components/ui/Switch";
 import SaveStatus, { type SaveState } from "@/components/ui/SaveStatus";
 import Tooltip from "@/components/ui/Tooltip";
-import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
 import { useAutoSave } from "@/lib/utils/useAutoSave";
 import { supabase } from "@/lib/database/supabaseClient";
@@ -54,10 +53,7 @@ export default function OrderNotificationSettings({ restaurantId, plus, initialE
                 <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                         <h2 className="text-xl font-medium text-gray-900">{title}</h2>
-                        <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${plus ? "bg-green-50 text-green-700" : "bg-orange-50 text-orange-800"}`}>
-                            <FontAwesomeIcon icon={plus ? faCheck : faLock} />
-                            {plus ? "Plano ativo" : "Incluso no iMenu Plus"}
-                        </span>
+                        <Badge preset={plus ? "featureAvailable" : "plusIncluded"} />
                     </div>
                     <p id={descriptionId} className="mt-2 text-sm text-gray-500">
                         {ai ? "Atendimento automático por Whatsapp, respondendo dúvidas sobre produtos, preços e opções do cardápio. Usa IA para conhecer seu cardápio e responder ao cliente." : "Avise quando o pedido sair para entrega ou estiver pronto no balcão. Apenas clientes que enviaram mensagens nos últimos 7 dias recebem o aviso."}
