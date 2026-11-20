@@ -4,6 +4,7 @@ import { query, withTransaction } from "@/lib/database/sql";
 import { checkWahaPhoneExists, sendWahaImage, sendWahaText } from "@/lib/services/wahaClient";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 import { PLUS_EXPIRY_BLAST_MESSAGES, SINGLE_ORDER_DAY_RECOVERY_MESSAGE } from "@/lib/dev/abandonedBlast";
+import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGES } from "@/lib/dev/plusFeedbackBlast";
 
 jest.mock("@/lib/services/supportExclusions", () => ({ isSupportContactExcluded: jest.fn() }));
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn(), withTransaction: jest.fn() }));
@@ -20,9 +21,9 @@ beforeEach(() => {
     jest.clearAllMocks();
 });
 
-test("dispatch checks a 60-day history, including sends before the policy change", async () => {
+test("dispatch applies the 10-day history to sent blasts and excludes feedback", async () => {
     let claimCount = 0;
-    (query as jest.Mock).mockImplementation(async (sql: string) => {
+    (query as jest.Mock).mockImplementation(async (sql: string, params: unknown[] = []) => {
         if (sql.includes("WITH claimed AS")) {
             claimCount++;
             if (claimCount > 1) return { rows: [], rowCount: 0 };
@@ -49,9 +50,15 @@ test("dispatch checks a 60-day history, including sends before the policy change
             return { rows: [{ eligible: 1 }], rowCount: 1 };
         }
         if (sql.includes("SELECT 1 FROM whatsapp_outbound_messages")) {
-            // Simulates one prior outreach 45 days ago.
-            const matches60Days = sql.split("THEN INTERVAL '60 days' ELSE INTERVAL '7 days' END").length === 3;
-            return { rows: matches60Days ? [{ found: 1 }] : [], rowCount: matches60Days ? 1 : 0 };
+            expect(params.slice(3)).toEqual([true, PLUS_FIRST_MONTH_FEEDBACK_MESSAGES, 10]);
+            expect(sql).toContain("WHERE $4::boolean AND message = ANY($5::text[])");
+            expect(sql).toContain("campaign_id NOT IN (SELECT id FROM feedback_campaigns)");
+            expect(sql).toContain("split_part(dedupe_key, ':', 4) NOT IN (SELECT id::text FROM feedback_campaigns)");
+            expect(sql).toContain("dedupe_key LIKE 'support:bulk:%'");
+            expect(sql).toContain("updated_at >= NOW() - ($6::int * INTERVAL '1 day')");
+            expect(sql).toContain("sent_at >= NOW() - ($6::int * INTERVAL '1 day')");
+            expect(sql).not.toContain("status IN ('sending', 'failed')");
+            return { rows: [{ found: 1 }], rowCount: 1 };
         }
         return { rows: [], rowCount: 1 };
     });
@@ -63,7 +70,7 @@ test("dispatch checks a 60-day history, including sends before the policy change
         String(sql).includes("UPDATE support_blast_recipients SET status = $2") &&
         params?.[0] === 7
     );
-    expect(skipCall?.[1]).toEqual([7, "skipped_60d", null]);
+    expect(skipCall?.[1]).toEqual([7, "skipped_recent", "O contato recebeu um blast nos últimos 10 dias."]);
 });
 
 test.each(PLUS_EXPIRY_BLAST_MESSAGES.flatMap((message, version) => [

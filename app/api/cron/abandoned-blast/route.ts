@@ -11,7 +11,7 @@ export const maxDuration = 60;
 
 async function queueFirstMonthFeedback(day: string) {
     const selected = await getFirstMonthFeedbackRecipients(day);
-    if (!selected.length) return { queued: 0, phones: new Set<string>() };
+    if (!selected.length) return 0;
     await createSupportBlast({
         campaignId: dailyCampaignId(day, "plus_feedback"),
         sender: "support",
@@ -20,7 +20,7 @@ async function queueFirstMonthFeedback(day: string) {
         skipRecent: true,
         recipients: selected,
     });
-    return { queued: selected.length, phones: new Set(selected.map(row => row.phone)) };
+    return selected.length;
 }
 
 export async function GET(request: Request) {
@@ -36,17 +36,17 @@ export async function GET(request: Request) {
     }
 
     try {
-        let feedback = { queued: 0, phones: new Set<string>() };
+        let feedbackQueued = 0;
         let feedbackError = false;
         try {
-            feedback = await queueFirstMonthFeedback(day);
+            feedbackQueued = await queueFirstMonthFeedback(day);
         } catch (error) {
             feedbackError = true;
             console.error("[PLUS_FIRST_MONTH_FEEDBACK] Failed to queue:", error);
         }
-        const { plans, eligible, recipients, sendable } = await getRecoveryPlan(day, feedback.phones);
+        const { plans, eligible, recipients, sendable } = await getRecoveryPlan(day);
         if (!recipients.length) {
-            return NextResponse.json({ day, eligible, queued: 0, feedbackQueued: feedback.queued, feedbackError });
+            return NextResponse.json({ day, eligible, queued: 0, feedbackQueued, feedbackError });
         }
 
         const campaigns: Array<{ kind: string; id: string }> = [];
@@ -71,7 +71,7 @@ export async function GET(request: Request) {
             eligible,
             queued: sendable.length,
             skipped: recipients.length - sendable.length,
-            feedbackQueued: feedback.queued,
+            feedbackQueued,
             feedbackError,
         }, { headers: { "Cache-Control": "no-store" } });
     } catch (error) {

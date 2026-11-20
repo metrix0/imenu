@@ -1,6 +1,7 @@
 import { GET } from "./route";
 import { getTodayRecoveryForecast } from "@/lib/dev/abandonedBlastPlan";
 import { PLUS_ABANDONED_BLAST_MESSAGE } from "@/lib/dev/abandonedBlast";
+import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGES } from "@/lib/dev/plusFeedbackBlast";
 import { query } from "@/lib/database/sql";
 import { createSupportBlast } from "@/lib/services/supportBlast";
 
@@ -20,11 +21,11 @@ const mockBlast = createSupportBlast as jest.Mock;
 beforeEach(() => {
     jest.useFakeTimers().setSystemTime(new Date("2026-10-22T22:00:00Z"));
     process.env.CRON_SECRET = "test-secret";
-    mockQuery.mockImplementation(async (sql: string) => {
+    mockQuery.mockImplementation(async (sql: string, params: unknown[] = []) => {
         if (sql.includes("AS total FROM support_blast_recipients")) return { rows: [{ total: 0 }] };
         if (sql.includes("WITH first_month AS")) return { rows: [] };
         if (sql.includes("SELECT DISTINCT phone FROM support_blast_recipients")) {
-            return { rows: sql.includes("INTERVAL '60 days'") ? [{ phone }] : [] };
+            return { rows: params[3] === 10 ? [{ phone }] : [] };
         }
         if (sql.includes("completed AS (")) {
             return { rows: [{ account_id: "account-1", restaurant_name: "Loja", owner_phone: phone, has_plus: false }] };
@@ -40,7 +41,7 @@ afterEach(() => {
     jest.clearAllMocks();
 });
 
-test("recovery keeps the 60-day cooldown including historical sends", async () => {
+test("recovery checks the 10-day cooldown in both history sources and excludes feedback", async () => {
     const response = await GET(request());
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
@@ -48,11 +49,15 @@ test("recovery keeps the 60-day cooldown including historical sends", async () =
     });
     expect(mockBlast).not.toHaveBeenCalled();
 
-    const historySql = mockQuery.mock.calls.find(([sql]) =>
+    const [historySql, historyParams] = mockQuery.mock.calls.find(([sql]) =>
         String(sql).includes("SELECT DISTINCT phone FROM support_blast_recipients")
-    )?.[0] as string;
-    expect(historySql).toContain("sent_at >= NOW() - INTERVAL '60 days'");
-    expect(historySql).toContain("updated_at >= NOW() - INTERVAL '60 days'");
+    )!;
+    expect(historyParams).toEqual([[phone], [phone + "@c.us"], PLUS_FIRST_MONTH_FEEDBACK_MESSAGES, 10]);
+    expect(historySql).toContain("sent_at >= NOW() - ($4::int * INTERVAL '1 day')");
+    expect(historySql).toContain("updated_at >= NOW() - ($4::int * INTERVAL '1 day')");
+    expect(historySql).toContain("campaign_id NOT IN (SELECT id FROM feedback_campaigns)");
+    expect(historySql).toContain("split_part(dedupe_key, ':', 4) NOT IN (SELECT id::text FROM feedback_campaigns)");
+    expect(historySql).toContain("dedupe_key LIKE 'support:bulk:%'");
     expect(historySql).toContain("status IN ('pending', 'processing')");
     const eligibilitySql = mockQuery.mock.calls.find(([sql]) => String(sql).includes("completed AS ("))?.[0] as string;
     expect(eligibilitySql).toContain("o.created_at >= clock.as_of - INTERVAL '30 days'");
@@ -88,8 +93,11 @@ test("recovery selects only the 20 highest-GMV accounts across Plus and iMenu", 
     expect(allMessages.some(message => message.includes("Loja 1."))).toBe(false);
 });
 
-test("Plus forecast and enqueue use expiration eligibility without order activity", async () => {
+test("Plus forecast and enqueue use expiry eligibility even if feedback is also queued for the phone", async () => {
     mockQuery.mockImplementation(async (sql: string) => {
+        if (sql.includes("WITH first_month AS")) {
+            return { rows: [{ addon_id: "other-addon", account_id: "other-account", restaurant_name: "Outra Loja", owner_phone: phone, pix_first: true }] };
+        }
         if (sql.includes("WITH churn_bounds AS")) {
             return { rows: [{ account_id: "expired-plus", restaurant_name: "Loja", owner_phone: phone }] };
         }
@@ -102,7 +110,7 @@ test("Plus forecast and enqueue use expiration eligibility without order activit
     expect(mockBlast).not.toHaveBeenCalled();
 
     jest.setSystemTime(new Date("2026-10-22T22:00:00Z"));
-    expect(await (await GET(request())).json()).toMatchObject({ queued: 1 });
+    expect(await (await GET(request())).json()).toMatchObject({ queued: 1, feedbackQueued: 1 });
     expect(mockBlast).toHaveBeenCalledWith(expect.objectContaining({
         message: PLUS_ABANDONED_BLAST_MESSAGE,
         recipients: [{ phone, message: expect.stringContaining("o iMenu Plus da loja Loja venceu") }],

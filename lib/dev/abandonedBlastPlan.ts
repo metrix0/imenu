@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import { ABANDONED_BLAST_MESSAGE, PLUS_ABANDONED_BLAST_MESSAGE, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE, RECOVERY_DAILY_LIMIT } from "@/lib/dev/abandonedBlast";
+import { ABANDONED_BLAST_MESSAGE, PLUS_ABANDONED_BLAST_MESSAGE, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE, RECOVERY_DAILY_LIMIT, RECOVERY_COOLDOWN_DAYS } from "@/lib/dev/abandonedBlast";
 import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGE, PLUS_FIRST_MONTH_FEEDBACK_MESSAGES, PLUS_FEEDBACK_DAILY_LIMIT } from "@/lib/dev/plusFeedbackBlast";
 import { query } from "@/lib/database/sql";
 import { normalizeBlastPhone } from "@/lib/services/supportBlast";
@@ -116,7 +116,7 @@ export async function getFirstMonthFeedbackRecipients(day: string) {
     return selected;
 }
 
-export async function getRecoveryPlan(day: string, feedbackPhones: ReadonlySet<string>) {
+export async function getRecoveryPlan(day: string) {
     const candidates = await query<NewlyAbandoned>(
         `WITH clock AS (
             SELECT ${RECOVERY_CUTOFF} AS as_of
@@ -268,7 +268,7 @@ ORDER BY COALESCE(r.user_id, r.id), r.onboarding_completed_at DESC`),
     const uniquePhones = new Set<string>();
     const recipients = ranked.flatMap(row => {
         const phone = normalizeBlastPhone(row.owner_phone || "");
-        if (!phone || seenAccounts.has(row.account_id) || uniquePhones.has(phone) || feedbackPhones.has(phone)) return [];
+        if (!phone || seenAccounts.has(row.account_id) || uniquePhones.has(phone)) return [];
         seenAccounts.add(row.account_id);
         uniquePhones.add(phone);
         return [{ kind: row.kind, accountId: row.account_id, phone, message: row.template.replaceAll("{{Nome Restaurante}}", row.restaurant_name) }];
@@ -277,22 +277,29 @@ ORDER BY COALESCE(r.user_id, r.id), r.onboarding_completed_at DESC`),
         return { plans, eligible, recipients, sendable: [] };
     }
 
-    // Apply the 60-day cooldown to all previously sent blasts, including older campaigns.
+    // Transactional notices use their own outbound keys. Feedback uses the bulk
+    // tables, so exclude its campaigns from both history sources.
     const existing = await query<{ phone: string }>(
-        `SELECT DISTINCT phone FROM support_blast_recipients
+        `WITH feedback_campaigns AS (
+             SELECT id FROM support_blast_campaigns WHERE message = ANY($3::text[])
+         )
+         SELECT DISTINCT phone FROM support_blast_recipients
          WHERE phone = ANY($1::text[])
+           AND campaign_id NOT IN (SELECT id FROM feedback_campaigns)
            AND (
                status IN ('pending', 'processing')
-               OR (status = 'sent' AND sent_at >= NOW() - INTERVAL '60 days')
+               OR (status = 'sent' AND sent_at >= NOW() - ($4::int * INTERVAL '1 day'))
            )
          UNION
          SELECT split_part(chat_id, '@', 1) AS phone
          FROM whatsapp_outbound_messages
          WHERE chat_id = ANY($2::text[])
            AND dedupe_key LIKE 'support:bulk:%'
+           AND split_part(dedupe_key, ':', 4) NOT IN (SELECT id::text FROM feedback_campaigns)
            AND status = 'sent'
-           AND updated_at >= NOW() - INTERVAL '60 days'`,
-        [recipients.map((r) => r.phone), recipients.map((r) => r.phone + "@c.us")]
+           AND updated_at >= NOW() - ($4::int * INTERVAL '1 day')`,
+        [recipients.map((r) => r.phone), recipients.map((r) => r.phone + "@c.us"),
+            PLUS_FIRST_MONTH_FEEDBACK_MESSAGES, RECOVERY_COOLDOWN_DAYS]
     );
     const blocked = new Set(existing.rows.map((row) => row.phone));
     // Shared daily quota across Plus abandonment, iMenu abandonment and activation.
@@ -316,8 +323,7 @@ const recoveryActivity = {
 } as const;
 
 async function loadTodayRecoveryForecast(day: string) {
-    const feedback = await getFirstMonthFeedbackRecipients(day);
-    const { sendable } = await getRecoveryPlan(day, new Set(feedback.map(row => row.phone)));
+    const { sendable } = await getRecoveryPlan(day);
     return sendable;
 }
 
