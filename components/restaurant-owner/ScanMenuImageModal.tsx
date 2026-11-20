@@ -160,7 +160,11 @@ function ScanModal({
     const [toast, setToast] = useState<{
         message: string;
         type: "success" | "error";
+        duration?: number;
     } | null>(null);
+    const dismissToast = useCallback(() => {
+        setToast((current) => current === toast ? null : current);
+    }, [toast]);
     const [isScanning, setIsScanning] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [scanResult, setScanResult] = useState<ScannedResult | null>(null);
@@ -289,7 +293,13 @@ function ScanModal({
     }
 
     function scheduleToastClear(delay = 3000) {
-        window.setTimeout(() => setToast(null), delay);
+        window.setTimeout(() => {
+            setToast((current) => current?.duration === undefined ? null : current);
+        }, delay);
+    }
+
+    function showScanError(message: string) {
+        setToast({ message, type: "error", duration: 10_000 });
     }
 
     async function handleFilesSelected(selectedFiles: FileList | null) {
@@ -446,7 +456,7 @@ function ScanModal({
             if (!response.ok) {
                 scanAttempt.current = null;
                 setIsScanning(false);
-                setToast({ message: json?.error || "O Scan com IA falhou", type: "error" });
+                showScanError(json?.error || "O Scan com IA falhou");
                 return;
             }
 
@@ -456,10 +466,7 @@ function ScanModal({
         } catch (error: unknown) {
             if (scanAttempt.current !== attempt) return;
             console.error(error);
-            setToast({
-                message: "AI scan error: " + (error instanceof Error ? error.message : String(error)),
-                type: "error",
-            });
+            showScanError("AI scan error: " + (error instanceof Error ? error.message : String(error)));
         } finally {
             if (scanAttempt.current === attempt) setIsScanning(false);
         }
@@ -1188,7 +1195,8 @@ function ScanModal({
                 <Toast
                     message={toast.message}
                     type={toast.type}
-                    onClose={() => setToast(null)}
+                    duration={toast.duration}
+                    onClose={dismissToast}
                 />
             )}
         </>
