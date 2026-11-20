@@ -272,6 +272,10 @@ export default function HistoryModal({
                 )}
 
                 {program && (
+                    <h2 className="text-lg font-semibold text-[var(--im-menu-text,#111827)]">Fidelidade</h2>
+                )}
+
+                {program && (
                     <div className="space-y-3 rounded-xl border border-[var(--im-menu-border,#e5e7eb)] bg-[var(--im-menu-soft,#f9fafb)] p-4">
                         <h3 className="font-semibold">Como funciona</h3>
                         <p className="text-sm">
