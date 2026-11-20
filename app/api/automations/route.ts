@@ -9,6 +9,7 @@ import { IA_PLUS_FEATURE_MESSAGE } from "@/lib/addons/products";
 import {
   AUTOMATION_KINDS,
   readAutomationSettings,
+  type AutomationSettings,
 } from "@/lib/services/crmRules";
 import { automationOffers } from "@/lib/services/crmAutomations";
 export const dynamic = "force-dynamic";
@@ -135,7 +136,7 @@ async function handle(request: NextRequest, save: boolean) {
       return NextResponse.json({ settings });
     }
     const [settings, offers, connection, plus] = await Promise.all([
-      query(
+      query<{ automations: Partial<AutomationSettings> | null }>(
         "SELECT automations FROM whatsapp_bot_settings WHERE restaurant_id=$1",
         [id],
       ),
@@ -146,9 +147,11 @@ async function handle(request: NextRequest, save: boolean) {
       ),
       hasIMenuPlusAccess(id),
     ]);
+    const savedAutomations = settings.rows[0]?.automations;
     return NextResponse.json(
       {
-        settings: readAutomationSettings(settings.rows[0]?.automations),
+        settings: readAutomationSettings(savedAutomations),
+        configuredKinds: AUTOMATION_KINDS.filter((kind) => typeof savedAutomations?.[kind]?.enabled === "boolean"),
         plus,
         offers: offers.map(({ value, label }) => ({ value, label })),
         connected: connection.rows[0]?.status === "WORKING",

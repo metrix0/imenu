@@ -78,3 +78,16 @@ test("rejects a kind outside the marketing switches", async () => {
     expect((await PATCH(toggleRequest({ kind: "ai_enabled", enabled: true }))).status).toBe(400);
     expect(query).not.toHaveBeenCalled();
 });
+
+test("setup can distinguish an explicit opt-out from an unconfigured marketing rule", async () => {
+    (hasIMenuPlusAccess as jest.Mock).mockResolvedValue(true);
+    (query as jest.Mock).mockResolvedValueOnce({
+        rows: [{ automations: { cart: { enabled: false }, habit: { enabled: true }, reactivation: { message: "Volte sempre" } } }],
+    });
+    const response = await GET(new NextRequest("http://localhost/api/automations?restaurantId=restaurant"));
+    const { configuredKinds, settings } = await response.json();
+    expect(configuredKinds).toEqual(["cart", "habit"]);
+    expect(settings.cart.enabled).toBe(false);
+    expect(settings.habit.enabled).toBe(true);
+    expect(settings.reactivation.enabled).toBe(false);
+});

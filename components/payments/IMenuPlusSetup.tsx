@@ -3,10 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
-    ArrowLeft, ArrowRight, Bot, CalendarClock, ChevronRight, Moon, PackageCheck,
+    ArrowLeft, ArrowRight, Bot, CalendarClock, Moon, PackageCheck,
     Settings, ShoppingCart, Sparkles, TrendingUp, UserRoundCheck,
 } from "lucide-react";
 
+import { SupportWhatsappBadge } from "@/components/common/SupportButton";
+import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import ModalFlowStep from "@/components/ui/ModalFlowStep";
@@ -19,7 +21,7 @@ import { AUTOMATION_KINDS, AUTOMATION_LABELS, type AutomationKind, type Automati
 import { useAutoSave } from "@/lib/utils/useAutoSave";
 
 const CHECKOUT_STEPS = [
-    { title: "Obrigado pela compra!", description: "Seu iMenu Plus está ativo! Escolha os recursos que quer usar agora." },
+    { title: "Obrigado pela compra!", description: "Seu iMenu Plus está ativo! Ative os recursos automaticamente." },
     { title: "Marketing WhatsApp", description: "Escolha quais mensagens enviar automaticamente." },
     { title: "Robô WhatsApp", description: "Escolha como o robô pode ajudar no atendimento aos seus clientes." },
     { title: "Seu cardápio", description: "Personalize o visual e as recomendações do seu cardápio." },
@@ -37,22 +39,30 @@ const SETTINGS = [
     { key: "darkMenu", title: "Cardápio com Tema Escuro", description: "Mostre o cardápio com o visual escuro para seus clientes.", icon: Moon, step: 3 },
 ] as const;
 
-const SHORTCUTS = [
-    { href: "/painel/marketing", title: "Marketing WhatsApp", description: "Mensagens, ofertas e limites de envio", icon: CalendarClock },
-    { href: "/painel/robo-whatsapp", title: "Robô WhatsApp", description: "Conexão e mensagens do robô", icon: Bot },
-    { href: "/painel/cardapio", title: "Cardápio", description: "Fotos, vídeos e recomendações", icon: ShoppingCart },
-    { href: "/painel/configuracoes", title: "Configurações", description: "Tema e download do cardápio em PDF", icon: Settings },
-    { href: "/painel/assistente-ia", title: "Assistente IA", description: "Converse sobre a sua loja", icon: Sparkles },
-    { href: "/painel/vendas-ia", title: "Vendas IA", description: "Acompanhe as análises de vendas", icon: TrendingUp },
+const PANEL_SECTIONS = [
+    { title: "Marketing WhatsApp", description: "Mensagens, ofertas e limites de envio", icon: CalendarClock },
+    { title: "Robô WhatsApp", description: "Conexão e mensagens do robô", icon: Bot },
+    { title: "Cardápio", description: "Fotos, vídeos e recomendações", icon: ShoppingCart },
+    { title: "Configurações", description: "Tema e download do cardápio em PDF", icon: Settings },
+    { title: "Assistente IA", description: "Converse sobre a sua loja", icon: Sparkles },
+    { title: "Vendas IA", description: "Acompanhe as análises de vendas", icon: TrendingUp },
 ] as const;
 
 type SettingKey = typeof SETTINGS[number]["key"];
 type Values = Record<SettingKey, boolean>;
-type Setup = { values: Values; connected: boolean };
+type MarketingReview = {
+    choices: Pick<Values, AutomationKind>;
+    unconfigured: AutomationKind[];
+};
+type Setup = { values: Values; connected: boolean; marketingReview: MarketingReview | null };
+
+function isMarketingSetting(key: SettingKey): key is AutomationKind {
+    return AUTOMATION_KINDS.some((kind) => kind === key);
+}
 
 async function loadSetup(id: string): Promise<Setup> {
     const [marketing, whatsapp, upsell, restaurant] = await Promise.all([
-        crmRequest("/api/automations", id) as Promise<{ plus: boolean; settings: AutomationSettings; connected: boolean }>,
+        crmRequest("/api/automations", id) as Promise<{ plus: boolean; settings: AutomationSettings; configuredKinds: AutomationKind[]; connected: boolean }>,
         crmRequest("/api/whatsapp/settings", id) as Promise<{ plus: boolean; aiEnabled: boolean; orderNotificationsEnabled: boolean }>,
         supabase.from("automatic_upsell").select("enabled").eq("restaurant_id", id).maybeSingle(),
         supabase.from("restaurants").select("dark_menu_enabled").eq("id", id).single(),
@@ -60,8 +70,14 @@ async function loadSetup(id: string): Promise<Setup> {
     if (!marketing.plus || !whatsapp.plus) throw new Error("Os ajustes rápidos estão disponíveis com o iMenu Plus ativo.");
     if (upsell.error || restaurant.error) throw new Error("Não foi possível carregar as configurações do cardápio.");
 
+    const unconfigured = AUTOMATION_KINDS.filter((kind) => !marketing.configuredKinds.includes(kind));
+    const suggested = (kind: AutomationKind) => unconfigured.includes(kind) || marketing.settings[kind].enabled;
     return {
         connected: marketing.connected,
+        marketingReview: unconfigured.length ? {
+            choices: { habit: suggested("habit"), reactivation: suggested("reactivation"), cart: suggested("cart") },
+            unconfigured,
+        } : null,
         values: {
             habit: marketing.settings.habit.enabled,
             reactivation: marketing.settings.reactivation.enabled,
@@ -91,7 +107,7 @@ async function saveSetting(id: string, key: SettingKey, enabled: boolean) {
         if (!response.ok) throw new Error("Não foi possível salvar o tema do cardápio.");
         return;
     }
-    const marketing = AUTOMATION_KINDS.includes(key as AutomationKind);
+    const marketing = isMarketingSetting(key);
     await crmRequest(marketing ? "/api/automations" : "/api/whatsapp/settings", id, {
         method: "PATCH",
         body: JSON.stringify(marketing ? { kind: key, enabled } : { [key]: enabled }),
@@ -100,7 +116,7 @@ async function saveSetting(id: string, key: SettingKey, enabled: boolean) {
 
 type IMenuPlusSetupProps = {
     restaurantId: string | null;
-    onClose: (href?: string) => void;
+    onClose: () => void;
     onSavingChange: (saving: boolean) => void;
 };
 
@@ -159,18 +175,46 @@ export default function IMenuPlusSetup({ restaurantId, onClose, onSavingChange }
         setAnimate(true);
         setStep(next);
     };
+    const scheduleSettings = (next: Setup) => {
+        setSetup(next);
+        onSavingChange(true);
+        save.schedule(next.values);
+    };
+
     const toggle = (key: SettingKey, checked: boolean) => {
         if (!setup) return;
-        const values = { ...setup.values, [key]: checked };
-        setSetup({ ...setup, values });
-        onSavingChange(true);
-        save.schedule(values);
+        if (setup.marketingReview && isMarketingSetting(key)) {
+            setSetup({
+                ...setup,
+                marketingReview: {
+                    ...setup.marketingReview,
+                    choices: { ...setup.marketingReview.choices, [key]: checked },
+                },
+            });
+            return;
+        }
+        scheduleSettings({ ...setup, values: { ...setup.values, [key]: checked } });
     };
 
     const current = CHECKOUT_STEPS[step];
     const final = step === FINAL_STEP;
     const settingsStep = step > 0 && !final;
-    const canNavigate = !saving;
+    const reviewingMarketing = step === 1 ? setup?.marketingReview : null;
+
+    const advance = () => {
+        if (final) { onClose(); return; }
+        if (step === 0) setSkippedSetup(false);
+        if (setup && reviewingMarketing) {
+            // An explicit off choice must persist even for a rule that had no saved value.
+            for (const kind of reviewingMarketing.unconfigured) delete persisted.current[kind];
+            scheduleSettings({
+                ...setup,
+                values: { ...setup.values, ...reviewingMarketing.choices },
+                marketingReview: null,
+            });
+        }
+        goToStep(step + 1);
+    };
 
     return (
         <div className="h-full min-h-0 overflow-hidden">
@@ -210,7 +254,9 @@ export default function IMenuPlusSetup({ restaurantId, onClose, onSavingChange }
                             )}
                             {SETTINGS.filter((setting) => setting.step === step).map(({ key, title, description, icon: Icon }) => (
                                 <ToggleOptionCard key={key} label={title} description={description}
-                                    checked={setup.values[key]} onChange={(checked) => toggle(key, checked)}
+                                    checked={reviewingMarketing && isMarketingSetting(key) ? reviewingMarketing.choices[key] : setup.values[key]}
+                                    onChange={(checked) => toggle(key, checked)}
+                                    badge={key === "darkMenu" ? <Badge variant="neutral">Opcional</Badge> : undefined}
                                     ariaLabel={title} icon={<Icon size={18} aria-hidden="true" />} className="max-sm:p-3!" />
                             ))}
                         </div>
@@ -230,25 +276,23 @@ export default function IMenuPlusSetup({ restaurantId, onClose, onSavingChange }
                     )}
 
                     {final && (
-                        <div className="mt-5 grid gap-2 sm:grid-cols-2">
-                            {SHORTCUTS.map(({ href, title, description, icon: Icon }) => (
-                                <a key={href} href={href} aria-disabled={!canNavigate}
-                                    className="flex min-h-[64px] items-center gap-3 rounded-lg border border-gray-200 bg-white p-3 text-left hover:bg-gray-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-60"
-                                    onClick={(event) => {
-                                        if (!canNavigate) { event.preventDefault(); return; }
-                                        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-                                        event.preventDefault();
-                                        onClose(href);
-                                    }}>
-                                    <Icon size={18} aria-hidden="true" className="shrink-0 text-brand" />
-                                    <span className="min-w-0 flex-1">
-                                        <span className="block text-sm font-medium text-gray-900">{title}</span>
-                                        <span className="block text-xs text-gray-600">{description}</span>
-                                    </span>
-                                    <ChevronRight size={16} aria-hidden="true" className="shrink-0 text-gray-500" />
-                                </a>
-                            ))}
-                        </div>
+                        <>
+                            <ul className="mt-5 grid gap-2 sm:grid-cols-2">
+                                {PANEL_SECTIONS.map(({ title, description, icon: Icon }) => (
+                                    <li key={title} className="flex min-h-[64px] items-center gap-3 rounded-lg border border-gray-200 bg-white p-3">
+                                        <Icon size={18} aria-hidden="true" className="shrink-0 text-brand" />
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-medium text-gray-900">{title}</p>
+                                            <p className="text-xs text-gray-600">{description}</p>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                            <div className="mt-4 flex flex-wrap items-center gap-2">
+                                <p className="text-sm text-gray-600">Lembre-se de que o iMenu Plus inclui <strong>atendimento prioritário</strong>.</p>
+                                <SupportWhatsappBadge />
+                            </div>
+                        </>
                     )}
                 </div>
                 <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-gray-200 bg-white px-4 py-4 sm:gap-3 sm:px-8">
@@ -259,14 +303,10 @@ export default function IMenuPlusSetup({ restaurantId, onClose, onSavingChange }
                             leftIcon={<ArrowLeft size={16} aria-hidden="true" />}>Voltar</Button>
                     )}
                     <Button type="button"
-                        disabled={final && !canNavigate}
+                        disabled={(final && saving) || (step === 1 && Boolean(restaurantId) && !setup && !loadError)}
                         rightIcon={final ? undefined : <ArrowRight size={16} aria-hidden="true" />}
-                        onClick={() => {
-                            if (final) { onClose(); return; }
-                            if (step === 0) setSkippedSetup(false);
-                            goToStep(step + 1);
-                        }}>
-                        {final ? "Concluir" : step === 0 ? "Configurar agora" : "Continuar"}
+                        onClick={advance}>
+                        {final ? "Concluir" : step === 0 ? "Configurar agora" : reviewingMarketing ? "Confirmar e continuar" : "Continuar"}
                     </Button>
                 </div>
             </ModalFlowStep>

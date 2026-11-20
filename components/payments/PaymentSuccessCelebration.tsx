@@ -40,7 +40,7 @@ type PaymentSuccessCelebrationProps = {
     | {
         renderSetup: (props: {
             restaurantId: string | null;
-            onClose: (href?: string) => void;
+            onClose: () => void;
             onSavingChange: (saving: boolean) => void;
         }) => ReactNode;
         title?: never;
@@ -299,7 +299,7 @@ export default function PaymentSuccessCelebration({
         };
     }, [popup.open]);
 
-    const closeCelebration = (href?: string) => {
+    const closeCelebration = () => {
         if (savingSetupRef.current) return;
         if (setupHandoffKey) {
             try {
@@ -314,10 +314,7 @@ export default function PaymentSuccessCelebration({
         setRequested(false);
         setPurchasedRestaurantId(null);
 
-        if (href) {
-            reloadAfterCloseRef.current = false;
-            window.location.assign(href);
-        } else if (reloadAfterCloseRef.current) {
+        if (reloadAfterCloseRef.current) {
             reloadAfterCloseRef.current = false;
             window.location.reload();
         }
