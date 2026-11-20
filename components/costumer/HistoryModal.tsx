@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
     faStar,
     faTrophy,
@@ -64,6 +64,64 @@ function formatPhone(value: string): string {
 function phoneIsValid(value: string): boolean {
     const digits = value.replace(/\D/g, "");
     return digits.length === 10 || digits.length === 11;
+}
+
+function LoyaltyStampRows({ goal, current }: { goal: number; current: number }) {
+    const container = useRef<HTMLDivElement>(null);
+    const [capacity, setCapacity] = useState(5);
+
+    useEffect(() => {
+        const element = container.current;
+        if (!element) return;
+
+        const measure = () => {
+            const row = element.firstElementChild;
+            const stamp = row?.firstElementChild;
+            if (!(stamp instanceof HTMLElement) || !row || !element.clientWidth) return;
+            const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
+            setCapacity(Math.max(1, Math.floor((element.clientWidth + gap) / (stamp.offsetWidth + gap))));
+        };
+
+        const observer = new ResizeObserver(measure);
+        measure();
+        observer.observe(element);
+        return () => observer.disconnect();
+    }, []);
+
+    const rowCount = Math.ceil(goal / capacity);
+    const stampsPerRow = Math.floor(goal / rowCount);
+    const extraStamps = goal % rowCount;
+
+    return (
+        <div ref={container} className="flex w-full min-w-0 flex-col gap-2 py-6" aria-hidden="true">
+            {Array.from({ length: rowCount }, (_, rowIndex) => {
+                const start = rowIndex * stampsPerRow + Math.min(rowIndex, extraStamps);
+                const length = stampsPerRow + (rowIndex < extraStamps ? 1 : 0);
+
+                return (
+                    <div key={rowIndex} className="flex justify-center gap-2">
+                        {Array.from({ length }, (_, index) => {
+                            const position = start + index + 1;
+                            const filled = position <= current;
+
+                            return (
+                                <div
+                                    key={position}
+                                    className={`flex size-8 shrink-0 items-center justify-center rounded-full border-2 transition-all duration-300 ${
+                                        filled
+                                            ? "scale-110 border-[var(--im-menu-action,#f14400)] bg-[var(--im-menu-action,#f14400)] text-white"
+                                            : "border-[var(--im-menu-border,#e5e7eb)] text-[var(--im-menu-subtle,#e5e7eb)]"
+                                    }`}
+                                >
+                                    <FontAwesomeIcon icon={faStar} className="text-xs" />
+                                </div>
+                            );
+                        })}
+                    </div>
+                );
+            })}
+        </div>
+    );
 }
 
 export default function HistoryModal({
@@ -163,32 +221,7 @@ export default function HistoryModal({
     const renderProgress = () => {
         return (
             <div className="flex flex-col items-center">
-                <div className="flex flex-wrap gap-2 justify-center py-6">
-                    {Array.from(
-                        { length: goal },
-                        (_, index) => {
-                            const position = index + 1;
-                            const filled =
-                                position <= current;
-
-                            return (
-                                <div
-                                    key={position}
-                                    className={`flex h-8 w-8 items-center justify-center rounded-full border-2 transition-all duration-300 ${
-                                        filled
-                                            ? "scale-110 border-[var(--im-menu-action,#f14400)] bg-[var(--im-menu-action,#f14400)] text-white"
-                                            : "border-[var(--im-menu-border,#e5e7eb)] text-[var(--im-menu-subtle,#e5e7eb)]"
-                                    }`}
-                                >
-                                    <FontAwesomeIcon
-                                        icon={faStar}
-                                        className="text-xs"
-                                    />
-                                </div>
-                            );
-                        }
-                    )}
-                </div>
+                <LoyaltyStampRows goal={goal} current={current} />
 
                 {canRedeem ? (
                     <div className="w-full animate-fadeUp">
