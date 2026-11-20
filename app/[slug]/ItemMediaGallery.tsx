@@ -80,9 +80,8 @@ export default function ItemMediaGallery({ name, image, media = [] }: {
                                 muted
                                 playsInline
                                 loop
-                                controls={active === index}
                                 aria-label={`Vídeo de ${name}`}
-                                className="h-full w-full object-cover"
+                                className="pointer-events-none h-full w-full object-cover"
                                 onError={() => setVideoFailed(true)}
                             />
                         )}

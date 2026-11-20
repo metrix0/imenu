@@ -612,7 +612,7 @@ export default function ItemModal({
 
             <div ref={modalStart} className={"md:grid md:grid-cols-2"}>
 
-            <div className="group relative w-full h-[260px] md:h-auto md:aspect-square">
+            <div className="relative w-full h-[260px] md:h-auto md:aspect-square">
                 <ItemMediaGallery key={shownItem.id} name={shownItem.name} image={shownItem.image_public_url} media={shownItem.gallery_media} />
 
                 <button
@@ -623,7 +623,7 @@ export default function ItemModal({
                     <FontAwesomeIcon icon={icons.faTimes} className={"!hidden md:!block"} />
                 </button>
 
-                <div className="absolute left-4 bottom-4 group-has-[video[controls]]:bottom-16 bg-[var(--im-menu-surface,#fff)] shadow-md rounded-full px-3 2xl:px-5 pr-4 2xl:pr-8 py-2 2xl:py-2 flex items-center gap-2 leading-none">
+                <div className="absolute left-4 bottom-4 bg-[var(--im-menu-surface,#fff)] shadow-md rounded-full px-3 2xl:px-5 pr-4 2xl:pr-8 py-2 2xl:py-2 flex items-center gap-2 leading-none">
                     {restaurant.logo_url && (
                         <Image
                             src={restaurant.logo_url}
