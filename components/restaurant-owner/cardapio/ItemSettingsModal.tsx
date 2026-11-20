@@ -73,16 +73,19 @@ export default function ItemSettingsModal({ item, restaurantId, open, onClose, o
                     <p className="mt-1 text-sm text-gray-500">{item.name}</p>
                 </div>
                 <ItemMediaSettings item={item} restaurantId={restaurantId} onUpdated={onUpdated} onBusyChange={setMediaBusy} />
-                <div className="divide-y divide-gray-100 rounded-lg border border-gray-200">
-                    <div className="flex items-center justify-between gap-4 p-4">
-                        <span id={`delivery-${item.id}`} className="text-sm font-medium text-gray-900">Disponível para delivery</span>
-                        <Switch checked={availability.available_for_delivery} onClick={() => update("available_for_delivery")} aria-labelledby={`delivery-${item.id}`} />
+                <section className="space-y-2">
+                    <h3 className="text-sm font-medium text-gray-900">Disponibilidade</h3>
+                    <div className="divide-y divide-gray-100 rounded-lg border border-gray-200">
+                        <div className="flex items-center justify-between gap-4 p-4">
+                            <span id={`delivery-${item.id}`} className="text-sm font-medium text-gray-900">Disponível para delivery</span>
+                            <Switch checked={availability.available_for_delivery} onClick={() => update("available_for_delivery")} aria-labelledby={`delivery-${item.id}`} />
+                        </div>
+                        <div className="flex items-center justify-between gap-4 p-4">
+                            <span id={`salao-${item.id}`} className="text-sm font-medium text-gray-900">Disponível para salão</span>
+                            <Switch checked={availability.available_for_salao} onClick={() => update("available_for_salao")} aria-labelledby={`salao-${item.id}`} />
+                        </div>
                     </div>
-                    <div className="flex items-center justify-between gap-4 p-4">
-                        <span id={`salao-${item.id}`} className="text-sm font-medium text-gray-900">Disponível para salão</span>
-                        <Switch checked={availability.available_for_salao} onClick={() => update("available_for_salao")} aria-labelledby={`salao-${item.id}`} />
-                    </div>
-                </div>
+                </section>
                 {save.error && <p role="alert" className="text-sm text-red-600">{save.error}</p>}
                 <Button variant="secondary" onClick={() => void copyLink()} className="gap-2">
                     <FontAwesomeIcon icon={copied ? icons.faCheck : icons.faLink} />

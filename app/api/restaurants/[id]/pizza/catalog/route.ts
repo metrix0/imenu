@@ -22,7 +22,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
             is_available: item.is_available, position: item.position, category: item.category,
             category_id: item.category_id, promotion: item.promotion, image_path: item.image_path,
             image_public_url: getMenuItemImageUrl(supabase, item.image_path),
-            gallery_media: item.image_path ? getPublicItemMedia(supabase, item.gallery_media) : [],
+            gallery_media: getPublicItemMedia(supabase, item.gallery_media),
             subcategories: item.subcategories,
             pizza_same_category_only: settings.same_category_only,
         })) }, { headers: { "Cache-Control": "no-store" } });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { faChevronRight, faFilm, faImage, faSpinner } from "@fortawesome/free-solid-svg-icons";
+import { faArrowRight, faFilm, faImage, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import Button from "@/components/ui/Button";
 import { PanelIcon } from "@/components/ui/PanelIcon";
 import SaveStatus from "@/components/ui/SaveStatus";
@@ -15,7 +15,7 @@ import { MAX_ITEM_MEDIA, MENU_VIDEO_TYPES, getPublicItemMedia, readItemMedia, ty
 import type { MenuItemSettingsUpdate, MenuItemType } from "./MenuItemRow";
 
 type Slots = (ItemMedia | null)[];
-const mediaControl = "h-7 w-7 cursor-pointer rounded text-gray-500 disabled:cursor-default disabled:opacity-30";
+const mediaControl = "grid h-8 w-8 cursor-pointer place-items-center rounded text-gray-700 transition-colors disabled:cursor-default";
 
 function movedMedia(media: Slots, from: number, to: number): Slots | null {
     if (from === to || to < 0 || to >= media.length || !media[from] || !media[to]) return null;
@@ -77,7 +77,6 @@ export default function ItemMediaSettings({ item, restaurantId, onUpdated, onBus
     const uploadSlot = media[0] ? media.length : 0;
     const canUpload = uploadSlot < MAX_ITEM_MEDIA;
     const acceptsVideo = uploadSlot > 0 && !media.some(entry => entry?.type === "video");
-    const canRemoveCover = media.length === 1 || media.slice(1).some(entry => entry?.type === "image");
 
     const changeMedia = (next: Slots) => {
         setMedia(next);
@@ -125,17 +124,14 @@ export default function ItemMediaSettings({ item, restaurantId, onUpdated, onBus
             return;
         }
         const nextCover = media.findIndex((entry, position) => position > 0 && entry?.type === "image");
-        if (nextCover === -1) {
-            if (media.length === 1) changeMedia([null]);
-            return;
-        }
-        changeMedia([media[nextCover], ...media.filter((_, position) => position > 0 && position !== nextCover)]);
+        changeMedia([media[nextCover] ?? null, ...media.filter((_, position) => position > 0 && position !== nextCover)]);
     };
 
     return (
         <section aria-label="Mídias do item" className="space-y-2">
             <SaveStatus status={uploading ? "saving" : save.status} />
             <h3 className="text-sm font-medium text-gray-900">Mídias <span className="ml-1 font-normal text-gray-500">{media.filter(Boolean).length}/{MAX_ITEM_MEDIA}</span></h3>
+            <p className="text-xs text-gray-500">A primeira mídia é a foto principal. Vídeo de até 30 s e 12 MB.</p>
             <input
                 ref={fileInput}
                 type="file"
@@ -148,7 +144,6 @@ export default function ItemMediaSettings({ item, restaurantId, onUpdated, onBus
                 {Array.from({ length: MAX_ITEM_MEDIA }, (_, index) => {
                     const entry = media[index];
                     const label = index === 0 ? "Foto principal" : `Mídia ${index + 1}`;
-                    const canRemove = index > 0 || canRemoveCover;
                     return (
                         <div key={index} className="min-w-0">
                             <div
@@ -199,21 +194,21 @@ export default function ItemMediaSettings({ item, restaurantId, onUpdated, onBus
                                                 aria-label={`Mover ${label} para a ${side}`}
                                                 disabled={uploading || !movedMedia(media, index, index + direction)}
                                                 onClick={() => move(index, index + direction)}
-                                                className={`${mediaControl} hover:bg-gray-100`}
+                                                className={`${mediaControl} enabled:hover:bg-orange-50 enabled:hover:text-brand`}
                                             >
-                                                <PanelIcon icon={direction < 0 ? icons.faChevronLeft : faChevronRight} className="text-xs" />
+                                                <PanelIcon icon={direction < 0 ? icons.faArrowLeft : faArrowRight} className="text-xl" />
                                             </button>
                                         );
                                     })}
                                     <button
                                         type="button"
-                                        title={canRemove ? "Remover mídia" : "Remova o vídeo primeiro ou adicione outra foto"}
+                                        title="Remover mídia"
                                         aria-label={`Remover ${label}`}
-                                        disabled={uploading || !canRemove}
+                                        disabled={uploading}
                                         onClick={() => remove(index)}
-                                        className={`${mediaControl} hover:text-red-600`}
+                                        className={`${mediaControl} enabled:hover:bg-red-50 enabled:hover:text-red-600`}
                                     >
-                                        <PanelIcon icon={icons.faTrash} className="text-xs" />
+                                        <PanelIcon icon={icons.faTrash} />
                                     </button>
                                 </div>
                             )}
@@ -221,7 +216,6 @@ export default function ItemMediaSettings({ item, restaurantId, onUpdated, onBus
                     );
                 })}
             </div>
-            <p className="text-xs text-gray-500">A primeira mídia é a foto principal.{acceptsVideo && canUpload ? " Vídeo de até 30 s e 12 MB." : ""}</p>
             {uploadError && <p role="alert" className="text-sm text-red-600">{uploadError}</p>}
             {save.error && <div className="flex flex-wrap items-center gap-2"><p role="alert" className="text-sm text-red-600">{save.error}</p><Button variant="secondary" onClick={() => save.retry()} disabled={uploading}>Tentar novamente</Button></div>}
         </section>

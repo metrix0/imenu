@@ -358,7 +358,7 @@ export default async function Page({
     .map((item: any) => ({
       ...item,
       image_public_url: getMenuItemImageUrl(supabase, item.image_path),
-      gallery_media: item.image_path ? getPublicItemMedia(supabase, item.gallery_media) : [],
+      gallery_media: getPublicItemMedia(supabase, item.gallery_media),
     }));
 
   // ======================

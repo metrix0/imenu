@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useState, type RefObject } from "react";
 import type { Category, Item, ItemsByCategory } from "@/lib/types/types";
 
-const PREVIEW_DELAY = 4000;
+const PREVIEW_DELAY = 2000;
 const PREVIEW_SELECTOR = "[data-menu-preview]";
 type Connection = { saveData?: boolean; effectiveType?: string };
 
