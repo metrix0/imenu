@@ -1248,8 +1248,9 @@ export default function MenuClientPage({
                             aria-label="Fidelidade"
                             title="Fidelidade"
                             onClick={() => setHistoryOpen(true)}
+                            className="border border-[var(--im-menu-border,#d1d5db)]"
                         >
-                            <FontAwesomeIcon icon={faGift} />
+                            <FontAwesomeIcon icon={faGift} className="text-[var(--im-menu-muted,#6b7280)]" />
                         </Button>
                     )}
                     <Input
