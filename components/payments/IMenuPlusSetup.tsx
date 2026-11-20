@@ -1,0 +1,275 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
+import {
+    ArrowLeft, ArrowRight, Bot, CalendarClock, ChevronRight, Moon, PackageCheck,
+    Settings, ShoppingCart, Sparkles, TrendingUp, UserRoundCheck,
+} from "lucide-react";
+
+import Button from "@/components/ui/Button";
+import Loader from "@/components/ui/Loader";
+import ModalFlowStep from "@/components/ui/ModalFlowStep";
+import SaveStatus from "@/components/ui/SaveStatus";
+import ToggleOptionCard from "@/components/ui/ToggleOptionCard";
+import { crmRequest } from "@/lib/api/crm";
+import { supabase } from "@/lib/database/supabaseClient";
+import { qrTableAuthenticatedFetch } from "@/lib/qr-table/clientApi";
+import { AUTOMATION_KINDS, AUTOMATION_LABELS, type AutomationKind, type AutomationSettings } from "@/lib/services/crmRules";
+import { useAutoSave } from "@/lib/utils/useAutoSave";
+
+const CHECKOUT_STEPS = [
+    { title: "Obrigado pela compra!", description: "Seu iMenu Plus está ativo! Escolha os recursos que quer usar agora." },
+    { title: "Marketing WhatsApp", description: "Escolha quais mensagens enviar automaticamente." },
+    { title: "Robô WhatsApp", description: "Escolha como o robô pode ajudar no atendimento aos seus clientes." },
+    { title: "Seu cardápio", description: "Personalize o visual e as recomendações do seu cardápio." },
+    { title: "Explore seu iMenu Plus", description: "Você pode fazer os demais ajustes nas páginas do painel a qualquer momento." },
+] as const;
+const FINAL_STEP = CHECKOUT_STEPS.length - 1;
+
+const SETTINGS = [
+    { key: "habit", title: AUTOMATION_LABELS.habit, description: "Lembre o cliente de pedir no horário em que ele costuma comprar.", icon: CalendarClock, step: 1 },
+    { key: "reactivation", title: AUTOMATION_LABELS.reactivation, description: "Convide clientes que estão há um tempo sem pedir a voltar.", icon: UserRoundCheck, step: 1 },
+    { key: "cart", title: AUTOMATION_LABELS.cart, description: "Incentive clientes a finalizar pedidos deixados no carrinho.", icon: ShoppingCart, step: 1 },
+    { key: "aiEnabled", title: "Robô com IA", description: "Responda dúvidas sobre o cardápio automaticamente.", icon: Bot, step: 2 },
+    { key: "orderNotificationsEnabled", title: "Atualizações de pedidos", description: "Avise quando o pedido estiver pronto ou sair para entrega.", icon: PackageCheck, step: 2 },
+    { key: "upsell", title: "Upsell Automático", description: "Sugira itens complementares no carrinho.", icon: TrendingUp, step: 3 },
+    { key: "darkMenu", title: "Cardápio com Tema Escuro", description: "Mostre o cardápio com o visual escuro para seus clientes.", icon: Moon, step: 3 },
+] as const;
+
+const SHORTCUTS = [
+    { href: "/painel/marketing", title: "Marketing WhatsApp", description: "Mensagens, ofertas e limites de envio", icon: CalendarClock },
+    { href: "/painel/robo-whatsapp", title: "Robô WhatsApp", description: "Conexão e mensagens do robô", icon: Bot },
+    { href: "/painel/cardapio", title: "Cardápio", description: "Fotos, vídeos e recomendações", icon: ShoppingCart },
+    { href: "/painel/configuracoes", title: "Configurações", description: "Tema e download do cardápio em PDF", icon: Settings },
+    { href: "/painel/assistente-ia", title: "Assistente IA", description: "Converse sobre a sua loja", icon: Sparkles },
+    { href: "/painel/vendas-ia", title: "Vendas IA", description: "Acompanhe as análises de vendas", icon: TrendingUp },
+] as const;
+
+type SettingKey = typeof SETTINGS[number]["key"];
+type Values = Record<SettingKey, boolean>;
+type Setup = { values: Values; connected: boolean };
+
+async function loadSetup(id: string): Promise<Setup> {
+    const [marketing, whatsapp, upsell, restaurant] = await Promise.all([
+        crmRequest("/api/automations", id) as Promise<{ plus: boolean; settings: AutomationSettings; connected: boolean }>,
+        crmRequest("/api/whatsapp/settings", id) as Promise<{ plus: boolean; aiEnabled: boolean; orderNotificationsEnabled: boolean }>,
+        supabase.from("automatic_upsell").select("enabled").eq("restaurant_id", id).maybeSingle(),
+        supabase.from("restaurants").select("dark_menu_enabled").eq("id", id).single(),
+    ]);
+    if (!marketing.plus || !whatsapp.plus) throw new Error("Os ajustes rápidos estão disponíveis com o iMenu Plus ativo.");
+    if (upsell.error || restaurant.error) throw new Error("Não foi possível carregar as configurações do cardápio.");
+
+    return {
+        connected: marketing.connected,
+        values: {
+            habit: marketing.settings.habit.enabled,
+            reactivation: marketing.settings.reactivation.enabled,
+            cart: marketing.settings.cart.enabled,
+            aiEnabled: whatsapp.aiEnabled,
+            orderNotificationsEnabled: whatsapp.orderNotificationsEnabled,
+            upsell: upsell.data?.enabled === true,
+            darkMenu: restaurant.data.dark_menu_enabled === true,
+        },
+    };
+}
+
+async function saveSetting(id: string, key: SettingKey, enabled: boolean) {
+    if (key === "upsell") {
+        const { error } = await supabase.from("automatic_upsell").upsert(
+            { restaurant_id: id, enabled },
+            { onConflict: "restaurant_id" },
+        );
+        if (error) throw new Error("Não foi possível salvar o Upsell Automático.");
+        return;
+    }
+    if (key === "darkMenu") {
+        const response = await qrTableAuthenticatedFetch("/api/menu/dark-theme", {
+            method: "PATCH",
+            body: JSON.stringify({ restaurantId: id, enabled }),
+        });
+        if (!response.ok) throw new Error("Não foi possível salvar o tema do cardápio.");
+        return;
+    }
+    const marketing = AUTOMATION_KINDS.includes(key as AutomationKind);
+    await crmRequest(marketing ? "/api/automations" : "/api/whatsapp/settings", id, {
+        method: "PATCH",
+        body: JSON.stringify(marketing ? { kind: key, enabled } : { [key]: enabled }),
+    });
+}
+
+type IMenuPlusSetupProps = {
+    restaurantId: string | null;
+    onClose: (href?: string) => void;
+    onSavingChange: (saving: boolean) => void;
+};
+
+export default function IMenuPlusSetup({ restaurantId, onClose, onSavingChange }: IMenuPlusSetupProps) {
+    const [step, setStep] = useState(0);
+    const [reverse, setReverse] = useState(false);
+    const [animate, setAnimate] = useState(false);
+    const [skippedSetup, setSkippedSetup] = useState(false);
+    const [attempt, setAttempt] = useState(0);
+    const [setup, setSetup] = useState<Setup | null>(null);
+    const [loadError, setLoadError] = useState("");
+    const persisted = useRef<Partial<Values>>({});
+    const heading = useRef<HTMLHeadingElement>(null);
+
+    useEffect(() => {
+        if (!restaurantId) return;
+        let active = true;
+        void loadSetup(restaurantId).then((data) => {
+            if (!active) return;
+            persisted.current = { ...data.values };
+            setSetup(data);
+        }).catch((error) => {
+            if (active) setLoadError(error instanceof Error ? error.message : "Não foi possível carregar as configurações.");
+        });
+        return () => { active = false; };
+    }, [restaurantId, attempt]);
+
+    const save = useAutoSave<Values>(restaurantId, async (values) => {
+        if (!restaurantId) throw new Error("Restaurante não encontrado.");
+        let failure: unknown;
+        for (const { key } of SETTINGS) {
+            const value = values[key];
+            if (persisted.current[key] === value) continue;
+            // A failed response can follow a successful write. Resend that setting on retry.
+            delete persisted.current[key];
+            try {
+                await saveSetting(restaurantId, key, value);
+                persisted.current[key] = value;
+            } catch (error) {
+                failure ??= error;
+            }
+        }
+        if (failure) throw failure;
+    });
+    const saving = save.status === "saving";
+    useEffect(() => {
+        onSavingChange(saving);
+    }, [onSavingChange, saving]);
+
+    useEffect(() => {
+        if (animate) heading.current?.focus({ preventScroll: true });
+    }, [animate, step]);
+
+    const goToStep = (next: number) => {
+        setReverse(next < step);
+        setAnimate(true);
+        setStep(next);
+    };
+    const toggle = (key: SettingKey, checked: boolean) => {
+        if (!setup) return;
+        const values = { ...setup.values, [key]: checked };
+        setSetup({ ...setup, values });
+        onSavingChange(true);
+        save.schedule(values);
+    };
+
+    const current = CHECKOUT_STEPS[step];
+    const final = step === FINAL_STEP;
+    const settingsStep = step > 0 && !final;
+    const canNavigate = !saving;
+
+    return (
+        <div className="h-full min-h-0 overflow-hidden">
+            <ModalFlowStep key={step} animate={animate} reverse={reverse}>
+                <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-5 pt-7 sm:px-8 sm:pt-8">
+                    <div className={step === 0 ? "flex min-h-full flex-col justify-center text-center" : "relative"}>
+                        {step === 0 && (
+                            <div className="mx-auto mb-5 flex size-20 items-center justify-center rounded-full bg-brand/10">
+                                <Image src="/images/party_popper_emoji.png" alt="" width={64} height={64} className="size-16 object-contain" />
+                            </div>
+                        )}
+                        <p className="mb-2 text-xs font-medium text-gray-500">
+                            Etapa {step + 1} de {CHECKOUT_STEPS.length}
+                        </p>
+                        <div className="flex items-start justify-between gap-3">
+                            <h2 ref={heading} tabIndex={-1} className={`text-2xl font-bold text-gray-900 outline-none sm:text-3xl ${step === 0 ? "mx-auto" : ""}`}>
+                                {current.title}
+                            </h2>
+                            {step > 0 && <SaveStatus status={save.status} className="absolute -top-1.5 right-9 sm:static" />}
+                        </div>
+                        <p className="mt-2 text-sm leading-relaxed text-gray-600 sm:text-base">{current.description}</p>
+                    </div>
+
+                    {save.status === "error" && (
+                        <div role="alert" className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm text-red-700">
+                            <span>{save.error}</span>
+                            <Button type="button" variant="secondary" onClick={save.retry}>Tentar novamente</Button>
+                        </div>
+                    )}
+
+                    {settingsStep && setup && (
+                        <div className="mt-5 space-y-2.5">
+                            {step <= 2 && !setup.connected && (
+                                <p className="pb-1 text-sm text-gray-600">
+                                    Para enviar mensagens, conecte o WhatsApp na página Robô WhatsApp.
+                                </p>
+                            )}
+                            {SETTINGS.filter((setting) => setting.step === step).map(({ key, title, description, icon: Icon }) => (
+                                <ToggleOptionCard key={key} label={title} description={description}
+                                    checked={setup.values[key]} onChange={(checked) => toggle(key, checked)}
+                                    ariaLabel={title} icon={<Icon size={18} aria-hidden="true" />} className="max-sm:p-3!" />
+                            ))}
+                        </div>
+                    )}
+
+                    {settingsStep && !setup && (
+                        loadError || !restaurantId ? (
+                            <div className="mt-5 space-y-3 text-sm text-gray-600">
+                                <p role="status">{loadError || "As configurações estão disponíveis no painel do restaurante."}</p>
+                                {restaurantId && (
+                                    <Button type="button" variant="secondary" onClick={() => { setLoadError(""); setAttempt(attempt + 1); }}>
+                                        Tentar novamente
+                                    </Button>
+                                )}
+                            </div>
+                        ) : <div className="flex min-h-32 items-center justify-center" role="status" aria-label="Carregando configurações"><Loader /></div>
+                    )}
+
+                    {final && (
+                        <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                            {SHORTCUTS.map(({ href, title, description, icon: Icon }) => (
+                                <a key={href} href={href} aria-disabled={!canNavigate}
+                                    className="flex min-h-[64px] items-center gap-3 rounded-lg border border-gray-200 bg-white p-3 text-left hover:bg-gray-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-60"
+                                    onClick={(event) => {
+                                        if (!canNavigate) { event.preventDefault(); return; }
+                                        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                                        event.preventDefault();
+                                        onClose(href);
+                                    }}>
+                                    <Icon size={18} aria-hidden="true" className="shrink-0 text-brand" />
+                                    <span className="min-w-0 flex-1">
+                                        <span className="block text-sm font-medium text-gray-900">{title}</span>
+                                        <span className="block text-xs text-gray-600">{description}</span>
+                                    </span>
+                                    <ChevronRight size={16} aria-hidden="true" className="shrink-0 text-gray-500" />
+                                </a>
+                            ))}
+                        </div>
+                    )}
+                </div>
+                <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-gray-200 bg-white px-4 py-4 sm:gap-3 sm:px-8">
+                    {step === 0 ? (
+                        <Button type="button" variant="secondary" onClick={() => { setSkippedSetup(true); goToStep(FINAL_STEP); }}>Configurar depois</Button>
+                    ) : (
+                        <Button type="button" variant="secondary" onClick={() => goToStep(final && skippedSetup ? 0 : step - 1)}
+                            leftIcon={<ArrowLeft size={16} aria-hidden="true" />}>Voltar</Button>
+                    )}
+                    <Button type="button"
+                        disabled={final && !canNavigate}
+                        rightIcon={final ? undefined : <ArrowRight size={16} aria-hidden="true" />}
+                        onClick={() => {
+                            if (final) { onClose(); return; }
+                            if (step === 0) setSkippedSetup(false);
+                            goToStep(step + 1);
+                        }}>
+                        {final ? "Concluir" : step === 0 ? "Configurar agora" : "Continuar"}
+                    </Button>
+                </div>
+            </ModalFlowStep>
+        </div>
+    );
+}

@@ -2,16 +2,13 @@
 
 import { useCallback } from "react";
 import {
-    faBullhorn,
     faPrint,
     faQrcode,
-    faRocket,
     faUsers,
-    faWandMagicSparkles,
 } from "@fortawesome/free-solid-svg-icons";
 
-import { IA_PLUS_BENEFITS as PLUS_BENEFITS, IA_PLUS_BONUSES } from "@/lib/addons/products";
 import PaymentSuccessCelebration from "@/components/payments/PaymentSuccessCelebration";
+import IMenuPlusSetup from "@/components/payments/IMenuPlusSetup";
 import { reconcileQrTableCheckout } from "@/lib/qr-table/clientApi";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 
@@ -44,12 +41,6 @@ const QR_TABLE_BENEFITS = [
         text: "Pedidos identificados pela mesa no painel e na impressão",
     },
 ] as const;
-
-const PLUS_BENEFIT_ICONS = [faBullhorn, faWandMagicSparkles, faRocket, faQrcode] as const;
-const IA_PLUS_BENEFITS = PLUS_BENEFITS.map((benefit, index) => ({
-    icon: PLUS_BENEFIT_ICONS[index],
-    text: benefit.title,
-}));
 
 export default function AddonPaymentSuccess() {
     const restaurantId = useCreationStore((state) => state.restaurantId);
@@ -93,12 +84,8 @@ export default function AddonPaymentSuccess() {
                 successEventName="imenu:ia-plus-activated"
                 returnPaths={IA_PLUS_RETURN_PATHS}
                 reconcilePayment={reconcileIaPlus}
-                title="Obrigado pela compra!"
-                description="Seu iMenu Plus foi ativado com Marketing WhatsApp, Assistente IA e Vendas IA."
-                benefits={IA_PLUS_BENEFITS}
-                bonusTitle="Bônus inclusos"
-                bonusDescription={IA_PLUS_BONUSES.map((bonus) => bonus.title).join(", ") + "."}
-                actionLabel="Começar a usar"
+                restaurantId={restaurantId}
+                renderSetup={(props) => <IMenuPlusSetup key={props.restaurantId} {...props} />}
             />
         </>
     );

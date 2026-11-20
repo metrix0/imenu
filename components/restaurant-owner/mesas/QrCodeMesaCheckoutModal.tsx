@@ -163,6 +163,7 @@ export default function QrCodeMesaCheckoutModal({
         reconcilePayment,
         loadCardPrefill,
         successEventName: "imenu:ia-plus-activated",
+        successRestaurantId: restaurantId,
         onPaid,
     };
 

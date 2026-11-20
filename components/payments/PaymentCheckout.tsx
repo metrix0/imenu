@@ -63,6 +63,7 @@ export type PaymentCheckoutProps = {
         method: OnlinePaymentMethod
     ) => void | Promise<void>;
     successEventName?: string;
+    successRestaurantId?: string;
     onPaid?: () => void | Promise<void>;
 };
 
@@ -94,6 +95,7 @@ export default function PaymentCheckout({
     loadCardPrefill,
     onPaymentStarted,
     successEventName,
+    successRestaurantId,
     onPaid,
 }: PaymentCheckoutProps) {
     const [phase, setPhase] = useState<Phase>("form");
@@ -123,14 +125,16 @@ export default function PaymentCheckout({
     const completePayment = useCallback(async () => {
         setAwaitingConfirmation(false);
         if (successEventName) {
-            window.dispatchEvent(new Event(successEventName));
+            window.dispatchEvent(successRestaurantId
+                ? new CustomEvent(successEventName, { detail: { restaurantId: successRestaurantId } })
+                : new Event(successEventName));
         }
         if (onPaid) {
             await onPaid();
             return;
         }
         window.location.reload();
-    }, [onPaid, successEventName]);
+    }, [onPaid, successEventName, successRestaurantId]);
 
     useEffect(() => {
         if (!loadCardPrefill) return;

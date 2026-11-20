@@ -55,6 +55,54 @@ async function getAutomationHistory(restaurantId: string, page: number) {
   );
 }
 
+async function updateAutomationToggle(request: NextRequest, id: string) {
+  const body = await request.json().catch(() => null);
+  const kind = AUTOMATION_KINDS.find((option) => option === body?.kind);
+  const enabled = body?.enabled;
+  if (!kind || typeof enabled !== "boolean") {
+    return NextResponse.json({ error: "Alteração inválida." }, { status: 400 });
+  }
+
+  let expectedOffer: string | null = null;
+  if (enabled) {
+    const { rows } = await query<{ automations: unknown; offer: string | null }>(
+      "SELECT automations, (automations->$2::text->'offer')::text AS offer FROM whatsapp_bot_settings WHERE restaurant_id=$1",
+      [id, kind],
+    );
+    const offer = readAutomationSettings(rows[0]?.automations)[kind].offer;
+    expectedOffer = rows[0]?.offer ?? null;
+    if (offer && !(await automationOffers(id)).some((option) => option.value === offer)) {
+      return NextResponse.json(
+        { error: "Selecione uma oferta ativa na página de Marketing." },
+        { status: 400 },
+      );
+    }
+  }
+
+  // Merge only the selected flag. If an offer changed during validation, retry with its new value.
+  const { rows } = await query(
+    `INSERT INTO whatsapp_bot_settings (restaurant_id, automations)
+     VALUES ($1, jsonb_build_object($2::text, jsonb_build_object('enabled', $3::boolean)))
+     ON CONFLICT (restaurant_id) DO UPDATE SET
+       automations = COALESCE(whatsapp_bot_settings.automations, '{}'::jsonb)
+         || jsonb_build_object($2::text,
+           CASE WHEN jsonb_typeof(whatsapp_bot_settings.automations->$2::text) = 'object'
+             THEN whatsapp_bot_settings.automations->$2::text ELSE '{}'::jsonb END
+           || jsonb_build_object('enabled', $3::boolean)),
+       updated_at = now()
+     WHERE NOT $3::boolean OR (whatsapp_bot_settings.automations->$2::text->'offer') IS NOT DISTINCT FROM $4::jsonb
+     RETURNING restaurant_id`,
+    [id, kind, enabled, expectedOffer],
+  );
+  if (!rows.length) {
+    return NextResponse.json(
+      { error: "A oferta desta automação mudou. Tente novamente." },
+      { status: 409 },
+    );
+  }
+  return NextResponse.json({ enabled });
+}
+
 async function handle(request: NextRequest, save: boolean) {
   try {
     const id = request.nextUrl.searchParams.get("restaurantId") || "";
@@ -66,6 +114,7 @@ async function handle(request: NextRequest, save: boolean) {
     }
     if (save) {
       if (!(await hasIMenuPlusAccess(id))) return NextResponse.json({ error: IA_PLUS_FEATURE_MESSAGE, code: "IA_PLUS_REQUIRED" }, { status: 402 });
+      if (request.method === "PATCH") return await updateAutomationToggle(request, id);
       const body = await request.json();
       const settings = readAutomationSettings(body);
       const offers = await automationOffers(id);
@@ -124,3 +173,4 @@ async function handle(request: NextRequest, save: boolean) {
 }
 export const GET = (r: NextRequest) => handle(r, false);
 export const PUT = (r: NextRequest) => handle(r, true);
+export const PATCH = (r: NextRequest) => handle(r, true);
