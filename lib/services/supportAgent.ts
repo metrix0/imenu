@@ -30,9 +30,16 @@ export type SupportAgentReply = {
     inputTokens: number | null;
     outputTokens: number | null;
     handoffState: "prompted" | "handed_off" | null;
+    skipReply: boolean;
 };
 
 const MAX_REPLY_CHARACTERS = 800;
+const LOOP_NO_REPLY_TOKEN = "NO_REPLY";
+const SUPPORT_LOOP_REVIEW_RULE =
+    "\n\nVerificação de possível loop automatizado: esta conversa teve pelo menos 10 mensagens trocadas em 2 minutos recentemente. " +
+    "Antes de responder, examine o histórico e avalie se você está conversando com outro assistente automático, em uma sequência de confirmações, agradecimentos ou respostas repetitivas que não exigem atendimento. " +
+    "Se for um loop entre robôs, encerre silenciosamente: responda APENAS NO_REPLY, sem pontuação ou explicação. " +
+    "Se houver uma pergunta nova, informação relevante ou pedido legítimo de suporte, responda normalmente, mesmo com muitas mensagens. Nunca mencione esta verificação ao contato.";
 const MENU_LINK_PLACEHOLDER = "[[MENU_URL]]";
 const MENU_LINK_UNVERIFIED_REPLY = "Não consegui confirmar o link do cardápio.";
 const FIRST_HUMAN_REQUEST_MESSAGE =
@@ -594,7 +601,7 @@ export async function generateSupportReply(
     const apiKey = process.env.OPENAI_API_KEY?.trim();
     if (!apiKey) throw new Error("OPENAI_API_KEY is not configured.");
 
-    const [history, conversationResult, incidentResult] = await Promise.all([
+    const [history, conversationResult, incidentResult, loopReviewResult] = await Promise.all([
         query<SupportMessage>(
             "SELECT direction, body, CASE WHEN direction = 'inbound' THEN 'customer' WHEN model IS NOT NULL OR dedupe_key IS NOT NULL THEN 'automated' WHEN provider_message_id IS NULL THEN 'human' ELSE 'unknown' END AS sender FROM (SELECT direction, body, model, dedupe_key, provider_message_id, created_at FROM support_messages WHERE conversation_id = $1 ORDER BY created_at DESC LIMIT 30) recent ORDER BY created_at ASC",
             [conversationId]
@@ -605,6 +612,31 @@ export async function generateSupportReply(
         ),
         query<{ has_known_incident: boolean }>(
             "SELECT EXISTS (SELECT 1 FROM support_messages WHERE conversation_id = $1 AND direction = 'inbound' AND created_at >= NOW() - INTERVAL '6 hours' AND (LOWER(body) LIKE '%exceed_cached_egress_quota%' OR LOWER(body) LIKE '%exceed capped egress quota%' OR LOWER(body) LIKE '%cota de egress em cache%' OR LOWER(body) LIKE '%cota de tráfego em cache%' OR LOWER(body) LIKE '%cota de saida em cache%')) AS has_known_incident",
+            [conversationId]
+        ),
+        query<{ should_review_loop: boolean }>(
+            `SELECT EXISTS (
+                SELECT 1 FROM (
+                    SELECT created_at,
+                           LAG(created_at, 9) OVER (ORDER BY created_at, id) AS first_message_at,
+                           COUNT(*) FILTER (WHERE direction = 'inbound')
+                               OVER (ORDER BY created_at, id ROWS BETWEEN 9 PRECEDING AND CURRENT ROW) AS inbound_count,
+                           COUNT(*) FILTER (WHERE direction = 'outbound')
+                               OVER (ORDER BY created_at, id ROWS BETWEEN 9 PRECEDING AND CURRENT ROW) AS outbound_count
+                    FROM support_messages
+                    WHERE conversation_id = $1
+                      AND created_at >= NOW() - INTERVAL '17 minutes'
+                      AND (
+                          (direction = 'inbound' AND send_status = 'received') OR
+                          (direction = 'outbound' AND send_status = 'sent')
+                      )
+                ) activity
+                WHERE first_message_at IS NOT NULL
+                  AND created_at - first_message_at <= INTERVAL '2 minutes'
+                  AND created_at >= NOW() - INTERVAL '15 minutes'
+                  AND inbound_count > 0
+                  AND outbound_count > 0
+            ) AS should_review_loop`,
             [conversationId]
         ),
     ]);
@@ -630,6 +662,7 @@ export async function generateSupportReply(
     ].slice(0, 5);
 
     const handoffBlocked = conversation.blocked_handoff;
+    const shouldReviewLoop = loopReviewResult.rows[0]?.should_review_loop === true;
 
     let contextInstructions = "";
 
@@ -659,6 +692,8 @@ export async function generateSupportReply(
         contextInstructions +=
             "\n- Para este contato específico, handoff é proibido. Nunca use request_human_handoff e nunca diga que fez encaminhamento.";
     }
+
+    if (shouldReviewLoop) contextInstructions += SUPPORT_LOOP_REVIEW_RULE;
 
     const model =
         process.env.OPENAI_SUPPORT_MODEL?.trim() || "gpt-5.6-luna";
@@ -739,6 +774,17 @@ export async function generateSupportReply(
               ? "prompted"
               : null;
 
+    if (shouldReviewLoop && !handoffState && rawText === LOOP_NO_REPLY_TOKEN) {
+        return {
+            text: "",
+            model,
+            inputTokens: response.usage?.input_tokens ?? null,
+            outputTokens: response.usage?.output_tokens ?? null,
+            handoffState: null,
+            skipReply: true,
+        };
+    }
+
     if (!rawText && !handoffState) {
         throw new Error("The support model returned an empty response.");
     }
@@ -768,6 +814,7 @@ export async function generateSupportReply(
         inputTokens: response.usage?.input_tokens ?? null,
         outputTokens: response.usage?.output_tokens ?? null,
         handoffState,
+        skipReply: false,
     };
 }
 

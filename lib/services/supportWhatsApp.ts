@@ -1277,6 +1277,13 @@ export async function processSupportIncomingWhatsAppMessage(input: {
                     conversation.id
                 );
 
+                if (reply.skipReply) {
+                    console.info("[SUPPORT_WHATSAPP] ai_loop_no_reply", {
+                        conversationId: conversation.id,
+                    });
+                    return;
+                }
+
                 if (
                     !reply.handoffState &&
                     !(await isLatestInboundMessage(
