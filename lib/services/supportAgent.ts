@@ -705,8 +705,7 @@ export async function generateSupportReply(
         "/api/support/mcp?conversationId=" +
         encodeURIComponent(conversationId);
 
-    const response = await client.responses.create(
-        {
+    const request = {
             model,
             ...(cacheSupport ? explicitPromptCache : { instructions: SUPPORT_INSTRUCTIONS + contextInstructions }),
             input: [
@@ -738,9 +737,39 @@ export async function generateSupportReply(
             ],
             max_output_tokens: 800,
             store: false,
-        },
-        { timeout: 45_000 }
-    );
+            include: ["reasoning.encrypted_content" as const],
+        };
+    let response = await client.responses.create(request, { timeout: 45_000 });
+    const firstResponse = response;
+    let continued = false;
+
+    if (response.status === "incomplete" && response.incomplete_details?.reason === "max_output_tokens") {
+        console.info("[SUPPORT_AI] 800-token budget exhausted; continuing with 2200 tokens.");
+        continued = true;
+        response = await client.responses.create(
+            {
+                ...request,
+                input: [
+                    ...request.input,
+                    ...(response.output || []),
+                    {
+                        role: "user",
+                        content: "A resposta anterior não foi enviada. Conclua a resposta à última pergunta do cliente usando os resultados já obtidos, sem repetir consultas desnecessárias.",
+                    },
+                ],
+                max_output_tokens: 2_200,
+            },
+            { timeout: 45_000 }
+        );
+    }
+
+    const previousInputTokens = !continued ? 0 : (firstResponse.usage?.input_tokens ?? 0);
+    const previousOutputTokens = !continued ? 0 : (firstResponse.usage?.output_tokens ?? 0);
+    const inputTokens = response.usage?.input_tokens == null ? null : response.usage.input_tokens + previousInputTokens;
+    const outputTokens = response.usage?.output_tokens == null ? null : response.usage.output_tokens + previousOutputTokens;
+    const allOutput = !continued
+        ? response.output || []
+        : [...(firstResponse.output || []), ...(response.output || [])];
 
     if (response.status !== "completed") {
         const reason = response.incomplete_details?.reason;
@@ -752,7 +781,9 @@ export async function generateSupportReply(
             response.status === "incomplete" &&
             reason === "max_output_tokens"
         ) {
-            error.code = "SUPPORT_AI_MAX_OUTPUT_TOKENS";
+            error.code = !continued
+                ? "SUPPORT_AI_MAX_OUTPUT_TOKENS"
+                : "SUPPORT_AI_CONTINUATION_EXHAUSTED";
         }
 
         throw error;
@@ -779,8 +810,8 @@ export async function generateSupportReply(
         return {
             text: "",
             model,
-            inputTokens: response.usage?.input_tokens ?? null,
-            outputTokens: response.usage?.output_tokens ?? null,
+            inputTokens,
+            outputTokens,
             handoffState: null,
             skipReply: true,
         };
@@ -796,7 +827,7 @@ export async function generateSupportReply(
     } else if (handoffState === "prompted") {
         text = FIRST_HUMAN_REQUEST_MESSAGE;
     } else {
-        const reply = resolveSupportMenuLink(limitSupportReply(rawText), automaticKnowledgeQuery, response.output || []);
+        const reply = resolveSupportMenuLink(limitSupportReply(rawText), automaticKnowledgeQuery, allOutput);
         const isAffiliateInquiry = /\b(?:afiliad[oa]s?|afiliacao|affiliate|comissao (?:de|por) indicacao)\b/.test(
             normalizeUiGuidanceText(automaticKnowledgeQuery + " " + contextualKnowledgeQuery)
         );
@@ -812,8 +843,8 @@ export async function generateSupportReply(
     return {
         text,
         model,
-        inputTokens: response.usage?.input_tokens ?? null,
-        outputTokens: response.usage?.output_tokens ?? null,
+        inputTokens,
+        outputTokens,
         handoffState,
         skipReply: false,
     };

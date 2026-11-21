@@ -70,6 +70,9 @@ test("support chat caches its fixed rules and still receives current knowledge a
     await generateSupportReply("conversation-1");
 
     const request = create.mock.calls[0][0];
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(request.max_output_tokens).toBe(800);
+    expect(request.include).toEqual(["reasoning.encrypted_content"]);
     expect(request.prompt_cache_options).toEqual({ mode: "explicit" });
     const [rules, knowledge] = request.input[0].content;
     expect(rules.prompt_cache_breakpoint).toEqual({ mode: "explicit" });
@@ -112,6 +115,65 @@ function mockMenuReply(outputText: string, toolOutput?: unknown) {
         }],
     });
 }
+
+test("resumes only a token-exhausted reply with 2200 more tokens and preserves tool results", async () => {
+    mockMenuReply("");
+    create.mockReset();
+    const reasoning = { type: "reasoning", id: "rs-test", summary: [], encrypted_content: "encrypted", status: "incomplete" };
+    const toolResult = {
+        type: "mcp_call", server_label: "imenu_support", name: "get_restaurant_menu_link",
+        output: JSON.stringify({ menu_url: "https://www.imenuapp.com.br/c-m-lanches" }),
+        status: "completed",
+    };
+    create
+        .mockResolvedValueOnce({
+            status: "incomplete", incomplete_details: { reason: "max_output_tokens" },
+            output: [reasoning, toolResult], output_text: "",
+            usage: { input_tokens: 100, output_tokens: 800 },
+        })
+        .mockResolvedValueOnce({
+            status: "completed", output_text: "Seu link é: [[MENU_URL]]", output: [],
+            usage: { input_tokens: 150, output_tokens: 220 },
+        });
+
+    const reply = await generateSupportReply("conversation-1");
+
+    expect(create).toHaveBeenCalledTimes(2);
+    const [first, resumed] = create.mock.calls.map(([request]) => request);
+    expect(first.max_output_tokens).toBe(800);
+    expect(resumed.max_output_tokens).toBe(2200);
+    expect(resumed.store).toBe(false);
+    expect(resumed.input.slice(0, first.input.length)).toEqual(first.input);
+    expect(resumed.input).toContainEqual(reasoning);
+    expect(resumed.input).toContainEqual(toolResult);
+    expect(reply.text).toBe("Seu link é: https://www.imenuapp.com.br/c-m-lanches");
+    expect(reply.inputTokens).toBe(250);
+    expect(reply.outputTokens).toBe(1020);
+});
+
+test("does not repeat a failed 2200-token continuation", async () => {
+    mockMenuReply("");
+    create.mockReset();
+    create.mockResolvedValue({
+        status: "incomplete", incomplete_details: { reason: "max_output_tokens" },
+        output: [], output_text: "",
+    });
+
+    await expect(generateSupportReply("conversation-1")).rejects.toMatchObject({
+        code: "SUPPORT_AI_CONTINUATION_EXHAUSTED",
+    });
+    expect(create).toHaveBeenCalledTimes(2);
+    expect(create.mock.calls.map(([request]) => request.max_output_tokens)).toEqual([800, 2200]);
+});
+
+test("does not continue when a response fails for another reason", async () => {
+    mockMenuReply("");
+    create.mockReset();
+    create.mockResolvedValue({ status: "incomplete", incomplete_details: { reason: "content_filter" } });
+
+    await expect(generateSupportReply("conversation-1")).rejects.toThrow("content_filter");
+    expect(create).toHaveBeenCalledTimes(1);
+});
 
 test("never sends the invented imenu.com.br menu URL", async () => {
     mockMenuReply("Seu link é: https://imenu.com.br/c-m-lanches");
