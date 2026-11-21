@@ -359,7 +359,7 @@ const PanelDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functio
     }, [open, options.length]);
 
     const closeOnBlur = (event: React.FocusEvent<HTMLElement>) => {
-        if (!triggerRef.current?.contains(event.relatedTarget as Node) && !menuRef.current?.contains(event.relatedTarget as Node)) setOpen(false);
+        if (event.relatedTarget && !triggerRef.current?.contains(event.relatedTarget) && !menuRef.current?.contains(event.relatedTarget)) setOpen(false);
     };
     const choose = (nextValue: string | number) => {
         if (selectRef.current) {
