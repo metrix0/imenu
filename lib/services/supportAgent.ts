@@ -741,9 +741,11 @@ export async function generateSupportReply(
         };
     let response = await client.responses.create(request, { timeout: 45_000 });
     const firstResponse = response;
+    let continued = false;
 
     if (response.status === "incomplete" && response.incomplete_details?.reason === "max_output_tokens") {
         console.info("[SUPPORT_AI] 800-token budget exhausted; continuing with 2200 tokens.");
+        continued = true;
         response = await client.responses.create(
             {
                 ...request,
@@ -761,11 +763,11 @@ export async function generateSupportReply(
         );
     }
 
-    const previousInputTokens = response === firstResponse ? 0 : (firstResponse.usage?.input_tokens ?? 0);
-    const previousOutputTokens = response === firstResponse ? 0 : (firstResponse.usage?.output_tokens ?? 0);
+    const previousInputTokens = !continued ? 0 : (firstResponse.usage?.input_tokens ?? 0);
+    const previousOutputTokens = !continued ? 0 : (firstResponse.usage?.output_tokens ?? 0);
     const inputTokens = response.usage?.input_tokens == null ? null : response.usage.input_tokens + previousInputTokens;
     const outputTokens = response.usage?.output_tokens == null ? null : response.usage.output_tokens + previousOutputTokens;
-    const allOutput = response === firstResponse
+    const allOutput = !continued
         ? response.output || []
         : [...(firstResponse.output || []), ...(response.output || [])];
 
@@ -779,7 +781,7 @@ export async function generateSupportReply(
             response.status === "incomplete" &&
             reason === "max_output_tokens"
         ) {
-            error.code = response === firstResponse
+            error.code = !continued
                 ? "SUPPORT_AI_MAX_OUTPUT_TOKENS"
                 : "SUPPORT_AI_CONTINUATION_EXHAUSTED";
         }
