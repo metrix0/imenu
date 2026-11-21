@@ -348,3 +348,49 @@ test("preserves PostgreSQL microseconds when classifying a sent AI reply", async
         String(sql).includes("SET followup_state = $3"));
     expect(classificationWrite?.[1]).toEqual([conversation.id, inboundAt, "awaiting_customer"]);
 });
+
+test("an AI loop stop sends no message and schedules no follow-up", async () => {
+    const conversation = {
+        id: "conversation-loop", chat_id: "5511999999999@c.us",
+        phone: "5511999999999", customer_name: null, restaurant_id: null,
+        mode: "ai" as const, handoff_prompted_at: null,
+    };
+    const incomingId = "provider-loop-message";
+    (generateSupportReply as jest.Mock).mockResolvedValue({
+        text: "", skipReply: true, handoffState: null,
+        model: "test-model", inputTokens: 7, outputTokens: 1,
+    });
+    (query as jest.Mock).mockImplementation(async (sql: string) => {
+        if (sql.startsWith("SELECT phone FROM support_conversations"))
+            return { rows: [{ phone: conversation.phone }], rowCount: 1 };
+        if (sql.includes("bool_or(blacklisted)"))
+            return { rows: [{ blacklisted: false, blocked_handoff: false }], rowCount: 1 };
+        if (sql.startsWith("SELECT id, chat_id, phone"))
+            return { rows: [conversation], rowCount: 1 };
+        if (sql.startsWith("UPDATE support_conversations SET phone"))
+            return { rows: [conversation], rowCount: 1 };
+        if (sql.startsWith("SELECT mode, last_inbound_at"))
+            return { rows: [{ mode: "ai", last_inbound_at: new Date().toISOString(), handoff_prompted_at: null }], rowCount: 1 };
+        if (sql.startsWith("SELECT provider_message_id FROM support_messages"))
+            return { rows: [{ provider_message_id: incomingId }], rowCount: 1 };
+        if (sql.startsWith("SELECT phone, blacklisted"))
+            return { rows: [{ phone: conversation.phone, blacklisted: false }], rowCount: 1 };
+        if (sql.includes("WHERE blacklisted"))
+            return { rows: [], rowCount: 0 };
+        return { rows: [], rowCount: 0 };
+    });
+
+    const { processSupportIncomingWhatsAppMessage } = await import("./supportWhatsApp");
+    await processSupportIncomingWhatsAppMessage({
+        sessionName: "imenu-support", chatId: conversation.chat_id,
+        body: "Mensagem automática de outro bot", hasMedia: false,
+        messageId: incomingId, customerName: null, botEnabled: true,
+    });
+
+    expect(generateSupportReply).toHaveBeenCalledWith(conversation.id);
+    expect(sendWahaText).not.toHaveBeenCalled();
+    expect(classifySupportFollowup).not.toHaveBeenCalled();
+    expect((query as jest.Mock).mock.calls.some(([sql]) =>
+        /INSERT INTO support_messages\s*\([^)]*\)\s*VALUES\s*\(\$1,\s*'outbound'/.test(String(sql))
+    )).toBe(false);
+});

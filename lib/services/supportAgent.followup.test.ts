@@ -62,6 +62,7 @@ test("support chat caches its fixed rules and still receives current knowledge a
         .mockResolvedValueOnce({ rows: [{ direction: "inbound", body: "Como configuro a impressora?" }] })
         .mockResolvedValueOnce({ rows: [{ mode: "ai", handoff_prompted_at: null }] })
         .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [{ should_review_loop: false }] })
         .mockResolvedValueOnce({ rows: [{ mode: "ai", handoff_prompted_at: null }] });
     (searchSupportKnowledge as jest.Mock).mockResolvedValue([{ id: "1", title: "Impressão", content: "Abra as configurações." }]);
     create.mockResolvedValue({ status: "completed", output_text: "Abra as configurações." });
@@ -100,6 +101,7 @@ function mockMenuReply(outputText: string, toolOutput?: unknown) {
         .mockResolvedValueOnce({ rows: [{ direction: "inbound", body: "Qual o link do meu cardápio?" }] })
         .mockResolvedValueOnce({ rows: [conversation] })
         .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [{ should_review_loop: false }] })
         .mockResolvedValueOnce({ rows: [conversation] });
     (searchSupportKnowledge as jest.Mock).mockResolvedValue([]);
     create.mockResolvedValue({
@@ -146,6 +148,7 @@ test("offers human support after answering an affiliate question", async () => {
         .mockResolvedValueOnce({ rows: [{ direction: "inbound", body: "Quanto ganha um afiliado?" }] })
         .mockResolvedValueOnce({ rows: [{ mode: "ai", handoff_prompted_at: null }] })
         .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [{ should_review_loop: false }] })
         .mockResolvedValueOnce({ rows: [{ mode: "ai", handoff_prompted_at: null }] });
     (searchSupportKnowledge as jest.Mock).mockResolvedValue([]);
     create.mockResolvedValue({ status: "completed", output_text: "A comissão é de 50%." });
@@ -172,4 +175,34 @@ test("preserves line breaks in contextual follow-up messages", async () => {
     create.mockResolvedValue({ status: "completed", output_text: "Conseguiu continuar?\r\n\r\nPosso ajudar por aqui." });
     await expect(generateSupportFollowup("conversation-1"))
         .resolves.toBe("Conseguiu continuar?\n\nPosso ajudar por aqui.\n\n" + SUPPORT_FOLLOWUP_OFFER);
+});
+
+test.each([
+    [true, "NO_REPLY", true],
+    [true, "Claro, vou te ajudar com isso.", false],
+    [false, "Claro, vou te ajudar com isso.", false],
+])("loop review=%s, model output=%s: skipReply=%s", async (review, outputText, skipReply) => {
+    (query as jest.Mock)
+        .mockResolvedValueOnce({ rows: [{ direction: "inbound", body: "Preciso de ajuda com o iMenu." }] })
+        .mockResolvedValueOnce({ rows: [{ mode: "ai", handoff_prompted_at: null, blocked_handoff: false, blacklisted: false }] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [{ should_review_loop: review }] })
+        .mockResolvedValueOnce({ rows: [{ mode: "ai", handoff_prompted_at: null }] });
+    (searchSupportKnowledge as jest.Mock).mockResolvedValue([]);
+    create.mockResolvedValue({ status: "completed", output_text: outputText });
+
+    const result = await generateSupportReply("conversation-1");
+
+    expect(result.skipReply).toBe(skipReply);
+    expect(result.text).toBe(skipReply ? "" : outputText);
+    const request = create.mock.calls[0][0];
+    expect(JSON.stringify(request.input).includes("Verificação de possível loop automatizado")).toBe(review);
+
+    const activityQuery = (query as jest.Mock).mock.calls.find(([sql]) =>
+        String(sql).includes("AS should_review_loop"));
+    expect(activityQuery?.[1]).toEqual(["conversation-1"]);
+    expect(activityQuery?.[0]).toContain("LAG(created_at, 9)");
+    expect(activityQuery?.[0]).toContain("INTERVAL '2 minutes'");
+    expect(activityQuery?.[0]).toContain("INTERVAL '15 minutes'");
+    expect(activityQuery?.[0]).toContain("INTERVAL '17 minutes'");
 });

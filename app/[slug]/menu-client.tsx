@@ -146,7 +146,7 @@ export default function MenuClientPage({
 
     useEffect(() => {
         const refresh = () => setMenuTime(new Date().toISOString());
-        const timer = window.setInterval(refresh, 30_000);
+        const timer = window.setInterval(refresh, 60_000);
         window.addEventListener("focus", refresh);
         document.addEventListener("visibilitychange", refresh);
         return () => {
@@ -265,7 +265,7 @@ export default function MenuClientPage({
         if (!restaurant.automatic_promotions?.length) return;
         const update = () => setPromotionNow(new Date());
         update();
-        const timer = window.setInterval(update, 30_000);
+        const timer = window.setInterval(update, 60_000);
         window.addEventListener("focus", update);
         return () => { window.clearInterval(timer); window.removeEventListener("focus", update); };
     }, [restaurant.automatic_promotions]);

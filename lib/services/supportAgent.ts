@@ -30,9 +30,16 @@ export type SupportAgentReply = {
     inputTokens: number | null;
     outputTokens: number | null;
     handoffState: "prompted" | "handed_off" | null;
+    skipReply: boolean;
 };
 
 const MAX_REPLY_CHARACTERS = 800;
+const LOOP_NO_REPLY_TOKEN = "NO_REPLY";
+const SUPPORT_LOOP_REVIEW_RULE =
+    "\n\nVerificação de possível loop automatizado: esta conversa teve pelo menos 10 mensagens trocadas em 2 minutos recentemente. " +
+    "Antes de responder, examine o histórico e avalie se você está conversando com outro assistente automático, em uma sequência de confirmações, agradecimentos ou respostas repetitivas que não exigem atendimento. " +
+    "Se for um loop entre robôs, encerre silenciosamente: responda APENAS NO_REPLY, sem pontuação ou explicação. " +
+    "Se houver uma pergunta nova, informação relevante ou pedido legítimo de suporte, responda normalmente, mesmo com muitas mensagens. Nunca mencione esta verificação ao contato.";
 const MENU_LINK_PLACEHOLDER = "[[MENU_URL]]";
 const MENU_LINK_UNVERIFIED_REPLY = "Não consegui confirmar o link do cardápio.";
 const FIRST_HUMAN_REQUEST_MESSAGE =
@@ -59,6 +66,7 @@ const SUPPORT_INSTRUCTIONS = [
     "- Se a pessoa for cliente final de um restaurante e quiser fazer um pedido ou pedir informações ou alterações sobre um pedido existente, como status, entrega, cancelamento ou item faltando, não tente atender o pedido pelo suporte do iMenu. Se o restaurante não estiver identificado, pergunte apenas qual é o restaurante.",
     "- Quando o restaurante estiver identificado nesse caso, use find_restaurant_public_contact e envie o WhatsApp público da loja (store_whatsapp). Nunca use telefone do proprietário, telefone da conta ou outro número. Explique brevemente que o iMenu fornece a plataforma e o atendimento do pedido é feito pelo restaurante. Se não houver store_whatsapp, diga apenas que não encontrou um WhatsApp público da loja. Não use list_my_restaurants para esse fluxo de cliente final.",
     "- Sempre ofereça atendimento humano quando o assunto for o Programa de Afiliados iMenu, mesmo que possa responder à dúvida sobre comissão, rastreamento ou pagamento. A equipe cuida da inscrição, do link e de consultas individuais. Após o aceite, use o fluxo existente de encaminhamento.",
+    "- Quando o cliente pedir para excluir, deletar, apagar, cancelar ou encerrar a própria conta iMenu, oriente o procedimento confirmado na base de conhecimento e sempre inclua a pergunta exata: \"Tem algo que te chateou ou faltou no sistema para sua operação?\". Não condicione as instruções ou a exclusão à resposta, não tente impedir o cancelamento e não repita a pergunta se já foi feita nesta conversa.",
     "- Nunca inicie um handoff sem o cliente pedir atendimento humano ou confirmar claramente que quer seguir com ele.",
     "- Se uma dúvida legítima sobre o iMenu ou sobre a conta não puder ser respondida com segurança, tente primeiro outra consulta relevante à base de conhecimento ou às ferramentas MCP disponíveis, conforme o assunto. Respeite os limites de acesso e não repita consultas iguais sem informação nova.",
     "- Se ainda não conseguir confirmar a resposta ou resolver a dúvida, explique brevemente o que não conseguiu verificar e ofereça atendimento humano, por exemplo: Não consegui encontrar informações suficientes para explicar isso. Quer que eu encaminhe para nossa equipe de suporte? Essa oferta não é um encaminhamento: não chame request_human_handoff, não informe o prazo e não diga que a equipe assumiu até o cliente aceitar a oferta.",
@@ -68,7 +76,6 @@ const SUPPORT_INSTRUCTIONS = [
     "- A ferramenta controla duas etapas: no primeiro pedido ela registra o aviso de prazo; depois de uma nova mensagem do cliente, se ele confirmar positivamente ou reiterar que quer atendimento humano, use request_human_handoff novamente para efetivar o encaminhamento.",
     "- Interprete confirmações pelo contexto, sem depender de frase exata. Exemplos depois do aviso: sim, pode, quero, isso, somente humano, somente atendimento humano.",
     "- Antes de fazer uma pergunta, confira o histórico disponível. Não repita pergunta já respondida, não peça novamente o mesmo identificador e não repita a mesma tentativa de diagnóstico ou consulta que já falhou sem informação nova.",
-    "- Quando o passo a passo do painel depender do dispositivo, use o que a pessoa já informou ou mostrou sobre como está acessando o iMenu. Se ainda estiver em dúvida, pergunte primeiro: “Você está usando o iMenu no celular ou no computador?” Aguarde a resposta antes de orientar. O dispositivo usado no WhatsApp não indica qual dispositivo a pessoa está usando no iMenu.",
     "Em dúvidas sobre a interface, use primeiro o relato do cliente, o histórico e as orientações oficiais. Não peça prints por padrão. Solicite uma imagem somente se um detalhe visual específico for indispensável para avançar e não estiver no histórico; não repita pedidos já atendidos. Nunca invente controles ou passos não confirmados.",
     "- Antes de responder, considere o histórico recente e o que já foi explicado pelo suporte. Evite repetir a mesma informação ou explicação, mesmo com outras palavras, quando o cliente apenas acrescentar contexto ou mudar de assunto; responda ao ponto novo e avance a conversa. Só repita se o cliente pedir novamente, demonstrar dúvida sobre o ponto anterior ou se a repetição for indispensável à resposta. Se você já disse que não conseguiu confirmar algo e a dúvida persiste, não repita essa resposta: ofereça atendimento humano.",
     "- Se aparecer exceed_cached_egress_quota, exceed capped egress quota ou descrição equivalente de cota de egress/cache em uma tela do iMenu, trate como indisponibilidade da infraestrutura do iMenu. Não oriente troca de senha, outro navegador, recuperação de acesso ou novas tentativas de login para resolver esse erro.",
@@ -595,7 +602,7 @@ export async function generateSupportReply(
     const apiKey = process.env.OPENAI_API_KEY?.trim();
     if (!apiKey) throw new Error("OPENAI_API_KEY is not configured.");
 
-    const [history, conversationResult, incidentResult] = await Promise.all([
+    const [history, conversationResult, incidentResult, loopReviewResult] = await Promise.all([
         query<SupportMessage>(
             "SELECT direction, body, CASE WHEN direction = 'inbound' THEN 'customer' WHEN model IS NOT NULL OR dedupe_key IS NOT NULL THEN 'automated' WHEN provider_message_id IS NULL THEN 'human' ELSE 'unknown' END AS sender FROM (SELECT direction, body, model, dedupe_key, provider_message_id, created_at FROM support_messages WHERE conversation_id = $1 ORDER BY created_at DESC LIMIT 30) recent ORDER BY created_at ASC",
             [conversationId]
@@ -606,6 +613,31 @@ export async function generateSupportReply(
         ),
         query<{ has_known_incident: boolean }>(
             "SELECT EXISTS (SELECT 1 FROM support_messages WHERE conversation_id = $1 AND direction = 'inbound' AND created_at >= NOW() - INTERVAL '6 hours' AND (LOWER(body) LIKE '%exceed_cached_egress_quota%' OR LOWER(body) LIKE '%exceed capped egress quota%' OR LOWER(body) LIKE '%cota de egress em cache%' OR LOWER(body) LIKE '%cota de tráfego em cache%' OR LOWER(body) LIKE '%cota de saida em cache%')) AS has_known_incident",
+            [conversationId]
+        ),
+        query<{ should_review_loop: boolean }>(
+            `SELECT EXISTS (
+                SELECT 1 FROM (
+                    SELECT created_at,
+                           LAG(created_at, 9) OVER (ORDER BY created_at, id) AS first_message_at,
+                           COUNT(*) FILTER (WHERE direction = 'inbound')
+                               OVER (ORDER BY created_at, id ROWS BETWEEN 9 PRECEDING AND CURRENT ROW) AS inbound_count,
+                           COUNT(*) FILTER (WHERE direction = 'outbound')
+                               OVER (ORDER BY created_at, id ROWS BETWEEN 9 PRECEDING AND CURRENT ROW) AS outbound_count
+                    FROM support_messages
+                    WHERE conversation_id = $1
+                      AND created_at >= NOW() - INTERVAL '17 minutes'
+                      AND (
+                          (direction = 'inbound' AND send_status = 'received') OR
+                          (direction = 'outbound' AND send_status = 'sent')
+                      )
+                ) activity
+                WHERE first_message_at IS NOT NULL
+                  AND created_at - first_message_at <= INTERVAL '2 minutes'
+                  AND created_at >= NOW() - INTERVAL '15 minutes'
+                  AND inbound_count > 0
+                  AND outbound_count > 0
+            ) AS should_review_loop`,
             [conversationId]
         ),
     ]);
@@ -631,6 +663,7 @@ export async function generateSupportReply(
     ].slice(0, 5);
 
     const handoffBlocked = conversation.blocked_handoff;
+    const shouldReviewLoop = loopReviewResult.rows[0]?.should_review_loop === true;
 
     let contextInstructions = "";
 
@@ -660,6 +693,8 @@ export async function generateSupportReply(
         contextInstructions +=
             "\n- Para este contato específico, handoff é proibido. Nunca use request_human_handoff e nunca diga que fez encaminhamento.";
     }
+
+    if (shouldReviewLoop) contextInstructions += SUPPORT_LOOP_REVIEW_RULE;
 
     const model =
         process.env.OPENAI_SUPPORT_MODEL?.trim() || "gpt-5.6-luna";
@@ -740,6 +775,17 @@ export async function generateSupportReply(
               ? "prompted"
               : null;
 
+    if (shouldReviewLoop && !handoffState && rawText === LOOP_NO_REPLY_TOKEN) {
+        return {
+            text: "",
+            model,
+            inputTokens: response.usage?.input_tokens ?? null,
+            outputTokens: response.usage?.output_tokens ?? null,
+            handoffState: null,
+            skipReply: true,
+        };
+    }
+
     if (!rawText && !handoffState) {
         throw new Error("The support model returned an empty response.");
     }
@@ -769,6 +815,7 @@ export async function generateSupportReply(
         inputTokens: response.usage?.input_tokens ?? null,
         outputTokens: response.usage?.output_tokens ?? null,
         handoffState,
+        skipReply: false,
     };
 }
 
