@@ -373,6 +373,10 @@ test("an AI loop stop sends no message and schedules no follow-up", async () => 
             return { rows: [{ mode: "ai", last_inbound_at: new Date().toISOString(), handoff_prompted_at: null }], rowCount: 1 };
         if (sql.startsWith("SELECT provider_message_id FROM support_messages"))
             return { rows: [{ provider_message_id: incomingId }], rowCount: 1 };
+        if (sql.startsWith("SELECT phone, blacklisted"))
+            return { rows: [{ phone: conversation.phone, blacklisted: false }], rowCount: 1 };
+        if (sql.includes("WHERE blacklisted"))
+            return { rows: [], rowCount: 0 };
         return { rows: [], rowCount: 0 };
     });
 
