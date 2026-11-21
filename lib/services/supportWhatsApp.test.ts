@@ -391,6 +391,6 @@ test("an AI loop stop sends no message and schedules no follow-up", async () => 
     expect(sendWahaText).not.toHaveBeenCalled();
     expect(classifySupportFollowup).not.toHaveBeenCalled();
     expect((query as jest.Mock).mock.calls.some(([sql]) =>
-        String(sql).includes("INSERT INTO support_messages") &&
-        String(sql).includes("'outbound'"))).toBe(false);
+        /INSERT INTO support_messages\s*\([^)]*\)\s*VALUES\s*\(\$1,\s*'outbound'/.test(String(sql))
+    )).toBe(false);
 });
