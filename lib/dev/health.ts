@@ -15,7 +15,7 @@ export const INTEGRATIONS = [
     { id: "tomtom", name: "TomTom", priority: 3 },
     { id: "arcgis", name: "ArcGIS", priority: 3 },
     { id: "nominatim", name: "OpenStreetMap", priority: 3 },
-    { id: "ibge", name: "IBGE / CNEFE", priority: 3 },
+    { id: "ibge", name: "IBGE / CNEFE", priority: 1 },
     { id: "brasilapi", name: "BrasilAPI / CEP", priority: 3 },
     { id: "ntfy", name: "Ntfy", priority: 2 },
 ] as const;
@@ -189,7 +189,7 @@ export async function recordIntegrationProbe(result: ProbeResult) {
         );
         const last = previous.rows[0];
         // A single failing check is degraded; only repeated full failures become an outage.
-        const state = result.state === "failed" && !(last?.check_kind === "probe" && ["degraded", "failed"].includes(last.state || ""))
+        const state = result.id !== "ibge" && result.state === "failed" && !(last?.check_kind === "probe" && ["degraded", "failed"].includes(last.state || ""))
             ? "degraded" : result.state;
         await query(
             `INSERT INTO public.dev_integration_status(source,ok,http_status,checked_at,check_kind,state,operation,detail)
@@ -208,8 +208,9 @@ export async function recordIntegrationProbe(result: ProbeResult) {
                 message: result.detail,
                 httpStatus: result.status,
                 incidentKey: key,
-                severity: "warning",
-                trigger: (INTEGRATIONS.find(item => item.id === result.id)?.priority || 3) <= 2 ? "notification" : "none",
+                severity: result.id === "ibge" ? "critical" : "warning",
+                trigger: result.id === "ibge" ? "alarm" :
+                    (INTEGRATIONS.find(item => item.id === result.id)?.priority || 3) <= 2 ? "notification" : "none",
             });
         } else if (state === "connected") {
             await resolveDevIncident(key);
