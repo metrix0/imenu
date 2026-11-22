@@ -33,6 +33,7 @@ import Toast from "@/components/ui/Toast";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Tooltip from "@/components/ui/Tooltip";
 import ChoiceCardGroup from "@/components/ui/ChoiceCardGroup";
+import NfceSettings from "@/components/restaurant-owner/configuracoes/NfceSettings";
 import ResetOrderCountSection from "@/components/restaurant-owner/configuracoes/ResetOrderCountSection";
 import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
 import { qrTableAuthenticatedFetch } from "@/lib/qr-table/clientApi";
@@ -1180,6 +1181,7 @@ export default function ConfiguracoesPage() {
                             </Card>
                         )}
 
+                        {restaurant && <NfceSettings restaurant={restaurant.id} />}
                         {restaurant && <ResetOrderCountSection restaurantId={restaurant.id} />}
 
                         <Card className="border-red-200 bg-red-50/30">

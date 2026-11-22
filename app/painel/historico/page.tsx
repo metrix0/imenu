@@ -14,6 +14,7 @@ import OrderDetailsModal from "@/components/restaurant-owner/pedidos/OrderDetail
 import CreatePanelOrderModal from "@/components/restaurant-owner/CreatePanelOrderModal";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Toast from "@/components/ui/Toast";
+import { NfceHistoryButton, NfceOrderSection, NfcePromotion, useNfceHistory } from "@/components/restaurant-owner/pedidos/NfceHistory";
 import ShortcutDatePicker from "@/components/ui/ShortcutDatePicker";
 import CashRegister, { type CashOrder } from "@/components/restaurant-owner/pedidos/CashRegister";
 
@@ -152,6 +153,10 @@ export default function HistoricoPage() {
     const [page, setPage] = useState(0);
     const [totalCount, setTotalCount] = useState(0);
     const [cashRefreshKey, setCashRefreshKey] = useState(0);
+    const [nfceRefresh, setNfceRefresh] = useState(0);
+    const [focusFiscal, setFocusFiscal] = useState(false);
+    const fiscal = useNfceHistory(restaurantId, orders, nfceRefresh);
+    const fiscalIds = new Set(fiscal?.notes.map(note => note.order_id));
     const requestId = useRef(0);
 
     // Filtros
@@ -234,7 +239,8 @@ export default function HistoricoPage() {
         }
     };
 
-    const handleViewOrder = (order: Order) => {
+    const handleViewOrder = (order: Order, fiscal = false) => {
+        setFocusFiscal(fiscal);
         setSelectedOrder(order);
         setIsDetailsOpen(true);
     };
@@ -283,8 +289,9 @@ export default function HistoricoPage() {
 
     return (
         <div className="max-w-7xl 2xl:max-w-9xl mx-auto pb-20 space-y-8 px-4 sm:px-6 pt-8">
-            <div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
                 <h1 className="text-3xl font-bold text-gray-900">Histórico de Pedidos</h1>
+                {restaurantId && fiscal && <NfceHistoryButton restaurant={restaurantId} history={fiscal} />}
             </div>
 
             <OrdersFilter
@@ -297,6 +304,8 @@ export default function HistoricoPage() {
                 orders={orders}
                 isLoading={isLoading}
                 onViewOrder={handleViewOrder}
+                onViewFiscal={order => handleViewOrder(order, true)}
+                fiscalIds={fiscalIds}
                 onDeleteOrder={setOrderToDelete}
             />
 
@@ -304,6 +313,7 @@ export default function HistoricoPage() {
 
             <DailyCashClosing restaurantId={restaurantId} refreshKey={cashRefreshKey} />
 
+            <NfcePromotion show={Boolean(fiscal?.available && !fiscal.plus)} />
             <PanelFeatureCallout feature="vendas-ia" />
 
             <ConfirmModal
@@ -323,6 +333,11 @@ export default function HistoricoPage() {
                 isOpen={isDetailsOpen}
                 onClose={() => setIsDetailsOpen(false)}
                 order={selectedOrder}
+                fiscalSection={isDetailsOpen && restaurantId && fiscal?.available && fiscal.plus && selectedOrder && (
+                    <NfceOrderSection key={selectedOrder.id} order={selectedOrder} restaurant={restaurantId}
+                        note={fiscal.notes.find(note => note.order_id === selectedOrder.id)} configured={fiscal.configured}
+                        focus={focusFiscal} onChange={() => setNfceRefresh(value => value + 1)} />
+                )}
                 onOrderUpdate={handleOrderUpdate}
                 onDeleteOrder={(order) => { setIsDetailsOpen(false); setOrderToDelete(order); }}
                 onEditOrder={(order) => { setIsDetailsOpen(false); setEditingOrder({ id: order.id }); }}

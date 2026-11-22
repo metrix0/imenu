@@ -18,6 +18,7 @@ import { withCashChangeAmount } from "./cashChange";
 import OrderBadge from "./OrderBadge";
 
 interface OrderDetailsModalProps {
+    fiscalSection?: React.ReactNode;
     isOpen: boolean;
     onClose: () => void;
     order: Order | null; 
@@ -59,7 +60,7 @@ type OrderDetail = Omit<Order, "status"> & {
     }>;
 };
 
-export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdate, onEditOrder, onDeleteOrder, onCourierError, showStatusActions = false }: OrderDetailsModalProps) {
+export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdate, onEditOrder, onDeleteOrder, onCourierError, showStatusActions = false, fiscalSection }: OrderDetailsModalProps) {
     const [isLoading, setIsLoading] = useState(true);
     const [isUpdating, setIsUpdating] = useState(false);
     const [details, setDetails] = useState<OrderDetail | null>(null);
@@ -334,6 +335,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                             </div>
                         ) : (
                             <div className="space-y-8">
+                                {fiscalSection}
                                 {/* Cliente */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-3 2xl:space-y-6">
