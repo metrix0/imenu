@@ -7,22 +7,12 @@ import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import { PageLoader } from "@/components/ui/Loader";
 import SaveStatus, { type SaveState } from "@/components/ui/SaveStatus";
 import StoreSettings from "@/components/restaurant-owner/loja/StoreSettings";
-import PreparationTimeCard from "@/components/restaurant-owner/loja/PreparationTimeCard";
 
 export default function LojaPage() {
     const { restaurantId, setRestaurantId } = useCreationStore();
     const [isLoading, setIsLoading] = useState(true);
     const [restaurant, setRestaurant] = useState<any>(null);
     const [storeStatus, setStoreStatus] = useState<SaveState>("saved");
-    const [preparationStatus, setPreparationStatus] = useState<SaveState>("saved");
-    const statuses = [storeStatus, preparationStatus];
-    const saveStatus = statuses.includes("error")
-        ? "error"
-        : statuses.includes("saving")
-          ? "saving"
-          : statuses.includes("idle")
-            ? "idle"
-            : "saved";
 
     useEffect(() => {
         const load = async () => {
@@ -53,7 +43,7 @@ export default function LojaPage() {
             const { data, error } = await supabase
                 .from("restaurants")
                 .select(
-                    "id, name, description, logo_url, banner_url, payment_method, payment_info, payment_info_type, allowed_payment_methods, url_slug, custom_domain, store_whatsapp, prep_time_min_minutes, prep_time_max_minutes"
+                    "id, name, description, logo_url, banner_url, payment_method, payment_info, payment_info_type, allowed_payment_methods, url_slug, custom_domain, store_whatsapp"
                 )
                 .eq("id", targetId)
                 .single();
@@ -90,7 +80,7 @@ export default function LojaPage() {
                     </p>
                 </div>
                 <SaveStatus
-                    status={saveStatus}
+                    status={storeStatus}
                     className="self-start sm:self-auto"
                 />
             </div>
@@ -99,13 +89,6 @@ export default function LojaPage() {
             <StoreSettings
                 restaurant={restaurant}
                 onSaveStatusChange={setStoreStatus}
-            />
-
-            <PreparationTimeCard
-                restaurantId={restaurant.id}
-                initialMin={restaurant.prep_time_min_minutes}
-                initialMax={restaurant.prep_time_max_minutes}
-                onSaveStatusChange={setPreparationStatus}
             />
         </div>
     );
