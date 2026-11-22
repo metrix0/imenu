@@ -13,6 +13,7 @@ type ExpiringAddonRow = {
     id: string;
     product_key: string;
     current_period_ends_at: string | Date;
+    reminder_kind: "pix" | "card";
 };
 
 function productName(productKey: string): string {
@@ -48,13 +49,41 @@ export async function GET(request: Request) {
             SELECT
                 id,
                 product_key,
-                current_period_ends_at
+                current_period_ends_at,
+                CASE WHEN payment_provider = 'asaas' THEN 'card' ELSE 'pix' END AS reminder_kind
             FROM public.restaurant_addons
             WHERE restaurant_id = $1
-              AND (payment_provider = 'mercadopago' OR (payment_provider = 'payzu' AND UPPER(COALESCE(payzu_payment_method, '')) = 'PIX' AND payzu_recurrence_id IS NULL))
               AND product_key = 'ia_plus'
               AND current_period_ends_at IS NOT NULL
-              AND status IN ('active', 'canceled', 'past_due')
+              AND (
+                  (
+                      (
+                          payment_provider = 'mercadopago'
+                          OR (
+                              payment_provider = 'payzu'
+                              AND UPPER(COALESCE(payzu_payment_method, '')) = 'PIX'
+                              AND payzu_recurrence_id IS NULL
+                          )
+                      )
+                      AND status IN ('active', 'canceled', 'past_due')
+                  )
+                  OR (
+                      payment_provider = 'asaas'
+                      AND status = 'canceled'
+                      AND asaas_subscription_id IS NOT NULL
+                      AND EXISTS (
+                          SELECT 1
+                          FROM public.restaurant_addon_payments payment
+                          WHERE payment.addon_id = restaurant_addons.id
+                            AND UPPER(COALESCE(payment.billing_type, '')) = 'CREDIT_CARD'
+                            AND (
+                                payment.paid_at IS NOT NULL
+                                OR UPPER(COALESCE(payment.status, '')) IN
+                                    ('CONFIRMED', 'RECEIVED', 'RECEIVED_IN_CASH')
+                            )
+                      )
+                  )
+              )
               AND (
                     current_period_ends_at AT TIME ZONE 'America/Sao_Paulo'
                   )::date = (
@@ -72,6 +101,7 @@ export async function GET(request: Request) {
                     productKey: row.product_key,
                     productName: productName(row.product_key),
                     expiresAt: new Date(row.current_period_ends_at).toISOString(),
+                    reminderKind: row.reminder_kind,
                 })),
             },
             { headers: { "Cache-Control": "private, no-store" } }

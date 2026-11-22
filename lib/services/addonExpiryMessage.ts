@@ -1,62 +1,36 @@
-function productName(productKey: string): string {
-    if (productKey === "ia_plus") return "iMenu Plus";
-    const uppercaseWords = new Set(["qr", "ai", "api"]);
-
-    return productKey
-        .split("_")
-        .filter(Boolean)
-        .map((word) =>
-            uppercaseWords.has(word.toLowerCase())
-                ? word.toUpperCase()
-                : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-        )
-        .join(" ");
-}
+import { IA_PLUS, getIMenuPlusExpiryFeatures } from "@/lib/addons/products";
 
 export type ReminderProducts = { pix: string[]; card: string[] };
 
 export function buildExpiryMessage(products: ReminderProducts): string {
-    const pixNames = products.pix.map(productName);
-    const cardNames = products.card.map(productName);
-    const lines = ["Olá! 👋", ""];
+    const pix = products.pix.includes(IA_PLUS.key);
+    const card = products.card.includes(IA_PLUS.key);
+    if (!pix && !card) return "";
 
-    if (pixNames.length) {
-        lines.push(
-            pixNames.length > 1
-                ? "O período dos seus adicionais abaixo termina hoje:"
-                : "O período do seu adicional *" + pixNames[0] + "* termina hoje."
-        );
-        if (pixNames.length > 1) {
-            lines.push(...pixNames.map((name) => "• *" + name + "*"));
-        }
-        lines.push(
-            "",
-            "A renovação via Pix não é automática. Você tem *1 dia de tolerância* para renovar sem perder acesso."
-        );
-    }
+    const { benefits, bonuses } = getIMenuPlusExpiryFeatures();
+    const paymentNotice = pix && card
+        ? "A renovação via Pix ou cartão cancelado não será automática."
+        : pix
+            ? "A renovação via Pix não é automática."
+            : "Sua assinatura no cartão foi cancelada e não será renovada automaticamente.";
 
-    if (cardNames.length) {
-        if (pixNames.length) lines.push("");
-        lines.push(
-            cardNames.length > 1
-                ? "As assinaturas dos adicionais abaixo foram canceladas:"
-                : "A assinatura do seu adicional *" + cardNames[0] + "* foi cancelada."
-        );
-        if (cardNames.length > 1) {
-            lines.push(...cardNames.map((name) => "• *" + name + "*"));
-        }
-        lines.push(
-            "",
-            "O acesso vence amanhã e não haverá renovação automática no cartão."
-        );
-    }
-
-    lines.push(
+    return [
+        "Olá! 👋",
         "",
-        "Acesse a aba Configurações no iMenu para renovar e continuar usando os recursos. imenuapp.com.br/painel/configuracoes",
+        `Seu *${IA_PLUS.name}* vence amanhã.`,
+        paymentNotice,
         "",
-        "Fico à disposição caso precise de ajuda!"
-    );
-    return lines.join("\n");
+        "Se não renovar, você perderá estes benefícios do Plus:",
+        "",
+        "*Recursos principais:*",
+        ...benefits.map(({ title }) => `• ${title}`),
+        "",
+        "*Bônus:*",
+        ...bonuses.map(({ title }) => `• ${title}`),
+        "",
+        "Renove na aba Configurações do iMenu para continuar usando esses recursos:",
+        "imenuapp.com.br/painel/configuracoes",
+        "",
+        "Fico à disposição caso precise de ajuda!",
+    ].join("\n");
 }
-

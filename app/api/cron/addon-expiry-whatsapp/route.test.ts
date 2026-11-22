@@ -80,9 +80,11 @@ it("groups Pix and canceled-card notices into one correct WhatsApp message", asy
     expect(chat).toBe("5511912345678@c.us");
     expect(message).toContain("iMenu Plus");
     expect(message).not.toContain("QR Code Mesa");
-    expect(message).toContain("1 dia de tolerância");
-    expect(message).toContain("assinatura do seu adicional");
     expect(message).toContain("vence amanhã");
+    expect(message).toContain("A renovação via Pix ou cartão cancelado não será automática.");
+    expect(message).toContain("Limites ampliados do Assistente IA");
+    expect(message).toContain("Atualizações de pedidos pelo WhatsApp");
+    expect(message).not.toContain("termina hoje");
 });
 
 it("keeps the existing per-restaurant daily deduplication", async () => {
