@@ -82,7 +82,8 @@ it("groups Pix and canceled-card notices into one correct WhatsApp message", asy
     expect(message).not.toContain("QR Code Mesa");
     expect(message).toContain("vence amanhã");
     expect(message).toContain("A renovação via Pix ou cartão cancelado não será automática.");
-    expect(message).toContain("Limites ampliados do Assistente IA");
+    expect(message).toContain("• Assistente IA");
+    expect(message).not.toContain("Limites ampliados do Assistente IA");
     expect(message).toContain("Atualizações de pedidos pelo WhatsApp");
     expect(message).not.toContain("termina hoje");
 });

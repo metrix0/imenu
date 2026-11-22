@@ -9,8 +9,10 @@ it.each([
     expect(message).toContain("iMenu Plus* vence amanhã");
     expect(message).toContain(notice);
     const { benefits, bonuses } = getIMenuPlusExpiryFeatures();
-    expect(benefits).toHaveLength(IA_PLUS_BENEFITS.length);
-    expect(bonuses).toHaveLength(IA_PLUS_BONUSES.length);
+    expect(benefits).toBe(IA_PLUS_BENEFITS);
+    expect(bonuses).toBe(IA_PLUS_BONUSES);
+    expect(benefits.find(({ id }) => id === "assistant")?.title).toBe("Assistente IA");
+    expect(message).not.toContain("Limites ampliados do Assistente IA");
     for (const item of [...benefits, ...bonuses]) {
         expect(message).toContain(`• ${item.title}`);
     }

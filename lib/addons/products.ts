@@ -28,16 +28,9 @@ export const IA_PLUS_BONUSES = [
   { id: "menu_pdf", title: "Download Cardápio em PDF", description: "Baixe seu cardápio em PDF para imprimir ou compartilhar.", icon: FileDown },
   { id: "dark_menu", title: "Cardápio Tema Escuro", description: "Personalize seu cardápio com uma aparência escura.", icon: Moon },
 ] as const;
-// Renewal notices reuse this list so future Plus feature changes update both channels.
-// The free Assistente IA remains available; only its Plus limits are lost.
+// Both expiry channels use the exact current product titles without overrides.
 export function getIMenuPlusExpiryFeatures() {
-  return {
-    benefits: IA_PLUS_BENEFITS.map(({ id, title }) => ({
-      id,
-      title: id === "assistant" ? `Limites ampliados do ${title}` : title,
-    })),
-    bonuses: IA_PLUS_BONUSES.map(({ id, title }) => ({ id, title })),
-  };
+  return { benefits: IA_PLUS_BENEFITS, bonuses: IA_PLUS_BONUSES };
 }
 
 export const IA_PLUS_PRICE_LABEL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(IA_PLUS.priceCents / 100);
