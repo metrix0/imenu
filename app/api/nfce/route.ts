@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto";
 import { after, NextResponse } from "next/server";
 import { Zip, ZipDeflate } from "fflate";
+import { isValidFiscalCpf } from "@/lib/nfce/recipient";
 import { hasIMenuPlusAccess } from "@/lib/addons/access";
 import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
 import { query, withTransaction } from "@/lib/database/sql";
@@ -59,7 +60,7 @@ export async function GET(request: Request) {
                     FROM public.nfce_issuers WHERE restaurant_id=$1 AND environment=$2`, [restaurant, env]),
                 query<{ id: string; name: string }>("SELECT id,name FROM public.items WHERE restaurant_id=$1 ORDER BY name,id", [restaurant]),
             ]);
-            return NextResponse.json({ available: true, plus, issuer: issuer.rows[0] ?? null, items: items.rows }, { headers });
+            return NextResponse.json({ available: true, plus, environment: env, issuer: issuer.rows[0] ?? null, items: items.rows }, { headers });
         }
         if (action === "zip") {
             const everything = params.get("all") === "1" && !plus;
@@ -145,13 +146,13 @@ export async function GET(request: Request) {
     } catch (error) { return failure(error); }
 }
 
-function address(value: Record<string, unknown>): FiscalAddress {
+function address(value: Record<string, unknown>, requireCep = true): FiscalAddress {
     const result = {
         street: text(value.street, 60), number: text(value.number, 60), district: text(value.district, 60),
         cityCode: digits(value.cityCode), city: text(value.city, 60), cep: digits(value.cep),
     };
-    if (!result.street || !result.number || !result.district || !result.city || !/^35\d{5}$/.test(result.cityCode) || !/^\d{8}$/.test(result.cep)) {
-        throw new FiscalError("Complete o endereço em São Paulo com CEP e código IBGE do município.");
+    if (!result.street || !result.number || !result.district || !result.city || !/^35\d{5}$/.test(result.cityCode) || ((requireCep || result.cep) && !/^\d{8}$/.test(result.cep))) {
+        throw new FiscalError("Revise o endereço em São Paulo e o código IBGE do município.");
     }
     return result;
 }
@@ -236,8 +237,8 @@ export async function POST(request: Request) {
         if (requestedPayment && !paymentCode(requestedPayment)) throw new FiscalError("Meio de pagamento inválido.");
         let recipient: Recipient | null = null;
         if (raw.recipient) {
-            recipient = { ...address(raw.recipient), cpf: digits(raw.recipient.cpf), name: text(raw.recipient.name, 60) };
-            if (!/^\d{11}$/.test(recipient.cpf) || recipient.name.length < 2) throw new FiscalError("Informe o CPF e o nome do destinatário.");
+            recipient = { ...address(raw.recipient, false), cpf: digits(raw.recipient.cpf), name: text(raw.recipient.name, 60) };
+            if (!isValidFiscalCpf(recipient.cpf) || recipient.name.length < 2) throw new FiscalError("Informe o CPF e o nome do destinatário.");
         }
         const saved = await query(`
             WITH wanted AS (
@@ -250,7 +251,7 @@ export async function POST(request: Request) {
             ), details AS (
                 INSERT INTO public.nfce_order_details (restaurant_id,order_id,recipient,payment_method)
                 SELECT restaurant_id,id,$4,$5 FROM wanted
-                ON CONFLICT (restaurant_id,order_id) DO UPDATE SET recipient=excluded.recipient, payment_method=excluded.payment_method
+                ON CONFLICT (restaurant_id,order_id) DO UPDATE SET recipient=COALESCE(excluded.recipient,nfce_order_details.recipient), payment_method=COALESCE(excluded.payment_method,nfce_order_details.payment_method)
                 RETURNING restaurant_id,order_id
             )
             INSERT INTO public.nfce_documents (restaurant_id,order_id,environment)

@@ -26,6 +26,7 @@ type DeliveryConfig = {
     mode: "radius" | "neighborhood";
     rules: NeighborhoodDeliveryRule[];
     smallCityModeEnabled: boolean;
+    nfceRequired: boolean;
 };
 
 const loadDeliveryConfig = createMenuRequestCache(async (restaurantId: string): Promise<DeliveryConfig> => {
@@ -40,6 +41,7 @@ const loadDeliveryConfig = createMenuRequestCache(async (restaurantId: string): 
         mode: data.mode === "neighborhood" ? "neighborhood" : "radius",
         rules: parseNeighborhoodDeliveryRules(data.rules),
         smallCityModeEnabled: data.smallCityModeEnabled === true,
+        nfceRequired: data.nfceRequired === true,
     };
 });
 
@@ -54,6 +56,7 @@ export default function CartModal(props: LegacyProps) {
         mode: props.restaurant.delivery_fee_mode === "neighborhood" ? "neighborhood" : "radius",
         rules: parseNeighborhoodDeliveryRules(props.restaurant.delivery_neighborhood_fee_json),
         smallCityModeEnabled: props.restaurant.small_city_mode_enabled === true,
+        nfceRequired: false,
     });
 
     useEffect(() => {
@@ -63,7 +66,9 @@ export default function CartModal(props: LegacyProps) {
 
         void loadDeliveryConfig(restaurantId)
             .then(config => {
-                if (active) setDeliveryConfig(config);
+                if (!active) return;
+                setDeliveryConfig(config);
+                useCheckoutStore.getState().setField("fiscalRestaurantId", config.nfceRequired ? restaurantId : null);
             })
             .catch(() => undefined);
 

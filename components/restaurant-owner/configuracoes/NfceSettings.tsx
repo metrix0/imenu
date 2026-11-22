@@ -23,7 +23,7 @@ const fields = [
 const taxes = [["ncm", "NCM"], ["cfop", "CFOP"], ["csosn", "CSOSN"], ["origin", "Origem"], ["cest", "CEST"]] as const;
 
 export default function NfceSettings({ restaurant }: { restaurant: string }) {
-    const [visible, setVisible] = useState(false);
+    const [environment, setEnvironment] = useState<1 | 2 | null>(null);
     const [value, setValue] = useState<Settings>(blank);
     const [hasCertificate, setHasCertificate] = useState(false);
     const [items, setItems] = useState<{ id: string; name: string }[]>([]);
@@ -46,7 +46,7 @@ export default function NfceSettings({ restaurant }: { restaurant: string }) {
         let current = true;
         nfceRequest(restaurant, { action: "settings" }).then(response => response.json()).then(data => {
             if (!current || !data.available || !data.plus) return;
-            setVisible(true);
+            setEnvironment(data.environment === 1 ? 1 : 2);
             setItems(data.items);
             if (data.issuer) {
                 setValue({ ...blank, ...data.issuer.data, series: String(data.issuer.data.series),
@@ -64,14 +64,15 @@ export default function NfceSettings({ restaurant }: { restaurant: string }) {
     };
     const itemTax = value.itemTaxes?.[itemId] ?? value.defaultTax;
 
-    if (!visible) return null;
+    if (!environment) return null;
+    const label = environment === 2 ? "Emissão automática em homologação" : "Emissão automática de NFC-e";
     return <section id="nfce" aria-labelledby="nfce-title" className="scroll-mt-20 space-y-4">
         <h2 id="nfce-title" className="text-xl font-semibold text-gray-900">Notas Fiscais</h2>
         <Card className="space-y-4">
             <div className="flex items-center gap-3">
                 <Switch checked={value.enabled} onClick={() => change({ ...value, enabled: !value.enabled })}
-                    aria-label="Emissão automática em homologação" />
-                <span className="text-sm">Emissão automática em homologação</span>
+                    aria-label={label} />
+                <span className="text-sm">{label}</span>
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 {fields.map(([key, label]) => <Input key={key} label={label} value={value[key]} onChange={event => change({ ...value, [key]: event.target.value })} />)}

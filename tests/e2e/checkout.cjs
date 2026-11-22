@@ -177,7 +177,7 @@ async function signup(browser) {
     }
 }
 
-async function flow(browser, method, pickupMode = "only", width = 800) {
+async function flow(browser, method, pickupMode = "only", width = 800, fiscal = false) {
     const context = await browser.createBrowserContext();
     const page = await context.newPage();
     let orderPayload;
@@ -200,7 +200,7 @@ async function flow(browser, method, pickupMode = "only", width = 800) {
         if (url.origin === BASE && url.pathname === "/api/checkout/delivery-config") {
             return request.respond({
                 status: 200, contentType: "application/json",
-                body: JSON.stringify({ mode: "radius", rules: [] })
+                body: JSON.stringify({ mode: "radius", rules: [], nfceRequired: fiscal })
             });
         }
         if (url.origin === BASE && url.pathname === "/api/checkout/customer") {
@@ -257,8 +257,26 @@ async function flow(browser, method, pickupMode = "only", width = 800) {
                 pickupSelected: forced, pickupLocked: forced, addressLocked: forced,
                 addressFaded: forced, warning: forced,
             });
-            if (!forced) await page.evaluate(() => Array.from(document.querySelectorAll("label"))
-                .find(label => label.textContent.includes("Retirar pedido no balcão")).click());
+            if (!forced) {
+                if (fiscal) {
+                    await page.waitForFunction(() => Array.from(document.querySelectorAll("label"))
+                        .some(label => label.textContent.includes("CPF para a nota fiscal")));
+                    const cpf = await page.evaluate(() => {
+                        const label = Array.from(document.querySelectorAll("label"))
+                            .find(label => label.textContent.includes("CPF para a nota fiscal"));
+                        return label.getAttribute("for");
+                    });
+                    await page.type(`input[id="${cpf}"]`, "123456789098");
+                    assert.equal(await page.$eval(`input[id="${cpf}"]`, input => input.value), "12345678909");
+                    await screenshot(page, "checkout-nfce-delivery-" + width);
+                }
+                await page.evaluate(() => Array.from(document.querySelectorAll("label"))
+                    .find(label => label.textContent.includes("Retirar pedido no balcão")).click());
+                if (fiscal) {
+                    await page.waitForFunction(() => !Array.from(document.querySelectorAll("label"))
+                        .some(label => label.textContent.includes("CPF para a nota fiscal")));
+                }
+            }
         }
         const phoneFirst = await page.evaluate(() => Boolean(document.querySelector('input[autocomplete="tel"]').compareDocumentPosition(document.querySelector('input[autocomplete="name"]')) & Node.DOCUMENT_POSITION_FOLLOWING));
         assert.ok(phoneFirst,"Phone must come before name in checkout");
@@ -287,6 +305,7 @@ async function flow(browser, method, pickupMode = "only", width = 800) {
         assert.equal(orderPayload.subtotal_cents, 2500);
         assert.equal(orderPayload.delivery_fee_cents, 0);
         assert.equal(orderPayload.customer_address, null);
+        assert.equal(Object.hasOwn(orderPayload, "fiscal_cpf"), false, "Pickup must never send the fiscal CPF");
         assert.equal(orderPayload.items.length, 1);
         assert.equal(orderPayload.items[0].base_item_id, itemId);
         console.log("PASS menu → cart → " + pickupMode + " pickup checkout → " + method + " at " + width + "px (order/payment API simulated)");
@@ -550,6 +569,8 @@ async function run() {
                 delivery_fee_json: [{ radius_km: 3, fee_cents: 800, time_minutes: 40 }],
             });
             await flow(browser, "dinheiro", "optional");
+            await flow(browser, "dinheiro", "optional", 800, true);
+            await flow(browser, "dinheiro", "optional", 390, true);
         } finally {
             Object.assign(restaurant, originalRestaurant);
         }

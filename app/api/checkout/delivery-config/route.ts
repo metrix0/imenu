@@ -38,6 +38,8 @@ export async function GET(request: Request) {
     }
 
     const row = rows[0];
+    const fiscal = process.env.NFCE_ENV ? await import("@/lib/nfce/service") : null;
+    const nfceRequired = fiscal ? Boolean(await fiscal.activeFiscalIssuer(restaurantId)) : false;
 
     return NextResponse.json(
         {
@@ -49,6 +51,7 @@ export async function GET(request: Request) {
                 row.delivery_neighborhood_fee_json
             ),
             smallCityModeEnabled: row.small_city_mode_enabled === true,
+            nfceRequired,
         },
         {
             headers: {

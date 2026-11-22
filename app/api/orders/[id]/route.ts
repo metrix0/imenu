@@ -162,10 +162,25 @@ export async function PATCH(
     }
 
     try {
-        await query(
-            `UPDATE orders SET ${fieldsToUpdate.join(", ")} WHERE id = $1`,
-            values
-        );
+        const update = `UPDATE orders SET ${fieldsToUpdate.join(", ")} WHERE id = $1`;
+        if (process.env.NFCE_ENV === "producao" && Object.keys(body).some(key => allowedFields[key] && key !== "delivery_eta")) {
+            const fiscal = await import("@/lib/nfce/service");
+            const permitted = await withTransaction(async client => {
+                const order = (await client.query<{ restaurant_id: string }>(
+                    "SELECT restaurant_id FROM orders WHERE id=$1 FOR UPDATE", [id],
+                )).rows[0];
+                if (order && (await fiscal.hasFiscalDocumentInUse(client, id)
+                    || (["status", "customer_name", "customer_address", "is_delivery"].some(field => field in body)
+                        && await fiscal.activeFiscalIssuer(order.restaurant_id, client)))) return false;
+                await client.query(update, values);
+                return true;
+            });
+            if (!permitted) {
+                return NextResponse.json({ error: "Atualize pedidos com NFC-e pelo painel de pedidos." }, { status: 409 });
+            }
+        } else {
+            await query(update, values);
+        }
 
 
         return NextResponse.json({ ok: true });
@@ -221,6 +236,10 @@ export async function DELETE(
             const lockedOrder = order.rows[0];
             if (!lockedOrder) {
                 throw new RestaurantOwnerAuthError("Pedido não encontrado.", 404);
+            }
+
+            if (process.env.NFCE_ENV === "producao" && await (await import("@/lib/nfce/service")).hasFiscalDocumentInUse(client, id)) {
+                throw new RestaurantOwnerAuthError("Resolva a NFC-e deste pedido antes de excluí-lo.", 409);
             }
 
             // The first payout after this payment's eligibility cutoff must be settled.

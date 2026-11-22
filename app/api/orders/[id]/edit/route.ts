@@ -45,6 +45,9 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
             );
             const current = currentResult.rows[0];
             if (!current) throw new EditOrderError("Pedido não encontrado.", 404);
+            if (process.env.NFCE_ENV === "producao" && await (await import("@/lib/nfce/service")).hasFiscalDocumentInUse(client, id)) {
+                throw new EditOrderError("Este pedido tem uma NFC-e em processamento ou emitida. Confira em Histórico de Pedidos.", 409);
+            }
             if (current.status === "pending_online_payment") {
                 throw new EditOrderError("Aguarde a confirmação do pagamento antes de editar este pedido.", 409);
             }
@@ -208,6 +211,12 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
                     pricing.result.promotion ? JSON.stringify(pricing.result.promotion) : null,
                     destination, table?.id || null, table?.name || null, paymentMethod, id, restaurantId]
             );
+
+            if (process.env.NFCE_ENV && (current.customer_name !== (body.customer_name.trim() || null)
+                || current.customer_address !== customerAddress || current.is_delivery !== destination)) {
+                await client.query(`UPDATE public.nfce_order_details SET recipient=NULL
+                    WHERE restaurant_id=$1 AND order_id=$2 AND recipient IS NOT NULL`, [restaurantId, id]);
+            }
 
             await client.query("DELETE FROM order_items WHERE order_id = $1", [id]);
             for (const item of items) {

@@ -16,6 +16,33 @@ const states = "RO AC AM RR PA AP TO MA PI CE RN PB PE AL SE BA MG ES RJ SP PR S
 const maximumPoints = 10_000;
 
 type Municipalities = Record<string, Record<string, number>>;
+let saoPauloMunicipalities: Promise<Municipalities["SP"]> | undefined;
+
+export async function lookupSaoPauloMunicipality(city: string): Promise<string | null> {
+    const name = normalize(city);
+    if (!name) return null;
+
+    saoPauloMunicipalities ??= readMunicipalities(directory()).then(data => {
+        if (!Object.keys(data.SP ?? {}).length) throw new Error("Missing municipal index");
+        return data.SP;
+    }).catch(async () => {
+        const response = await fetch("https://servicodados.ibge.gov.br/api/v1/localidades/estados/35/municipios", {
+            signal: AbortSignal.timeout(4000),
+        });
+        if (!response.ok) throw new Error("Municipal index unavailable");
+        const rows: { id: number; nome: string }[] = await response.json();
+        if (!Array.isArray(rows) || rows.length === 0) throw new Error("Empty municipal index");
+        return Object.fromEntries(rows.map(row => [normalize(row.nome), row.id]));
+    }).catch(error => {
+        saoPauloMunicipalities = undefined;
+        throw error;
+    });
+
+    const municipalities = await saoPauloMunicipalities;
+    const code = Object.hasOwn(municipalities, name) ? String(municipalities[name]) : "";
+    return /^35\d{5}$/.test(code) ? code : null;
+}
+
 type Address = { city: string; uf: string; street: string; bairro: string; number: string; cep: string };
 type IndexedPoint = { lat: number; lon: number; number: string; cep: number };
 

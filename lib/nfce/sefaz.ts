@@ -23,8 +23,9 @@ export type FiscalEnvironment = 1 | 2;
 type XmlElement = ReturnType<DOMParser["parseFromString"]>["documentElement"];
 
 export function fiscalEnvironment(): FiscalEnvironment | null {
-    // Production stays disabled until a restaurant has passed homologação.
-    return process.env.NFCE_ENV === "homologacao" && /^[a-f0-9]{64}$/i.test(process.env.NFCE_KEY ?? "") ? 2 : null;
+    if (!/^[a-f0-9]{64}$/i.test(process.env.NFCE_KEY ?? "")) return null;
+    if (process.env.NFCE_ENV === "homologacao") return 2;
+    return process.env.NFCE_ENV === "producao" ? 1 : null;
 }
 
 export function certificateIdentity(pfx: Buffer, password: string): Identity {
@@ -105,7 +106,7 @@ export function controlDigit(base: string) {
 
 function address(data: FiscalAddress) {
     return tag("xLgr", data.street) + tag("nro", data.number) + tag("xBairro", data.district)
-        + tag("cMun", data.cityCode) + tag("xMun", data.city) + tag("UF", "SP") + tag("CEP", data.cep)
+        + tag("cMun", data.cityCode) + tag("xMun", data.city) + tag("UF", "SP") + (data.cep ? tag("CEP", data.cep) : "")
         + tag("cPais", "1058") + tag("xPais", "BRASIL");
 }
 

@@ -3,6 +3,7 @@ import { promisify } from "node:util";
 import type { PoolClient } from "pg";
 import { hasIMenuPlusAccess } from "@/lib/addons/access";
 import { query, withTransaction } from "@/lib/database/sql";
+import { isValidFiscalCpf } from "./recipient";
 import {
     authorizedXml, buildNote, cancelNote, consultNote, fiscalEnvironment, paymentCode, readCertificate, sendNote,
     type FiscalEnvironment, type Issuer, type Recipient, type Sale,
@@ -33,10 +34,75 @@ export class FiscalError extends Error {
 
 export const spNow = () => new Date(Date.now() - 10_800_000).toISOString().slice(0, 19) + "-03:00";
 
+export async function activeFiscalIssuer(restaurant: string, client?: PoolClient) {
+    const environment = fiscalEnvironment();
+    if (!environment) return null;
+
+    const sql = `SELECT data FROM public.nfce_issuers
+        WHERE restaurant_id=$1 AND environment=$2 AND enabled AND certificate IS NOT NULL`;
+    const args = [restaurant, environment];
+    const issuer = (client ? await client.query<{ data: Issuer }>(sql, args) : await query<{ data: Issuer }>(sql, args)).rows[0];
+    if (!issuer || !await hasIMenuPlusAccess(restaurant, client)) return null;
+    return { environment, data: issuer.data };
+}
+
+export async function checkoutRecipient(cpf: unknown, name: unknown, address: Record<string, string> | null, issuer: Issuer): Promise<Recipient> {
+    const document = typeof cpf === "string" ? cpf.replace(/\D/g, "") : "";
+    if (!isValidFiscalCpf(document)) throw new FiscalError("Informe um CPF válido para a nota fiscal.");
+    const customerName = typeof name === "string" ? name.trim().slice(0, 60) : "";
+    const city = address?.cidade?.trim();
+    const cep = address?.cep?.replace(/\D/g, "") ?? "";
+    const street = address?.rua?.trim();
+    const number = address?.numero?.trim();
+    const district = address?.bairro?.trim();
+    if (customerName.length < 2 || !street || !number || !district || !city || !/^(?:SP|S[ÃA]O PAULO)$/i.test(address?.estado ?? "") || (cep && !/^\d{8}$/.test(cep))) {
+        throw new FiscalError("Confira o nome e o endereço de entrega em São Paulo.");
+    }
+    const sameCity = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    let cityCode: string | null = null;
+    if (sameCity(city) === sameCity(issuer.city)) cityCode = issuer.cityCode;
+    else {
+        const { lookupSaoPauloMunicipality } = await import("@/lib/delivery/cnefe");
+        try { cityCode = await lookupSaoPauloMunicipality(city); }
+        catch { throw new FiscalError("Não foi possível conferir o município. Tente novamente.", 503); }
+    }
+    if (!cityCode) throw new FiscalError("Confira o município de entrega para a nota fiscal.");
+    return { cpf: document, name: customerName, street: street.slice(0, 60), number: number.slice(0, 60), district: district.slice(0, 60), city: city.slice(0, 60), cep, cityCode };
+}
+
+export async function hasFiscalDocumentInUse(client: PoolClient, order: string) {
+    return Boolean((await client.query(`SELECT 1 FROM public.nfce_documents
+        WHERE order_id=$1 AND environment=1 AND status IN ('pending','processing','contingency','authorized')
+        AND (status<>'authorized' OR authorized_xml IS NOT NULL) LIMIT 1`, [order])).rowCount);
+}
+
+export async function hasPendingFiscalDocument(client: PoolClient, order: string) {
+    return Boolean((await client.query(`SELECT 1 FROM public.nfce_documents
+        WHERE order_id=$1 AND environment=1 AND status IN ('pending','processing','contingency') LIMIT 1`, [order])).rowCount);
+}
+
+export function needsFiscalNote(status: string, type: string | null) {
+    return (type === "entrega" && ["delivering", "done"].includes(status))
+        || (["balcao", "retirada"].includes(type ?? "") && status === "done");
+}
+
+export async function prepareOrderNote(client: PoolClient, restaurant: string, order: string, status: string, type: string | null) {
+    if (!needsFiscalNote(status, type) || !await activeFiscalIssuer(restaurant, client)) return null;
+    await enqueueOrderNote(client, restaurant, order, 1);
+    return (await client.query<{ status: string; error: string | null; has_document: boolean }>(`
+        SELECT status,error,CASE WHEN offline THEN signed_xml IS NOT NULL ELSE authorized_xml IS NOT NULL END AS has_document
+        FROM public.nfce_documents WHERE restaurant_id=$1 AND order_id=$2 AND environment=1`, [restaurant, order])).rows[0]
+        ?? { status: "pending", error: null, has_document: false };
+}
+
 export async function queueOrderNote(client: PoolClient, restaurant: string, order: string, status: string, type: string | null) {
     const env = fiscalEnvironment();
-    const issue = (type === "entrega" && status === "delivering") || (["balcao", "retirada"].includes(type ?? "") && status === "done");
+    const issue = needsFiscalNote(status, type);
     if (!env || !issue || !await hasIMenuPlusAccess(restaurant, client)) return false;
+    return enqueueOrderNote(client, restaurant, order, env);
+}
+
+async function enqueueOrderNote(client: PoolClient, restaurant: string, order: string, env: FiscalEnvironment) {
     return (await client.query(`
         INSERT INTO public.nfce_documents (restaurant_id, order_id, environment)
         SELECT restaurant_id, $2, environment FROM public.nfce_issuers
@@ -57,7 +123,7 @@ async function getSale(job: Job, issuer: Issuer): Promise<Sale> {
             SELECT recipient,payment_method FROM public.nfce_order_details WHERE restaurant_id=$1 AND order_id=$2`, [job.restaurant_id, job.order_id]),
     ]);
     const order = orderResult.rows[0];
-    if (!order || order.imported || !["preparing", "delivering", "done"].includes(order.status)) throw new FiscalError("Pedido indisponível para emissão.");
+    if (!order || order.imported || !["pending_physical_payment", "paid", "preparing", "delivering", "done"].includes(order.status)) throw new FiscalError("Pedido indisponível para emissão.");
     const payment = details.rows[0]?.payment_method ?? order.payment_method ?? "";
     if (!paymentCode(payment)) throw new FiscalError("Informe o meio de pagamento na seção fiscal do pedido.");
     const delivery = order.is_delivery === "entrega";
