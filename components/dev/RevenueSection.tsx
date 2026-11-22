@@ -111,12 +111,12 @@ export default function RevenueSection() {
                     <p>{formatCount(data.summary.card30)} compras · {share(data.summary.cardGross30, data.summary.gross30)} da receita</p>
                 </div>
             </dl>
-            <section className={`${styles.tableSection} ${styles.fitTable}`}>
+            <section className={`${styles.tableSection} ${styles.revenueTable}`}>
                 <h2>Compras iMenu Plus <span className="font-normal text-gray-500">({formatCount(data.purchases.total)})</span></h2>
                 <PagedTable data={data.purchases} loading={loading} onPage={setPage} rowKey={row => row.id}
                     onRowClick={row => openProfile({ id: row.restaurantId, name: row.restaurantName })}
                     columns={[
-                        { key: "restaurant", label: "Restaurante", render: row => <button type="button" className={styles.profileLink} onClick={event => { event.stopPropagation(); openProfile({ id: row.restaurantId, name: row.restaurantName }); }} title={row.restaurantName}><span className="block max-w-72 truncate">{row.restaurantName}</span></button> },
+                        { key: "restaurant", label: "Restaurante", render: row => <button type="button" className={styles.profileLink} onClick={event => { event.stopPropagation(); openProfile({ id: row.restaurantId, name: row.restaurantName }); }} title={row.restaurantName}><span className="block max-w-24 truncate">{row.restaurantName}</span></button> },
                         { key: "type", label: "Tipo", className: "whitespace-nowrap", render: row => row.isRenewal ? "Renovação" : "Nova" },
                         { key: "origin", label: "Origem", className: "whitespace-nowrap", render: row => originLabel(row.origin) },
                         { key: "paidAt", label: "Pagamento", className: styles.dateCell, render: formatPaymentDate },

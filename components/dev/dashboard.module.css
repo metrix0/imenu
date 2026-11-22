@@ -70,6 +70,10 @@
 .crmTable :global([data-ui="badge"]){white-space:nowrap}
 
 .tableSection{min-width:0}.tableSection>h2{font-size:18px;font-weight:600;margin-bottom:14px}
+.revenueTable :global(:is(th, td)) { white-space: nowrap; overflow-wrap: normal; }
+.revenueTable :global(:is(th:first-child, td:first-child)) { width: 128px; max-width: 128px; }
+.revenueTable .profileLink { overflow: hidden; max-width: 100%; }
+
 .blastTable :global([data-ui="table"]){max-width:100%;overflow-x:hidden}
 .crmTable :global(table),.blastTable :global(table){width:100%;table-layout:fixed}
 .crmTable :global(th),.crmTable :global(td),.blastTable :global(th),.blastTable :global(td){overflow:hidden;text-overflow:ellipsis}
