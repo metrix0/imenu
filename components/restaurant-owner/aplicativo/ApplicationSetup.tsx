@@ -624,9 +624,6 @@ export default function ApplicationSetup() {
                                     </li>
                                 ))}
                             </ul>
-                            <p className="mt-3 text-xs leading-5 text-gray-500">
-                                Depois, toque em <strong>Enviar teste</strong>. Os nomes dos menus podem variar conforme o aparelho.
-                            </p>
                             <div className="mt-3 border-t border-gray-200 pt-3 text-center">
                                 <a
                                     href="https://wa.me/5519997235394?text=Ol%C3%A1%2C%20preciso%20de%20ajuda%20com%20o%20som%20das%20notifica%C3%A7%C3%B5es%20do%20iMenu."
