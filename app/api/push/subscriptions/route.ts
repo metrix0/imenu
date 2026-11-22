@@ -18,12 +18,24 @@ type PushSubscriptionBody = {
     };
 };
 
+
+function subscriptionConflictResponse() {
+    return NextResponse.json(
+        { error: "Este aparelho já possui uma assinatura de notificações em conflito. Desative a anterior antes de tentar novamente." },
+        { status: 409 }
+    );
+}
+
 function jsonError(error: unknown) {
     if (error instanceof Response) {
         return NextResponse.json(
             { error: error.statusText || "Request failed" },
             { status: error.status }
         );
+    }
+
+    if (error && typeof error === "object" && "code" in error && error.code === "23505") {
+        return subscriptionConflictResponse();
     }
 
     console.error("[PUSH_SUBSCRIPTIONS]", error);
@@ -106,32 +118,48 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        await query(
+        // Update a known device in place when its push endpoint rotates.
+        // For a new device, keep endpoint upsert semantics but never reassign
+        // a subscription belonging to a different restaurant or account.
+        const saved = await query<{ id: string }>(
             `
-                INSERT INTO owner_push_subscriptions (
-                    restaurant_id,
-                    user_id,
-                    endpoint,
-                    p256dh,
-                    auth_secret,
-                    device_token,
-                    user_agent,
-                    enabled,
-                    last_seen_at,
-                    updated_at
+                WITH updated_by_token AS (
+                    UPDATE owner_push_subscriptions
+                    SET endpoint = $3,
+                        p256dh = $4,
+                        auth_secret = $5,
+                        user_agent = $7,
+                        enabled = true,
+                        last_seen_at = NOW(),
+                        updated_at = NOW()
+                    WHERE restaurant_id = $1
+                      AND user_id = $2
+                      AND device_token = $6
+                    RETURNING id
+                ),
+                upserted_by_endpoint AS (
+                    INSERT INTO owner_push_subscriptions (
+                        restaurant_id, user_id, endpoint, p256dh, auth_secret,
+                        device_token, user_agent, enabled, last_seen_at, updated_at
+                    )
+                    SELECT $1, $2, $3, $4, $5, $6, $7, true, NOW(), NOW()
+                    WHERE NOT EXISTS (SELECT 1 FROM updated_by_token)
+                    ON CONFLICT (endpoint)
+                    DO UPDATE SET
+                        p256dh = EXCLUDED.p256dh,
+                        auth_secret = EXCLUDED.auth_secret,
+                        device_token = EXCLUDED.device_token,
+                        user_agent = EXCLUDED.user_agent,
+                        enabled = true,
+                        last_seen_at = NOW(),
+                        updated_at = NOW()
+                    WHERE owner_push_subscriptions.user_id = EXCLUDED.user_id
+                      AND owner_push_subscriptions.restaurant_id = EXCLUDED.restaurant_id
+                    RETURNING id
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, true, NOW(), NOW())
-                ON CONFLICT (endpoint)
-                DO UPDATE SET
-                    restaurant_id = EXCLUDED.restaurant_id,
-                    user_id = EXCLUDED.user_id,
-                    p256dh = EXCLUDED.p256dh,
-                    auth_secret = EXCLUDED.auth_secret,
-                    device_token = EXCLUDED.device_token,
-                    user_agent = EXCLUDED.user_agent,
-                    enabled = true,
-                    last_seen_at = NOW(),
-                    updated_at = NOW()
+                SELECT id FROM updated_by_token
+                UNION ALL
+                SELECT id FROM upserted_by_endpoint
             `,
             [
                 restaurantId,
@@ -143,6 +171,10 @@ export async function POST(request: NextRequest) {
                 request.headers.get("user-agent"),
             ]
         );
+
+        if (saved.rows.length === 0) {
+            return subscriptionConflictResponse();
+        }
 
         return NextResponse.json({ ok: true });
     } catch (error) {
