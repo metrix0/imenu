@@ -6,7 +6,7 @@ BASE=/opt/imenu-migration
 STATE="$BASE/ops/preview-deploy-state"
 RELEASES="$BASE/ops/preview-releases"
 
-[[ $# -eq 0 || ( $# -eq 1 && "$1" == --dry-run ) ]] || exit 2
+[[ $# -eq 0 || ( $# -eq 1 && ( "$1" == --dry-run || "$1" == --now || "$1" == --now-dry-run ) ) ]] || exit 2
 [[ -d "$STATE" && -d "$RELEASES" ]] || { echo "Preview state/releases missing" >&2; exit 1; }
 
 # Skip rather than race a preview deploy, download, upload, or shared build.
@@ -27,7 +27,7 @@ import sys
 import time
 
 state, root = map(pathlib.Path, sys.argv[1:3])
-dry_run = sys.argv[3] == "--dry-run"
+dry_run = sys.argv[3] in ("--dry-run", "--now-dry-run")
 if root.is_symlink() or root.resolve() != pathlib.Path("/opt/imenu-migration/ops/preview-releases"):
     raise SystemExit("Unexpected preview releases path")
 pattern = re.compile(re.escape(str(root)) + r"/([0-9a-f]{40})(?![0-9a-f])")
@@ -49,7 +49,7 @@ for name in ("deployed-sha", "rollback-sha"):
     if file.is_file() and re.fullmatch(r"[0-9a-f]{40}", file.read_text().strip()):
         keep.add(file.read_text().strip())
 
-cutoff = time.time() - 3 * 86400
+cutoff = float("inf") if sys.argv[3] in ("--now", "--now-dry-run") else time.time() - 3 * 86400
 removed = 0
 for path in sorted(root.iterdir()):
     if path.is_symlink() or not path.is_dir() or not re.fullmatch(r"[0-9a-f]{40}", path.name):
