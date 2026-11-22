@@ -14,6 +14,27 @@ beforeEach(() => {
 });
 
 describe("support knowledge search", () => {
+    it("derives Plus knowledge directly from the shared benefits and bonuses", async () => {
+        const results = await searchSupportKnowledge("Quais os bônus do iMenu Plus?", 5);
+        expect(results[0]).toMatchObject({
+            id: "product:imenu-plus",
+            title: expect.stringContaining("iMenu Plus"),
+            content: expect.stringContaining("Múltiplas fotos e vídeo no cardápio"),
+        });
+        expect(results[0].content).toContain("Inclui 7 bônus:");
+        expect(results[0].content).not.toContain("R$ 49,99");
+    });
+
+    it("includes Plus price only for pricing questions", async () => {
+        const results = await searchSupportKnowledge("Quanto custa o iMenu Plus?", 5);
+        expect(results[0].content).toContain("R$");
+        expect(results[0].content).toContain("por mês");
+    });
+
+    it("does not inject Plus details into unrelated support topics", async () => {
+        await expect(searchSupportKnowledge("Preciso configurar complementos", 5)).resolves.toEqual([]);
+    });
+
     it.each(["Oi", "Ok", "Sim", "?"])(
         "uses a safe weighted fallback query for short/stop-word input %s",
         async (message) => {
