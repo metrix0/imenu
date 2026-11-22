@@ -7,6 +7,7 @@ import {
     faBell,
     faBellSlash,
     faCheckCircle,
+    faChevronDown,
     faChevronUp,
     faCloudArrowDown,
     faEllipsis,
@@ -15,6 +16,7 @@ import {
     faPaperPlane,
     faPlay,
     faTriangleExclamation,
+    faVolumeHigh,
     faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 
@@ -75,6 +77,7 @@ export default function ApplicationSetup() {
         useState(false);
 
     const ios = useMemo(() => isIosDevice(), []);
+    const volumeHelp = useCollapsible();
     const tutorialVideoRef = useRef<HTMLVideoElement>(null);
     const [tutorialRequested, setTutorialRequested] = useState(false);
     const tutorial = useCollapsible({
@@ -560,6 +563,37 @@ export default function ApplicationSetup() {
                         </Button>
                     </div>
 
+                    <Button
+                        {...volumeHelp.triggerProps}
+                        variant="secondary"
+                        className="mt-3 w-full"
+                        leftIcon={<FontAwesomeIcon icon={faVolumeHigh} aria-hidden="true" />}
+                        rightIcon={<FontAwesomeIcon icon={volumeHelp.expanded ? faChevronUp : faChevronDown} aria-hidden="true" />}
+                    >
+                        Aumentar volume
+                    </Button>
+                    <CollapsibleContent id={volumeHelp.contentId} expanded={volumeHelp.expanded}>
+                        <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm leading-6 text-gray-700">
+                            <ol className="list-decimal space-y-2 pl-5">
+                                {ios ? (
+                                    <>
+                                        <li>Abra <strong>Ajustes → Resposta Tátil e Som</strong> (ou <strong>Sons e Tato</strong>) e aumente o volume de <strong>Toque e Alertas</strong>. O volume de mídia não controla esse som.</li>
+                                        <li>Desative o <strong>Modo Silencioso</strong> pela chave lateral ou botão de Ação e confira se <strong>Foco / Não Perturbe</strong> está desligado.</li>
+                                        <li>Em <strong>Ajustes → Notificações → iMenu</strong>, permita notificações e ative <strong>Sons</strong>. O iMenu precisa estar adicionado à Tela de Início.</li>
+                                    </>
+                                ) : (
+                                    <>
+                                        <li>Abra <strong>Configurações → Som e vibração → Volume</strong> e aumente <strong>Notificações</strong> (ou <strong>Toque e notificações</strong>). Em celulares Samsung, o menu se chama <strong>Sons e vibração</strong>.</li>
+                                        <li>Em <strong>Configurações → Notificações → Notificações de apps → iMenu</strong>, permita os avisos com <strong>som</strong>, não como silenciosos. Se estiver usando o navegador, confira também as notificações do Chrome.</li>
+                                        <li>Desative <strong>Não Perturbe</strong> e o modo silencioso. Verifique se o som não está direcionado a fones Bluetooth.</li>
+                                    </>
+                                )}
+                                <li>Volte ao iMenu e toque em <strong>Enviar teste</strong> para conferir o alerta.</li>
+                            </ol>
+                            <p className="mt-3 text-xs text-gray-500">O volume é controlado pelo celular, não pelo iMenu. Os nomes dos menus podem variar conforme a versão do sistema.</p>
+                        </div>
+                    </CollapsibleContent>
+
                     {notificationEnabled && (
                         <button
                             type="button"
@@ -570,6 +604,11 @@ export default function ApplicationSetup() {
                             Desativar notificações neste aparelho
                         </button>
                     )}
+                    <p className="mt-4 text-xs leading-5 text-gray-500">
+                        Novos pedidos podem gerar novos avisos enquanto o pedido estiver ativo e você não abrir o painel.
+                        A verificação ocorre a cada minuto, com intervalo mínimo de 30 segundos entre tentativas, por até 24 horas.
+                        Ao abrir o aplicativo, os lembretes desse pedido param.
+                    </p>
                 </Card>
             </div>
 
