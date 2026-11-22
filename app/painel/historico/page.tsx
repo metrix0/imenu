@@ -169,6 +169,7 @@ export default function HistoricoPage() {
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
     const [editingOrder, setEditingOrder] = useState<{ id: string } | null>(null);
+    const [orderToEditWithFiscal, setOrderToEditWithFiscal] = useState<Order | null>(null);
     const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
@@ -251,6 +252,13 @@ export default function HistoricoPage() {
         if (restaurantId) fetchOrders(restaurantId);
     };
 
+    const handleEditOrder = (order: Order) => {
+        setIsDetailsOpen(false);
+        const note = fiscal?.notes.find(note => note.order_id === order.id && note.status !== "rejected");
+        if (note) setOrderToEditWithFiscal(order);
+        else setEditingOrder({ id: order.id });
+    };
+
     const handleDeleteOrder = async () => {
         if (!restaurantId || !orderToDelete || isDeleting) return;
         setIsDeleting(true);
@@ -327,7 +335,20 @@ export default function HistoricoPage() {
                 variant="danger"
             />
 
-            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+            <ConfirmModal
+                open={orderToEditWithFiscal !== null}
+                onClose={() => setOrderToEditWithFiscal(null)}
+                onConfirm={() => {
+                    if (orderToEditWithFiscal) setEditingOrder({ id: orderToEditWithFiscal.id });
+                    setOrderToEditWithFiscal(null);
+                }}
+                title="Editar pedido com NFC-e?"
+                description="Este pedido já possui uma NFC-e emitida ou em processamento. A edição não exclui nem altera a nota fiscal; pode ser necessário cancelá-la e emitir outra conforme as regras da SEFAZ."
+                confirmLabel="Continuar edição"
+                variant="primary"
+            />
+
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
 
             <OrderDetailsModal
                 isOpen={isDetailsOpen}
@@ -340,7 +361,7 @@ export default function HistoricoPage() {
                 )}
                 onOrderUpdate={handleOrderUpdate}
                 onDeleteOrder={(order) => { setIsDetailsOpen(false); setOrderToDelete(order); }}
-                onEditOrder={(order) => { setIsDetailsOpen(false); setEditingOrder({ id: order.id }); }}
+                onEditOrder={handleEditOrder}
             />
             {restaurantId && (
                 <CreatePanelOrderModal

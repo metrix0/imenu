@@ -136,28 +136,22 @@ it("provider rejection leaves an imported order unchanged and returns its error"
     expect(client.query.mock.calls.every(([sql])=>!sql.includes("UPDATE orders"))).toBe(true);
 });
 
-it("keeps an opted-in production delivery from advancing until the NFC-e exists", async () => {
+it("does not block delivery status while production NFC-e is queued", async () => {
     const originalEnv = process.env.NFCE_ENV;
+    process.env.NFCE_ENV = "producao";
     try {
-        process.env.NFCE_ENV = "producao";
         const fiscal = await import("@/lib/nfce/service");
-        const prepare = jest.spyOn(fiscal, "prepareOrderNote")
-            .mockResolvedValueOnce({ status: "pending", error: null, has_document: false })
-            .mockResolvedValueOnce({ status: "rejected", error: "Rejeição de teste", has_document: false });
-        const worker = jest.spyOn(fiscal, "processNote").mockResolvedValue(true);
+        const queued = jest.spyOn(fiscal, "queueOrderNote").mockResolvedValue(false);
+        const prepare = jest.spyOn(fiscal, "prepareOrderNote");
         try {
-            const blocked = await send("delivering");
-            expect(blocked.status).toBe(409);
-            expect(await blocked.json()).toEqual({ error: "NFC-e: Rejeição de teste Confira em Histórico de Pedidos." });
-            expect(worker).toHaveBeenCalledWith("order");
-            expect(client.query.mock.calls.every(([sql]) => !String(sql).includes("UPDATE orders"))).toBe(true);
-
-            prepare.mockResolvedValueOnce({ status: "authorized", error: null, has_document: true });
-            expect((await send("delivering")).status).toBe(200);
+            const response = await send("delivering");
+            expect(response.status).toBe(200);
             expect(client.query.mock.calls.some(([sql]) => String(sql).includes("UPDATE orders"))).toBe(true);
+            expect(queued).toHaveBeenCalledWith(client, "restaurant", "order", "delivering", "entrega");
+            expect(prepare).not.toHaveBeenCalled();
         } finally {
+            queued.mockRestore();
             prepare.mockRestore();
-            worker.mockRestore();
         }
     } finally {
         if (originalEnv === undefined) delete process.env.NFCE_ENV;

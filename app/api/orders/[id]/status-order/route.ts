@@ -96,7 +96,6 @@ export async function PATCH(
         }
 
         const fiscal = process.env.NFCE_ENV ? await import("@/lib/nfce/service") : null;
-        const productionFiscal = fiscal && process.env.NFCE_ENV === "producao";
         const changeStatus = () => withTransaction(async (client) => {
             const orderResult = await client.query(
                 `
@@ -146,17 +145,6 @@ export async function PATCH(
                 !["pending_online_payment", "canceled"].includes(status)
             ) {
                 throw new OrderStatusError("Pagamento PIX ainda não confirmado.", 409);
-            }
-
-            if (productionFiscal && status === "canceled" && order.status !== status && await fiscal.hasPendingFiscalDocument(client, id)) {
-                throw new OrderStatusError("Aguarde a resposta da SEFAZ antes de cancelar este pedido.", 409);
-            }
-
-            if (productionFiscal && order.status !== status) {
-                const note = await fiscal.prepareOrderNote(client, order.restaurant_id, id, status, order.is_delivery);
-                if (note && (!note.has_document || !["authorized", "contingency"].includes(note.status))) {
-                    return { fiscalBlocked: note };
-                }
             }
 
             if (
@@ -475,7 +463,7 @@ export async function PATCH(
                 [status, id]
             );
 
-            const fiscalQueued = fiscal && !productionFiscal ? await fiscal.queueOrderNote(client, order.restaurant_id, id, status, order.is_delivery) : false;
+            const fiscalQueued = fiscal ? await fiscal.queueOrderNote(client, order.restaurant_id, id, status, order.is_delivery) : false;
 
             return {
                 fiscalQueued,
@@ -490,17 +478,7 @@ export async function PATCH(
             };
         });
 
-        let updateResult = await changeStatus();
-        if (productionFiscal && updateResult.fiscalBlocked && updateResult.fiscalBlocked.status !== "rejected") {
-            await fiscal.processNote(id);
-            updateResult = await changeStatus();
-        }
-        if (updateResult.fiscalBlocked) {
-            const reason = updateResult.fiscalBlocked.error;
-            return NextResponse.json({
-                error: reason ? `NFC-e: ${reason} Confira em Histórico de Pedidos.` : "A NFC-e está em processamento. Tente concluir novamente em instantes.",
-            }, { status: 409 });
-        }
+        const updateResult = await changeStatus();
 
         if (fiscal && updateResult.fiscalQueued) after(() => fiscal.processNote(id).then(() => undefined));
 

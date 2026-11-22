@@ -163,24 +163,7 @@ export async function PATCH(
 
     try {
         const update = `UPDATE orders SET ${fieldsToUpdate.join(", ")} WHERE id = $1`;
-        if (process.env.NFCE_ENV === "producao" && Object.keys(body).some(key => allowedFields[key] && key !== "delivery_eta")) {
-            const fiscal = await import("@/lib/nfce/service");
-            const permitted = await withTransaction(async client => {
-                const order = (await client.query<{ restaurant_id: string }>(
-                    "SELECT restaurant_id FROM orders WHERE id=$1 FOR UPDATE", [id],
-                )).rows[0];
-                if (order && (await fiscal.hasFiscalDocumentInUse(client, id)
-                    || (["status", "customer_name", "customer_address", "is_delivery"].some(field => field in body)
-                        && await fiscal.activeFiscalIssuer(order.restaurant_id, client)))) return false;
-                await client.query(update, values);
-                return true;
-            });
-            if (!permitted) {
-                return NextResponse.json({ error: "Atualize pedidos com NFC-e pelo painel de pedidos." }, { status: 409 });
-            }
-        } else {
-            await query(update, values);
-        }
+        await query(update, values);
 
 
         return NextResponse.json({ ok: true });
