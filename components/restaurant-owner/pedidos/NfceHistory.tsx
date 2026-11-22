@@ -163,8 +163,7 @@ export function NfceOrderSection({ order, note, restaurant, configured, focus, o
     };
     const submit = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        const form = new FormData(event.currentTarget);
-        const body = { order: order.id, payment, recipient: delivery ? Object.fromEntries(form.entries()) : undefined };
+        const body = { order: order.id, payment };
         void run(async () => {
             await nfceRequest(restaurant, { action: "issue" }, { method: "POST", body: JSON.stringify(body) });
             setQueued(true);
@@ -193,10 +192,11 @@ export function NfceOrderSection({ order, note, restaurant, configured, focus, o
             {note && ["authorized", "canceled", "contingency"].includes(note.status) && <Button variant="secondary" disabled={busy} onClick={() => void run(async () => { await download(restaurant, { action: "pdf", order: order.id }, "danfe.pdf"); })}>Baixar PDF</Button>}
             {note && ["authorized", "canceled"].includes(note.status) && <Button variant="secondary" disabled={busy} onClick={() => void run(async () => { await download(restaurant, { action: "xml", order: order.id }, "nfce.xml"); })}>Baixar XML</Button>}
             {note?.status === "authorized" && order.status === "canceled" && <Button variant="secondary" onClick={() => setCancel(value => !value)}>Cancelar nota</Button>}
-            {pending && configured && !queued && ["preparing", "delivering", "done"].includes(order.status) && <Button variant="secondary" onClick={() => setEdit(value => !value)}>
+            {pending && configured && !delivery && !queued && ["preparing", "delivering", "done"].includes(order.status) && <Button variant="secondary" onClick={() => setEdit(value => !value)}>
                 {note ? "Corrigir e tentar novamente" : "Emitir NFC-e"}
             </Button>}
         </div>
+        {delivery && !note && <p className="text-sm text-gray-600">Emissão fiscal para entregas indisponível nesta configuração.</p>}
         {edit && <form onSubmit={submit} className="space-y-3">
             <label className="block text-sm">Pagamento
                 <select className="ml-2 rounded-md border border-gray-300 p-2" value={payment} onChange={event => setPayment(event.target.value)}>
@@ -205,12 +205,6 @@ export function NfceOrderSection({ order, note, restaurant, configured, focus, o
                     <option value="pix">Pix online</option>
                 </select>
             </label>
-            {delivery && <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Input name="cpf" label="CPF" required /><Input name="name" label="Nome" defaultValue={order.customer_name} required />
-                <Input name="street" label="Rua" required /><Input name="number" label="Número" required />
-                <Input name="district" label="Bairro" required /><Input name="city" label="Município" required />
-                <Input name="cityCode" label="Código IBGE do município" required /><Input name="cep" label="CEP" required />
-            </div>}
             <Button type="submit" loading={busy}>Emitir nota</Button>
         </form>}
         {cancel && <form onSubmit={cancelSubmit} className="space-y-3">

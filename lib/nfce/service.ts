@@ -5,7 +5,7 @@ import { hasIMenuPlusAccess } from "@/lib/addons/access";
 import { query, withTransaction } from "@/lib/database/sql";
 import {
     authorizedXml, buildNote, cancelNote, consultNote, fiscalEnvironment, paymentCode, readCertificate, sendNote,
-    type FiscalEnvironment, type Issuer, type Recipient, type Sale,
+    type FiscalEnvironment, type Issuer, type Sale,
 } from "./sefaz";
 
 export const zipXml = promisify(gzip);
@@ -57,8 +57,7 @@ export async function hasPendingFiscalDocument(client: PoolClient, order: string
 }
 
 export function needsFiscalNote(status: string, type: string | null) {
-    return (type === "entrega" && ["delivering", "done"].includes(status))
-        || (["balcao", "retirada"].includes(type ?? "") && status === "done");
+    return ["balcao", "retirada"].includes(type ?? "") && status === "done";
 }
 
 export async function prepareOrderNote(client: PoolClient, restaurant: string, order: string, status: string, type: string | null) {
@@ -94,16 +93,15 @@ async function getSale(job: Job, issuer: Issuer): Promise<Sale> {
         query<{ item_id: string; name: string; quantity: number; total_cents: number }>(`
             SELECT i.item_id,i.name,i.quantity,i.total_cents FROM public.order_items i
             JOIN public.orders o ON o.id=i.order_id WHERE o.id=$1 AND o.restaurant_id=$2 ORDER BY i.id`, [job.order_id, job.restaurant_id]),
-        query<{ recipient: Recipient | null; payment_method: string | null }>(`
-            SELECT recipient,payment_method FROM public.nfce_order_details WHERE restaurant_id=$1 AND order_id=$2`, [job.restaurant_id, job.order_id]),
+        query<{ payment_method: string | null }>(`
+            SELECT payment_method FROM public.nfce_order_details WHERE restaurant_id=$1 AND order_id=$2`, [job.restaurant_id, job.order_id]),
     ]);
     const order = orderResult.rows[0];
     if (!order || order.imported || !["pending_physical_payment", "paid", "preparing", "delivering", "done"].includes(order.status)) throw new FiscalError("Pedido indisponível para emissão.");
     const payment = details.rows[0]?.payment_method ?? order.payment_method ?? "";
     if (!paymentCode(payment)) throw new FiscalError("Informe o meio de pagamento na seção fiscal do pedido.");
     const delivery = order.is_delivery === "entrega";
-    const recipient = details.rows[0]?.recipient ?? undefined;
-    if (delivery && !recipient) throw new FiscalError("Informe o CPF e o endereço fiscal do destinatário.");
+    if (delivery || Number(order.total_cents) >= 1_000_000) throw new FiscalError("Esta operação exige identificação fiscal do destinatário e não está habilitada.");
     if (!rows.rows.length || rows.rows.some(row => !row.item_id || row.quantity <= 0 || row.total_cents < 0)) {
         throw new FiscalError("Revise os itens do pedido.");
     }
@@ -112,7 +110,7 @@ async function getSale(job: Job, issuer: Issuer): Promise<Sale> {
             uuid: row.item_id, name: row.name.trim().slice(0, 120), quantity: row.quantity,
             cents: row.total_cents, tax: issuer.itemTaxes?.[row.item_id] ?? issuer.defaultTax,
         })),
-        issuedAt: spNow(), deliveryCents: Number(order.delivery_cents ?? 0), totalCents: Number(order.total_cents), payment, delivery, recipient,
+        issuedAt: spNow(), deliveryCents: Number(order.delivery_cents ?? 0), totalCents: Number(order.total_cents), payment, delivery,
     };
 }
 

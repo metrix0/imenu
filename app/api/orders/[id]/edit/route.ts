@@ -209,12 +209,6 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
                     destination, table?.id || null, table?.name || null, paymentMethod, id, restaurantId]
             );
 
-            if (process.env.NFCE_ENV && (current.customer_name !== (body.customer_name.trim() || null)
-                || current.customer_address !== customerAddress || current.is_delivery !== destination)) {
-                await client.query(`UPDATE public.nfce_order_details SET recipient=NULL
-                    WHERE restaurant_id=$1 AND order_id=$2 AND recipient IS NOT NULL`, [restaurantId, id]);
-            }
-
             await client.query("DELETE FROM order_items WHERE order_id = $1", [id]);
             for (const item of items) {
                 const saved = await client.query(

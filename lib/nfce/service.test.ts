@@ -1,4 +1,4 @@
-import { activeFiscalIssuer } from "./service";
+import { activeFiscalIssuer, needsFiscalNote } from "./service";
 import { query } from "@/lib/database/sql";
 import { hasIMenuPlusAccess } from "@/lib/addons/access";
 import type { Issuer } from "./sefaz";
@@ -26,4 +26,11 @@ it("enables issuance only for an enabled issuer in the active environment with P
         if (originalKey === undefined) delete process.env.NFCE_KEY;
         else process.env.NFCE_KEY = originalKey;
     }
+});
+
+test("issues consumer notes only for eligible in-store orders without identification", () => {
+    expect(needsFiscalNote("done", "retirada")).toBe(true);
+    expect(needsFiscalNote("done", "balcao")).toBe(true);
+    expect(needsFiscalNote("delivering", "entrega")).toBe(false);
+    expect(needsFiscalNote("done", "entrega")).toBe(false);
 });

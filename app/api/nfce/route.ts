@@ -1,11 +1,10 @@
 import { createHmac } from "node:crypto";
 import { after, NextResponse } from "next/server";
 import { Zip, ZipDeflate } from "fflate/browser";
-import { isValidFiscalCpf } from "@/lib/nfce/recipient";
 import { hasIMenuPlusAccess } from "@/lib/addons/access";
 import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
 import { query, withTransaction } from "@/lib/database/sql";
-import { certificateIdentity, fiscalEnvironment, paymentCode, sealCertificate, type FiscalAddress, type FiscalTax, type Issuer, type Recipient } from "@/lib/nfce/sefaz";
+import { certificateIdentity, fiscalEnvironment, paymentCode, sealCertificate, type FiscalAddress, type FiscalTax, type Issuer } from "@/lib/nfce/sefaz";
 import { archiveSnapshot, cancelIssued, FiscalError, processNote, unzipXml, uuid, type NoteSummary } from "@/lib/nfce/service";
 
 export const runtime = "nodejs";
@@ -235,30 +234,26 @@ export async function POST(request: Request) {
         }
         const requestedPayment = text(raw.payment, 32);
         if (requestedPayment && !paymentCode(requestedPayment)) throw new FiscalError("Meio de pagamento inválido.");
-        let recipient: Recipient | null = null;
-        if (raw.recipient) {
-            recipient = { ...address(raw.recipient, false), cpf: digits(raw.recipient.cpf), name: text(raw.recipient.name, 60) };
-            if (!isValidFiscalCpf(recipient.cpf) || recipient.name.length < 2) throw new FiscalError("Informe o CPF e o nome do destinatário.");
-        }
         const saved = await query(`
             WITH wanted AS (
                 SELECT o.id,o.restaurant_id FROM public.orders o
                 JOIN public.nfce_issuers i ON i.restaurant_id=o.restaurant_id AND i.environment=$3 AND i.enabled
                 WHERE o.id=$2 AND o.restaurant_id=$1 AND o.status IN ('preparing','delivering','done')
+                    AND o.is_delivery IS DISTINCT FROM 'entrega' AND o.total_cents < 1000000
                     AND NOT EXISTS (SELECT 1 FROM public.delivery_imported_orders a WHERE a.order_id=o.id)
                     AND NOT EXISTS (SELECT 1 FROM public.nfce_documents d WHERE d.restaurant_id=$1 AND d.order_id=$2 AND d.environment=$3
                         AND (d.access_key IS NOT NULL OR d.status='processing'))
             ), details AS (
-                INSERT INTO public.nfce_order_details (restaurant_id,order_id,recipient,payment_method)
-                SELECT restaurant_id,id,$4,$5 FROM wanted
-                ON CONFLICT (restaurant_id,order_id) DO UPDATE SET recipient=COALESCE(excluded.recipient,nfce_order_details.recipient), payment_method=COALESCE(excluded.payment_method,nfce_order_details.payment_method)
+                INSERT INTO public.nfce_order_details (restaurant_id,order_id,payment_method)
+                SELECT restaurant_id,id,$4 FROM wanted
+                ON CONFLICT (restaurant_id,order_id) DO UPDATE SET payment_method=COALESCE(excluded.payment_method,nfce_order_details.payment_method)
                 RETURNING restaurant_id,order_id
             )
             INSERT INTO public.nfce_documents (restaurant_id,order_id,environment)
                 SELECT restaurant_id,order_id,$3 FROM details
             ON CONFLICT (restaurant_id,order_id,environment) DO UPDATE SET status='pending',error=NULL,retry_at=now()
                 WHERE nfce_documents.access_key IS NULL AND nfce_documents.status='rejected' RETURNING order_id`,
-        [restaurant, order, env, recipient ? JSON.stringify(recipient) : null, requestedPayment || null]);
+        [restaurant, order, env, requestedPayment || null]);
         if (!saved.rowCount) throw new FiscalError("Emissão pendente, emitida ou indisponível para este pedido.", 409);
         after(() => processNote(order).then(() => undefined));
         return NextResponse.json({ ok: true }, { headers });

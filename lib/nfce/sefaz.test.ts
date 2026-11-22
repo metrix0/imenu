@@ -19,7 +19,7 @@ const issuer: Issuer = { ...address, cnpj: "11222333000181", ie: "110042490114",
 const sale: Sale = {
     items: [{ uuid: "item-1", name: "Arroz & feijão", quantity: 3, cents: 1500, tax }, { uuid: "item-2", name: "Sobremesa", quantity: 1, cents: 505, tax }],
     issuedAt: "2026-11-22T15:40:00-03:00", deliveryCents: 200, totalCents: 2088,
-    payment: "credito-entrega", delivery: true, recipient: { ...address, cpf: "12345678909", name: "Consumidor de Teste" },
+    payment: "credito-entrega", delivery: false,
 };
 
 let identity: ReturnType<typeof certificateIdentity>;
@@ -50,6 +50,7 @@ test("signs the exact NFC-e payload and preserves it in the compressed authorize
     expect(field(elements(note.xml, "ICMSTot")[0], "vDesc")).toBe("1.17");
     expect(field(elements(note.xml, "ICMSTot")[0], "vNF")).toBe("20.88");
     expect(note.qr).toContain(note.key + "|3|2");
+    expect(elements(note.xml, "dest")).toHaveLength(0);
     const authorized = authorizedXml(note.xml, "<protNFe><infProt><nProt>123456</nProt></infProt></protNFe>");
     expect(gunzipSync(gzipSync(authorized)).toString()).toBe(authorized);
     expect(danfePdf(authorized).subarray(0, 8).toString()).toBe("%PDF-1.4");
@@ -58,7 +59,7 @@ test("signs the exact NFC-e payload and preserves it in the compressed authorize
 test("adds the signed QR parameters for offline NFC-e", () => {
     const note = buildNote(issuer, sale, identity, 2, 29, true);
     expect(field(elements(note.xml, "ide")[0], "tpEmis")).toBe("9");
-    expect(note.qr).toContain(note.key + "|3|2|22|20.88|2|12345678909|");
+    expect(note.qr).toContain(note.key + "|3|2|22|20.88|||");
 });
 
 test("binds the certificate to its restaurant and requires explicit fiscal environment selection", () => {

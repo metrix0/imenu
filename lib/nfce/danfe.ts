@@ -3,7 +3,6 @@ import { elements, field } from "./sefaz";
 
 export function danfePdf(xml: string) {
     const issuer = elements(xml, "emit")[0];
-    const recipient = elements(xml, "dest")[0];
     const key = elements(xml, "infNFe")[0].getAttribute("Id")?.slice(3) ?? "";
     const protocol = elements(xml, "infProt")[0];
     const payment = elements(xml, "detPag")[0];
@@ -25,8 +24,7 @@ export function danfePdf(xml: string) {
         `${labels[field(payment, "tPag")] ?? "Pagamento"}: R$ ${field(payment, "vPag")}`, "",
         "Consulte pela chave em", field(elements(xml, "infNFeSupl")[0], "urlChave"),
         (key.match(/.{1,4}/g) ?? []).join(" "), "",
-        recipient ? `Consumidor: ${field(recipient, "CPF")} ${field(recipient, "xNome")}` : "Consumidor não identificado",
-        ...(recipient ? [`${field(recipient, "xLgr")}, ${field(recipient, "nro")} - ${field(recipient, "xMun")}/SP`] : []),
+        "Consumidor não identificado",
         `NFC-e ${field(elements(xml, "ide")[0], "nNF")} Série ${field(elements(xml, "ide")[0], "serie")}`,
         `Emissão: ${field(elements(xml, "ide")[0], "dhEmi")}`,
         ...(protocol ? [`Protocolo: ${field(protocol, "nProt")}`, field(protocol, "dhRecbto")] : []),

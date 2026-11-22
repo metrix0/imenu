@@ -343,12 +343,12 @@ export default function HistoricoPage() {
                     setOrderToEditWithFiscal(null);
                 }}
                 title="Editar pedido com NFC-e?"
-                description="Este pedido já possui uma NFC-e emitida ou em processamento. A edição não exclui nem altera a nota fiscal; pode ser necessário cancelá-la e emitir outra conforme as regras da SEFAZ."
+                description="Editar o pedido não altera a NFC-e emitida. Se precisar corrigir a nota, verifique se ainda é possível cancelá-la e emitir outra."
                 confirmLabel="Continuar edição"
                 variant="primary"
             />
 
-            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
             <OrderDetailsModal
                 isOpen={isDetailsOpen}
