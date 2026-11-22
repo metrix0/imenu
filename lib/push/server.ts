@@ -6,6 +6,8 @@ const PUSH_TTL_SECONDS = 600;
 const PUSH_RETRY_DELAYS_MS = [2000, 5000];
 const PUSH_RETRY_BATCH_SIZE = 100;
 const PUSH_RETRY_CONCURRENCY = 10;
+// First alert at 0s, followed by these reminders; the last is at 10 minutes.
+const ORDER_PUSH_REMINDER_SECONDS = [30, 60, 90, 120, 180, 240, 300, 420, 600];
 
 type PushPayload = {
     title: string;
@@ -321,7 +323,8 @@ export async function retryUnacknowledgedOwnerPush(): Promise<{
     return { claimed: result.rows.length, accepted, failed };
 }
 
-// Re-arm displayed push alerts only for active orders not seen on this device.
+// Remind only on the specified schedule (30s, 1m, 1.5m, 2m, 3m, 4m, 5m, 7m, 10m).
+// Allow at most 30 seconds for cron dispatch jitter after the final 10m slot.
 export async function remindUnopenedOrderPush(): Promise<{
     claimed: number; accepted: number; failed: number;
 }> {
@@ -341,9 +344,14 @@ export async function remindUnopenedOrderPush(): Promise<{
                 WHERE notification.delivered_at IS NOT NULL
                   AND subscription.enabled = true
                   AND subscription.last_seen_at < notification.created_at
-                  AND notification.created_at > NOW() - INTERVAL '24 hours'
-                  AND notification.last_attempt_at <= NOW() - INTERVAL '30 seconds'
+                  AND notification.created_at > NOW() - INTERVAL '10 minutes 30 seconds'
                   AND orders.status NOT IN ('done', 'canceled', 'pending_online_payment')
+                  AND EXISTS (
+                      SELECT 1
+                      FROM unnest($2::integer[]) AS reminder(seconds)
+                      WHERE notification.last_attempt_at < notification.created_at + (reminder.seconds * INTERVAL '1 second')
+                        AND NOW() >= notification.created_at + (reminder.seconds * INTERVAL '1 second')
+                  )
                 ORDER BY notification.last_attempt_at ASC
                 LIMIT $1
                 FOR UPDATE OF notification SKIP LOCKED
@@ -358,7 +366,7 @@ export async function remindUnopenedOrderPush(): Promise<{
               AND subscription.id = notification.subscription_id
             RETURNING notification.id, notification.subscription_id, subscription.endpoint
         `,
-        [PUSH_RETRY_BATCH_SIZE]
+        [PUSH_RETRY_BATCH_SIZE, ORDER_PUSH_REMINDER_SECONDS]
     );
 
     let accepted = 0;

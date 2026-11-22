@@ -208,12 +208,14 @@ describe("push acknowledgment and scheduled retry claims", () => {
         expect(sql).toContain("notification.delivered_at IS NOT NULL");
         expect(sql).toContain("subscription.last_seen_at < notification.created_at");
         expect(sql).toContain("notification.tag = 'order-' || event.order_id::text || '-unread'");
-        expect(sql).toContain("INTERVAL '24 hours'");
-        expect(sql).toContain("INTERVAL '30 seconds'");
+        expect(sql).toContain("INTERVAL '10 minutes 30 seconds'");
+        expect(sql).toContain("FROM unnest($2::integer[]) AS reminder(seconds)");
+        expect(sql).toContain("notification.last_attempt_at < notification.created_at + (reminder.seconds * INTERVAL '1 second')");
+        expect(sql).toContain("NOW() >= notification.created_at + (reminder.seconds * INTERVAL '1 second')");
         expect(sql).toContain("orders.status NOT IN ('done', 'canceled', 'pending_online_payment')");
         expect(sql).toContain("FOR UPDATE OF notification SKIP LOCKED");
         expect(sql).toContain("sent_at = NULL");
-        expect(params).toEqual([100]);
+        expect(params).toEqual([100, [30, 60, 90, 120, 180, 240, 300, 420, 600]]);
     });
 
     test("GET marks a notification as fetched, not acknowledged", async () => {
