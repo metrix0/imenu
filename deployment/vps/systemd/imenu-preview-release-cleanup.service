@@ -1,0 +1,9 @@
+[Unit]
+Description=Remove obsolete iMenu preview releases (preserve active and rollback)
+[Service]
+Type=oneshot
+ExecStart=/opt/imenu-migration/ops/preview-release-cleanup.sh
+TimeoutStartSec=10min
+Nice=10
+IOSchedulingClass=idle
+UMask=0077

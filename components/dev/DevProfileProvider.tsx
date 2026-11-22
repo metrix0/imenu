@@ -17,7 +17,7 @@ const IaAssistantConversationsSection=dynamic(()=>import("./IaAssistantConversat
 import { calculateOnePercentPayout } from "@/lib/services/payoutSafety";
 import { normalizeCreationStep } from "@/lib/restaurantCreation";
 import { devJson } from "@/lib/dev/client";
-import { formatCurrencyFromCents, formatDateTime, monthsSince, accountAge } from "@/lib/dev/dashboardFormat";
+import { formatCurrencyFromCents, formatDateTime, accountAge } from "@/lib/dev/dashboardFormat";
 
 export type Restaurant = { id: string; name: string; email?: string | null; phone?: string | null; store_phone?: string | null; owner_phone?: string | null; created_at?: string; plus_since?: string | null; has_paid?: boolean; plus?: boolean; gmv_cents?: number | string | null; payment_info?: string | null; payment_info_type?: string | null; url_slug?: string | null; creation_step?: number | null; first_time?: boolean | null; onboarding_completed_at?: string | null; city?: string | null; state?: string | null; pickup_enabled?: boolean | null; delivery_disabled?: boolean | null; preorder_only?: boolean | null; support_conversation_id?: string | null; support_mode?: "ai" | "human" | null; last_message?: string | null; last_message_at?: string | null };
 type Payment = { id: string; amount_cents: number; status: string; created_at: string; product_key?: string; failure_reason?: string | null; billing_type?: string | null; last_order_at?: string | null };
@@ -34,7 +34,7 @@ export function PhoneLink({ phone }: { phone?: string | null }) {
 }
 
 export function CustomerBadge({ restaurant: r }: { restaurant: Restaurant }) {
-    return <span className="inline-flex items-center gap-2 whitespace-nowrap"><Badge className="whitespace-nowrap" variant={r.plus ? "brand" : "neutral"}>{r.plus ? "iMenu Plus" : r.has_paid ? "Pagante histórico" : "Gratuito"}</Badge>{r.plus && r.plus_since && <span className="text-xs font-normal text-gray-500">há {monthsSince(r.plus_since)}</span>}</span>;
+    return <span className="inline-flex items-center gap-2 whitespace-nowrap"><Badge className="whitespace-nowrap" variant={r.plus ? "brand" : "neutral"}>{r.plus ? "iMenu Plus" : r.has_paid ? "Pagante histórico" : "Gratuito"}</Badge>{r.plus && r.plus_since && <span className="text-xs font-normal text-gray-500">há {accountAge(r.plus_since)}</span>}</span>;
 }
 
 function PaymentHistory({ id, kind }: { id: string; kind: "payments" | "payouts" }) {

@@ -43,7 +43,7 @@ import SupportButton, {
 } from "@/components/common/SupportButton";
 import { OrderSoundProvider } from "@/components/restaurant-owner/OrderSoundProvider";
 import OrderMilestonePlusPopup from "@/components/restaurant-owner/OrderMilestonePlusPopup";
-import { ensureOwnerPushSubscription } from "@/lib/push/client";
+import { ensureOwnerPushSubscription, readStoredDeviceToken } from "@/lib/push/client";
 import { supabase } from "@/lib/database/supabaseClient";
 import { capturePosthogLightweight } from "@/lib/api/instrumentation-client";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
@@ -155,6 +155,41 @@ export default function PainelLayout({
             console.error("[OWNER_PUSH] Automatic registration repair failed:", error);
         });
     }, [targetRestaurantId]);
+
+    // A foregrounded panel stops order reminders for this device.
+    useEffect(() => {
+        if (!targetRestaurantId || isChecking || typeof Notification === "undefined" ||
+            Notification.permission !== "granted") return;
+
+        let inFlight = false;
+        const markOpened = async () => {
+            if (document.visibilityState !== "visible" || inFlight) return;
+            inFlight = true;
+            try {
+                const deviceToken = await readStoredDeviceToken();
+                if (!deviceToken) return;
+                const response = await fetch("/api/push/ack", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ deviceToken, opened: true }),
+                });
+                if (!response.ok) console.warn("[OWNER_PUSH] App-open acknowledgment failed:", response.status);
+            } catch (error) {
+                console.error("[OWNER_PUSH] App-open acknowledgment failed:", error);
+            } finally {
+                inFlight = false;
+            }
+        };
+        void markOpened();
+        window.addEventListener("focus", markOpened);
+        document.addEventListener("visibilitychange", markOpened);
+        const interval = window.setInterval(() => { void markOpened(); }, 15_000);
+        return () => {
+            window.clearInterval(interval);
+            window.removeEventListener("focus", markOpened);
+            document.removeEventListener("visibilitychange", markOpened);
+        };
+    }, [targetRestaurantId, isChecking]);
 
     useEffect(() => {
         if (!targetRestaurantId || isChecking) return;

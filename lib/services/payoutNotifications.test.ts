@@ -3,11 +3,13 @@ import { checkWahaPhoneExists, sendWahaText } from "@/lib/services/wahaClient";
 import { alarmUnnotifiedPayoutFailures, notifyPayoutProblem, notifyUpcomingPayoutPixProblem } from "./payoutNotifications";
 import { MISSING_PIX_KEY_REASON, MISSING_PIX_TYPE_REASON, PAYOUT_BLAST_AUTOMATIONS } from "./payoutAutomation";
 import { sendNtfyNotification } from "@/lib/services/ntfy";
+import { recordDevAlert } from "@/lib/dev/health";
 
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn() }));
 jest.mock("@/lib/services/supportBlast", () => ({ normalizeBlastPhone: (phone: string) => phone ? "5511999999999" : null }));
 jest.mock("@/lib/services/wahaClient", () => ({ checkWahaPhoneExists: jest.fn(), sendWahaText: jest.fn() }));
 jest.mock("@/lib/services/ntfy", () => ({ sendNtfyNotification: jest.fn() }));
+jest.mock("@/lib/dev/health", () => ({ recordDevAlert: jest.fn() }));
 
 beforeEach(() => {
     jest.clearAllMocks();
@@ -49,6 +51,13 @@ test("sends the dedicated missing PIX type notice over the existing blast connec
     expect(sendWahaText).toHaveBeenCalledWith("blast", "5511999999999@c.us", PAYOUT_BLAST_AUTOMATIONS["missing-type"].message);
 });
 
+test("successful preventive Pix WhatsApp messages do not create dev alerts", async () => {
+    await expect(notifyUpcomingPayoutPixProblem("restaurant", "2026-11-04")).resolves.toBe(true);
+    expect(sendWahaText).toHaveBeenCalledTimes(1);
+    expect(query).toHaveBeenCalledWith(expect.stringContaining("status='sent'"), expect.any(Array));
+    expect(recordDevAlert).not.toHaveBeenCalled();
+});
+
 test("the evening warning has its own daily claim and uses the preventive message", async () => {
     await Promise.all([
         notifyUpcomingPayoutPixProblem("restaurant", "2026-11-04"),
@@ -59,6 +68,8 @@ test("the evening warning has its own daily claim and uses the preventive messag
     expect(sendWahaText).toHaveBeenCalledTimes(2);
     expect(sendWahaText).toHaveBeenNthCalledWith(1, "blast", "5511999999999@c.us", PAYOUT_BLAST_AUTOMATIONS.preflight.message);
     expect(sendWahaText).toHaveBeenNthCalledWith(2, "blast", "5511999999999@c.us", PAYOUT_BLAST_AUTOMATIONS.failed.message);
+    expect(recordDevAlert).toHaveBeenCalledTimes(1);
+    expect(recordDevAlert).toHaveBeenCalledWith(expect.objectContaining({ title: "Aviso de repasse enviado" }));
 });
 
 test("messages require the owner to edit Loja for safety and contain no actual PIX data", () => {

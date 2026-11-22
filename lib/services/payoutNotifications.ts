@@ -24,7 +24,7 @@ async function sendPayoutNotice(restaurantId: string, kind: PayoutNoticeKind | "
         const row = result.rows[0];
         const phone = normalizeBlastPhone(row?.phone || "");
         if (!row || !phone || row.status !== "WORKING" || row.desired_state !== "connected") return false;
-        const { id, name, message } = PAYOUT_BLAST_AUTOMATIONS[kind];
+        const { id, message } = PAYOUT_BLAST_AUTOMATIONS[kind];
         const namespace = kind === "preflight" ? id : "payout";
         const key = `support:${namespace}:${day ?? row.day}:${restaurantId}`;
         const claim = await query(`INSERT INTO whatsapp_outbound_messages(dedupe_key,restaurant_id,chat_id,message_type,status,context,updated_at)
@@ -37,13 +37,15 @@ async function sendPayoutNotice(restaurantId: string, kind: PayoutNoticeKind | "
             const chatId = contact.chatId || phone + "@c.us";
             await sendWahaText(row.session_name, chatId, message);
             await query("UPDATE whatsapp_outbound_messages SET status='sent',sent_at=NOW(),updated_at=NOW(),chat_id=$2 WHERE dedupe_key=$1", [key, chatId]);
-            await recordDevAlert({
-                source: "payouts", operation: "Aviso via WhatsApp",
-                title: kind === "preflight" ? `${name} enviado`
-                    : kind === "missing-type" ? "Aviso de tipo de PIX enviado" : kind === "missing-key" ? "Aviso de chave PIX enviado" : "Aviso de repasse enviado",
-                message: "Mensagem de repasse enviada ao restaurante.",
-                severity: "info", trigger: "blast",
-            });
+            if (kind !== "preflight") {
+                await recordDevAlert({
+                    source: "payouts", operation: "Aviso via WhatsApp",
+                    title: kind === "missing-type" ? "Aviso de tipo de PIX enviado"
+                        : kind === "missing-key" ? "Aviso de chave PIX enviado" : "Aviso de repasse enviado",
+                    message: "Mensagem de repasse enviada ao restaurante.",
+                    severity: "info", trigger: "blast",
+                });
+            }
             return true;
         } catch (error) {
             await query("UPDATE whatsapp_outbound_messages SET status='failed',last_error=$2,updated_at=NOW() WHERE dedupe_key=$1", [key, error instanceof Error ? error.message.slice(0, 500) : "Falha no envio."]);

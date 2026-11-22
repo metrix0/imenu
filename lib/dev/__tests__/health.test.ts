@@ -128,3 +128,27 @@ test("failure to record a Gemini fallback does not block imports", async () => {
     mockQuery.mockRejectedValue(new Error("DB unavailable"));
     await expect(recordGeminiMenuFallback("GEMINI_API_KEY ausente")).resolves.toBeUndefined();
 });
+
+test("CNEFE failure triggers critical alarm at priority 5 on the first check", async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    const result = await recordIntegrationProbe({
+        id: "ibge", state: "failed", operation: "Geocodificação local",
+        status: null, detail: "Base CNEFE indisponível.",
+    });
+    expect(result.state).toBe("failed");
+    expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO public.dev_alerts"),
+        expect.arrayContaining(["ibge", "critical", "alarm", "integration:ibge"]));
+    const send = (global.fetch as jest.Mock).mock.calls[0];
+    expect(send[1].headers.Priority).toBe("5");
+    expect(send[1].headers.Title).toContain("TRIGGER ALARM");
+});
+
+test("CNEFE recovery closes the critical incident", async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [{ state: "failed", check_kind: "probe" }] });
+    await recordIntegrationProbe({
+        id: "ibge", state: "connected", operation: "Geocodificação local",
+        status: null, detail: "27/27 UFs disponíveis.",
+    });
+    expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining("resolved_at=NOW()"), ["integration:ibge"]);
+    expect(global.fetch).not.toHaveBeenCalled();
+});

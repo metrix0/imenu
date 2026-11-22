@@ -140,7 +140,13 @@ jobs:
           root = pathlib.Path('.next/standalone')
           jobs = read_schedule(pathlib.Path('deployment/vps/cron-schedule.json'))
           units = pathlib.Path('deployment/vps/systemd')
-          if any(units.glob('imenu-job-*')) or any(units.glob('imenu-preview-*')):
+          allowed_maintenance_units = {
+              'imenu-preview-release-cleanup.service',
+              'imenu-preview-release-cleanup.timer',
+          }
+          if any(units.glob('imenu-job-*')) or any(
+              unit.name not in allowed_maintenance_units for unit in units.glob('imenu-preview-*')
+          ):
               raise SystemExit('Define application timers only in deployment/vps/cron-schedule.json')
           if json.loads(pathlib.Path('vercel.json').read_text()).get('crons'):
               raise SystemExit('Schedule iMenu application jobs in deployment/vps/cron-schedule.json')

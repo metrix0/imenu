@@ -6,6 +6,8 @@ const PUSH_TTL_SECONDS = 600;
 const PUSH_RETRY_DELAYS_MS = [2000, 5000];
 const PUSH_RETRY_BATCH_SIZE = 100;
 const PUSH_RETRY_CONCURRENCY = 10;
+// First alert at 0s, then at 1, 2, and 3 minutes (existing 1-minute cron).
+const ORDER_PUSH_REMINDER_SECONDS = [60, 120, 180];
 
 type PushPayload = {
     title: string;
@@ -33,6 +35,7 @@ type PendingNotificationRow = {
     body: string;
     url: string;
     tag: string | null;
+    attempt_count: number;
     created_at: string;
     expiresAt: number;
 };
@@ -223,7 +226,8 @@ export async function sendTestPush({
 // The service worker acknowledges only after displaying (or already displaying) an alert.
 export async function acknowledgeOwnerPush(
     deviceToken: string,
-    notificationId: string
+    notificationId: string,
+    attemptCount?: number
 ): Promise<boolean> {
     const result = await query<{ id: string }>(
         `
@@ -234,10 +238,23 @@ export async function acknowledgeOwnerPush(
               AND notification.subscription_id = subscription.id
               AND subscription.device_token = $2
               AND subscription.enabled = true
-              AND notification.created_at > NOW() - INTERVAL '10 minutes'
+              AND COALESCE(notification.last_attempt_at, notification.created_at) > NOW() - INTERVAL '10 minutes'
+              AND ($3::integer IS NULL OR notification.attempt_count = $3)
             RETURNING notification.id
         `,
-        [notificationId, deviceToken]
+        [notificationId, deviceToken, attemptCount ?? null]
+    );
+    return result.rows.length > 0;
+}
+
+// A focused panel confirms the owner has seen alerts on this subscribed device.
+export async function markOwnerPushOpened(deviceToken: string): Promise<boolean> {
+    const result = await query<{ id: string }>(
+        `UPDATE owner_push_subscriptions
+         SET last_seen_at = NOW()
+         WHERE device_token = $1 AND enabled = true
+         RETURNING id`,
+        [deviceToken]
     );
     return result.rows.length > 0;
 }
@@ -260,6 +277,10 @@ export async function retryUnacknowledgedOwnerPush(): Promise<{
                   AND notification.attempt_count BETWEEN 1 AND 3
                   AND notification.created_at > NOW() - INTERVAL '10 minutes'
                   AND subscription.enabled = true
+                  AND (
+                      notification.tag IS NULL OR notification.tag NOT LIKE 'order-%'
+                      OR subscription.last_seen_at < notification.created_at
+                  )
                   AND notification.last_attempt_at <= NOW() - (
                       CASE notification.attempt_count
                           WHEN 1 THEN INTERVAL '30 seconds'
@@ -302,6 +323,67 @@ export async function retryUnacknowledgedOwnerPush(): Promise<{
     return { claimed: result.rows.length, accepted, failed };
 }
 
+// Remind at 1m, 2m, 3m; allow up to one cron interval of dispatch jitter.
+export async function remindUnopenedOrderPush(): Promise<{
+    claimed: number; accepted: number; failed: number;
+}> {
+    const result = await query<{ id: string; subscription_id: string; endpoint: string }>(
+        `
+            WITH due AS (
+                SELECT notification.id
+                FROM owner_push_notifications AS notification
+                JOIN owner_push_subscriptions AS subscription
+                    ON subscription.id = notification.subscription_id
+                JOIN owner_push_order_events AS event
+                    ON event.restaurant_id = subscription.restaurant_id
+                    AND notification.tag = 'order-' || event.order_id::text || '-unread'
+                JOIN orders AS orders
+                    ON orders.id = event.order_id
+                    AND orders.restaurant_id = subscription.restaurant_id
+                WHERE notification.delivered_at IS NOT NULL
+                  AND subscription.enabled = true
+                  AND subscription.last_seen_at < notification.created_at
+                  AND notification.created_at > NOW() - INTERVAL '4 minutes'
+                  AND orders.status NOT IN ('done', 'canceled', 'pending_online_payment')
+                  AND EXISTS (
+                      SELECT 1
+                      FROM unnest($2::integer[]) AS reminder(seconds)
+                      WHERE notification.last_attempt_at < notification.created_at + (reminder.seconds * INTERVAL '1 second')
+                        AND NOW() >= notification.created_at + (reminder.seconds * INTERVAL '1 second')
+                  )
+                ORDER BY notification.last_attempt_at ASC
+                LIMIT $1
+                FOR UPDATE OF notification SKIP LOCKED
+            )
+            UPDATE owner_push_notifications AS notification
+            SET attempt_count = notification.attempt_count + 1,
+                last_attempt_at = NOW(),
+                sent_at = NULL,
+                delivered_at = NULL
+            FROM due, owner_push_subscriptions AS subscription
+            WHERE notification.id = due.id
+              AND subscription.id = notification.subscription_id
+            RETURNING notification.id, notification.subscription_id, subscription.endpoint
+        `,
+        [PUSH_RETRY_BATCH_SIZE, ORDER_PUSH_REMINDER_SECONDS]
+    );
+
+    let accepted = 0;
+    let failed = 0;
+    for (let offset = 0; offset < result.rows.length; offset += PUSH_RETRY_CONCURRENCY) {
+        await Promise.all(result.rows.slice(offset, offset + PUSH_RETRY_CONCURRENCY).map(async row => {
+            try {
+                if (await wakeSubscription({ id: row.subscription_id, endpoint: row.endpoint })) accepted++;
+                else failed++;
+            } catch (error) {
+                failed++;
+                console.error("[OWNER_PUSH] Order reminder failed:", row.subscription_id, error);
+            }
+        }));
+    }
+    return { claimed: result.rows.length, accepted, failed };
+}
+
 export async function takeNextPushNotification(
     deviceToken: string
 ): Promise<PendingNotificationRow | null> {
@@ -314,7 +396,7 @@ export async function takeNextPushNotification(
                 WHERE subscription.id = notification.subscription_id
                   AND subscription.device_token = $1
                   AND notification.delivered_at IS NULL
-                  AND notification.created_at <= NOW() - ($2::integer * INTERVAL '1 second')
+                  AND COALESCE(notification.last_attempt_at, notification.created_at) <= NOW() - ($2::integer * INTERVAL '1 second')
             `,
             [deviceToken, PUSH_TTL_SECONDS]
         );
@@ -326,16 +408,24 @@ export async function takeNextPushNotification(
                     notification.title,
                     notification.body,
                     notification.url,
-                    notification.tag,
+                    CASE WHEN notification.tag LIKE 'order-%' AND notification.attempt_count > 1
+                        THEN notification.tag || '-reminder-' || notification.attempt_count::text
+                        ELSE notification.tag END AS tag,
+                    notification.attempt_count,
                     notification.created_at,
-                    (EXTRACT(EPOCH FROM notification.created_at + ($2::integer * INTERVAL '1 second')) * 1000)::double precision AS "expiresAt"
+                    (EXTRACT(EPOCH FROM COALESCE(notification.last_attempt_at, notification.created_at)
+                        + ($2::integer * INTERVAL '1 second')) * 1000)::double precision AS "expiresAt"
                 FROM owner_push_notifications AS notification
                 INNER JOIN owner_push_subscriptions AS subscription
                     ON subscription.id = notification.subscription_id
                 WHERE subscription.device_token = $1
                   AND subscription.enabled = true
                   AND notification.delivered_at IS NULL
-                  AND notification.created_at > NOW() - ($2::integer * INTERVAL '1 second')
+                  AND COALESCE(notification.last_attempt_at, notification.created_at) > NOW() - ($2::integer * INTERVAL '1 second')
+                  AND (
+                      notification.tag IS NULL OR notification.tag NOT LIKE 'order-%'
+                      OR subscription.last_seen_at < notification.created_at
+                  )
                 -- Prefer not-yet-fetched alerts so simultaneous order pushes each get a payload.
                 ORDER BY (notification.sent_at IS NOT NULL) ASC, notification.created_at ASC
                 LIMIT 1
@@ -414,7 +504,7 @@ export async function notifyOrderReady(orderId: string): Promise<boolean> {
         title: "Novo pedido no iMenu 🔔",
         body,
         url: "/painel/pedidos",
-        tag: `order-${order.id}`,
+        tag: `order-${order.id}-unread`,
     });
 
     return true;

@@ -1,4 +1,5 @@
 import { query } from "@/lib/database/sql";
+import { checkCnefe } from "@/lib/delivery/cnefe";
 import { getPostHogConfig, postHogApiHost } from "@/lib/analytics/posthogQuery";
 import {
     recordDevAlert, recordIntegrationProbe, resolveDevIncident,
@@ -415,7 +416,8 @@ async function publicServices(): Promise<ProbeResult[]> {
 
 export async function runIntegrationChecks(): Promise<ProbeResult[]> {
     // All checks are bounded; TomTom/ArcGIS use at most one geocode request each per 24h.
-    const tasks = [asaas(), mercadopago(), supabase(), waha(), openai(), gemini(), posthog(), ntfy(), tomtom(), arcgis(), publicServices()];
+    const tasks = [asaas(), mercadopago(), supabase(), waha(), openai(), gemini(), posthog(), ntfy(), tomtom(), arcgis(), publicServices(),
+        checkCnefe().then(({ state, operation, detail, status }) => ({ id: "ibge", state, operation, detail, status }))];
     const completed = await Promise.allSettled(tasks);
     const results: ProbeResult[] = [];
     for (let index = 0; index < completed.length; index++) {
@@ -423,7 +425,7 @@ export async function runIntegrationChecks(): Promise<ProbeResult[]> {
         if (item.status === "fulfilled") {
             if (item.value) results.push(...(Array.isArray(item.value) ? item.value : [item.value]));
         } else {
-            const id = ["asaas", "mercadopago", "supabase", "waha", "openai", "gemini", "posthog", "ntfy", "tomtom", "arcgis", "public"][index];
+            const id = ["asaas", "mercadopago", "supabase", "waha", "openai", "gemini", "posthog", "ntfy", "tomtom", "arcgis", "public", "ibge"][index];
             if (id !== "public") results.push({id,operation:"Verificação",state:"failed",status:null,detail:"Falha de rede ou tempo limite."});
         }
     }

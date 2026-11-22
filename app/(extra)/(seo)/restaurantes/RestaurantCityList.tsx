@@ -15,7 +15,7 @@ const SORT_OPTIONS = [
 
 export default function RestaurantCityList() {
     const cities = useRestaurantDirectory();
-    const [order, setOrder] = useState<"name" | "quantity">("name");
+    const [order, setOrder] = useState<"name" | "quantity">("quantity");
     const [requestedPage, setPage] = useState(0);
     const sortControlsRef = useRef<HTMLDivElement>(null);
 

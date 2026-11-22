@@ -1,3 +1,5 @@
+import { calculateDistanceKm } from "../api/geocodingBase";
+
 type RestaurantAddress = Partial<Record<
     "street" | "number" | "neighborhood" | "city" | "state" | "cep",
     string | number | null
@@ -65,4 +67,15 @@ export function getCheckoutFulfillment(
         pickupRequired,
         isPickup: pickupRequired || (pickupAvailable && pickupSelected),
     };
+}
+
+/** Neighborhood delivery is priced by bairro, never by physical distance. */
+export function getCheckoutDeliveryDistanceKm(
+    neighborhoodMode: boolean,
+    originLat: number,
+    originLon: number,
+    destinationLat: number,
+    destinationLon: number,
+): number {
+    return neighborhoodMode ? 0 : calculateDistanceKm(originLat, originLon, destinationLat, destinationLon);
 }

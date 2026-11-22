@@ -26,7 +26,7 @@ import ModalMobile from "@/components/ui/HybridModal";
 import WarningBox from "@/components/ui/WarningBox";
 import Toast from "@/components/ui/Toast";
 import Loader from "@/components/ui/Loader";
-import {fetchAddressByCEP, fetchCoordinates, fetchAddressByCoordinates, calculateDistanceKm, type GeoAddress} from "@/lib/api/geocoding";
+import {fetchAddressByCEP, fetchCoordinates, fetchAddressByCoordinates, type GeoAddress} from "@/lib/api/geocoding";
 import {formatPriceNoRS, formatPrice, promotionPrice} from "@/lib/utils/formatPrice";
 import { supabase } from "@/lib/database/supabaseClient";
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
@@ -34,7 +34,7 @@ import { Item, type ItemsByCategory } from "@/lib/types/types";
 import { rankAutomaticUpsells, type AutomaticUpsellRecommendations } from "@/lib/upsell/recommendations";
 import { StartingPriceLabel } from "./StartingPriceLabels";
 import type { QrTableMenuContext } from "@/lib/qr-table/types";
-import { getCheckoutFulfillment } from "@/lib/delivery/restaurantLocation";
+import { getCheckoutDeliveryDistanceKm, getCheckoutFulfillment } from "@/lib/delivery/restaurantLocation";
 import {
     findSimilarNeighborhoodDeliveryRule,
     normalizeNeighborhoodName,
@@ -444,7 +444,7 @@ export default function CartModal({
         const tiers = getDeliveryTiers();
         const citywideCep = isCitywideCep(await lookupCep(st.cep.replace(/\D/g, "")));
         const geocode = () => fetchCoordinates(fullAddress, (point) => {
-            const distance = calculateDistanceKm(restLat, restLon, point.latitude, point.longitude);
+            const distance = getCheckoutDeliveryDistanceKm(neighborhoodMode, restLat, restLon, point.latitude, point.longitude);
             const fee = computeFeeFromTiers(distance, tiers);
             return fee !== null && Number.isFinite(fee);
         }, {
@@ -483,12 +483,13 @@ export default function CartModal({
             return;
         }
 
-        if (Number.isNaN(restLat) || Number.isNaN(restLon)) {
+        if (!neighborhoodMode && (Number.isNaN(restLat) || Number.isNaN(restLon))) {
             setCepLocationError(true);
             return;
         }
 
-        const distKm = calculateDistanceKm(
+        const distKm = getCheckoutDeliveryDistanceKm(
+            neighborhoodMode,
             restLat,
             restLon,
             coords.latitude,
@@ -645,6 +646,10 @@ export default function CartModal({
                     setField("lon", String(lon));
 
                     const addr = await fetchAddressByCoordinates(lat, lon);
+                    if (neighborhoodMode && !smallCityMode && !addr) {
+                        setShowNoGeolocationToast(true);
+                        return;
+                    }
 
                     if (addr) {
                         if (addr.cep) setField("cep", addr.cep);
@@ -661,8 +666,8 @@ export default function CartModal({
                         const restLat = Number(restaurant.latitude);
                         const restLon = Number(restaurant.longitude);
 
-                        if (!Number.isNaN(restLat) && !Number.isNaN(restLon)) {
-                        const distKm = calculateDistanceKm(restLat, restLon, lat, lon);
+                        if (neighborhoodMode || (!Number.isNaN(restLat) && !Number.isNaN(restLon))) {
+                        const distKm = getCheckoutDeliveryDistanceKm(neighborhoodMode, restLat, restLon, lat, lon);
                         const fee = computeFeeFromTiers(distKm, getDeliveryTiers());
 
                         if (fee !== null) {

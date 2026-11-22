@@ -1,8 +1,10 @@
 import { runIntegrationChecks } from "../integrationProbes";
 import { query } from "@/lib/database/sql";
 import { recordIntegrationProbe } from "../health";
+import { checkCnefe } from "@/lib/delivery/cnefe";
 
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn() }));
+jest.mock("@/lib/delivery/cnefe", () => ({ checkCnefe: jest.fn() }));
 jest.mock("@/lib/analytics/posthogQuery", () => ({
     getPostHogConfig: jest.fn(() => ({
         personalApiKey: "test-personal-token", projectId: "1", rawHost: "https://us.posthog.com",
@@ -20,6 +22,7 @@ jest.mock("@/lib/dev/health", () => ({
 
 const mockQuery = query as jest.Mock;
 const mockProbe = recordIntegrationProbe as jest.Mock;
+const mockCnefe = checkCnefe as jest.Mock;
 const originalFetch = global.fetch;
 const keys = ["NEXT_PUBLIC_TOMTOM_API_KEY", "NEXT_PUBLIC_ARCGIS_API_KEY", "NTFY_TOPIC"] as const;
 const saved = Object.fromEntries(keys.map(key => [key, process.env[key]]));
@@ -29,6 +32,7 @@ let posthogStatus = 200;
 
 beforeEach(() => {
     jest.clearAllMocks();
+    mockCnefe.mockResolvedValue({ state: "failed", operation: "Geocodificação local", detail: "Base CNEFE indisponível.", status: null });
     process.env.NEXT_PUBLIC_TOMTOM_API_KEY = "tomtom-key";
     process.env.NEXT_PUBLIC_ARCGIS_API_KEY = "arcgis-key";
     process.env.NTFY_TOPIC = "test-topic";
@@ -126,4 +130,13 @@ test("ntfy shows degraded only for an actual failed send, not untested phone del
     lastDeliveryError = "ntfy HTTP 429";
     await runIntegrationChecks();
     expect(observed("ntfy")).toMatchObject({ state: "degraded" });
+});
+
+test("scheduled integration checks include the local CNEFE failure", async () => {
+    await runIntegrationChecks();
+    expect(mockCnefe).toHaveBeenCalledTimes(1);
+    expect(observed("ibge")).toMatchObject({
+        state: "failed", operation: "Geocodificação local",
+        detail: "Base CNEFE indisponível.", status: null,
+    });
 });

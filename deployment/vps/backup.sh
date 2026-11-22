@@ -79,7 +79,7 @@ printf '%s\n' "$out" > "$root/backups/latest-encrypted"
 python3 - "$root/backups" <<'PY'
 import pathlib, sys
 root=pathlib.Path(sys.argv[1])
-for p in sorted(root.glob("imenu-????????T??????Z.enc"), reverse=True)[7:]:
+for p in sorted(root.glob("imenu-????????T??????Z.enc"), reverse=True)[3:]:
  p.unlink();p.with_suffix(p.suffix+".sha256").unlink(missing_ok=True)
 PY
 if [[ "$backup_window" == 15-03 && -d "$work/waha/sessions" ]]; then

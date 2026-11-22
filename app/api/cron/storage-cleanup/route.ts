@@ -4,6 +4,7 @@ import sharp from "sharp";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 
 import { cleanupExpiredWhatsAppPairing } from "@/lib/services/whatsappPairingCleanup";
+import { cleanupInactiveRestaurantWhatsappSessions } from "@/lib/services/whatsappSessionDeletion";
 import { MENU_GALLERY_IMAGE_PREFIX, MENU_IMAGE_PREFIX } from "@/lib/menu/itemImages";
 import { MENU_VIDEO_BUCKET, readItemMedia } from "@/lib/menu/itemMedia";
 import { cleanupExpiredMenuScans } from "@/lib/menu/scanDiagnostics";
@@ -301,6 +302,7 @@ export async function GET(request: Request) {
             return null;
         });
         const whatsappPairing = await cleanupExpiredWhatsAppPairing();
+        const inactiveWhatsapp = await cleanupInactiveRestaurantWhatsappSessions();
         const supabase = createSupabaseServerClient();
 
         const [items, itemMedia, actions, restaurants] = await Promise.all([
@@ -394,6 +396,7 @@ export async function GET(request: Request) {
             videosDeleted,
             visuals,
             whatsappPairing,
+            inactiveWhatsapp,
             menuScansDeleted,
         });
     } catch (error) {
