@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { retryUnacknowledgedOwnerPush } from "@/lib/push/server";
+import { remindUnopenedOrderPush, retryUnacknowledgedOwnerPush } from "@/lib/push/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,8 +13,9 @@ export async function GET(request: Request) {
     }
 
     try {
-        const result = await retryUnacknowledgedOwnerPush();
-        return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
+        const retries = await retryUnacknowledgedOwnerPush();
+        const reminders = await remindUnopenedOrderPush();
+        return NextResponse.json({ ...retries, reminders }, { headers: { "Cache-Control": "no-store" } });
     } catch (error) {
         console.error("[OWNER_PUSH] Retry cron failed:", error);
         return NextResponse.json({ error: "Falha nas tentativas de notificação." }, { status: 500 });

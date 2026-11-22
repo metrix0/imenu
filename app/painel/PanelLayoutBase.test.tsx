@@ -43,6 +43,7 @@ jest.mock("@/components/ui/ConfirmModal", () => ({
 }));
 jest.mock("@/lib/push/client", () => ({
     ensureOwnerPushSubscription: jest.fn(),
+    readStoredDeviceToken: jest.fn().mockResolvedValue(null),
 }));
 jest.mock("@/lib/api/instrumentation-client", () => ({
     capturePosthogLightweight: jest.fn(),

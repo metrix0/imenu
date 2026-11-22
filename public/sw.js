@@ -65,7 +65,7 @@ async function recentlyShown(notificationId, remember = false) {
     }
 }
 
-async function acknowledgePush(notificationId) {
+async function acknowledgePush(notificationId, attemptCount) {
     const deviceToken = await readDeviceToken();
     if (!deviceToken) return;
     const response = await fetch("/api/push/ack", {
@@ -73,7 +73,7 @@ async function acknowledgePush(notificationId) {
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
         cache: "no-store",
-        body: JSON.stringify({ deviceToken, notificationId }),
+        body: JSON.stringify({ deviceToken, notificationId, attemptCount }),
     });
     if (!response.ok) throw new Error("Push acknowledgment returned " + response.status);
 }
@@ -134,8 +134,9 @@ self.addEventListener("push", (event) => {
             if (!payload || (payload.expiresAt && payload.expiresAt <= Date.now())) return;
 
             const displayAndAcknowledge = async () => {
-                const seen = payload.id
-                    ? await recentlyShown(payload.id).catch(() => false)
+                const displayId = payload.id ? `${payload.id}:${payload.attempt_count || 1}` : null;
+                const seen = displayId
+                    ? await recentlyShown(displayId).catch(() => false)
                     : false;
 
                 if (!seen) {
@@ -150,15 +151,15 @@ self.addEventListener("push", (event) => {
                         vibrate: [180, 90, 180],
                         requireInteraction: true,
                     });
-                    if (payload.id) {
-                        await recentlyShown(payload.id, true).catch(error =>
+                    if (displayId) {
+                        await recentlyShown(displayId, true).catch(error =>
                             console.error("[IMENU_PUSH] Could not remember display:", error)
                         );
                     }
                 }
                 if (payload.id) {
                     try {
-                        await acknowledgePush(payload.id);
+                        await acknowledgePush(payload.id, payload.attempt_count);
                     } catch (error) {
                         // The retry worker will wake the device again to retry this ACK.
                         console.error("[IMENU_PUSH] Could not acknowledge display:", error);
@@ -172,17 +173,18 @@ self.addEventListener("push", (event) => {
             }
 
             // Concurrent wake-ups for one order share one display operation.
-            const existing = processingPushes.get(payload.id);
+            const processingId = `${payload.id}:${payload.attempt_count || 1}`;
+            const existing = processingPushes.get(processingId);
             if (existing) {
                 await existing;
                 return;
             }
             const task = displayAndAcknowledge();
-            processingPushes.set(payload.id, task);
+            processingPushes.set(processingId, task);
             try {
                 await task;
             } finally {
-                processingPushes.delete(payload.id);
+                processingPushes.delete(processingId);
             }
         })()
     );

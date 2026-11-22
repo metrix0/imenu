@@ -1,5 +1,5 @@
 import { query } from "@/lib/database/sql";
-import { acknowledgeOwnerPush, notifyOrderReady, retryUnacknowledgedOwnerPush, sendTestPush, takeNextPushNotification } from "../server";
+import { acknowledgeOwnerPush, markOwnerPushOpened, notifyOrderReady, remindUnopenedOrderPush, retryUnacknowledgedOwnerPush, sendTestPush, takeNextPushNotification } from "../server";
 import { importPKCS8, SignJWT } from "jose";
 import { withTransaction } from "@/lib/database/sql";
 
@@ -165,11 +165,20 @@ describe("push acknowledgment and scheduled retry claims", () => {
         expect(await acknowledgeOwnerPush("device-token", notificationId)).toBe(true);
         expect(query).toHaveBeenCalledWith(
             expect.stringContaining("subscription.device_token = $2"),
-            [notificationId, "device-token"]
+            [notificationId, "device-token", null]
         );
         expect((query as jest.Mock).mock.calls[0][0]).toContain(
             "SET delivered_at = COALESCE(notification.delivered_at, NOW())"
         );
+    });
+
+    test("opening the panel acknowledges only the subscribed device", async () => {
+        (query as jest.Mock).mockResolvedValueOnce({ rows: [{ id: "subscription-id" }] });
+        expect(await markOwnerPushOpened("device-token")).toBe(true);
+        const [sql, params] = (query as jest.Mock).mock.calls[0];
+        expect(sql).toContain("SET last_seen_at = NOW()");
+        expect(sql).toContain("WHERE device_token = $1 AND enabled = true");
+        expect(params).toEqual(["device-token"]);
     });
 
     test("does not acknowledge an unknown device or notification", async () => {
@@ -190,6 +199,21 @@ describe("push acknowledgment and scheduled retry claims", () => {
         expect(sql).toContain("INTERVAL '180 seconds'");
         expect(sql).toContain("FOR UPDATE OF notification SKIP LOCKED");
         expect((query as jest.Mock).mock.calls[0][1]).toEqual([100]);
+    });
+
+    test("repeat worker claims only delivered orders that the owner hasn't opened", async () => {
+        (query as jest.Mock).mockResolvedValueOnce({ rows: [] });
+        expect(await remindUnopenedOrderPush()).toEqual({ claimed: 0, accepted: 0, failed: 0 });
+        const [sql, params] = (query as jest.Mock).mock.calls[0];
+        expect(sql).toContain("notification.delivered_at IS NOT NULL");
+        expect(sql).toContain("subscription.last_seen_at < notification.created_at");
+        expect(sql).toContain("notification.tag = 'order-' || event.order_id::text || '-unread'");
+        expect(sql).toContain("INTERVAL '24 hours'");
+        expect(sql).toContain("INTERVAL '30 seconds'");
+        expect(sql).toContain("orders.status NOT IN ('done', 'canceled', 'pending_online_payment')");
+        expect(sql).toContain("FOR UPDATE OF notification SKIP LOCKED");
+        expect(sql).toContain("sent_at = NULL");
+        expect(params).toEqual([100]);
     });
 
     test("GET marks a notification as fetched, not acknowledged", async () => {

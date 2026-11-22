@@ -1,14 +1,14 @@
 import { NextRequest } from "next/server";
 
-import { acknowledgeOwnerPush } from "@/lib/push/server";
+import { acknowledgeOwnerPush, markOwnerPushOpened } from "@/lib/push/server";
 import { POST } from "./route";
 
-jest.mock("@/lib/push/server", () => ({ acknowledgeOwnerPush: jest.fn() }));
+jest.mock("@/lib/push/server", () => ({ acknowledgeOwnerPush: jest.fn(), markOwnerPushOpened: jest.fn() }));
 
 const deviceToken = "a".repeat(40);
 const notificationId = "50000000-0000-4000-8000-000000000001";
 
-function request(host: string, origin?: string): NextRequest {
+function request(host: string, origin?: string, payload: Record<string, unknown> = { deviceToken, notificationId }): NextRequest {
     return new NextRequest("http://imenu-production-app:3000/api/push/ack", {
         method: "POST",
         headers: {
@@ -16,13 +16,15 @@ function request(host: string, origin?: string): NextRequest {
             ...(origin ? { Origin: origin } : {}),
             "Content-Type": "application/json",
         },
-        body: JSON.stringify({ deviceToken, notificationId }),
+        body: JSON.stringify(payload),
     });
 }
 
 beforeEach(() => {
     (acknowledgeOwnerPush as jest.Mock).mockReset();
     (acknowledgeOwnerPush as jest.Mock).mockResolvedValue(true);
+    (markOwnerPushOpened as jest.Mock).mockReset();
+    (markOwnerPushOpened as jest.Mock).mockResolvedValue(true);
 });
 
 test.each([
@@ -33,7 +35,7 @@ test.each([
     const response = await POST(request(host, origin));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ ok: true });
-    expect(acknowledgeOwnerPush).toHaveBeenCalledWith(deviceToken, notificationId);
+    expect(acknowledgeOwnerPush).toHaveBeenCalledWith(deviceToken, notificationId, undefined);
 });
 
 test.each([
@@ -50,7 +52,16 @@ test.each([
 test("allows an originless service-worker request while still checking the token", async () => {
     const response = await POST(request("www.imenuapp.com.br"));
     expect(response.status).toBe(200);
-    expect(acknowledgeOwnerPush).toHaveBeenCalledWith(deviceToken, notificationId);
+    expect(acknowledgeOwnerPush).toHaveBeenCalledWith(deviceToken, notificationId, undefined);
+});
+
+test("opening iMenu stops reminders without marking an individual alert delivered", async () => {
+    const response = await POST(request("www.imenuapp.com.br", "https://www.imenuapp.com.br", {
+        deviceToken, opened: true,
+    }));
+    expect(response.status).toBe(200);
+    expect(markOwnerPushOpened).toHaveBeenCalledWith(deviceToken);
+    expect(acknowledgeOwnerPush).not.toHaveBeenCalled();
 });
 
 test("rejects invalid capability parameters before database access", async () => {
