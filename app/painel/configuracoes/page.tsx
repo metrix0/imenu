@@ -15,6 +15,7 @@ import {
     faGear,
     faLock,
     faReceipt,
+    faFileInvoice,
     faQrcode,
     faSignOutAlt,
     faTrash,
@@ -64,6 +65,7 @@ type Restaurant = {
 const SETTINGS_SECTIONS = {
     modos: { label: "Modos", icon: faGear },
     pedidos: { label: "Pedidos", icon: faReceipt },
+    nfce: { label: "Notas Fiscais", icon: faFileInvoice },
 };
 
 function SettingsSection({ id, children }: { id: keyof typeof SETTINGS_SECTIONS; children: ReactNode }) {
@@ -1182,14 +1184,33 @@ export default function ConfiguracoesPage() {
                             </Card>
                         )}
 
-                        {restaurant && (pdfAccess ? <NfceSettings restaurant={restaurant.id} /> : (
-                            <section id="nfce" className="scroll-mt-20">
-                                <NfceUpgradeButton restaurant={restaurant.id} onPaid={() => loadPdfAccess(restaurant.id)} />
-                            </section>
-                        ))}
                         {restaurant && <ResetOrderCountSection restaurantId={restaurant.id} />}
+                    </SettingsSection>
 
-                        <Card className="border-red-200 bg-red-50/30">
+                    {restaurant && (
+                        <SettingsSection id="nfce">
+                            {pdfAccess ? (
+                                <NfceSettings restaurant={restaurant.id} address={restaurant.address} />
+                            ) : (
+                                <Card className="border border-gray-200 shadow-sm">
+                                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                        <div className="min-w-0">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <h3 className="text-lg font-semibold text-gray-900">Emissão automática de NFC-e</h3>
+                                                <Badge preset="plusIncluded" />
+                                            </div>
+                                            <p className="mt-2 text-sm text-gray-500">Emita notas fiscais dos pedidos automaticamente com o iMenu Plus.</p>
+                                        </div>
+                                        <div className="shrink-0">
+                                            <NfceUpgradeButton restaurant={restaurant.id} onPaid={() => loadPdfAccess(restaurant.id)} row />
+                                        </div>
+                                    </div>
+                                </Card>
+                            )}
+                        </SettingsSection>
+                    )}
+
+                    <Card className="border-red-200 bg-red-50/30">
                             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                                 <div>
                                     <h3 className="mb-2 text-lg font-medium text-red-700">
@@ -1213,7 +1234,6 @@ export default function ConfiguracoesPage() {
                                 </Button>
                             </div>
                         </Card>
-                    </SettingsSection>
                 </div>
             </div>
         </>

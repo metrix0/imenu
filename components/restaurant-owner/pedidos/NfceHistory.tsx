@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { faFileInvoice, faLock } from "@fortawesome/free-solid-svg-icons";
 import Button from "@/components/ui/Button";
+import Switch from "@/components/ui/Switch";
 import Modal from "@/components/ui/Modal";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Input from "@/components/ui/Input";
@@ -64,13 +65,20 @@ function thisMonth() {
     return { startDate: month + "-01", endDate: month + "-" + datePart("day") };
 }
 
-export function NfceUpgradeButton({ restaurant, onPaid }: { restaurant: string; onPaid: () => void | Promise<void> }) {
+export function NfceUpgradeButton({ restaurant, onPaid, row = false }: { restaurant: string; onPaid: () => void | Promise<void>; row?: boolean }) {
     const [open, setOpen] = useState(false);
 
     return <>
-        <Button variant="secondary" leftIcon={<PanelIcon icon={faLock} />} onClick={() => setOpen(true)}>
-            Notas Fiscais · Recurso do iMenu Plus
-        </Button>
+        {row ? (
+            <div className="flex items-center gap-3">
+                <Button variant="secondary" onClick={() => setOpen(true)}>Configurar</Button>
+                <Switch checked={false} aria-label="Ativar emissão automática de NFC-e" onClick={() => setOpen(true)} />
+            </div>
+        ) : (
+            <Button variant="secondary" leftIcon={<PanelIcon icon={faLock} />} onClick={() => setOpen(true)}>
+                Notas Fiscais · Recurso do iMenu Plus
+            </Button>
+        )}
         {open && <IaPlusSalesModal open onClose={() => setOpen(false)} restaurantId={restaurant}
             contextMessage="Com o iMenu Plus, emita NFC-e e baixe os XMLs das suas notas fiscais por período."
             onPaid={() => { setOpen(false); return onPaid(); }} />}
