@@ -299,7 +299,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                     <div className="p-4 sm:p-5 border-b border-gray-100 flex justify-between items-start gap-3">
                         <div>
                             <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3 mb-1">
-                                <h2 className="text-xl 2xl:text-2xl font-bold text-gray-900">
+                                <h2 className="text-xl 2xl:text-2xl font-bold text-gray-900 pr-0!">
                                     Pedido #{order?.display_id}
                                 </h2>
                                 {status && <OrderBadge status={status} readyOnSite={isReadyOnSite}>{pendingLabels[status]}</OrderBadge>}
