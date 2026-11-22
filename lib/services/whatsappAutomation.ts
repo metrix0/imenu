@@ -1000,7 +1000,7 @@ async function processIncomingWhatsAppMessageUnlocked({
     const firstOrder = prepared.state === "welcome" && !flow &&
         !["", "oi", "ola", "opa", "bom dia", "boa tarde", "boa noite"].includes(normalizedBody);
     const startCheckout = phone && (checkoutShortcut || firstOrder) && (await query<{ enabled: boolean }>(
-        `SELECT automations->>'ai_ordering_enabled'='true' AS enabled
+        `SELECT automations->>'ai_enabled'='true' AS enabled
          FROM whatsapp_bot_settings WHERE restaurant_id=$1`,
         [restaurantId],
     )).rows[0]?.enabled;

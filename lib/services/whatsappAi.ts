@@ -71,13 +71,13 @@ export async function getWhatsAppAiReply({
     try {
         if (!body.trim()) return null;
         const apiKey = process.env.OPENAI_API_KEY?.trim();
-        const settings = await query<{ enabled: boolean; ordering: boolean }>(
-            `SELECT automations->>'ai_enabled'='true' enabled, automations->>'ai_ordering_enabled'='true' ordering
+        const settings = await query<{ enabled: boolean }>(
+            `SELECT automations->>'ai_enabled'='true' enabled
              FROM whatsapp_bot_settings WHERE restaurant_id=$1`,
             [restaurantId]
         );
         const customerPhone = normalizeCustomerPhone(phone);
-        const canOrder = Boolean(settings.rows[0]?.ordering && customerPhone && variables.LINK_DO_CARDAPIO);
+        const canOrder = Boolean(customerPhone && variables.LINK_DO_CARDAPIO);
         if (!settings.rows[0]?.enabled || (orderingOnly && !canOrder) || (!canOrder && !apiKey) ||
             !(await hasIMenuPlusAccess(restaurantId))) return null;
 
@@ -94,7 +94,12 @@ export async function getWhatsAppAiReply({
         const orderModule = canOrder ? await import("@/lib/services/whatsappOrderTools") : null;
         const checkout = orderModule && customerPhone ? await orderModule.loadWhatsAppOrderTools({
             restaurantId, chatId, phone: customerPhone, menuLink: variables.LINK_DO_CARDAPIO!,
+        }).catch((error: unknown) => {
+            // Deployments without the draft column can still answer menu questions.
+            if (error && typeof error === "object" && "code" in error && error.code === "42703") return null;
+            throw error;
         }) : null;
+        if (orderingOnly && !checkout) return null;
         const confirmation = await checkout?.confirm(body);
         if (confirmation) return { text: confirmation };
         if (!apiKey) return null;

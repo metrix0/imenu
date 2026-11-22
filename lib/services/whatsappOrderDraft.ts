@@ -87,7 +87,7 @@ export async function lockWhatsAppOrder(client: OrderDb, checkout: ConfirmedOrde
     const { restaurantId, chatId, draft } = checkout;
     const { rows } = await client.query<{ order_draft: WhatsAppOrderDraft; enabled: boolean }>(
         `SELECT c.order_draft,
-                s.automations->>'ai_enabled'='true' AND s.automations->>'ai_ordering_enabled'='true' AS enabled
+                s.automations->>'ai_enabled'='true' AS enabled
          FROM whatsapp_conversations c JOIN whatsapp_bot_settings s USING (restaurant_id)
          WHERE c.restaurant_id=$1 AND c.chat_id=$2 AND c.mode='bot'
          FOR UPDATE OF c`,

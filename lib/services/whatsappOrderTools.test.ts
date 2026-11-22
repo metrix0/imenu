@@ -56,6 +56,7 @@ let orderInsert: unknown[] | null;
 let writes: string[];
 let paymentCode: string | null;
 let enabled: boolean;
+let draftColumnAvailable: boolean;
 let mode: "bot" | "human";
 
 beforeEach(() => {
@@ -69,19 +70,24 @@ beforeEach(() => {
     paymentCode = null;
     writes = [];
     enabled = true;
+    draftColumnAvailable = true;
     mode = "bot";
     (createMercadoPagoPixCharge as jest.Mock).mockResolvedValue({ id: "pix-provider", qrCodeText: "pix-test" });
     (fetchAddressByCEP as jest.Mock).mockResolvedValue({ street: "Rua Um", neighborhood: "Centro", city: "Limeira", state: "SP" });
     (fetchCoordinates as jest.Mock).mockResolvedValue({ latitude: -22.56, longitude: -47.41 });
     (query as jest.Mock).mockImplementation(async (sql: string, args: any[]) => {
-        if (sql.includes("enabled, automations") && sql.includes("whatsapp_bot_settings")) {
-            return { rows: [{ enabled: true, ordering: enabled }] };
+        if (sql.includes("FROM whatsapp_bot_settings")) {
+            expect(sql).toContain("ai_enabled");
+            return { rows: [{ enabled }] };
         }
         if (sql.includes("chat_count")) return { rows: [{ chat_count: 0, restaurant_count: 0 }] };
         if (sql.includes("SELECT c.order_draft")) {
             return { rows: mode === "bot" ? [{ order_draft: draft, enabled }] : [], rowCount: 1 };
         }
-        if (sql.includes("SELECT order_draft")) return { rows: [{ order_draft: draft }], rowCount: 1 };
+        if (sql.includes("SELECT order_draft")) {
+            if (!draftColumnAvailable) throw Object.assign(new Error("column order_draft does not exist"), { code: "42703" });
+            return { rows: [{ order_draft: draft }], rowCount: 1 };
+        }
         if (sql.includes("UPDATE whatsapp_conversations SET order_draft")) {
             if (args.length === 4 && ((draft?.revision ?? null) !== args[2] || mode !== "bot")) return { rows: [], rowCount: 0 };
             draft = JSON.parse(args.at(-1));
@@ -181,11 +187,11 @@ it("reexibe o resumo quando muda o preço, sem criar o pedido anterior", async (
     expect(await checkout.confirm(code)).toMatch(/não corresponde/);
 });
 
-it.each(["sem estoque", "atendimento humano", "checkout desligado"])("protege a confirmação com %s", async condition => {
+it.each(["sem estoque", "atendimento humano", "Robô com IA desligado"])("protege a confirmação com %s", async condition => {
     const { checkout, code } = await prepare();
     if (condition === "sem estoque") item.stock_quantity = 1;
     if (condition === "atendimento humano") mode = "human";
-    if (condition === "checkout desligado") enabled = false;
+    if (condition === "Robô com IA desligado") enabled = false;
     expect(await checkout.confirm(code)).toMatch(/Estoque insuficiente|Este resumo não está mais disponível/);
     expect(orderInsert).toBeNull();
     expect(createMercadoPagoPixCharge).not.toHaveBeenCalled();
@@ -232,7 +238,7 @@ it("recusa entrega fora do raio e aceita agendamento dentro do horário", async 
     expect(orderInsert).toBeNull();
 });
 
-it("encaminha a confirmação do WhatsApp direto para o pedido sem delegar o código ao modelo", async () => {
+it("usa o toggle Robô com IA para a confirmação do WhatsApp sem delegar o código ao modelo", async () => {
     const { code } = await prepare("pix");
     const incoming = {
         ...context, sessionName: "fixture", messageId: "fixture", body: code,
@@ -240,9 +246,26 @@ it("encaminha a confirmação do WhatsApp direto para o pedido sem delegar o có
         restaurantHours: { availability_json: store.availability_json, is_closed: null, manual_open_until: null, preorder_only: false },
     };
     enabled = false;
-    expect(await getWhatsAppAiReply({ ...incoming, orderingOnly: true })).toBeNull();
+    expect(await getWhatsAppAiReply(incoming)).toBeNull();
     expect(orderInsert).toBeNull();
     enabled = true;
     expect(await getWhatsAppAiReply(incoming)).toEqual({ text: expect.stringContaining("pix-test") });
     expect(OpenAI).not.toHaveBeenCalled();
+});
+
+
+it("mantém as respostas sobre o cardápio enquanto a migração do carrinho está pendente", async () => {
+    draftColumnAvailable = false;
+    jest.replaceProperty(process, "env", { ...process.env, OPENAI_API_KEY: "test-key" });
+    const create = jest.fn().mockResolvedValue({ output_text: "Temos hambúrguer.", output: [] });
+    (OpenAI as unknown as jest.Mock).mockImplementation(() => ({ responses: { create } }));
+    const incoming = {
+        ...context, sessionName: "fixture", messageId: "fixture", body: "Tem hambúrguer?",
+        variables: { LINK_DO_CARDAPIO: context.menuLink },
+        restaurantHours: { availability_json: store.availability_json, is_closed: null, manual_open_until: null, preorder_only: false },
+    };
+    expect(await getWhatsAppAiReply({ ...incoming, orderingOnly: true })).toBeNull();
+    expect(await getWhatsAppAiReply(incoming)).toEqual({ text: "Temos hambúrguer." });
+    expect(create.mock.calls[0][0].tools).not.toContainEqual(expect.objectContaining({ name: "order_review" }));
+    expect(orderInsert).toBeNull();
 });
