@@ -4,7 +4,7 @@ import { unzipSync } from "fflate";
 import { requireRestaurantOwner } from "@/lib/auth/restaurantOwner";
 import { hasIMenuPlusAccess } from "@/lib/addons/access";
 import { query } from "@/lib/database/sql";
-import { GET } from "./route";
+import { GET, POST } from "./route";
 
 jest.mock("@/lib/auth/restaurantOwner", () => ({
     requireRestaurantOwner: jest.fn(),
@@ -46,10 +46,25 @@ test("exports original XMLs and cancellation records for the selected São Paulo
     expect(Buffer.from(files[`${key}-cancelamento.xml`]).toString()).toBe("<procEventoNFe/>");
 });
 
-test("does not query account data or contact a fiscal provider while disabled", async () => {
+test("exposes fiscal UI state to Plus owners without enabling fiscal operations", async () => {
     delete process.env.NFCE_ENV;
-    const response = await GET(request("action=list"));
-    expect(await response.json()).toEqual({ available: false, notes: [], issuer: null });
-    expect(requireRestaurantOwner).not.toHaveBeenCalled();
+    jest.mocked(hasIMenuPlusAccess).mockResolvedValue(true);
+
+    const history = await GET(request("action=list"));
+    expect(await history.json()).toEqual({ available: false, plus: true, archive: false, configured: false, notes: [] });
+    const settings = await GET(request("action=settings"));
+    expect(await settings.json()).toEqual({ available: false, plus: true, environment: null, issuer: null, items: [] });
+    expect((await GET(request("action=zip"))).status).toBe(503);
+    expect((await POST(request("action=settings"))).status).toBe(403);
+    expect(requireRestaurantOwner).toHaveBeenCalledWith(expect.any(Request), restaurant);
+    expect(query).not.toHaveBeenCalled();
+});
+
+test("preserves the Plus entitlement check without fiscal runtime configuration", async () => {
+    delete process.env.NFCE_KEY;
+    jest.mocked(hasIMenuPlusAccess).mockResolvedValue(false);
+    const history = await GET(request("action=list"));
+    expect(await history.json()).toMatchObject({ available: false, plus: false });
+    expect((await GET(request("action=settings"))).status).toBe(403);
     expect(query).not.toHaveBeenCalled();
 });

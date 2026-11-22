@@ -321,7 +321,7 @@ export default function HistoricoPage() {
 
             <DailyCashClosing restaurantId={restaurantId} refreshKey={cashRefreshKey} />
 
-            <NfcePromotion show={Boolean(fiscal?.available && !fiscal.plus)} />
+            <NfcePromotion show={Boolean(fiscal && !fiscal.plus)} />
             <PanelFeatureCallout feature="vendas-ia" />
 
             <ConfirmModal
@@ -354,7 +354,7 @@ export default function HistoricoPage() {
                 isOpen={isDetailsOpen}
                 onClose={() => setIsDetailsOpen(false)}
                 order={selectedOrder}
-                fiscalSection={isDetailsOpen && restaurantId && fiscal?.available && fiscal.plus && selectedOrder && (
+                fiscalSection={isDetailsOpen && restaurantId && fiscal?.plus && selectedOrder && (
                     <NfceOrderSection key={selectedOrder.id} order={selectedOrder} restaurant={restaurantId}
                         note={fiscal.notes.find(note => note.order_id === selectedOrder.id)} configured={fiscal.configured}
                         focus={focusFiscal} onChange={() => setNfceRefresh(value => value + 1)} />

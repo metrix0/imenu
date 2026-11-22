@@ -48,10 +48,16 @@ function failure(error: unknown) {
 
 export async function GET(request: Request) {
     try {
-        if (!fiscalEnvironment()) return NextResponse.json({ available: false, notes: [], issuer: null }, { headers });
         const { params, restaurant, plus, env } = await owner(request);
         const action = params.get("action") ?? "list";
-        if (!env) return NextResponse.json({ available: false, plus, notes: [], issuer: null }, { headers });
+        if (!env) {
+            if (action === "settings") {
+                if (!plus) throw new FiscalError("Disponível com iMenu Plus.", 403);
+                return NextResponse.json({ available: false, plus, environment: null, issuer: null, items: [] }, { headers });
+            }
+            if (action !== "list") throw new FiscalError("A emissão fiscal está indisponível neste ambiente.", 503);
+            return NextResponse.json({ available: false, plus, archive: false, configured: false, notes: [] }, { headers });
+        }
         if (action === "settings") {
             if (!plus) throw new FiscalError("Disponível com iMenu Plus.", 403);
             const [issuer, items] = await Promise.all([

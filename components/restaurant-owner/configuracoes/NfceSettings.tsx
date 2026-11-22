@@ -23,6 +23,7 @@ const fields = [
 const taxes = [["ncm", "NCM"], ["cfop", "CFOP"], ["csosn", "CSOSN"], ["origin", "Origem"], ["cest", "CEST"]] as const;
 
 export default function NfceSettings({ restaurant }: { restaurant: string }) {
+    const [visible, setVisible] = useState(false);
     const [environment, setEnvironment] = useState<1 | 2 | null>(null);
     const [value, setValue] = useState<Settings>(blank);
     const [hasCertificate, setHasCertificate] = useState(false);
@@ -45,8 +46,9 @@ export default function NfceSettings({ restaurant }: { restaurant: string }) {
     useEffect(() => {
         let current = true;
         nfceRequest(restaurant, { action: "settings" }).then(response => response.json()).then(data => {
-            if (!current || !data.available || !data.plus) return;
-            setEnvironment(data.environment === 1 ? 1 : 2);
+            if (!current || !data.plus) return;
+            setVisible(true);
+            setEnvironment(data.environment);
             setItems(data.items);
             if (data.issuer) {
                 setValue({ ...blank, ...data.issuer.data, series: String(data.issuer.data.series),
@@ -64,38 +66,41 @@ export default function NfceSettings({ restaurant }: { restaurant: string }) {
     };
     const itemTax = value.itemTaxes?.[itemId] ?? value.defaultTax;
 
-    if (!environment) return null;
+    if (!visible) return null;
     const label = environment === 2 ? "Emissão automática em homologação" : "Emissão automática de NFC-e";
     return <section id="nfce" aria-labelledby="nfce-title" className="scroll-mt-20 space-y-4">
         <h2 id="nfce-title" className="text-xl font-semibold text-gray-900">Notas Fiscais</h2>
         <Card className="space-y-4">
-            <div className="flex items-center gap-3">
-                <Switch checked={value.enabled} onClick={() => change({ ...value, enabled: !value.enabled })}
-                    aria-label={label} />
-                <span className="text-sm">{label}</span>
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                {fields.map(([key, label]) => <Input key={key} label={label} value={value[key]} onChange={event => change({ ...value, [key]: event.target.value })} />)}
-            </div>
-            <label className="block text-sm font-medium text-gray-800">Tributação
-                <select className="ml-2 max-w-full rounded-md border border-gray-300 p-2" value={itemId} onChange={event => setItemId(event.target.value)}>
-                    <option value="">Padrão dos itens</option>
-                    {items.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-                </select>
-            </label>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                {taxes.map(([key, label]) => <Input key={key} label={label} value={itemTax[key] ?? ""}
-                    onChange={event => {
-                        const replacement = { ...itemTax, [key]: event.target.value };
-                        change(itemId ? { ...value, itemTaxes: { ...value.itemTaxes, [itemId]: replacement } } : { ...value, defaultTax: replacement });
-                    }} />)}
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Input type="file" accept=".pfx,.p12" label={hasCertificate ? "Substituir certificado A1" : "Certificado A1"}
-                    onChange={event => change({ ...value, file: event.target.files?.[0] ?? null })} />
-                <Input type="password" label="Senha do certificado" autoComplete="new-password" value={value.password}
-                    onChange={event => change({ ...value, password: event.target.value })} />
-            </div>
+            {!environment && <p className="text-sm text-gray-600">A emissão de NFC-e está indisponível neste ambiente.</p>}
+            <fieldset disabled={!environment} className="min-w-0 space-y-4 disabled:opacity-50">
+                <div className="flex items-center gap-3">
+                    <Switch checked={value.enabled} onClick={() => change({ ...value, enabled: !value.enabled })}
+                        aria-label={label} />
+                    <span className="text-sm">{label}</span>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    {fields.map(([key, label]) => <Input key={key} label={label} value={value[key]} onChange={event => change({ ...value, [key]: event.target.value })} />)}
+                </div>
+                <label className="block text-sm font-medium text-gray-800">Tributação
+                    <select className="ml-2 max-w-full rounded-md border border-gray-300 p-2" value={itemId} onChange={event => setItemId(event.target.value)}>
+                        <option value="">Padrão dos itens</option>
+                        {items.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                    </select>
+                </label>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    {taxes.map(([key, label]) => <Input key={key} label={label} value={itemTax[key] ?? ""}
+                        onChange={event => {
+                            const replacement = { ...itemTax, [key]: event.target.value };
+                            change(itemId ? { ...value, itemTaxes: { ...value.itemTaxes, [itemId]: replacement } } : { ...value, defaultTax: replacement });
+                        }} />)}
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <Input type="file" accept=".pfx,.p12" label={hasCertificate ? "Substituir certificado A1" : "Certificado A1"}
+                        onChange={event => change({ ...value, file: event.target.files?.[0] ?? null })} />
+                    <Input type="password" label="Senha do certificado" autoComplete="new-password" value={value.password}
+                        onChange={event => change({ ...value, password: event.target.value })} />
+                </div>
+            </fieldset>
             <SaveStatus status={status} />
             {error && <p className="text-sm text-red-700" role="alert">{error}</p>}
         </Card>

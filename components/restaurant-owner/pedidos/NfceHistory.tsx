@@ -101,7 +101,7 @@ export function NfceHistoryButton({ restaurant, history }: { restaurant: string;
             setError((error as Error).message);
         } finally { setLoading(false); }
     };
-    if (!history.available || (!history.plus && (!history.archive || removed))) return null;
+    if (!history.plus && (!history.archive || removed)) return null;
     return <>
         <Button variant="secondary" leftIcon={<PanelIcon icon={faFileInvoice} />} onClick={() => { setError(""); setCustom(false); setOpen(true); }}>
             {history.plus ? "Notas Fiscais" : "Baixar notas anteriores"}
@@ -109,10 +109,12 @@ export function NfceHistoryButton({ restaurant, history }: { restaurant: string;
         <Modal open={open} onClose={() => setOpen(false)} height={380} showCloseButton>
             <section className="w-full max-w-lg space-y-5 rounded-lg bg-white p-6" aria-label="Notas Fiscais">
                 <h2 className="text-xl font-bold text-gray-900">Notas Fiscais</h2>
-                <p className="text-sm text-gray-600">Baixe um ZIP com os XMLs autorizados e os eventos de cancelamento.</p>
+                <p className="text-sm text-gray-600">{history.available
+                    ? "Baixe um ZIP com os XMLs autorizados e os eventos de cancelamento."
+                    : "A emissão de NFC-e está indisponível neste ambiente."}</p>
                 <div className="flex flex-wrap gap-2">
-                    <Button onClick={() => void exportPeriod(thisMonth())} loading={loading && !custom} disabled={loading}>Baixar notas deste mês</Button>
-                    <Button variant="secondary" onClick={() => { setCustom(value => !value); setError(""); }} disabled={loading}>Período personalizado</Button>
+                    <Button onClick={() => void exportPeriod(thisMonth())} loading={loading && !custom} disabled={loading || !history.available}>Baixar notas deste mês</Button>
+                    <Button variant="secondary" onClick={() => { setCustom(value => !value); setError(""); }} disabled={loading || !history.available}>Período personalizado</Button>
                 </div>
                 {custom && <div className="flex flex-wrap items-end gap-3">
                     <ShortcutDatePicker value={range} onChange={setRange} />
