@@ -718,22 +718,6 @@ export async function POST(request: Request) {
             ? "pending_online_payment"
             : "pending_physical_payment";
 
-        const fiscal = process.env.NFCE_ENV && is_delivery === "entrega" && !isPickup && !whatsapp && panel_order !== true
-            ? await import("@/lib/nfce/service")
-            : null;
-        const fiscalIssuer = await fiscal?.activeFiscalIssuer(restaurantId);
-        let fiscalRecipient: Awaited<ReturnType<NonNullable<typeof fiscal>["checkoutRecipient"]>> | null = null;
-        if (fiscal && fiscalIssuer) {
-            try {
-                fiscalRecipient = await fiscal.checkoutRecipient(
-                    body.fiscal_cpf, customer_name, structuredAddress(body.customer_address_details), fiscalIssuer.data,
-                );
-            } catch (error) {
-                if (!(error instanceof fiscal.FiscalError)) throw error;
-                return NextResponse.json({ error: error.message, fiscal_recipient_required: true }, { status: error.status });
-            }
-        }
-
         const transactionResult =
             await withTransaction(
                 async (client) => {
@@ -1130,11 +1114,6 @@ export async function POST(request: Request) {
 
                     const orderId =
                         orderResult.rows[0].id;
-
-                    if (fiscalRecipient) {
-                        await client.query(`INSERT INTO public.nfce_order_details (restaurant_id,order_id,recipient)
-                            VALUES ($1,$2,$3::jsonb)`, [restaurantId, orderId, JSON.stringify(fiscalRecipient)]);
-                    }
 
                     const crmPhone = normalizeCustomerPhone(customer_phone);
                     const crmAddress = isPickup || isCounterOrder || isTableOrder ? null : structuredAddress(body.customer_address_details);

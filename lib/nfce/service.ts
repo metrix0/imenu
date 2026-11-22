@@ -3,7 +3,6 @@ import { promisify } from "node:util";
 import type { PoolClient } from "pg";
 import { hasIMenuPlusAccess } from "@/lib/addons/access";
 import { query, withTransaction } from "@/lib/database/sql";
-import { isValidFiscalCpf } from "./recipient";
 import {
     authorizedXml, buildNote, cancelNote, consultNote, fiscalEnvironment, paymentCode, readCertificate, sendNote,
     type FiscalEnvironment, type Issuer, type Recipient, type Sale,
@@ -44,30 +43,6 @@ export async function activeFiscalIssuer(restaurant: string, client?: PoolClient
     const issuer = (client ? await client.query<{ data: Issuer }>(sql, args) : await query<{ data: Issuer }>(sql, args)).rows[0];
     if (!issuer || !await hasIMenuPlusAccess(restaurant, client)) return null;
     return { environment, data: issuer.data };
-}
-
-export async function checkoutRecipient(cpf: unknown, name: unknown, address: Record<string, string> | null, issuer: Issuer): Promise<Recipient> {
-    const document = typeof cpf === "string" ? cpf.replace(/\D/g, "") : "";
-    if (!isValidFiscalCpf(document)) throw new FiscalError("Informe um CPF válido para a nota fiscal.");
-    const customerName = typeof name === "string" ? name.trim().slice(0, 60) : "";
-    const city = address?.cidade?.trim();
-    const cep = address?.cep?.replace(/\D/g, "") ?? "";
-    const street = address?.rua?.trim();
-    const number = address?.numero?.trim();
-    const district = address?.bairro?.trim();
-    if (customerName.length < 2 || !street || !number || !district || !city || !/^(?:SP|S[ÃA]O PAULO)$/i.test(address?.estado ?? "") || (cep && !/^\d{8}$/.test(cep))) {
-        throw new FiscalError("Confira o nome e o endereço de entrega em São Paulo.");
-    }
-    const sameCity = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-    let cityCode: string | null = null;
-    if (sameCity(city) === sameCity(issuer.city)) cityCode = issuer.cityCode;
-    else {
-        const { lookupSaoPauloMunicipality } = await import("@/lib/delivery/cnefe");
-        try { cityCode = await lookupSaoPauloMunicipality(city); }
-        catch { throw new FiscalError("Não foi possível conferir o município. Tente novamente.", 503); }
-    }
-    if (!cityCode) throw new FiscalError("Confira o município de entrega para a nota fiscal.");
-    return { cpf: document, name: customerName, street: street.slice(0, 60), number: number.slice(0, 60), district: district.slice(0, 60), city: city.slice(0, 60), cep, cityCode };
 }
 
 export async function hasFiscalDocumentInUse(client: PoolClient, order: string) {

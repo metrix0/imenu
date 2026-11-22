@@ -8,7 +8,6 @@ import {
 import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
 import HybridModal from "@/components/ui/HybridModal";
-import { isValidFiscalCpf } from "@/lib/nfce/recipient";
 import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
 import { useEffect, useRef, useState } from "react";
 import {formatPrice, promotionPrice} from "@/lib/utils/formatPrice";
@@ -161,9 +160,6 @@ export default function CartBar({
         ? 0
         : checkoutState.coupon_discount_cents || 0;
 
-    const requiresFiscalRecipient = !isPickup && !isTableOrder && checkoutState.fiscalRestaurantId === String(restaurant.id);
-    const fiscalRecipientFilled = !requiresFiscalRecipient || isValidFiscalCpf(checkoutState.fiscalCpf);
-
     const allRequiredFilled = isTableOrder
         ? Boolean(checkoutState.nome && selectedTableId)
         : Boolean(
@@ -177,7 +173,7 @@ export default function CartBar({
           );
 
     const deliveryUnavailable = cartOpen && step !== "cart" && missingDeliveryOrigin && !isPickup;
-    const disabledContinue = deliveryUnavailable || (cartOpen && step === "info" && (!allRequiredFilled || !fiscalRecipientFilled));
+    const disabledContinue = deliveryUnavailable || (cartOpen && step === "info" && !allRequiredFilled);
 
     const missingFields: string[] = [];
     if (isTableOrder) {
@@ -190,7 +186,6 @@ export default function CartBar({
         if (!checkoutState.bairro) missingFields.push("Bairro");
         if (!checkoutState.numero) missingFields.push("Número");
     }
-    if (!fiscalRecipientFilled) missingFields.push("CPF válido");
     if (!checkoutState.nome) missingFields.push("Nome");
     if (!isTableOrder && !checkoutState.celular) missingFields.push("Celular");
 
@@ -524,10 +519,7 @@ export default function CartBar({
 
         const res = await fetch("/api/orders", {
             method: "POST",
-            body: JSON.stringify({
-                ...body,
-                ...(!pickup && !isTableOrder && checkout.fiscalRestaurantId === String(restaurant.id) ? { fiscal_cpf: checkout.fiscalCpf } : {}),
-            }),
+            body: JSON.stringify(body),
             headers: { "Content-Type": "application/json" }
         });
 
@@ -536,10 +528,6 @@ export default function CartBar({
         if (!res.ok) {
             closeWhatsappWindow();
             if (res.status === 409) router.refresh();
-            if (data?.fiscal_recipient_required === true) {
-                checkout.setField("fiscalRestaurantId", String(restaurant.id));
-                setStep("info");
-            }
             setOrderWarning({
                 message:
                     data?.error ||
@@ -556,8 +544,6 @@ export default function CartBar({
             });
             return;
         }
-
-        checkout.setField("fiscalCpf", "");
 
         try {
             if (!isTableOrder && checkout.coupon_id && (!currentPromotion?.promotion || currentPromotion.coupon_discount_cents > 0)) {

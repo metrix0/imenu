@@ -19,9 +19,6 @@ interface CheckoutState {
     complemento: string;
     referencia: string;
 
-    fiscalCpf: string;
-    fiscalRestaurantId: string | null;
-
     nome: string;
     celular: string;
 
@@ -71,8 +68,6 @@ export const useCheckoutStore = create<CheckoutState>()(
             estado: "",
             complemento: "",
             referencia: "",
-            fiscalCpf: "",
-            fiscalRestaurantId: null,
             nome: "",
             celular: "",
             pagamento: "pix",
@@ -125,9 +120,7 @@ export const useCheckoutStore = create<CheckoutState>()(
                 set({ showAddressWarning: v }),
 
             setRestaurantId: (id) =>
-                set(state => state.restaurantId === id ? state : {
-                    restaurantId: id, fiscalCpf: "", fiscalRestaurantId: null,
-                }),
+                set({ restaurantId: id }),
 
             isContinueBlocked: false,
             setContinueBlocked: (v) => set({ isContinueBlocked: v }),

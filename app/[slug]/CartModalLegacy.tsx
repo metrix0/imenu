@@ -153,8 +153,6 @@ export default function CartModal({
         referencia,
         nome,
         celular,
-        fiscalCpf,
-        fiscalRestaurantId,
         pagamento,
         setField,
     } = useCheckoutStore();
@@ -165,7 +163,6 @@ export default function CartModal({
         address: restaurantAddress, hasAddress: hasRestaurantAddress,
         deliveryDisabled, missingDeliveryOrigin, pickupAvailable, pickupRequired, isPickup,
     } = getCheckoutFulfillment(restaurant, isTableOrder, savedPickup, neighborhoodMode);
-    const requiresFiscalRecipient = !isPickup && !isTableOrder && fiscalRestaurantId === String(restaurant.id);
     const normalizedNeighborhood = normalizeNeighborhoodName(bairro);
     const unknownNeighborhood = neighborhoodMode && Boolean(normalizedNeighborhood) &&
         !neighborhoodDeliveryRules.some((rule) =>
@@ -1322,16 +1319,6 @@ export default function CartModal({
                                             : "Verifique se o endereço está correto ou tente usar sua localização."}
                             </WarningBox>
                         }
-
-                        {requiresFiscalRecipient && <Input
-                            label="CPF para a nota fiscal"
-                            inputMode="numeric"
-                            autoComplete="off"
-                            value={fiscalCpf}
-                            onChange={event => setField("fiscalCpf", event.target.value.replace(/\D/g, "").slice(0, 11))}
-                            className="mb-3 2xl:mb-6"
-                            required
-                        />}
 
                         <div className="flex-1 2xl:mt-2 md:text-sm ">
                             <Input
