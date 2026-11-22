@@ -116,15 +116,15 @@ export default function RevenueSection() {
                 <PagedTable data={data.purchases} loading={loading} onPage={setPage} rowKey={row => row.id}
                     onRowClick={row => openProfile({ id: row.restaurantId, name: row.restaurantName })}
                     columns={[
-                        { key: "restaurant", label: "Restaurante", render: row => <button type="button" className={styles.profileLink} onClick={event => { event.stopPropagation(); openProfile({ id: row.restaurantId, name: row.restaurantName }); }} title={row.restaurantName}><span className="block max-w-24 truncate">{row.restaurantName}</span></button> },
+                        { key: "restaurant", label: "Restaurante", render: row => <button type="button" className={styles.profileLink} onClick={event => { event.stopPropagation(); openProfile({ id: row.restaurantId, name: row.restaurantName }); }} title={row.restaurantName}><span className="block max-w-44 truncate">{row.restaurantName}</span></button> },
                         { key: "type", label: "Tipo", className: "whitespace-nowrap", render: row => row.isRenewal ? "Renovação" : "Nova" },
                         { key: "origin", label: "Origem", className: "whitespace-nowrap", render: row => originLabel(row.origin) },
                         { key: "paidAt", label: "Pagamento", className: styles.dateCell, render: formatPaymentDate },
-                        { key: "purchaseElapsedSeconds", label: "Tempo até compra", className: "whitespace-nowrap", render: row => formatPurchaseElapsedTime(row.purchaseElapsedSeconds) },
+                        { key: "purchaseElapsedSeconds", label: "Até comprar", className: "whitespace-nowrap", render: row => formatPurchaseElapsedTime(row.purchaseElapsedSeconds) },
                         { key: "method", label: "Método", className: "whitespace-nowrap", render: row => row.method },
                         { key: "amount", label: "Valor", className: styles.numericCell, render: row => formatCurrencyFromCents(row.amountCents) },
                         { key: "provider", label: "Provedor", className: "whitespace-nowrap", render: row => providerLabel(row.provider) },
-                        { key: "notificationStatus", label: "Notificação enviada", className: "whitespace-nowrap", render: row => {
+                        { key: "notificationStatus", label: "Notificação", className: "whitespace-nowrap", render: row => {
                             if (row.isRenewal) return "—";
                             const status = row.notificationStatus && notificationStatuses[row.notificationStatus];
                             return status ? <Badge variant={status.variant}>{status.label}</Badge> : <Badge variant="neutral">Sem registro</Badge>;
