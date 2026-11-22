@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { after, NextResponse } from "next/server";
-import { Zip, ZipDeflate } from "fflate";
+import { Zip, ZipDeflate } from "fflate/browser";
 import { isValidFiscalCpf } from "@/lib/nfce/recipient";
 import { hasIMenuPlusAccess } from "@/lib/addons/access";
 import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
