@@ -6,7 +6,6 @@ import LegacyCartModal from "./CartModalLegacy";
 import { createMenuRequestCache } from "@/lib/menu/requestCache";
 import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
 import {
-    getNeighborhoodDeliveryReferenceCoordinates,
     setNeighborhoodDeliveryGeocodingBypass,
     type GeoAddress,
 } from "@/lib/api/geocoding";
@@ -123,9 +122,7 @@ export default function CartModal(props: LegacyProps) {
         return "valid";
     };
 
-    // Keep the original checkout/geocoding validation. In neighborhood mode,
-    // geocoding only swaps the final distance point after the address + CEP are
-    // validated so the existing radius pipeline can apply the matched bairro fee.
+    // Keep the address and CEP validation. Neighborhood fees do not depend on distance.
     setNeighborhoodDeliveryGeocodingBypass(
         neighborhoodMode,
         validateNeighborhoodDelivery
@@ -143,17 +140,6 @@ export default function CartModal(props: LegacyProps) {
 
         return new Proxy(props.restaurant, {
             get(target, property, receiver) {
-                if (property === "latitude" || property === "longitude") {
-                    const reference =
-                        getNeighborhoodDeliveryReferenceCoordinates();
-
-                    if (property === "latitude") {
-                        return reference?.latitude ?? 0;
-                    }
-
-                    return reference?.longitude ?? 0;
-                }
-
                 if (property === "delivery_fee_json") {
                     const checkout = useCheckoutStore.getState() as any;
                     const match = findNeighborhoodDeliveryRule(
