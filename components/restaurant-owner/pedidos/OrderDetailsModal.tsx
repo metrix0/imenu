@@ -1,5 +1,6 @@
 "use client";
 
+import { cardAtDeliveryLabel, isCardAtDeliveryMethod } from "@/lib/payments/deliveryMethods";
 import { LegacyModalClose } from "@/components/ui/ModalCloseButton";
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
@@ -244,7 +245,11 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
         retirada: "Retirada",
         balcao: "Balcão",
     };
-    const payment = isCounterOrder ? "balcao" : isPickup ? "retirada" : order?.payment_method;
+    const method = details?.payment_method ?? order?.payment_method;
+    const cardLabel = isCardAtDeliveryMethod(method)
+        ? cardAtDeliveryLabel(method, isCounterOrder ? "balcao" : isPickup ? "retirada" : null)
+        : null;
+    const payment = isCounterOrder ? "balcao" : isPickup ? "retirada" : method;
 
     const canReject = showStatusActions && !isUpdating && details && (
         details.status === "pending_online_payment" ||
@@ -307,7 +312,8 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                     <OrderBadge kind="table">
                                         {details?.table_name_snapshot || order.table_name_snapshot || "Mesa"}
                                     </OrderBadge>
-                                ) : payment && <OrderBadge kind="payment">{paymentLabels[payment] || payment}</OrderBadge>)}
+                                ) : payment && <OrderBadge kind="payment">{(isReadyOnSite ? null : cardLabel) || paymentLabels[payment] || payment}</OrderBadge>)}
+                                {isReadyOnSite && !isTableOrder && cardLabel && <OrderBadge kind="payment">{cardLabel}</OrderBadge>}
                             </div>
                             <p className="text-xs text-gray-500 flex items-center gap-1 2xl:text-base">
                                 <FontAwesomeIcon icon={faClock} /> Realizado em {order && fmtDate(order.created_at)}

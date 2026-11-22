@@ -1,4 +1,5 @@
 "use client";
+import { CARD_AT_DELIVERY_LABELS, normalizeAllowedPaymentMethods } from "@/lib/payments/deliveryMethods";
 import Image from "next/image";
 import type { ReactNode } from "react";
 import { ArrowUpRight, Lock, TrendingUp } from "lucide-react";
@@ -140,7 +141,8 @@ const values: Record<string, string> = {
   autoatendimento: "Mesa",
   pix: "Pix",
   dinheiro: "Dinheiro",
-  "trazer-maquininha": "Maquininha",
+  "pix-entrega": "Pix (Na entrega)",
+  ...CARD_AT_DELIVERY_LABELS,
   radius: "Por raio",
   neighborhood: "Por bairro",
   highest: "Maior valor",
@@ -195,7 +197,9 @@ function display(
   if (Array.isArray(v)) {
     if (k === "available_days")
       return v.map((day) => weekdayNames[Number(day)] || String(day)).join(", ");
-    if (["allowed_payment_methods", "origins"].includes(k))
+    if (k === "allowed_payment_methods")
+      return normalizeAllowedPaymentMethods(v).map((value) => values[value] || value).join(", ");
+    if (k === "origins")
       return v.map((value) => values[String(value)] || String(value)).join(", ");
     if (k === "additional_rewards")
       return v.length ? v.map((reward) => {

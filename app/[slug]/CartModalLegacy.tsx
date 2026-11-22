@@ -40,11 +40,7 @@ import {
     normalizeNeighborhoodName,
     type NeighborhoodDeliveryRule,
 } from "@/lib/delivery/neighborhood";
-const DEFAULT_ALLOWED_PAYMENT_METHODS = [
-    "pix",
-    "dinheiro",
-    "trazer-maquininha",
-];
+import { CARD_AT_DELIVERY_LABELS, CARD_AT_DELIVERY_METHODS, cardAtDeliveryLabel, isCardAtDeliveryMethod, normalizeAllowedPaymentMethods } from "@/lib/payments/deliveryMethods";
 
 const PAYMENT_OPTIONS = [
     {
@@ -62,11 +58,11 @@ const PAYMENT_OPTIONS = [
         label: "Dinheiro",
         icon: icons.faMoneyBill,
     },
-    {
-        value: "trazer-maquininha",
-        label: "Maquininha",
-        icon: icons.faPersonBiking,
-    },
+    ...CARD_AT_DELIVERY_METHODS.map(value => ({
+        value,
+        label: CARD_AT_DELIVERY_LABELS[value],
+        icon: icons.faCreditCard,
+    })),
 ];
 
 const scheduleDateLabel = new Intl.DateTimeFormat("pt-BR", {
@@ -862,11 +858,10 @@ export default function CartModal({
         checkCoupons();
     },[isTableOrder] );
 
-    const allowedPaymentMethods =
-        Array.isArray(restaurant?.allowed_payment_methods) &&
-        restaurant.allowed_payment_methods.length > 0
-            ? restaurant.allowed_payment_methods
-            : DEFAULT_ALLOWED_PAYMENT_METHODS;
+    const allowedPaymentMethods = useMemo(
+        () => normalizeAllowedPaymentMethods(restaurant?.allowed_payment_methods),
+        [restaurant?.allowed_payment_methods],
+    );
 
     const availablePaymentOptions = PAYMENT_OPTIONS.filter((option) =>
         allowedPaymentMethods.includes(option.value)
@@ -1593,7 +1588,9 @@ export default function CartModal({
                                         onClick={() => setField("pagamento", option.value)}
                                     >
                                         <FontAwesomeIcon icon={option.icon} />
-                                        {option.value === "pix-entrega" && isPickup ? "Pix (Na retirada)" : option.label}
+                                        {isCardAtDeliveryMethod(option.value)
+                                            ? cardAtDeliveryLabel(option.value, isPickup ? "retirada" : null)
+                                            : option.value === "pix-entrega" && isPickup ? "Pix (Na retirada)" : option.label}
                                     </button>
 
                                     {option.value === "dinheiro" && (

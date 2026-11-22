@@ -1,3 +1,4 @@
+import { LEGACY_CARD_METHOD, isCardAtDeliveryMethod, isCheckoutCardMethodEnabled, isPhysicalPaymentMethod } from "@/lib/payments/deliveryMethods";
 import { isItemAvailableForChannel } from "@/lib/menu/itemAvailability";
 import { isCategoryAvailable, type CategorySchedule } from "@/lib/menu/categorySchedule";
 import { getOrderScheduleDate, getSameDayOrderEarliestAt } from "@/lib/menu/orderAvailability";
@@ -318,8 +319,8 @@ export async function POST(request: Request) {
             if (panel_order !== true) {
                 throw new OrderRequestError("Pedidos de balcão devem ser feitos pelo painel.");
             }
-            if (!["dinheiro", "trazer-maquininha", "pix-entrega"].includes(paymentMethod)) {
-                throw new OrderRequestError("No balcão, use dinheiro, maquininha ou Pix na entrega.");
+            if (!isPhysicalPaymentMethod(paymentMethod)) {
+                throw new OrderRequestError("No balcão, use dinheiro, cartão ou Pix.");
             }
         }
         if (panel_order === true && !["entrega", "retirada", "balcao", "mesa"].includes(is_delivery)) {
@@ -763,10 +764,15 @@ export async function POST(request: Request) {
                     }
 
                     const restaurantResult = await client.query(
-                        "SELECT url_slug, automatic_promotions, pizza_settings FROM restaurants WHERE id = $1",
+                        "SELECT url_slug, automatic_promotions, pizza_settings, allowed_payment_methods FROM restaurants WHERE id = $1",
                         [restaurantId]
                     );
                     if (!restaurantResult.rows[0]) throw new OrderRequestError("Restaurante não encontrado.");
+                    if (!isTableOrder && panel_order !== true &&
+                        (isCardAtDeliveryMethod(paymentMethod) || paymentMethod === LEGACY_CARD_METHOD) &&
+                        !isCheckoutCardMethodEnabled(paymentMethod, restaurantResult.rows[0].allowed_payment_methods)) {
+                        throw new OrderRequestError("Esta forma de pagamento não está disponível. Escolha outra opção.", 409);
+                    }
                     if (items.some((item: any) => item.pizza != null)) {
                         items = await pricePizzaOrderItems(client, restaurantId, restaurantResult.rows[0].pizza_settings, items);
                         subtotal = items.reduce((sum: number, item: any) => sum + (promotionPrice(item) ?? Number(item.total_cents) ?? 0), 0);

@@ -269,7 +269,13 @@ async function flow(browser, method, pickupMode = "only", width = 800) {
         await click(page, "Continuar");
         await page.waitForFunction(() => document.body.textContent.includes("Pagamento"));
         await screenshot(page,"checkout-payment-"+method);
-        await click(page, method === "pix" ? "Pix (Online)" : "Dinheiro");
+        const paymentLabel = {
+            pix: "Pix (Online)",
+            dinheiro: "Dinheiro",
+            "credito-entrega": "Crédito (Na retirada)",
+            "debito-entrega": "Débito (Na retirada)",
+        }[method];
+        await click(page, paymentLabel);
         await click(page, "Confirmar");
         await page.waitForFunction(() => location.pathname === "/restaurante/login", { timeout: 15000 });
         assert.ok(orderPayload, "Checkout must submit to the real order API boundary");
@@ -325,7 +331,7 @@ async function panelOrders(browser) {
     try {
         const response = await page.goto(BASE + "/painel", { waitUntil: "networkidle2" });
         assert.equal(response.status(), 200, "The owner panel must load");
-        for (const method of ["dinheiro", "pix-entrega"]) {
+        for (const method of ["dinheiro", "pix-entrega", "credito-entrega", "debito-entrega"]) {
             await click(page, "Adicionar Pedido");
             await page.waitForSelector(".panel-create-order");
             // Locator re-resolves the button if React replaces it while loading.
@@ -530,6 +536,8 @@ async function run() {
         await signup(browser);
         await flow(browser, "dinheiro");
         await flow(browser, "pix");
+        await flow(browser, "credito-entrega");
+        await flow(browser, "debito-entrega", "only", 390);
         const restaurant = data.restaurants[0];
         const originalRestaurant = { ...restaurant };
         try {

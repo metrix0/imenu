@@ -1,5 +1,6 @@
 "use client";
 
+import { LEGACY_CARD_METHOD, isCardAtDeliveryMethod } from "@/lib/payments/deliveryMethods";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; // Store Global
@@ -53,7 +54,7 @@ function summarizeCashOrders(orders: CashOrder[]) {
         confirmed++;
 
         if (method === "pix" || method === "pix-entrega") pix += cents;
-        else if (method === "cartao" || method === "trazer-maquininha") card += cents;
+        else if (method === "cartao" || method === LEGACY_CARD_METHOD || isCardAtDeliveryMethod(method)) card += cents;
         else if (method === "dinheiro") cash += cents;
         else unspecified += cents;
 

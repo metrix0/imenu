@@ -1,3 +1,4 @@
+import { CARD_AT_DELIVERY_LABELS, normalizeAllowedPaymentMethods } from "@/lib/payments/deliveryMethods";
 import { query } from "@/lib/database/sql";
 import { isManualOpeningActive, isStoreManuallyClosed } from "@/lib/menu/storeHoursOverride";
 
@@ -102,7 +103,7 @@ const PAYMENT_LABELS: Record<string, string> = {
     pix: "Pix online",
     "pix-entrega": "Pix na entrega",
     dinheiro: "Dinheiro",
-    "trazer-maquininha": "Cartão na maquininha",
+    ...CARD_AT_DELIVERY_LABELS,
 };
 
 function formatCurrency(cents: number | null | undefined): string {
@@ -178,8 +179,8 @@ function buildDeliveryDetails(restaurant: RestaurantTemplateData): string {
 }
 
 function buildPaymentMethods(restaurant: RestaurantTemplateData): string {
-    const methods = Array.isArray(restaurant.allowed_payment_methods)
-        ? restaurant.allowed_payment_methods
+    const methods = restaurant.allowed_payment_methods?.length
+        ? normalizeAllowedPaymentMethods(restaurant.allowed_payment_methods)
         : [];
     const labels = methods.map((method) => PAYMENT_LABELS[method] || method);
 

@@ -1,6 +1,7 @@
 // lib/stores/costumer/checkoutStore.ts
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { PhysicalPaymentMethod } from "@/lib/payments/deliveryMethods";
 
 export type CouponDiscountType = "percent" | "fixed" | "delivery";
 
@@ -21,7 +22,7 @@ interface CheckoutState {
     nome: string;
     celular: string;
 
-    pagamento: "pix" | "pix-entrega" | "cartao" | "dinheiro" | "trazer-maquininha";
+    pagamento: "pix" | "cartao" | PhysicalPaymentMethod;
 
     delivery_fee_cents: number | null | boolean;
     delivery_time_minutes: number | null;

@@ -61,6 +61,7 @@ let writes: string[];
 let transactions: string[];
 let client: { query: jest.Mock };
 let loyaltyBalance: boolean;
+let allowedPaymentMethods: string[];
 
 beforeEach(() => {
   (after as jest.Mock).mockReset();
@@ -71,6 +72,7 @@ beforeEach(() => {
   activeProductPromotion = null;
   giftProductEnabled = false;
   loyaltyBalance = false;
+  allowedPaymentMethods = ["pix", "dinheiro", "trazer-maquininha"];
   insert = null;
   writes = [];
   transactions = [];
@@ -86,7 +88,7 @@ beforeEach(() => {
       if (/INSERT|UPDATE/.test(sql) && !sql.includes("FOR UPDATE"))
         writes.push(sql);
       if (sql.includes("SELECT url_slug, automatic_promotions"))
-        return { rows: [{ url_slug: "teste", automatic_promotions: offers }] };
+        return { rows: [{ url_slug: "teste", automatic_promotions: offers, allowed_payment_methods: allowedPaymentMethods }] };
       if (sql.includes("LEFT JOIN promotions"))
         return {
           rows: [
@@ -271,14 +273,14 @@ it.each(["pix", "invalid-method"])(
       { Authorization: "Bearer owner-token" },
     );
     expect(response.status).toBe(400);
-    expect((await response.json()).error).toMatch(/Pix na entrega/);
+    expect((await response.json()).error).toMatch(/cartão ou Pix/);
     expect(insert).toBeNull();
     expect(writes).toEqual([]);
     expect(createMercadoPagoPixCharge).not.toHaveBeenCalled();
   },
 );
 
-it.each(["pix-entrega", "dinheiro", "trazer-maquininha"])(
+it.each(["pix-entrega", "dinheiro", "trazer-maquininha", "credito-entrega", "debito-entrega"])(
   "allows a Balcão order with the valid offline payment %s",
   async (paymentMethod) => {
     const response = await send(
@@ -293,6 +295,31 @@ it.each(["pix-entrega", "dinheiro", "trazer-maquininha"])(
     expect(createMercadoPagoPixCharge).not.toHaveBeenCalled();
   },
 );
+
+it.each(["credito-entrega", "debito-entrega"])(
+  "accepts %s as a physical payment for a restaurant using the legacy card setting",
+  async (paymentMethod) => {
+    const response = await send({ paymentMethod });
+    expect(response.status).toBe(200);
+    expect(saved()[1]).toBe("pending_physical_payment");
+    expect(saved()[10]).toBe(paymentMethod);
+    expect(createMercadoPagoPixCharge).not.toHaveBeenCalled();
+  },
+);
+
+it.each([
+  ["credito-entrega", "debito-entrega"],
+  ["debito-entrega", "credito-entrega"],
+  ["credito-entrega", "trazer-maquininha"],
+  ["dinheiro", "debito-entrega"],
+])("rejects %s's unconfigured checkout payment %s without inserting an order", async (enabled, paymentMethod) => {
+  allowedPaymentMethods = [enabled];
+  const response = await send({ paymentMethod });
+  expect(response.status).toBe(409);
+  expect(insert).toBeNull();
+  expect(writes).toEqual([]);
+  expect(createMercadoPagoPixCharge).not.toHaveBeenCalled();
+});
 
 it("rejects a manual-order flag without owner authentication", async () => {
   enablePreorders();

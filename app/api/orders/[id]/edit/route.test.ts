@@ -13,9 +13,11 @@ const orderId = "50000000-0000-4000-8000-000000000001";
 const itemId = "10000000-0000-4000-8000-000000000001";
 
 it.each([
-  ["balcao", true, "Cliente"], ["mesa", true, "Cliente"], ["mesa", false, "Cliente"],
-  ["balcao", true, ""], ["mesa", true, ""],
-] as const)("edits %s orders with salao availability %s and customer name %s, preserving destination and discounts", async (destination, available, customerName) => {
+  ["balcao", true, "Cliente", "dinheiro"], ["mesa", true, "Cliente", "dinheiro"],
+  ["mesa", false, "Cliente", "dinheiro"], ["balcao", true, "", "dinheiro"],
+  ["mesa", true, "", "dinheiro"], ["balcao", true, "Cliente", "credito-entrega"],
+  ["balcao", true, "Cliente", "debito-entrega"], ["balcao", true, "Cliente", "trazer-maquininha"],
+] as const)("edits %s orders with salao availability %s, customer name %s and payment %s", async (destination, available, customerName, paymentMethod) => {
   const tableId = "40000000-0000-4000-8000-000000000001";
   (requireRestaurantOwner as jest.Mock).mockResolvedValue({});
   const client = {
@@ -40,7 +42,7 @@ it.each([
     method: "PUT",
     headers: { "Content-Type": "application/json", Authorization: "Bearer owner-token" },
     body: JSON.stringify({
-      restaurantId, customer_name: customerName, delivery_fee_cents: 0, paymentMethod: "dinheiro",
+      restaurantId, customer_name: customerName, delivery_fee_cents: 0, paymentMethod,
       is_delivery: destination, ...(destination === "mesa" ? { table_id: tableId } : {}), expected_promotion: { id: null, total_cents: 3960 },
       items: [{ id: "line", base_item_id: itemId, name: "Dog", qty: 4, unit_price_cents: 1740,
         total_cents: 6960, selectedSubitems: [] }],
@@ -58,6 +60,7 @@ it.each([
   expect(orderUpdate?.[1][8]).toBe(destination);
   expect(orderUpdate?.[1][9]).toBe(destination === "mesa" ? tableId : null);
   expect(orderUpdate?.[1][10]).toBe(destination === "mesa" ? "Mesa 1" : null);
+  expect(orderUpdate?.[1][11]).toBe(destination === "mesa" ? null : paymentMethod);
   expect(orderUpdate?.[1][3]).toBe(3960);
   expect(orderUpdate?.[1][5]).toBe(3960);
   expect(itemInsert?.[1][3]).toBe(990);

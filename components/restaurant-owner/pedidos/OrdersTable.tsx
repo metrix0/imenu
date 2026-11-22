@@ -1,5 +1,6 @@
 "use client";
 
+import type { PhysicalPaymentMethod } from "@/lib/payments/deliveryMethods";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faChair, faEye, faTrash, faStore, faBagShopping, faPersonBiking } from "@fortawesome/free-solid-svg-icons";
 import DataTable from "@/components/ui/DataTable";
@@ -9,7 +10,7 @@ import type { OrderStatus } from "../OrderCard";
 import OrderBadge from "./OrderBadge";
 
 export type Order = {
-    payment_method: "dinheiro" | "cartao" | "pix" | "trazer-maquininha";
+    payment_method: PhysicalPaymentMethod | "cartao" | "pix" | "ifood" | null;
     id: string;
     display_id: number;
     created_at: string;
