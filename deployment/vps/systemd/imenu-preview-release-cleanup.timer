@@ -1,0 +1,7 @@
+[Unit]
+Description=Daily cleanup of obsolete iMenu preview releases
+[Timer]
+OnCalendar=*-*-* 05:15:00 America/Sao_Paulo
+Persistent=true
+[Install]
+WantedBy=timers.target
