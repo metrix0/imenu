@@ -18,6 +18,7 @@ const confirmedPurchases = `
             payment.paid_at,
             payment.amount_cents,
             addon.payment_provider,
+            addon.acquisition_source AS origin,
             CASE
                 WHEN UPPER(COALESCE(NULLIF(payment.billing_type, ''), NULLIF(addon.payzu_payment_method, ''), '')) = 'PIX' THEN 'Pix'
                 WHEN UPPER(COALESCE(NULLIF(payment.billing_type, ''), NULLIF(addon.payzu_payment_method, ''), '')) IN ('CREDIT_CARD', 'CREDIT CARD', 'CARD') THEN 'Cartão'
@@ -55,6 +56,7 @@ type PurchaseRow = {
     amount_cents: number | string;
     method: string;
     payment_provider: string | null;
+    origin: string | null;
     total: number | string;
     purchase_rank: number | string;
     notification_status: string | null;
@@ -89,7 +91,7 @@ export async function GET(request: Request) {
                     CASE WHEN paid_at >= restaurant_created_at
                         THEN EXTRACT(EPOCH FROM paid_at - restaurant_created_at)::double precision
                     END AS purchase_elapsed_seconds,
-                    method, payment_provider, purchase_rank, COUNT(*) OVER()::int AS total,
+                    method, payment_provider, origin, purchase_rank, COUNT(*) OVER()::int AS total,
                     CASE WHEN purchase_rank = 1 THEN (
                         SELECT outbound.status
                         FROM public.whatsapp_outbound_messages outbound
@@ -124,6 +126,7 @@ export async function GET(request: Request) {
                     amountCents: Number(row.amount_cents),
                     method: row.method,
                     provider: row.payment_provider,
+                    origin: row.origin,
                     isRenewal: Number(row.purchase_rank) > 1,
                     notificationStatus: row.notification_status,
                 })),

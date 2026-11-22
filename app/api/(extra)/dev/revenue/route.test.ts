@@ -17,8 +17,8 @@ it("lists confirmed Plus payments including renewals and aggregates Pix and card
     mockQuery
         .mockResolvedValueOnce({ rows: [{ purchases30: 2, new30: 1, renewals30: 1, gross30: "9998", pix30: 1, pix_gross30: "4999", card30: 1, card_gross30: "4999", other30: 0 }] })
         .mockResolvedValueOnce({ rows: [
-            { id: "payment-2", restaurant_id: "restaurant-1", restaurant_name: "Exemplo", paid_at: "2026-11-06T12:00:00Z", purchase_elapsed_seconds: 83520, amount_cents: 4999, method: "Pix", payment_provider: "mercadopago", purchase_rank: 2, notification_status: null, total: 2 },
-            { id: "payment-1", restaurant_id: "restaurant-1", restaurant_name: "Exemplo", paid_at: "2026-11-05T12:00:00Z", purchase_elapsed_seconds: 0, amount_cents: 4999, method: "Cartão", payment_provider: "mercadopago", purchase_rank: 1, notification_status: "sent", total: 2 },
+            { id: "payment-2", restaurant_id: "restaurant-1", restaurant_name: "Exemplo", paid_at: "2026-11-06T12:00:00Z", purchase_elapsed_seconds: 83520, amount_cents: 4999, method: "Pix", payment_provider: "mercadopago", origin: "settings", purchase_rank: 2, notification_status: null, total: 2 },
+            { id: "payment-1", restaurant_id: "restaurant-1", restaurant_name: "Exemplo", paid_at: "2026-11-05T12:00:00Z", purchase_elapsed_seconds: 0, amount_cents: 4999, method: "Cartão", payment_provider: "mercadopago", origin: "onboarding", purchase_rank: 1, notification_status: "sent", total: 2 },
         ] });
 
     const response = await GET(new Request("https://example.com/api/dev/revenue?page=0"));
@@ -26,8 +26,8 @@ it("lists confirmed Plus payments including renewals and aggregates Pix and card
     const body = await response.json();
     expect(body.summary).toMatchObject({ purchases30: 2, new30: 1, renewals30: 1, gross30: 9998, pix30: 1, card30: 1 });
     expect(body.purchases).toMatchObject({ total: 2, page: 0, pageCount: 1 });
-    expect(body.purchases.rows[0]).toMatchObject({ restaurantId: "restaurant-1", purchaseElapsedSeconds: 83520, amountCents: 4999, method: "Pix", isRenewal: true, notificationStatus: null });
-    expect(body.purchases.rows[1]).toMatchObject({ isRenewal: false, notificationStatus: "sent" });
+    expect(body.purchases.rows[0]).toMatchObject({ restaurantId: "restaurant-1", purchaseElapsedSeconds: 83520, amountCents: 4999, method: "Pix", origin: "settings", isRenewal: true, notificationStatus: null });
+    expect(body.purchases.rows[1]).toMatchObject({ isRenewal: false, origin: "onboarding", notificationStatus: "sent" });
     const [summarySql] = mockQuery.mock.calls[0];
     const [purchasesSql, params] = mockQuery.mock.calls[1];
     for (const sql of [summarySql, purchasesSql]) {
@@ -40,6 +40,8 @@ it("lists confirmed Plus payments including renewals and aggregates Pix and card
         expect(sql).toContain("UPPER(payment.status) IN");
     }
     expect(summarySql).toContain("purchase_rank > 1");
+    expect(purchasesSql).toContain("addon.acquisition_source AS origin");
+    expect(purchasesSql).toContain("payment_provider, origin, purchase_rank");
     expect(purchasesSql).toContain("purchase_rank, COUNT(*)");
     expect(params).toEqual([10, 0]);
 });
