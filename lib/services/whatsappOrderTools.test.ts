@@ -91,6 +91,10 @@ beforeEach(() => {
         if (sql.includes("UPDATE whatsapp_conversations SET order_draft")) {
             if (args.length === 4 && ((draft?.revision ?? null) !== args[2] || mode !== "bot")) return { rows: [], rowCount: 0 };
             draft = JSON.parse(args.at(-1));
+            if (draft?.address) {
+                // PostgreSQL JSONB does not preserve address field insertion order.
+                draft.address = Object.fromEntries(Object.entries(draft.address).reverse()) as typeof draft.address;
+            }
         }
         if (sql.includes("FROM restaurants r WHERE r.id=") || sql.includes("SELECT preorder_only") || sql.includes("SELECT url_slug")) {
             return { rows: [restaurant], rowCount: 1 };

@@ -13,6 +13,7 @@ import { assertPizzaCategoriesCanCombine, isPizzaItem, matchPizzaComplements, pa
 import { automaticOrderPricing } from "@/lib/promotions/orderPricing";
 import type { CartItem, PizzaCatalogItem, Restaurant } from "@/lib/types/types";
 import { formatPrice, promotionPrice } from "@/lib/utils/formatPrice";
+import { structuredAddress } from "./checkoutCustomer";
 import { buildWhatsAppOpeningContext } from "./whatsappMessageTemplates";
 import { WhatsAppOrderError, type DraftAddress, type DraftLine, type WhatsAppOrderDraft } from "./whatsappOrderDraft";
 
@@ -257,9 +258,10 @@ export async function quoteWhatsAppOrder(
     const customerAddress = address
         ? [fullAddress(address), address.complemento, address.referencia].filter(Boolean).join(" · ")
         : null;
+    // Normalize the address before hashing because JSONB can reorder its fields.
     const body = {
         restaurantId: restaurant.id, items: pricing.items, customer_name: draft.name, customer_address: customerAddress,
-        customer_address_details: address, is_delivery: draft.destination, scheduled_for: scheduled?.toISOString() ?? null,
+        customer_address_details: structuredAddress(address), is_delivery: draft.destination, scheduled_for: scheduled?.toISOString() ?? null,
         delivery_fee_cents: fee, delivery_time_minutes: time, paymentMethod: draft.payment,
         expected_promotion: { id: promotion?.id ?? null, total_cents },
     };
