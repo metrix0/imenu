@@ -15,7 +15,7 @@ export type Issuer = FiscalAddress & { cnpj: string; ie: string; name: string; s
 export type Sale = {
     items: { uuid: string; name: string; quantity: number; cents: number; tax: FiscalTax }[];
     deliveryCents: number; totalCents: number; payment: string; delivery: boolean;
-    issuedAt: string;
+    issuedAt: string; recipientAddress?: FiscalAddress;
 };
 type Identity = { key: string; cert: string; pfx: Buffer; password: string };
 export type FiscalEnvironment = 1 | 2;
@@ -144,6 +144,10 @@ export function buildNote(issuer: Issuer, sale: Sale, identity: Identity, env: F
         + tag("tpImp", 4) + tag("tpEmis", type) + tag("cDV", digit) + tag("tpAmb", env) + tag("finNFe", 1) + tag("indFinal", 1)
         + tag("indPres", sale.delivery ? 4 : 1) + tag("indIntermed", 0) + tag("procEmi", 0) + tag("verProc", "iMenu 1.0")
         + (offline ? tag("dhCont", sale.issuedAt) + tag("xJust", "Indisponibilidade do autorizador SEFAZ") : "");
+    if (sale.delivery && !sale.recipientAddress) throw new Error("Informe o endereço de entrega para a NFC-e.");
+    const dest = sale.recipientAddress
+        ? `<dest><enderDest>${address(sale.recipientAddress)}</enderDest>${tag("indIEDest", 9)}</dest>`
+        : "";
     const items = sale.items.map((item, index) => {
         const unit = (item.cents / item.quantity / 100).toFixed(10).replace(/0+$/, "").replace(/\.$/, "");
         return `<det nItem="${index + 1}"><prod>${tag("cProd", item.uuid)}${tag("cEAN", "SEM GTIN")}${tag("xProd", env === 2 && index === 0 ? "NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL" : item.name)}${tag("NCM", item.tax.ncm)}${item.tax.cest ? tag("CEST", item.tax.cest) : ""}${tag("CFOP", item.tax.cfop)}${tag("uCom", "UN")}${tag("qCom", item.quantity)}${tag("vUnCom", unit)}${tag("vProd", currency(item.cents))}${tag("cEANTrib", "SEM GTIN")}${tag("uTrib", "UN")}${tag("qTrib", item.quantity)}${tag("vUnTrib", unit)}${freight[index] ? tag("vFrete", currency(freight[index])) : ""}${discounts[index] ? tag("vDesc", currency(discounts[index])) : ""}${tag("indTot", 1)}</prod><imposto><ICMS><ICMSSN102>${tag("orig", item.tax.origin)}${tag("CSOSN", item.tax.csosn)}</ICMSSN102></ICMS></imposto></det>`;
@@ -157,7 +161,7 @@ export function buildNote(issuer: Issuer, sale: Sale, identity: Identity, env: F
     }
     const { qrBase, lookup } = urls(env);
     const qrCode = qrBase + "?p=" + qr;
-    const body = `<NFe xmlns="${NF}"><infNFe Id="NFe${key}" versao="4.00"><ide>${ide}</ide><emit>${tag("CNPJ", issuer.cnpj)}${tag("xNome", issuer.name)}<enderEmit>${address(issuer)}</enderEmit>${tag("IE", issuer.ie)}${tag("CRT", 1)}</emit>${items}${total}<transp>${tag("modFrete", sale.delivery ? 3 : 9)}</transp><pag><detPag>${tag("tPag", payment)}${tag("vPag", currency(sale.totalCents))}${["03", "04", "17", "20"].includes(payment) ? "<card><tpIntegra>2</tpIntegra></card>" : ""}</detPag></pag></infNFe><infNFeSupl>${tag("qrCode", qrCode)}${tag("urlChave", lookup)}</infNFeSupl></NFe>`;
+    const body = `<NFe xmlns="${NF}"><infNFe Id="NFe${key}" versao="4.00"><ide>${ide}</ide><emit>${tag("CNPJ", issuer.cnpj)}${tag("xNome", issuer.name)}<enderEmit>${address(issuer)}</enderEmit>${tag("IE", issuer.ie)}${tag("CRT", 1)}</emit>${dest}${items}${total}<transp>${tag("modFrete", sale.delivery ? 3 : 9)}</transp><pag><detPag>${tag("tPag", payment)}${tag("vPag", currency(sale.totalCents))}${["03", "04", "17", "20"].includes(payment) ? "<card><tpIntegra>2</tpIntegra></card>" : ""}</detPag></pag></infNFe><infNFeSupl>${tag("qrCode", qrCode)}${tag("urlChave", lookup)}</infNFeSupl></NFe>`;
     return { key, xml: signed(body, "infNFe", identity), qr: qrCode };
 }
 

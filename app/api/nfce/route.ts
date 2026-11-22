@@ -239,7 +239,7 @@ export async function POST(request: Request) {
                 SELECT o.id,o.restaurant_id FROM public.orders o
                 JOIN public.nfce_issuers i ON i.restaurant_id=o.restaurant_id AND i.environment=$3 AND i.enabled
                 WHERE o.id=$2 AND o.restaurant_id=$1 AND o.status IN ('preparing','delivering','done')
-                    AND o.is_delivery IS DISTINCT FROM 'entrega' AND o.total_cents < 1000000
+                    AND o.total_cents < 1000000
                     AND NOT EXISTS (SELECT 1 FROM public.delivery_imported_orders a WHERE a.order_id=o.id)
                     AND NOT EXISTS (SELECT 1 FROM public.nfce_documents d WHERE d.restaurant_id=$1 AND d.order_id=$2 AND d.environment=$3
                         AND (d.access_key IS NOT NULL OR d.status='processing'))

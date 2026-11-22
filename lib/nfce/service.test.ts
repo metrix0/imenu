@@ -1,4 +1,4 @@
-import { activeFiscalIssuer, needsFiscalNote } from "./service";
+import { activeFiscalIssuer, needsFiscalNote, parseFiscalDeliveryAddress } from "./service";
 import { query } from "@/lib/database/sql";
 import { hasIMenuPlusAccess } from "@/lib/addons/access";
 import type { Issuer } from "./sefaz";
@@ -31,6 +31,15 @@ it("enables issuance only for an enabled issuer in the active environment with P
 test("issues consumer notes only for eligible in-store orders without identification", () => {
     expect(needsFiscalNote("done", "retirada")).toBe(true);
     expect(needsFiscalNote("done", "balcao")).toBe(true);
-    expect(needsFiscalNote("delivering", "entrega")).toBe(false);
-    expect(needsFiscalNote("done", "entrega")).toBe(false);
+    expect(needsFiscalNote("delivering", "entrega")).toBe(true);
+    expect(needsFiscalNote("done", "entrega")).toBe(true);
+});
+    
+test("derives delivery fiscal address from the existing order without CPF", () => {
+    const fullIssuer = { ...issuer, city: "Rio Claro", cityCode: "3543907" } as Issuer;
+    expect(parseFiscalDeliveryAddress("Rua das Flores, 123 - Centro - 13500000 (Casa) - Referência: Portão", fullIssuer)).toEqual({
+        street: "Rua das Flores", number: "123", district: "Centro", city: "Rio Claro", cityCode: "3543907", cep: "13500000",
+    });
+    expect(parseFiscalDeliveryAddress(null, fullIssuer)).toBeNull();
+    expect(parseFiscalDeliveryAddress("Endereço incompleto", fullIssuer)).toBeNull();
 });

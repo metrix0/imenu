@@ -150,7 +150,6 @@ export function NfceOrderSection({ order, note, restaurant, configured, focus, o
     const [cancel, setCancel] = useState(false);
     const [queued, setQueued] = useState(false);
     const [payment, setPayment] = useState("");
-    const delivery = order.is_delivery === "entrega";
     const pending = !note?.access_key && (!note || note.status === "rejected");
     useEffect(() => {
         if (focus) document.getElementById("order-nfce")?.scrollIntoView({ block: "nearest" });

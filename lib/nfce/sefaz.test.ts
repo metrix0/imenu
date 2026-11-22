@@ -121,3 +121,16 @@ test("exercises direct authorization and key-based recovery against a simulated 
     }), expect.any(Function));
     expect(requestBody).toContain(`<chNFe>${note.key}</chNFe>`);
 });
+
+test("classifies home delivery correctly and serializes its address without buyer ID", () => {
+    const delivery = { ...sale, delivery: true, recipientAddress: address };
+    const note = buildNote(issuer, delivery, identity, 2, 31);
+    expect(field(elements(note.xml, "ide")[0], "indPres")).toBe("4");
+    const destination = elements(note.xml, "dest");
+    expect(destination).toHaveLength(1);
+    expect(field(destination[0], "xLgr")).toBe("Rua A");
+    expect(field(destination[0], "nro")).toBe("10");
+    expect(field(destination[0], "cMun")).toBe("3550308");
+    expect(field(destination[0], "indIEDest")).toBe("9");
+    expect(note.xml).not.toContain("<CPF>");
+});

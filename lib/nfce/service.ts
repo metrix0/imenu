@@ -5,7 +5,7 @@ import { hasIMenuPlusAccess } from "@/lib/addons/access";
 import { query, withTransaction } from "@/lib/database/sql";
 import {
     authorizedXml, buildNote, cancelNote, consultNote, fiscalEnvironment, paymentCode, readCertificate, sendNote,
-    type FiscalEnvironment, type Issuer, type Sale,
+    type FiscalAddress, type FiscalEnvironment, type Issuer, type Sale,
 } from "./sefaz";
 
 export const zipXml = promisify(gzip);
@@ -24,6 +24,7 @@ type Job = NoteSummary & {
 export type IssuerRow = { data: Issuer; certificate: string | null; enabled: boolean; next_number: number; environment: FiscalEnvironment };
 type OrderRow = {
     id: string; total_cents: number; delivery_cents: number; customer_name: string | null;
+    customer_address: string | null;
     status: string; is_delivery: string | null; payment_method: string | null; imported: boolean;
 };
 
@@ -57,7 +58,26 @@ export async function hasPendingFiscalDocument(client: PoolClient, order: string
 }
 
 export function needsFiscalNote(status: string, type: string | null) {
-    return ["balcao", "retirada"].includes(type ?? "") && status === "done";
+    return (type === "entrega" && ["delivering", "done"].includes(status))
+        || (["balcao", "retirada"].includes(type ?? "") && status === "done");
+}
+
+// Existing checkout stores delivery addresses in this format; no CPF is collected.
+export function parseFiscalDeliveryAddress(value: string | null, issuer: Issuer): FiscalAddress | null {
+    if (!value) return null;
+    const withoutReference = value.split(" - Referência:")[0];
+    const withoutComplement = withoutReference.replace(/\s+\([^()]*\)\s*$/, "");
+    const parts = withoutComplement.split(/\s+-\s+/);
+    const first = parts[0] ?? "";
+    const comma = first.lastIndexOf(",");
+    if (comma <= 0 || parts.length < 2) return null;
+    const street = first.slice(0, comma).trim();
+    const number = first.slice(comma + 1).trim();
+    const district = parts[1].trim();
+    const postal = (parts[2] ?? "").trim();
+    const cep = /^\d{5}-?\d{3}$/.test(postal) ? postal.replace(/\D/g, "") : "";
+    if (!street || !number || !district || !issuer.city || !issuer.cityCode) return null;
+    return { street, number, district, city: issuer.city, cityCode: issuer.cityCode, cep };
 }
 
 export async function prepareOrderNote(client: PoolClient, restaurant: string, order: string, status: string, type: string | null) {
@@ -87,7 +107,7 @@ async function enqueueOrderNote(client: PoolClient, restaurant: string, order: s
 async function getSale(job: Job, issuer: Issuer): Promise<Sale> {
     const [orderResult, rows, details] = await Promise.all([
         query<OrderRow>(`
-            SELECT id,total_cents,delivery_cents,customer_name,status,is_delivery,payment_method,
+            SELECT id,total_cents,delivery_cents,customer_name,customer_address,status,is_delivery,payment_method,
             EXISTS(SELECT 1 FROM public.delivery_imported_orders i WHERE i.order_id=o.id) AS imported
             FROM public.orders o WHERE id=$1 AND restaurant_id=$2`, [job.order_id, job.restaurant_id]),
         query<{ item_id: string; name: string; quantity: number; total_cents: number }>(`
@@ -101,7 +121,9 @@ async function getSale(job: Job, issuer: Issuer): Promise<Sale> {
     const payment = details.rows[0]?.payment_method ?? order.payment_method ?? "";
     if (!paymentCode(payment)) throw new FiscalError("Informe o meio de pagamento na seção fiscal do pedido.");
     const delivery = order.is_delivery === "entrega";
-    if (delivery || Number(order.total_cents) >= 1_000_000) throw new FiscalError("Esta operação exige identificação fiscal do destinatário e não está habilitada.");
+    if (Number(order.total_cents) >= 1_000_000) throw new FiscalError("Esta operação exige identificação fiscal do destinatário e não está habilitada.");
+    const recipientAddress = delivery ? parseFiscalDeliveryAddress(order.customer_address, issuer) : undefined;
+    if (delivery && !recipientAddress) throw new FiscalError("Confira o endereço de entrega do pedido para emissão da NFC-e.");
     if (!rows.rows.length || rows.rows.some(row => !row.item_id || row.quantity <= 0 || row.total_cents < 0)) {
         throw new FiscalError("Revise os itens do pedido.");
     }
@@ -111,6 +133,7 @@ async function getSale(job: Job, issuer: Issuer): Promise<Sale> {
             cents: row.total_cents, tax: issuer.itemTaxes?.[row.item_id] ?? issuer.defaultTax,
         })),
         issuedAt: spNow(), deliveryCents: Number(order.delivery_cents ?? 0), totalCents: Number(order.total_cents), payment, delivery,
+        ...(recipientAddress ? { recipientAddress } : {}),
     };
 }
 
