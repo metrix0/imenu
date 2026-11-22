@@ -7,14 +7,21 @@ export const IA_PLUS = ADDON_PRODUCTS.ia_plus;
 export const IA_PLUS_FEATURE_MESSAGE = "Essa é uma função do plano iMenu Plus";
 import { Bot, FileDown, Film, Headset, Megaphone, MessageCircle, Moon, ShoppingCart, TrendingUp } from "lucide-react";
 
+export const IA_PLUS_WHATSAPP_ORDERING = {
+  id: "whatsapp_ai",
+  title: "Robô com IA: Finalizar pedidos no Whatsapp",
+  description: "Responda dúvidas sobre o cardápio e finalize pedidos automaticamente na conversa do WhatsApp.",
+  icon: Bot,
+} as const;
+
 export const IA_PLUS_BENEFITS = [
   { id: "marketing", title: "Automações de Marketing WhatsApp", landingTitle: "Automações de Marketing WhatsApp", milestoneLabel: "as automações de marketing", description: "Recupere carrinhos, reative clientes e incentive novos pedidos com mensagens automáticas no WhatsApp.", icon: Megaphone },
   { id: "assistant", title: "Assistente IA", landingTitle: "Assistente IA: para Melhorar o Cardápio", milestoneLabel: "o Assistente IA", description: "Converse com a IA, gere imagens e melhore seu cardápio com sugestões que você revisa antes de aplicar.", icon: Bot },
   { id: "sales", title: "Vendas IA", landingTitle: "Vendas IA", milestoneLabel: "o Vendas IA", description: "Analise suas vendas, descubra oportunidades e aplique melhorias depois de revisar cada sugestão.", icon: TrendingUp },
+  { ...IA_PLUS_WHATSAPP_ORDERING, landingTitle: IA_PLUS_WHATSAPP_ORDERING.title, milestoneLabel: "o robô que finaliza pedidos no WhatsApp" },
 ] as const;
 export const IA_PLUS_BONUSES = [
   { id: "menu_media", title: "Múltiplas fotos e vídeo no cardápio", description: "Mostre cada produto com até três mídias no total, com múltiplas fotos e até um vídeo.", icon: Film },
-  { id: "whatsapp_ai", title: "Robô WhatsApp com IA", description: "Seu robô do WhatsApp mais inteligente, respondendo qualquer tipo de pergunta!", icon: Bot },
   { id: "exclusive_support", title: "Atendimento exclusivo", description: "Solicite integrações e novas funcionalidades com atendimento exclusivo e entrega em até 3 dias úteis.", icon: Headset },
   { id: "automatic_upsell", title: "Upsells automáticos", description: "Sugira automaticamente produtos que combinam com o pedido para aumentar o ticket médio.", icon: ShoppingCart },
   { id: "order_notifications", title: "Atualizações de pedidos pelo WhatsApp", description: "Notifique clientes pelo WhatsApp quando o pedido estiver pronto ou sair para entrega.", icon: MessageCircle },

@@ -21,7 +21,11 @@ describe("support knowledge search", () => {
             title: expect.stringContaining("iMenu Plus"),
             content: expect.stringContaining("Múltiplas fotos e vídeo no cardápio"),
         });
-        expect(results[0].content).toContain("Inclui 7 bônus:");
+        const [features, bonuses] = results[0].content.split("Inclui 6 bônus:");
+        expect(features).toContain("4 recursos principais:");
+        expect(features).toContain("Robô com IA: Finalizar pedidos no Whatsapp");
+        expect(bonuses).toBeDefined();
+        expect(bonuses).not.toContain("Robô com IA: Finalizar pedidos no Whatsapp");
         expect(results[0].content).not.toContain("R$ 49,99");
     });
 
