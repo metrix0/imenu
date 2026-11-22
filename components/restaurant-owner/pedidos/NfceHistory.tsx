@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { faFileInvoice } from "@fortawesome/free-solid-svg-icons";
+import { faFileInvoice, faLock } from "@fortawesome/free-solid-svg-icons";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Input from "@/components/ui/Input";
-import PanelFeatureCallout from "@/components/ui/PanelFeatureCallout";
+import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
 import ShortcutDatePicker from "@/components/ui/ShortcutDatePicker";
 import { PanelIcon } from "@/components/ui/PanelIcon";
 import { supabase } from "@/lib/database/supabaseClient";
@@ -62,6 +62,19 @@ function thisMonth() {
     const datePart = (type: string) => parts.find(part => part.type === type)!.value;
     const month = `${datePart("year")}-${datePart("month")}`;
     return { startDate: month + "-01", endDate: month + "-" + datePart("day") };
+}
+
+export function NfceUpgradeButton({ restaurant, onPaid }: { restaurant: string; onPaid: () => void | Promise<void> }) {
+    const [open, setOpen] = useState(false);
+
+    return <>
+        <Button variant="secondary" leftIcon={<PanelIcon icon={faLock} />} onClick={() => setOpen(true)}>
+            Notas Fiscais · Recurso do iMenu Plus
+        </Button>
+        {open && <IaPlusSalesModal open onClose={() => setOpen(false)} restaurantId={restaurant}
+            contextMessage="Com o iMenu Plus, emita NFC-e e baixe os XMLs das suas notas fiscais por período."
+            onPaid={() => { setOpen(false); return onPaid(); }} />}
+    </>;
 }
 
 export function NfceHistoryButton({ restaurant, history }: { restaurant: string; history: History }) {
@@ -134,10 +147,6 @@ export function NfceHistoryButton({ restaurant, history }: { restaurant: string;
     </>;
 }
 
-export function NfcePromotion({ show }: { show: boolean }) {
-    return show ? <PanelFeatureCallout feature="nfce" /> : null;
-}
-
 const stateLabels: Record<string, string> = {
     pending: "Aguardando emissão", processing: "Em processamento", contingency: "Emitida em contingência",
     rejected: "Rejeitada", authorized: "Autorizada", canceled: "Cancelada",
@@ -152,6 +161,7 @@ export function NfceOrderSection({ order, note, restaurant, configured, focus, o
     const [cancel, setCancel] = useState(false);
     const [queued, setQueued] = useState(false);
     const [payment, setPayment] = useState("");
+    const delivery = order.is_delivery === "entrega";
     const pending = !note?.access_key && (!note || note.status === "rejected");
     useEffect(() => {
         if (focus) document.getElementById("order-nfce")?.scrollIntoView({ block: "nearest" });

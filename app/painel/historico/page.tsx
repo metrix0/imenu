@@ -14,7 +14,7 @@ import OrderDetailsModal from "@/components/restaurant-owner/pedidos/OrderDetail
 import CreatePanelOrderModal from "@/components/restaurant-owner/CreatePanelOrderModal";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Toast from "@/components/ui/Toast";
-import { NfceHistoryButton, NfceOrderSection, NfcePromotion, useNfceHistory } from "@/components/restaurant-owner/pedidos/NfceHistory";
+import { NfceHistoryButton, NfceOrderSection, NfceUpgradeButton, useNfceHistory } from "@/components/restaurant-owner/pedidos/NfceHistory";
 import ShortcutDatePicker from "@/components/ui/ShortcutDatePicker";
 import CashRegister, { type CashOrder } from "@/components/restaurant-owner/pedidos/CashRegister";
 
@@ -299,7 +299,10 @@ export default function HistoricoPage() {
         <div className="max-w-7xl 2xl:max-w-9xl mx-auto pb-20 space-y-8 px-4 sm:px-6 pt-8">
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <h1 className="text-3xl font-bold text-gray-900">Histórico de Pedidos</h1>
-                {restaurantId && fiscal && <NfceHistoryButton restaurant={restaurantId} history={fiscal} />}
+                {restaurantId && fiscal && <div className="flex flex-wrap items-center gap-2">
+                    {!fiscal.plus && <NfceUpgradeButton restaurant={restaurantId} onPaid={() => setNfceRefresh(value => value + 1)} />}
+                    <NfceHistoryButton restaurant={restaurantId} history={fiscal} />
+                </div>}
             </div>
 
             <OrdersFilter
@@ -321,7 +324,6 @@ export default function HistoricoPage() {
 
             <DailyCashClosing restaurantId={restaurantId} refreshKey={cashRefreshKey} />
 
-            <NfcePromotion show={Boolean(fiscal && !fiscal.plus)} />
             <PanelFeatureCallout feature="vendas-ia" />
 
             <ConfirmModal
