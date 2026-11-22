@@ -1495,7 +1495,7 @@ export default function CartModal({
                                                     aria-haspopup="listbox"
                                                     aria-expanded={scheduleDropdownOpen}
                                                     onClick={() => setScheduleDropdownOpen((open) => !open)}
-                                                    className="flex w-full cursor-pointer items-center justify-between rounded-xl border border-[var(--im-menu-success-border,#bbf7d0)] bg-[var(--im-menu-surface,#fff)] px-5 py-3 text-sm font-medium text-[var(--im-menu-text-soft,#1f2937)] outline-none transition hover:border-[var(--im-menu-success-border,#86efac)] focus:border-[var(--im-menu-success-border,#4ade80)] 2xl:text-lg"
+                                                    className="flex w-full cursor-pointer items-center justify-between rounded-xl border border-[var(--im-menu-success-border,#bbf7d0)] bg-[var(--im-menu-surface,#fff)] px-3 py-3 text-sm font-medium text-[var(--im-menu-text-soft,#1f2937)] outline-none transition hover:border-[var(--im-menu-success-border,#86efac)] focus:border-[var(--im-menu-success-border,#4ade80)] 2xl:text-lg"
                                                 >
                                                     <span className="flex items-center gap-3">
                                                         <FontAwesomeIcon icon={icons.faClock} className="text-[var(--im-menu-success-text,#15803d)]" />
@@ -1503,7 +1503,7 @@ export default function CartModal({
                                                     </span>
                                                     <FontAwesomeIcon
                                                         icon={icons.faChevronDown}
-                                                        className={`mr-1 text-xs text-[var(--im-menu-success-text,#15803d)] transition-transform duration-200 ${scheduleDropdownOpen ? "rotate-180" : ""}`}
+                                                        className={`text-xs text-[var(--im-menu-success-text,#15803d)] transition-transform duration-200 ${scheduleDropdownOpen ? "rotate-180" : ""}`}
                                                     />
                                                 </button>
 
