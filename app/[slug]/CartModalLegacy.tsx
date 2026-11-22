@@ -34,7 +34,7 @@ import { Item, type ItemsByCategory } from "@/lib/types/types";
 import { rankAutomaticUpsells, type AutomaticUpsellRecommendations } from "@/lib/upsell/recommendations";
 import { StartingPriceLabel } from "./StartingPriceLabels";
 import type { QrTableMenuContext } from "@/lib/qr-table/types";
-import { getCheckoutDeliveryDistanceKm, getCheckoutFulfillment } from "@/lib/delivery/restaurantLocation";
+import { findCheckoutDeliveryTier, getCheckoutDeliveryDistanceKm, getCheckoutFulfillment } from "@/lib/delivery/restaurantLocation";
 import {
     findSimilarNeighborhoodDeliveryRule,
     normalizeNeighborhoodName,
@@ -336,28 +336,8 @@ export default function CartModal({
         !neighborhoodDeliveryRules?.some((rule) => Boolean(normalizeNeighborhoodName(rule.neighborhood)));
     const missingDeliveryConfig = missingDeliveryRanges || missingNeighborhoods;
 
-    function findDeliveryTier(distanceKm: number, tiersAny: any) {
-        if (!tiersAny) return null;
-
-        let tiers = Array.isArray(tiersAny)
-            ? tiersAny
-            : Array.isArray(tiersAny.entrega)
-                ? tiersAny.entrega.map((t: any) => ({
-                    fee_cents: t.taxa !== undefined ? Math.round(t.taxa * 100) : t.fee_cents,
-                    radius_km: t.distancia_km ?? t.radius_km,
-                    time_minutes: t.time_minutes ?? 0,
-                }))
-                : null;
-
-        if (!tiers?.length) return null;
-
-        return [...tiers]
-            .sort((a, b) => (a.radius_km ?? 0) - (b.radius_km ?? 0))
-            .find(tier => distanceKm <= tier.radius_km) ?? null;
-    }
-
     function computeFeeFromTiers(distanceKm: number, tiersAny: any): number | null {
-        const tier = findDeliveryTier(distanceKm, tiersAny);
+        const tier = findCheckoutDeliveryTier(distanceKm, tiersAny);
         return tier ? Number(tier.fee_cents) : null;
     }
 
@@ -446,8 +426,8 @@ export default function CartModal({
         }, {
             origin: { latitude: restLat, longitude: restLon },
             acceptsRange: ({ min, max }) => {
-                const nearest = findDeliveryTier(min, tiers);
-                const farthest = findDeliveryTier(max, tiers);
+                const nearest = findCheckoutDeliveryTier(min, tiers);
+                const farthest = findCheckoutDeliveryTier(max, tiers);
                 return nearest !== null && farthest !== null &&
                     Number(nearest.radius_km) === Number(farthest.radius_km) &&
                     Number.isFinite(Number(farthest.fee_cents));
@@ -505,7 +485,7 @@ export default function CartModal({
         setField("delivery_fee_cents", String(fee));
 
         const matchedTime = Array.isArray(tiers)
-            ? findDeliveryTier(distKm, tiers)?.time_minutes ?? null
+            ? findCheckoutDeliveryTier(distKm, tiers)?.time_minutes ?? null
             : null;
 
         if (matchedTime !== null) {

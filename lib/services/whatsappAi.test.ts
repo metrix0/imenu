@@ -87,7 +87,7 @@ test("retrieves only scoped, available menu data and limits its size", async () 
     create.mockResolvedValueOnce(call("search_menu", { query: "pizza" })).mockResolvedValueOnce({ output_text: "Temos pizza a partir de R$ 30.", output: [] });
     (query as jest.Mock).mockImplementation(async (sql: string, params: unknown[]) => {
         if (!sql.includes("FROM items")) return { rows: sql.includes("whatsapp_bot_settings") ? [{ enabled }] : [counts] };
-        expect(params).toEqual(["restaurant", "pizza"]);
+        expect(params).toEqual(["restaurant", "pizza", false]);
         expect(sql).toMatch(/i.restaurant_id=\$1 AND i.is_available/);
         expect(sql).toMatch(/stock_quantity/);
         return { rows: [{ name: "Oculto", availability_schedule: [] }, ...Array.from({ length: 30 }, () => ({ name: "Pizza", price_cents: 3000, availability_schedule: null }))] };

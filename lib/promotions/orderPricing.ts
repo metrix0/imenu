@@ -28,6 +28,7 @@ export async function automaticOrderPricing(
     channel: "delivery" | "mesa";
     pickup: boolean;
     at: Date;
+    addGiftProducts?: boolean;
   },
 ): Promise<{ result: PromotionResult; items: any[]; subtotal_cents: number }> {
   const applicable = parseAutomaticPromotions(input.promotions).filter((p) =>
@@ -139,6 +140,24 @@ export async function automaticOrderPricing(
       subtotal_cents: input.subtotal_cents,
     };
 
+  if (result.free_products?.length && input.addGiftProducts && result.promotion) {
+    const promotionId = result.promotion.id;
+    const gifts = result.free_products.map(product => ({
+      id: product.item_id,
+      base_item_id: product.item_id,
+      name: product.name,
+      qty: product.quantity,
+      unit_price_cents: product.unit_price_cents,
+      total_cents: product.unit_price_cents * product.quantity,
+      selectedSubitems: [],
+      automatic_promotion_id: promotionId,
+    }));
+    return automaticOrderPricing(client, {
+      ...input,
+      items: [...input.items, ...gifts],
+      addGiftProducts: false,
+    });
+  }
   if (result.free_products?.length) {
     throw new PromotionPricingError(
       "A promoção adicionou um item grátis. Confira a sacola antes de confirmar novamente.",

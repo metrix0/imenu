@@ -1,3 +1,5 @@
+import { confirmedWhatsAppOrder, finishWhatsAppOrder, lockWhatsAppOrder, WhatsAppOrderError } from "@/lib/services/whatsappOrderDraft";
+import { loadWhatsAppCheckoutRestaurant, quoteWhatsAppOrder } from "@/lib/services/whatsappOrderPricing";
 import { LEGACY_CARD_METHOD, isCardAtDeliveryMethod, isCheckoutCardMethodEnabled, isPhysicalPaymentMethod } from "@/lib/payments/deliveryMethods";
 import { isItemAvailableForChannel } from "@/lib/menu/itemAvailability";
 import { isCategoryAvailable, type CategorySchedule } from "@/lib/menu/categorySchedule";
@@ -253,6 +255,7 @@ async function cancelUnpaidOnlineOrder(
 }
 
 export async function POST(request: Request) {
+    const whatsapp = confirmedWhatsAppOrder(request);
     let body: any;
 
     try {
@@ -718,6 +721,15 @@ export async function POST(request: Request) {
         const transactionResult =
             await withTransaction(
                 async (client) => {
+                    if (whatsapp) {
+                        const existingOrderId = await lockWhatsAppOrder(client, whatsapp);
+                        if (existingOrderId) return { orderId: existingOrderId, slug: null, reused: true };
+                        const restaurant = await loadWhatsAppCheckoutRestaurant(client, restaurantId);
+                        const quote = await quoteWhatsAppOrder(client, restaurant, whatsapp.draft, whatsapp.point);
+                        if (quote.hash !== whatsapp.draft.quote.hash) {
+                            throw new WhatsAppOrderError("O pedido mudou. Peça um novo resumo e confira os valores.");
+                        }
+                    }
                     let validatedTable: {
                         id: string;
                         name: string;
@@ -807,7 +819,7 @@ export async function POST(request: Request) {
                         channel: isTableOrder || isCounterOrder ? "mesa" : "delivery", pickup: isPickup,
                         at: scheduledFor ?? new Date(),
                     });
-                    if (expected_promotion && (panel_order === true || pricing.result.promotion || expected_promotion.id) && (
+                    if (expected_promotion && (whatsapp || panel_order === true || pricing.result.promotion || expected_promotion.id) && (
                         expected_promotion.id !== (pricing.result.promotion?.id || null) ||
                         expected_promotion.total_cents !== pricing.result.total_cents
                     )) throw new OrderRequestError("A promoção ou os preços mudaram. Atualize a sacola e confira o total antes de confirmar novamente.", 409);
@@ -1314,8 +1326,10 @@ export async function POST(request: Request) {
                         }
                     }
 
+                    if (whatsapp) await finishWhatsAppOrder(client, whatsapp, orderId);
                     return {
                         orderId,
+                        reused: false,
                         slug:
                             restaurantResult.rows[0]
                                 ?.url_slug,
@@ -1326,7 +1340,9 @@ export async function POST(request: Request) {
         const {
             orderId,
             slug,
+            reused,
         } = transactionResult;
+        if (reused) return NextResponse.json({ order_id: orderId });
 
         let metaPurchase: MetaCommerceData | undefined;
         let savedPixAttribution = false;
@@ -1448,6 +1464,9 @@ export async function POST(request: Request) {
             error
         );
 
+        if (error instanceof WhatsAppOrderError) {
+            return NextResponse.json({ error: error.message }, { status: 409 });
+        }
         if (error instanceof PizzaPricingError) {
             return NextResponse.json({ error: error.message }, { status: 409 });
         }
