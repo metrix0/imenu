@@ -2,7 +2,7 @@ import { query, withAdvisoryLock, withTransaction } from "@/lib/database/sql";
 import { getWhatsAppAiReply } from "@/lib/services/whatsappAi";
 import { getCrmReply } from "@/lib/services/crmAutomations";
 import { sendWahaText, sendWahaList, startWahaTyping, stopWahaTyping, resolveWahaChatPhone } from "@/lib/services/wahaClient";
-import { DEFAULT_WHATSAPP_MESSAGE_TEMPLATES } from "@/lib/services/whatsappMessageTemplates";
+import { DEFAULT_WHATSAPP_MESSAGE_TEMPLATES, getWhatsAppBotSettings } from "@/lib/services/whatsappMessageTemplates";
 import { sendOwnerPush } from "@/lib/push/server";
 import { isRecentWahaMessage, processIncomingWhatsAppMessage } from "./whatsappAutomation";
 
@@ -15,14 +15,18 @@ jest.mock("@/lib/services/wahaClient", () => ({ sendWahaText: jest.fn(), sendWah
 jest.mock("@/lib/services/whatsappMessageTemplates", () => {
     const actual = jest.requireActual("@/lib/services/whatsappMessageTemplates");
     return { ...actual, getRestaurantTemplateData: jest.fn().mockResolvedValue({ name: "Loja" }),
+        getWhatsAppBotSettings: jest.fn(),
         getWhatsAppTemplates: jest.fn().mockResolvedValue(actual.DEFAULT_WHATSAPP_MESSAGE_TEMPLATES),
         buildRestaurantTemplateVariables: jest.fn().mockReturnValue({ NOME_DO_RESTAURANTE: "Loja", LINK_DO_CARDAPIO: "https://example.com/loja" }) };
 });
 const input = { restaurantId: "restaurant", sessionName: "session", chatId: "chat", messageId: "message", body: "Qual sabor você recomenda?", hasMedia: false };
-let welcome: boolean, mode: string;
+let welcome: boolean, mode: string, aiEnabled: boolean;
 beforeEach(() => {
     jest.clearAllMocks();
-    welcome = false; mode = "bot";
+    welcome = false; mode = "bot"; aiEnabled = true;
+    (getWhatsAppBotSettings as jest.Mock).mockImplementation(async () => ({
+        templates: DEFAULT_WHATSAPP_MESSAGE_TEMPLATES, aiEnabled,
+    }));
     (withAdvisoryLock as jest.Mock).mockImplementation((_: string, fn: () => unknown) => fn());
     (withTransaction as jest.Mock).mockImplementation((fn: (client: unknown) => unknown) => fn({ query }));
     (getWhatsAppAiReply as jest.Mock).mockResolvedValue(null);
@@ -45,7 +49,7 @@ test.each(["menu", "cardapio", "onde esta meu pedido", "entrega", "pagamento", "
 });
 test("keeps welcome, media, CRM and human/storm suppression ahead of AI", async () => {
     welcome = true;
-    await processIncomingWhatsAppMessage(input);
+    await processIncomingWhatsAppMessage({ ...input, body: "Oi" });
     welcome = false;
     await processIncomingWhatsAppMessage({ ...input, body: "", hasMedia: true });
     for (mode of ["human", "storm"]) await processIncomingWhatsAppMessage(input);
@@ -71,10 +75,35 @@ test.each(["menu_link", "order_status", "delivery", "payment", "handoff"])("exec
     else expect(text).toContain(DEFAULT_WHATSAPP_MESSAGE_TEMPLATES[flow as "menu_link" | "delivery" | "payment" | "handoff"].split("{{")[0]);
     if (flow === "handoff") expect(sendOwnerPush).toHaveBeenCalled();
 });
-test("retains the original fallback when AI is disabled or fails", async () => {
+test.each([false, true])("retains the original fallback when the AI is enabled=%s and there is no AI reply", async (enabled) => {
+    aiEnabled = enabled;
     await processIncomingWhatsAppMessage(input);
+    expect(getWhatsAppAiReply).toHaveBeenCalledTimes(enabled ? 1 : 0);
     expect(sendWahaText).toHaveBeenCalledWith("session", "chat", "Não entendi essa mensagem.");
     expect(sendWahaList).toHaveBeenCalled();
+});
+test.each([
+    [true, "Quero dois hambúrgueres", "welcome"],
+    [false, "quero pedir", "menu_link"],
+    [false, "CONFIRMAR 123456", null],
+] as const)("keeps the original reply with AI off (new chat=%s, message=%s)", async (newChat, body, template) => {
+    welcome = newChat;
+    aiEnabled = false;
+    await processIncomingWhatsAppMessage({ ...input, body });
+    expect(getWhatsAppAiReply).not.toHaveBeenCalled();
+    const text = template ? DEFAULT_WHATSAPP_MESSAGE_TEMPLATES[template].split("{{")[0] : "Não entendi essa mensagem.";
+    expect(sendWahaText).toHaveBeenCalledWith("session", "chat", expect.stringContaining(text));
+    if (template !== "menu_link") expect(sendWahaList).toHaveBeenCalled();
+});
+test.each([
+    [true, "Quero dois hambúrgueres"],
+    [false, "quero pedir"],
+] as const)("lets the AI handle early ordering messages when on (new chat=%s)", async (newChat, body) => {
+    welcome = newChat;
+    (getWhatsAppAiReply as jest.Mock).mockResolvedValue({ text: "Qual tamanho?" });
+    await processIncomingWhatsAppMessage({ ...input, body });
+    expect(getWhatsAppAiReply).toHaveBeenCalledWith(expect.objectContaining({ body, orderingOnly: true }));
+    expect(sendWahaText).toHaveBeenCalledWith("session", "chat", "Qual tamanho?");
 });
 test("does not answer if the owner takes over during inference", async () => {
     (getWhatsAppAiReply as jest.Mock).mockImplementation(async () => { mode = "human"; return { text: "Resposta" }; });

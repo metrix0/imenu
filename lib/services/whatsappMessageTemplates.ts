@@ -337,20 +337,25 @@ export function getWhatsAppTemplateOverrides(
     return overrides;
 }
 
-export async function getWhatsAppTemplates(
-    restaurantId: string
-): Promise<WhatsAppMessageTemplates> {
-    const result = await query<{ message_templates: unknown }>(
+export async function getWhatsAppBotSettings(restaurantId: string) {
+    const result = await query<{ message_templates: unknown; ai_enabled: boolean | null }>(
         `
-            SELECT message_templates
+            SELECT message_templates, automations->>'ai_enabled'='true' AS ai_enabled
             FROM whatsapp_bot_settings
             WHERE restaurant_id = $1
             LIMIT 1
         `,
         [restaurantId]
     );
+    const settings = result.rows[0];
+    return {
+        templates: mergeWhatsAppTemplates(settings?.message_templates),
+        aiEnabled: settings?.ai_enabled === true,
+    };
+}
 
-    return mergeWhatsAppTemplates(result.rows[0]?.message_templates);
+export async function getWhatsAppTemplates(restaurantId: string): Promise<WhatsAppMessageTemplates> {
+    return (await getWhatsAppBotSettings(restaurantId)).templates;
 }
 
 export async function getRestaurantTemplateData(

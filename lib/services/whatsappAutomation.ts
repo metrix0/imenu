@@ -5,6 +5,7 @@ import { sendOwnerPush } from "@/lib/push/server";
 import {
     buildRestaurantTemplateVariables,
     getRestaurantTemplateData,
+    getWhatsAppBotSettings,
     getWhatsAppTemplates,
     renderWhatsAppTemplate,
     type WhatsAppMessageTemplates,
@@ -945,9 +946,9 @@ async function processIncomingWhatsAppMessageUnlocked({
     });
 
     try {
-    const [restaurant, templates] = await Promise.all([
+    const [restaurant, { templates, aiEnabled }] = await Promise.all([
         getRestaurantTemplateData(restaurantId),
-        getWhatsAppTemplates(restaurantId),
+        getWhatsAppBotSettings(restaurantId),
     ]);
     if (!restaurant) return;
 
@@ -995,20 +996,17 @@ async function processIncomingWhatsAppMessageUnlocked({
     }
 
     const flow = detectFlow(body);
-    const normalizedBody = normalize(body);
-    const checkoutShortcut = flow === "menu_link" && ["fazer pedido", "quero pedir"].includes(normalizedBody);
-    const firstOrder = prepared.state === "welcome" && !flow &&
-        !["", "oi", "ola", "opa", "bom dia", "boa tarde", "boa noite"].includes(normalizedBody);
-    const startCheckout = phone && (checkoutShortcut || firstOrder) && (await query<{ enabled: boolean }>(
-        `SELECT automations->>'ai_enabled'='true' AS enabled
-         FROM whatsapp_bot_settings WHERE restaurant_id=$1`,
-        [restaurantId],
-    )).rows[0]?.enabled;
-    if ((!flow && prepared.state !== "welcome") || startCheckout) {
+    const checkoutOnly = prepared.state === "welcome" || flow === "menu_link";
+    const checkoutShortcut = phone && checkoutOnly && (
+        flow === "menu_link"
+            ? ["fazer pedido", "quero pedir"].includes(normalize(body))
+            : !flow && !["", "oi", "ola", "opa", "bom dia", "boa tarde", "boa noite"].includes(normalize(body))
+    );
+    if (aiEnabled && ((!flow && !checkoutOnly) || checkoutShortcut)) {
         const { getWhatsAppAiReply } = await import("@/lib/services/whatsappAi");
         const aiReply = await getWhatsAppAiReply({
             restaurantId, sessionName, chatId, messageId, body, variables, restaurantHours: restaurant, phone,
-            orderingOnly: prepared.state === "welcome" || checkoutShortcut,
+            orderingOnly: checkoutOnly,
         });
         if (aiReply) {
             // The owner may have taken over while the model was answering.

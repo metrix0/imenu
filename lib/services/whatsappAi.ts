@@ -71,14 +71,9 @@ export async function getWhatsAppAiReply({
     try {
         if (!body.trim()) return null;
         const apiKey = process.env.OPENAI_API_KEY?.trim();
-        const settings = await query<{ enabled: boolean }>(
-            `SELECT automations->>'ai_enabled'='true' enabled
-             FROM whatsapp_bot_settings WHERE restaurant_id=$1`,
-            [restaurantId]
-        );
         const customerPhone = normalizeCustomerPhone(phone);
         const canOrder = Boolean(customerPhone && variables.LINK_DO_CARDAPIO);
-        if (!settings.rows[0]?.enabled || (orderingOnly && !canOrder) || (!canOrder && !apiKey) ||
+        if ((orderingOnly && !canOrder) || (!canOrder && !apiKey) ||
             !(await hasIMenuPlusAccess(restaurantId))) return null;
 
         // Reuse the outbound limits before paying for a model call, too.

@@ -76,10 +76,6 @@ beforeEach(() => {
     (fetchAddressByCEP as jest.Mock).mockResolvedValue({ street: "Rua Um", neighborhood: "Centro", city: "Limeira", state: "SP" });
     (fetchCoordinates as jest.Mock).mockResolvedValue({ latitude: -22.56, longitude: -47.41 });
     (query as jest.Mock).mockImplementation(async (sql: string, args: any[]) => {
-        if (sql.includes("FROM whatsapp_bot_settings")) {
-            expect(sql).toContain("ai_enabled");
-            return { rows: [{ enabled }] };
-        }
         if (sql.includes("chat_count")) return { rows: [{ chat_count: 0, restaurant_count: 0 }] };
         if (sql.includes("SELECT c.order_draft")) {
             return { rows: mode === "bot" ? [{ order_draft: draft, enabled }] : [], rowCount: 1 };
@@ -242,17 +238,13 @@ it("recusa entrega fora do raio e aceita agendamento dentro do horário", async 
     expect(orderInsert).toBeNull();
 });
 
-it("usa o toggle Robô com IA para a confirmação do WhatsApp sem delegar o código ao modelo", async () => {
+it("confirma pelo WhatsApp sem delegar o código ao modelo", async () => {
     const { code } = await prepare("pix");
     const incoming = {
         ...context, sessionName: "fixture", messageId: "fixture", body: code,
         variables: { LINK_DO_CARDAPIO: context.menuLink },
         restaurantHours: { availability_json: store.availability_json, is_closed: null, manual_open_until: null, preorder_only: false },
     };
-    enabled = false;
-    expect(await getWhatsAppAiReply(incoming)).toBeNull();
-    expect(orderInsert).toBeNull();
-    enabled = true;
     expect(await getWhatsAppAiReply(incoming)).toEqual({ text: expect.stringContaining("pix-test") });
     expect(OpenAI).not.toHaveBeenCalled();
 });
