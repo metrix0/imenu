@@ -3,7 +3,7 @@ import { createSupportBlast, processSupportBlastQueue } from "./supportBlast";
 import { query, withTransaction } from "@/lib/database/sql";
 import { checkWahaPhoneExists, sendWahaImage, sendWahaText } from "@/lib/services/wahaClient";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
-import { PLUS_EXPIRY_BLAST_MESSAGES, SINGLE_ORDER_DAY_RECOVERY_MESSAGE } from "@/lib/dev/abandonedBlast";
+import { PLUS_EXPIRY_BLAST_MESSAGES, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE, RECOVERY_SELF_COOLDOWN_DAYS } from "@/lib/dev/abandonedBlast";
 import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGES } from "@/lib/dev/plusFeedbackBlast";
 
 jest.mock("@/lib/services/supportExclusions", () => ({ isSupportContactExcluded: jest.fn() }));
@@ -72,6 +72,50 @@ test("dispatch applies the 10-day history to sent blasts and excludes feedback",
     );
     expect(skipCall?.[1]).toEqual([7, "skipped_recent", "O contato recebeu um blast nos últimos 10 dias."]);
 });
+
+test.each([SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE])(
+    "dispatch blocks the same activation blast sent within 60 days (%s)", async (message) => {
+        let claimed = false;
+        (query as jest.Mock).mockImplementation(async (sql: string, params: unknown[] = []) => {
+            if (sql.includes("WITH claimed AS")) {
+                if (claimed) return { rows: [], rowCount: 0 };
+                claimed = true;
+                return { rows: [{
+                    id: 7, campaign_id: "campaign", phone: "5511999999999",
+                    message: "Loja", sender: "blast", skip_recent: true,
+                    campaign_message: message,
+                }], rowCount: 1 };
+            }
+            if (sql.includes("FROM support_whatsapp_connection")) {
+                return { rows: [{ session_name: "imenu-blast", status: "WORKING", desired_state: "connected" }], rowCount: 1 };
+            }
+            if (sql.includes("FROM support_blast_campaigns WHERE id")) return { rows: [{ id: "campaign" }], rowCount: 1 };
+            if (sql.includes("SELECT DISTINCT r.id AS restaurant_id")) {
+                return { rows: [{ restaurant_id: "48d60032-7c4f-4d4c-8a0f-9d5ea2a0d754", account_id: "account-1" }], rowCount: 1 };
+            }
+            if (sql.includes("GROUP BY o.restaurant_id")) return { rows: [{ eligible: 1 }], rowCount: 1 };
+            if (sql.includes("SELECT 1 FROM orders o")) return { rows: [], rowCount: 0 };
+            if (sql.includes("SELECT 1 FROM whatsapp_outbound_messages")) return { rows: [], rowCount: 0 };
+            if (sql.includes("FROM support_blast_recipients recipient") &&
+                sql.includes("campaign.message = $2")) {
+                expect(params).toEqual(["5511999999999", message, RECOVERY_SELF_COOLDOWN_DAYS]);
+                expect(sql).toContain("campaign.sender = 'blast'");
+                expect(sql).toContain("recipient.status = 'sent'");
+                return { rows: [{ found: 1 }], rowCount: 1 };
+            }
+            return { rows: [], rowCount: 1 };
+        });
+
+        const result = await processSupportBlastQueue();
+        expect(result).toMatchObject({ sent: 0, skipped: 1 });
+        expect(sendWahaText).not.toHaveBeenCalled();
+        expect((query as jest.Mock).mock.calls.some(([sql, params]) =>
+            String(sql).includes("UPDATE support_blast_recipients SET status = $2") &&
+            params?.[1] === "skipped_recent" &&
+            String(params?.[2]).includes("60 dias")
+        )).toBe(true);
+    }
+);
 
 test.each(PLUS_EXPIRY_BLAST_MESSAGES.flatMap((message, version) => [
     { message, version, stillChurned: true },

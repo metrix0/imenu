@@ -2,6 +2,7 @@ import { PLUS_FEEDBACK_BLAST } from "./plusFeedbackBlast";
 
 export const RECOVERY_DAILY_LIMIT = 20;
 export const RECOVERY_COOLDOWN_DAYS = 10;
+export const RECOVERY_SELF_COOLDOWN_DAYS = 60;
 
 export const LEGACY_PLUS_ABANDONED_BLAST_MESSAGE = `Oi! Tudo bem? Sou o João, do iMenu 🍔
 
@@ -44,6 +45,12 @@ Se quiser, posso te ajudar a deixar tudo funcionando certinho.`;
 export const SINGLE_ORDER_DAY_RECOVERY_MESSAGE = `Oi! Tudo bem? Sou o João, do iMenu 🍔\n\nVi que o {{Nome Restaurante}} começou a receber pedidos pelo iMenu.\n\nEstá tudo funcionando direitinho? Se tiver alguma dificuldade para continuar usando, posso te ajudar.`;
 
 export const NO_FIRST_ORDER_RECOVERY_MESSAGE = `Oi! Tudo bem? Sou o João, do iMenu 🍔\n\nVi que você concluiu o cadastro do {{Nome Restaurante}} no iMenu, mas ainda não chegou a fazer o primeiro pedido.\n\nPosso te ajudar a testar o cardápio e colocar tudo para funcionar?`;
+
+// Only these activation blasts have a longer cooldown against their own sent history.
+export const RECOVERY_SELF_COOLDOWN_MESSAGES = [
+    SINGLE_ORDER_DAY_RECOVERY_MESSAGE,
+    NO_FIRST_ORDER_RECOVERY_MESSAGE,
+];
 
 export const CHURN_BLAST_AUTOMATIONS = {
     abandoned_plus: {
