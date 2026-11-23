@@ -335,7 +335,6 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                             </div>
                         ) : (
                             <div className="space-y-8">
-                                {fiscalSection}
                                 {/* Cliente */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-3 2xl:space-y-6">
@@ -458,6 +457,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                         )}
                                     </div>
                                 </div>
+                                {fiscalSection}
                             </div>
                         )}
                     </div>

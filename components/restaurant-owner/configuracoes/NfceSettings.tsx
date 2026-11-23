@@ -79,7 +79,6 @@ function ready(value: Settings, hasCertificate: boolean): boolean {
 }
 
 export default function NfceSettings({ restaurant, address }: { restaurant: string; address: StoreAddress }) {
-    const [visible, setVisible] = useState(false);
     const [environment, setEnvironment] = useState<1 | 2 | null>(null);
     const [value, setValue] = useState<Settings>(blank);
     const [hasCertificate, setHasCertificate] = useState(false);
@@ -117,7 +116,6 @@ export default function NfceSettings({ restaurant, address }: { restaurant: stri
         let current = true;
         nfceRequest(restaurant, { action: "settings" }).then(response => response.json()).then(data => {
             if (!current || !data.plus) return;
-            setVisible(true);
             setEnvironment(data.environment);
             setItems(data.items ?? []);
             if (data.issuer) {
@@ -132,7 +130,7 @@ export default function NfceSettings({ restaurant, address }: { restaurant: stri
     // The restaurant's existing CEP identifies the IBGE municipality without another form field.
     useEffect(() => {
         const cep = address?.cep?.replace(/\D/g, "") ?? "";
-        if (!visible || value.cityCode || !/^\d{8}$/.test(cep)) return;
+        if (value.cityCode || !/^\d{8}$/.test(cep)) return;
         const controller = new AbortController();
         void fetch(`https://viacep.com.br/ws/${cep}/json/`, { signal: controller.signal })
             .then(response => response.ok ? response.json() : null)
@@ -143,7 +141,7 @@ export default function NfceSettings({ restaurant, address }: { restaurant: stri
                 setValue(current => current.cityCode ? current : { ...current, cityCode: String(data.ibge) });
             }).catch(() => undefined);
         return () => controller.abort();
-    }, [visible, value.cityCode, address?.cep, address?.city]);
+    }, [value.cityCode, address?.cep, address?.city]);
 
     const change = (next: Settings) => {
         setValue(next);
@@ -172,7 +170,6 @@ export default function NfceSettings({ restaurant, address }: { restaurant: stri
     const currentAddress = [`${effective.street}${effective.number ? `, ${effective.number}` : ""}`,
         effective.district, effective.city, effective.cep && `CEP ${effective.cep}`].filter(Boolean).join(" · ");
 
-    if (!visible) return null;
     return (
         <Card className="border border-gray-200 shadow-sm">
             <CollapsibleSection

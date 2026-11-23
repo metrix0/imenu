@@ -13,6 +13,7 @@ import ShortcutDatePicker from "@/components/ui/ShortcutDatePicker";
 import { PanelIcon } from "@/components/ui/PanelIcon";
 import { supabase } from "@/lib/database/supabaseClient";
 import { CARD_AT_DELIVERY_LABELS } from "@/lib/payments/deliveryMethods";
+import { qrTableAuthenticatedFetch } from "@/lib/qr-table/clientApi";
 import type { NoteSummary } from "@/lib/nfce/service";
 import type { Order } from "./OrdersTable";
 
@@ -31,16 +32,28 @@ export async function nfceRequest(restaurant: string, params: Record<string, str
     return response;
 }
 
+const emptyHistory: History = { available: false, plus: true, archive: false, configured: false, notes: [] };
+
 export function useNfceHistory(restaurant: string | null, orders: Order[], refresh: number) {
-    const [history, setHistory] = useState<History | null>(null);
+    const [history, setHistory] = useState<History>(emptyHistory);
     const ids = orders.map(order => order.id).join(",");
     useEffect(() => {
-        if (!restaurant) { setHistory(null); return; }
+        if (!restaurant) { setHistory(emptyHistory); return; }
         const controller = new AbortController();
         nfceRequest(restaurant, { orders: ids }, { signal: controller.signal })
             .then(response => response.json())
             .then(value => { if (!controller.signal.aborted) setHistory(value); })
-            .catch(() => { if (!controller.signal.aborted) setHistory(null); });
+            .catch(async () => {
+                try {
+                    // Keep the fiscal UI visible if its API fails; check the Plus entitlement independently.
+                    const response = await qrTableAuthenticatedFetch("/api/addons/billing?restaurantId=" + encodeURIComponent(restaurant), { signal: controller.signal, cache: "no-store" });
+                    if (!response.ok) throw new Error("Não foi possível consultar o plano.");
+                    const data = await response.json() as { addons: { addon: { product_key: string }; active: boolean }[] };
+                    if (!controller.signal.aborted) setHistory({ ...emptyHistory, plus: data.addons.some(item => item.addon.product_key === "ia_plus" && item.active) });
+                } catch {
+                    if (!controller.signal.aborted) setHistory(emptyHistory);
+                }
+            });
         return () => controller.abort();
     }, [restaurant, ids, refresh]);
     return history;
@@ -208,17 +221,17 @@ export function NfceOrderSection({ order, note, restaurant, configured, focus, o
             onChange();
         });
     };
-    return <section id="order-nfce" className="space-y-3 border-t border-gray-100 pt-4" tabIndex={-1}>
-        <h3 className="text-sm font-bold text-gray-900">Nota fiscal (NFC-e)</h3>
+    return <section id="order-nfce" className="space-y-3" tabIndex={-1}>
+        <h3 className="text-sm font-bold uppercase tracking-wider text-gray-900">Nota fiscal (NFC-e)</h3>
         <p className="text-sm text-gray-600">{note ? stateLabels[note.status] : queued ? "Aguardando emissão" : "Não emitida"}</p>
         {note?.number && <p className="text-sm text-gray-700">Nº {note.number} · Série {note.series} · {new Date(note.issued_at).toLocaleString("pt-BR")}</p>}
         {note?.access_key && <p className="break-all text-xs text-gray-600">{note.access_key}</p>}
         {note?.error && <p className="text-sm text-red-700">{note.error}</p>}
         <div className="flex flex-wrap gap-2">
-            {note && ["authorized", "canceled", "contingency"].includes(note.status) && <Button variant="secondary" disabled={busy} onClick={() => void run(async () => { await download(restaurant, { action: "pdf", order: order.id }, "danfe.pdf"); })}>Baixar PDF</Button>}
-            {note && ["authorized", "canceled"].includes(note.status) && <Button variant="secondary" disabled={busy} onClick={() => void run(async () => { await download(restaurant, { action: "xml", order: order.id }, "nfce.xml"); })}>Baixar XML</Button>}
-            {note?.status === "authorized" && order.status === "canceled" && <Button variant="secondary" onClick={() => setCancel(value => !value)}>Cancelar nota</Button>}
-            {pending && configured && !delivery && !queued && ["preparing", "delivering", "done"].includes(order.status) && <Button variant="secondary" onClick={() => setEdit(value => !value)}>
+            {note && ["authorized", "canceled", "contingency"].includes(note.status) && <Button variant="secondary" className="!border-transparent !bg-gray-100 hover:!bg-gray-200" disabled={busy} onClick={() => void run(async () => { await download(restaurant, { action: "pdf", order: order.id }, "danfe.pdf"); })}>Baixar PDF</Button>}
+            {note && ["authorized", "canceled"].includes(note.status) && <Button variant="secondary" className="!border-transparent !bg-gray-100 hover:!bg-gray-200" disabled={busy} onClick={() => void run(async () => { await download(restaurant, { action: "xml", order: order.id }, "nfce.xml"); })}>Baixar XML</Button>}
+            {note?.status === "authorized" && order.status === "canceled" && <Button variant="secondary" className="!border-transparent !bg-gray-100 hover:!bg-gray-200" onClick={() => setCancel(value => !value)}>Cancelar nota</Button>}
+            {pending && configured && !delivery && !queued && ["preparing", "delivering", "done"].includes(order.status) && <Button variant="secondary" className="!border-transparent !bg-gray-100 hover:!bg-gray-200" onClick={() => setEdit(value => !value)}>
                 {note ? "Corrigir e tentar novamente" : "Emitir NFC-e"}
             </Button>}
         </div>

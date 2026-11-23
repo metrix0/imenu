@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { PanelIcon as FontAwesomeIcon, faMotorRacingHelmet } from "@/components/ui/PanelIcon";
 import {
-    faBox,
+    faClockRotateLeft,
     faChair,
     faChartLine,
     faCircleQuestion,
@@ -374,7 +374,7 @@ export default function PainelLayout({
             href: `/${encodeURIComponent(menuShortcut.slug)}`,
             openInNewTab: true,
         }] : []),
-        { label: "Histórico", icon: faBox, href: `${base}/historico` },
+        { label: "Histórico", icon: faClockRotateLeft, href: `${base}/historico` },
         { label: "Cardápio", icon: faUtensils, href: cardapioHref },
         { label: "Assistente IA", icon: faWandMagicSparkles, href: `${base}/assistente-ia` },
         { label: "Clientes", icon: faUsers, href: `${base}/clientes`, isNew: true },

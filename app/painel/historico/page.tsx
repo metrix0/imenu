@@ -299,7 +299,7 @@ export default function HistoricoPage() {
         <div className="max-w-7xl 2xl:max-w-9xl mx-auto pb-20 space-y-8 px-4 sm:px-6 pt-8">
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <h1 className="text-3xl font-bold text-gray-900">Histórico de Pedidos</h1>
-                {restaurantId && fiscal && <div className="flex flex-wrap items-center gap-2">
+                {restaurantId && <div className="flex flex-wrap items-center gap-2">
                     {!fiscal.plus && <NfceUpgradeButton restaurant={restaurantId} onPaid={() => setNfceRefresh(value => value + 1)} />}
                     <NfceHistoryButton restaurant={restaurantId} history={fiscal} />
                 </div>}
