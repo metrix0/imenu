@@ -9,6 +9,7 @@ import Modal from "@/components/ui/Modal";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Input from "@/components/ui/Input";
 import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
+import PanelTabCard from "@/components/restaurant-owner/ia-vendas/PanelTabCard";
 import ShortcutDatePicker from "@/components/ui/ShortcutDatePicker";
 import { PanelIcon } from "@/components/ui/PanelIcon";
 import { supabase } from "@/lib/database/supabaseClient";
@@ -148,22 +149,30 @@ export function NfceHistoryButton({ restaurant, history }: { restaurant: string;
         <Modal open={open} onClose={() => setOpen(false)} height={380} showCloseButton>
             <section className="w-full max-w-lg space-y-5 rounded-lg bg-white p-6" aria-label="Notas Fiscais">
                 <h2 className="text-xl font-bold text-gray-900">Notas Fiscais</h2>
-                <p className="text-sm text-gray-600">{history.available
-                    ? "Baixe um ZIP com os XMLs autorizados e os eventos de cancelamento."
-                    : "A emissão de NFC-e está indisponível neste ambiente."}</p>
-                <div className="flex flex-wrap gap-2">
-                    <Button onClick={() => void exportPeriod(thisMonth())} loading={loading && !custom} disabled={loading || !history.available}>Baixar notas deste mês</Button>
-                    <Button variant="secondary" onClick={() => { setCustom(value => !value); setError(""); }} disabled={loading || !history.available}>Período personalizado</Button>
-                </div>
-                {custom && <div className="flex flex-wrap items-end gap-3">
-                    <ShortcutDatePicker value={range} onChange={setRange} />
-                    <Button onClick={() => void exportPeriod(range)} loading={loading} disabled={!range.startDate || !range.endDate}>Baixar XMLs</Button>
-                </div>}
-                {!history.plus && <div className="flex flex-wrap gap-2">
-                    <Button variant="secondary" onClick={() => void downloadArchive()} disabled={loading}>Baixar arquivo completo</Button>
-                    {receipt && <Button variant="secondary" onClick={() => setConfirmDelete(true)} disabled={loading}>Confirmar recebimento</Button>}
-                </div>}
-                {history.plus && !history.configured && <a className="text-sm font-medium text-brand underline" href="/painel/configuracoes#nfce">Configurar emissão</a>}
+                {history.plus && (!history.available || !history.configured) ? (
+                    <div>
+                        <p className="text-sm text-gray-600">
+                            Para baixar notas fiscais, ative e configure a emissão de NFC-e na aba Configurações.
+                        </p>
+                        <PanelTabCard tab="configuracoes" />
+                    </div>
+                ) : (
+                    <>
+                        <p className="text-sm text-gray-600">Baixe um ZIP com os XMLs autorizados e os eventos de cancelamento.</p>
+                        <div className="flex flex-wrap gap-2">
+                            <Button onClick={() => void exportPeriod(thisMonth())} loading={loading && !custom} disabled={loading || !history.available}>Baixar notas deste mês</Button>
+                            <Button variant="secondary" onClick={() => { setCustom(value => !value); setError(""); }} disabled={loading || !history.available}>Período personalizado</Button>
+                        </div>
+                        {custom && <div className="flex flex-wrap items-end gap-3">
+                            <ShortcutDatePicker value={range} onChange={setRange} />
+                            <Button onClick={() => void exportPeriod(range)} loading={loading} disabled={!range.startDate || !range.endDate}>Baixar XMLs</Button>
+                        </div>}
+                        {!history.plus && <div className="flex flex-wrap gap-2">
+                            <Button variant="secondary" onClick={() => void downloadArchive()} disabled={loading}>Baixar arquivo completo</Button>
+                            {receipt && <Button variant="secondary" onClick={() => setConfirmDelete(true)} disabled={loading}>Confirmar recebimento</Button>}
+                        </div>}
+                    </>
+                )}
                 {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
             </section>
         </Modal>
