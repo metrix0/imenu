@@ -4,6 +4,11 @@ import { get as httpsGet } from "node:https";
 import { brotliDecompressSync, gunzipSync, inflateSync } from "node:zlib";
 import { isPublicMenuHostname, resolvePublicMenuIpv4, startPublicMenuBrowserNetwork } from "./publicMenuBrowserNetwork";
 
+const SHORT_LINK_HOSTS = new Set(["encurta.anota.ai", "bit.ly", "tinyurl.com", "t.co", "cutt.ly", "is.gd", "ow.ly"]);
+function isShortLinkUrl(url: URL): boolean {
+    return SHORT_LINK_HOSTS.has(url.hostname.toLowerCase());
+}
+
 const MAX_URL_LENGTH = 2048;
 const MAX_PAGE_BYTES = 4 * 1024 * 1024;
 const MAX_TEXT_LENGTH = 120_000;
@@ -395,10 +400,62 @@ async function renderPublicPage(url: URL): Promise<MenuPage> {
     }
 }
 
+// Resolve shorteners in a sandboxed browser only when their HTTP response cannot be followed.
+async function resolveShortLinkInBrowser(url: URL): Promise<URL> {
+    const network = await startPublicMenuBrowserNetwork();
+    let browser: Awaited<ReturnType<typeof puppeteer.launch>> | undefined;
+    try {
+        browser = await puppeteer.launch({
+            headless: true,
+            args: [
+                "--no-sandbox", "--disable-setuid-sandbox", "--disable-quic",
+                "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
+                "--proxy-server=" + network.url,
+                "--proxy-bypass-list=<-loopback>",
+                "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1",
+            ],
+        });
+        const page = await browser.newPage();
+        const session = await page.createCDPSession();
+        await session.send("Browser.setDownloadBehavior", { behavior: "deny" });
+        await page.setBypassServiceWorker(true);
+        await page.setRequestInterception(true);
+        page.on("request", request => {
+            const handle = async () => {
+                try {
+                    validateUrl(request.url());
+                } catch {
+                    await request.abort();
+                    return;
+                }
+                if (["media", "font"].includes(request.resourceType())) await request.abort();
+                else await request.continue();
+            };
+            void handle().catch(() => request.abort().catch(() => undefined));
+        });
+
+        await page.goto(url.toString(), { waitUntil: "domcontentloaded", timeout: PAGE_TIMEOUT_MS });
+        if (new URL(page.url()).hostname === url.hostname) {
+            // Also support client-side redirects after the initial document loads.
+            await page.waitForFunction(host => location.hostname !== host,
+                { timeout: 4_000 }, url.hostname).catch(() => undefined);
+        }
+        const resolved = validateUrl(page.url());
+        if (resolved.hostname === url.hostname) {
+            throw new MenuLinkError("O encurtador bloqueou a resolução do link. Envie o endereço completo do cardápio.");
+        }
+        return resolved;
+    } finally {
+        try { await browser?.close(); }
+        finally { await network.close(); }
+    }
+}
+
 export async function readPublicMenuLink(raw: string, onExtracted?: (text: string) => void): Promise<MenuPage> {
     let url = validateUrl(raw.trim());
+    let browserResolutions = 0;
 
-    for (let redirect = 0; redirect <= 3; redirect++) {
+    for (let redirect = 0; redirect <= 5; redirect++) {
         let response: PageResponse;
         try {
             response = await getPage(url);
@@ -410,6 +467,12 @@ export async function readPublicMenuLink(raw: string, onExtracted?: (text: strin
         }
         if (response.status >= 300 && response.status < 400 && response.location) {
             url = validateUrl(new URL(response.location, url).toString());
+            continue;
+        }
+        if (isShortLinkUrl(url) && browserResolutions < 2 &&
+            (response.status === 200 || [401, 403, 429].includes(response.status))) {
+            url = await resolveShortLinkInBrowser(url);
+            browserResolutions++;
             continue;
         }
         if (response.status === 401 || response.status === 403 || response.status === 429) {
