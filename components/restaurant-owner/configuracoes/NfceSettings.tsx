@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { faFileArrowUp, faFileInvoice } from "@fortawesome/free-solid-svg-icons";
+import { faCertificate, faFileInvoice } from "@fortawesome/free-solid-svg-icons";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -225,7 +225,7 @@ export default function NfceSettings({ restaurant, address }: { restaurant: stri
                                 onChange={event => change({ ...value, file: event.target.files?.[0] ?? null })} />
                             <div className="flex flex-wrap items-center gap-3">
                                 <Button variant="secondary" onClick={() => fileRef.current?.click()} className="gap-2">
-                                    <FontAwesomeIcon icon={faFileArrowUp} />
+                                    <FontAwesomeIcon icon={faCertificate} />
                                     {hasCertificate ? "Substituir certificado" : "Selecionar certificado"}
                                 </Button>
                                 <span className="min-w-0 truncate text-sm text-gray-500">
