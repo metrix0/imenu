@@ -162,8 +162,13 @@ function address(value: Record<string, unknown>, requireCep = true): FiscalAddre
     return result;
 }
 
+function draftTax(value: Record<string, unknown> | null | undefined): FiscalTax {
+    return { ncm: digits(value?.ncm), cfop: digits(value?.cfop), csosn: digits(value?.csosn),
+        origin: digits(value?.origin), cest: digits(value?.cest) };
+}
+
 function tax(value: Record<string, unknown>): FiscalTax {
-    const result = { ncm: digits(value?.ncm), cfop: digits(value?.cfop), csosn: digits(value?.csosn), origin: digits(value?.origin), cest: digits(value?.cest) };
+    const result = draftTax(value);
     if (!/^\d{8}$/.test(result.ncm) || !/^5\d{3}$/.test(result.cfop) || !["102", "103", "300", "400"].includes(result.csosn)
         || !/^[0-8]$/.test(result.origin) || (result.cest && !/^\d{7}$/.test(result.cest))) throw new FiscalError("Revise NCM, CFOP, CSOSN, origem e CEST.");
     return result;
@@ -199,13 +204,32 @@ export async function POST(request: Request) {
             const raw = JSON.parse(String(form.get("settings") ?? "{}"));
             const overrides = Object.entries(raw.itemTaxes ?? {});
             if (overrides.length > 1000 || overrides.some(([key]) => !uuid.test(key))) throw new FiscalError("Configuração de itens inválida.");
-            const config: Issuer = { ...address(raw), cnpj: digits(raw.cnpj), ie: digits(raw.ie), name: text(raw.name, 60),
-                series: Number(raw.series), defaultTax: tax(raw.defaultTax),
-                itemTaxes: Object.fromEntries(overrides.map(([key, value]) => [key, tax(value as Record<string, unknown>)])) };
-            const next = Number(raw.nextNumber);
-            if (!/^\d{14}$/.test(config.cnpj) || !/^\d{12}$/.test(config.ie) || config.name.length < 2
-                || !Number.isInteger(config.series) || config.series < 0 || config.series > 889
-                || !Number.isInteger(next) || next < 1 || next > 999999999) throw new FiscalError("Revise os dados do emitente.");
+            const config: Issuer & { requestedEnabled: boolean } = {
+                street: text(raw.street, 60), number: text(raw.number, 60),
+                district: text(raw.district, 60), cityCode: digits(raw.cityCode),
+                city: text(raw.city, 60), cep: digits(raw.cep),
+                cnpj: digits(raw.cnpj), ie: digits(raw.ie), name: text(raw.name, 60),
+                series: Number.isFinite(Number(raw.series)) ? Number(raw.series) : 1,
+                defaultTax: draftTax(raw.defaultTax),
+                itemTaxes: Object.fromEntries(overrides.map(([key, value]) =>
+                    [key, draftTax(value as Record<string, unknown>)])),
+                requestedEnabled: raw.enabled === true,
+            };
+            const requestedNext = Number(raw.nextNumber);
+            const next = Number.isInteger(requestedNext) && requestedNext >= 1 && requestedNext <= 999999999
+                ? requestedNext : 1;
+            let complete = /^\d{14}$/.test(config.cnpj) && /^\d{12}$/.test(config.ie)
+                && config.name.length >= 2 && Number.isInteger(config.series)
+                && config.series >= 0 && config.series <= 889 && next === requestedNext;
+            try {
+                address(raw);
+                tax(raw.defaultTax ?? {});
+                for (const [, value] of overrides) tax(value as Record<string, unknown>);
+            } catch (error) {
+                if (!(error instanceof FiscalError)) throw error;
+                complete = false;
+            }
+            // Draft settings preserve the requested toggle state; actual issuance remains gated.
             const pfx = form.get("certificate");
             let encrypted: string | null = null;
             if (pfx instanceof File && pfx.size) {
@@ -217,15 +241,15 @@ export async function POST(request: Request) {
             }
             const saved = await query(`
                 INSERT INTO public.nfce_issuers (restaurant_id,environment,data,certificate,next_number,enabled)
-                VALUES ($1,$2,$3,$4,$5,($6::boolean AND $4::text IS NOT NULL))
+                VALUES ($1,$2,$3,$4,$5,($6::boolean AND $7::boolean AND $4::text IS NOT NULL))
                 ON CONFLICT (restaurant_id,environment) DO UPDATE SET data=excluded.data,
                     certificate=COALESCE(excluded.certificate,nfce_issuers.certificate),
                     next_number=GREATEST(excluded.next_number,nfce_issuers.next_number),
-                    enabled=$6 AND COALESCE(excluded.certificate,nfce_issuers.certificate) IS NOT NULL
+                    enabled=$6 AND $7 AND COALESCE(excluded.certificate,nfce_issuers.certificate) IS NOT NULL
                 WHERE (nfce_issuers.data->>'cnpj'=excluded.data->>'cnpj' AND nfce_issuers.data->>'series'=excluded.data->>'series')
                     OR NOT EXISTS (SELECT 1 FROM public.nfce_documents d WHERE d.restaurant_id=$1 AND d.environment=$2 AND d.access_key IS NOT NULL)
                 RETURNING enabled,certificate IS NOT NULL AS has_certificate,next_number`,
-            [restaurant, env, JSON.stringify(config), encrypted, next, raw.enabled === true]);
+            [restaurant, env, JSON.stringify(config), encrypted, next, raw.enabled === true, complete]);
             if (!saved.rowCount) throw new FiscalError("CNPJ e série já estão vinculados a notas deste restaurante.");
             return NextResponse.json({ ...saved.rows[0], ok: true }, { headers });
         }

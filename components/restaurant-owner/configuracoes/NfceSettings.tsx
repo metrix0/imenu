@@ -84,7 +84,6 @@ export default function NfceSettings({ restaurant, address }: { restaurant: stri
     const [hasCertificate, setHasCertificate] = useState(false);
     const [items, setItems] = useState<{ id: string; name: string }[]>([]);
     const [itemId, setItemId] = useState("");
-    const [hint, setHint] = useState("");
     const fileRef = useRef<HTMLInputElement>(null);
     const editor = useCollapsible();
     const effective = withStoreAddress(value, address);
@@ -97,7 +96,7 @@ export default function NfceSettings({ restaurant, address }: { restaurant: stri
             number: address?.number?.trim() || settings.number,
             district: address?.neighborhood?.trim() || settings.district,
             city: address?.city?.trim() || settings.city,
-            cep: address?.cep?.replace(/\\D/g, "") || settings.cep,
+            cep: address?.cep?.replace(/\D/g, "") || settings.cep,
         }));
         if (file) {
             body.set("certificate", file);
@@ -109,7 +108,7 @@ export default function NfceSettings({ restaurant, address }: { restaurant: stri
         if (file) setValue(current => current.file === file && current.password === password
             ? { ...current, file: null, password: "" } : current);
     }, [restaurant, address]);
-    const { status, error, schedule, reset } = useAutoSave<Settings>(restaurant, save);
+    const { status, error, schedule } = useAutoSave<Settings>(restaurant, save);
 
     useEffect(() => {
         let current = true;
@@ -119,7 +118,8 @@ export default function NfceSettings({ restaurant, address }: { restaurant: stri
             setItems(data.items ?? []);
             if (data.issuer) {
                 setValue({ ...blank, ...data.issuer.data, series: String(data.issuer.data.series),
-                    nextNumber: String(data.issuer.next_number), enabled: data.issuer.enabled });
+                    nextNumber: String(data.issuer.next_number),
+                    enabled: data.issuer.data.requestedEnabled ?? data.issuer.enabled });
                 setHasCertificate(data.issuer.has_certificate);
             }
         }).catch(() => undefined);
@@ -144,20 +144,9 @@ export default function NfceSettings({ restaurant, address }: { restaurant: stri
 
     const change = (next: Settings) => {
         setValue(next);
-        setHint("");
         const complete = withStoreAddress(next, address);
-        if (fiscalFieldsValid(complete) && (!next.file || Boolean(next.password))
-            && (!next.enabled || hasCertificate || Boolean(next.file && next.password))) schedule(complete);
-        else reset();
-    };
-    const toggle = () => {
-        if (!environment) return;
-        if (!value.enabled && !ready(effective, hasCertificate)) {
-            editor.setExpanded(true);
-            setHint("Complete os dados fiscais e configure o certificado A1 para ativar a emissão.");
-            return;
-        }
-        change({ ...value, enabled: !value.enabled });
+        // Retain the selected certificate until the password is entered, while saving other fields.
+        schedule(next.file && !next.password ? { ...complete, file: null } : complete);
     };
     const tax = value.itemTaxes?.[itemId] ?? value.defaultTax;
     const setTax = (field: keyof typeof tax, newValue: string) => {
@@ -179,8 +168,8 @@ export default function NfceSettings({ restaurant, address }: { restaurant: stri
                 toggle={{
                     label: "Ativar emissão automática de NFC-e",
                     checked: value.enabled,
-                    disabled: !environment || status === "saving",
-                    onChange: toggle,
+                    disabled: !environment,
+                    onChange: enabled => change({ ...value, enabled }),
                 }}
             >
                 <div className="space-y-5">
@@ -238,7 +227,6 @@ export default function NfceSettings({ restaurant, address }: { restaurant: stri
                             </div>
                         </CollapsibleSection>
                     </fieldset>
-                    {hint && <p role="alert" className="text-sm text-amber-700">{hint}</p>}
                     {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
                 </div>
             </CollapsibleSection>
