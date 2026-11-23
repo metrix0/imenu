@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { faCertificate } from "@fortawesome/free-solid-svg-icons";
+import { FileBadge } from "lucide-react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -214,7 +214,7 @@ export default function NfceSettings({ restaurant, address }: { restaurant: stri
                                 onChange={event => change({ ...value, file: event.target.files?.[0] ?? null })} />
                             <div className="flex flex-wrap items-center gap-3">
                                 <Button variant="secondary" onClick={() => fileRef.current?.click()} className="gap-2">
-                                    <FontAwesomeIcon icon={faCertificate} />
+                                    <FileBadge size={16} strokeWidth={1.75} aria-hidden="true" />
                                     {hasCertificate ? "Substituir certificado" : "Selecionar certificado"}
                                 </Button>
                                 <span className="min-w-0 truncate text-sm text-gray-500">
