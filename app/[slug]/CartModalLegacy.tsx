@@ -803,11 +803,26 @@ export default function CartModal({
     }
 
     useEffect(() => {
-        if (!cepTrigger || isPickup) return;
-
-        if (!smallCityMode) void handleCepInput(cep, cepTrigger);
-
+        if (!cepTrigger) return;
         useCheckoutStore.setState({ cepTrigger: null });
+        if (isPickup || smallCityMode) return;
+
+        setContinueBlocked(true);
+        void recalcDeliveryFeeFromAddress()
+            .then(feeReady => {
+                if (useCheckoutStore.getState().step !== "info") return;
+                if (feeReady) {
+                    cepTrigger();
+                } else {
+                    setField("showAddressWarning", true);
+                }
+            })
+            .catch(error => {
+                console.error("Delivery fee recalculation failed:", error);
+                setField("delivery_fee_cents", null);
+                setField("showAddressWarning", true);
+            })
+            .finally(() => setContinueBlocked(false));
     }, [cepTrigger, isPickup, smallCityMode]);
 
     useEffect(() => {
