@@ -80,6 +80,7 @@ type CollapsibleSectionProps = {
     description?: string;
     icon?: ReactNode;
     badge?: ReactNode;
+    badgeFirst?: boolean;
     children: ReactNode;
     footer?: ReactNode;
     chevronSize?: ChevronSize;
@@ -101,6 +102,7 @@ export default function CollapsibleSection({
     description,
     icon,
     badge,
+    badgeFirst = false,
     children,
     footer,
     chevronSize,
@@ -152,7 +154,7 @@ export default function CollapsibleSection({
                     </span>
                 </button>
                 {(!inlineChevron || toggle || badge) && (
-                    <div className="flex shrink-0 flex-col items-end sm:flex-row sm:items-center sm:gap-3">
+                    <div className={badgeFirst ? "flex shrink-0 flex-row items-center gap-2 sm:gap-3" : "flex shrink-0 flex-col items-end sm:flex-row sm:items-center sm:gap-3"}>
                         {(toggle || !inlineChevron) && (
                             <div className="flex h-9 items-center gap-2 sm:gap-3">
                                 {toggle && (
@@ -174,7 +176,7 @@ export default function CollapsibleSection({
                                 )}
                             </div>
                         )}
-                        {badge && <span className="sm:order-first">{badge}</span>}
+                        {badge && <span className={badgeFirst ? "order-first self-center" : "sm:order-first"}>{badge}</span>}
                     </div>
                 )}
             </div>

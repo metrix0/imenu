@@ -3,7 +3,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { faFileInvoice, faLock } from "@fortawesome/free-solid-svg-icons";
 import Button from "@/components/ui/Button";
-import Switch from "@/components/ui/Switch";
+import Badge from "@/components/ui/Badge";
+import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import Modal from "@/components/ui/Modal";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Input from "@/components/ui/Input";
@@ -70,10 +71,16 @@ export function NfceUpgradeButton({ restaurant, onPaid, row = false }: { restaur
 
     return <>
         {row ? (
-            <div className="flex items-center gap-3">
-                <Button variant="secondary" onClick={() => setOpen(true)}>Configurar</Button>
-                <Switch checked={false} aria-label="Ativar emissão automática de NFC-e" onClick={() => setOpen(true)} />
-            </div>
+            <CollapsibleSection
+                title="Emissão automática de NFC-e"
+                description="Emita notas fiscais dos pedidos automaticamente com o iMenu Plus."
+                icon={<PanelIcon icon={faFileInvoice} className="text-2xl text-gray-700" />}
+                badge={<Badge preset="plusIncluded" />}
+                badgeFirst
+                toggle={{ checked: false, label: "Ativar emissão automática de NFC-e", onChange: () => setOpen(true) }}
+            >
+                <Button variant="secondary" onClick={() => setOpen(true)}>Ativar com iMenu Plus</Button>
+            </CollapsibleSection>
         ) : (
             <Button variant="secondary" leftIcon={<PanelIcon icon={faLock} />} onClick={() => setOpen(true)}>
                 Notas Fiscais · Recurso do iMenu Plus

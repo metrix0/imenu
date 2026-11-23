@@ -1193,18 +1193,7 @@ export default function ConfiguracoesPage() {
                                 <NfceSettings restaurant={restaurant.id} address={restaurant.address} />
                             ) : (
                                 <Card className="border border-gray-200 shadow-sm">
-                                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                                        <div className="min-w-0">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <h3 className="text-lg font-semibold text-gray-900">Emissão automática de NFC-e</h3>
-                                                <Badge preset="plusIncluded" />
-                                            </div>
-                                            <p className="mt-2 text-sm text-gray-500">Emita notas fiscais dos pedidos automaticamente com o iMenu Plus.</p>
-                                        </div>
-                                        <div className="shrink-0">
-                                            <NfceUpgradeButton restaurant={restaurant.id} onPaid={() => loadPdfAccess(restaurant.id)} row />
-                                        </div>
-                                    </div>
+                                    <NfceUpgradeButton restaurant={restaurant.id} onPaid={() => loadPdfAccess(restaurant.id)} row />
                                 </Card>
                             )}
                         </SettingsSection>

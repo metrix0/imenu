@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { faFileArrowUp } from "@fortawesome/free-solid-svg-icons";
+import { faFileArrowUp, faFileInvoice } from "@fortawesome/free-solid-svg-icons";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -9,8 +9,7 @@ import Card from "@/components/ui/Card";
 import Dropdown from "@/components/ui/Dropdown";
 import Input from "@/components/ui/Input";
 import SaveStatus from "@/components/ui/SaveStatus";
-import Switch from "@/components/ui/Switch";
-import { CollapsibleContent, useCollapsible } from "@/components/ui/CollapsibleSection";
+import CollapsibleSection, { CollapsibleContent, useCollapsible } from "@/components/ui/CollapsibleSection";
 import { nfceRequest } from "@/components/restaurant-owner/pedidos/NfceHistory";
 import { useAutoSave } from "@/lib/utils/useAutoSave";
 import type { AddressData } from "@/lib/types/types";
@@ -176,29 +175,25 @@ export default function NfceSettings({ restaurant, address }: { restaurant: stri
     if (!visible) return null;
     return (
         <Card className="border border-gray-200 shadow-sm">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-lg font-semibold text-gray-900">Emissão automática de NFC-e</h3>
-                        <Badge preset="featureAvailable" />
-                        {environment === 2 && <Badge variant="neutral">Homologação</Badge>}
-                    </div>
-                    <p id="nfce-description" className="mt-2 text-sm text-gray-500">
-                        Emita notas fiscais dos pedidos automaticamente. Configure os dados da empresa e o certificado digital.
-                    </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-3 self-end sm:self-auto">
-                    <Button variant="secondary" {...editor.triggerProps}>
-                        {editor.expanded ? "Recolher" : "Configurar"}
-                    </Button>
-                    <Switch checked={value.enabled} aria-label="Emissão automática de NFC-e"
-                        aria-describedby="nfce-description" disabled={!environment || status === "saving"}
-                        onClick={toggle} />
-                </div>
-            </div>
-
-            <CollapsibleContent id={editor.contentId} expanded={editor.expanded}>
-                <div className="space-y-5 pt-5">
+            <CollapsibleSection
+                title="Emissão automática de NFC-e"
+                description="Emita notas fiscais dos pedidos automaticamente. Configure os dados da empresa e o certificado digital."
+                icon={<FontAwesomeIcon icon={faFileInvoice} className="text-2xl text-gray-700" />}
+                badge={<span className="inline-flex items-center gap-2">
+                    <Badge preset="featureAvailable" />
+                    {environment === 2 && <Badge variant="neutral">Homologação</Badge>}
+                </span>}
+                badgeFirst
+                open={editor.expanded}
+                onOpenChange={editor.setExpanded}
+                toggle={{
+                    label: "Ativar emissão automática de NFC-e",
+                    checked: value.enabled,
+                    disabled: !environment || status === "saving",
+                    onChange: toggle,
+                }}
+            >
+                <div className="space-y-5">
                     {!environment && <p className="text-sm text-gray-600">A emissão fiscal não está disponível neste ambiente.</p>}
                     <fieldset disabled={!environment} className="min-w-0 space-y-5 disabled:opacity-50">
                         <div className="grid gap-4 sm:grid-cols-3">
@@ -264,7 +259,7 @@ export default function NfceSettings({ restaurant, address }: { restaurant: stri
                     {hint && <p role="alert" className="text-sm text-amber-700">{hint}</p>}
                     {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
                 </div>
-            </CollapsibleContent>
+            </CollapsibleSection>
             <SaveStatus status={status} />
         </Card>
     );
