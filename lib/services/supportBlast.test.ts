@@ -3,7 +3,7 @@ import { createSupportBlast, processSupportBlastQueue } from "./supportBlast";
 import { query, withTransaction } from "@/lib/database/sql";
 import { checkWahaPhoneExists, sendWahaImage, sendWahaText } from "@/lib/services/wahaClient";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
-import { PLUS_EXPIRY_BLAST_MESSAGES, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE, RECOVERY_SELF_COOLDOWN_DAYS } from "@/lib/dev/abandonedBlast";
+import { PLUS_EXPIRY_BLAST_MESSAGES, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE, RECOVERY_SHARED_COOLDOWN_DAYS } from "@/lib/dev/abandonedBlast";
 import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGES } from "@/lib/dev/plusFeedbackBlast";
 
 jest.mock("@/lib/services/supportExclusions", () => ({ isSupportContactExcluded: jest.fn() }));
@@ -74,7 +74,7 @@ test("dispatch applies the 10-day history to sent blasts and excludes feedback",
 });
 
 test.each([SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE])(
-    "dispatch blocks the same activation blast sent within 60 days (%s)", async (message) => {
+    "dispatch blocks activation blast after ANY recovery blast within 60 days (%s)", async (message) => {
         let claimed = false;
         (query as jest.Mock).mockImplementation(async (sql: string, params: unknown[] = []) => {
             if (sql.includes("WITH claimed AS")) {
@@ -97,9 +97,10 @@ test.each([SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE])(
             if (sql.includes("SELECT 1 FROM orders o")) return { rows: [], rowCount: 0 };
             if (sql.includes("SELECT 1 FROM whatsapp_outbound_messages")) return { rows: [], rowCount: 0 };
             if (sql.includes("FROM support_blast_recipients recipient") &&
-                sql.includes("campaign.message = $2")) {
-                expect(params).toEqual(["5511999999999", message, RECOVERY_SELF_COOLDOWN_DAYS]);
+                sql.includes("outbound.dedupe_key LIKE 'support:bulk:abandoned:%'")) {
+                expect(params).toEqual(["5511999999999", "5511999999999@c.us", RECOVERY_SHARED_COOLDOWN_DAYS]);
                 expect(sql).toContain("campaign.sender = 'blast'");
+                expect(sql).not.toContain("campaign.message =");
                 expect(sql).toContain("recipient.status = 'sent'");
                 return { rows: [{ found: 1 }], rowCount: 1 };
             }

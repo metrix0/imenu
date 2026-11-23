@@ -1,6 +1,6 @@
 import { GET } from "./route";
 import { getTodayRecoveryForecast } from "@/lib/dev/abandonedBlastPlan";
-import { PLUS_ABANDONED_BLAST_MESSAGE, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE, RECOVERY_SELF_COOLDOWN_DAYS, RECOVERY_PRIORITY_LOOKBACK_DAYS } from "@/lib/dev/abandonedBlast";
+import { PLUS_ABANDONED_BLAST_MESSAGE, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE, RECOVERY_SHARED_COOLDOWN_DAYS, RECOVERY_PRIORITY_LOOKBACK_DAYS } from "@/lib/dev/abandonedBlast";
 import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGES } from "@/lib/dev/plusFeedbackBlast";
 import { query } from "@/lib/database/sql";
 import { createSupportBlast } from "@/lib/services/supportBlast";
@@ -66,21 +66,20 @@ test("recovery checks the 10-day cooldown in both history sources and excludes f
 test.each([
     ["single_day", SINGLE_ORDER_DAY_RECOVERY_MESSAGE, "per_restaurant AS ("],
     ["no_first_order", NO_FIRST_ORDER_RECOVERY_MESSAGE, "r.onboarding_completed_at >= clock.as_of"],
-] as const)("recovery %s blocks only its own sends within 60 days", async (kind, template, candidateSql) => {
-    let matchingHistory = true;
+] as const)("recovery %s shares 60-day cooldown across recovery blasts", async (_kind, template, candidateSql) => {
+    let previouslyBlasted = true;
     mockQuery.mockImplementation(async (sql: string, params: unknown[] = []) => {
         if (sql.includes("AS total FROM support_blast_recipients")) return { rows: [{ total: 0 }] };
         if (sql.includes("WITH first_month AS")) return { rows: [] };
         if (sql.includes(candidateSql)) {
             return { rows: [{ account_id: "account-1", restaurant_name: "Loja", owner_phone: phone }] };
         }
-        if (sql.includes("SELECT DISTINCT recipient.phone,") && sql.includes("AS kind")) {
-            expect(params).toEqual([
-                [phone], SINGLE_ORDER_DAY_RECOVERY_MESSAGE,
-                NO_FIRST_ORDER_RECOVERY_MESSAGE, RECOVERY_SELF_COOLDOWN_DAYS,
-            ]);
-            return { rows: [{ phone, kind: matchingHistory
-                ? kind : kind === "single_day" ? "no_first_order" : "single_day" }] };
+        if (sql.includes("FROM recovery_history")) {
+            expect(params).toEqual([[phone], [phone + "@c.us"], RECOVERY_SHARED_COOLDOWN_DAYS]);
+            expect(sql).toContain("campaign.sender = 'blast'");
+            expect(sql).not.toContain("campaign.message =");
+            expect(sql).toContain("outbound.dedupe_key LIKE 'support:bulk:abandoned:%'");
+            return { rows: previouslyBlasted ? [{ phone }] : [] };
         }
         return { rows: [] };
     });
@@ -88,7 +87,7 @@ test.each([
     expect(await (await GET(request())).json()).toMatchObject({ queued: 0 });
     expect(mockBlast).not.toHaveBeenCalled();
 
-    matchingHistory = false;
+    previouslyBlasted = false;
     expect(await (await GET(request())).json()).toMatchObject({ queued: 1 });
     expect(mockBlast).toHaveBeenCalledWith(expect.objectContaining({
         message: template, recipients: [{ phone, message: expect.stringContaining("Loja") }],

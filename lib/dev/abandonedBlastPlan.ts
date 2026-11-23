@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import { ABANDONED_BLAST_MESSAGE, PLUS_ABANDONED_BLAST_MESSAGE, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE, RECOVERY_DAILY_LIMIT, RECOVERY_COOLDOWN_DAYS, RECOVERY_SELF_COOLDOWN_DAYS, RECOVERY_SELF_COOLDOWN_MESSAGES, RECOVERY_PRIORITY_LOOKBACK_DAYS } from "@/lib/dev/abandonedBlast";
+import { ABANDONED_BLAST_MESSAGE, PLUS_ABANDONED_BLAST_MESSAGE, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE, RECOVERY_DAILY_LIMIT, RECOVERY_COOLDOWN_DAYS, RECOVERY_SHARED_COOLDOWN_DAYS, RECOVERY_SHARED_COOLDOWN_MESSAGES, RECOVERY_PRIORITY_LOOKBACK_DAYS } from "@/lib/dev/abandonedBlast";
 import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGE, PLUS_FIRST_MONTH_FEEDBACK_MESSAGES, PLUS_FEEDBACK_DAILY_LIMIT } from "@/lib/dev/plusFeedbackBlast";
 import { query } from "@/lib/database/sql";
 import { normalizeBlastPhone } from "@/lib/services/supportBlast";
@@ -338,28 +338,36 @@ ORDER BY COALESCE(r.user_id, r.id), r.onboarding_completed_at DESC`),
             PLUS_FIRST_MONTH_FEEDBACK_MESSAGES, RECOVERY_COOLDOWN_DAYS]
     );
     const blocked = new Set(existing.rows.map((row) => row.phone));
-    // Each activation blast is repeatable only after 60 days; other blast types
-    // still use the existing shared recovery cooldown.
-    const selfCooldownCandidates = recipients.filter(({ kind }) =>
+    // Both activation blasts share one 60-day history across all recovery blast
+    // categories, including churn; other blast types retain the 10-day rule.
+    const sharedCooldownCandidates = recipients.filter(({ kind }) =>
         kind === "single_day" || kind === "no_first_order"
     );
-    const selfHistory = selfCooldownCandidates.length
-        ? await query<{ phone: string; kind: string }>(
-            `SELECT DISTINCT recipient.phone,
-                    CASE WHEN campaign.message = $2 THEN 'single_day'
-                         ELSE 'no_first_order' END AS kind
-             FROM support_blast_recipients recipient
-             JOIN support_blast_campaigns campaign ON campaign.id = recipient.campaign_id
-             WHERE recipient.phone = ANY($1::text[])
-               AND campaign.sender = 'blast'
-               AND campaign.message IN ($2, $3)
-               AND recipient.status = 'sent'
-               AND recipient.sent_at >= NOW() - ($4::int * INTERVAL '1 day')`,
-            [selfCooldownCandidates.map((recipient) => recipient.phone),
-                ...RECOVERY_SELF_COOLDOWN_MESSAGES, RECOVERY_SELF_COOLDOWN_DAYS]
+    const sharedHistory = sharedCooldownCandidates.length
+        ? await query<{ phone: string }>(
+            `WITH recovery_history AS (
+                 SELECT recipient.phone
+                 FROM support_blast_recipients recipient
+                 JOIN support_blast_campaigns campaign ON campaign.id = recipient.campaign_id
+                 WHERE recipient.phone = ANY($1::text[])
+                   AND campaign.sender = 'blast'
+                   AND recipient.status = 'sent'
+                   AND recipient.sent_at >= NOW() - ($3::int * INTERVAL '1 day')
+                 UNION
+                 SELECT split_part(outbound.chat_id, '@', 1) AS phone
+                 FROM whatsapp_outbound_messages outbound
+                 WHERE outbound.chat_id = ANY($2::text[])
+                   AND outbound.dedupe_key LIKE 'support:bulk:abandoned:%'
+                   AND outbound.status = 'sent'
+                   AND outbound.updated_at >= NOW() - ($3::int * INTERVAL '1 day')
+             )
+             SELECT DISTINCT phone FROM recovery_history`,
+            [sharedCooldownCandidates.map(recipient => recipient.phone),
+                sharedCooldownCandidates.map(recipient => recipient.phone + "@c.us"),
+                RECOVERY_SHARED_COOLDOWN_DAYS]
         )
         : { rows: [] };
-    const selfBlocked = new Set(selfHistory.rows.map(({ phone, kind }) => `${phone}:${kind}`));
+    const sharedBlocked = new Set(sharedHistory.rows.map(row => row.phone));
     // Shared daily quota across Plus abandonment, iMenu abandonment and activation.
     // Include legacy campaign IDs so a mid-day release cannot double the quota.
     const campaignIds = [...plans.map(plan => dailyCampaignId(day, plan.kind)), dailyCampaignId(day, "abandoned")];
@@ -370,7 +378,8 @@ ORDER BY COALESCE(r.user_id, r.id), r.onboarding_completed_at DESC`),
     const remaining = Math.max(0, RECOVERY_DAILY_LIMIT - Number(prior.rows[0]?.total || 0));
     const sendable = recipients.filter(recipient =>
         !blocked.has(recipient.phone) &&
-        !selfBlocked.has(`${recipient.phone}:${recipient.kind}`)
+        (!(recipient.kind === "single_day" || recipient.kind === "no_first_order") ||
+            !sharedBlocked.has(recipient.phone))
     ).slice(0, remaining);
 
     return { plans, eligible, recipients, sendable };
