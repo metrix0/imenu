@@ -3,6 +3,7 @@ import { PLUS_FEEDBACK_BLAST } from "./plusFeedbackBlast";
 export const RECOVERY_DAILY_LIMIT = 20;
 export const RECOVERY_COOLDOWN_DAYS = 10;
 export const RECOVERY_SELF_COOLDOWN_DAYS = 60;
+export const RECOVERY_PRIORITY_LOOKBACK_DAYS = 60;
 
 export const LEGACY_PLUS_ABANDONED_BLAST_MESSAGE = `Oi! Tudo bem? Sou o João, do iMenu 🍔
 

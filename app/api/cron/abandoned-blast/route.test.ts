@@ -1,6 +1,6 @@
 import { GET } from "./route";
 import { getTodayRecoveryForecast } from "@/lib/dev/abandonedBlastPlan";
-import { PLUS_ABANDONED_BLAST_MESSAGE, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE, RECOVERY_SELF_COOLDOWN_DAYS } from "@/lib/dev/abandonedBlast";
+import { PLUS_ABANDONED_BLAST_MESSAGE, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE, RECOVERY_SELF_COOLDOWN_DAYS, RECOVERY_PRIORITY_LOOKBACK_DAYS } from "@/lib/dev/abandonedBlast";
 import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGES } from "@/lib/dev/plusFeedbackBlast";
 import { query } from "@/lib/database/sql";
 import { createSupportBlast } from "@/lib/services/supportBlast";
@@ -123,6 +123,53 @@ test("recovery selects only the 20 highest-GMV accounts across Plus and iMenu", 
     const allMessages = calls.flatMap(arg => arg.recipients.map((row: { message: string }) => row.message));
     expect(allMessages.some(message => message.includes("Loja 22"))).toBe(true);
     expect(allMessages.some(message => message.includes("Loja 1."))).toBe(false);
+});
+
+test("recovery prioritizes unblasted contacts for 60 days, then GMV within each group", async () => {
+    const candidates = [
+        { account_id: "high-blasted", restaurant_name: "High Blasted", owner_phone: "5511999990001" },
+        { account_id: "low-fresh", restaurant_name: "Low Fresh", owner_phone: "5511999990002" },
+        { account_id: "high-fresh", restaurant_name: "High Fresh", owner_phone: "5511999990003" },
+        { account_id: "low-blasted", restaurant_name: "Low Blasted", owner_phone: "5511999990004" },
+    ];
+    const amounts: Record<string, number> = {
+        "high-blasted": 90000, "low-fresh": 10000, "high-fresh": 40000, "low-blasted": 20000,
+    };
+    mockQuery.mockImplementation(async (sql: string, params: unknown[] = []) => {
+        if (sql.includes("WITH first_month AS")) return { rows: [] };
+        if (sql.includes("completed AS (")) return { rows: candidates };
+        if (sql.includes("AS gmv_cents")) {
+            return { rows: candidates.map(row => ({
+                account_id: row.account_id, gmv_cents: amounts[row.account_id],
+            })) };
+        }
+        if (sql.includes("FROM blast_contacts")) {
+            expect(params).toEqual([
+                candidates.map(row => row.owner_phone),
+                candidates.map(row => row.owner_phone + "@c.us"),
+                PLUS_FIRST_MONTH_FEEDBACK_MESSAGES,
+                RECOVERY_PRIORITY_LOOKBACK_DAYS,
+            ]);
+            expect(sql).toContain("recipient.status = 'sent'");
+            expect(sql).toContain("outbound.status = 'sent'");
+            expect(sql).toContain("recipient.campaign_id NOT IN (SELECT id FROM feedback_campaigns)");
+            return { rows: [{ phone: candidates[0].owner_phone }, { phone: candidates[3].owner_phone }] };
+        }
+        if (sql.includes("AS total FROM support_blast_recipients")) return { rows: [{ total: 0 }] };
+        return { rows: [] };
+    });
+    const response = await GET(request());
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ queued: 4, eligible: 4 });
+    const messages = mockBlast.mock.calls.flatMap(([input]) =>
+        input.recipients.map((r: { message: string }) => r.message)
+    ) as string[];
+    expect(messages).toEqual([
+        expect.stringContaining("High Fresh"),
+        expect.stringContaining("Low Fresh"),
+        expect.stringContaining("High Blasted"),
+        expect.stringContaining("Low Blasted"),
+    ]);
 });
 
 test("Plus forecast and enqueue use expiry eligibility even if feedback is also queued for the phone", async () => {

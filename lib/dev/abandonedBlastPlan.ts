@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import { ABANDONED_BLAST_MESSAGE, PLUS_ABANDONED_BLAST_MESSAGE, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE, RECOVERY_DAILY_LIMIT, RECOVERY_COOLDOWN_DAYS, RECOVERY_SELF_COOLDOWN_DAYS, RECOVERY_SELF_COOLDOWN_MESSAGES } from "@/lib/dev/abandonedBlast";
+import { ABANDONED_BLAST_MESSAGE, PLUS_ABANDONED_BLAST_MESSAGE, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE, RECOVERY_DAILY_LIMIT, RECOVERY_COOLDOWN_DAYS, RECOVERY_SELF_COOLDOWN_DAYS, RECOVERY_SELF_COOLDOWN_MESSAGES, RECOVERY_PRIORITY_LOOKBACK_DAYS } from "@/lib/dev/abandonedBlast";
 import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGE, PLUS_FIRST_MONTH_FEEDBACK_MESSAGES, PLUS_FEEDBACK_DAILY_LIMIT } from "@/lib/dev/plusFeedbackBlast";
 import { query } from "@/lib/database/sql";
 import { normalizeBlastPhone } from "@/lib/services/supportBlast";
@@ -249,7 +249,11 @@ ORDER BY COALESCE(r.user_id, r.id), r.onboarding_completed_at DESC`),
     ];
     const eligible = plans.reduce((total, plan) => total + plan.rows.length, 0);
     const accounts = [...new Set(plans.flatMap(plan => plan.rows.map(row => row.account_id)))];
-    const gmv = accounts.length ? await query<{ account_id: string; gmv_cents: number | string }>(
+    const candidatePhones = [...new Set(plans.flatMap(plan =>
+        plan.rows.map(row => normalizeBlastPhone(row.owner_phone || "")).filter((phone): phone is string => Boolean(phone))
+    ))];
+    const [gmv, previousBlasts] = await Promise.all([
+        accounts.length ? query<{ account_id: string; gmv_cents: number | string }>(
         `SELECT COALESCE(restaurant.user_id, restaurant.id)::text AS account_id,
                 COALESCE(SUM(GREATEST(COALESCE(orders.subtotal_cents, 0), 0)), 0)::bigint AS gmv_cents
          FROM public.orders orders
@@ -258,12 +262,44 @@ ORDER BY COALESCE(r.user_id, r.id), r.onboarding_completed_at DESC`),
            AND orders.status = 'done' AND orders.table_id IS NULL
            AND orders.created_at >= NOW() - INTERVAL '30 days'
          GROUP BY 1`, [accounts]
-    ) : { rows: [] };
+        ) : { rows: [] },
+        // Mirror the shared recovery history, but use 60 days for ranking only.
+        // First-month Plus feedback does not count as a recovery blast.
+        candidatePhones.length ? query<{ phone: string }>(
+            `WITH feedback_campaigns AS (
+                 SELECT id FROM support_blast_campaigns WHERE message = ANY($3::text[])
+             ), blast_contacts AS (
+                 SELECT recipient.phone
+                 FROM support_blast_recipients recipient
+                 WHERE recipient.phone = ANY($1::text[])
+                   AND recipient.campaign_id NOT IN (SELECT id FROM feedback_campaigns)
+                   AND recipient.status = 'sent'
+                   AND recipient.sent_at >= NOW() - ($4::int * INTERVAL '1 day')
+                 UNION
+                 SELECT split_part(outbound.chat_id, '@', 1) AS phone
+                 FROM whatsapp_outbound_messages outbound
+                 WHERE outbound.chat_id = ANY($2::text[])
+                   AND outbound.dedupe_key LIKE 'support:bulk:%'
+                   AND split_part(outbound.dedupe_key, ':', 4) NOT IN
+                       (SELECT id::text FROM feedback_campaigns)
+                   AND outbound.status = 'sent'
+                   AND outbound.updated_at >= NOW() - ($4::int * INTERVAL '1 day')
+             )
+             SELECT DISTINCT phone FROM blast_contacts`,
+            [candidatePhones, candidatePhones.map(phone => phone + "@c.us"),
+                PLUS_FIRST_MONTH_FEEDBACK_MESSAGES, RECOVERY_PRIORITY_LOOKBACK_DAYS]
+        ) : { rows: [] },
+    ]);
     const gmvByAccount = new Map(gmv.rows.map(row => [row.account_id, Number(row.gmv_cents)]));
+    const blastedRecently = new Set(previousBlasts.rows.map(row => row.phone));
     const ranked = plans.flatMap((plan, priority) => plan.rows.map(row => ({
         ...row, kind: plan.kind, priority, template: plan.message,
         gmv: gmvByAccount.get(row.account_id) || 0,
-    }))).sort((a, b) => b.gmv - a.gmv || a.priority - b.priority || a.account_id.localeCompare(b.account_id));
+        blastedWithin60d: blastedRecently.has(normalizeBlastPhone(row.owner_phone || "") || ""),
+    }))).sort((a, b) =>
+        Number(a.blastedWithin60d) - Number(b.blastedWithin60d) ||
+        b.gmv - a.gmv || a.priority - b.priority || a.account_id.localeCompare(b.account_id)
+    );
     const seenAccounts = new Set<string>();
     const uniquePhones = new Set<string>();
     const recipients = ranked.flatMap(row => {
