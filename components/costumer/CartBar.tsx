@@ -173,10 +173,7 @@ export default function CartBar({
           );
 
     const deliveryUnavailable = cartOpen && step !== "cart" && missingDeliveryOrigin && !isPickup;
-    const invalidDeliveryAddress = cartOpen && step === "info" && !isTableOrder && !isPickup &&
-        checkoutState.delivery_fee_cents === null && checkoutState.showAddressWarning;
-    const disabledContinue = deliveryUnavailable || invalidDeliveryAddress ||
-        (cartOpen && step === "info" && !allRequiredFilled);
+    const disabledContinue = deliveryUnavailable || (cartOpen && step === "info" && !allRequiredFilled);
 
     const missingFields: string[] = [];
     if (isTableOrder) {
@@ -220,7 +217,7 @@ export default function CartBar({
     };
 
     const maybeWrap = (children: React.ReactNode) => {
-        if (disabledContinue && !deliveryUnavailable && !invalidDeliveryAddress && step === "info") {
+        if (disabledContinue && !deliveryUnavailable && step === "info") {
             return (
                 <Tooltip text={tooltipText}  position="left" className={!disabledContinue ? "!hidden" : ""} tooltipClassName={!disabledContinue ? "!hidden" : ""}>
                     {children}
