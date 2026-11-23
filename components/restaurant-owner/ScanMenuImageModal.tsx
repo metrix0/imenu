@@ -104,14 +104,19 @@ const normalizeItemName = (name: string) =>
 const MAX_MENU_FILES = 8;
 const SLOW_SCAN_NOTICE_MS = 120_000;
 
-function getBlockedMenuLinkProvider(value: string): "iFood" | "Claude" | "ChatGPT" | null {
+function getBlockedMenuLinkProvider(value: string): "iFood" | "Claude" | "ChatGPT" | "Google Maps" | null {
     const url = value.trim();
     if (!url) return null;
 
     try {
-        const hostname = new URL(/^https?:/i.test(url) ? url : `https://${url}`).hostname.replace(/\.$/, "");
+        const parsedUrl = new URL(/^https?:/i.test(url) ? url : `https://${url}`);
+        const hostname = parsedUrl.hostname.replace(/\.$/, "");
         const matchesDomain = (domain: string) => hostname === domain || hostname.endsWith(`.${domain}`);
         if (matchesDomain("ifood.com.br")) return "iFood";
+        if (hostname.startsWith("maps.google.") || hostname === "maps.app.goo.gl" ||
+            (hostname === "goo.gl" && /^\/maps(?:\/|$)/i.test(parsedUrl.pathname)) ||
+            (/^(?:www\.)?google\.(?:com(?:\.[a-z]{2})?|co\.[a-z]{2}|[a-z]{2,3})$/.test(hostname) &&
+                /^\/maps(?:\/|$)/i.test(parsedUrl.pathname))) return "Google Maps";
         if (matchesDomain("claude.ai")) return "Claude";
         if (matchesDomain("chatgpt.com") || matchesDomain("chat.openai.com")) return "ChatGPT";
     } catch {
@@ -884,6 +889,11 @@ function ScanModal({
                                                         <>
                                                             <strong>O iFood bloqueia a leitura automática.</strong>{" "}
                                                             Use fotos ou PDF do cardápio.
+                                                        </>
+                                                    ) : blockedLinkProvider === "Google Maps" ? (
+                                                        <>
+                                                            <strong>Esse link abre um local no Google Maps, não um cardápio.</strong>{" "}
+                                                            Cole o link direto do cardápio ou envie fotos ou PDF.
                                                         </>
                                                     ) : (
                                                         <>
