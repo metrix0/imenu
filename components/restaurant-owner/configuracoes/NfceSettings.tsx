@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { faCertificate, faFileInvoice } from "@fortawesome/free-solid-svg-icons";
+import { faCertificate } from "@fortawesome/free-solid-svg-icons";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -9,7 +9,7 @@ import Card from "@/components/ui/Card";
 import Dropdown from "@/components/ui/Dropdown";
 import Input from "@/components/ui/Input";
 import SaveStatus from "@/components/ui/SaveStatus";
-import CollapsibleSection, { CollapsibleContent, useCollapsible } from "@/components/ui/CollapsibleSection";
+import CollapsibleSection, { useCollapsible } from "@/components/ui/CollapsibleSection";
 import { nfceRequest } from "@/components/restaurant-owner/pedidos/NfceHistory";
 import { useAutoSave } from "@/lib/utils/useAutoSave";
 import type { AddressData } from "@/lib/types/types";
@@ -87,7 +87,6 @@ export default function NfceSettings({ restaurant, address }: { restaurant: stri
     const [hint, setHint] = useState("");
     const fileRef = useRef<HTMLInputElement>(null);
     const editor = useCollapsible();
-    const advanced = useCollapsible();
     const effective = withStoreAddress(value, address);
 
     const save = useCallback(async ({ file, password, ...settings }: Settings) => {
@@ -167,20 +166,14 @@ export default function NfceSettings({ restaurant, address }: { restaurant: stri
             ? { ...value, itemTaxes: { ...value.itemTaxes, [itemId]: replacement } }
             : { ...value, defaultTax: replacement });
     };
-    const currentAddress = [`${effective.street}${effective.number ? `, ${effective.number}` : ""}`,
-        effective.district, effective.city, effective.cep && `CEP ${effective.cep}`].filter(Boolean).join(" · ");
 
     return (
         <Card className="border border-gray-200 shadow-sm">
             <CollapsibleSection
                 title="Emissão automática de NFC-e"
                 description="Emita notas fiscais dos pedidos automaticamente. Configure os dados da empresa e o certificado digital."
-                icon={<FontAwesomeIcon icon={faFileInvoice} className="text-2xl text-gray-700" />}
-                badge={<span className="inline-flex items-center gap-2">
-                    <Badge preset="featureAvailable" />
-                    {environment === 2 && <Badge variant="neutral">Homologação</Badge>}
-                </span>}
-                badgeFirst
+                titleBadge={<Badge preset="featureAvailable" />}
+                badge={value.enabled && !ready(effective, hasCertificate) && <Badge variant="warning">Não configurado</Badge>}
                 open={editor.expanded}
                 onOpenChange={editor.setExpanded}
                 toggle={{
@@ -197,10 +190,6 @@ export default function NfceSettings({ restaurant, address }: { restaurant: stri
                             <Input label="CNPJ" inputMode="numeric" value={value.cnpj} onChange={event => change({ ...value, cnpj: event.target.value })} />
                             <Input label="Inscrição estadual" inputMode="numeric" value={value.ie} onChange={event => change({ ...value, ie: event.target.value })} />
                             <Input label="Razão social" value={value.name} onChange={event => change({ ...value, name: event.target.value })} />
-                        </div>
-                        <div className="space-y-1">
-                            <p className="text-xs font-medium text-gray-900">Endereço fiscal</p>
-                            <p className="text-sm text-gray-500">{currentAddress || "Cadastre o endereço do restaurante acima."}</p>
                         </div>
                         <div className="space-y-4">
                             <Dropdown custom label="Tributação" value={itemId} options={[
@@ -235,12 +224,9 @@ export default function NfceSettings({ restaurant, address }: { restaurant: stri
                             {value.file && <Input type="password" label="Senha do certificado" autoComplete="new-password"
                                 value={value.password} onChange={event => change({ ...value, password: event.target.value })} />}
                         </div>
-                        <div className="border-t border-gray-200 pt-4">
-                            <Button variant="secondary" {...advanced.triggerProps} className="text-sm">
-                                {advanced.expanded ? "Ocultar opções avançadas" : "Opções avançadas"}
-                            </Button>
-                            <CollapsibleContent id={advanced.contentId} expanded={advanced.expanded}>
-                                <div className="grid gap-4 pt-4 sm:grid-cols-2">
+                        <CollapsibleSection title="Opções avançadas" inlineChevron defaultOpen={false}
+                            className="border-t border-gray-200 pt-4">
+                            <div className="grid gap-4 sm:grid-cols-2">
                                     <Input label="Código IBGE do município" inputMode="numeric" value={value.cityCode}
                                         onChange={event => change({ ...value, cityCode: event.target.value })} />
                                     <Input label="CEST (opcional)" inputMode="numeric" value={tax.cest ?? ""}
@@ -249,9 +235,8 @@ export default function NfceSettings({ restaurant, address }: { restaurant: stri
                                         onChange={event => change({ ...value, series: event.target.value })} />
                                     <Input label="Próximo número" inputMode="numeric" value={value.nextNumber}
                                         onChange={event => change({ ...value, nextNumber: event.target.value })} />
-                                </div>
-                            </CollapsibleContent>
-                        </div>
+                            </div>
+                        </CollapsibleSection>
                     </fieldset>
                     {hint && <p role="alert" className="text-sm text-amber-700">{hint}</p>}
                     {error && <p role="alert" className="text-sm text-red-700">{error}</p>}

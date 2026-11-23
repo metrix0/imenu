@@ -80,6 +80,7 @@ type CollapsibleSectionProps = {
     description?: string;
     icon?: ReactNode;
     badge?: ReactNode;
+    titleBadge?: ReactNode;
     badgeFirst?: boolean;
     children: ReactNode;
     footer?: ReactNode;
@@ -102,6 +103,7 @@ export default function CollapsibleSection({
     description,
     icon,
     badge,
+    titleBadge,
     badgeFirst = false,
     children,
     footer,
@@ -141,14 +143,15 @@ export default function CollapsibleSection({
                     <span className="min-w-0 flex-1">
                         <span
                             id={titleId}
-                            className={`${inlineChevron ? "flex items-center gap-2" : "block"} text-sm font-medium text-gray-900`}
+                            className={`${inlineChevron || titleBadge ? "flex flex-wrap items-center gap-2" : "block"} text-sm font-medium text-gray-900`}
                         >
                             {inlineChevron ? (
                                 <>
                                     <span>{title}</span>
+                                    {titleBadge}
                                     <CollapsibleChevron expanded={expanded} size={chevronSize} />
                                 </>
-                            ) : title}
+                            ) : <>{title}{titleBadge}</>}
                         </span>
                         {description && <span id={descriptionId} className="mt-1 block text-sm text-gray-500">{description}</span>}
                     </span>

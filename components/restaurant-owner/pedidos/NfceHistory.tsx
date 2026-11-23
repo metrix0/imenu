@@ -87,9 +87,7 @@ export function NfceUpgradeButton({ restaurant, onPaid, row = false }: { restaur
             <CollapsibleSection
                 title="Emissão automática de NFC-e"
                 description="Emita notas fiscais dos pedidos automaticamente com o iMenu Plus."
-                icon={<PanelIcon icon={faFileInvoice} className="text-2xl text-gray-700" />}
-                badge={<Badge preset="plusIncluded" />}
-                badgeFirst
+                titleBadge={<Badge preset="plusIncluded" />}
                 toggle={{ checked: false, label: "Ativar emissão automática de NFC-e", onChange: () => setOpen(true) }}
             >
                 <Button variant="secondary" onClick={() => setOpen(true)}>Ativar com iMenu Plus</Button>
