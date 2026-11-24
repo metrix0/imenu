@@ -51,7 +51,7 @@ test("exposes fiscal UI state to Plus owners without enabling fiscal operations"
     jest.mocked(hasIMenuPlusAccess).mockResolvedValue(true);
 
     const history = await GET(request("action=list"));
-    expect(await history.json()).toEqual({ available: false, plus: true, archive: false, configured: false, notes: [] });
+    expect(await history.json()).toEqual({ available: false, plus: true, archive: false, configured: false, enabled: false, notes: [] });
     const settings = await GET(request("action=settings"));
     expect(await settings.json()).toEqual({ available: false, plus: true, environment: null, issuer: null, items: [] });
     expect((await GET(request("action=zip"))).status).toBe(503);
@@ -84,4 +84,17 @@ test("lists archived fiscal notes for the selected period, newest first and inde
     expect(jest.mocked(query).mock.calls[0][0]).toContain("authorized_xml IS NOT NULL");
     expect(jest.mocked(query).mock.calls[0][0]).toContain("ORDER BY issued_at DESC,order_id DESC");
     expect(jest.mocked(query).mock.calls[0][1]).toEqual([restaurant, 2, new Date("2026-11-01T03:00:00Z"), new Date("2026-11-23T03:00:00Z"), 20, 20]);
+});
+
+
+test.each([[true, false], [false, false], [true, true]])("history exposes requested NFC-e toggle %s separately from readiness %s", async (enabled, configured) => {
+    jest.mocked(query).mockReset();
+    jest.mocked(hasIMenuPlusAccess).mockResolvedValue(true);
+    jest.mocked(query)
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 })
+        .mockResolvedValueOnce({ rows: [{ enabled: configured, requested_enabled: enabled }], rowCount: 1 });
+    const response = await GET(request("action=list"));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ plus: true, enabled, configured });
+    expect(jest.mocked(query).mock.calls[1][0]).toContain("requestedEnabled");
 });

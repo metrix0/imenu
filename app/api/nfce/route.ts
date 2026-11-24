@@ -56,7 +56,7 @@ export async function GET(request: Request) {
                 return NextResponse.json({ available: false, plus, environment: null, issuer: null, items: [] }, { headers });
             }
             if (action !== "list") throw new FiscalError("A emissão fiscal está indisponível neste ambiente.", 503);
-            return NextResponse.json({ available: false, plus, archive: false, configured: false, notes: [] }, { headers });
+            return NextResponse.json({ available: false, plus, archive: false, configured: false, enabled: false, notes: [] }, { headers });
         }
         if (action === "settings") {
             if (!plus) throw new FiscalError("Disponível com iMenu Plus.", 403);
@@ -159,15 +159,15 @@ export async function GET(request: Request) {
         }
         const orderIds = (params.get("orders") ?? "").split(",").filter(Boolean);
         if (orderIds.length > 100 || orderIds.some(id => !uuid.test(id))) throw new FiscalError("Pedidos inválidos.");
-        const [notes, hasArchive, activeIssuer] = await Promise.all([
+        const [notes, hasArchive, issuer] = await Promise.all([
             plus && orderIds.length ? query<NoteSummary>(`
                 SELECT ${fields} FROM public.nfce_documents WHERE restaurant_id=$1 AND environment=$2 AND order_id=ANY($3::uuid[])
                   AND (authorized_xml IS NOT NULL OR status NOT IN ('authorized','canceled'))`,
             [restaurant, env, orderIds]) : Promise.resolve({ rows: [] }),
             query("SELECT 1 FROM public.nfce_documents WHERE restaurant_id=$1 AND environment=$2 AND authorized_xml IS NOT NULL LIMIT 1", [restaurant, env]),
-            plus ? query("SELECT 1 FROM public.nfce_issuers WHERE restaurant_id=$1 AND environment=$2 AND enabled LIMIT 1", [restaurant, env]) : Promise.resolve({ rowCount: 0 }),
+            plus ? query<{ enabled: boolean; requested_enabled: boolean }>("SELECT enabled, COALESCE((data->>'requestedEnabled') = 'true', enabled) AS requested_enabled FROM public.nfce_issuers WHERE restaurant_id=$1 AND environment=$2 LIMIT 1", [restaurant, env]) : Promise.resolve({ rows: [] }),
         ]);
-        return NextResponse.json({ available: true, plus, archive: Boolean(hasArchive.rowCount), configured: Boolean(activeIssuer.rowCount), notes: notes.rows }, { headers });
+        return NextResponse.json({ available: true, plus, archive: Boolean(hasArchive.rowCount), configured: issuer.rows[0]?.enabled === true, enabled: issuer.rows[0]?.requested_enabled === true, notes: notes.rows }, { headers });
     } catch (error) { return failure(error); }
 }
 

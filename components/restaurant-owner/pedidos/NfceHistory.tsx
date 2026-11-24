@@ -20,7 +20,7 @@ import { CARD_AT_DELIVERY_LABELS } from "@/lib/payments/deliveryMethods";
 import type { NoteSummary } from "@/lib/nfce/service";
 import type { Order } from "./OrdersTable";
 
-type History = { available: boolean; plus: boolean | null; archive: boolean; configured: boolean; notes: NoteSummary[] };
+type History = { available: boolean; plus: boolean | null; archive: boolean; configured: boolean; enabled: boolean; notes: NoteSummary[] };
 
 export async function nfceRequest(restaurant: string, params: Record<string, string>, init?: RequestInit) {
     const { data: { session } } = await supabase.auth.getSession();
@@ -35,7 +35,7 @@ export async function nfceRequest(restaurant: string, params: Record<string, str
     return response;
 }
 
-const emptyHistory: History = { available: false, plus: null, archive: false, configured: false, notes: [] };
+const emptyHistory: History = { available: false, plus: null, archive: false, configured: false, enabled: false, notes: [] };
 
 export function useNfceHistory(restaurant: string | null, orders: Order[], refresh: number) {
     const [history, setHistory] = useState<History>(emptyHistory);
@@ -55,7 +55,7 @@ export function useNfceHistory(restaurant: string | null, orders: Order[], refre
             .then(value => { if (!controller.signal.aborted) setHistory(value); })
             .catch(() => {
                 if (!controller.signal.aborted) setHistory(current => ({
-                    ...current, available: false, configured: false, notes: [],
+                    ...current, available: false, configured: false, enabled: false, notes: [],
                 }));
             });
         return () => controller.abort();

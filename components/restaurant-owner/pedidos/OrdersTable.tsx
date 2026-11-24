@@ -29,6 +29,7 @@ interface OrdersTableProps {
     isLoading: boolean;
     onViewOrder?: (order: Order) => void;
     onEditOrder?: (order: Order) => void;
+    showFiscalActions?: boolean;
     fiscalIds?: ReadonlySet<string>;
     fiscalPlus?: boolean | null;
     restaurantId?: string | null;
@@ -37,7 +38,7 @@ interface OrdersTableProps {
     onDeleteOrder?: (order: Order) => void;
 }
 
-export default function OrdersTable({ orders, isLoading, onViewOrder, onEditOrder, onDeleteOrder, fiscalIds, fiscalPlus, restaurantId, onPaid, onViewFiscal }: OrdersTableProps) {
+export default function OrdersTable({ orders, isLoading, onViewOrder, onEditOrder, onDeleteOrder, showFiscalActions = true, fiscalIds, fiscalPlus, restaurantId, onPaid, onViewFiscal }: OrdersTableProps) {
 
     const fmtMoney = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
     const fmtDate = (dateStr: string) => new Date(dateStr).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
@@ -71,7 +72,7 @@ export default function OrdersTable({ orders, isLoading, onViewOrder, onEditOrde
 
     const actionButtons = (order: Order) => (
         <div className="flex shrink-0 items-center gap-1">
-            {fiscalButton(order)}
+            {showFiscalActions && fiscalButton(order)}
             <button type="button" title="Ver detalhes"
                 aria-label={`Ver detalhes do pedido #${order.display_id || order.id.slice(0, 4)}`}
                 className={actionIconClass}

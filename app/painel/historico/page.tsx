@@ -317,6 +317,7 @@ export default function HistoricoPage() {
                 onViewOrder={handleViewOrder}
                 onEditOrder={handleEditOrder}
                 onViewFiscal={order => handleViewOrder(order, true)}
+                showFiscalActions={fiscal.enabled === true}
                 fiscalIds={fiscalIds}
                 fiscalPlus={fiscal.plus}
                 restaurantId={restaurantId}
@@ -378,7 +379,6 @@ export default function HistoricoPage() {
             />
             {restaurantId && (
                 <CreatePanelOrderModal
-                    key={editingOrder?.id || "create"}
                     isOpen={editingOrder !== null}
                     onClose={() => setEditingOrder(null)}
                     restaurantId={restaurantId}
