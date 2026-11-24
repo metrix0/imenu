@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FileBadge } from "lucide-react";
-import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -78,14 +77,14 @@ function ready(value: Settings, hasCertificate: boolean): boolean {
     return fiscalFieldsValid(value) && (hasCertificate || Boolean(value.file && value.password));
 }
 
-export default function NfceSettings({ restaurant, address }: { restaurant: string; address: StoreAddress }) {
+export default function NfceSettings({ restaurant, address, locked = false }: { restaurant: string; address: StoreAddress; locked?: boolean }) {
     const [environment, setEnvironment] = useState<1 | 2 | null>(null);
     const [value, setValue] = useState<Settings>(blank);
     const [hasCertificate, setHasCertificate] = useState(false);
     const [items, setItems] = useState<{ id: string; name: string }[]>([]);
     const [itemId, setItemId] = useState("");
     const fileRef = useRef<HTMLInputElement>(null);
-    const editor = useCollapsible();
+    const editor = useCollapsible({ defaultOpen: locked });
     const effective = withStoreAddress(value, address);
 
     const save = useCallback(async ({ file, password, ...settings }: Settings) => {
@@ -111,6 +110,7 @@ export default function NfceSettings({ restaurant, address }: { restaurant: stri
     const { status, error, schedule } = useAutoSave<Settings>(restaurant, save);
 
     useEffect(() => {
+        if (locked) return;
         let current = true;
         nfceRequest(restaurant, { action: "settings" }).then(response => response.json()).then(data => {
             if (!current || !data.plus) return;
@@ -124,12 +124,12 @@ export default function NfceSettings({ restaurant, address }: { restaurant: stri
             }
         }).catch(() => undefined);
         return () => { current = false; };
-    }, [restaurant]);
+    }, [restaurant, locked]);
 
     // The restaurant's existing CEP identifies the IBGE municipality without another form field.
     useEffect(() => {
         const cep = address?.cep?.replace(/\D/g, "") ?? "";
-        if (value.cityCode || !/^\d{8}$/.test(cep)) return;
+        if (locked || value.cityCode || !/^\d{8}$/.test(cep)) return;
         const controller = new AbortController();
         void fetch(`https://viacep.com.br/ws/${cep}/json/`, { signal: controller.signal })
             .then(response => response.ok ? response.json() : null)
@@ -140,9 +140,10 @@ export default function NfceSettings({ restaurant, address }: { restaurant: stri
                 setValue(current => current.cityCode ? current : { ...current, cityCode: String(data.ibge) });
             }).catch(() => undefined);
         return () => controller.abort();
-    }, [value.cityCode, address?.cep, address?.city]);
+    }, [locked, value.cityCode, address?.cep, address?.city]);
 
     const change = (next: Settings) => {
+        if (locked) return;
         setValue(next);
         const complete = withStoreAddress(next, address);
         // Retain the selected certificate until the password is entered, while saving other fields.
@@ -160,21 +161,21 @@ export default function NfceSettings({ restaurant, address }: { restaurant: stri
         <Card className="border border-gray-200 shadow-sm">
             <CollapsibleSection
                 title="Emissão automática de NFC-e"
-                description="Emita notas fiscais dos pedidos automaticamente. Configure os dados da empresa e o certificado digital."
-                titleBadge={<Badge preset="featureAvailable" />}
-                badge={value.enabled && !ready(effective, hasCertificate) && <Badge variant="warning">Não configurado</Badge>}
+                description="Emita notas fiscais dos pedidos automaticamente, sem limites. Configure os dados da empresa e o certificado digital."
+                titleBadge={<Badge preset={locked ? "plusIncluded" : "featureAvailable"} />}
+                badge={!locked && value.enabled && !ready(effective, hasCertificate) && <Badge variant="warning">Não configurado</Badge>}
                 open={editor.expanded}
                 onOpenChange={editor.setExpanded}
                 toggle={{
                     label: "Ativar emissão automática de NFC-e",
-                    checked: value.enabled,
-                    disabled: !environment,
+                    checked: !locked && value.enabled,
+                    disabled: locked || !environment,
                     onChange: enabled => change({ ...value, enabled }),
                 }}
             >
                 <div className="space-y-5">
-                    {!environment && <p className="text-sm text-gray-600">A emissão fiscal não está disponível neste ambiente.</p>}
-                    <fieldset disabled={!environment} className="min-w-0 space-y-5 disabled:opacity-50">
+                    {!locked && !environment && <p className="text-sm text-gray-600">A emissão fiscal não está disponível neste ambiente.</p>}
+                    <fieldset disabled={locked || !environment} className="min-w-0 space-y-5 disabled:opacity-50">
                         <div className="grid gap-4 sm:grid-cols-3">
                             <Input label="CNPJ" inputMode="numeric" value={value.cnpj} onChange={event => change({ ...value, cnpj: event.target.value })} />
                             <Input label="Inscrição estadual" inputMode="numeric" value={value.ie} onChange={event => change({ ...value, ie: event.target.value })} />
@@ -213,9 +214,9 @@ export default function NfceSettings({ restaurant, address }: { restaurant: stri
                             {value.file && <Input type="password" label="Senha do certificado" autoComplete="new-password"
                                 value={value.password} onChange={event => change({ ...value, password: event.target.value })} />}
                         </div>
-                        <CollapsibleSection title="Opções avançadas" inlineChevron defaultOpen={false}
-                            className="border-t border-gray-200 pt-4">
-                            <div className="grid gap-4 sm:grid-cols-2">
+                    </fieldset>
+                    <CollapsibleSection title="Opções avançadas" inlineChevron defaultOpen={false}>
+                        <fieldset disabled={locked || !environment} className="grid gap-4 sm:grid-cols-2 disabled:opacity-50">
                                     <Input label="Código IBGE do município" inputMode="numeric" value={value.cityCode}
                                         onChange={event => change({ ...value, cityCode: event.target.value })} />
                                     <Input label="CEST (opcional)" inputMode="numeric" value={tax.cest ?? ""}
@@ -224,13 +225,12 @@ export default function NfceSettings({ restaurant, address }: { restaurant: stri
                                         onChange={event => change({ ...value, series: event.target.value })} />
                                     <Input label="Próximo número" inputMode="numeric" value={value.nextNumber}
                                         onChange={event => change({ ...value, nextNumber: event.target.value })} />
-                            </div>
-                        </CollapsibleSection>
-                    </fieldset>
-                    {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+                        </fieldset>
+                    </CollapsibleSection>
+                    {!locked && error && <p role="alert" className="text-sm text-red-700">{error}</p>}
                 </div>
             </CollapsibleSection>
-            <SaveStatus status={status} />
+            {!locked && <SaveStatus status={status} />}
         </Card>
     );
 }

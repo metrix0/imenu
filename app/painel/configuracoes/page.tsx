@@ -15,7 +15,6 @@ import {
     faGear,
     faLock,
     faReceipt,
-    faFileInvoice,
     faQrcode,
     faSignOutAlt,
     faTrash,
@@ -35,7 +34,6 @@ import ConfirmModal from "@/components/ui/ConfirmModal";
 import Tooltip from "@/components/ui/Tooltip";
 import ChoiceCardGroup from "@/components/ui/ChoiceCardGroup";
 import NfceSettings from "@/components/restaurant-owner/configuracoes/NfceSettings";
-import { NfceUpgradeButton } from "@/components/restaurant-owner/pedidos/NfceHistory";
 import ResetOrderCountSection from "@/components/restaurant-owner/configuracoes/ResetOrderCountSection";
 import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
 import { qrTableAuthenticatedFetch } from "@/lib/qr-table/clientApi";
@@ -65,7 +63,6 @@ type Restaurant = {
 const SETTINGS_SECTIONS = {
     modos: { label: "Modos", icon: faGear },
     pedidos: { label: "Pedidos", icon: faReceipt },
-    nfce: { label: "Notas Fiscais", icon: faFileInvoice },
 };
 
 function SettingsSection({ id, children }: { id: keyof typeof SETTINGS_SECTIONS; children: ReactNode }) {
@@ -984,6 +981,10 @@ export default function ConfiguracoesPage() {
                                 )}
                             </Card>
 
+                            <div id="nfce" className="scroll-mt-20">
+                                <NfceSettings key={pdfAccess ? "plus" : "locked"} restaurant={restaurant.id} address={restaurant.address} locked={!pdfAccess} />
+                            </div>
+
                             <Card className="border border-gray-200 shadow-sm">
                                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                     <div className="min-w-0">
@@ -1186,18 +1187,6 @@ export default function ConfiguracoesPage() {
 
                         {restaurant && <ResetOrderCountSection restaurantId={restaurant.id} />}
                     </SettingsSection>
-
-                    {restaurant && (
-                        <SettingsSection id="nfce">
-                            {pdfAccess ? (
-                                <NfceSettings restaurant={restaurant.id} address={restaurant.address} />
-                            ) : (
-                                <Card className="border border-gray-200 shadow-sm">
-                                    <NfceUpgradeButton restaurant={restaurant.id} onPaid={() => loadPdfAccess(restaurant.id)} row />
-                                </Card>
-                            )}
-                        </SettingsSection>
-                    )}
 
                     <Card className="border-red-200 bg-red-50/30">
                             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
