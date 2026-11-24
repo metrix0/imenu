@@ -158,6 +158,21 @@ export default function HistoricoPage() {
     const fiscal = useNfceHistory(restaurantId, orders, nfceRefresh);
     const fiscalIds = new Set(fiscal.notes.filter(note => Boolean(note.access_key)).map(note => note.order_id));
     const requestId = useRef(0);
+    const historyTitleRef = useRef<HTMLHeadingElement>(null);
+    const fullTitleRef = useRef<HTMLSpanElement>(null);
+    const [shortHistoryTitle, setShortHistoryTitle] = useState(false);
+
+    useEffect(() => {
+        const heading = historyTitleRef.current;
+        const fullTitle = fullTitleRef.current;
+        if (!heading || !fullTitle) return;
+        const update = () => setShortHistoryTitle(fullTitle.getBoundingClientRect().width > heading.getBoundingClientRect().width);
+        update();
+        const observer = new ResizeObserver(update);
+        observer.observe(heading);
+        observer.observe(fullTitle);
+        return () => observer.disconnect();
+    }, []);
 
     // Filtros
     const [search, setSearch] = useState("");
@@ -297,8 +312,11 @@ export default function HistoricoPage() {
 
     return (
         <div className="max-w-7xl 2xl:max-w-9xl mx-auto pb-20 space-y-8 px-4 sm:px-6 pt-8">
-            <div className="flex flex-nowrap items-center justify-between gap-2 sm:flex-wrap sm:gap-3">
-                <h1 className="min-w-0 text-3xl font-bold text-gray-900">Histórico de Pedidos</h1>
+            <div className="flex flex-nowrap items-center justify-between gap-2 sm:gap-3">
+                <h1 ref={historyTitleRef} aria-label="Histórico de Pedidos" className="relative min-w-0 flex-1 overflow-hidden whitespace-nowrap text-3xl font-bold text-gray-900">
+                    <span ref={fullTitleRef} aria-hidden="true" className="invisible absolute left-0 top-0 w-max whitespace-nowrap">Histórico de Pedidos</span>
+                    {shortHistoryTitle ? "Histórico" : "Histórico de Pedidos"}
+                </h1>
                 {restaurantId && <div className="flex shrink-0 flex-wrap items-center gap-2 whitespace-nowrap">
                     <NfceHistoryButton restaurant={restaurantId} history={fiscal}
                         onPaid={() => setNfceRefresh(value => value + 1)} />
