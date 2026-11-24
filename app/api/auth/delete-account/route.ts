@@ -68,7 +68,7 @@ export async function POST(request: Request) {
 }
 
 const FEEDBACK_REASONS = new Set([
-  "missing_feature", "technical_problems", "difficult_to_use", "business_closed", "other",
+  "missing_feature", "technical_problems", "business_closed", "other",
 ]);
 
 function signFeedback(payload: string, secret: string) {

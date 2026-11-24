@@ -11,7 +11,6 @@ const STORAGE_KEY = "imenu:account-deletion-feedback";
 const REASONS = [
     { value: "missing_feature", label: "Faltou alguma funcionalidade" },
     { value: "technical_problems", label: "Tive problemas técnicos" },
-    { value: "difficult_to_use", label: "Achei difícil de usar" },
     { value: "business_closed", label: "Encerrei meu negócio" },
     { value: "other", label: "Outro motivo" },
 ] as const;
