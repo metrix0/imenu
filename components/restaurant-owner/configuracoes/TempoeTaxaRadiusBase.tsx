@@ -18,6 +18,7 @@ import { supabase } from "@/lib/database/supabaseClient";
 
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
+import DeliveryTimeInput from "./DeliveryTimeInput";
 import Switch from "@/components/ui/Switch";
 import Tooltip from "@/components/ui/Tooltip";
 
@@ -60,9 +61,6 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         >("idle");
 
         const minOrderRef = useRef<HTMLInputElement>(null);
-        const tempoRefs = useRef<
-            Record<number, HTMLInputElement | null>
-        >({});
         const taxaRefs = useRef<
             Record<number, HTMLInputElement | null>
         >({});
@@ -474,47 +472,17 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                                     {rule.radius_km} km
                                 </div>
 
-                                <Input
-                                    numeric
-                                    icon="min"
-                                    iconPosition="right"
+                                <DeliveryTimeInput
                                     className="w-1/3"
-                                    defaultValue={
-                                        rule.time_minutes
-                                    }
-                                    ref={(element) => {
-                                        tempoRefs.current[
-                                            index
-                                        ] = element;
-                                    }}
-                                    onChange={(event) => {
-                                        const value =
-                                            Number.parseInt(
-                                                event.target
-                                                    .value ||
-                                                    "0",
-                                                10
-                                            );
-
+                                    value={rule.time_minutes}
+                                    onCommit={(time_minutes) => {
                                         setEditRevision((revision) => revision + 1);
-                                        setRules(
-                                            (
-                                                currentRules
-                                            ) =>
-                                                currentRules.map(
-                                                    (
-                                                        currentRule,
-                                                        currentIndex
-                                                    ) =>
-                                                        currentIndex ===
-                                                        index
-                                                            ? {
-                                                                  ...currentRule,
-                                                                  time_minutes:
-                                                                      value,
-                                                              }
-                                                            : currentRule
-                                                )
+                                        setRules((currentRules) =>
+                                            currentRules.map((currentRule) =>
+                                                currentRule.radius_km === rule.radius_km
+                                                    ? { ...currentRule, time_minutes }
+                                                    : currentRule
+                                            )
                                         );
                                     }}
                                 />

@@ -20,6 +20,7 @@ import RadiusDeliveryRules, {
 } from "./TempoeTaxaRadiusBase";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
+import DeliveryTimeInput from "./DeliveryTimeInput";
 import WarningBox from "@/components/ui/WarningBox";
 import Toast from "@/components/ui/Toast";
 import { supabase } from "@/lib/database/supabaseClient";
@@ -392,19 +393,11 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                                                     })
                                                 }
                                             />
-                                            <Input
+                                            <DeliveryTimeInput
                                                 label="Tempo"
-                                                numeric
-                                                icon="min"
-                                                iconPosition="right"
-                                                value={String(rule.time_minutes)}
-                                                onChange={(event) =>
-                                                    updateRule(rule.id, {
-                                                        time_minutes: Number.parseInt(
-                                                            event.target.value || "0",
-                                                            10
-                                                        ),
-                                                    })
+                                                value={rule.time_minutes}
+                                                onCommit={(time_minutes) =>
+                                                    updateRule(rule.id, { time_minutes })
                                                 }
                                             />
                                             <Input
