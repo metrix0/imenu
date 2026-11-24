@@ -5,6 +5,9 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; // Store Global
 import Pagination from "@/components/ui/Pagination";
+import Button from "@/components/ui/Button";
+import { PanelIcon } from "@/components/ui/PanelIcon";
+import { faFileInvoice } from "@fortawesome/free-solid-svg-icons";
 import PanelFeatureCallout from "@/components/ui/PanelFeatureCallout";
 import { orderSearchFilter } from "@/lib/utils/orderSearch";
 import type { DateRange } from "@/lib/utils/dateRange";
@@ -300,7 +303,13 @@ export default function HistoricoPage() {
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <h1 className="text-3xl font-bold text-gray-900">Histórico de Pedidos</h1>
                 {restaurantId && <div className="flex flex-wrap items-center gap-2">
-                    {!fiscal.plus && <NfceUpgradeButton restaurant={restaurantId} onPaid={() => setNfceRefresh(value => value + 1)} />}
+                    {fiscal.plus === null ? (
+                        <Button variant="secondary" leftIcon={<PanelIcon icon={faFileInvoice} />} disabled>
+                            Notas Fiscais
+                        </Button>
+                    ) : fiscal.plus === false && (
+                        <NfceUpgradeButton restaurant={restaurantId} onPaid={() => setNfceRefresh(value => value + 1)} />
+                    )}
                     <NfceHistoryButton restaurant={restaurantId} history={fiscal} />
                 </div>}
             </div>

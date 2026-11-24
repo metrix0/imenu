@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { faFileInvoice, faLock } from "@fortawesome/free-solid-svg-icons";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
@@ -8,17 +8,17 @@ import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import Modal from "@/components/ui/Modal";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Input from "@/components/ui/Input";
+import Tooltip from "@/components/ui/Tooltip";
 import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
 import PanelTabCard from "@/components/restaurant-owner/ia-vendas/PanelTabCard";
 import ShortcutDatePicker from "@/components/ui/ShortcutDatePicker";
 import { PanelIcon } from "@/components/ui/PanelIcon";
 import { supabase } from "@/lib/database/supabaseClient";
 import { CARD_AT_DELIVERY_LABELS } from "@/lib/payments/deliveryMethods";
-import { qrTableAuthenticatedFetch } from "@/lib/qr-table/clientApi";
 import type { NoteSummary } from "@/lib/nfce/service";
 import type { Order } from "./OrdersTable";
 
-type History = { available: boolean; plus: boolean; archive: boolean; configured: boolean; notes: NoteSummary[] };
+type History = { available: boolean; plus: boolean | null; archive: boolean; configured: boolean; notes: NoteSummary[] };
 
 export async function nfceRequest(restaurant: string, params: Record<string, string>, init?: RequestInit) {
     const { data: { session } } = await supabase.auth.getSession();
@@ -33,27 +33,28 @@ export async function nfceRequest(restaurant: string, params: Record<string, str
     return response;
 }
 
-const emptyHistory: History = { available: false, plus: true, archive: false, configured: false, notes: [] };
+const emptyHistory: History = { available: false, plus: null, archive: false, configured: false, notes: [] };
 
 export function useNfceHistory(restaurant: string | null, orders: Order[], refresh: number) {
     const [history, setHistory] = useState<History>(emptyHistory);
+    const previousRestaurant = useRef<string | null>(null);
     const ids = orders.map(order => order.id).join(",");
     useEffect(() => {
-        if (!restaurant) { setHistory(emptyHistory); return; }
+        if (previousRestaurant.current !== restaurant) {
+            previousRestaurant.current = restaurant;
+            setHistory(emptyHistory);
+        }
+        if (!restaurant) return;
         const controller = new AbortController();
+        // This authenticated fiscal response already includes the server-verified Plus entitlement.
+        // Do not issue a second billing lookup or optimistically render paid UI before it arrives.
         nfceRequest(restaurant, { orders: ids }, { signal: controller.signal })
             .then(response => response.json())
             .then(value => { if (!controller.signal.aborted) setHistory(value); })
-            .catch(async () => {
-                try {
-                    // Keep the fiscal UI visible if its API fails; check the Plus entitlement independently.
-                    const response = await qrTableAuthenticatedFetch("/api/addons/billing?restaurantId=" + encodeURIComponent(restaurant), { signal: controller.signal, cache: "no-store" });
-                    if (!response.ok) throw new Error("Não foi possível consultar o plano.");
-                    const data = await response.json() as { addons: { addon: { product_key: string }; active: boolean }[] };
-                    if (!controller.signal.aborted) setHistory({ ...emptyHistory, plus: data.addons.some(item => item.addon.product_key === "ia_plus" && item.active) });
-                } catch {
-                    if (!controller.signal.aborted) setHistory(emptyHistory);
-                }
+            .catch(() => {
+                if (!controller.signal.aborted) setHistory(current => ({
+                    ...current, available: false, configured: false, notes: [],
+                }));
             });
         return () => controller.abort();
     }, [restaurant, ids, refresh]);
@@ -94,9 +95,11 @@ export function NfceUpgradeButton({ restaurant, onPaid, row = false }: { restaur
                 <Button variant="secondary" onClick={() => setOpen(true)}>Ativar com iMenu Plus</Button>
             </CollapsibleSection>
         ) : (
-            <Button variant="secondary" leftIcon={<PanelIcon icon={faLock} />} onClick={() => setOpen(true)}>
-                Notas Fiscais · Recurso do iMenu Plus
-            </Button>
+            <Tooltip text="Recurso exclusivo do iMenu Plus" parentClassName="inline-flex">
+                <Button variant="secondary" leftIcon={<PanelIcon icon={faLock} />} onClick={() => setOpen(true)}>
+                    Notas Fiscais
+                </Button>
+            </Tooltip>
         )}
         {open && <IaPlusSalesModal open onClose={() => setOpen(false)} restaurantId={restaurant}
             contextMessage="Com o iMenu Plus, emita NFC-e e baixe os XMLs das suas notas fiscais por período."
@@ -141,7 +144,7 @@ export function NfceHistoryButton({ restaurant, history }: { restaurant: string;
             setError((error as Error).message);
         } finally { setLoading(false); }
     };
-    if (!history.plus && (!history.archive || removed)) return null;
+    if (history.plus === null || (history.plus === false && (!history.archive || removed))) return null;
     return <>
         <Button variant="secondary" leftIcon={<PanelIcon icon={faFileInvoice} />} onClick={() => { setError(""); setCustom(false); setOpen(true); }}>
             {history.plus ? "Notas Fiscais" : "Baixar notas anteriores"}
