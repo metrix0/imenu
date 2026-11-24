@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
-    ArrowLeft, ArrowRight, Bot, CalendarClock, Moon, PackageCheck,
+    ArrowLeft, ArrowRight, Bot, CalendarClock, FileText, Moon, PackageCheck,
     Settings, ShoppingCart, Sparkles, TrendingUp, UserRoundCheck,
 } from "lucide-react";
 
@@ -15,6 +15,7 @@ import ModalFlowStep from "@/components/ui/ModalFlowStep";
 import SaveStatus from "@/components/ui/SaveStatus";
 import ToggleOptionCard from "@/components/ui/ToggleOptionCard";
 import { IA_PLUS_WHATSAPP_ORDERING } from "@/lib/addons/products";
+import { nfceRequest } from "@/components/restaurant-owner/pedidos/NfceHistory";
 import { crmRequest } from "@/lib/api/crm";
 import { supabase } from "@/lib/database/supabaseClient";
 import { qrTableAuthenticatedFetch } from "@/lib/qr-table/clientApi";
@@ -38,6 +39,7 @@ const SETTINGS = [
     { key: "orderNotificationsEnabled", title: "Atualizações de pedidos", description: "Avise quando o pedido estiver pronto ou sair para entrega.", icon: PackageCheck, step: 2 },
     { key: "upsell", title: "Upsell Automático", description: "Sugira itens complementares no carrinho.", icon: TrendingUp, step: 3 },
     { key: "darkMenu", title: "Cardápio com Tema Escuro", description: "Mostre o cardápio com o visual escuro para seus clientes.", icon: Moon, step: 3 },
+    { key: "nfce", title: "Notas Fiscais", description: "Emita notas fiscais dos pedidos automaticamente, sem limites.", icon: FileText, step: 3 },
 ] as const;
 
 const PANEL_SECTIONS = [
@@ -55,18 +57,22 @@ type MarketingReview = {
     choices: Pick<Values, AutomationKind>;
     unconfigured: AutomationKind[];
 };
-type Setup = { values: Values; connected: boolean; marketingReview: MarketingReview | null };
+type FiscalSetup = { available: boolean; enabled: boolean; configured: boolean };
+type FiscalSettings = { available: boolean; environment: number | null; issuer: { data: Record<string, unknown>; next_number: number } | null };
+type Setup = { values: Values; connected: boolean; marketingReview: MarketingReview | null; fiscal: FiscalSetup };
 
 function isMarketingSetting(key: SettingKey): key is AutomationKind {
     return AUTOMATION_KINDS.some((kind) => kind === key);
 }
 
 async function loadSetup(id: string): Promise<Setup> {
-    const [marketing, whatsapp, upsell, restaurant] = await Promise.all([
+    const [marketing, whatsapp, upsell, restaurant, fiscal] = await Promise.all([
         crmRequest("/api/automations", id) as Promise<{ plus: boolean; settings: AutomationSettings; configuredKinds: AutomationKind[]; connected: boolean }>,
         crmRequest("/api/whatsapp/settings", id) as Promise<{ plus: boolean; aiEnabled: boolean; orderNotificationsEnabled: boolean }>,
         supabase.from("automatic_upsell").select("enabled").eq("restaurant_id", id).maybeSingle(),
         supabase.from("restaurants").select("dark_menu_enabled").eq("id", id).single(),
+        nfceRequest(id, { action: "list" }).then(async response => await response.json() as FiscalSetup)
+            .catch((): FiscalSetup => ({ available: false, enabled: false, configured: false })),
     ]);
     if (!marketing.plus || !whatsapp.plus) throw new Error("Os ajustes rápidos estão disponíveis com o iMenu Plus ativo.");
     if (upsell.error || restaurant.error) throw new Error("Não foi possível carregar as configurações do cardápio.");
@@ -75,6 +81,7 @@ async function loadSetup(id: string): Promise<Setup> {
     const suggested = (kind: AutomationKind) => unconfigured.includes(kind) || marketing.settings[kind].enabled;
     return {
         connected: marketing.connected,
+        fiscal,
         marketingReview: unconfigured.length ? {
             choices: { habit: suggested("habit"), reactivation: suggested("reactivation"), cart: suggested("cart") },
             unconfigured,
@@ -87,11 +94,25 @@ async function loadSetup(id: string): Promise<Setup> {
             orderNotificationsEnabled: whatsapp.orderNotificationsEnabled,
             upsell: upsell.data?.enabled === true,
             darkMenu: restaurant.data.dark_menu_enabled === true,
+            nfce: fiscal.enabled === true,
         },
     };
 }
 
 async function saveSetting(id: string, key: SettingKey, enabled: boolean) {
+    if (key === "nfce") {
+        const current = await nfceRequest(id, { action: "settings" }).then(async response => await response.json() as FiscalSettings);
+        if (!current.available || !current.environment) throw new Error("A emissão fiscal está indisponível neste ambiente.");
+        const form = new FormData();
+        form.set("settings", JSON.stringify({
+            ...(current.issuer?.data ?? {}),
+            series: current.issuer?.data?.series ?? 1,
+            nextNumber: current.issuer?.next_number ?? 1,
+            enabled,
+        }));
+        await nfceRequest(id, { action: "settings" }, { method: "POST", body: form });
+        return;
+    }
     if (key === "upsell") {
         const { error } = await supabase.from("automatic_upsell").upsert(
             { restaurant_id: id, enabled },
@@ -254,10 +275,23 @@ export default function IMenuPlusSetup({ restaurantId, onClose, onSavingChange }
                                 </p>
                             )}
                             {SETTINGS.filter((setting) => setting.step === step).map(({ key, title, description, icon: Icon }) => (
-                                <ToggleOptionCard key={key} label={title} description={description}
+                                <ToggleOptionCard key={key} label={title}
+                                    description={key === "nfce" ? <>
+                                        {description}
+                                        {setup.values.nfce && !setup.fiscal.configured && (
+                                            <span className="mt-1 block">
+                                                Conclua a configuração em{" "}
+                                                <a href="/painel/configuracoes#nfce" target="_blank" rel="noopener noreferrer"
+                                                    className="font-medium text-brand underline underline-offset-2">Configurações</a>.
+                                            </span>
+                                        )}
+                                    </> : description}
                                     checked={reviewingMarketing && isMarketingSetting(key) ? reviewingMarketing.choices[key] : setup.values[key]}
                                     onChange={(checked) => toggle(key, checked)}
-                                    badge={key === "darkMenu" ? <Badge variant="neutral">Opcional</Badge> : undefined}
+                                    disabled={key === "nfce" && !setup.fiscal.available}
+                                    badge={key === "darkMenu" ? <Badge variant="neutral">Opcional</Badge>
+                                        : key === "nfce" && setup.values.nfce && !setup.fiscal.configured
+                                            ? <Badge variant="warning">Não configurado</Badge> : undefined}
                                     ariaLabel={title} icon={<Icon size={18} aria-hidden="true" />} className="max-sm:p-3!" />
                             ))}
                         </div>
