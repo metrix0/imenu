@@ -88,7 +88,7 @@ export function NfceUpgradeButton({ restaurant, onPaid, row = false, compact = f
     return <>
         {iconOnly ? (
             <button type="button" title="Nota fiscal · iMenu Plus" aria-label="Conhecer notas fiscais com iMenu Plus"
-                className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-gray-500 opacity-35 transition-colors hover:text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                className="panel-history-action inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-gray-500 opacity-35 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                 onKeyDown={event => event.stopPropagation()}
                 onClick={event => { event.stopPropagation(); setOpen(true); }}>
                 <PanelIcon icon={faFileInvoice} />
@@ -269,14 +269,14 @@ export function NfceOrderSection({ order, note, restaurant, configured, focus, o
             <div className="flex shrink-0 items-center gap-1">
                 {note && ["authorized", "canceled", "contingency"].includes(note.status) && (
                     <button type="button" title="Baixar PDF" aria-label="Baixar PDF da nota fiscal"
-                        className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-gray-500 transition-colors hover:text-brand focus-visible:outline-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-40"
+                        className="panel-fiscal-download inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-gray-500 transition-colors focus-visible:outline-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-40"
                         disabled={busy} onClick={() => void run(async () => { await download(restaurant, { action: "pdf", order: order.id }, "danfe.pdf"); })}>
                         <FileText size={16} strokeWidth={1.75} aria-hidden="true" />
                     </button>
                 )}
                 {note && ["authorized", "canceled"].includes(note.status) && (
                     <button type="button" title="Baixar XML" aria-label="Baixar XML da nota fiscal"
-                        className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-gray-500 transition-colors hover:text-brand focus-visible:outline-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-40"
+                        className="panel-fiscal-download inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-gray-500 transition-colors focus-visible:outline-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-40"
                         disabled={busy} onClick={() => void run(async () => { await download(restaurant, { action: "xml", order: order.id }, "nfce.xml"); })}>
                         <Download size={16} strokeWidth={1.75} aria-hidden="true" />
                     </button>

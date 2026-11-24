@@ -326,6 +326,23 @@
 .panel-essencial .panel-complements .shadow-sm { box-shadow:none; }
 .panel-essencial [data-ui="card"].panel-history-table { padding:0; }
 .panel-essencial .panel-history-table [data-ui="table"] { border:0; border-radius:0; }
+/* Order actions change only the glyph color, never the button background. */
+.panel-essencial .panel-history-table .panel-history-action,
+.panel-essencial .panel-history-table .panel-history-action:hover {
+  background-color: transparent;
+}
+.panel-essencial .panel-history-table .panel-history-action:hover:not(:disabled),
+.panel-essencial .panel-history-table .panel-history-action:hover:not(:disabled) .panel-icon {
+  color: var(--panel-accent-text);
+}
+.panel-essencial .panel-history-table .panel-history-action-delete:hover:not(:disabled),
+.panel-essencial .panel-history-table .panel-history-action-delete:hover:not(:disabled) .panel-icon {
+  color: #dc2626;
+}
+.panel-essencial .panel-fiscal-download:hover:not(:disabled) {
+  color: var(--panel-accent-text);
+  background-color: transparent;
+}
 .panel-essencial .panel-sidebar-header { padding-inline:8px; }
 .panel-essencial .panel-sidebar-toggle { width:48px; height:36px; }
 .panel-essencial .panel-sidebar[data-expanded="true"] .panel-sidebar-toggle { width:36px; }

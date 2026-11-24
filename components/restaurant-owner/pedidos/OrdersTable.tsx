@@ -48,7 +48,7 @@ export default function OrdersTable({ orders, isLoading, onViewOrder, onEditOrde
         />
     );
 
-    const actionIconClass = "inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-gray-500 transition-colors hover:text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand";
+    const actionIconClass = "panel-history-action inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-gray-500 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand";
 
     const fiscalButton = (order: Order) => {
         const generated = Boolean(fiscalIds?.has(order.id));
@@ -59,7 +59,7 @@ export default function OrdersTable({ orders, isLoading, onViewOrder, onEditOrde
             <button type="button" title={generated ? "Ver nota fiscal" : "Nota fiscal não emitida"}
                 aria-label={generated ? "Ver nota fiscal do pedido" : "Nota fiscal ainda não emitida"}
                 disabled={!generated || !onViewFiscal}
-                className={`${actionIconClass} ${generated ? "" : "opacity-35"} disabled:cursor-default disabled:hover:text-gray-500`}
+                className={`${actionIconClass} ${generated ? "" : "opacity-35"} disabled:cursor-default`}
                 onKeyDown={event => event.stopPropagation()}
                 onClick={event => { event.stopPropagation(); onViewFiscal?.(order); }}>
                 <FontAwesomeIcon icon={faFileInvoice} />
@@ -69,6 +69,7 @@ export default function OrdersTable({ orders, isLoading, onViewOrder, onEditOrde
 
     const actionButtons = (order: Order) => (
         <div className="flex shrink-0 items-center gap-1">
+            {fiscalButton(order)}
             <button type="button" title="Ver detalhes"
                 aria-label={`Ver detalhes do pedido #${order.display_id || order.id.slice(0, 4)}`}
                 className={actionIconClass}
@@ -76,7 +77,6 @@ export default function OrdersTable({ orders, isLoading, onViewOrder, onEditOrde
                 onClick={event => { event.stopPropagation(); onViewOrder?.(order); }}>
                 <FontAwesomeIcon icon={faEye} />
             </button>
-            {fiscalButton(order)}
             {onEditOrder && <button type="button" title="Editar pedido"
                 aria-label={`Editar pedido #${order.display_id || order.id.slice(0, 4)}`}
                 className={actionIconClass}
@@ -86,7 +86,7 @@ export default function OrdersTable({ orders, isLoading, onViewOrder, onEditOrde
             </button>}
             {onDeleteOrder && <button type="button" title="Excluir pedido"
                 aria-label={`Excluir pedido #${order.display_id || order.id.slice(0, 4)}`}
-                className={actionIconClass.replace("hover:text-brand", "hover:text-red-600")}
+                className={`${actionIconClass} panel-history-action-delete`}
                 onKeyDown={event => event.stopPropagation()}
                 onClick={event => { event.stopPropagation(); onDeleteOrder(order); }}>
                 <FontAwesomeIcon icon={faTrash} />
