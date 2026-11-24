@@ -87,8 +87,9 @@ export function NfceUpgradeButton({ restaurant, onPaid, row = false, compact = f
 
     return <>
         {iconOnly ? (
-            <button type="button" title="Nota fiscal · iMenu Plus" aria-label="Conhecer notas fiscais com iMenu Plus"
-                className="panel-history-action inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-gray-500 opacity-35 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+            <button type="button" title="Nota fiscal: Recurso iMenu Plus" aria-label="Nota fiscal: Recurso iMenu Plus"
+                data-fiscal-muted="true"
+                className="panel-history-action inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-gray-500 opacity-35 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                 onKeyDown={event => event.stopPropagation()}
                 onClick={event => { event.stopPropagation(); setOpen(true); }}>
                 <FileText className="panel-icon" size="1em" strokeWidth={1.75} aria-hidden="true" />

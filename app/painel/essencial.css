@@ -331,16 +331,16 @@
 .panel-essencial .panel-history-table .panel-history-action:hover {
   background-color: transparent;
 }
-.panel-essencial .panel-history-table .panel-history-action:hover:not(:disabled),
-.panel-essencial .panel-history-table .panel-history-action:hover:not(:disabled) .panel-icon {
-  color: var(--panel-accent-text);
+.panel-essencial .panel-history-table .panel-history-action:hover:not(:disabled):not([data-fiscal-muted="true"]),
+.panel-essencial .panel-history-table .panel-history-action:hover:not(:disabled):not([data-fiscal-muted="true"]) .panel-icon {
+  color: var(--panel-text);
 }
 .panel-essencial .panel-history-table .panel-history-action-delete:hover:not(:disabled),
 .panel-essencial .panel-history-table .panel-history-action-delete:hover:not(:disabled) .panel-icon {
   color: #dc2626;
 }
 .panel-essencial .panel-fiscal-download:hover:not(:disabled) {
-  color: var(--panel-accent-text);
+  color: var(--panel-text);
   background-color: transparent;
 }
 .panel-essencial .panel-sidebar-header { padding-inline:8px; }

@@ -59,6 +59,7 @@ export default function OrdersTable({ orders, isLoading, onViewOrder, onEditOrde
         return (
             <button type="button" title={generated ? "Ver nota fiscal" : "Nota fiscal não emitida"}
                 aria-label={generated ? "Ver nota fiscal do pedido" : "Nota fiscal ainda não emitida"}
+                data-fiscal-muted={!generated}
                 disabled={!generated || !onViewFiscal}
                 className={`${actionIconClass} ${generated ? "" : "opacity-35"} disabled:cursor-default`}
                 onKeyDown={event => event.stopPropagation()}
