@@ -93,7 +93,7 @@ export function NfceUpgradeButton({ restaurant, onPaid, row = false, compact = f
                 className="panel-history-action inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-gray-500 opacity-35 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                 onKeyDown={event => event.stopPropagation()}
                 onClick={event => { event.stopPropagation(); setOpen(true); }}>
-                <FileText className="panel-icon" size="1em" strokeWidth={1.75} aria-hidden="true" />
+                <FileBadge className="panel-icon" size="1em" strokeWidth={1.75} aria-hidden="true" />
             </button>
         ) : compact ? (
             <button type="button" className="cursor-pointer rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" onClick={() => setOpen(true)}>
