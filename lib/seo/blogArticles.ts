@@ -17,6 +17,18 @@ export type BlogArticleDefinition = {
 
 export const BLOG_ARTICLES: BlogArticleDefinition[] = [
     {
+        slug: "nfce-para-restaurantes-sao-paulo",
+        title: "NFC-e para restaurantes em São Paulo: como emitir e organizar suas notas",
+        shortTitle: "NFC-e para restaurantes em SP",
+        metaTitle: "NFC-e para Restaurantes em SP: Como Emitir | iMenu",
+        metaDescription: "Veja como configurar a NFC-e no restaurante em São Paulo: certificado digital A1, emissão automática, DANFE em PDF, XML e histórico de notas no iMenu.",
+        excerpt: "Saiba como preparar os dados fiscais do seu restaurante, habilitar a emissão de NFC-e e localizar PDF, XML e arquivos por período no iMenu.",
+        category: "Gestão",
+        readingTime: "8 min de leitura",
+        publishedAt: "2026-11-24",
+        updatedAt: "2026-11-24",
+    },
+    {
         slug: "cardapio-digital-com-fotos-e-videos",
         title: "Cardápio digital com fotos e vídeos: como mostrar melhor seus pratos",
         shortTitle: "Cardápio digital com fotos e vídeos",
