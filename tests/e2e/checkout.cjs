@@ -317,6 +317,81 @@ async function flow(browser, method, pickupMode = "only", width = 800) {
     }
 }
 
+async function cachedPanelSession(browser) {
+    const loginPath = "/restaurante/login";
+    const authStorageKey = process.env.NEXT_PUBLIC_SUPABASE_AUTH_STORAGE_KEY || "sb-127-auth-token";
+    const expiry = Math.floor(Date.now() / 1000) + 3600;
+    const user = { id: "60000000-0000-4000-8000-000000000001", aud: "authenticated",
+        role: "authenticated", email: "e2e@example.invalid", email_confirmed_at: "2026-01-01T00:00:00Z" };
+    const token = ["eyJhbGciOiJIUzI1NiJ9", Buffer.from(JSON.stringify({ sub: user.id, aud: "authenticated", exp: expiry }))
+        .toString("base64url"), "testsignature"].join(".");
+    const session = { access_token: token, refresh_token: "fixture", token_type: "bearer", expires_at: expiry, user };
+
+    for (const revoked of [true, false]) {
+        const context = await browser.createBrowserContext();
+        try {
+            const page = await context.newPage();
+            let verificationRequests = 0;
+            let logoutRequests = 0;
+            await page.evaluateOnNewDocument(({ authStorageKey, session, restaurantId }) => {
+                if (sessionStorage.getItem("e2e-auth-seeded")) return;
+                sessionStorage.setItem("e2e-auth-seeded", "1");
+                localStorage.setItem(authStorageKey, JSON.stringify(session));
+                localStorage.setItem(authStorageKey + "-code-verifier", "fixture");
+                localStorage.setItem(authStorageKey + "-user", JSON.stringify({ user: session.user }));
+                localStorage.setItem("imenu:landing-panel-auto-redirect", "true");
+                localStorage.setItem("restaurant-creation-storage", JSON.stringify({
+                    state: { restaurantId, email: session.user.email, productSelectionCompleted: true },
+                    version: 0,
+                }));
+                sessionStorage.setItem("imenu-creation-complete:" + session.user.id, "true");
+            }, { authStorageKey, session, restaurantId });
+            await page.setRequestInterception(true);
+            page.on("request", request => {
+                const url = new URL(request.url());
+                const respond = (status, body) => request.respond({ status, contentType: "application/json",
+                    headers: { "Access-Control-Allow-Origin": "*" }, body: JSON.stringify(body) });
+                if (url.port === String(SUPABASE_PORT) && request.method() !== "OPTIONS") {
+                    if (url.pathname === "/auth/v1/user") {
+                        verificationRequests++;
+                        return revoked ? respond(403, { code: "session_not_found", msg: "Session not found" }) : respond(200, user);
+                    }
+                    if (url.pathname === "/auth/v1/logout") {
+                        logoutRequests++;
+                        return respond(503, { msg: "Unavailable" });
+                    }
+                }
+                return request.continue();
+            });
+
+            await page.goto(BASE + loginPath, { waitUntil: "networkidle2" });
+            if (revoked) {
+                assert.ok(verificationRequests > 0, "A cached session must be verified with Supabase");
+                assert.equal(new URL(page.url()).pathname, loginPath);
+                assert.ok(await page.$('input[autocomplete="current-password"]'), "The sign-in form must remain accessible");
+                console.log("PASS revoked cached session stays at sign-in");
+                continue;
+            }
+
+            await page.waitForFunction(() => location.pathname === "/painel");
+            assert.ok(verificationRequests > 0, "A valid cached session must be verified before redirect");
+            await page.goto(BASE + "/painel/configuracoes", { waitUntil: "networkidle2" });
+            await click(page, "Sair da conta");
+            await page.waitForFunction(path => location.pathname === path, {}, loginPath);
+            assert.ok(logoutRequests > 0, "Logout must attempt to revoke the session");
+            const cachedKeys = await page.evaluate(key =>
+                [key, key + "-code-verifier", key + "-user", "imenu:landing-panel-auto-redirect"]
+                    .filter(entry => localStorage.getItem(entry) !== null), authStorageKey);
+            assert.deepEqual(cachedKeys, [], "Logout must clear the configured auth cache after a server error");
+            await page.reload({ waitUntil: "networkidle2" });
+            assert.equal(new URL(page.url()).pathname, loginPath);
+            console.log("PASS valid session auto-login and local logout after a server error");
+        } finally {
+            await context.close();
+        }
+    }
+}
+
 async function panelOrders(browser) {
     const context = await browser.createBrowserContext();
     const page = await context.newPage();
@@ -557,6 +632,7 @@ async function run() {
         });
         await landingPlanSpacing(browser);
         await signup(browser);
+        await cachedPanelSession(browser);
         await flow(browser, "dinheiro");
         await flow(browser, "pix");
         await flow(browser, "credito-entrega");

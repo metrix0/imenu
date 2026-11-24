@@ -20,7 +20,7 @@ import {
     faTrash,
     faVolumeHigh,
 } from "@fortawesome/free-solid-svg-icons";
-import { supabase } from "@/lib/database/supabaseClient";
+import { clearCachedAuthSession, supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
@@ -727,14 +727,8 @@ export default function ConfiguracoesPage() {
         }
 
         try {
-            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-            if (!supabaseUrl) throw new Error("Supabase URL missing");
-            const projectRef = new URL(supabaseUrl).hostname.split(".")[0];
-            const storageKey = `sb-${projectRef}-auth-token`;
-
             // Supabase can leave the cached session behind when server sign-out fails.
-            window.localStorage.removeItem(storageKey);
-            window.localStorage.removeItem(`${storageKey}-code-verifier`);
+            clearCachedAuthSession();
             window.localStorage.removeItem("imenu:landing-panel-auto-redirect");
 
             clear();

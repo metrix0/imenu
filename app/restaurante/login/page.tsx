@@ -164,8 +164,8 @@ export default function AdminLogin() {
             } else {
                 const freshSignIn = new URLSearchParams(window.location.search).get("next") === "atualizando-email";
                 callbackSessionPromise.current = freshSignIn ? Promise.resolve(null) : supabase.auth
-                    .getSession()
-                    .then(({ data }) => data.session?.user ?? null);
+                    .getUser()
+                    .then(({ data, error }) => error ? null : data.user);
             }
         }
 
