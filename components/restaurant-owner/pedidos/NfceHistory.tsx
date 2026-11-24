@@ -11,7 +11,10 @@ import Input from "@/components/ui/Input";
 import Tooltip from "@/components/ui/Tooltip";
 import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
 import PanelTabCard from "@/components/restaurant-owner/ia-vendas/PanelTabCard";
-import ShortcutDatePicker from "@/components/ui/ShortcutDatePicker";
+import DateRangePicker from "@/components/ui/DateRangePicker";
+import DataTable from "@/components/ui/DataTable";
+import Pagination from "@/components/ui/Pagination";
+import { DATE_FILTER_PRESETS, getPreviousMonthRange } from "@/lib/utils/dateRange";
 import { supabase } from "@/lib/database/supabaseClient";
 import { CARD_AT_DELIVERY_LABELS } from "@/lib/payments/deliveryMethods";
 import type { NoteSummary } from "@/lib/nfce/service";
@@ -121,13 +124,30 @@ export function NfceUpgradeButton({ restaurant, onPaid, row = false, compact = f
 
 export function NfceHistoryButton({ restaurant, history, onPaid }: { restaurant: string; history: History; onPaid: () => void | Promise<void> }) {
     const [open, setOpen] = useState(false);
-    const [custom, setCustom] = useState(false);
     const [receipt, setReceipt] = useState<string | null>(null);
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [removed, setRemoved] = useState(false);
     const [range, setRange] = useState(thisMonth);
+    const [page, setPage] = useState(0);
+    const [invoiceList, setInvoiceList] = useState<{ notes: Pick<NoteSummary, "order_id" | "number" | "series" | "issued_at" | "status">[]; pageCount: number }>({ notes: [], pageCount: 0 });
+    const [listLoading, setListLoading] = useState(false);
+    const [listError, setListError] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+    const showTable = history.available && (history.plus === true ? history.configured : history.plus === false && history.archive && !removed);
+    useEffect(() => {
+        if (!open || !showTable) return;
+        const controller = new AbortController();
+        setListLoading(true);
+        setListError("");
+        setInvoiceList({ notes: [], pageCount: 0 });
+        nfceRequest(restaurant, { action: "history", start: range.startDate, end: range.endDate, page: String(page) }, { signal: controller.signal })
+            .then(response => response.json())
+            .then(value => { if (!controller.signal.aborted) setInvoiceList(value); })
+            .catch(error => { if (!controller.signal.aborted) setListError((error as Error).message); })
+            .finally(() => { if (!controller.signal.aborted) setListLoading(false); });
+        return () => controller.abort();
+    }, [open, showTable, restaurant, range.startDate, range.endDate, page]);
     const exportPeriod = async (period: ReturnType<typeof thisMonth>) => {
         setLoading(true);
         setError("");
@@ -160,7 +180,7 @@ export function NfceHistoryButton({ restaurant, history, onPaid }: { restaurant:
     return <>
         <Tooltip text="Recurso exclusivo do iMenu Plus" disabled={history.plus !== false} parentClassName="inline-flex">
             <Button variant="secondary" leftIcon={<FileBadge className="panel-icon" size="1em" strokeWidth={1.75} aria-hidden="true" />}
-                onClick={() => { setError(""); setCustom(false); setOpen(true); }}>
+                onClick={() => { setError(""); setListError(""); setInvoiceList({ notes: [], pageCount: 0 }); setListLoading(true); setRange(thisMonth()); setPage(0); setOpen(true); }}>
                 Notas Fiscais
             </Button>
         </Tooltip>
@@ -170,9 +190,18 @@ export function NfceHistoryButton({ restaurant, history, onPaid }: { restaurant:
                 contextMessage="Com o iMenu Plus, emita NFC-e e baixe os XMLs das suas notas fiscais por período."
                 onPaid={() => { setOpen(false); return onPaid(); }} />
         ) : (
-        <Modal open={open} onClose={() => setOpen(false)} height={380} showCloseButton>
+        <Modal open={open} onClose={() => setOpen(false)} height={showTable ? 720 : 380} showCloseButton>
             <section className="w-full space-y-5 rounded-lg bg-white p-6" aria-label="Notas Fiscais">
-                <h2 className="text-xl font-bold text-gray-900">Notas Fiscais</h2>
+                <div className="flex flex-wrap items-end justify-between gap-3 pr-10">
+                    <h2 className="text-xl font-bold text-gray-900">Notas Fiscais</h2>
+                    {showTable && <div className="flex flex-wrap items-end gap-2">
+                        <div className="w-40 sm:w-48">
+                            <DateRangePicker value={range} presets={[{ label: "Este mês", getRange: thisMonth }, { label: "Mês anterior", getRange: getPreviousMonthRange }, ...DATE_FILTER_PRESETS]}
+                                onChange={value => { setRange(value); setPage(0); setError(""); }} />
+                        </div>
+                        <Button leftIcon={<Download size={16} />} onClick={() => void exportPeriod(range)} loading={loading} disabled={loading || listLoading || !!listError || invoiceList.pageCount === 0}>Baixar todas</Button>
+                    </div>}
+                </div>
                 {history.plus === null ? (
                     <p className="text-sm text-gray-600" role="status">Verificando acesso às notas fiscais…</p>
                 ) : history.plus && (!history.available || !history.configured) ? (
@@ -191,15 +220,17 @@ export function NfceHistoryButton({ restaurant, history, onPaid }: { restaurant:
                     </div>
                 ) : (
                     <>
-                        <p className="text-sm text-gray-600">Baixe um ZIP com os XMLs autorizados e os eventos de cancelamento.</p>
-                        <div className="flex flex-wrap gap-2">
-                            <Button onClick={() => void exportPeriod(thisMonth())} loading={loading && !custom} disabled={loading || !history.available}>Baixar notas deste mês</Button>
-                            <Button variant="secondary" onClick={() => { setCustom(value => !value); setError(""); }} disabled={loading || !history.available}>Período personalizado</Button>
-                        </div>
-                        {custom && <div className="flex flex-wrap items-end gap-3">
-                            <ShortcutDatePicker value={range} onChange={setRange} />
-                            <Button onClick={() => void exportPeriod(range)} loading={loading} disabled={!range.startDate || !range.endDate}>Baixar XMLs</Button>
-                        </div>}
+                        {showTable && <>
+                            <DataTable rows={invoiceList.notes} rowKey={note => note.order_id} loading={listLoading}
+                                emptyMessage={listError || "Nenhuma nota fiscal neste período."}
+                                columns={[
+                                    { key: "number", label: "Número", render: note => note.number ?? "—" },
+                                    { key: "series", label: "Série", render: note => note.series ?? "—" },
+                                    { key: "issued_at", label: "Emissão", className: "whitespace-nowrap", render: note => new Date(note.issued_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" }) },
+                                    { key: "status", label: "Situação", render: note => <Badge variant={note.status === "canceled" ? "danger" : note.status === "authorized" ? "success" : "neutral"}>{stateLabels[note.status] ?? note.status}</Badge> },
+                                ]} />
+                            {invoiceList.pageCount > 1 && <Pagination page={page} pageCount={invoiceList.pageCount} onChange={setPage} disabled={listLoading} />}
+                        </>}
                         {!history.plus && <div className="flex flex-wrap gap-2">
                             <Button variant="secondary" onClick={() => void downloadArchive()} disabled={loading}>Baixar arquivo completo</Button>
                             {receipt && <Button variant="secondary" onClick={() => setConfirmDelete(true)} disabled={loading}>Confirmar recebimento</Button>}

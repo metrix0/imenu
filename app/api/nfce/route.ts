@@ -67,6 +67,26 @@ export async function GET(request: Request) {
             ]);
             return NextResponse.json({ available: true, plus, environment: env, issuer: issuer.rows[0] ?? null, items: items.rows }, { headers });
         }
+        if (action === "history") {
+            const start = boundedDate(params.get("start"));
+            const end = boundedDate(params.get("end"));
+            if (start > end) throw new FiscalError("Selecione um período válido.");
+            end.setUTCDate(end.getUTCDate() + 1);
+            const page = Number(params.get("page") ?? "0");
+            if (!Number.isSafeInteger(page) || page < 0 || page > 1000000) throw new FiscalError("Página inválida.");
+            const pageSize = 20;
+            // Match the existing ZIP scope, including access to retained XMLs after Plus expires.
+            const filter = "restaurant_id=$1 AND environment=$2 AND issued_at >= $3 AND issued_at < $4 AND authorized_xml IS NOT NULL";
+            const args = [restaurant, env, start, end];
+            const [notes, count] = await Promise.all([
+                query<Pick<NoteSummary, "order_id" | "number" | "series" | "issued_at" | "status">>(`
+                    SELECT order_id,number,series,issued_at,status FROM public.nfce_documents
+                    WHERE ${filter}
+                    ORDER BY issued_at DESC,order_id DESC LIMIT $5 OFFSET $6`, [...args, pageSize, page * pageSize]),
+                query<{ total: number }>(`SELECT count(*)::int AS total FROM public.nfce_documents WHERE ${filter}`, args),
+            ]);
+            return NextResponse.json({ notes: notes.rows, pageCount: Math.ceil((count.rows[0]?.total ?? 0) / pageSize) }, { headers });
+        }
         if (action === "zip") {
             const everything = params.get("all") === "1" && !plus;
             const start = everything ? null : boundedDate(params.get("start"));
