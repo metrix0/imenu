@@ -432,6 +432,7 @@
 .panel-essencial [data-panel-path="/painel/configuracoes"] h2,
 .panel-essencial [data-panel-path="/painel/analytics"] h2 { font-size:21px; line-height:28px; font-weight: 700; letter-spacing:normal; }
 .panel-essencial [data-panel-path="/painel/configuracoes"] h3,
+.panel-essencial [data-panel-path="/painel/configuracoes"] .nfce-settings-title,
 .panel-essencial [data-panel-path="/painel/analytics"] h3 { font-size:16px; line-height:24px; font-weight: 700; }
 @media (max-width:767px) {
   .panel-essencial [data-panel-path="/painel/configuracoes"] h1,
