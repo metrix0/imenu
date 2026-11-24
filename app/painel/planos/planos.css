@@ -262,7 +262,7 @@
         break-inside: avoid;
         margin-bottom: 16px;
     }
-    .panel-essencial .plans-plus-extras { break-inside: avoid; }
+    .panel-essencial .plans-plus-extras { break-inside: avoid; padding-top: 8px; }
 }
 @container (max-width: 759px) {
     .panel-essencial .plans-plus-header {
