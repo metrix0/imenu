@@ -10,8 +10,10 @@ import {
     type Issuer, type Sale,
 } from "./sefaz";
 import { danfePdf } from "./danfe";
+import { parseFiscalDeliveryAddress } from "./service";
 
 jest.mock("node:https", () => ({ request: jest.fn() }));
+jest.mock("@/lib/database/sql", () => ({ query: jest.fn() }));
 
 const address = { street: "Rua A", number: "10", district: "Centro", city: "São Paulo", cityCode: "3550308", cep: "01001000" };
 const tax = { cfop: "5102", ncm: "21069090", csosn: "102", origin: "0" };
@@ -122,14 +124,24 @@ test("exercises direct authorization and key-based recovery against a simulated 
     expect(requestBody).toContain(`<chNFe>${note.key}</chNFe>`);
 });
 
-test("classifies home delivery correctly and serializes its address without buyer ID", () => {
-    const delivery = { ...sale, delivery: true, recipientAddress: address };
+test.each([
+    ["Rua A, 10 - Centro - 01002-000", false, "01002000"],
+    ["Rua A, 10, Centro, Sao Paulo - SP, 01002000, Brasil · Portão", false, "01002000"],
+    ["Rua A, 10 - Centro", true, "01001000"],
+    ["Rua A, 10, Centro, São Paulo - SP, , Brasil", true, "01001000"],
+    ["Rua A, 10 - Centro", false, ""],
+])("serializes the recipient address in the signed delivery XML for %s", (savedAddress, useCityCep, expectedCep) => {
+    const recipientAddress = parseFiscalDeliveryAddress(savedAddress, issuer, useCityCep);
+    expect(recipientAddress).not.toBeNull();
+    const delivery = { ...sale, delivery: true, recipientAddress: recipientAddress! };
     const note = buildNote(issuer, delivery, identity, 2, 31);
     expect(field(elements(note.xml, "ide")[0], "indPres")).toBe("4");
     const destination = elements(note.xml, "dest");
     expect(destination).toHaveLength(1);
     expect(field(destination[0], "xLgr")).toBe("Rua A");
     expect(field(destination[0], "nro")).toBe("10");
+    expect(field(destination[0], "xBairro")).toBe("Centro");
+    expect(field(destination[0], "CEP")).toBe(expectedCep);
     expect(field(destination[0], "cMun")).toBe("3550308");
     expect(field(destination[0], "indIEDest")).toBe("9");
     expect(note.xml).not.toContain("<CPF>");

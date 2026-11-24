@@ -94,8 +94,8 @@ export default function MenuProductCard(props: MenuProductCardProps) {
             );
         }
 
-        const planFeatures = props.featureDetails ?? props.features.map((title) => ({ title, description: "" }));
-        const planBonuses = props.bonusDetails ?? props.bonuses?.map((title) => ({ title, description: "" })) ?? [];
+        const planFeatures: NonNullable<ProductCardContent["featureDetails"]> = props.featureDetails ?? props.features.map((title) => ({ title, description: "" }));
+        const planBonuses: NonNullable<ProductCardContent["bonusDetails"]> = props.bonusDetails ?? props.bonuses?.map((title) => ({ title, description: "" })) ?? [];
 
         return (
             <article className="plans-product plans-plus" data-active={active} aria-label={props.name}>

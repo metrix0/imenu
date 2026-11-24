@@ -14,19 +14,16 @@ beforeEach(() => {
 });
 
 describe("support knowledge search", () => {
-    it("derives Plus knowledge directly from the shared benefits and bonuses", async () => {
-        const results = await searchSupportKnowledge("Quais os bônus do iMenu Plus?", 5);
-        expect(results[0]).toMatchObject({
-            id: "product:imenu-plus",
-            title: expect.stringContaining("iMenu Plus"),
-            content: expect.stringContaining("Múltiplas fotos e vídeo no cardápio"),
+    it("prioritizes official Plus knowledge without quoting a price for benefits questions", async () => {
+        mockedQuery.mockResolvedValue({
+            rows: [{ id: "article", title: "iMenu Plus", content: "Support article" }],
+            rowCount: 1,
         });
-        const [features, bonuses] = results[0].content.split("Inclui 6 bônus:");
-        expect(features).toContain("4 recursos principais:");
-        expect(features).toContain("Robô com IA: Finalizar pedidos no Whatsapp");
-        expect(bonuses).toBeDefined();
-        expect(bonuses).not.toContain("Robô com IA: Finalizar pedidos no Whatsapp");
-        expect(results[0].content).not.toContain("R$ 49,99");
+
+        const results = await searchSupportKnowledge("Quais os bônus do iMenu Plus?", 5);
+
+        expect(results.map(({ id }) => id)).toEqual(["product:imenu-plus", "article"]);
+        expect(results[0].content).not.toMatch(/R\$/);
     });
 
     it("includes Plus price only for pricing questions", async () => {

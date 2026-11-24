@@ -29,7 +29,7 @@ type Job = NoteSummary & {
 export type IssuerRow = { data: Issuer; certificate: string | null; enabled: boolean; next_number: number; environment: FiscalEnvironment };
 type OrderRow = {
     id: string; total_cents: number; delivery_cents: number; customer_name: string | null;
-    customer_address: string | null;
+    customer_address: string | null; use_city_cep: boolean;
     status: string; is_delivery: string | null; payment_method: string | null; imported: boolean;
 };
 
@@ -67,21 +67,46 @@ export function needsFiscalNote(status: string, type: string | null) {
         || (["balcao", "retirada"].includes(type ?? "") && status === "done");
 }
 
-// Existing checkout stores delivery addresses in this format; no CPF is collected.
-export function parseFiscalDeliveryAddress(value: string | null, issuer: Issuer): FiscalAddress | null {
-    if (!value) return null;
-    const withoutReference = value.split(" - Referência:")[0];
-    const withoutComplement = withoutReference.replace(/\s+\([^()]*\)\s*$/, "");
-    const parts = withoutComplement.split(/\s+-\s+/);
-    const first = parts[0] ?? "";
-    const comma = first.lastIndexOf(",");
-    if (comma <= 0 || parts.length < 2) return null;
-    const street = first.slice(0, comma).trim();
-    const number = first.slice(comma + 1).trim();
-    const district = parts[1].trim();
-    const postal = (parts[2] ?? "").trim();
-    const cep = /^\d{5}-?\d{3}$/.test(postal) ? postal.replace(/\D/g, "") : "";
-    if (!street || !number || !district || !issuer.city || !issuer.cityCode) return null;
+const cityNames = new Intl.Collator("pt-BR", { sensitivity: "base" });
+
+function fiscalCep(value: string | undefined) {
+    const postal = value?.trim() ?? "";
+    return /^\d{5}-?\d{3}$/.test(postal) ? postal.replace("-", "") : "";
+}
+
+export function parseFiscalDeliveryAddress(value: string | null, issuer: Issuer, useCityCep = false): FiscalAddress | null {
+    if (!value || !issuer.city || !issuer.cityCode) return null;
+
+    // Bot orders store the city, UF and country. Storefront orders use hyphen-separated fields.
+    const fields = value.split(" · ", 1)[0].trim().split(", ");
+    let street: string;
+    let number: string;
+    let district: string;
+    let postal: string | undefined;
+
+    if (fields.length >= 6 && fields.at(-1) === "Brasil") {
+        fields.pop();
+        const [numberValue, districtValue, locality, cep] = fields.splice(-4);
+        const cityAndState = /^(.*) - ([A-Z]{2})$/.exec(locality.trim());
+        if (cityAndState?.[2] !== "SP" || cityNames.compare(cityAndState[1].trim(), issuer.city.trim()) !== 0) return null;
+        street = fields.join(", ").trim();
+        number = numberValue.trim();
+        district = districtValue.trim();
+        postal = cep;
+    } else {
+        const withoutReference = value.split(" - Referência:", 1)[0];
+        const withoutComplement = withoutReference.replace(/\s+\([^()]*\)\s*$/, "");
+        const [first, neighborhood, cep] = withoutComplement.split(/\s+-\s+/);
+        const comma = first.lastIndexOf(",");
+        if (comma <= 0 || neighborhood === undefined) return null;
+        street = first.slice(0, comma).trim();
+        number = first.slice(comma + 1).trim();
+        district = neighborhood.trim();
+        postal = cep;
+    }
+
+    if (!street || !number || !district) return null;
+    const cep = fiscalCep(postal) || (useCityCep ? fiscalCep(issuer.cep) : "");
     return { street, number, district, city: issuer.city, cityCode: issuer.cityCode, cep };
 }
 
@@ -112,9 +137,11 @@ async function enqueueOrderNote(client: PoolClient, restaurant: string, order: s
 async function getSale(job: Job, issuer: Issuer): Promise<Sale> {
     const [orderResult, rows, details] = await Promise.all([
         query<OrderRow>(`
-            SELECT id,total_cents,delivery_cents,customer_name,customer_address,status,is_delivery,payment_method,
+            SELECT o.id,o.total_cents,o.delivery_cents,o.customer_name,o.customer_address,o.status,o.is_delivery,o.payment_method,
+            COALESCE(r.delivery_fee_mode = 'neighborhood' AND r.small_city_mode_enabled, false) AS use_city_cep,
             EXISTS(SELECT 1 FROM public.delivery_imported_orders i WHERE i.order_id=o.id) AS imported
-            FROM public.orders o WHERE id=$1 AND restaurant_id=$2`, [job.order_id, job.restaurant_id]),
+            FROM public.orders o JOIN public.restaurants r ON r.id=o.restaurant_id
+            WHERE o.id=$1 AND o.restaurant_id=$2`, [job.order_id, job.restaurant_id]),
         query<{ item_id: string; name: string; quantity: number; total_cents: number }>(`
             SELECT i.item_id,i.name,i.quantity,i.total_cents FROM public.order_items i
             JOIN public.orders o ON o.id=i.order_id WHERE o.id=$1 AND o.restaurant_id=$2 ORDER BY i.id`, [job.order_id, job.restaurant_id]),
@@ -127,7 +154,7 @@ async function getSale(job: Job, issuer: Issuer): Promise<Sale> {
     if (!paymentCode(payment)) throw new FiscalError("Informe o meio de pagamento na seção fiscal do pedido.");
     const delivery = order.is_delivery === "entrega";
     if (Number(order.total_cents) >= 1_000_000) throw new FiscalError("Esta operação exige identificação fiscal do destinatário e não está habilitada.");
-    const recipientAddress = delivery ? parseFiscalDeliveryAddress(order.customer_address, issuer) : undefined;
+    const recipientAddress = delivery ? parseFiscalDeliveryAddress(order.customer_address, issuer, order.use_city_cep) : undefined;
     if (delivery && !recipientAddress) throw new FiscalError("Confira o endereço de entrega do pedido para emissão da NFC-e.");
     if (!rows.rows.length || rows.rows.some(row => !row.item_id || row.quantity <= 0 || row.total_cents < 0)) {
         throw new FiscalError("Revise os itens do pedido.");

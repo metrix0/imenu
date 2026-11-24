@@ -354,6 +354,7 @@ async function panelOrders(browser) {
         const response = await page.goto(BASE + "/painel", { waitUntil: "networkidle2" });
         assert.equal(response.status(), 200, "The owner panel must load");
         for (const method of ["dinheiro", "pix-entrega", "credito-entrega", "debito-entrega"]) {
+            const previousSubmissions = submitted.length;
             await click(page, "Adicionar Pedido");
             await page.waitForSelector(".panel-create-order");
             // Locator re-resolves the button if React replaces it while loading.
@@ -390,13 +391,13 @@ async function panelOrders(browser) {
                 return Boolean(panel.closest('[aria-hidden="true"]') &&
                     dialog && getComputedStyle(dialog).opacity === "0");
             }, { timeout: 15000 });
-            assert.equal(submitted.length, method === "dinheiro" ? 1 : 2, "One order request per form submission");
+            assert.equal(submitted.length, previousSubmissions + 1, "One order request per form submission");
             const { payload, auth } = submitted.at(-1);
             assert.equal(auth, "Bearer " + token, "Panel requests must include the owner session");
             assert.equal(payload.restaurantId, restaurantId);
             assert.equal(payload.panel_order, true);
             assert.equal(payload.is_delivery, "balcao");
-            assert.equal(payload.paymentMethod, method, "Counter PIX must be offline (pix-entrega), never online (pix)");
+            assert.equal(payload.paymentMethod, method, "The counter order must use the selected payment method");
             assert.equal(payload.customer_name, "Cliente painel E2E");
             assert.equal(payload.delivery_fee_cents, 0);
             assert.equal(payload.expected_promotion.total_cents, 2500);
