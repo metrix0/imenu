@@ -11,6 +11,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 type Restaurant = {
     id: string;
     logo_url: string | null;
+    banner_url: string | null;
     phone: string | null;
     store_whatsapp: string | null;
 };
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
 
         const result = await withTransaction(async (client) => {
             const { rows: restaurants } = await client.query<Restaurant>(
-                `SELECT id, logo_url, phone, store_whatsapp
+                `SELECT id, logo_url, banner_url, phone, store_whatsapp
                  FROM public.restaurants
                  WHERE user_id = $1 AND ($2::uuid IS NULL OR id = $2)
                  ORDER BY id
@@ -88,8 +89,8 @@ export async function POST(req: NextRequest) {
                 [ids],
             );
 
-            const { rows: banners } = await client.query<{ banner_url: string | null }>(
-                "DELETE FROM public.menu WHERE restaurant_id = ANY($1::uuid[]) RETURNING banner_url",
+            await client.query(
+                "DELETE FROM public.menu WHERE restaurant_id = ANY($1::uuid[])",
                 [ids],
             );
             await client.query("DELETE FROM public.integrations WHERE restaurant_id = ANY($1::uuid[])", [ids]);
@@ -100,7 +101,7 @@ export async function POST(req: NextRequest) {
                 status: "deleted",
                 whatsappJobs,
                 logos: restaurants.map(({ logo_url }) => logo_url),
-                banners: banners.map(({ banner_url }) => banner_url),
+                banners: restaurants.map(({ banner_url }) => banner_url),
             } as const;
         });
 
