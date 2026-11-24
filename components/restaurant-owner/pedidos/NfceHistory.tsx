@@ -106,6 +106,7 @@ export function NfceUpgradeButton({ restaurant, onPaid, row = false, compact = f
             </Tooltip>
         )}
         {open && <IaPlusSalesModal open onClose={() => setOpen(false)} restaurantId={restaurant}
+            contextFeature="nfce"
             contextMessage="Com o iMenu Plus, emita NFC-e e baixe os XMLs das suas notas fiscais por período."
             onPaid={() => { setOpen(false); return onPaid(); }} />}
     </>;
@@ -158,6 +159,7 @@ export function NfceHistoryButton({ restaurant, history, onPaid }: { restaurant:
         </Tooltip>
         {showPlusOffer ? (
             open && <IaPlusSalesModal open onClose={() => setOpen(false)} restaurantId={restaurant}
+                contextFeature="nfce"
                 contextMessage="Com o iMenu Plus, emita NFC-e e baixe os XMLs das suas notas fiscais por período."
                 onPaid={() => { setOpen(false); return onPaid(); }} />
         ) : (

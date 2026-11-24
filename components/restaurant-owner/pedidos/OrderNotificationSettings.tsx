@@ -94,6 +94,7 @@ export default function OrderNotificationSettings({ restaurantId, plus, initialE
                 open={sales}
                 onClose={() => setSales(false)}
                 restaurantId={restaurantId}
+                contextFeature={ai ? "whatsapp_ai" : "order_notifications"}
                 contextMessage={ai ? "Para responder dúvidas e finalizar pedidos pelo WhatsApp com IA, assine o iMenu Plus." : "Para avisar automaticamente quando um pedido sair para entrega ou ficar pronto para retirada, assine o iMenu Plus."}
                 onPaid={() => window.location.reload()}
             />

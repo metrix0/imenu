@@ -158,6 +158,7 @@ export default function ItemSettingsModal({ item, restaurantId, open, onClose, o
             open
             onClose={() => setPlusSalesOpen(false)}
             restaurantId={restaurantId}
+            contextFeature="menu_media"
             contextMessage="Com o iMenu Plus, você pode adicionar mais de uma foto e um vídeo aos itens do cardápio."
             onPaid={async () => {
                 setPlusSalesOpen(false);

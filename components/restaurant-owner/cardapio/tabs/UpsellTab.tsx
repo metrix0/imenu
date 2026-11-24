@@ -319,6 +319,7 @@ export default function UpsellTab({ restaurantId, items }: Props) {
                 open={plusModalOpen}
                 onClose={() => setPlusModalOpen(false)}
                 restaurantId={restaurantId}
+                contextFeature="automatic_upsell"
                 contextMessage="Para ativar o Upsell Automático e recomendar produtos com base nas compras, assine o iMenu Plus."
                 onPaid={() => { setPlusModalOpen(false); void loadPlusAccess(); }}
             />

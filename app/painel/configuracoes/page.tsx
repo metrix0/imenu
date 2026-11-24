@@ -852,6 +852,7 @@ export default function ConfiguracoesPage() {
                 open={pdfSalesOpen || darkThemeSalesOpen}
                 onClose={() => { setPdfSalesOpen(false); setDarkThemeSalesOpen(false); }}
                 restaurantId={restaurant.id}
+                contextFeature={darkThemeSalesOpen ? "dark_menu" : "menu_pdf"}
                 contextMessage={darkThemeSalesOpen
                     ? "Com o iMenu Plus, ofereça seu cardápio com tema escuro."
                     : "Com o iMenu Plus, exporte seu cardápio em PDF para imprimir ou compartilhar."}

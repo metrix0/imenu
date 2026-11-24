@@ -357,6 +357,7 @@ function IntegracoesContent() {
                     onClose={() => setIaPlusOpen(false)}
                     restaurantId={restaurantId}
                     active={iaPlusActive}
+                    contextFeature="exclusive_support"
                     contextMessage="Com o iMenu Plus, você pode solicitar novas integrações e funcionalidades para o seu restaurante."
                     onPaid={() => {
                         setPlusAccess({ restaurantId, active: true });

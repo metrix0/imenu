@@ -1107,7 +1107,7 @@ export default function SalesPage() {
 
         </section>
       </div>
-      {restaurant && <IaPlusSalesModal active={sales.access?.plus === true} open={plusModal !== null} checkout={plusModal === "checkout"} contextMessage={plusContext} restaurantId={restaurant} onClose={() => setPlusModal(null)} onPaid={async () => { setPlusModal(null); sales.clearUpgrade(); await sales.load(restaurant, sales.conversation_id || undefined); }} />}
+      {restaurant && <IaPlusSalesModal active={sales.access?.plus === true} open={plusModal !== null} checkout={plusModal === "checkout"} contextFeature={isAnalysis ? "sales" : "assistant"} contextMessage={plusContext} restaurantId={restaurant} onClose={() => setPlusModal(null)} onPaid={async () => { setPlusModal(null); sales.clearUpgrade(); await sales.load(restaurant, sales.conversation_id || undefined); }} />}
       <Modal
         open={modal === "buy_tokens"}
         onClose={() => setModal(null)}

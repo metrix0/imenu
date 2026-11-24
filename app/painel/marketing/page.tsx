@@ -462,7 +462,7 @@ export default function MarketingPage() {
         </div>
       ) : null}
       </div>
-      {id ? <IaPlusSalesModal open={plusOpen} onClose={() => setPlusOpen(false)} restaurantId={id} contextMessage="Para criar automações de WhatsApp, recuperar carrinhos e reativar clientes, assine o iMenu Plus." onPaid={() => window.location.reload()} /> : null}
+      {id ? <IaPlusSalesModal open={plusOpen} onClose={() => setPlusOpen(false)} restaurantId={id} contextFeature="marketing" contextMessage="Para criar automações de WhatsApp, recuperar carrinhos e reativar clientes, assine o iMenu Plus." onPaid={() => window.location.reload()} /> : null}
     </div>
   );
 }
