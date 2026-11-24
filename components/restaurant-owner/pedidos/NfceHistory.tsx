@@ -147,14 +147,21 @@ export function NfceHistoryButton({ restaurant, history }: { restaurant: string;
             {history.plus ? "Notas Fiscais" : "Baixar notas anteriores"}
         </Button>
         <Modal open={open} onClose={() => setOpen(false)} height={380} showCloseButton>
-            <section className="w-full max-w-lg space-y-5 rounded-lg bg-white p-6" aria-label="Notas Fiscais">
+            <section className="w-full space-y-5 rounded-lg bg-white p-6" aria-label="Notas Fiscais">
                 <h2 className="text-xl font-bold text-gray-900">Notas Fiscais</h2>
                 {history.plus && (!history.available || !history.configured) ? (
-                    <div>
-                        <p className="text-sm text-gray-600">
-                            Para baixar notas fiscais, ative e configure a emissão de NFC-e na aba Configurações.
-                        </p>
-                        <PanelTabCard tab="configuracoes" />
+                    <div className="flex items-start gap-3 rounded-[10px] border border-gray-200 bg-gray-50/70 p-4 sm:gap-4 sm:p-5">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand" aria-hidden="true">
+                            <PanelIcon icon={faFileInvoice} className="text-xl" />
+                        </span>
+                        <div className="min-w-0">
+                            <h3 className="text-base font-semibold text-gray-900">Configure a emissão de NFC-e</h3>
+                            <p className="mt-1 text-sm leading-6 text-gray-600">
+                                Ative a emissão e preencha os dados fiscais em Configurações → Notas Fiscais.
+                                Depois de emitir suas notas, você poderá baixar os XMLs aqui.
+                            </p>
+                            <PanelTabCard tab="configuracoes" sectionId="nfce" />
+                        </div>
                     </div>
                 ) : (
                     <>

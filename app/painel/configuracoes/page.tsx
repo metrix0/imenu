@@ -67,6 +67,14 @@ const SETTINGS_SECTIONS = {
 
 function SettingsSection({ id, children }: { id: keyof typeof SETTINGS_SECTIONS; children: ReactNode }) {
     const { label, icon } = SETTINGS_SECTIONS[id];
+    useEffect(() => {
+        // Sections load after restaurant data; scroll when a tab link targets a section.
+        if (window.location.hash !== `#${id}`) return;
+        const frame = window.requestAnimationFrame(() => {
+            document.getElementById(id)?.scrollIntoView({ block: "start" });
+        });
+        return () => window.cancelAnimationFrame(frame);
+    }, [id]);
     return (
         <section id={id} aria-labelledby={`${id}-heading`} className="scroll-mt-20 space-y-4">
             <h2 id={`${id}-heading`} className="flex items-center gap-2.5 text-xl font-semibold text-gray-900">
