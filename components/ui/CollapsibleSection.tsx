@@ -77,6 +77,7 @@ export function CollapsibleContent({ id, expanded, children }: {
 
 type CollapsibleSectionProps = {
     title: string;
+    titleClassName?: string;
     description?: string;
     icon?: ReactNode;
     badge?: ReactNode;
@@ -100,6 +101,7 @@ type CollapsibleSectionProps = {
 
 export default function CollapsibleSection({
     title,
+    titleClassName = "text-sm font-medium",
     description,
     icon,
     badge,
@@ -143,7 +145,7 @@ export default function CollapsibleSection({
                     <span className="min-w-0 flex-1">
                         <span
                             id={titleId}
-                            className={`${inlineChevron || titleBadge ? "flex flex-wrap items-center gap-2" : "block"} text-sm font-medium text-gray-900`}
+                            className={`${inlineChevron || titleBadge ? "flex flex-wrap items-center gap-2" : "block"} ${titleClassName} text-gray-900`}
                         >
                             {inlineChevron ? (
                                 <>
