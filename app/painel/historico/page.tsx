@@ -156,7 +156,7 @@ export default function HistoricoPage() {
     const [nfceRefresh, setNfceRefresh] = useState(0);
     const [focusFiscal, setFocusFiscal] = useState(false);
     const fiscal = useNfceHistory(restaurantId, orders, nfceRefresh);
-    const fiscalIds = new Set(fiscal?.notes.map(note => note.order_id));
+    const fiscalIds = new Set(fiscal.notes.filter(note => Boolean(note.access_key)).map(note => note.order_id));
     const requestId = useRef(0);
 
     // Filtros
@@ -315,8 +315,12 @@ export default function HistoricoPage() {
                 orders={orders}
                 isLoading={isLoading}
                 onViewOrder={handleViewOrder}
+                onEditOrder={handleEditOrder}
                 onViewFiscal={order => handleViewOrder(order, true)}
                 fiscalIds={fiscalIds}
+                fiscalPlus={fiscal.plus}
+                restaurantId={restaurantId}
+                onPaid={() => setNfceRefresh(value => value + 1)}
                 onDeleteOrder={setOrderToDelete}
             />
 

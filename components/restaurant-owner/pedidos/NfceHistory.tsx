@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { faFileInvoice, faLock } from "@fortawesome/free-solid-svg-icons";
+import { Download, FileText } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
@@ -81,11 +82,18 @@ function thisMonth() {
     return { startDate: month + "-01", endDate: month + "-" + datePart("day") };
 }
 
-export function NfceUpgradeButton({ restaurant, onPaid, row = false, compact = false }: { restaurant: string; onPaid: () => void | Promise<void>; row?: boolean; compact?: boolean }) {
+export function NfceUpgradeButton({ restaurant, onPaid, row = false, compact = false, iconOnly = false }: { restaurant: string; onPaid: () => void | Promise<void>; row?: boolean; compact?: boolean; iconOnly?: boolean }) {
     const [open, setOpen] = useState(false);
 
     return <>
-        {compact ? (
+        {iconOnly ? (
+            <button type="button" title="Nota fiscal · iMenu Plus" aria-label="Conhecer notas fiscais com iMenu Plus"
+                className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-gray-500 opacity-35 transition-colors hover:text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                onKeyDown={event => event.stopPropagation()}
+                onClick={event => { event.stopPropagation(); setOpen(true); }}>
+                <PanelIcon icon={faFileInvoice} />
+            </button>
+        ) : compact ? (
             <button type="button" className="cursor-pointer rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" onClick={() => setOpen(true)}>
                 <Badge preset="plusIncluded">Recurso iMenu Plus</Badge>
             </button>
@@ -256,14 +264,30 @@ export function NfceOrderSection({ order, note, restaurant, configured, focus, o
         });
     };
     return <section id="order-nfce" className="space-y-1.5 text-xs" tabIndex={-1}>
-        <h3 className="text-sm font-medium text-gray-900">Nota fiscal (NFC-e)</h3>
+        <div className="flex items-center justify-between gap-2">
+            <h3 className="text-sm font-medium text-gray-900">Nota fiscal (NFC-e)</h3>
+            <div className="flex shrink-0 items-center gap-1">
+                {note && ["authorized", "canceled", "contingency"].includes(note.status) && (
+                    <button type="button" title="Baixar PDF" aria-label="Baixar PDF da nota fiscal"
+                        className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-gray-500 transition-colors hover:text-brand focus-visible:outline-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-40"
+                        disabled={busy} onClick={() => void run(async () => { await download(restaurant, { action: "pdf", order: order.id }, "danfe.pdf"); })}>
+                        <FileText size={16} strokeWidth={1.75} aria-hidden="true" />
+                    </button>
+                )}
+                {note && ["authorized", "canceled"].includes(note.status) && (
+                    <button type="button" title="Baixar XML" aria-label="Baixar XML da nota fiscal"
+                        className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-gray-500 transition-colors hover:text-brand focus-visible:outline-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-40"
+                        disabled={busy} onClick={() => void run(async () => { await download(restaurant, { action: "xml", order: order.id }, "nfce.xml"); })}>
+                        <Download size={16} strokeWidth={1.75} aria-hidden="true" />
+                    </button>
+                )}
+            </div>
+        </div>
         <p className="text-xs text-gray-600">{note ? stateLabels[note.status] : queued ? "Aguardando emissão" : "Não emitida"}</p>
         {note?.number && <p className="text-xs text-gray-600">Nº {note.number} · Série {note.series} · {new Date(note.issued_at).toLocaleString("pt-BR")}</p>}
         {note?.access_key && <p className="break-all text-xs text-gray-600">{note.access_key}</p>}
         {note?.error && <p className="text-xs text-red-700">{note.error}</p>}
         <div className="flex flex-wrap gap-1.5">
-            {note && ["authorized", "canceled", "contingency"].includes(note.status) && <Button variant="secondary" className="!min-h-7 !px-2 !py-1 !text-xs !leading-4 !border-transparent !bg-gray-100 hover:!bg-gray-200" disabled={busy} onClick={() => void run(async () => { await download(restaurant, { action: "pdf", order: order.id }, "danfe.pdf"); })}>Baixar PDF</Button>}
-            {note && ["authorized", "canceled"].includes(note.status) && <Button variant="secondary" className="!min-h-7 !px-2 !py-1 !text-xs !leading-4 !border-transparent !bg-gray-100 hover:!bg-gray-200" disabled={busy} onClick={() => void run(async () => { await download(restaurant, { action: "xml", order: order.id }, "nfce.xml"); })}>Baixar XML</Button>}
             {note?.status === "authorized" && order.status === "canceled" && <Button variant="secondary" className="!min-h-7 !px-2 !py-1 !text-xs !leading-4 !border-transparent !bg-gray-100 hover:!bg-gray-200" onClick={() => setCancel(value => !value)}>Cancelar nota</Button>}
             {pending && configured && !delivery && !queued && ["preparing", "delivering", "done"].includes(order.status) && <Button variant="secondary" className="!min-h-7 !px-2 !py-1 !text-xs !leading-4 !border-transparent !bg-gray-100 hover:!bg-gray-200" onClick={() => setEdit(value => !value)}>
                 {note ? "Corrigir e tentar novamente" : "Emitir NFC-e"}
