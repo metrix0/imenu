@@ -135,7 +135,7 @@ export function NfceHistoryButton({ restaurant, history, onPaid }: { restaurant:
     const [downloading, setDownloading] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
-    const showTable = history.available && (history.plus === true ? history.configured : history.plus === false && history.archive && !removed);
+    const showTable = history.available && (history.plus === true ? (history.configured || history.archive) : history.plus === false && history.archive && !removed);
     useEffect(() => {
         if (!open || !showTable) return;
         const controller = new AbortController();
@@ -212,7 +212,7 @@ export function NfceHistoryButton({ restaurant, history, onPaid }: { restaurant:
                 </div>
                 {history.plus === null ? (
                     <p className="text-sm text-gray-600" role="status">Verificando acesso às notas fiscais…</p>
-                ) : history.plus && (!history.available || !history.configured) ? (
+                ) : history.plus && !showTable ? (
                     <div className="flex items-start gap-3 rounded-[10px] border border-gray-200 bg-gray-50/70 p-4 sm:gap-4 sm:p-5">
                         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand" aria-hidden="true">
                             <FileText className="panel-icon text-xl" size="1em" strokeWidth={1.75} aria-hidden="true" />
