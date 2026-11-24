@@ -703,14 +703,28 @@ export default function CartModal({
         if (coupon_type === "delivery") setField("coupon_discount_cents", 0);
     }, [deliveryDisabled, savedPickup, coupon_type, setField]);
 
+    // Default to pickup when delivery is unavailable, without overriding a customer's choice.
+    useEffect(() => {
+        if (!missingDeliveryOrigin || !pickupAvailable) return;
+        useCheckoutStore.setState({ is_pickup: true } as any);
+        setDeliveryFeeCents(0);
+        setField("delivery_fee_cents", "0");
+        setField("delivery_time_minutes", null);
+        setField("showAddressWarning", false);
+        if (useCheckoutStore.getState().coupon_type === "delivery") {
+            setField("coupon_discount_cents", 0);
+        }
+        setContinueBlocked(false);
+    }, [restaurant.id, missingDeliveryOrigin, pickupAvailable, setField, setContinueBlocked]);
+
     useEffect(() => {
         if (isTableOrder) return;
-        if (!deliveryDisabled && !hasRestaurantAddress && savedPickup) {
+        if (!deliveryDisabled && !missingDeliveryOrigin && !hasRestaurantAddress && savedPickup) {
             useCheckoutStore.setState({ is_pickup: false } as any);
             setDeliveryFeeCents(null);
             setField("delivery_fee_cents", null);
         }
-    }, [deliveryDisabled, hasRestaurantAddress, savedPickup, isTableOrder]);
+    }, [deliveryDisabled, missingDeliveryOrigin, hasRestaurantAddress, savedPickup, isTableOrder]);
 
     useEffect(() => {
         if (!restaurant?.id) return;
@@ -1254,12 +1268,11 @@ export default function CartModal({
                             )}
                         </div>
                     )}
-                    {!deliveryDisabled && pickupAvailable && (hasRestaurantAddress || pickupRequired) && (
-                        <label className={`mb-5 flex items-center gap-3 rounded-xl border p-4 transition-colors ${pickupRequired ? "cursor-default" : "cursor-pointer"} ${isPickup ? "border-[var(--im-menu-action,#f14400)] bg-[var(--im-menu-accent-soft,#f144000d)]" : "border-[var(--im-menu-border,#e5e7eb)] bg-[var(--im-menu-surface,#fff)] hover:border-[var(--im-menu-border,#d1d5db)]"}`}>
+                    {!deliveryDisabled && pickupAvailable && (hasRestaurantAddress || missingDeliveryOrigin) && (
+                        <label className={`mb-5 flex items-center gap-3 rounded-xl border p-4 transition-colors cursor-pointer ${isPickup ? "border-[var(--im-menu-action,#f14400)] bg-[var(--im-menu-accent-soft,#f144000d)]" : "border-[var(--im-menu-border,#e5e7eb)] bg-[var(--im-menu-surface,#fff)] hover:border-[var(--im-menu-border,#d1d5db)]"}`}>
                             <input
                                 type="checkbox"
                                 checked={isPickup}
-                                disabled={pickupRequired}
                                 onChange={(event) => handlePickupChange(event.target.checked)}
                                 className="sr-only"
                             />

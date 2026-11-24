@@ -57,7 +57,7 @@ export function getCheckoutFulfillment(
     const deliveryDisabled = !isTableOrder && restaurant.delivery_disabled === true;
     const missingDeliveryOrigin = !isTableOrder && !deliveryDisabled && !neighborhoodMode && !location.hasRadiusOrigin;
     const pickupAvailable = !isTableOrder && restaurant.pickup_enabled === true;
-    const pickupRequired = deliveryDisabled || (pickupAvailable && missingDeliveryOrigin);
+    const pickupRequired = deliveryDisabled;
 
     return {
         ...location,

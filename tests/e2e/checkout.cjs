@@ -254,7 +254,7 @@ async function flow(browser, method, pickupMode = "only", width = 800) {
             });
             const forced = pickupMode === "automatic";
             assert.deepEqual(fulfillment, {
-                pickupSelected: forced, pickupLocked: forced, addressLocked: forced,
+                pickupSelected: forced, pickupLocked: false, addressLocked: forced,
                 addressFaded: forced, warning: forced,
             });
             if (!forced) await page.evaluate(() => Array.from(document.querySelectorAll("label"))
@@ -264,6 +264,28 @@ async function flow(browser, method, pickupMode = "only", width = 800) {
         assert.ok(phoneFirst,"Phone must come before name in checkout");
         await page.type('input[autocomplete="name"]', "Cliente E2E");
         await page.type('input[autocomplete="tel"]', "11999990000");
+        if (pickupMode === "automatic") {
+            const togglePickup = () => page.evaluate(() => Array.from(document.querySelectorAll("label"))
+                .find(label => label.textContent.includes("Retirar pedido no balcão")).click());
+            await togglePickup();
+            await page.waitForFunction(() => {
+                const pickup = Array.from(document.querySelectorAll("label"))
+                    .find(label => label.textContent.includes("Retirar pedido no balcão"))?.querySelector("input");
+                const next = Array.from(document.querySelectorAll("button"))
+                    .find(button => button.textContent.trim() === "Continuar");
+                return pickup && !pickup.checked && !pickup.disabled && next?.disabled &&
+                    document.querySelector('input[autocomplete="postal-code"]')?.matches(":disabled");
+            });
+            assert.equal(orderPayload, undefined, "Unavailable delivery must not submit an order");
+            await togglePickup();
+            await page.waitForFunction(() => {
+                const pickup = Array.from(document.querySelectorAll("label"))
+                    .find(label => label.textContent.includes("Retirar pedido no balcão"))?.querySelector("input");
+                const next = Array.from(document.querySelectorAll("button"))
+                    .find(button => button.textContent.trim() === "Continuar");
+                return pickup?.checked && next && !next.disabled;
+            });
+        }
         await screenshot(page,"checkout-"+method);
         assert.ok(await page.evaluate(()=>{const input=document.querySelector('input[autocomplete="tel"]').getBoundingClientRect();return input.left>=0 && input.right<=innerWidth;}),"Phone input must stay fully visible after checkout reordering");
         await click(page, "Continuar");

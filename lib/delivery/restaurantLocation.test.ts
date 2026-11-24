@@ -41,3 +41,16 @@ it("keeps neighborhood fulfillment possible without a restaurant distance origin
     expect(getCheckoutFulfillment(restaurant, false, false, true).missingDeliveryOrigin).toBe(false);
     expect(getCheckoutFulfillment(restaurant, false, false, false).missingDeliveryOrigin).toBe(true);
 });
+
+it("allows pickup to be deselected when the delivery origin is missing", () => {
+    const restaurant = { address: {}, latitude: 0, longitude: 0, pickup_enabled: true };
+    expect(getCheckoutFulfillment(restaurant, false, true)).toMatchObject({
+        missingDeliveryOrigin: true, pickupAvailable: true, pickupRequired: false, isPickup: true,
+    });
+    expect(getCheckoutFulfillment(restaurant, false, false)).toMatchObject({
+        missingDeliveryOrigin: true, pickupAvailable: true, pickupRequired: false, isPickup: false,
+    });
+    expect(getCheckoutFulfillment({ ...restaurant, delivery_disabled: true }, false, false)).toMatchObject({
+        deliveryDisabled: true, pickupRequired: true, isPickup: true,
+    });
+});
