@@ -352,8 +352,11 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                     <div className="min-w-0 space-y-2">
                                         <h4 className="flex items-start gap-2 text-base 2xl:text-lg font-medium text-gray-900">
                                             <FontAwesomeIcon icon={isTableOrder ? faChair : isCounterOrder ? faStore : isPickup ? faBagShopping : faMapMarkerAlt} className="w-4 shrink-0 text-gray-400 mt-1" />
-                                            <span className="min-w-0 break-words">{isTableOrder ? details.table_name_snapshot || "Mesa" : isCounterOrder ? "Venda no balcão" : isPickup ? "Retirada no balcão" : details.customer_address || "Retirada no local"}</span>
+                                            <span className="min-w-0 break-words">{isTableOrder ? details.table_name_snapshot || "Mesa" : isCounterOrder ? "Venda no balcão" : isPickup ? "Retirada no balcão" : "Entrega"}</span>
                                         </h4>
+                                        {!isReadyOnSite && details.customer_address && (
+                                            <p className="pl-6 break-words text-sm 2xl:text-base text-gray-500">{details.customer_address}</p>
+                                        )}
                                         <div className="text-sm 2xl:text-[1.1rem]">
                                             {isScheduled && scheduledLabel ? (
                                                 <p className="flex items-center gap-2 font-medium text-green-700">

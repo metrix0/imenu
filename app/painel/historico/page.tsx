@@ -367,7 +367,7 @@ export default function HistoricoPage() {
                             focus={focusFiscal} onChange={() => setNfceRefresh(value => value + 1)} />
                     ) : fiscal.plus === false ? (
                         <section className="space-y-1.5">
-                            <h3 className="text-sm font-medium text-gray-900">Nota fiscal (NFC-e)</h3>
+                            <h4 className="text-base 2xl:text-lg font-medium text-gray-900">Nota fiscal (NFC-e)</h4>
                             <NfceUpgradeButton compact restaurant={restaurantId} onPaid={() => setNfceRefresh(value => value + 1)} />
                         </section>
                     ) : null

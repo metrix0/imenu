@@ -266,7 +266,7 @@ export function NfceOrderSection({ order, note, restaurant, configured, focus, o
     };
     return <section id="order-nfce" className="space-y-1.5 text-xs" tabIndex={-1}>
         <div className="flex items-center justify-between gap-2">
-            <h3 className="text-sm font-medium text-gray-900">Nota fiscal (NFC-e)</h3>
+            <h4 className="text-base 2xl:text-lg font-medium text-gray-900">Nota fiscal (NFC-e)</h4>
             <div className="flex shrink-0 items-center gap-1">
                 {note && ["authorized", "canceled", "contingency"].includes(note.status) && (
                     <button type="button" title="Baixar PDF" aria-label="Baixar PDF da nota fiscal"
