@@ -2,7 +2,8 @@
 
 import type { PhysicalPaymentMethod } from "@/lib/payments/deliveryMethods";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import { faChair, faEye, faFileInvoice, faPenToSquare, faTrash, faStore, faBagShopping, faPersonBiking } from "@fortawesome/free-solid-svg-icons";
+import { faChair, faEye, faPenToSquare, faTrash, faStore, faBagShopping, faPersonBiking } from "@fortawesome/free-solid-svg-icons";
+import { FileText } from "lucide-react";
 import DataTable from "@/components/ui/DataTable";
 import Card from "@/components/ui/Card";
 import ListLoader from "@/components/ui/ListLoader";
@@ -62,7 +63,7 @@ export default function OrdersTable({ orders, isLoading, onViewOrder, onEditOrde
                 className={`${actionIconClass} ${generated ? "" : "opacity-35"} disabled:cursor-default`}
                 onKeyDown={event => event.stopPropagation()}
                 onClick={event => { event.stopPropagation(); onViewFiscal?.(order); }}>
-                <FontAwesomeIcon icon={faFileInvoice} />
+                <FileText className="panel-icon" size="1em" strokeWidth={1.75} aria-hidden="true" />
             </button>
         );
     };

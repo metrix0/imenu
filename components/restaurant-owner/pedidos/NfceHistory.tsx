@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { faFileInvoice, faLock } from "@fortawesome/free-solid-svg-icons";
+import { faLock } from "@fortawesome/free-solid-svg-icons";
 import { Download, FileText } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
@@ -91,7 +91,7 @@ export function NfceUpgradeButton({ restaurant, onPaid, row = false, compact = f
                 className="panel-history-action inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-gray-500 opacity-35 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                 onKeyDown={event => event.stopPropagation()}
                 onClick={event => { event.stopPropagation(); setOpen(true); }}>
-                <PanelIcon icon={faFileInvoice} />
+                <FileText className="panel-icon" size="1em" strokeWidth={1.75} aria-hidden="true" />
             </button>
         ) : compact ? (
             <button type="button" className="cursor-pointer rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" onClick={() => setOpen(true)}>
@@ -160,7 +160,7 @@ export function NfceHistoryButton({ restaurant, history, onPaid }: { restaurant:
     const showPlusOffer = history.plus === false && (!history.archive || removed);
     return <>
         <Tooltip text="Recurso exclusivo do iMenu Plus" disabled={history.plus !== false} parentClassName="inline-flex">
-            <Button variant="secondary" leftIcon={<PanelIcon icon={faFileInvoice} />}
+            <Button variant="secondary" leftIcon={<FileText className="panel-icon" size="1em" strokeWidth={1.75} aria-hidden="true" />}
                 onClick={() => { setError(""); setCustom(false); setOpen(true); }}>
                 Notas Fiscais
             </Button>
@@ -179,7 +179,7 @@ export function NfceHistoryButton({ restaurant, history, onPaid }: { restaurant:
                 ) : history.plus && (!history.available || !history.configured) ? (
                     <div className="flex items-start gap-3 rounded-[10px] border border-gray-200 bg-gray-50/70 p-4 sm:gap-4 sm:p-5">
                         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand" aria-hidden="true">
-                            <PanelIcon icon={faFileInvoice} className="text-xl" />
+                            <FileText className="panel-icon text-xl" size="1em" strokeWidth={1.75} aria-hidden="true" />
                         </span>
                         <div className="min-w-0">
                             <h3 className="text-base font-semibold text-gray-900">Configure a emissão de NFC-e</h3>
