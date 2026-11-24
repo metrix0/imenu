@@ -365,7 +365,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                                 </p>
                                             ) : etaRange ? (
                                                 <p className="flex items-center gap-2 text-gray-500">
-                                                    <FontAwesomeIcon icon={faClock} className="w-4" />
+                                                    <FontAwesomeIcon icon={faClock} className="w-4 text-gray-400" />
                                                     {isPickup ? "Previsão de retirada" : "Previsão de entrega"}: {etaRange}
                                                 </p>
                                             ) : null}
