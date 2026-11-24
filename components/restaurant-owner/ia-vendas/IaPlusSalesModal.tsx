@@ -61,6 +61,8 @@ export function IaPlusLimitMessage({ onCheckout }: {
 export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout = false, active = false, onPaid, contextMessage, coupon, source = "settings" }: {
   open: boolean; onClose: () => void; restaurantId: string; checkout?: boolean; active?: boolean; onPaid?: () => void | Promise<void>; contextMessage?: string; coupon?: string; source?: QrTableSource;
 }) {
+  const benefitCount = Number(IA_PLUS_BENEFITS.length);
+  const threeColumnBenefitCount = 3 * Math.max(0, benefitCount - 2 * Math.ceil(benefitCount / 3));
   const [step, setStep] = useState(checkout);
   const [navigated, setNavigated] = useState(false);
   const exposureRef = usePlusExposure("sales_modal", open && !step);
@@ -134,10 +136,10 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
           </header>
 
           <div className="px-5 py-6 sm:px-8">
-            <div className="grid gap-5 sm:grid-cols-3">
-              {IA_PLUS_BENEFITS.map(benefit => {
+            <div className="grid gap-5 sm:grid-cols-6">
+              {IA_PLUS_BENEFITS.map((benefit, index) => {
                 const Icon = benefit.icon;
-                return <section key={benefit.title} className="min-w-0">
+                return <section key={benefit.title} className={`min-w-0 ${benefitCount === 1 ? "sm:col-span-6" : index < threeColumnBenefitCount ? "sm:col-span-2" : "sm:col-span-3"}`}>
                   <div className="flex flex-col items-start gap-3 text-brand">
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand/5">
                       <Icon size={21} strokeWidth={1.9} aria-hidden="true" />
@@ -147,7 +149,7 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
                   <p className="mt-2 text-sm leading-6 text-gray-600">{benefit.description}</p>
                 </section>;
               })}
-              <section className="mt-1 pt-5 sm:col-span-3">
+              <section className="mt-1 pt-5 sm:col-span-6">
                 <h3 className="text-sm font-semibold text-gray-900">+{IA_PLUS_BONUSES.length} Bônus no Plus</h3>
                 <ul className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2">{IA_PLUS_BONUSES.map(bonus => {
                   const Icon = bonus.icon;
