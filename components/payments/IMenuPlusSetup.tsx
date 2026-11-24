@@ -279,11 +279,11 @@ export default function IMenuPlusSetup({ restaurantId, onClose, onSavingChange }
                                     description={key === "nfce" ? <>
                                         {description}
                                         {setup.values.nfce && !setup.fiscal.configured && (
-                                            <span className="mt-1 block">
-                                                Conclua a configuração em{" "}
+                                            <span className="mt-1 flex flex-wrap items-center gap-x-1">
+                                                Conclua a configuração em
                                                 <strong className="inline-flex items-center gap-1 font-semibold text-gray-700">
-                                                    <Settings size={13} aria-hidden="true" />Configurações
-                                                </strong>.
+                                                    <Settings size={13} className="shrink-0" aria-hidden="true" />Configurações.
+                                                </strong>
                                             </span>
                                         )}
                                     </> : description}
@@ -327,8 +327,8 @@ export default function IMenuPlusSetup({ restaurantId, onClose, onSavingChange }
                                     </li>
                                 ))}
                             </ul>
-                            <div className="mt-4 flex flex-wrap items-center gap-2">
-                                <p className="text-sm text-gray-600">Lembre-se de que o iMenu Plus inclui <strong>atendimento prioritário</strong>.</p>
+                            <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1">
+                                <p className="text-sm text-gray-600">Membros iMenu Plus possuem <strong>atendimento prioritário</strong>.</p>
                                 <SupportWhatsappBadge />
                             </div>
                         </>
