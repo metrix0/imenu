@@ -16,6 +16,11 @@ export type NoteSummary = {
     order_id: string; status: string; access_key: string | null; number: number | null;
     series: number | null; protocol: string | null; issued_at: string; error: string | null;
 };
+export type FiscalHistoryRow = Pick<NoteSummary, "order_id" | "number" | "series" | "issued_at" | "status"> & {
+    display_id: number | null;
+    customer_name: string | null;
+    order_total_cents: number | null;
+};
 type Job = NoteSummary & {
     restaurant_id: string; environment: FiscalEnvironment; signed_xml: Buffer | null;
     cancellation_xml: Buffer | null; qr_url: string | null; offline: boolean; sale: Sale | null;

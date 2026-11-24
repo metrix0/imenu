@@ -5,7 +5,7 @@ import { hasIMenuPlusAccess } from "@/lib/addons/access";
 import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
 import { query, withTransaction } from "@/lib/database/sql";
 import { certificateIdentity, fiscalEnvironment, paymentCode, sealCertificate, type FiscalAddress, type FiscalTax, type Issuer } from "@/lib/nfce/sefaz";
-import { archiveSnapshot, cancelIssued, FiscalError, processNote, unzipXml, uuid, type NoteSummary } from "@/lib/nfce/service";
+import { archiveSnapshot, cancelIssued, FiscalError, processNote, unzipXml, uuid, type NoteSummary, type FiscalHistoryRow } from "@/lib/nfce/service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -79,10 +79,16 @@ export async function GET(request: Request) {
             const filter = "restaurant_id=$1 AND environment=$2 AND issued_at >= $3 AND issued_at < $4 AND authorized_xml IS NOT NULL";
             const args = [restaurant, env, start, end];
             const [notes, count] = await Promise.all([
-                query<Pick<NoteSummary, "order_id" | "number" | "series" | "issued_at" | "status">>(`
-                    SELECT order_id,number,series,issued_at,status FROM public.nfce_documents
-                    WHERE ${filter}
-                    ORDER BY issued_at DESC,order_id DESC LIMIT $5 OFFSET $6`, [...args, pageSize, page * pageSize]),
+                query<FiscalHistoryRow>(`
+                    SELECT d.order_id,d.number,d.series,d.issued_at,d.status,
+                        o.display_id,o.customer_name,o.total_cents AS order_total_cents
+                    FROM (
+                        SELECT restaurant_id,order_id,number,series,issued_at,status FROM public.nfce_documents
+                        WHERE ${filter}
+                        ORDER BY issued_at DESC,order_id DESC LIMIT $5 OFFSET $6
+                    ) d
+                    LEFT JOIN public.orders o ON o.id=d.order_id AND o.restaurant_id=d.restaurant_id
+                    ORDER BY d.issued_at DESC,d.order_id DESC`, [...args, pageSize, page * pageSize]),
                 query<{ total: number }>(`SELECT count(*)::int AS total FROM public.nfce_documents WHERE ${filter}`, args),
             ]);
             return NextResponse.json({ notes: notes.rows, pageCount: Math.ceil((count.rows[0]?.total ?? 0) / pageSize) }, { headers });

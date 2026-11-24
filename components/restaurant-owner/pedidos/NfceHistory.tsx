@@ -17,7 +17,7 @@ import Pagination from "@/components/ui/Pagination";
 import { getPreviousMonthRange } from "@/lib/utils/dateRange";
 import { supabase } from "@/lib/database/supabaseClient";
 import { CARD_AT_DELIVERY_LABELS } from "@/lib/payments/deliveryMethods";
-import type { NoteSummary } from "@/lib/nfce/service";
+import type { NoteSummary, FiscalHistoryRow } from "@/lib/nfce/service";
 import type { Order } from "./OrdersTable";
 
 type History = { available: boolean; plus: boolean | null; archive: boolean; configured: boolean; enabled: boolean; notes: NoteSummary[] };
@@ -129,9 +129,10 @@ export function NfceHistoryButton({ restaurant, history, onPaid }: { restaurant:
     const [removed, setRemoved] = useState(false);
     const [range, setRange] = useState(thisMonth);
     const [page, setPage] = useState(0);
-    const [invoiceList, setInvoiceList] = useState<{ notes: Pick<NoteSummary, "order_id" | "number" | "series" | "issued_at" | "status">[]; pageCount: number }>({ notes: [], pageCount: 0 });
+    const [invoiceList, setInvoiceList] = useState<{ notes: FiscalHistoryRow[]; pageCount: number }>({ notes: [], pageCount: 0 });
     const [listLoading, setListLoading] = useState(false);
     const [listError, setListError] = useState("");
+    const [downloading, setDownloading] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const showTable = history.available && (history.plus === true ? history.configured : history.plus === false && history.archive && !removed);
@@ -156,6 +157,13 @@ export function NfceHistoryButton({ restaurant, history, onPaid }: { restaurant:
         } catch (error) {
             setError((error as Error).message);
         } finally { setLoading(false); }
+    };
+    const downloadNote = async (order: string, action: "pdf" | "xml") => {
+        setDownloading(true);
+        setError("");
+        try { await download(restaurant, { action, order }, action === "pdf" ? "danfe.pdf" : "nfce.xml"); }
+        catch (error) { setError((error as Error).message); }
+        finally { setDownloading(false); }
     };
     const downloadArchive = async () => {
         setLoading(true);
@@ -190,12 +198,12 @@ export function NfceHistoryButton({ restaurant, history, onPaid }: { restaurant:
                 contextMessage="Com o iMenu Plus, emita NFC-e e baixe os XMLs das suas notas fiscais por período."
                 onPaid={() => { setOpen(false); return onPaid(); }} />
         ) : (
-        <Modal open={open} onClose={() => setOpen(false)} height={showTable ? 720 : 380} showCloseButton>
+        <Modal open={open} onClose={() => setOpen(false)} height={showTable ? 720 : 380} className={showTable ? "!max-w-5xl" : ""} showCloseButton>
             <section className="w-full space-y-5 rounded-lg bg-white p-6" aria-label="Notas Fiscais">
                 <div className="flex flex-wrap items-center justify-between gap-3 pr-10">
                     <h2 className="text-xl font-bold text-gray-900">Notas Fiscais</h2>
                     {showTable && <div className="flex flex-wrap items-center gap-2">
-                        <Button leftIcon={<Download size={16} />} onClick={() => void exportPeriod(range)} loading={loading} disabled={loading || listLoading || !!listError || invoiceList.pageCount === 0}>Baixar todas</Button>
+                        <Button leftIcon={<Download size={16} />} onClick={() => void exportPeriod(range)} loading={loading} disabled={loading || downloading || listLoading || !!listError || invoiceList.pageCount === 0}>Baixar todas</Button>
                         <div className="w-40 sm:w-48">
                             <DateRangePicker value={range} showLabel={false} presets={[{ label: "Este mês", getRange: thisMonth }, { label: "Mês anterior", getRange: getPreviousMonthRange }]}
                                 onChange={value => { setRange(value); setPage(0); setError(""); }} />
@@ -226,8 +234,23 @@ export function NfceHistoryButton({ restaurant, history, onPaid }: { restaurant:
                                 columns={[
                                     { key: "number", label: "Número", render: note => note.number ?? "—" },
                                     { key: "series", label: "Série", render: note => note.series ?? "—" },
+                                    { key: "order", label: "Pedido", render: note => note.display_id != null ? <span className="font-semibold">#{note.display_id}</span> : "—" },
+                                    { key: "customer", label: "Cliente", render: note => <span className="block max-w-[180px] truncate font-medium" title={note.customer_name ?? undefined}>{note.customer_name || "—"}</span> },
+                                    { key: "value", label: "Valor do pedido", className: "whitespace-nowrap", render: note => note.order_total_cents == null ? "—" : (note.order_total_cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) },
                                     { key: "issued_at", label: "Emissão", className: "whitespace-nowrap", render: note => new Date(note.issued_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" }) },
                                     { key: "status", label: "Situação", render: note => <Badge variant={note.status === "canceled" ? "danger" : note.status === "authorized" ? "success" : "neutral"}>{stateLabels[note.status] ?? note.status}</Badge> },
+                                    { key: "actions", label: "Ações", render: note => <div className="flex shrink-0 items-center gap-1">
+                                        <button type="button" title="Baixar PDF" aria-label={`Baixar PDF da nota fiscal ${note.number ?? ""}`}
+                                            className="panel-fiscal-download inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-gray-500 transition-colors focus-visible:outline-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-40"
+                                            disabled={loading || downloading} onClick={() => void downloadNote(note.order_id, "pdf")}>
+                                            <FileText size={16} strokeWidth={1.75} aria-hidden="true" />
+                                        </button>
+                                        <button type="button" title="Baixar XML" aria-label={`Baixar XML da nota fiscal ${note.number ?? ""}`}
+                                            className="panel-fiscal-download inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-gray-500 transition-colors focus-visible:outline-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-40"
+                                            disabled={loading || downloading} onClick={() => void downloadNote(note.order_id, "xml")}>
+                                            <Download size={16} strokeWidth={1.75} aria-hidden="true" />
+                                        </button>
+                                    </div> },
                                 ]} />
                             {invoiceList.pageCount > 1 && <Pagination page={page} pageCount={invoiceList.pageCount} onChange={setPage} disabled={listLoading} />}
                         </>}

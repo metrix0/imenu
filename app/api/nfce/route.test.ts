@@ -73,7 +73,7 @@ test("preserves the Plus entitlement check without fiscal runtime configuration"
 test("lists archived fiscal notes for the selected period, newest first and independently of order filters", async () => {
     jest.mocked(query).mockClear();
     jest.mocked(hasIMenuPlusAccess).mockResolvedValue(false);
-    const notes = [{ order_id: restaurant, number: 10, series: 1, issued_at: "2026-11-07T20:00:00Z", status: "authorized" }];
+    const notes = [{ order_id: restaurant, number: 10, series: 1, issued_at: "2026-11-07T20:00:00Z", status: "authorized", display_id: 12, customer_name: "Cliente", order_total_cents: 4500 }];
     jest.mocked(query)
         .mockResolvedValueOnce({ rows: notes, rowCount: 1 })
         .mockResolvedValueOnce({ rows: [{ total: 42 }], rowCount: 1 });
@@ -83,6 +83,8 @@ test("lists archived fiscal notes for the selected period, newest first and inde
     expect(requireRestaurantOwner).toHaveBeenCalledWith(expect.any(Request), restaurant);
     expect(jest.mocked(query).mock.calls[0][0]).toContain("authorized_xml IS NOT NULL");
     expect(jest.mocked(query).mock.calls[0][0]).toContain("ORDER BY issued_at DESC,order_id DESC");
+    expect(jest.mocked(query).mock.calls[0][0]).toContain("LEFT JOIN public.orders o ON o.id=d.order_id AND o.restaurant_id=d.restaurant_id");
+    expect(jest.mocked(query).mock.calls[0][0]).toContain("o.total_cents AS order_total_cents");
     expect(jest.mocked(query).mock.calls[0][1]).toEqual([restaurant, 2, new Date("2026-11-01T03:00:00Z"), new Date("2026-11-23T03:00:00Z"), 20, 20]);
 });
 
