@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { Download, FileBadge, FileText } from "lucide-react";
+import { Download, FileBadge, FileDown, FileText } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
@@ -243,7 +243,7 @@ export function NfceHistoryButton({ restaurant, history, onPaid }: { restaurant:
                                         <button type="button" title="Baixar PDF" aria-label={`Baixar PDF da nota fiscal ${note.number ?? ""}`}
                                             className="panel-fiscal-download inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-gray-500 transition-colors focus-visible:outline-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-40"
                                             disabled={loading || downloading} onClick={() => void downloadNote(note.order_id, "pdf")}>
-                                            <FileText size={16} strokeWidth={1.75} aria-hidden="true" />
+                                            <FileDown size={16} strokeWidth={1.75} aria-hidden="true" />
                                         </button>
                                         <button type="button" title="Baixar XML" aria-label={`Baixar XML da nota fiscal ${note.number ?? ""}`}
                                             className="panel-fiscal-download inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-gray-500 transition-colors focus-visible:outline-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-40"
@@ -324,7 +324,7 @@ export function NfceOrderSection({ order, note, restaurant, configured, focus, o
                     <button type="button" title="Baixar PDF" aria-label="Baixar PDF da nota fiscal"
                         className="panel-fiscal-download inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-gray-500 transition-colors focus-visible:outline-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-40"
                         disabled={busy} onClick={() => void run(async () => { await download(restaurant, { action: "pdf", order: order.id }, "danfe.pdf"); })}>
-                        <FileText size={16} strokeWidth={1.75} aria-hidden="true" />
+                        <FileDown size={16} strokeWidth={1.75} aria-hidden="true" />
                     </button>
                 )}
                 {note && ["authorized", "canceled"].includes(note.status) && (
