@@ -350,12 +350,16 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                         )}
                                     </div>
                                     <div className="min-w-0 space-y-2">
-                                        <h4 className="flex items-start gap-2 text-base 2xl:text-lg font-medium text-gray-900">
-                                            <FontAwesomeIcon icon={isTableOrder ? faChair : isCounterOrder ? faStore : isPickup ? faBagShopping : faMapMarkerAlt} className="w-4 shrink-0 text-gray-400 mt-1" />
-                                            <span className="min-w-0 break-words">{isTableOrder ? details.table_name_snapshot || "Mesa" : isCounterOrder ? "Venda no balcão" : isPickup ? "Retirada no balcão" : "Entrega"}</span>
-                                        </h4>
-                                        {!isReadyOnSite && details.customer_address && (
-                                            <p className="pl-6 break-words text-sm 2xl:text-base text-gray-500">{details.customer_address}</p>
+                                        {isReadyOnSite ? (
+                                            <h4 className="flex items-start gap-2 text-base 2xl:text-lg font-medium text-gray-900">
+                                                <FontAwesomeIcon icon={isTableOrder ? faChair : isCounterOrder ? faStore : faBagShopping} className="w-4 shrink-0 text-gray-400 mt-1" />
+                                                <span className="min-w-0 break-words">{isTableOrder ? details.table_name_snapshot || "Mesa" : isCounterOrder ? "Venda no balcão" : "Retirada no balcão"}</span>
+                                            </h4>
+                                        ) : (
+                                            <p className="flex items-start gap-2 text-sm 2xl:text-base text-gray-900">
+                                                <FontAwesomeIcon icon={faMapMarkerAlt} className="w-4 shrink-0 text-gray-400 mt-0.5" />
+                                                <span className="min-w-0 break-words">{details.customer_address || "Endereço não informado"}</span>
+                                            </p>
                                         )}
                                         <div className="text-sm 2xl:text-[1.1rem]">
                                             {isScheduled && scheduledLabel ? (
