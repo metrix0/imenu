@@ -9,6 +9,7 @@ type AddonPurchaseRow = {
     product_key: "ia_plus" | "qr_code_mesa";
     owner_phone: string | null;
     restaurant_phone: string | null;
+    store_whatsapp: string | null;
     successful_payments: number;
     current_payment_confirmed: boolean;
 };
@@ -41,19 +42,20 @@ const ADDON_PURCHASE_MESSAGES: Record<AddonPurchaseRow["product_key"], string> =
 };
 
 function normalizeBrazilianPhone(value: unknown): string | null {
-    let digits = String(value ?? "").replace(/\D/g, "");
-
+    const raw = String(value ?? "").trim();
+    let digits = raw.replace(/\D/g, "");
+    const international = raw.startsWith("+") || digits.startsWith("0055");
     if (digits.startsWith("0055")) digits = digits.slice(2);
     if (digits.startsWith("055") && digits.length >= 13) digits = digits.slice(1);
 
-    if (digits.startsWith("55") && (digits.length === 12 || digits.length === 13)) {
+    // Validate the subscriber number as well as its length, including local DDD 55.
+    const national = /^[1-9]\d(?:[2-9]\d{7}|9\d{8})$/;
+    if (digits.startsWith("55") && national.test(digits.slice(2))) {
         return digits;
     }
-
-    if (digits.length === 10 || digits.length === 11) {
+    if (!international && national.test(digits)) {
         return `55${digits}`;
     }
-
     return null;
 }
 
@@ -72,6 +74,7 @@ export async function sendAddonPurchaseWhatsApp(input: {
                     addon.product_key,
                     owner.raw_user_meta_data->>'phone' AS owner_phone,
                     restaurant.phone AS restaurant_phone,
+                    restaurant.store_whatsapp,
                     (
                         SELECT COUNT(*)::int
                         FROM public.restaurant_addon_payments AS payment
@@ -122,17 +125,19 @@ export async function sendAddonPurchaseWhatsApp(input: {
             return;
         }
 
-        const phone =
-            normalizeBrazilianPhone(addon.owner_phone) ||
-            normalizeBrazilianPhone(addon.restaurant_phone);
-        if (!phone) {
+        const phones = [...new Set(
+            [addon.owner_phone, addon.restaurant_phone, addon.store_whatsapp]
+                .map(normalizeBrazilianPhone)
+                .filter((phone): phone is string => phone !== null)
+        )];
+        if (!phones.length) {
             console.warn("[ADDON_PURCHASE_WHATSAPP] Telefone não encontrado:", {
                 addonId: input.addonId,
             });
             return;
         }
 
-        const chatId = phone + "@c.us";
+        const chatId = phones[0] + "@c.us";
         const claim = await query(
             `
                 INSERT INTO public.whatsapp_outbound_messages (
@@ -162,12 +167,17 @@ export async function sendAddonPurchaseWhatsApp(input: {
             throw new Error("WhatsApp principal não está conectado.");
         }
 
-        const contact = await checkWahaPhoneExists(sessionName, phone);
-        if (!contact.numberExists) {
+        let resolvedChatId: string | null = null;
+        for (const phone of phones) {
+            const contact = await checkWahaPhoneExists(sessionName, phone);
+            if (contact.numberExists) {
+                resolvedChatId = contact.chatId || phone + "@c.us";
+                break;
+            }
+        }
+        if (!resolvedChatId) {
             throw new Error("Número não existe no WhatsApp.");
         }
-
-        const resolvedChatId = contact.chatId || chatId;
         await sendWahaText(
             sessionName,
             resolvedChatId,
