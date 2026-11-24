@@ -331,8 +331,8 @@
 .panel-essencial .panel-history-table .panel-history-action:hover {
   background-color: transparent;
 }
-.panel-essencial .panel-history-table .panel-history-action:hover:not(:disabled):not([data-fiscal-muted="true"]),
-.panel-essencial .panel-history-table .panel-history-action:hover:not(:disabled):not([data-fiscal-muted="true"]) .panel-icon {
+.panel-essencial .panel-history-table .panel-history-action:not(.panel-history-action-delete):hover:not(:disabled):not([data-fiscal-muted="true"]),
+.panel-essencial .panel-history-table .panel-history-action:not(.panel-history-action-delete):hover:not(:disabled):not([data-fiscal-muted="true"]) .panel-icon {
   color: var(--panel-text);
 }
 .panel-essencial .panel-history-table .panel-history-action-delete:hover:not(:disabled),
