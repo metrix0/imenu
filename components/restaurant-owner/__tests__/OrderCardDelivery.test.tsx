@@ -2,6 +2,7 @@ import { type ReactElement, type ReactNode, isValidElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import OrderCard, { type OrderData, type OrderStatus } from "../OrderCard";
 import Button from "@/components/ui/Button";
+import OrderBadge from "../pedidos/OrderBadge";
 
 jest.mock("react", () => ({
     ...jest.requireActual("react"),
@@ -83,4 +84,13 @@ test("failed completion does not report a delivery or refresh success", async ()
     expect(refresh).not.toHaveBeenCalled();
     expect(alertMock).toHaveBeenCalled();
     errorSpy.mockRestore();
+});
+
+
+test("iFood uses the shared red badge and branded capitalization", () => {
+    const badgeHtml = renderToStaticMarkup(<OrderBadge kind="ifood" />);
+    expect(badgeHtml).toMatch(/data-variant="danger"[^>]*>iFood<\/span>/);
+    const cardHtml = renderToStaticMarkup(<OrderCard order={{ ...order("preparing"), payment_method: "ifood" }} onStatusChange={noop} />);
+    expect(cardHtml).toMatch(/data-variant="danger"[^>]*><span>iFood<\/span>/);
+    expect(cardHtml).not.toContain(">ifood<");
 });

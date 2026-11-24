@@ -313,7 +313,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                     <OrderBadge kind="table">
                                         {details?.table_name_snapshot || order.table_name_snapshot || "Mesa"}
                                     </OrderBadge>
-                                ) : payment && <OrderBadge kind="payment">{(isReadyOnSite ? null : cardLabel) || paymentLabels[payment] || payment}</OrderBadge>)}
+                                ) : method === "ifood" ? <OrderBadge kind="ifood" /> : payment && <OrderBadge kind="payment">{(isReadyOnSite ? null : cardLabel) || paymentLabels[payment] || payment}</OrderBadge>)}
                                 {isReadyOnSite && !isTableOrder && cardLabel && <OrderBadge kind="payment">{cardLabel}</OrderBadge>}
                             </div>
                             <p className="text-xs text-gray-500 flex items-center gap-1 2xl:text-base">

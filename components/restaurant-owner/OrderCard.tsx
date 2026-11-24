@@ -392,7 +392,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
     const deliveryEtaTooltip = !isScheduled && !isCounterOrder ? formatEtaRange(order.delivery_eta) : "";
     const paymentBadge = (
         <OrderBadge
-            kind={paymentMethod === "pix" ? "paymentConfirmed" : "payment"}
+            kind={paymentMethod === "ifood" ? "ifood" : paymentMethod === "pix" ? "paymentConfirmed" : "payment"}
             tabIndex={cashChangeObservation ? 0 : undefined}
             aria-label={cashChangeObservation ? "Informações sobre troco" : undefined}
             className={cashChangeObservation ? "-ml-1 cursor-help" : "-ml-1"}

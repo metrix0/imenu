@@ -19,6 +19,7 @@ const presets = {
     completed: { variant: "success", label: "Concluído" },
     canceled: { variant: "danger", label: "Cancelado" },
     payment: { variant: "neutral" },
+    ifood: { variant: "danger", label: "iFood" },
     paymentConfirmed: { variant: "success" },
     table: { variant: "brand", icon: faChair },
     count: { variant: "neutral" },
@@ -36,7 +37,7 @@ const statusPresets = {
     canceled: "canceled",
 } satisfies Record<OrderStatus, keyof typeof presets>;
 
-type BadgeKind = "payment" | "paymentConfirmed" | "table" | "count" | "scheduled" | "elapsed";
+type BadgeKind = "ifood" | "payment" | "paymentConfirmed" | "table" | "count" | "scheduled" | "elapsed";
 
 type OrderBadgeProps = Omit<ComponentProps<typeof Badge>, "variant" | "preset"> & (
     | { status: OrderStatus; readyOnSite?: boolean; kind?: never }
