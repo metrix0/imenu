@@ -10,7 +10,7 @@ import {
     Bell, BellOff, Bike, Trash2, CalendarDays, Camera, ChartNoAxesCombined,
     Megaphone,
     Check, Circle, CircleCheck, CircleHelp, Clock, CloudDownload, Copy,
-    CreditCard, Crosshair, DollarSign, DoorOpen, Download, ExternalLink, FileText,
+    CreditCard, Crosshair, DollarSign, DoorOpen, Download, ExternalLink,
     Eye, Gift, Globe, GripHorizontal, GripVertical, House, Image,
     Info, Crown, Layers, Link, LoaderCircle, Lock, LogOut, Mail, MapPin, Menu, ShieldCheck,
     MessageCircle, Minus, Package, PackageOpen, Palette, Pencil,
@@ -22,6 +22,7 @@ import {
     ChevronUp, X, Bot, ConciergeBell, createLucideIcon, type LucideIcon,
 } from "lucide-react";
 import { usePanelAppearance } from "./PanelAppearance";
+import { NfceIcon } from "@/lib/nfce/icon";
 
 const MotorRacingHelmet = createLucideIcon("MotorRacingHelmet", [
     ["path", { d: "M22 12.2a10 10 0 1 0-19.4 3.2c.2.5.8 1.1 1.3 1.3l13.2 5.1c.5.2 1.2 0 1.6-.3l2.6-2.6c.4-.4.7-1.2.7-1.7Z", key: "helmet-shell" }],
@@ -50,7 +51,7 @@ const panelIcons: Record<string, LucideIcon> = {
     "pen-to-square": Pencil, envelope: Mail, "triangle-exclamation": TriangleAlert,
     "up-right-from-square": ExternalLink, eye: Eye, gear: Settings, gift: Gift,
     globe: Globe, "grip-lines": GripHorizontal, "grip-vertical": GripVertical,
-    "file-invoice": FileText,
+    "file-invoice": NfceIcon,
     handshake: Handshake, "heart-pulse": HeartPulse, headset: Headset, house: House, image: Image, crown: Crown, "layer-group": Layers, link: Link,
     "location-crosshairs": Crosshair, "location-dot": MapPin, lock: Lock,
     "magnifying-glass": Search, minus: Minus, "mobile-screen-button": Smartphone,
