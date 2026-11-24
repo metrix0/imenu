@@ -292,7 +292,7 @@ export default function IMenuPlusSetup({ restaurantId, onClose, onSavingChange }
                                     disabled={key === "nfce" && !setup.fiscal.available}
                                     badge={key === "darkMenu" ? <Badge variant="neutral">Opcional</Badge> : undefined}
                                     switchBadge={key === "nfce" && setup.values.nfce && !setup.fiscal.configured
-                                        ? <Badge variant="warning">Não configurado</Badge> : undefined}
+                                        ? <Badge variant="warning" className="font-medium!">Não configurado</Badge> : undefined}
                                     ariaLabel={title} icon={<Icon size={18} aria-hidden="true" />}
                                     className={key === "nfce"
                                         ? "max-sm:p-3! items-start! [&>div:first-child]:items-start [&>div:first-child>span:first-child]:mt-0.5"
