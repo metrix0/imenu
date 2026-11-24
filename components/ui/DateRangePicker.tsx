@@ -6,9 +6,9 @@ import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from "lucide-rea
 import Button from "./Button";
 import { DATE_FILTER_PRESETS, formatDate, formatRangeDate, parseDate, type DateRange, type DateFilterPreset } from "@/lib/utils/dateRange";
 
-export default function DateRangePicker({ value, onChange, presets = DATE_FILTER_PRESETS, allowClear = false, allowFuture = false, allowOpenEnd = false, label = "Período", emptyLabel = "Todo o período", singleDate = false, iconOnly = false, active = false }: {
+export default function DateRangePicker({ value, onChange, presets = DATE_FILTER_PRESETS, allowClear = false, allowFuture = false, allowOpenEnd = false, label = "Período", showLabel = true, emptyLabel = "Todo o período", singleDate = false, iconOnly = false, active = false }: {
     value: DateRange; onChange: (range: DateRange) => void; presets?: DateFilterPreset[]; allowClear?: boolean;
-    allowFuture?: boolean; allowOpenEnd?: boolean; label?: string; emptyLabel?: string;
+    allowFuture?: boolean; allowOpenEnd?: boolean; label?: string; showLabel?: boolean; emptyLabel?: string;
     singleDate?: boolean; iconOnly?: boolean; active?: boolean;
 }) {
     const [open, setOpen] = useState(false);
@@ -65,7 +65,7 @@ export default function DateRangePicker({ value, onChange, presets = DATE_FILTER
         })?.label
         : null;
     return <div data-ui="field" className={iconOnly ? "flex shrink-0" : "flex min-w-0 flex-col gap-1.5"}>
-        <span data-ui="field-label" className={iconOnly ? "sr-only" : "block text-xs font-medium leading-[18px] text-[#1d1d1d]"}>{label}</span>
+        <span data-ui="field-label" className={iconOnly || !showLabel ? "sr-only" : "block text-xs font-medium leading-[18px] text-[#1d1d1d]"}>{label}</span>
         <button ref={trigger} type="button" data-ui="dropdown-trigger" aria-label={`Selecionar ${label.toLowerCase()}`} aria-haspopup="dialog" aria-expanded={open}
             aria-pressed={iconOnly ? active : undefined}
             className={iconOnly

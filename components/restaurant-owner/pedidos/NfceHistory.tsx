@@ -14,7 +14,7 @@ import PanelTabCard from "@/components/restaurant-owner/ia-vendas/PanelTabCard";
 import DateRangePicker from "@/components/ui/DateRangePicker";
 import DataTable from "@/components/ui/DataTable";
 import Pagination from "@/components/ui/Pagination";
-import { DATE_FILTER_PRESETS, getPreviousMonthRange } from "@/lib/utils/dateRange";
+import { getPreviousMonthRange } from "@/lib/utils/dateRange";
 import { supabase } from "@/lib/database/supabaseClient";
 import { CARD_AT_DELIVERY_LABELS } from "@/lib/payments/deliveryMethods";
 import type { NoteSummary } from "@/lib/nfce/service";
@@ -192,14 +192,14 @@ export function NfceHistoryButton({ restaurant, history, onPaid }: { restaurant:
         ) : (
         <Modal open={open} onClose={() => setOpen(false)} height={showTable ? 720 : 380} showCloseButton>
             <section className="w-full space-y-5 rounded-lg bg-white p-6" aria-label="Notas Fiscais">
-                <div className="flex flex-wrap items-end justify-between gap-3 pr-10">
+                <div className="flex flex-wrap items-center justify-between gap-3 pr-10">
                     <h2 className="text-xl font-bold text-gray-900">Notas Fiscais</h2>
-                    {showTable && <div className="flex flex-wrap items-end gap-2">
+                    {showTable && <div className="flex flex-wrap items-center gap-2">
+                        <Button leftIcon={<Download size={16} />} onClick={() => void exportPeriod(range)} loading={loading} disabled={loading || listLoading || !!listError || invoiceList.pageCount === 0}>Baixar todas</Button>
                         <div className="w-40 sm:w-48">
-                            <DateRangePicker value={range} presets={[{ label: "Este mês", getRange: thisMonth }, { label: "Mês anterior", getRange: getPreviousMonthRange }, ...DATE_FILTER_PRESETS]}
+                            <DateRangePicker value={range} showLabel={false} presets={[{ label: "Este mês", getRange: thisMonth }, { label: "Mês anterior", getRange: getPreviousMonthRange }]}
                                 onChange={value => { setRange(value); setPage(0); setError(""); }} />
                         </div>
-                        <Button leftIcon={<Download size={16} />} onClick={() => void exportPeriod(range)} loading={loading} disabled={loading || listLoading || !!listError || invoiceList.pageCount === 0}>Baixar todas</Button>
                     </div>}
                 </div>
                 {history.plus === null ? (
