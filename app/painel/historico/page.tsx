@@ -365,10 +365,17 @@ export default function HistoricoPage() {
                 isOpen={isDetailsOpen}
                 onClose={() => setIsDetailsOpen(false)}
                 order={selectedOrder}
-                fiscalSection={isDetailsOpen && restaurantId && fiscal?.plus && selectedOrder && (
-                    <NfceOrderSection key={selectedOrder.id} order={selectedOrder} restaurant={restaurantId}
-                        note={fiscal.notes.find(note => note.order_id === selectedOrder.id)} configured={fiscal.configured}
-                        focus={focusFiscal} onChange={() => setNfceRefresh(value => value + 1)} />
+                fiscalSection={isDetailsOpen && restaurantId && selectedOrder && (
+                    fiscal.plus === true ? (
+                        <NfceOrderSection key={selectedOrder.id} order={selectedOrder} restaurant={restaurantId}
+                            note={fiscal.notes.find(note => note.order_id === selectedOrder.id)} configured={fiscal.configured}
+                            focus={focusFiscal} onChange={() => setNfceRefresh(value => value + 1)} />
+                    ) : fiscal.plus === false ? (
+                        <section className="space-y-1.5">
+                            <h3 className="text-sm font-medium text-gray-900">Nota fiscal (NFC-e)</h3>
+                            <NfceUpgradeButton compact restaurant={restaurantId} onPaid={() => setNfceRefresh(value => value + 1)} />
+                        </section>
+                    ) : null
                 )}
                 onOrderUpdate={handleOrderUpdate}
                 onDeleteOrder={(order) => { setIsDetailsOpen(false); setOrderToDelete(order); }}

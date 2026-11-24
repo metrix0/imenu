@@ -5,7 +5,7 @@ import { LegacyModalClose } from "@/components/ui/ModalCloseButton";
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import { faTimes, faUser, faMapMarkerAlt, faClock, faReceipt, faCheck, faMotorcycle, faCalendarDays, faChair, faPenToSquare, faBan, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faTimes, faUser, faMapMarkerAlt, faClock, faCheck, faMotorcycle, faCalendarDays, faChair, faPenToSquare, faBan, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { icons } from "@/lib/utils/fontawesome";
 import Modal from "@/components/ui/Modal";
 import ConfirmModal from "@/components/ui/ConfirmModal";
@@ -338,7 +338,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                 {/* Cliente */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-3 2xl:space-y-6">
-                                        <h4 className="text-sm 2xl:text-base font-bold text-gray-900 uppercase tracking-wider pb-1">Cliente</h4>
+                                        <h4 className="text-base 2xl:text-lg font-medium text-gray-900 pb-1">Cliente</h4>
                                         <div className="text-sm 2xl:text-base">
                                             <p className="font-medium text-gray-900 flex items-center gap-2 2xl:gap-3">
                                                 <FontAwesomeIcon icon={faUser} className="text-gray-400 w-4" />
@@ -350,7 +350,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                         </div>
                                     </div>
                                     <div className="space-y-3 2xl:space-y-6">
-                                        <h4 className="text-sm 2xl:text-base font-bold text-gray-900 uppercase tracking-wider pb-1">{isTableOrder ? "Mesa" : isCounterOrder ? "Balcão" : isPickup ? "Retirada" : "Entrega"}</h4>
+                                        <h4 className="text-base 2xl:text-lg font-medium text-gray-900 pb-1">{isTableOrder ? "Mesa" : isCounterOrder ? "Balcão" : isPickup ? "Retirada" : "Entrega"}</h4>
                                         <div className="text-sm 2xl:text-[1.1rem]">
                                             {isTableOrder ? (
                                                 <p className="flex items-center gap-2 font-medium text-gray-600">
@@ -386,9 +386,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
 
                                 {/* Itens */}
                                 <div>
-                                    <h4 className="text-sm 2xl:text-base font-bold text-gray-900 uppercase tracking-wider pb-2 mb-3 flex items-center gap-2">
-                                        <FontAwesomeIcon icon={faReceipt} className="text-gray-400" /> Resumo do Pedido
-                                    </h4>
+                                    <h4 className="text-base 2xl:text-lg font-medium text-gray-900 pb-2 mb-3">Resumo do pedido</h4>
                                     <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
                                         {details.order_items.map((item, idx) => (
                                             <div
@@ -427,8 +425,9 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                 </div>
 
                                 {/* Totais */}
-                                <div className="flex justify-end">
-                                    <div className="w-full md:w-1/2 space-y-2 2xl:space-y-3 sm:mx-4">
+                                <div className="flex flex-col-reverse gap-4 md:flex-row md:items-start md:justify-end md:gap-6">
+                                    {fiscalSection && <div className="min-w-0 flex-1">{fiscalSection}</div>}
+                                    <div className="w-full md:w-1/2 md:shrink-0 space-y-2 2xl:space-y-3 sm:mx-4">
                                         <div className="flex justify-between text-sm 2xl:text-base text-gray-500">
                                             <span>Subtotal</span>
                                             <span>{fmtMoney(details.subtotal_cents || 0)}</span>
@@ -457,7 +456,6 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                         )}
                                     </div>
                                 </div>
-                                {fiscalSection}
                             </div>
                         )}
                     </div>

@@ -81,11 +81,15 @@ function thisMonth() {
     return { startDate: month + "-01", endDate: month + "-" + datePart("day") };
 }
 
-export function NfceUpgradeButton({ restaurant, onPaid, row = false }: { restaurant: string; onPaid: () => void | Promise<void>; row?: boolean }) {
+export function NfceUpgradeButton({ restaurant, onPaid, row = false, compact = false }: { restaurant: string; onPaid: () => void | Promise<void>; row?: boolean; compact?: boolean }) {
     const [open, setOpen] = useState(false);
 
     return <>
-        {row ? (
+        {compact ? (
+            <button type="button" className="cursor-pointer rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" onClick={() => setOpen(true)}>
+                <Badge preset="plusIncluded">Recurso iMenu Plus</Badge>
+            </button>
+        ) : row ? (
             <CollapsibleSection
                 title="Emissão automática de NFC-e"
                 description="Emita notas fiscais dos pedidos automaticamente com o iMenu Plus."
@@ -238,21 +242,21 @@ export function NfceOrderSection({ order, note, restaurant, configured, focus, o
             onChange();
         });
     };
-    return <section id="order-nfce" className="space-y-3" tabIndex={-1}>
-        <h3 className="text-sm font-bold uppercase tracking-wider text-gray-900">Nota fiscal (NFC-e)</h3>
-        <p className="text-sm text-gray-600">{note ? stateLabels[note.status] : queued ? "Aguardando emissão" : "Não emitida"}</p>
-        {note?.number && <p className="text-sm text-gray-700">Nº {note.number} · Série {note.series} · {new Date(note.issued_at).toLocaleString("pt-BR")}</p>}
+    return <section id="order-nfce" className="space-y-1.5 text-xs" tabIndex={-1}>
+        <h3 className="text-sm font-medium text-gray-900">Nota fiscal (NFC-e)</h3>
+        <p className="text-xs text-gray-600">{note ? stateLabels[note.status] : queued ? "Aguardando emissão" : "Não emitida"}</p>
+        {note?.number && <p className="text-xs text-gray-600">Nº {note.number} · Série {note.series} · {new Date(note.issued_at).toLocaleString("pt-BR")}</p>}
         {note?.access_key && <p className="break-all text-xs text-gray-600">{note.access_key}</p>}
-        {note?.error && <p className="text-sm text-red-700">{note.error}</p>}
-        <div className="flex flex-wrap gap-2">
-            {note && ["authorized", "canceled", "contingency"].includes(note.status) && <Button variant="secondary" className="!border-transparent !bg-gray-100 hover:!bg-gray-200" disabled={busy} onClick={() => void run(async () => { await download(restaurant, { action: "pdf", order: order.id }, "danfe.pdf"); })}>Baixar PDF</Button>}
-            {note && ["authorized", "canceled"].includes(note.status) && <Button variant="secondary" className="!border-transparent !bg-gray-100 hover:!bg-gray-200" disabled={busy} onClick={() => void run(async () => { await download(restaurant, { action: "xml", order: order.id }, "nfce.xml"); })}>Baixar XML</Button>}
-            {note?.status === "authorized" && order.status === "canceled" && <Button variant="secondary" className="!border-transparent !bg-gray-100 hover:!bg-gray-200" onClick={() => setCancel(value => !value)}>Cancelar nota</Button>}
-            {pending && configured && !delivery && !queued && ["preparing", "delivering", "done"].includes(order.status) && <Button variant="secondary" className="!border-transparent !bg-gray-100 hover:!bg-gray-200" onClick={() => setEdit(value => !value)}>
+        {note?.error && <p className="text-xs text-red-700">{note.error}</p>}
+        <div className="flex flex-wrap gap-1.5">
+            {note && ["authorized", "canceled", "contingency"].includes(note.status) && <Button variant="secondary" className="!min-h-7 !px-2 !py-1 !text-xs !leading-4 !border-transparent !bg-gray-100 hover:!bg-gray-200" disabled={busy} onClick={() => void run(async () => { await download(restaurant, { action: "pdf", order: order.id }, "danfe.pdf"); })}>Baixar PDF</Button>}
+            {note && ["authorized", "canceled"].includes(note.status) && <Button variant="secondary" className="!min-h-7 !px-2 !py-1 !text-xs !leading-4 !border-transparent !bg-gray-100 hover:!bg-gray-200" disabled={busy} onClick={() => void run(async () => { await download(restaurant, { action: "xml", order: order.id }, "nfce.xml"); })}>Baixar XML</Button>}
+            {note?.status === "authorized" && order.status === "canceled" && <Button variant="secondary" className="!min-h-7 !px-2 !py-1 !text-xs !leading-4 !border-transparent !bg-gray-100 hover:!bg-gray-200" onClick={() => setCancel(value => !value)}>Cancelar nota</Button>}
+            {pending && configured && !delivery && !queued && ["preparing", "delivering", "done"].includes(order.status) && <Button variant="secondary" className="!min-h-7 !px-2 !py-1 !text-xs !leading-4 !border-transparent !bg-gray-100 hover:!bg-gray-200" onClick={() => setEdit(value => !value)}>
                 {note ? "Corrigir e tentar novamente" : "Emitir NFC-e"}
             </Button>}
         </div>
-        {delivery && !note && <p className="text-sm text-gray-600">Emissão fiscal para entregas indisponível nesta configuração.</p>}
+        {delivery && !note && <p className="text-xs text-gray-600">Emissão fiscal para entregas indisponível nesta configuração.</p>}
         {edit && <form onSubmit={submit} className="space-y-3">
             <label className="block text-sm">Pagamento
                 <select className="ml-2 rounded-md border border-gray-300 p-2" value={payment} onChange={event => setPayment(event.target.value)}>
@@ -268,6 +272,6 @@ export function NfceOrderSection({ order, note, restaurant, configured, focus, o
             <label className="flex gap-2 text-sm"><input type="checkbox" name="noDispatch" required />A mercadoria não saiu do estabelecimento</label>
             <Button type="submit" loading={busy}>Confirmar cancelamento</Button>
         </form>}
-        {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+        {error && <p role="alert" className="text-xs text-red-700">{error}</p>}
     </section>;
 }
