@@ -1,4 +1,5 @@
 import { requestIfoodStatus } from "@/lib/delivery/ifoodStatus";
+import { after } from "next/server";
 import { PATCH } from "./route";
 import { withTransaction } from "@/lib/database/sql";
 import { getAuthenticatedUser, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
@@ -6,6 +7,7 @@ import { refundPayZuPixCharge } from "@/lib/payments/payzu";
 import { notifyOrderStatusUpdate } from "@/lib/services/whatsappNotification";
 
 jest.mock("@/lib/delivery/ifoodStatus", () => ({ requestIfoodStatus: jest.fn(), IfoodStatusError: class extends Error {} }));
+jest.mock("next/server", () => ({ ...jest.requireActual("next/server"), after: jest.fn() }));
 jest.mock("@/lib/database/sql", () => ({ withTransaction: jest.fn() }));
 jest.mock("@/lib/auth/restaurantOwner", () => ({
     getAuthenticatedUser: jest.fn(),
@@ -36,6 +38,7 @@ const send = (status: string, bearer = "Bearer owner-token") => PATCH(
 
 beforeEach(() => {
     jest.clearAllMocks();
+    (after as jest.Mock).mockImplementation(() => undefined);
     (getAuthenticatedUser as jest.Mock).mockImplementation(async (request: Request) => {
         if (request.headers.get("Authorization") !== "Bearer owner-token") {
             throw new RestaurantOwnerAuthError("Não autenticado.", 401);
@@ -136,25 +139,109 @@ it("provider rejection leaves an imported order unchanged and returns its error"
     expect(client.query.mock.calls.every(([sql])=>!sql.includes("UPDATE orders"))).toBe(true);
 });
 
-it("does not block delivery status while production NFC-e is queued", async () => {
+describe("non-blocking NFC-e queue", () => {
     const originalEnv = process.env.NFCE_ENV;
-    process.env.NFCE_ENV = "producao";
-    try {
+
+    beforeEach(() => { process.env.NFCE_ENV = "producao"; });
+
+    afterEach(() => {
+        if (originalEnv === undefined) delete process.env.NFCE_ENV;
+        else process.env.NFCE_ENV = originalEnv;
+    });
+
+    it("starts fiscal work only after the status transaction commits and response succeeds", async () => {
         const fiscal = await import("@/lib/nfce/service");
-        const queued = jest.spyOn(fiscal, "queueOrderNote").mockResolvedValue(false);
-        const prepare = jest.spyOn(fiscal, "prepareOrderNote");
+        const queued = jest.spyOn(fiscal, "queueOrderNote").mockResolvedValue(true);
+        const processed = jest.spyOn(fiscal, "processNote").mockResolvedValue(true);
+        let committed = false;
+        (withTransaction as jest.Mock).mockImplementation(async (callback: (client: { query: jest.Mock }) => unknown) => {
+            const result = await callback(client);
+            committed = true;
+            return result;
+        });
         try {
             const response = await send("delivering");
             expect(response.status).toBe(200);
-            expect(client.query.mock.calls.some(([sql]) => String(sql).includes("UPDATE orders"))).toBe(true);
+            expect(await response.json()).toMatchObject({ ok: true, status: "delivering" });
+            expect(committed).toBe(true);
+            expect(notifyOrderStatusUpdate).toHaveBeenCalledWith("order", "delivering");
+            expect(queued).not.toHaveBeenCalled();
+            expect(after).toHaveBeenCalledTimes(1);
+
+            await (after as jest.Mock).mock.calls[0][0]();
             expect(queued).toHaveBeenCalledWith(client, "restaurant", "order", "delivering", "entrega");
-            expect(prepare).not.toHaveBeenCalled();
+            expect(processed).toHaveBeenCalledWith("order");
         } finally {
             queued.mockRestore();
-            prepare.mockRestore();
+            processed.mockRestore();
         }
-    } finally {
-        if (originalEnv === undefined) delete process.env.NFCE_ENV;
-        else process.env.NFCE_ENV = originalEnv;
-    }
+    });
+
+    it("returns success and still notifies the customer when fiscal queueing fails", async () => {
+        const fiscal = await import("@/lib/nfce/service");
+        const queued = jest.spyOn(fiscal, "queueOrderNote").mockRejectedValue(new Error("fiscal database unavailable"));
+        const processed = jest.spyOn(fiscal, "processNote").mockResolvedValue(true);
+        const log = jest.spyOn(console, "error").mockImplementation(() => undefined);
+        try {
+            const response = await send("done");
+            expect(response.status).toBe(200);
+            expect(await response.json()).toMatchObject({ ok: true, status: "done" });
+            expect(notifyOrderStatusUpdate).toHaveBeenCalledWith("order", "done");
+            expect(queued).not.toHaveBeenCalled();
+            await expect((after as jest.Mock).mock.calls[0][0]()).resolves.toBeUndefined();
+            expect(processed).not.toHaveBeenCalled();
+            expect(log).toHaveBeenCalledWith(expect.stringContaining("[NFC-E]"), expect.any(Error));
+        } finally {
+            queued.mockRestore();
+            processed.mockRestore();
+            log.mockRestore();
+        }
+    });
+
+    it("does not fail the status response when SEFAZ processing fails", async () => {
+        const fiscal = await import("@/lib/nfce/service");
+        const queued = jest.spyOn(fiscal, "queueOrderNote").mockResolvedValue(true);
+        const processed = jest.spyOn(fiscal, "processNote").mockRejectedValue(new Error("SEFAZ offline"));
+        const log = jest.spyOn(console, "error").mockImplementation(() => undefined);
+        try {
+            const response = await send("delivering");
+            expect(response.status).toBe(200);
+            expect(await response.json()).toMatchObject({ ok: true, status: "delivering" });
+            expect(notifyOrderStatusUpdate).toHaveBeenCalledWith("order", "delivering");
+            await expect((after as jest.Mock).mock.calls[0][0]()).resolves.toBeUndefined();
+            expect(processed).toHaveBeenCalledWith("order");
+            expect(log).toHaveBeenCalledWith(expect.stringContaining("[NFC-E]"), expect.any(Error));
+        } finally {
+            queued.mockRestore();
+            processed.mockRestore();
+            log.mockRestore();
+        }
+    });
+
+    it("keeps status changes successful if scheduling fiscal work fails", async () => {
+        (after as jest.Mock).mockImplementation(() => { throw new Error("post-response scheduling unavailable"); });
+        const log = jest.spyOn(console, "error").mockImplementation(() => undefined);
+        try {
+            const response = await send("delivering");
+            expect(response.status).toBe(200);
+            expect(await response.json()).toMatchObject({ ok: true, status: "delivering" });
+            expect(notifyOrderStatusUpdate).toHaveBeenCalledWith("order", "delivering");
+            expect(log).toHaveBeenCalledWith(expect.stringContaining("[NFC-E]"), expect.any(Error));
+        } finally {
+            log.mockRestore();
+        }
+    });
+
+    it("never queues NFC-e for an ineligible status", async () => {
+        const fiscal = await import("@/lib/nfce/service");
+        const queued = jest.spyOn(fiscal, "queueOrderNote").mockResolvedValue(false);
+        try {
+            const response = await send("preparing");
+            expect(response.status).toBe(200);
+            await (after as jest.Mock).mock.calls[0][0]();
+            expect(queued).not.toHaveBeenCalled();
+        } finally {
+            queued.mockRestore();
+        }
+    });
 });
