@@ -94,7 +94,7 @@ async function loadSetup(id: string): Promise<Setup> {
             orderNotificationsEnabled: whatsapp.orderNotificationsEnabled,
             upsell: upsell.data?.enabled === true,
             darkMenu: restaurant.data.dark_menu_enabled === true,
-            nfce: fiscal.enabled === true,
+            nfce: fiscal.available && fiscal.enabled === true,
         },
     };
 }
@@ -281,18 +281,22 @@ export default function IMenuPlusSetup({ restaurantId, onClose, onSavingChange }
                                         {setup.values.nfce && !setup.fiscal.configured && (
                                             <span className="mt-1 block">
                                                 Conclua a configuração em{" "}
-                                                <a href="/painel/configuracoes#nfce" target="_blank" rel="noopener noreferrer"
-                                                    className="font-medium text-brand underline underline-offset-2">Configurações</a>.
+                                                <strong className="inline-flex items-center gap-1 font-semibold text-gray-700">
+                                                    <Settings size={13} aria-hidden="true" />Configurações
+                                                </strong>.
                                             </span>
                                         )}
                                     </> : description}
                                     checked={reviewingMarketing && isMarketingSetting(key) ? reviewingMarketing.choices[key] : setup.values[key]}
                                     onChange={(checked) => toggle(key, checked)}
                                     disabled={key === "nfce" && !setup.fiscal.available}
-                                    badge={key === "darkMenu" ? <Badge variant="neutral">Opcional</Badge>
-                                        : key === "nfce" && setup.values.nfce && !setup.fiscal.configured
-                                            ? <Badge variant="warning">Não configurado</Badge> : undefined}
-                                    ariaLabel={title} icon={<Icon size={18} aria-hidden="true" />} className="max-sm:p-3!" />
+                                    badge={key === "darkMenu" ? <Badge variant="neutral">Opcional</Badge> : undefined}
+                                    switchBadge={key === "nfce" && setup.values.nfce && !setup.fiscal.configured
+                                        ? <Badge variant="warning">Não configurado</Badge> : undefined}
+                                    ariaLabel={title} icon={<Icon size={18} aria-hidden="true" />}
+                                    className={key === "nfce"
+                                        ? "max-sm:p-3! items-start! [&>div:first-child]:items-start [&>div:first-child>span:first-child]:mt-0.5"
+                                        : "max-sm:p-3!"} />
                             ))}
                         </div>
                     )}
