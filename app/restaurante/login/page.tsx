@@ -58,7 +58,7 @@ function formatAuthError(message: string): string {
     const normalizedMessage = message.toLowerCase();
 
     if (normalizedMessage.includes("invalid login credentials")) {
-        return "E-mail ou senha incorretos. Se sua conta foi criada com Google, use “Continuar com Google”.";
+        return "E-mail ou senha incorretos.";
     }
 
     if (normalizedMessage.includes("email address not authorized")) {
