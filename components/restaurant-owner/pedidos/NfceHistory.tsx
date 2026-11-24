@@ -111,7 +111,7 @@ export function NfceUpgradeButton({ restaurant, onPaid, row = false, compact = f
     </>;
 }
 
-export function NfceHistoryButton({ restaurant, history }: { restaurant: string; history: History }) {
+export function NfceHistoryButton({ restaurant, history, onPaid }: { restaurant: string; history: History; onPaid: () => void | Promise<void> }) {
     const [open, setOpen] = useState(false);
     const [custom, setCustom] = useState(false);
     const [receipt, setReceipt] = useState<string | null>(null);
@@ -148,15 +148,25 @@ export function NfceHistoryButton({ restaurant, history }: { restaurant: string;
             setError((error as Error).message);
         } finally { setLoading(false); }
     };
-    if (history.plus === null || (history.plus === false && (!history.archive || removed))) return null;
+    const showPlusOffer = history.plus === false && (!history.archive || removed);
     return <>
-        <Button variant="secondary" leftIcon={<PanelIcon icon={faFileInvoice} />} onClick={() => { setError(""); setCustom(false); setOpen(true); }}>
-            {history.plus ? "Notas Fiscais" : "Baixar notas anteriores"}
-        </Button>
+        <Tooltip text="Recurso exclusivo do iMenu Plus" disabled={history.plus !== false} parentClassName="inline-flex">
+            <Button variant="secondary" leftIcon={<PanelIcon icon={faFileInvoice} />}
+                onClick={() => { setError(""); setCustom(false); setOpen(true); }}>
+                Notas Fiscais
+            </Button>
+        </Tooltip>
+        {showPlusOffer ? (
+            open && <IaPlusSalesModal open onClose={() => setOpen(false)} restaurantId={restaurant}
+                contextMessage="Com o iMenu Plus, emita NFC-e e baixe os XMLs das suas notas fiscais por período."
+                onPaid={() => { setOpen(false); return onPaid(); }} />
+        ) : (
         <Modal open={open} onClose={() => setOpen(false)} height={380} showCloseButton>
             <section className="w-full space-y-5 rounded-lg bg-white p-6" aria-label="Notas Fiscais">
                 <h2 className="text-xl font-bold text-gray-900">Notas Fiscais</h2>
-                {history.plus && (!history.available || !history.configured) ? (
+                {history.plus === null ? (
+                    <p className="text-sm text-gray-600" role="status">Verificando acesso às notas fiscais…</p>
+                ) : history.plus && (!history.available || !history.configured) ? (
                     <div className="flex items-start gap-3 rounded-[10px] border border-gray-200 bg-gray-50/70 p-4 sm:gap-4 sm:p-5">
                         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand" aria-hidden="true">
                             <PanelIcon icon={faFileInvoice} className="text-xl" />
@@ -190,6 +200,7 @@ export function NfceHistoryButton({ restaurant, history }: { restaurant: string;
                 {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
             </section>
         </Modal>
+        )}
         <ConfirmModal open={confirmDelete} onClose={() => setConfirmDelete(false)} onConfirm={() => void finishArchive()}
             title="Excluir a cópia do iMenu?" description="Confirme somente após salvar e abrir o ZIP completo. Guarde seus XMLs pelo prazo fiscal."
             confirmLabel="Confirmar e excluir" isLoading={loading} variant="danger" />
