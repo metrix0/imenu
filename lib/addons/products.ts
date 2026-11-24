@@ -16,10 +16,10 @@ export const IA_PLUS_WHATSAPP_ORDERING = {
 
 export const IA_PLUS_BENEFITS = [
   { id: "marketing", title: "Automações de Marketing WhatsApp", landingTitle: "Automações de Marketing WhatsApp", milestoneLabel: "as automações de marketing", description: "Recupere carrinhos, reative clientes e incentive novos pedidos com mensagens automáticas no WhatsApp.", icon: Megaphone },
+  { id: "nfce", title: "Notas Fiscais", landingTitle: "Notas Fiscais", milestoneLabel: "a emissão de notas fiscais", description: "Emita notas fiscais (NFC-e) automaticamente, sem limites, e baixe PDF e XML. Disponível para empresas do Simples Nacional em SP.", icon: FileBadge },
   { id: "assistant", title: "Assistente IA", landingTitle: "Assistente IA: para Melhorar o Cardápio", milestoneLabel: "o Assistente IA", description: "Converse com a IA, gere imagens e melhore seu cardápio com sugestões que você revisa antes de aplicar.", icon: Sparkles },
   { id: "sales", title: "Vendas IA", landingTitle: "Vendas IA", milestoneLabel: "o Vendas IA", description: "Analise suas vendas, descubra oportunidades e aplique melhorias depois de revisar cada sugestão.", icon: TrendingUp },
   { ...IA_PLUS_WHATSAPP_ORDERING, landingTitle: IA_PLUS_WHATSAPP_ORDERING.title, milestoneLabel: "o robô que finaliza pedidos no WhatsApp" },
-  { id: "nfce", title: "Notas Fiscais", landingTitle: "Notas Fiscais", milestoneLabel: "a emissão de notas fiscais", description: "Emita notas fiscais (NFC-e) automaticamente, sem limites, e baixe PDF e XML. Disponível para empresas do Simples Nacional em SP.", icon: FileBadge },
 ] as const;
 export const IA_PLUS_BONUSES = [
   { id: "menu_media", title: "Múltiplas fotos e vídeo no cardápio", description: "Mostre cada produto com até três mídias no total, com múltiplas fotos e até um vídeo.", icon: Film },
