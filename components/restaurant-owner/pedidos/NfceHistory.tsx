@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { faLock } from "@fortawesome/free-solid-svg-icons";
-import { Download, FileText } from "lucide-react";
+import { Download, FileBadge, FileText } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
@@ -13,7 +12,6 @@ import Tooltip from "@/components/ui/Tooltip";
 import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
 import PanelTabCard from "@/components/restaurant-owner/ia-vendas/PanelTabCard";
 import ShortcutDatePicker from "@/components/ui/ShortcutDatePicker";
-import { PanelIcon } from "@/components/ui/PanelIcon";
 import { supabase } from "@/lib/database/supabaseClient";
 import { CARD_AT_DELIVERY_LABELS } from "@/lib/payments/deliveryMethods";
 import type { NoteSummary } from "@/lib/nfce/service";
@@ -109,7 +107,7 @@ export function NfceUpgradeButton({ restaurant, onPaid, row = false, compact = f
             </CollapsibleSection>
         ) : (
             <Tooltip text="Recurso exclusivo do iMenu Plus" parentClassName="inline-flex">
-                <Button variant="secondary" leftIcon={<PanelIcon icon={faLock} />} onClick={() => setOpen(true)}>
+                <Button variant="secondary" leftIcon={<FileBadge className="panel-icon" size="1em" strokeWidth={1.75} aria-hidden="true" />} onClick={() => setOpen(true)}>
                     Notas Fiscais
                 </Button>
             </Tooltip>
@@ -161,7 +159,7 @@ export function NfceHistoryButton({ restaurant, history, onPaid }: { restaurant:
     const showPlusOffer = history.plus === false && (!history.archive || removed);
     return <>
         <Tooltip text="Recurso exclusivo do iMenu Plus" disabled={history.plus !== false} parentClassName="inline-flex">
-            <Button variant="secondary" leftIcon={<FileText className="panel-icon" size="1em" strokeWidth={1.75} aria-hidden="true" />}
+            <Button variant="secondary" leftIcon={<FileBadge className="panel-icon" size="1em" strokeWidth={1.75} aria-hidden="true" />}
                 onClick={() => { setError(""); setCustom(false); setOpen(true); }}>
                 Notas Fiscais
             </Button>

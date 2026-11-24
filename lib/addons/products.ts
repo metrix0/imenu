@@ -5,7 +5,7 @@ export const ADDON_PRODUCTS = {
 export type AddonProduct = (typeof ADDON_PRODUCTS)[keyof typeof ADDON_PRODUCTS];
 export const IA_PLUS = ADDON_PRODUCTS.ia_plus;
 export const IA_PLUS_FEATURE_MESSAGE = "Essa é uma função do plano iMenu Plus";
-import { Bot, FileDown, FileText, Film, Headset, Megaphone, MessageCircle, Moon, ShoppingCart, Sparkles, TrendingUp } from "lucide-react";
+import { Bot, FileDown, FileBadge, Film, Headset, Megaphone, MessageCircle, Moon, ShoppingCart, Sparkles, TrendingUp } from "lucide-react";
 
 export const IA_PLUS_WHATSAPP_ORDERING = {
   id: "whatsapp_ai",
@@ -19,7 +19,7 @@ export const IA_PLUS_BENEFITS = [
   { id: "assistant", title: "Assistente IA", landingTitle: "Assistente IA: para Melhorar o Cardápio", milestoneLabel: "o Assistente IA", description: "Converse com a IA, gere imagens e melhore seu cardápio com sugestões que você revisa antes de aplicar.", icon: Sparkles },
   { id: "sales", title: "Vendas IA", landingTitle: "Vendas IA", milestoneLabel: "o Vendas IA", description: "Analise suas vendas, descubra oportunidades e aplique melhorias depois de revisar cada sugestão.", icon: TrendingUp },
   { ...IA_PLUS_WHATSAPP_ORDERING, landingTitle: IA_PLUS_WHATSAPP_ORDERING.title, milestoneLabel: "o robô que finaliza pedidos no WhatsApp" },
-  { id: "nfce", title: "Notas Fiscais", landingTitle: "Notas Fiscais", milestoneLabel: "a emissão de notas fiscais", description: "Emita notas fiscais (NFC-e) automaticamente, sem limites, e baixe PDF e XML. Disponível para empresas do Simples Nacional em SP.", icon: FileText },
+  { id: "nfce", title: "Notas Fiscais", landingTitle: "Notas Fiscais", milestoneLabel: "a emissão de notas fiscais", description: "Emita notas fiscais (NFC-e) automaticamente, sem limites, e baixe PDF e XML. Disponível para empresas do Simples Nacional em SP.", icon: FileBadge },
 ] as const;
 export const IA_PLUS_BONUSES = [
   { id: "menu_media", title: "Múltiplas fotos e vídeo no cardápio", description: "Mostre cada produto com até três mídias no total, com múltiplas fotos e até um vídeo.", icon: Film },
