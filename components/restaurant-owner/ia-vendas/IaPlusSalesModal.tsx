@@ -7,7 +7,6 @@ import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import {
   ArrowRight,
   Sparkles,
-  FileText,
   Info,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
@@ -61,9 +60,9 @@ export function IaPlusLimitMessage({ onCheckout }: {
   </article>;
 }
 export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout = false, active = false, onPaid, contextMessage, contextFeature, coupon, source = "settings" }: {
-  open: boolean; onClose: () => void; restaurantId: string; checkout?: boolean; active?: boolean; onPaid?: () => void | Promise<void>; contextMessage?: string; contextFeature?: (typeof IA_PLUS_BENEFITS)[number]["id"] | (typeof IA_PLUS_BONUSES)[number]["id"] | "nfce"; coupon?: string; source?: QrTableSource;
+  open: boolean; onClose: () => void; restaurantId: string; checkout?: boolean; active?: boolean; onPaid?: () => void | Promise<void>; contextMessage?: string; contextFeature?: (typeof IA_PLUS_BENEFITS)[number]["id"] | (typeof IA_PLUS_BONUSES)[number]["id"]; coupon?: string; source?: QrTableSource;
 }) {
-  const ContextIcon = contextFeature === "nfce" ? FileText : [...IA_PLUS_BENEFITS, ...IA_PLUS_BONUSES].find(feature => feature.id === contextFeature)?.icon ?? Info;
+  const ContextIcon = [...IA_PLUS_BENEFITS, ...IA_PLUS_BONUSES].find(feature => feature.id === contextFeature)?.icon ?? Info;
   const benefitCount = Number(IA_PLUS_BENEFITS.length);
   const threeColumnBenefitCount = 3 * Math.max(0, benefitCount - 2 * Math.ceil(benefitCount / 3));
   const [step, setStep] = useState(checkout);
