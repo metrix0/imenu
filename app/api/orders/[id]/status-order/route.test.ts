@@ -135,3 +135,26 @@ it("provider rejection leaves an imported order unchanged and returns its error"
     expect(await response.json()).toMatchObject({error:"iFood recusou"});
     expect(client.query.mock.calls.every(([sql])=>!sql.includes("UPDATE orders"))).toBe(true);
 });
+
+it("does not block delivery status while production NFC-e is queued", async () => {
+    const originalEnv = process.env.NFCE_ENV;
+    process.env.NFCE_ENV = "producao";
+    try {
+        const fiscal = await import("@/lib/nfce/service");
+        const queued = jest.spyOn(fiscal, "queueOrderNote").mockResolvedValue(false);
+        const prepare = jest.spyOn(fiscal, "prepareOrderNote");
+        try {
+            const response = await send("delivering");
+            expect(response.status).toBe(200);
+            expect(client.query.mock.calls.some(([sql]) => String(sql).includes("UPDATE orders"))).toBe(true);
+            expect(queued).toHaveBeenCalledWith(client, "restaurant", "order", "delivering", "entrega");
+            expect(prepare).not.toHaveBeenCalled();
+        } finally {
+            queued.mockRestore();
+            prepare.mockRestore();
+        }
+    } finally {
+        if (originalEnv === undefined) delete process.env.NFCE_ENV;
+        else process.env.NFCE_ENV = originalEnv;
+    }
+});

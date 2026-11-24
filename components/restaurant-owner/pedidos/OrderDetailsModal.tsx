@@ -1,5 +1,6 @@
 "use client";
 
+import { cardAtDeliveryLabel, isCardAtDeliveryMethod } from "@/lib/payments/deliveryMethods";
 import { LegacyModalClose } from "@/components/ui/ModalCloseButton";
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
@@ -17,6 +18,7 @@ import { withCashChangeAmount } from "./cashChange";
 import OrderBadge from "./OrderBadge";
 
 interface OrderDetailsModalProps {
+    fiscalSection?: React.ReactNode;
     isOpen: boolean;
     onClose: () => void;
     order: Order | null; 
@@ -58,7 +60,7 @@ type OrderDetail = Omit<Order, "status"> & {
     }>;
 };
 
-export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdate, onEditOrder, onDeleteOrder, onCourierError, showStatusActions = false }: OrderDetailsModalProps) {
+export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdate, onEditOrder, onDeleteOrder, onCourierError, showStatusActions = false, fiscalSection }: OrderDetailsModalProps) {
     const [isLoading, setIsLoading] = useState(true);
     const [isUpdating, setIsUpdating] = useState(false);
     const [details, setDetails] = useState<OrderDetail | null>(null);
@@ -244,7 +246,11 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
         retirada: "Retirada",
         balcao: "Balcão",
     };
-    const payment = isCounterOrder ? "balcao" : isPickup ? "retirada" : order?.payment_method;
+    const method = details?.payment_method ?? order?.payment_method;
+    const cardLabel = isCardAtDeliveryMethod(method)
+        ? cardAtDeliveryLabel(method, isCounterOrder ? "balcao" : isPickup ? "retirada" : null)
+        : null;
+    const payment = isCounterOrder ? "balcao" : isPickup ? "retirada" : method;
 
     const canReject = showStatusActions && !isUpdating && details && (
         details.status === "pending_online_payment" ||
@@ -299,7 +305,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                     <div className="p-4 sm:p-5 border-b border-gray-100 flex justify-between items-start gap-3">
                         <div>
                             <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3 mb-1">
-                                <h2 className="text-xl 2xl:text-2xl font-bold text-gray-900">
+                                <h2 className="text-xl 2xl:text-2xl font-bold text-gray-900 pr-0!">
                                     Pedido #{order?.display_id}
                                 </h2>
                                 {status && <OrderBadge status={status} readyOnSite={isReadyOnSite}>{pendingLabels[status]}</OrderBadge>}
@@ -307,7 +313,8 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                     <OrderBadge kind="table">
                                         {details?.table_name_snapshot || order.table_name_snapshot || "Mesa"}
                                     </OrderBadge>
-                                ) : payment && <OrderBadge kind="payment">{paymentLabels[payment] || payment}</OrderBadge>)}
+                                ) : payment && <OrderBadge kind="payment">{(isReadyOnSite ? null : cardLabel) || paymentLabels[payment] || payment}</OrderBadge>)}
+                                {isReadyOnSite && !isTableOrder && cardLabel && <OrderBadge kind="payment">{cardLabel}</OrderBadge>}
                             </div>
                             <p className="text-xs text-gray-500 flex items-center gap-1 2xl:text-base">
                                 <FontAwesomeIcon icon={faClock} /> Realizado em {order && fmtDate(order.created_at)}
@@ -450,6 +457,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                         )}
                                     </div>
                                 </div>
+                                {fiscalSection}
                             </div>
                         )}
                     </div>

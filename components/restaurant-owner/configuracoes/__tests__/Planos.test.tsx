@@ -92,6 +92,9 @@ test("plans separate discovery from billing without selection checkboxes", () =>
     expect(html).toContain(`+${IA_PLUS_BONUSES.length} Bônus no Plus`);
     expect(html).toContain('class="plans-product plans-plus"');
     const plusCard = html.slice(html.indexOf('class="plans-product plans-plus"'));
+    const bonusHeading = plusCard.indexOf('aria-label="Bônus do iMenu Plus"');
+    expect(plusCard.slice(0, bonusHeading)).toContain("Robô com IA: Finalizar pedidos no Whatsapp");
+    expect(plusCard.slice(bonusHeading)).not.toContain("Robô com IA: Finalizar pedidos no Whatsapp");
     expect(plusCard).toMatch(/class="plans-plus-status"[\s\S]*?>Disponível<\/span>/);
     expect(plusCard).toMatch(/class="plans-plus-status"[\s\S]*?>Disponível<\/span>[\s\S]*?class="plans-plus-price"[\s\S]*?R\$/);
     expect(plusCard).not.toContain("Cancele quando quiser");

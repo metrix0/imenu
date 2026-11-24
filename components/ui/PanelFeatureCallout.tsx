@@ -1,9 +1,17 @@
 import Link from "next/link";
-import { faArrowRight, faBullhorn, faRocket } from "@fortawesome/free-solid-svg-icons";
+import { faArrowRight, faBullhorn, faRocket, faFileInvoice } from "@fortawesome/free-solid-svg-icons";
 import Card from "@/components/ui/Card";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 
 const content = {
+    nfce: {
+        icon: faFileInvoice,
+        label: "iMenu Plus",
+        title: "Emita notas fiscais com o iMenu Plus",
+        description: "Tenha emissão ilimitada de NFC-e e baixe os XMLs no histórico de pedidos.",
+        href: "/painel/planos",
+        action: "Conhecer o iMenu Plus",
+    },
     "vendas-ia": {
         icon: faRocket,
         label: "Vendas IA",

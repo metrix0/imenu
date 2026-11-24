@@ -1,3 +1,4 @@
+import { CARD_AT_DELIVERY_LABELS, normalizeAllowedPaymentMethods } from "@/lib/payments/deliveryMethods";
 import { query } from "@/lib/database/sql";
 import { isManualOpeningActive, isStoreManuallyClosed } from "@/lib/menu/storeHoursOverride";
 
@@ -102,7 +103,7 @@ const PAYMENT_LABELS: Record<string, string> = {
     pix: "Pix online",
     "pix-entrega": "Pix na entrega",
     dinheiro: "Dinheiro",
-    "trazer-maquininha": "Cartão na maquininha",
+    ...CARD_AT_DELIVERY_LABELS,
 };
 
 function formatCurrency(cents: number | null | undefined): string {
@@ -178,8 +179,8 @@ function buildDeliveryDetails(restaurant: RestaurantTemplateData): string {
 }
 
 function buildPaymentMethods(restaurant: RestaurantTemplateData): string {
-    const methods = Array.isArray(restaurant.allowed_payment_methods)
-        ? restaurant.allowed_payment_methods
+    const methods = restaurant.allowed_payment_methods?.length
+        ? normalizeAllowedPaymentMethods(restaurant.allowed_payment_methods)
         : [];
     const labels = methods.map((method) => PAYMENT_LABELS[method] || method);
 
@@ -336,20 +337,25 @@ export function getWhatsAppTemplateOverrides(
     return overrides;
 }
 
-export async function getWhatsAppTemplates(
-    restaurantId: string
-): Promise<WhatsAppMessageTemplates> {
-    const result = await query<{ message_templates: unknown }>(
+export async function getWhatsAppBotSettings(restaurantId: string) {
+    const result = await query<{ message_templates: unknown; ai_enabled: boolean | null }>(
         `
-            SELECT message_templates
+            SELECT message_templates, automations->>'ai_enabled'='true' AS ai_enabled
             FROM whatsapp_bot_settings
             WHERE restaurant_id = $1
             LIMIT 1
         `,
         [restaurantId]
     );
+    const settings = result.rows[0];
+    return {
+        templates: mergeWhatsAppTemplates(settings?.message_templates),
+        aiEnabled: settings?.ai_enabled === true,
+    };
+}
 
-    return mergeWhatsAppTemplates(result.rows[0]?.message_templates);
+export async function getWhatsAppTemplates(restaurantId: string): Promise<WhatsAppMessageTemplates> {
+    return (await getWhatsAppBotSettings(restaurantId)).templates;
 }
 
 export async function getRestaurantTemplateData(

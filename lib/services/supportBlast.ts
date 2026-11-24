@@ -1,6 +1,6 @@
 import { isSupportContactExcluded } from "@/lib/services/supportExclusions";
 import { randomUUID } from "node:crypto";
-import { ABANDONED_BLAST_MESSAGE, LEGACY_PLUS_ABANDONED_BLAST_MESSAGE, PLUS_EXPIRY_BLAST_MESSAGES, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE, RECOVERY_DAILY_LIMIT, RECOVERY_COOLDOWN_DAYS } from "@/lib/dev/abandonedBlast";
+import { ABANDONED_BLAST_MESSAGE, LEGACY_PLUS_ABANDONED_BLAST_MESSAGE, PLUS_EXPIRY_BLAST_MESSAGES, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE, RECOVERY_DAILY_LIMIT, RECOVERY_COOLDOWN_DAYS, RECOVERY_SHARED_COOLDOWN_DAYS, RECOVERY_SHARED_COOLDOWN_MESSAGES } from "@/lib/dev/abandonedBlast";
 import { ACTIVE_PLUS_FOR_ACCOUNT, PLUS_CHURN_EVENTS, RECOVERY_CUTOFF } from "@/lib/dev/plusChurn";
 import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGES, PLUS_FEEDBACK_DAILY_LIMIT } from "@/lib/dev/plusFeedbackBlast";
 import { query, withTransaction } from "@/lib/database/sql";
@@ -482,6 +482,34 @@ LIMIT 1`, [accountIds]);
             await finishRecipient(item.id, "skipped_recent", isAbandonedBlast
                 ? `O contato recebeu um blast nos últimos ${RECOVERY_COOLDOWN_DAYS} dias.`
                 : null);
+            return "skipped";
+        }
+    }
+
+    // Recheck the shared 60-day recovery history at dispatch so queued activation
+    // blasts cannot follow another recovery blast (including churn).
+    if (item.sender === "blast" && RECOVERY_SHARED_COOLDOWN_MESSAGES.includes(item.campaign_message)) {
+        const sharedRecent = await query(
+            `SELECT 1
+             FROM support_blast_recipients recipient
+             JOIN support_blast_campaigns campaign ON campaign.id = recipient.campaign_id
+             WHERE recipient.phone = $1
+               AND campaign.sender = 'blast'
+               AND recipient.status = 'sent'
+               AND recipient.sent_at >= NOW() - ($3::int * INTERVAL '1 day')
+             UNION ALL
+             SELECT 1
+             FROM whatsapp_outbound_messages outbound
+             WHERE outbound.chat_id = $2
+               AND outbound.dedupe_key LIKE 'support:bulk:abandoned:%'
+               AND outbound.status = 'sent'
+               AND outbound.updated_at >= NOW() - ($3::int * INTERVAL '1 day')
+             LIMIT 1`,
+            [phone, chatId, RECOVERY_SHARED_COOLDOWN_DAYS]
+        );
+        if (sharedRecent.rowCount) {
+            await finishRecipient(item.id, "skipped_recent",
+                `O contato recebeu um blast de recuperação nos últimos ${RECOVERY_SHARED_COOLDOWN_DAYS} dias.`);
             return "skipped";
         }
     }

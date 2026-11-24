@@ -12,9 +12,11 @@ import Modal from "@/components/ui/Modal";
 import { supabase } from "@/lib/database/supabaseClient";
 import { hasQrTableAccess } from "@/lib/qr-table/types";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
+import { IA_PLUS_BENEFITS } from "@/lib/addons/products";
 
 const MIN_COMPLETED_ORDERS = 15;
 const MAX_COMPLETED_ORDERS = 20;
+const MILESTONE_PLUS_DESCRIPTION = `Conheça ${IA_PLUS_BENEFITS.slice(0, -1).map((benefit) => benefit.milestoneLabel).join(", ")} e ${IA_PLUS_BENEFITS[IA_PLUS_BENEFITS.length - 1].milestoneLabel} para encontrar novas oportunidades.`;
 
 export function isPlusOrderMilestoneEligible(completedOrders: number | null, hasPlus: boolean): boolean {
     return completedOrders !== null &&
@@ -121,7 +123,7 @@ export default function OrderMilestonePlusPopup() {
                     Que tal testar o iMenu Plus e impulsionar suas vendas?
                 </p>
                 <p className="mt-2 text-sm leading-6 text-gray-600">
-                    Conheça as automações de marketing, o Assistente IA e o Vendas IA para encontrar novas oportunidades.
+                    {MILESTONE_PLUS_DESCRIPTION}
                 </p>
                 <Button
                     type="button"

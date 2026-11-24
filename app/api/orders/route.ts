@@ -1,3 +1,6 @@
+import { confirmedWhatsAppOrder, finishWhatsAppOrder, lockWhatsAppOrder, WhatsAppOrderError } from "@/lib/services/whatsappOrderDraft";
+import { loadWhatsAppCheckoutRestaurant, quoteWhatsAppOrder } from "@/lib/services/whatsappOrderPricing";
+import { LEGACY_CARD_METHOD, isCardAtDeliveryMethod, isCheckoutCardMethodEnabled, isPhysicalPaymentMethod } from "@/lib/payments/deliveryMethods";
 import { isItemAvailableForChannel } from "@/lib/menu/itemAvailability";
 import { isCategoryAvailable, type CategorySchedule } from "@/lib/menu/categorySchedule";
 import { getOrderScheduleDate, getSameDayOrderEarliestAt } from "@/lib/menu/orderAvailability";
@@ -252,6 +255,7 @@ async function cancelUnpaidOnlineOrder(
 }
 
 export async function POST(request: Request) {
+    const whatsapp = confirmedWhatsAppOrder(request);
     let body: any;
 
     try {
@@ -318,8 +322,8 @@ export async function POST(request: Request) {
             if (panel_order !== true) {
                 throw new OrderRequestError("Pedidos de balcão devem ser feitos pelo painel.");
             }
-            if (!["dinheiro", "trazer-maquininha", "pix-entrega"].includes(paymentMethod)) {
-                throw new OrderRequestError("No balcão, use dinheiro, maquininha ou Pix na entrega.");
+            if (!isPhysicalPaymentMethod(paymentMethod)) {
+                throw new OrderRequestError("No balcão, use dinheiro, cartão ou Pix.");
             }
         }
         if (panel_order === true && !["entrega", "retirada", "balcao", "mesa"].includes(is_delivery)) {
@@ -717,6 +721,15 @@ export async function POST(request: Request) {
         const transactionResult =
             await withTransaction(
                 async (client) => {
+                    if (whatsapp) {
+                        const existingOrderId = await lockWhatsAppOrder(client, whatsapp);
+                        if (existingOrderId) return { orderId: existingOrderId, slug: null, reused: true };
+                        const restaurant = await loadWhatsAppCheckoutRestaurant(client, restaurantId);
+                        const quote = await quoteWhatsAppOrder(client, restaurant, whatsapp.draft, whatsapp.point);
+                        if (quote.hash !== whatsapp.draft.quote.hash) {
+                            throw new WhatsAppOrderError("O pedido mudou. Peça um novo resumo e confira os valores.");
+                        }
+                    }
                     let validatedTable: {
                         id: string;
                         name: string;
@@ -763,10 +776,15 @@ export async function POST(request: Request) {
                     }
 
                     const restaurantResult = await client.query(
-                        "SELECT url_slug, automatic_promotions, pizza_settings FROM restaurants WHERE id = $1",
+                        "SELECT url_slug, automatic_promotions, pizza_settings, allowed_payment_methods FROM restaurants WHERE id = $1",
                         [restaurantId]
                     );
                     if (!restaurantResult.rows[0]) throw new OrderRequestError("Restaurante não encontrado.");
+                    if (!isTableOrder && panel_order !== true &&
+                        (isCardAtDeliveryMethod(paymentMethod) || paymentMethod === LEGACY_CARD_METHOD) &&
+                        !isCheckoutCardMethodEnabled(paymentMethod, restaurantResult.rows[0].allowed_payment_methods)) {
+                        throw new OrderRequestError("Esta forma de pagamento não está disponível. Escolha outra opção.", 409);
+                    }
                     if (items.some((item: any) => item.pizza != null)) {
                         items = await pricePizzaOrderItems(client, restaurantId, restaurantResult.rows[0].pizza_settings, items);
                         subtotal = items.reduce((sum: number, item: any) => sum + (promotionPrice(item) ?? Number(item.total_cents) ?? 0), 0);
@@ -801,7 +819,7 @@ export async function POST(request: Request) {
                         channel: isTableOrder || isCounterOrder ? "mesa" : "delivery", pickup: isPickup,
                         at: scheduledFor ?? new Date(),
                     });
-                    if (expected_promotion && (panel_order === true || pricing.result.promotion || expected_promotion.id) && (
+                    if (expected_promotion && (whatsapp || panel_order === true || pricing.result.promotion || expected_promotion.id) && (
                         expected_promotion.id !== (pricing.result.promotion?.id || null) ||
                         expected_promotion.total_cents !== pricing.result.total_cents
                     )) throw new OrderRequestError("A promoção ou os preços mudaram. Atualize a sacola e confira o total antes de confirmar novamente.", 409);
@@ -1308,8 +1326,10 @@ export async function POST(request: Request) {
                         }
                     }
 
+                    if (whatsapp) await finishWhatsAppOrder(client, whatsapp, orderId);
                     return {
                         orderId,
+                        reused: false,
                         slug:
                             restaurantResult.rows[0]
                                 ?.url_slug,
@@ -1320,7 +1340,9 @@ export async function POST(request: Request) {
         const {
             orderId,
             slug,
+            reused,
         } = transactionResult;
+        if (reused) return NextResponse.json({ order_id: orderId });
 
         let metaPurchase: MetaCommerceData | undefined;
         let savedPixAttribution = false;
@@ -1442,6 +1464,9 @@ export async function POST(request: Request) {
             error
         );
 
+        if (error instanceof WhatsAppOrderError) {
+            return NextResponse.json({ error: error.message }, { status: 409 });
+        }
         if (error instanceof PizzaPricingError) {
             return NextResponse.json({ error: error.message }, { status: 409 });
         }

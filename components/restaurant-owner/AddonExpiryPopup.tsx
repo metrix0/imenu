@@ -13,12 +13,14 @@ import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
+import { getIMenuPlusExpiryFeatures } from "@/lib/addons/products";
 
 type ExpiringAddonNotice = {
     addonId: string;
     productKey: string;
     productName: string;
     expiresAt: string;
+    reminderKind: "pix" | "card";
 };
 
 type ExpiringAddonPayload = {
@@ -50,7 +52,7 @@ export default function AddonExpiryPopup() {
         if (!restaurantId) return;
 
         let active = true;
-        const cacheKey = `imenu:addon-expiry-check:${restaurantId}:${dateKey}`;
+        const cacheKey = `imenu:addon-expiry-check:v2:${restaurantId}:${dateKey}`;
         const shownKey = `imenu:addon-expiry-shown:${restaurantId}:${dateKey}`;
 
         const useNotices = (items: ExpiringAddonNotice[]) => {
@@ -140,18 +142,20 @@ export default function AddonExpiryPopup() {
     };
 
     const single = notices.length === 1;
+    const canceledCard = notices.some((notice) => notice.reminderKind === "card");
+    const prepaidPix = notices.some((notice) => notice.reminderKind === "pix");
+    const { benefits, bonuses } = getIMenuPlusExpiryFeatures();
     const renew = () => {
         close();
         router.push("/painel/configuracoes");
     };
 
     return (
-        <>
-            <Modal
-            height={single ? 330 : 390}
+        <Modal
+            height={630}
             open={popup.open}
             onClose={close}
-            className="max-w-md"
+            className="max-w-lg"
             showCloseButton
         >
             <div className="p-6 text-center sm:p-7">
@@ -164,21 +168,50 @@ export default function AddonExpiryPopup() {
                         : `${notices.length} adicionais vencem hoje`}
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-gray-600">
-                    O acesso pago via Pix termina hoje. Renove para continuar
-                    usando os recursos sem interrupções.
+                    {canceledCard && !prepaidPix
+                        ? "Sua assinatura no cartão foi cancelada e o período pago termina hoje."
+                        : "Seu período pago via Pix termina hoje e não será renovado automaticamente."}{" "}
+                    Renove para continuar aproveitando os recursos do Plus.
                 </p>
 
                 {!single && (
                     <div className="mt-4 space-y-2 rounded-xl border border-gray-100 bg-gray-50 p-3 text-left">
                         {notices.map((notice) => (
-                            <div
-                                key={notice.addonId}
-                                className="text-sm font-medium text-gray-800"
-                            >
+                            <div key={notice.addonId} className="text-sm font-medium text-gray-800">
                                 {notice.productName}
                             </div>
                         ))}
                     </div>
+                )}
+
+                {notices.some((notice) => notice.productKey === "ia_plus") && (
+                    <section className="mt-5 rounded-xl border border-gray-100 bg-gray-50 p-4 text-left" aria-label="Benefícios do Plus que serão perdidos">
+                        <h3 className="text-sm font-semibold text-gray-900">
+                            Sem renovar, você perderá:
+                        </h3>
+                        <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            Recursos principais
+                        </p>
+                        <ul className="mt-2 space-y-1.5 text-sm text-gray-700">
+                            {benefits.map(({ id, title }) => (
+                                <li key={id} className="flex items-start gap-2">
+                                    <span className="text-amber-600" aria-hidden="true">•</span>
+                                    <span>{title}</span>
+                                </li>
+                            ))}
+                        </ul>
+                        <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            Bônus
+                        </p>
+                        <ul className="mt-2 grid grid-cols-1 gap-x-3 gap-y-2 text-sm text-gray-700 sm:grid-cols-2">
+                            {bonuses.map(({ id, title }) => (
+                                <li key={id} className="flex items-start gap-2">
+                                    <span className="text-amber-600" aria-hidden="true">•</span>
+                                    <span>{title}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    </section>
                 )}
 
                 <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -190,7 +223,6 @@ export default function AddonExpiryPopup() {
                     </Button>
                 </div>
             </div>
-            </Modal>
-        </>
+        </Modal>
     );
 }

@@ -73,6 +73,11 @@ export type StreetFallback = {
     origin: Coordinates;
     acceptsRange: (range: { min: number; max: number }) => boolean;
 };
+type StreetLookup = (
+    address: { city: string; uf: string; street: string; bairro: string; number: string; cep: string },
+    origin?: Coordinates,
+) => Promise<{ point: Coordinates; range?: { min: number; max: number } | null } | null>;
+
 type NumberedLocation = {
     point: Coordinates;
     neighborhood: "match" | "mismatch" | "unknown";
@@ -88,12 +93,14 @@ export function fetchCoordinates(
     canUseAlternative: ((coordinates: Coordinates) => boolean) | undefined,
     streetFallback: StreetFallback | undefined,
     requireAddressMatch: boolean,
+    lookupStreet?: StreetLookup,
 ): Promise<Coordinates | null>;
 export async function fetchCoordinates(
     fullAddress: string,
     canUseAlternative?: (coordinates: Coordinates) => boolean,
     streetFallback?: StreetFallback,
     requireAddressMatch = false,
+    lookupStreet?: StreetLookup,
 ): Promise<Coordinates | null> {
     const TOMTOM_API_KEY = process.env.NEXT_PUBLIC_TOMTOM_API_KEY;
 
@@ -348,19 +355,18 @@ export async function fetchCoordinates(
             const municipality = postalAddress && stateMatches(postalAddress.state)
                 ? postalAddress.city
                 : wantedCity;
-            const response = await fetch("/api/checkout/geocode-ibge", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                signal: AbortSignal.timeout(1500),
-                body: JSON.stringify({
-                    origin: streetFallback?.origin,
-                    address: {
-                        city: municipality, uf: state[0], street: wantedStreet,
-                        bairro: wantedNeighborhood, number: wantedNumber, cep: wantedCEP,
-                    },
-                }),
-            });
-            const result = response.ok ? await response.json() : null;
+            const address = {
+                city: municipality, uf: state[0], street: wantedStreet,
+                bairro: wantedNeighborhood, number: wantedNumber, cep: wantedCEP,
+            };
+            const result = lookupStreet
+                ? await lookupStreet(address, streetFallback?.origin)
+                : await fetch("/api/checkout/geocode-ibge", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    signal: AbortSignal.timeout(1500),
+                    body: JSON.stringify({ origin: streetFallback?.origin, address }),
+                }).then(response => response.ok ? response.json() : null);
             const point = position(result?.point?.latitude, result?.point?.longitude);
             const range = result?.range;
             if (point && (!streetFallback || (Number.isFinite(range?.min) && Number.isFinite(range?.max) &&

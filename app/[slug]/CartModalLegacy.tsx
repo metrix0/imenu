@@ -34,17 +34,13 @@ import { Item, type ItemsByCategory } from "@/lib/types/types";
 import { rankAutomaticUpsells, type AutomaticUpsellRecommendations } from "@/lib/upsell/recommendations";
 import { StartingPriceLabel } from "./StartingPriceLabels";
 import type { QrTableMenuContext } from "@/lib/qr-table/types";
-import { getCheckoutDeliveryDistanceKm, getCheckoutFulfillment } from "@/lib/delivery/restaurantLocation";
+import { findCheckoutDeliveryTier, getCheckoutDeliveryDistanceKm, getCheckoutFulfillment } from "@/lib/delivery/restaurantLocation";
 import {
     findSimilarNeighborhoodDeliveryRule,
     normalizeNeighborhoodName,
     type NeighborhoodDeliveryRule,
 } from "@/lib/delivery/neighborhood";
-const DEFAULT_ALLOWED_PAYMENT_METHODS = [
-    "pix",
-    "dinheiro",
-    "trazer-maquininha",
-];
+import { CARD_AT_DELIVERY_LABELS, CARD_AT_DELIVERY_METHODS, cardAtDeliveryLabel, isCardAtDeliveryMethod, normalizeAllowedPaymentMethods } from "@/lib/payments/deliveryMethods";
 
 const PAYMENT_OPTIONS = [
     {
@@ -62,11 +58,11 @@ const PAYMENT_OPTIONS = [
         label: "Dinheiro",
         icon: icons.faMoneyBill,
     },
-    {
-        value: "trazer-maquininha",
-        label: "Maquininha",
-        icon: icons.faPersonBiking,
-    },
+    ...CARD_AT_DELIVERY_METHODS.map(value => ({
+        value,
+        label: CARD_AT_DELIVERY_LABELS[value],
+        icon: icons.faCreditCard,
+    })),
 ];
 
 const scheduleDateLabel = new Intl.DateTimeFormat("pt-BR", {
@@ -340,28 +336,8 @@ export default function CartModal({
         !neighborhoodDeliveryRules?.some((rule) => Boolean(normalizeNeighborhoodName(rule.neighborhood)));
     const missingDeliveryConfig = missingDeliveryRanges || missingNeighborhoods;
 
-    function findDeliveryTier(distanceKm: number, tiersAny: any) {
-        if (!tiersAny) return null;
-
-        let tiers = Array.isArray(tiersAny)
-            ? tiersAny
-            : Array.isArray(tiersAny.entrega)
-                ? tiersAny.entrega.map((t: any) => ({
-                    fee_cents: t.taxa !== undefined ? Math.round(t.taxa * 100) : t.fee_cents,
-                    radius_km: t.distancia_km ?? t.radius_km,
-                    time_minutes: t.time_minutes ?? 0,
-                }))
-                : null;
-
-        if (!tiers?.length) return null;
-
-        return [...tiers]
-            .sort((a, b) => (a.radius_km ?? 0) - (b.radius_km ?? 0))
-            .find(tier => distanceKm <= tier.radius_km) ?? null;
-    }
-
     function computeFeeFromTiers(distanceKm: number, tiersAny: any): number | null {
-        const tier = findDeliveryTier(distanceKm, tiersAny);
+        const tier = findCheckoutDeliveryTier(distanceKm, tiersAny);
         return tier ? Number(tier.fee_cents) : null;
     }
 
@@ -450,8 +426,8 @@ export default function CartModal({
         }, {
             origin: { latitude: restLat, longitude: restLon },
             acceptsRange: ({ min, max }) => {
-                const nearest = findDeliveryTier(min, tiers);
-                const farthest = findDeliveryTier(max, tiers);
+                const nearest = findCheckoutDeliveryTier(min, tiers);
+                const farthest = findCheckoutDeliveryTier(max, tiers);
                 return nearest !== null && farthest !== null &&
                     Number(nearest.radius_km) === Number(farthest.radius_km) &&
                     Number.isFinite(Number(farthest.fee_cents));
@@ -509,7 +485,7 @@ export default function CartModal({
         setField("delivery_fee_cents", String(fee));
 
         const matchedTime = Array.isArray(tiers)
-            ? findDeliveryTier(distKm, tiers)?.time_minutes ?? null
+            ? findCheckoutDeliveryTier(distKm, tiers)?.time_minutes ?? null
             : null;
 
         if (matchedTime !== null) {
@@ -827,11 +803,26 @@ export default function CartModal({
     }
 
     useEffect(() => {
-        if (!cepTrigger || isPickup) return;
-
-        if (!smallCityMode) void handleCepInput(cep, cepTrigger);
-
+        if (!cepTrigger) return;
         useCheckoutStore.setState({ cepTrigger: null });
+        if (isPickup || smallCityMode) return;
+
+        setContinueBlocked(true);
+        void recalcDeliveryFeeFromAddress()
+            .then(feeReady => {
+                if (useCheckoutStore.getState().step !== "info") return;
+                if (feeReady) {
+                    cepTrigger();
+                } else {
+                    setField("showAddressWarning", true);
+                }
+            })
+            .catch(error => {
+                console.error("Delivery fee recalculation failed:", error);
+                setField("delivery_fee_cents", null);
+                setField("showAddressWarning", true);
+            })
+            .finally(() => setContinueBlocked(false));
     }, [cepTrigger, isPickup, smallCityMode]);
 
     useEffect(() => {
@@ -862,11 +853,10 @@ export default function CartModal({
         checkCoupons();
     },[isTableOrder] );
 
-    const allowedPaymentMethods =
-        Array.isArray(restaurant?.allowed_payment_methods) &&
-        restaurant.allowed_payment_methods.length > 0
-            ? restaurant.allowed_payment_methods
-            : DEFAULT_ALLOWED_PAYMENT_METHODS;
+    const allowedPaymentMethods = useMemo(
+        () => normalizeAllowedPaymentMethods(restaurant?.allowed_payment_methods),
+        [restaurant?.allowed_payment_methods],
+    );
 
     const availablePaymentOptions = PAYMENT_OPTIONS.filter((option) =>
         allowedPaymentMethods.includes(option.value)
@@ -1500,7 +1490,7 @@ export default function CartModal({
                                                     aria-haspopup="listbox"
                                                     aria-expanded={scheduleDropdownOpen}
                                                     onClick={() => setScheduleDropdownOpen((open) => !open)}
-                                                    className="flex w-full cursor-pointer items-center justify-between rounded-xl border border-[var(--im-menu-success-border,#bbf7d0)] bg-[var(--im-menu-surface,#fff)] px-5 py-3 text-sm font-medium text-[var(--im-menu-text-soft,#1f2937)] outline-none transition hover:border-[var(--im-menu-success-border,#86efac)] focus:border-[var(--im-menu-success-border,#4ade80)] 2xl:text-lg"
+                                                    className="flex w-full cursor-pointer items-center justify-between rounded-xl border border-[var(--im-menu-success-border,#bbf7d0)] bg-[var(--im-menu-surface,#fff)] px-3 py-3 text-sm font-medium text-[var(--im-menu-text-soft,#1f2937)] outline-none transition hover:border-[var(--im-menu-success-border,#86efac)] focus:border-[var(--im-menu-success-border,#4ade80)] 2xl:text-lg"
                                                 >
                                                     <span className="flex items-center gap-3">
                                                         <FontAwesomeIcon icon={icons.faClock} className="text-[var(--im-menu-success-text,#15803d)]" />
@@ -1508,7 +1498,7 @@ export default function CartModal({
                                                     </span>
                                                     <FontAwesomeIcon
                                                         icon={icons.faChevronDown}
-                                                        className={`mr-1 text-xs text-[var(--im-menu-success-text,#15803d)] transition-transform duration-200 ${scheduleDropdownOpen ? "rotate-180" : ""}`}
+                                                        className={`text-xs text-[var(--im-menu-success-text,#15803d)] transition-transform duration-200 ${scheduleDropdownOpen ? "rotate-180" : ""}`}
                                                     />
                                                 </button>
 
@@ -1593,7 +1583,9 @@ export default function CartModal({
                                         onClick={() => setField("pagamento", option.value)}
                                     >
                                         <FontAwesomeIcon icon={option.icon} />
-                                        {option.value === "pix-entrega" && isPickup ? "Pix (Na retirada)" : option.label}
+                                        {isCardAtDeliveryMethod(option.value)
+                                            ? cardAtDeliveryLabel(option.value, isPickup ? "retirada" : null)
+                                            : option.value === "pix-entrega" && isPickup ? "Pix (Na retirada)" : option.label}
                                     </button>
 
                                     {option.value === "dinheiro" && (

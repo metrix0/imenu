@@ -1,3 +1,4 @@
+import { IA_PLUS_WHATSAPP_ORDERING } from "@/lib/addons/products";
 import Link from "next/link";
 import { faRobot } from "@fortawesome/free-solid-svg-icons";
 
@@ -43,7 +44,7 @@ const faq = [
     {
         question: "Preciso usar inteligência artificial no chatbot?",
         answer:
-            "Não. O Robô WhatsApp básico do iMenu é gratuito e cobre cardápio, status, entrega e pagamentos. Com iMenu Plus, a IA opcional pode responder dúvidas sobre produtos e preços fora dos fluxos padrão.",
+            "Não. O Robô WhatsApp básico do iMenu é gratuito e cobre cardápio, status, entrega e pagamentos. Com iMenu Plus, a IA pode responder dúvidas e finalizar pedidos na própria conversa.",
     },
     {
         question: "O robô pode informar onde está o pedido?",
@@ -186,8 +187,8 @@ export default function RoboWhatsappParaRestaurantePage() {
                 <p>
                     O <strong>Robô WhatsApp básico</strong> continua gratuito: oferece cardápio,
                     consulta de pedidos vinculados ao número da conversa, entrega, pagamentos e
-                    atendimento humano. O <strong>Robô WhatsApp com IA</strong> é um bônus do
-                    iMenu Plus que ajuda em perguntas não reconhecidas pelos fluxos tradicionais.
+                    atendimento humano. Com o iMenu Plus, o recurso <strong>{IA_PLUS_WHATSAPP_ORDERING.title}</strong>
+                    também monta a sacola, apresenta o total e registra o pedido após a confirmação do cliente.
                 </p>
                 <p>
                     Quando o cliente pergunta sobre ingredientes cadastrados, produtos, descrição,

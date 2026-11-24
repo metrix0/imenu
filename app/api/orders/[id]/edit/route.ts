@@ -1,3 +1,4 @@
+import { isPhysicalPaymentMethod } from "@/lib/payments/deliveryMethods";
 import { isItemAvailableForChannel } from "@/lib/menu/itemAvailability";
 import { NextResponse } from "next/server";
 import { withTransaction } from "@/lib/database/sql";
@@ -146,7 +147,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
             }
             const paymentMethod = table ? null : paidOnline ? current.payment_method : body.paymentMethod;
             if (!table && !paidOnline &&
-                !["dinheiro", "trazer-maquininha", "pix-entrega"].includes(paymentMethod)) {
+                !isPhysicalPaymentMethod(paymentMethod)) {
                 throw new EditOrderError("Forma de pagamento inválida.");
             }
             const fee = destination === "mesa" || destination === "balcao" || destination === "retirada" ? 0 : deliveryFee;

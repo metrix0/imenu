@@ -1,7 +1,8 @@
 "use client";
 
+import type { PhysicalPaymentMethod } from "@/lib/payments/deliveryMethods";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import { faChair, faEye, faTrash, faStore, faBagShopping, faPersonBiking } from "@fortawesome/free-solid-svg-icons";
+import { faChair, faEye, faFileInvoice, faTrash, faStore, faBagShopping, faPersonBiking } from "@fortawesome/free-solid-svg-icons";
 import DataTable from "@/components/ui/DataTable";
 import Card from "@/components/ui/Card";
 import ListLoader from "@/components/ui/ListLoader";
@@ -9,7 +10,7 @@ import type { OrderStatus } from "../OrderCard";
 import OrderBadge from "./OrderBadge";
 
 export type Order = {
-    payment_method: "dinheiro" | "cartao" | "pix" | "trazer-maquininha";
+    payment_method: PhysicalPaymentMethod | "cartao" | "pix" | "ifood" | null;
     id: string;
     display_id: number;
     created_at: string;
@@ -25,10 +26,12 @@ interface OrdersTableProps {
     orders: Order[];
     isLoading: boolean;
     onViewOrder?: (order: Order) => void; // Nova prop para ação
+    fiscalIds?: ReadonlySet<string>;
+    onViewFiscal?: (order: Order) => void;
     onDeleteOrder?: (order: Order) => void;
 }
 
-export default function OrdersTable({ orders, isLoading, onViewOrder, onDeleteOrder }: OrdersTableProps) {
+export default function OrdersTable({ orders, isLoading, onViewOrder, onDeleteOrder, fiscalIds, onViewFiscal }: OrdersTableProps) {
 
     const fmtMoney = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
     const fmtDate = (dateStr: string) => new Date(dateStr).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
@@ -38,6 +41,15 @@ export default function OrdersTable({ orders, isLoading, onViewOrder, onDeleteOr
             status={order.status}
             readyOnSite={order.is_delivery === "mesa" || order.is_delivery === "retirada" || order.is_delivery === "balcao"}
         />
+    );
+
+    const fiscalButton = (order: Order) => fiscalIds?.has(order.id) && onViewFiscal && (
+        <button type="button" title="Nota fiscal" aria-label="Ver nota fiscal"
+            className="cursor-pointer rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-brand"
+            onKeyDown={event => event.stopPropagation()}
+            onClick={event => { event.stopPropagation(); onViewFiscal(order); }}>
+            <FontAwesomeIcon icon={faFileInvoice} />
+        </button>
     );
 
     return (
@@ -104,6 +116,7 @@ export default function OrdersTable({ orders, isLoading, onViewOrder, onDeleteOr
                                         >
                                             <FontAwesomeIcon icon={faEye} />
                                         </button>
+                                        {fiscalButton(order)}
                                         {onDeleteOrder && (
                                             <button
                                                 type="button"
@@ -143,6 +156,7 @@ export default function OrdersTable({ orders, isLoading, onViewOrder, onDeleteOr
                         { key: "total", label: "Valor", render: order => <span className="whitespace-nowrap font-medium">{fmtMoney(order.total_cents)}</span> },
                         { key: "status", label: "Situação", render: order => statusBadge(order) },
                         { key: "action", label: "", render: order => <div className="flex items-center gap-1">
+                            {fiscalButton(order)}
                             <button type="button" title="Ver detalhes" aria-label={"Ver detalhes do pedido #" + (order.display_id || order.id.slice(0, 4))} onClick={event => { event.stopPropagation(); onViewOrder?.(order); }} className="cursor-pointer rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-brand"><FontAwesomeIcon icon={faEye} /></button>
                             {onDeleteOrder && <button type="button" title="Excluir pedido" aria-label={"Excluir pedido #" + (order.display_id || order.id.slice(0, 4))} onClick={event => { event.stopPropagation(); onDeleteOrder(order); }} className="cursor-pointer rounded-md p-2 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600"><FontAwesomeIcon icon={faTrash} /></button>}
                         </div> },

@@ -5,6 +5,7 @@ import { sendOwnerPush } from "@/lib/push/server";
 import {
     buildRestaurantTemplateVariables,
     getRestaurantTemplateData,
+    getWhatsAppBotSettings,
     getWhatsAppTemplates,
     renderWhatsAppTemplate,
     type WhatsAppMessageTemplates,
@@ -945,9 +946,9 @@ async function processIncomingWhatsAppMessageUnlocked({
     });
 
     try {
-    const [restaurant, templates] = await Promise.all([
+    const [restaurant, { templates, aiEnabled }] = await Promise.all([
         getRestaurantTemplateData(restaurantId),
-        getWhatsAppTemplates(restaurantId),
+        getWhatsAppBotSettings(restaurantId),
     ]);
     if (!restaurant) return;
 
@@ -995,6 +996,35 @@ async function processIncomingWhatsAppMessageUnlocked({
     }
 
     const flow = detectFlow(body);
+    const checkoutOnly = prepared.state === "welcome" || flow === "menu_link";
+    const checkoutShortcut = phone && checkoutOnly && (
+        flow === "menu_link"
+            ? ["fazer pedido", "quero pedir"].includes(normalize(body))
+            : !flow && !["", "oi", "ola", "opa", "bom dia", "boa tarde", "boa noite"].includes(normalize(body))
+    );
+    if (aiEnabled && ((!flow && !checkoutOnly) || checkoutShortcut)) {
+        const { getWhatsAppAiReply } = await import("@/lib/services/whatsappAi");
+        const aiReply = await getWhatsAppAiReply({
+            restaurantId, sessionName, chatId, messageId, body, variables, restaurantHours: restaurant, phone,
+            orderingOnly: checkoutOnly,
+        });
+        if (aiReply) {
+            // The owner may have taken over while the model was answering.
+            if (!(await canBotRespond(restaurantId, chatId))) return;
+            if (aiReply.flow) {
+                await answerFlow({
+                    flow: aiReply.flow, templates, variables, restaurantId,
+                    sessionName, chatId, inboundMessageId: messageId, resolvedPhone: phone,
+                });
+            } else {
+                await sendTrackedText({
+                    dedupeKey: `${messageId}:ai`, restaurantId, sessionName, chatId,
+                    text: aiReply.text,
+                });
+            }
+            return;
+        }
+    }
     if (flow) {
         await answerFlow({
             flow,
@@ -1023,27 +1053,6 @@ async function processIncomingWhatsAppMessageUnlocked({
                 restaurantId,
                 sessionName,
                 chatId,
-            });
-        }
-        return;
-    }
-
-    const { getWhatsAppAiReply } = await import("@/lib/services/whatsappAi");
-    const aiReply = await getWhatsAppAiReply({
-        restaurantId, sessionName, chatId, messageId, body, variables, restaurantHours: restaurant,
-    });
-    if (aiReply) {
-        // The owner may have taken over while the model was answering.
-        if (!(await canBotRespond(restaurantId, chatId))) return;
-        if (aiReply.flow) {
-            await answerFlow({
-                flow: aiReply.flow, templates, variables, restaurantId,
-                sessionName, chatId, inboundMessageId: messageId, resolvedPhone: phone,
-            });
-        } else {
-            await sendTrackedText({
-                dedupeKey: `${messageId}:ai`, restaurantId, sessionName, chatId,
-                text: aiReply.text,
             });
         }
         return;

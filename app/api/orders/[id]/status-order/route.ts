@@ -1,5 +1,5 @@
 // app/api/orders/[id]/status-order/route.ts
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { MercadoPagoConfig, PaymentRefund } from "mercadopago";
 
 import { requestIfoodStatus, IfoodStatusError } from "@/lib/delivery/ifoodStatus";
@@ -95,7 +95,8 @@ export async function PATCH(
             throw new OrderStatusError("Invalid status provided", 400);
         }
 
-        const updateResult = await withTransaction(async (client) => {
+        const fiscal = process.env.NFCE_ENV ? await import("@/lib/nfce/service") : null;
+        const changeStatus = () => withTransaction(async (client) => {
             const orderResult = await client.query(
                 `
                         SELECT
@@ -462,7 +463,10 @@ export async function PATCH(
                 [status, id]
             );
 
+            const fiscalQueued = fiscal ? await fiscal.queueOrderNote(client, order.restaurant_id, id, status, order.is_delivery) : false;
+
             return {
+                fiscalQueued,
                 isTableOrder:
                     String(order.is_delivery || "").toLowerCase() === "mesa",
                 isCounterOrder: order.is_delivery === "balcao",
@@ -473,6 +477,10 @@ export async function PATCH(
                 accepted: status === "preparing" && ["paid", "pending_physical_payment"].includes(order.status),
             };
         });
+
+        const updateResult = await changeStatus();
+
+        if (fiscal && updateResult.fiscalQueued) after(() => fiscal.processNote(id).then(() => undefined));
 
         let courierError: string | null = null;
         if (updateResult.accepted) {

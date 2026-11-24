@@ -1,3 +1,4 @@
+import { CARD_AT_DELIVERY_LABELS } from "@/lib/payments/deliveryMethods";
 import { loadAcquisitionSeries } from "@/lib/dev/analyticsSeries";
 import { parseRange, toTimestamp, normalizePhone, ordersInside, distinctAccountSet, accountsWithMinPurchaseDays, isHandledOrder, customerQualifiedAccounts, type RangeKey } from "@/lib/dev/dashboardMetrics";
 import { NextResponse } from "next/server";
@@ -297,6 +298,7 @@ function paymentLabel(value: string): string {
         "pix-entrega": "Pix na entrega",
         dinheiro: "Dinheiro",
         "trazer-maquininha": "Maquininha",
+        ...CARD_AT_DELIVERY_LABELS,
         "não informado": "Não informado",
     };
     return labels[value] || value;

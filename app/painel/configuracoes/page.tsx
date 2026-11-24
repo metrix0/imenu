@@ -15,6 +15,7 @@ import {
     faGear,
     faLock,
     faReceipt,
+    faFileInvoice,
     faQrcode,
     faSignOutAlt,
     faTrash,
@@ -33,6 +34,8 @@ import Toast from "@/components/ui/Toast";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Tooltip from "@/components/ui/Tooltip";
 import ChoiceCardGroup from "@/components/ui/ChoiceCardGroup";
+import NfceSettings from "@/components/restaurant-owner/configuracoes/NfceSettings";
+import { NfceUpgradeButton } from "@/components/restaurant-owner/pedidos/NfceHistory";
 import ResetOrderCountSection from "@/components/restaurant-owner/configuracoes/ResetOrderCountSection";
 import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
 import { qrTableAuthenticatedFetch } from "@/lib/qr-table/clientApi";
@@ -62,6 +65,7 @@ type Restaurant = {
 const SETTINGS_SECTIONS = {
     modos: { label: "Modos", icon: faGear },
     pedidos: { label: "Pedidos", icon: faReceipt },
+    nfce: { label: "Notas Fiscais", icon: faFileInvoice },
 };
 
 function SettingsSection({ id, children }: { id: keyof typeof SETTINGS_SECTIONS; children: ReactNode }) {
@@ -1181,8 +1185,21 @@ export default function ConfiguracoesPage() {
                         )}
 
                         {restaurant && <ResetOrderCountSection restaurantId={restaurant.id} />}
+                    </SettingsSection>
 
-                        <Card className="border-red-200 bg-red-50/30">
+                    {restaurant && (
+                        <SettingsSection id="nfce">
+                            {pdfAccess ? (
+                                <NfceSettings restaurant={restaurant.id} address={restaurant.address} />
+                            ) : (
+                                <Card className="border border-gray-200 shadow-sm">
+                                    <NfceUpgradeButton restaurant={restaurant.id} onPaid={() => loadPdfAccess(restaurant.id)} row />
+                                </Card>
+                            )}
+                        </SettingsSection>
+                    )}
+
+                    <Card className="border-red-200 bg-red-50/30">
                             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                                 <div>
                                     <h3 className="mb-2 text-lg font-medium text-red-700">
@@ -1206,7 +1223,6 @@ export default function ConfiguracoesPage() {
                                 </Button>
                             </div>
                         </Card>
-                    </SettingsSection>
                 </div>
             </div>
         </>

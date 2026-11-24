@@ -184,8 +184,13 @@ async function updateFromWahaSession({
 
 function jsonError(error: unknown) {
     if (error instanceof Response) {
+        const message = error.status === 401
+            ? "Sessão inválida ou expirada. Saia e entre novamente no iMenu."
+            : error.status === 404
+                ? "Restaurante não encontrado ou sem acesso."
+                : `Não foi possível concluir a solicitação (HTTP ${error.status}).`;
         return NextResponse.json(
-            { error: error.statusText || "Request failed" },
+            { error: message },
             { status: error.status }
         );
     }

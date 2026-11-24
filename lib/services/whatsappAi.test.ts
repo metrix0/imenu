@@ -14,19 +14,18 @@ const input = {
     restaurantHours: { availability_json: null, is_closed: null, manual_open_until: null, preorder_only: false },
 };
 const create = jest.fn();
-let enabled: boolean, counts: { chat_count: number; restaurant_count: number };
+let counts: { chat_count: number; restaurant_count: number };
 const call = (name: string, args = {}) => ({ output_text: "", output: [{ type: "function_call", name, arguments: JSON.stringify(args), call_id: "call" }] });
 beforeEach(() => {
     jest.clearAllMocks();
     process.env.OPENAI_API_KEY = "test-key";
-    enabled = true;
     counts = { chat_count: 0, restaurant_count: 0 };
     (hasIMenuPlusAccess as jest.Mock).mockResolvedValue(true);
     (OpenAI as unknown as jest.Mock).mockImplementation(() => ({ responses: { create } }));
     create.mockReset().mockResolvedValue({ output_text: "Olá! Como posso ajudar?", output: [] });
     (getWahaRecentTextHistory as jest.Mock).mockResolvedValue([]);
     (startWahaTyping as jest.Mock).mockResolvedValue(undefined);
-    (query as jest.Mock).mockImplementation(async (sql: string) => ({ rows: sql.includes("whatsapp_bot_settings") ? [{ enabled }] : [counts], rowCount: 1 }));
+    (query as jest.Mock).mockImplementation(async () => ({ rows: [counts], rowCount: 1 }));
 });
 afterEach(() => { jest.useRealTimers(); });
 test("sends explicit closed-day status and next opening to the AI in local time", async () => {
@@ -66,8 +65,7 @@ test.each([
     expect(status).toMatchObject({ aberto_agora: open, atende_hoje: open, fechamento_manual_agora: !open });
 });
 
-test.each(["disabled", "expired Plus", "missing key"])("does not call AI when %s", async (reason) => {
-    if (reason === "disabled") enabled = false;
+test.each(["expired Plus", "missing key"])("does not call AI when %s", async (reason) => {
     if (reason === "expired Plus") (hasIMenuPlusAccess as jest.Mock).mockResolvedValue(false);
     if (reason === "missing key") delete process.env.OPENAI_API_KEY;
     expect(await getWhatsAppAiReply(input)).toBeNull();
@@ -86,8 +84,8 @@ test.each(["menu_link", "order_status", "delivery", "payment", "handoff"])("retu
 test("retrieves only scoped, available menu data and limits its size", async () => {
     create.mockResolvedValueOnce(call("search_menu", { query: "pizza" })).mockResolvedValueOnce({ output_text: "Temos pizza a partir de R$ 30.", output: [] });
     (query as jest.Mock).mockImplementation(async (sql: string, params: unknown[]) => {
-        if (!sql.includes("FROM items")) return { rows: sql.includes("whatsapp_bot_settings") ? [{ enabled }] : [counts] };
-        expect(params).toEqual(["restaurant", "pizza"]);
+        if (!sql.includes("FROM items")) return { rows: [counts] };
+        expect(params).toEqual(["restaurant", "pizza", false]);
         expect(sql).toMatch(/i.restaurant_id=\$1 AND i.is_available/);
         expect(sql).toMatch(/stock_quantity/);
         return { rows: [{ name: "Oculto", availability_schedule: [] }, ...Array.from({ length: 30 }, () => ({ name: "Pizza", price_cents: 3000, availability_schedule: null }))] };

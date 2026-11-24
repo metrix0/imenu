@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 import { query } from "@/lib/database/sql";
+import { getIMenuPlusProductKnowledge } from "@/lib/addons/products";
 import { calculateOnePercentPayout } from "@/lib/services/payoutSafety";
 import { getWahaWebhookHmacKey } from "@/lib/services/wahaClient";
 
@@ -272,6 +273,15 @@ export async function searchSupportKnowledge(search: string, limit = 8) {
         ),
     ];
     const safeLimit = Math.min(8, Math.max(1, limit));
+    const normalizedQuestion = normalizeSupportText(trimmedSearch);
+    const asksAboutPlus = /\b(plus|bonus|beneficios)\b/.test(normalizedQuestion) ||
+        /\b(multiplas fotos|video no cardapio|atendimento exclusivo|upsells automaticos|vendas ia|automacoes de marketing)\b/.test(normalizedQuestion);
+    const asksAboutPrice = /\b(preco|valor|quanto|custa|mensalidade|mensal)\b/.test(normalizedQuestion);
+    const productKnowledge = asksAboutPlus ? getIMenuPlusProductKnowledge(asksAboutPrice) : null;
+    const includeProductKnowledge = (rows: KnowledgeResult[]): KnowledgeResult[] =>
+        productKnowledge
+            ? [productKnowledge, ...rows.filter((item) => item.id !== productKnowledge.id)].slice(0, safeLimit)
+            : rows;
 
     type KnowledgeResult = {
         id: string;
@@ -310,11 +320,11 @@ export async function searchSupportKnowledge(search: string, limit = 8) {
         fullText.rows.length >= safeLimit &&
         Number(fullText.rows[0].relevance) >= 0.1
     ) {
-        return fullText.rows.map(({ id, title, content }) => ({
+        return includeProductKnowledge(fullText.rows.map(({ id, title, content }) => ({
             id,
             title,
             content,
-        }));
+        })));
     }
 
     const fallback = await query<KnowledgeResult>(
@@ -347,14 +357,14 @@ export async function searchSupportKnowledge(search: string, limit = 8) {
     );
 
     const seen = new Set<string>();
-    return [...fullText.rows, ...fallback.rows]
+    return includeProductKnowledge([...fullText.rows, ...fallback.rows]
         .filter((item) => {
             if (seen.has(item.id)) return false;
             seen.add(item.id);
             return true;
         })
         .slice(0, safeLimit)
-        .map(({ id, title, content }) => ({ id, title, content }));
+        .map(({ id, title, content }) => ({ id, title, content })));
 }
 
 function phoneCandidates(value: string | null): string[] {

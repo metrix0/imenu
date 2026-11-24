@@ -14,6 +14,7 @@ import Loader from "@/components/ui/Loader";
 import ModalFlowStep from "@/components/ui/ModalFlowStep";
 import SaveStatus from "@/components/ui/SaveStatus";
 import ToggleOptionCard from "@/components/ui/ToggleOptionCard";
+import { IA_PLUS_WHATSAPP_ORDERING } from "@/lib/addons/products";
 import { crmRequest } from "@/lib/api/crm";
 import { supabase } from "@/lib/database/supabaseClient";
 import { qrTableAuthenticatedFetch } from "@/lib/qr-table/clientApi";
@@ -33,7 +34,7 @@ const SETTINGS = [
     { key: "habit", title: AUTOMATION_LABELS.habit, description: "Lembre o cliente de pedir no horário em que ele costuma comprar.", icon: CalendarClock, step: 1 },
     { key: "reactivation", title: AUTOMATION_LABELS.reactivation, description: "Convide clientes que estão há um tempo sem pedir a voltar.", icon: UserRoundCheck, step: 1 },
     { key: "cart", title: AUTOMATION_LABELS.cart, description: "Incentive clientes a finalizar pedidos deixados no carrinho.", icon: ShoppingCart, step: 1 },
-    { key: "aiEnabled", title: "Robô com IA", description: "Responda dúvidas sobre o cardápio automaticamente.", icon: Bot, step: 2 },
+    { key: "aiEnabled", title: IA_PLUS_WHATSAPP_ORDERING.title, description: IA_PLUS_WHATSAPP_ORDERING.description, icon: IA_PLUS_WHATSAPP_ORDERING.icon, step: 2 },
     { key: "orderNotificationsEnabled", title: "Atualizações de pedidos", description: "Avise quando o pedido estiver pronto ou sair para entrega.", icon: PackageCheck, step: 2 },
     { key: "upsell", title: "Upsell Automático", description: "Sugira itens complementares no carrinho.", icon: TrendingUp, step: 3 },
     { key: "darkMenu", title: "Cardápio com Tema Escuro", description: "Mostre o cardápio com o visual escuro para seus clientes.", icon: Moon, step: 3 },

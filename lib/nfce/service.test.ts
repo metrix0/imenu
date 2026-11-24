@@ -1,0 +1,45 @@
+import { activeFiscalIssuer, needsFiscalNote, parseFiscalDeliveryAddress } from "./service";
+import { query } from "@/lib/database/sql";
+import { hasIMenuPlusAccess } from "@/lib/addons/access";
+import type { Issuer } from "./sefaz";
+
+jest.mock("@/lib/database/sql", () => ({ query: jest.fn() }));
+jest.mock("@/lib/addons/access", () => ({ hasIMenuPlusAccess: jest.fn() }));
+const issuer = {
+    city: "Rio Claro", cityCode: "3543907", cnpj: "11222333000181",
+} as Issuer;
+
+it("enables issuance only for an enabled issuer in the active environment with Plus", async () => {
+    const originalEnv = process.env.NFCE_ENV;
+    const originalKey = process.env.NFCE_KEY;
+    try {
+        process.env.NFCE_ENV = "producao";
+        process.env.NFCE_KEY = "f".repeat(64);
+        jest.mocked(query).mockResolvedValue({ rows: [{ data: issuer }], rowCount: 1 });
+        jest.mocked(hasIMenuPlusAccess).mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+        await expect(activeFiscalIssuer("restaurant")).resolves.toBeNull();
+        await expect(activeFiscalIssuer("restaurant")).resolves.toEqual({ environment: 1, data: issuer });
+        expect(jest.mocked(query)).toHaveBeenCalledWith(expect.stringContaining("certificate IS NOT NULL"), ["restaurant", 1]);
+    } finally {
+        if (originalEnv === undefined) delete process.env.NFCE_ENV;
+        else process.env.NFCE_ENV = originalEnv;
+        if (originalKey === undefined) delete process.env.NFCE_KEY;
+        else process.env.NFCE_KEY = originalKey;
+    }
+});
+
+test("issues consumer notes only for eligible in-store orders without identification", () => {
+    expect(needsFiscalNote("done", "retirada")).toBe(true);
+    expect(needsFiscalNote("done", "balcao")).toBe(true);
+    expect(needsFiscalNote("delivering", "entrega")).toBe(true);
+    expect(needsFiscalNote("done", "entrega")).toBe(true);
+});
+    
+test("derives delivery fiscal address from the existing order without CPF", () => {
+    const fullIssuer = { ...issuer, city: "Rio Claro", cityCode: "3543907" } as Issuer;
+    expect(parseFiscalDeliveryAddress("Rua das Flores, 123 - Centro - 13500000 (Casa) - Referência: Portão", fullIssuer)).toEqual({
+        street: "Rua das Flores", number: "123", district: "Centro", city: "Rio Claro", cityCode: "3543907", cep: "13500000",
+    });
+    expect(parseFiscalDeliveryAddress(null, fullIssuer)).toBeNull();
+    expect(parseFiscalDeliveryAddress("Endereço incompleto", fullIssuer)).toBeNull();
+});
