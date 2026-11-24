@@ -784,9 +784,19 @@ export default function ConfiguracoesPage() {
             });
 
             if (!response.ok) throw new Error("Erro ao deletar conta.");
-            await supabase.auth.signOut();
+            const deletion = await response.json().catch(() => null);
+            await supabase.auth.signOut({ scope: "local" }).catch(() => null);
             clear();
-            router.push("/restaurante");
+            try {
+                if (typeof deletion?.feedbackToken === "string") {
+                    sessionStorage.setItem("imenu:account-deletion-feedback", deletion.feedbackToken);
+                    window.location.replace("/restaurante/conta-excluida");
+                    return;
+                }
+            } catch {
+                // Feedback is optional and must never block account deletion.
+            }
+            window.location.replace("/restaurante");
         } catch (error) {
             setToast({
                 message:
