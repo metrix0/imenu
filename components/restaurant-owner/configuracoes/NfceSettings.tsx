@@ -160,7 +160,7 @@ export default function NfceSettings({ restaurant, address, locked = false }: { 
     return (
         <Card className="border border-gray-200 shadow-sm">
             <CollapsibleSection
-                title="Emissão automática de NFC-e"
+                title="Emissão automática de Notas Fiscais (NFC-e)"
                 titleClassName="nfce-settings-title"
                 description="Emita notas fiscais dos pedidos automaticamente, sem limites. Configure os dados da empresa e o certificado digital."
                 titleBadge={<Badge preset={locked ? "plusIncluded" : "featureAvailable"} />}

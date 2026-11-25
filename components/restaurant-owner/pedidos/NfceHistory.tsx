@@ -101,7 +101,7 @@ export function NfceUpgradeButton({ restaurant, onPaid, row = false, compact = f
             </button>
         ) : row ? (
             <CollapsibleSection
-                title="Emissão automática de NFC-e"
+                title="Emissão automática de Notas Fiscais (NFC-e)"
                 description="Emita notas fiscais dos pedidos automaticamente com o iMenu Plus."
                 titleBadge={<Badge preset="plusIncluded" />}
                 toggle={{ checked: false, label: "Ativar emissão automática de NFC-e", onChange: () => setOpen(true) }}
