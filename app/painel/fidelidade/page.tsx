@@ -113,12 +113,9 @@ function LoyaltyCustomers({ restaurantId, goal }: { restaurantId: string; goal: 
                             },
                         ]}
                     />
-                    <div className="text-center text-sm text-gray-500">
-                        {!loading && <span>{total} cliente{total === 1 ? "" : "s"}</span>}
-                        {(total > 0 || page > 0) && (
-                            <Pagination page={page} pageCount={Math.ceil(total / CUSTOMERS_PAGE_SIZE)} onChange={setPage} disabled={loading} />
-                        )}
-                    </div>
+                    {(total > 0 || page > 0) && (
+                        <Pagination page={page} pageCount={Math.ceil(total / CUSTOMERS_PAGE_SIZE)} onChange={setPage} disabled={loading} />
+                    )}
                 </>
             )}
         </section>
