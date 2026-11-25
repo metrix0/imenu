@@ -168,7 +168,7 @@ export default function CheckoutCustomerFields({
         {requiresFiscalCpf && <Input
           autoComplete="off"
           inputMode="numeric"
-          label="CPF para a nota"
+          label="CPF"
           placeholder="000.000.000-00"
           value={cpf}
           onChange={e => setField("fiscalCpf", formatFiscalCpf(e.target.value))}
