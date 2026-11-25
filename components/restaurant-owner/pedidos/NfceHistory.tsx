@@ -76,10 +76,10 @@ async function download(restaurant: string, params: Record<string, string>, fall
 }
 
 function PdfFileIcon() {
-    return <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    return <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M5 2.75h9.5L20 8.25V21.25H4V3.75a1 1 0 0 1 1-1Z" />
         <path d="M14.5 2.75v5.5H20" />
-        <text x="12" y="16.5" textAnchor="middle" fill="currentColor" stroke="none" fontFamily="Arial, sans-serif" fontSize="8" fontWeight="700">PDF</text>
+        <text x="12" y="16.5" textAnchor="middle" fill="currentColor" stroke="none" fontFamily="Arial, sans-serif" fontSize="7.5" fontWeight="700">PDF</text>
     </svg>;
 }
 
@@ -214,7 +214,7 @@ export function NfceHistoryButton({ restaurant, history, onPaid }: { restaurant:
                 <div className="flex flex-wrap items-center justify-between gap-3 pr-10">
                     <h2 className="text-xl font-bold text-gray-900">Notas Fiscais</h2>
                     {showTable && <div className="flex flex-wrap items-center gap-2">
-                        <Button variant="secondary" leftIcon={<PdfFileIcon />} onClick={() => void exportPeriod(range, true)} loading={loading && exportingPdf} disabled={loading || downloading || listLoading || !!listError || invoiceList.pageCount === 0}>Baixar todos PDFs</Button>
+                        <Button variant="secondary" className="px-2.5" leftIcon={<PdfFileIcon />} onClick={() => void exportPeriod(range, true)} loading={loading && exportingPdf} disabled={loading || downloading || listLoading || !!listError || invoiceList.pageCount === 0}>Baixar todos PDFs</Button>
                         <Button leftIcon={<Download size={16} />} onClick={() => void exportPeriod(range)} loading={loading && !exportingPdf} disabled={loading || downloading || listLoading || !!listError || invoiceList.pageCount === 0}>Baixar todas</Button>
                         <div className="w-40 sm:w-48">
                             <DateRangePicker value={range} showLabel={false} presets={[{ label: "Este mês", getRange: thisMonth }, { label: "Mês anterior", getRange: getPreviousMonthRange }]}
