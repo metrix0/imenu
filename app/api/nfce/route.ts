@@ -94,8 +94,9 @@ export async function GET(request: Request) {
             ]);
             return NextResponse.json({ notes: notes.rows, pageCount: Math.ceil((count.rows[0]?.total ?? 0) / pageSize) }, { headers });
         }
-        if (action === "zip") {
-            const everything = params.get("all") === "1" && !plus;
+        if (action === "zip" || action === "zip-pdf") {
+            const renderPdf = action === "zip-pdf" ? (await import("@/lib/nfce/danfe")).danfePdf : null;
+            const everything = !renderPdf && params.get("all") === "1" && !plus;
             const start = everything ? null : boundedDate(params.get("start"));
             const end = everything ? null : boundedDate(params.get("end"));
             if (start && end && start > end) throw new FiscalError("Selecione um período válido.");
@@ -135,17 +136,21 @@ export async function GET(request: Request) {
                             if (abandoned) return;
                             const entry = new ZipDeflate(name, { level: 3 });
                             zip.add(entry);
-                            entry.push(xml, true);
+                            entry.push(renderPdf ? renderPdf(xml.toString()) : xml, true);
                         };
-                        await add(`${doc.access_key}-procNFe.xml`, doc.authorized_xml);
-                        if (doc.cancellation_xml) await add(`${doc.access_key}-cancelamento.xml`, doc.cancellation_xml);
+                        if (renderPdf) {
+                            await add(`danfe-${doc.access_key}.pdf`, doc.authorized_xml);
+                        } else {
+                            await add(`${doc.access_key}-procNFe.xml`, doc.authorized_xml);
+                            if (doc.cancellation_xml) await add(`${doc.access_key}-cancelamento.xml`, doc.cancellation_xml);
+                        }
                     } catch (error) {
                         if (!abandoned) { abandoned = true; zip.terminate(); controller.error(error); }
                     }
                 },
                 cancel() { abandoned = true; zip.terminate(); },
             });
-            const name = everything ? "nfce-arquivo-completo.zip" : `nfce-${params.get("start")}-${params.get("end")}.zip`;
+            const name = everything ? "nfce-arquivo-completo.zip" : `nfce-${renderPdf ? "pdfs-" : ""}${params.get("start")}-${params.get("end")}.zip`;
             const archiveHeaders = new Headers({ ...headers, "Content-Type": "application/zip", "Content-Disposition": `attachment; filename="${name}"` });
             if (snapshot) archiveHeaders.set("X-Nfce-Archive-Receipt", exportReceipt(restaurant, snapshot));
             return new Response(stream, { headers: archiveHeaders });

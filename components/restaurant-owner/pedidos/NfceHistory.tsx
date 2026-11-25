@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { Download, FileBadge, FileDown, FileText } from "lucide-react";
+import { Download, FileBadge, FileText } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
@@ -75,6 +75,14 @@ async function download(restaurant: string, params: Record<string, string>, fall
     return response.headers.get("X-Nfce-Archive-Receipt");
 }
 
+function PdfFileIcon() {
+    return <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M5 2.75h9.5L20 8.25V21.25H4V3.75a1 1 0 0 1 1-1Z" />
+        <path d="M14.5 2.75v5.5H20" />
+        <text x="12" y="16.5" textAnchor="middle" fill="currentColor" stroke="none" fontFamily="Arial, sans-serif" fontSize="8" fontWeight="700">PDF</text>
+    </svg>;
+}
+
 function thisMonth() {
     const parts = new Intl.DateTimeFormat("pt-BR", {
         year: "numeric", month: "2-digit", day: "2-digit", timeZone: "America/Sao_Paulo",
@@ -134,6 +142,7 @@ export function NfceHistoryButton({ restaurant, history, onPaid }: { restaurant:
     const [listLoading, setListLoading] = useState(false);
     const [listError, setListError] = useState("");
     const [downloading, setDownloading] = useState(false);
+    const [exportingPdf, setExportingPdf] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const showTable = history.available && (history.plus === true ? (history.configured || history.archive) : history.plus === false && history.archive && !removed);
@@ -150,14 +159,15 @@ export function NfceHistoryButton({ restaurant, history, onPaid }: { restaurant:
             .finally(() => { if (!controller.signal.aborted) setListLoading(false); });
         return () => controller.abort();
     }, [open, showTable, restaurant, range.startDate, range.endDate, page]);
-    const exportPeriod = async (period: ReturnType<typeof thisMonth>) => {
+    const exportPeriod = async (period: ReturnType<typeof thisMonth>, pdf = false) => {
         setLoading(true);
+        setExportingPdf(pdf);
         setError("");
         try {
-            await download(restaurant, { action: "zip", start: period.startDate, end: period.endDate }, "notas-fiscais.zip");
+            await download(restaurant, { action: pdf ? "zip-pdf" : "zip", start: period.startDate, end: period.endDate }, pdf ? "notas-fiscais-pdfs.zip" : "notas-fiscais.zip");
         } catch (error) {
             setError((error as Error).message);
-        } finally { setLoading(false); }
+        } finally { setLoading(false); setExportingPdf(false); }
     };
     const downloadNote = async (order: string, action: "pdf" | "xml") => {
         setDownloading(true);
@@ -204,7 +214,8 @@ export function NfceHistoryButton({ restaurant, history, onPaid }: { restaurant:
                 <div className="flex flex-wrap items-center justify-between gap-3 pr-10">
                     <h2 className="text-xl font-bold text-gray-900">Notas Fiscais</h2>
                     {showTable && <div className="flex flex-wrap items-center gap-2">
-                        <Button leftIcon={<Download size={16} />} onClick={() => void exportPeriod(range)} loading={loading} disabled={loading || downloading || listLoading || !!listError || invoiceList.pageCount === 0}>Baixar todas</Button>
+                        <Button variant="secondary" leftIcon={<PdfFileIcon />} onClick={() => void exportPeriod(range, true)} loading={loading && exportingPdf} disabled={loading || downloading || listLoading || !!listError || invoiceList.pageCount === 0}>Baixar todos PDFs</Button>
+                        <Button leftIcon={<Download size={16} />} onClick={() => void exportPeriod(range)} loading={loading && !exportingPdf} disabled={loading || downloading || listLoading || !!listError || invoiceList.pageCount === 0}>Baixar todas</Button>
                         <div className="w-40 sm:w-48">
                             <DateRangePicker value={range} showLabel={false} presets={[{ label: "Este mês", getRange: thisMonth }, { label: "Mês anterior", getRange: getPreviousMonthRange }]}
                                 onChange={value => { setRange(value); setPage(0); setError(""); }} />
@@ -244,7 +255,7 @@ export function NfceHistoryButton({ restaurant, history, onPaid }: { restaurant:
                                         <button type="button" title="Baixar PDF" aria-label={`Baixar PDF da nota fiscal ${note.number ?? ""}`}
                                             className="panel-fiscal-download inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-gray-500 transition-colors focus-visible:outline-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-40"
                                             disabled={loading || downloading} onClick={() => void downloadNote(note.order_id, "pdf")}>
-                                            <FileDown size={16} strokeWidth={1.75} aria-hidden="true" />
+                                            <PdfFileIcon />
                                         </button>
                                         <button type="button" title="Baixar XML" aria-label={`Baixar XML da nota fiscal ${note.number ?? ""}`}
                                             className="panel-fiscal-download inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-gray-500 transition-colors focus-visible:outline-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-40"
@@ -332,7 +343,7 @@ export function NfceOrderSection({ order, note, restaurant, configured, channels
                     <button type="button" title="Baixar PDF" aria-label="Baixar PDF da nota fiscal"
                         className="panel-fiscal-download inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-gray-500 transition-colors focus-visible:outline-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-40"
                         disabled={busy} onClick={() => void run(async () => { await download(restaurant, { action: "pdf", order: order.id }, "danfe.pdf"); })}>
-                        <FileDown size={16} strokeWidth={1.75} aria-hidden="true" />
+                        <PdfFileIcon />
                     </button>
                 )}
                 {note && ["authorized", "canceled"].includes(note.status) && (

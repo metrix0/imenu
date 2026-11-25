@@ -112,3 +112,22 @@ test("saves the separately selected salon, pickup and delivery choices", async (
     expect(sql).toContain("nfce_issuers.data || excluded.data");
     expect(JSON.parse(params![2])).toMatchObject({ requestedEnabled: true, channels: { salon: false, pickup: true, delivery: true } });
 });
+
+test("exports a PDF per archived invoice across the selected period without issuing an archive receipt", async () => {
+    jest.mocked(query).mockReset();
+    jest.mocked(hasIMenuPlusAccess).mockResolvedValue(false);
+    const secondKey = "2".repeat(44);
+    const xml = (accessKey: string) => gzipSync(`<nfeProc><NFe><infNFe Id="NFe${accessKey}"><ide><tpAmb>2</tpAmb></ide><emit><xNome>Teste</xNome></emit><total><ICMSTot><vNF>10.00</vNF></ICMSTot></total><pag><detPag><tPag>01</tPag><vPag>10.00</vPag></detPag></pag></infNFe><infNFeSupl><qrCode>https://example.com/nfce</qrCode></infNFeSupl></NFe><protNFe><infProt><nProt>123</nProt></infProt></protNFe></nfeProc>`);
+    jest.mocked(query)
+        .mockResolvedValueOnce({ rows: [{ access_key: key, issued_at: "2026-11-07 20:00:00+00", authorized_xml: xml(key), cancellation_xml: gzipSync("<procEventoNFe/>") }], rowCount: 1 })
+        .mockResolvedValueOnce({ rows: [{ access_key: secondKey, issued_at: "2026-11-08 20:00:00+00", authorized_xml: xml(secondKey), cancellation_xml: null }], rowCount: 1 })
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 });
+    const response = await GET(request("action=zip-pdf&start=2026-11-01&end=2026-11-22&all=1"));
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Disposition")).toBe('attachment; filename="nfce-pdfs-2026-11-01-2026-11-22.zip"');
+    expect(response.headers.get("X-Nfce-Archive-Receipt")).toBeNull();
+    expect(jest.mocked(query).mock.calls[0][1]).toEqual([restaurant, 2, new Date("2026-11-01T03:00:00Z"), new Date("2026-11-23T03:00:00Z"), null, null]);
+    const files = unzipSync(new Uint8Array(await response.arrayBuffer()));
+    expect(Object.keys(files).sort()).toEqual([`danfe-${key}.pdf`, `danfe-${secondKey}.pdf`]);
+    for (const pdf of Object.values(files)) expect(Buffer.from(pdf).toString().startsWith("%PDF-1.4")).toBe(true);
+});
