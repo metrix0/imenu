@@ -1,6 +1,6 @@
 "use client";
 
-import { PageSaveHeader } from "@/components/ui/SaveStatus";
+import { PageHeader } from "@/components/ui/SaveStatus";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; // Store Global
@@ -180,9 +180,7 @@ export default function DisponibilidadePage() {
 
     if (isLoading) {
         return (
-            <PageLoader label="Buscando horários...">
-                <p className="text-gray-400 mt-4 text-sm">Buscando horários...</p>
-            </PageLoader>
+            <PageLoader label="Buscando horários" />
         );
     }
 
@@ -219,12 +217,7 @@ export default function DisponibilidadePage() {
     return (
         <div className="max-w-6xl min-[1800px]:max-w-[100rem] min-[1800px]:w-full mx-auto pb-20 px-4 sm:px-6 pt-8">
             <div className="mb-4 px-2 sm:mb-8">
-                <PageSaveHeader>
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <h1 className="text-3xl font-bold text-gray-900">Horários de Funcionamento</h1>
-                        </div>
-                        <p className="text-gray-500 mt-1 min-[1800px]:text-lg">
+                <PageHeader title="Horários de Funcionamento" description={<>
                             Defina quando sua loja estará aberta para receber pedidos. Trabalha só com encomendas?{" "}
                             <button
                                 type="button"
@@ -236,10 +229,9 @@ export default function DisponibilidadePage() {
                             >
                                 Clique aqui
                             </button>
-                        </p>
-                    </div>
-                    <SaveStatus status={saveError || schedulingSaveError ? "error" : isSaving || isSavingOrderScheduling ? "saving" : "saved"} />
-                </PageSaveHeader>
+                        </>}>
+                     <SaveStatus status={saveError || schedulingSaveError ? "error" : isSaving || isSavingOrderScheduling ? "saving" : "saved"} />
+                 </PageHeader>
             </div>
 
             {!preorderOnly && <div role="region" aria-label="Horários da semana" className="bg-white border border-gray-200 rounded-xl p-5 sm:py-6 sm:pr-6">

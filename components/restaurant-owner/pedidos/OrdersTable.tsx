@@ -4,7 +4,7 @@ import type { PhysicalPaymentMethod } from "@/lib/payments/deliveryMethods";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faChair, faEye, faPenToSquare, faTrash, faStore, faBagShopping, faPersonBiking } from "@fortawesome/free-solid-svg-icons";
 import { FileBadge } from "lucide-react";
-import DataTable from "@/components/ui/DataTable";
+import DataTable, { DataTableEmptyState } from "@/components/ui/DataTable";
 import Card from "@/components/ui/Card";
 import ListLoader from "@/components/ui/ListLoader";
 import type { OrderStatus } from "../OrderCard";
@@ -106,9 +106,7 @@ export default function OrdersTable({ orders, isLoading, onViewOrder, onEditOrde
                         <ListLoader lines={6} />
                     </div>
                 ) : orders.length === 0 ? (
-                    <div className="p-10 text-center text-gray-500">
-                        Nenhum pedido encontrado com estes filtros.
-                    </div>
+                    <DataTableEmptyState message="Nenhum pedido encontrado com estes filtros." />
                 ) : (
                     <div className="divide-y divide-gray-100">
                         {orders.map((order) => (

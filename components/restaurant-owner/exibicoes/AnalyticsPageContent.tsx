@@ -1,10 +1,11 @@
 "use client";
 
+import { PageHeader } from "@/components/ui/SaveStatus";
 import { useState } from "react";
 import AnalyticsDashboard from "@/components/restaurant-owner/exibicoes/AnalyticsDashboard";
 import ConsumerPipelineDashboard from "@/components/restaurant-owner/exibicoes/ConsumerPipelineDashboard";
 import DateFilterBar, { getCurrentMonthRange, getDateRangeForDays, type DateFilterPreset } from "@/components/restaurant-owner/exibicoes/DateFilterBar";
-import Loader from "@/components/ui/Loader";
+import { PageLoader } from "@/components/ui/Loader";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 
 const ANALYTICS_DATE_PRESETS: DateFilterPreset[] = [
@@ -23,12 +24,13 @@ export default function AnalyticsPageContent() {
     const [startDate, setStartDate] = useState(initialRange.startDate);
     const [endDate, setEndDate] = useState(initialRange.endDate);
     if (!restaurantId) {
-        return <div className="flex h-64 items-center justify-center"><Loader /></div>;
+        return <PageLoader />;
     }
 
     return (
         <div className="mx-auto max-w-7xl space-y-6 pb-20">
-            <div className="flex flex-col gap-6 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between lg:gap-4">
+            <PageHeader>
+<div className="flex flex-col gap-6 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between lg:gap-4">
                 <div className="panel-page-heading lg:mb-0!">
                     <h1>Analytics</h1>
                     <p className="mt-1 text-sm text-gray-500">Entenda vendas, pedidos e comportamento dos seus clientes.</p>
@@ -39,6 +41,7 @@ export default function AnalyticsPageContent() {
                     </div>
                 </div>
             </div>
+</PageHeader>
             <AnalyticsDashboard restaurantId={restaurantId} startDate={startDate} endDate={endDate} />
             <section className="pt-2">
                 <div className="mb-4">

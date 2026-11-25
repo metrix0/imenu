@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Switch from "@/components/ui/Switch";
-import Card from "@/components/ui/Card";
+import ConfigurationCard from "@/components/ui/ConfigurationCard";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import SaveStatus from "@/components/ui/SaveStatus";
 import Input from "@/components/ui/Input";
@@ -137,25 +136,19 @@ export default function PreorderModeToggle({ restaurantId, enabled, onChange, op
 
     return (
         <>
-            <Card className="mb-5 flex items-center justify-between gap-4">
-                <div>
-                    <h2 className="text-lg font-medium text-gray-900">Trabalho apenas com encomendas</h2>
-                    <p className="mt-1 text-sm text-gray-500">
-                        Ao ativar, os clientes só podem fazer pedidos agendados: precisam escolher data e horário de entrega ou retirada. Você pode definir os dias e horários para quais o cliente pode fazer agendamentos.
-                    </p>
+            <ConfigurationCard
+                className="mb-5"
+                title="Trabalho apenas com encomendas"
+                description="Ao ativar, os clientes só podem fazer pedidos agendados: precisam escolher data e horário de entrega ou retirada. Você pode definir os dias e horários para quais o cliente pode fazer agendamentos."
+                checked={enabled}
+                disabled={!restaurantId || saving}
+                onChange={() => enabled ? void saveMode(false) : setConfirmOpen(true)}
+                footer={<>
                     {enabled && <p className="mt-2 text-xs font-medium text-green-700">Modo encomendas ativo</p>}
                     {error && <p role="alert" className="mt-2 text-sm text-red-600">{error}</p>}
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
                     <SaveStatus status={error ? "error" : saving || savingSettings ? "saving" : "saved"} />
-                    <Switch
-                        checked={enabled}
-                        aria-label="Trabalho apenas com encomendas"
-                        disabled={!restaurantId || saving}
-                        onClick={() => enabled ? void saveMode(false) : setConfirmOpen(true)}
-                    />
-                </div>
-            </Card>
+                </>}
+            />
 
             {enabled && (
                 <div className="space-y-5">

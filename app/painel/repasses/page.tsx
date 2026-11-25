@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/ui/SaveStatus";
 import { useEffect, useState } from "react";
 
 import { supabase } from "@/lib/database/supabaseClient";
@@ -77,7 +78,8 @@ export default function FinanceiroPage() {
 
     return (
         <div className="mx-auto max-w-7xl space-y-8 px-4 pb-20 pt-8 2xl:max-w-[90rem]">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <PageHeader>
+<div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                     <h1>Repasses</h1>
                     <p className="mt-1 text-sm text-gray-500">
@@ -95,6 +97,7 @@ export default function FinanceiroPage() {
                     />
                 </div>
             </div>
+</PageHeader>
 
             <section>
                 <PayoutsDashboard

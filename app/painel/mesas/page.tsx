@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/ui/SaveStatus";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import Image from "next/image";
@@ -474,7 +475,8 @@ export default function MesasPage() {
 
             <main className="min-w-0">
                 <div className="mx-auto max-w-7xl">
-                    <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+                    <PageHeader>
+<div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
                         <div>
                             <h1 className="text-3xl font-bold text-gray-900 2xl:text-4xl">
                                 Mesas
@@ -523,6 +525,7 @@ export default function MesasPage() {
                             </div>
                         )}
                     </div>
+</PageHeader>
 
                     <div className="relative">
                         <div

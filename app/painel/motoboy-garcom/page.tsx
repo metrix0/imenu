@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/ui/SaveStatus";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PanelIcon as FontAwesomeIcon, faMotorRacingHelmet } from "@/components/ui/PanelIcon";
@@ -71,12 +72,7 @@ export default function StaffPanelsPage() {
 
     return (
         <div className="mx-auto max-w-7xl px-4 pb-20 pt-8 sm:px-6">
-            <header className="panel-page-heading mb-8">
-                <h1 className="text-3xl font-bold text-gray-900">Motoboy e Garçom</h1>
-                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-500">
-                    Cada pedido no lugar certo. Escolha o painel para acompanhar as entregas ou atender suas mesas.
-                </p>
-            </header>
+            <PageHeader className="panel-page-heading mb-8" title="Motoboy e Garçom" description="Cada pedido no lugar certo. Escolha o painel para acompanhar as entregas ou atender suas mesas." />
             {error ? <Card><p role="alert" className="text-sm text-red-700">{error}</p><Button className="mt-4" onClick={() => void loadAccess()}>Tentar novamente</Button></Card> : (
                 <div className="grid gap-5 lg:grid-cols-2">
                     <Card className="flex min-w-0 flex-col !p-6 sm:!p-7">

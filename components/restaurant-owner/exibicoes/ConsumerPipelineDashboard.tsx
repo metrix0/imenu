@@ -148,9 +148,6 @@ export default function ConsumerPipelineDashboard({
             {loading && !data ? (
                 <Card>
                     <ListLoader lines={4} />
-                    <p className="mt-4 text-center text-gray-500">
-                        Carregando funil do consumidor...
-                    </p>
                 </Card>
             ) : error && !data ? (
                 <Card className="border-red-200 bg-red-50">

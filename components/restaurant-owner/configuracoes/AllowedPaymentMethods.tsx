@@ -5,7 +5,7 @@ import { faPix } from "@fortawesome/free-brands-svg-icons";
 import { icons } from "@/lib/utils/fontawesome";
 import Card from "@/components/ui/Card";
 import RecommendedBadge from "@/components/ui/RecommendedBadge";
-import ToggleOptionCard from "@/components/ui/ToggleOptionCard";
+import ConfigurationCard from "@/components/ui/ConfigurationCard";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import { useState } from "react";
 
@@ -73,13 +73,13 @@ export default function AllowedPaymentMethods({
                     const active = selected.includes(option.value);
 
                     return (
-                        <ToggleOptionCard
+                        <ConfigurationCard compact
                             key={option.value}
-                            label={option.label}
+                            title={option.label}
                             checked={active}
                             onChange={() => toggle(option.value)}
                             icon={<FontAwesomeIcon icon={option.icon} />}
-                            badge={
+                            titleBadge={
                                 option.recommended ? (
                                     <RecommendedBadge infoText="Pagamentos são confirmados automaticamente e 34% dos usuários preferem pagar com Pix." />
                                 ) : undefined

@@ -28,7 +28,7 @@ import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
-import Switch from "@/components/ui/Switch";
+import ConfigurationCard from "@/components/ui/ConfigurationCard";
 import SaveStatus from "@/components/ui/SaveStatus";
 import { PageLoader } from "@/components/ui/Loader";
 import Toast from "@/components/ui/Toast";
@@ -957,28 +957,14 @@ export default function ConfiguracoesPage() {
                         <SettingsSection id="modos">
                             <PizzaSettingsSection restaurantId={restaurant.id} />
 
-                            <Card className="border border-gray-200 shadow-sm">
-                                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                                    <div>
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <h3 className="text-lg font-semibold text-gray-900">Modo Vitrine</h3>
-                                        </div>
-                                        <p id="vitrine-description" className="mt-2 text-sm text-gray-500">
-                                            Crie um cardápio separado dos demais, exclusivo para visualização.
-                                            Seus clientes podem consultar produtos e preços, mas não realizar pedidos.
-                                        </p>
-                                    </div>
-                                    <div className="flex shrink-0 items-start gap-3">
-                                        <SaveStatus status={saveErrors.vitrine ? "error" : isSavingVitrine ? "saving" : "saved"} />
-                                        <Switch
-                                            checked={restaurant.vitrine_enabled === true}
-                                            aria-label="Modo Vitrine"
-                                            aria-describedby="vitrine-description"
-                                            disabled={isSavingVitrine}
-                                            onClick={() => void saveVitrineMode(restaurant.vitrine_enabled !== true)}
-                                        />
-                                    </div>
-                                </div>
+                            <ConfigurationCard
+                                title="Modo Vitrine"
+                                description="Crie um cardápio separado dos demais, exclusivo para visualização. Seus clientes podem consultar produtos e preços, mas não realizar pedidos."
+                                checked={restaurant.vitrine_enabled === true}
+                                disabled={isSavingVitrine}
+                                onChange={enabled => void saveVitrineMode(enabled)}
+                                footer={<SaveStatus status={saveErrors.vitrine ? "error" : isSavingVitrine ? "saving" : "saved"} />}
+                            >
                                 {restaurant.vitrine_enabled && vitrineUrl && (
                                     <MenuShareControls
                                         url={vitrineUrl}
@@ -987,79 +973,37 @@ export default function ConfiguracoesPage() {
                                         onDownload={() => downloadQr(vitrineUrl, `vitrine-${restaurant.url_slug || "cardapio"}`)}
                                     />
                                 )}
-                            </Card>
+                            </ConfigurationCard>
 
                             <div id="nfce" className="scroll-mt-20">
                                 {pdfAccess === null ? <Card><ListLoader lines={2} /></Card> : <NfceSettings key={pdfAccess ? "plus" : "locked"} restaurant={restaurant.id} address={restaurant.address} locked={!pdfAccess} />}
                             </div>
 
-                            <Card className="border border-gray-200 shadow-sm">
-                                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                                    <div className="min-w-0">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <h3 className="text-lg font-semibold text-gray-900">
-                                                Cardápio com Tema Escuro
-                                            </h3>
-                                            {pdfAccess !== null && <Badge preset={pdfAccess ? "featureAvailable" : "plusIncluded"} />}
-                                        </div>
-                                        <p id="dark-menu-description" className="mt-2 text-sm text-gray-500">
-                                            Exiba seu cardápio com cores escuras, inclusive em Mesas e Vitrine.{" "}
-                                            <a
-                                                href="https://www.imenuapp.com.br/pizzaria-la-grucia-dark"
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="font-medium text-brand underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                                            >
-                                                Ver exemplo de Tema Escuro
-                                            </a>
-                                        </p>
-                                    </div>
-                                    <div className="flex shrink-0 items-start gap-3">
-                                        <SaveStatus status={saveErrors.dark ? "error" : isSavingDarkMenu ? "saving" : "saved"} />
-                                        <Tooltip
-                                            text={pdfAccess === false ? "Disponível com iMenu Plus. Assine o plano para ativar o tema escuro." : ""}
-                                            parentClassName="!block"
-                                        >
-                                            <Switch
-                                                checked={restaurant.dark_menu_enabled === true && pdfAccess === true}
-                                                aria-label="Cardápio com Tema Escuro"
-                                                aria-describedby="dark-menu-description"
-                                                disabled={isSavingDarkMenu || pdfAccess === null}
-                                                onClick={() => void saveDarkMenuMode(restaurant.dark_menu_enabled !== true)}
-                                            />
-                                        </Tooltip>
-                                    </div>
-                                </div>
-                            </Card>
+                            <ConfigurationCard
+                                title="Cardápio com Tema Escuro"
+                                plus={pdfAccess ?? undefined}
+                                description={<>Exiba seu cardápio com cores escuras, inclusive em Mesas e Vitrine.{" "}
+                                    <a href="https://www.imenuapp.com.br/pizzaria-la-grucia-dark" target="_blank" rel="noopener noreferrer"
+                                        className="font-medium text-brand underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">Ver exemplo de Tema Escuro</a>
+                                </>}
+                                checked={restaurant.dark_menu_enabled === true && pdfAccess === true}
+                                disabled={isSavingDarkMenu || pdfAccess === null}
+                                onChange={() => void saveDarkMenuMode(restaurant.dark_menu_enabled !== true)}
+                                toggleTooltip={pdfAccess === false ? "Disponível com iMenu Plus. Assine o plano para ativar o tema escuro." : undefined}
+                                footer={<SaveStatus status={saveErrors.dark ? "error" : isSavingDarkMenu ? "saving" : "saved"} />}
+                            />
 
-                            <Card className="border border-gray-200 shadow-sm">
-                                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                                    <div className="min-w-0">
-                                        <h3 className="text-lg font-semibold text-gray-900">
-                                            Modo Cidade Pequena (CEP opcional)
-                                        </h3>
-                                        <p id="small-city-description" className="mt-2 text-sm text-gray-500">
-                                            Permite pedidos sem CEP, calculando a entrega pelo bairro e oferecendo um campo de ponto de referência.
-                                        </p>
-                                    </div>
-                                    <div className="flex shrink-0 items-start gap-3">
-                                        <SaveStatus status={saveErrors.smallCity ? "error" : isSavingSmallCityMode ? "saving" : "saved"} />
-                                        <Switch
-                                            checked={restaurant.small_city_mode_enabled === true}
-                                            aria-label="Modo Cidade Pequena (CEP opcional)"
-                                            aria-describedby="small-city-description"
-                                            disabled={isSavingSmallCityMode}
-                                            onClick={() => {
-                                                if (restaurant.small_city_mode_enabled) {
-                                                    void saveSmallCityMode(false);
-                                                } else {
-                                                    setConfirmSmallCityModeOpen(true);
-                                                }
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-                            </Card>
+                            <ConfigurationCard
+                                title="Modo Cidade Pequena (CEP opcional)"
+                                description="Permite pedidos sem CEP, calculando a entrega pelo bairro e oferecendo um campo de ponto de referência."
+                                checked={restaurant.small_city_mode_enabled === true}
+                                disabled={isSavingSmallCityMode}
+                                onChange={enabled => {
+                                    if (!enabled) void saveSmallCityMode(false);
+                                    else setConfirmSmallCityModeOpen(true);
+                                }}
+                                footer={<SaveStatus status={saveErrors.smallCity ? "error" : isSavingSmallCityMode ? "saving" : "saved"} />}
+                            />
                         </SettingsSection>
                     )}
 
@@ -1099,44 +1043,27 @@ export default function ConfiguracoesPage() {
                             />
                         </Card>
 
-                        <Card className="border border-gray-200 shadow-sm">
-                            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-                                <div className="min-w-0">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <h3 className="text-lg font-semibold text-gray-900">
-                                            Forçar envio de Notificação no WhatsApp
-                                        </h3>
-                                        <Tooltip
-                                            text="Isso adiciona uma etapa extra à finalização e pode criar atrito no pedido. O pedido é criado antes do WhatsApp: o cliente pode simplesmente não enviar a mensagem e o pedido continuará válido."
-                                            position="top"
-                                            size="medium"
-                                            showOnClick
-                                            parentClassName="inline-flex items-center self-center leading-none"
-                                        >
-                                            <Badge variant="notRecommended" className="gap-1 cursor-help">
-                                                Não recomendado
-                                                <FontAwesomeIcon icon={faCircleInfo} className="text-[11px] leading-none text-yellow-700" />
-                                            </Badge>
-                                        </Tooltip>
-                                    </div>
-                                    <p className="mt-2 text-sm text-gray-500">
-                                        Após confirmar o pedido, o cliente será direcionado ao
-                                        WhatsApp do restaurante com a comanda completa já
-                                        preenchida.
-                                    </p>
-                                </div>
-
-                                <div className="flex shrink-0 items-start gap-3">
-                                    <SaveStatus status={saveErrors.whatsapp ? "error" : isSavingWhatsappConfirmation ? "saving" : "saved"} />
-                                    <Switch
-                                        checked={forceWhatsappOrderConfirmation}
-                                        aria-label="Obrigar envio de notificação no WhatsApp"
-                                        disabled={isSavingWhatsappConfirmation}
-                                        onClick={() => void saveWhatsappOrderConfirmation(!forceWhatsappOrderConfirmation)}
-                                    />
-                                </div>
-                            </div>
-                        </Card>
+                        <ConfigurationCard
+                            title="Forçar envio de Notificação no WhatsApp"
+                            titleBadge={
+                                <Tooltip
+                                    text="Isso adiciona uma etapa extra à finalização e pode criar atrito no pedido. O pedido é criado antes do WhatsApp: o cliente pode simplesmente não enviar a mensagem e o pedido continuará válido."
+                                    position="top" size="medium" showOnClick
+                                    parentClassName="inline-flex items-center self-center leading-none"
+                                >
+                                    <Badge variant="notRecommended" className="gap-1 cursor-help">
+                                        Não recomendado
+                                        <FontAwesomeIcon icon={faCircleInfo} className="text-[11px] leading-none text-yellow-700" />
+                                    </Badge>
+                                </Tooltip>
+                            }
+                            description="Após confirmar o pedido, o cliente será direcionado ao WhatsApp do restaurante com a comanda completa já preenchida."
+                            checked={forceWhatsappOrderConfirmation}
+                            ariaLabel="Obrigar envio de notificação no WhatsApp"
+                            disabled={isSavingWhatsappConfirmation}
+                            onChange={enabled => void saveWhatsappOrderConfirmation(enabled)}
+                            footer={<SaveStatus status={saveErrors.whatsapp ? "error" : isSavingWhatsappConfirmation ? "saving" : "saved"} />}
+                        />
 
                         {restaurant && (
                             <Card className="border border-gray-200 shadow-sm">

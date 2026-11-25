@@ -4,6 +4,15 @@ import type { ReactNode } from "react";
 import ListLoader from "./ListLoader";
 import { ArrowDown, ArrowUp, ArrowUpDown, Inbox } from "lucide-react";
 
+export function DataTableEmptyState({ message }: { message: ReactNode }) {
+    return <div className="flex min-h-[184px] flex-col items-center justify-center gap-4 px-4 py-8 sm:min-h-[200px]">
+        <div className="flex h-14 w-14 items-center justify-center rounded-[12px] border border-[#e2e5e9] bg-[#f7f8fa]">
+            <Inbox size={26} strokeWidth={1.5} className="text-[#818994]" aria-hidden="true" />
+        </div>
+        <div className="max-w-lg text-sm font-normal leading-6 text-[#626973]">{message}</div>
+    </div>;
+}
+
 export type TableColumn<T> = { key: string; label: string; header?: ReactNode; render: (row: T) => ReactNode; className?: string; sortable?: boolean };
 
 export default function DataTable<T>({ columns, rows, rowKey, onRowClick, loading, emptyMessage = "Nenhum resultado encontrado.", sortKey, sortDirection = "desc", onSort }: {
@@ -31,12 +40,7 @@ export default function DataTable<T>({ columns, rows, rowKey, onRowClick, loadin
             <tbody>{loading ? <tr><td colSpan={columns.length} className="border-b border-[#e2e5e9] px-4 py-3.5"><ListLoader lines={6} /></td></tr> : rows.length === 0
                 ? <tr>
                     <td colSpan={columns.length} className="px-4 py-0 text-center">
-                        <div className="flex min-h-[184px] flex-col items-center justify-center gap-4 px-4 py-8 sm:min-h-[200px]">
-                            <div className="flex h-14 w-14 items-center justify-center rounded-[12px] border border-[#e2e5e9] bg-[#f7f8fa]">
-                                <Inbox size={26} strokeWidth={1.5} className="text-[#818994]" aria-hidden="true" />
-                            </div>
-                            <div className="max-w-lg text-sm font-normal leading-6 text-[#626973]">{emptyMessage}</div>
-                        </div>
+                        <DataTableEmptyState message={emptyMessage} />
                     </td>
                 </tr>
                 : rows.map(row => <tr key={rowKey(row)} tabIndex={onRowClick ? 0 : undefined} className={`transition-colors hover:bg-[#f7f8fa] ${onRowClick ? "cursor-pointer" : ""}`}

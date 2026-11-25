@@ -5,6 +5,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useSta
 import { supabase } from "@/lib/database/supabaseClient"; // Ajustado para o seu import padrão
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; // Ajustado para o seu import padrão
 import { PageLoader } from "@/components/ui/Loader";
+import { PageHeader } from "@/components/ui/SaveStatus";
 import Toast from "@/components/ui/Toast";
 import Button from "@/components/ui/Button";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
@@ -239,9 +240,7 @@ export default function PainelPedidosAtivosPage() {
 
     if (isLoading) {
         return (
-            <PageLoader label="Carregando painel...">
-                <p className="text-gray-400 mt-4">Carregando painel...</p>
-            </PageLoader>
+            <PageLoader label="Carregando painel" />
         );
     }
 
@@ -258,7 +257,8 @@ export default function PainelPedidosAtivosPage() {
             {courierError && <Toast key={courierError.id} type="error" message={"Entrega Machine: " + courierError.message}
                 duration={5000} onClose={() => setCourierError(null)} />}
             {/* Header */}
-            <div className="panel-page-heading flex flex-col xl:flex-row justify-between items-start xl:items-end gap-4 mb-8">
+            <PageHeader>
+<div className="panel-page-heading flex flex-col xl:flex-row justify-between items-start xl:items-end gap-4 mb-8">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900 2xl:text-4xl">
                         Pedidos de Hoje
@@ -372,6 +372,7 @@ export default function PainelPedidosAtivosPage() {
                     </div>
                 </div>
             </div>
+</PageHeader>
             {/* Grid de Pedidos */}
             {orders.length === 0 ? (
                 <div className="panel-empty text-center flex flex-col items-center bg-white">

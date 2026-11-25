@@ -53,13 +53,31 @@ export default function SaveStatus({ status, className = "" }: { status: SaveSta
     return report ? null : <SaveStatusBadge status={status} className={className} />;
 }
 
-// Keep the page status inline with its heading on every screen size.
-export function PageSaveHeader({ children }: { children: ReactNode }) {
+// One page heading: title, description, actions and the aggregated save indicator.
+export function PageHeader({ title, description, actions, children, className = "" }: {
+    title?: ReactNode;
+    description?: ReactNode;
+    actions?: ReactNode;
+    children?: ReactNode;
+    className?: string;
+}) {
     const status = useContext(PageSaveStateContext);
-    return <div className="flex min-w-0 items-start justify-between gap-4" data-ui="page-save-header">
-        <div className="min-w-0 flex-1">{children}</div>
+    return <header className={`flex min-w-0 items-start justify-between gap-4 ${className}`} data-ui="page-save-header">
+        <div className="min-w-0 flex-1 [&_h1]:!text-[25px] [&_h1]:!leading-8 [&_h1]:!font-bold [&_h1]:!text-gray-900 md:[&_h1]:!text-[28px] md:[&_h1]:!leading-[34px] [&_h1]:!m-0 [&_h1+p]:!mt-1 [&_h1+p]:!text-sm [&_h1+p]:!leading-5 [&_h1+p]:!text-gray-500">
+            {title !== undefined ? <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                    <h1>{title}</h1>
+                    {description && <p>{description}</p>}
+                </div>
+                {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
+            </div> : null}
+            {children}
+        </div>
         {status !== "idle" && <div className="shrink-0 pt-1" data-ui="page-save-status">
             <SaveStatusBadge status={status} />
         </div>}
-    </div>;
+    </header>;
 }
+
+// Legacy callers share the exact same heading implementation.
+export const PageSaveHeader = PageHeader;

@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 
 import QrCodeMesaSettingsSection from "@/components/restaurant-owner/configuracoes/QrCodeMesaSettingsSection";
-import Loader from "@/components/ui/Loader";
+import { PageLoader } from "@/components/ui/Loader";
+import { PageHeader } from "@/components/ui/SaveStatus";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import "./planos.css";
@@ -57,19 +58,10 @@ export default function PlanosPage() {
     return (
         <div className="plans-page min-h-screen pb-20">
             <div className="plans-content mx-auto max-w-6xl">
-                <header className="panel-page-heading">
-                    <h1 className="text-3xl font-bold text-gray-900">
-                        Planos iMenu
-                    </h1>
-                    <p className="mt-1 text-gray-500">
-                        Escolha os sistemas que fazem sentido para o seu restaurante.
-                    </p>
-                </header>
+                <PageHeader className="panel-page-heading" title="Planos iMenu" description="Escolha os sistemas que fazem sentido para o seu restaurante." />
 
                 {loading ? (
-                    <div className="flex justify-center py-10">
-                        <Loader />
-                    </div>
+                    <PageLoader />
                 ) : restaurantId ? (
                     <QrCodeMesaSettingsSection restaurantId={restaurantId} showHeader={false} presentation="plans" coupon={coupon} />
                 ) : null}

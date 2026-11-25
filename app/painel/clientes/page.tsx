@@ -1,4 +1,5 @@
 "use client";
+import { PageHeader } from "@/components/ui/SaveStatus";
 import { useEffect, useState } from "react";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import { crmRequest } from "@/lib/api/crm";
@@ -104,12 +105,7 @@ export default function ClientesPage() {
   };
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-4 pb-20 pt-8 sm:px-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Clientes</h1>
-        <p className="mt-2 text-sm text-gray-500">
-          Conheça quem compra de você e acompanhe cada relacionamento.
-        </p>
-      </div>
+      <PageHeader title="Clientes" description="Conheça quem compra de você e acompanhe cada relacionamento." />
       <div className="grid grid-cols-1 items-end gap-4 sm:grid-cols-[minmax(0,1.5fr)_minmax(180px,1fr)]">
         <div className="min-w-0">
           <Input

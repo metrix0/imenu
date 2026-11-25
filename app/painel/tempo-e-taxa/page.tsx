@@ -7,7 +7,7 @@ import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import DeliveryRules from "@/components/restaurant-owner/configuracoes/TempoeTaxa";
 import AddressForm, { saveRestaurantAddress } from "@/components/restaurant-owner/configuracoes/AddressForm";
 import Button from "@/components/ui/Button";
-import ToggleOptionCard from "@/components/ui/ToggleOptionCard";
+import ConfigurationCard from "@/components/ui/ConfigurationCard";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import { PageLoader } from "@/components/ui/Loader";
 import { AddressData } from "@/lib/types/types";
@@ -187,9 +187,8 @@ export default function PainelTempoETaxaPage() {
             </section>
 
             <section className="mx-auto mt-10 max-w-2xl 2xl:max-w-3xl">
-                <ToggleOptionCard
-                    label="Desativar entregas"
-                    variant="section"
+                <ConfigurationCard
+                    title="Desativar entregas"
                     description="Quando ativado, o cardápio aceita apenas pedidos para retirada no restaurante."
                     ariaLabel="Desativar entregas"
                     checked={deliveryDisabled}
@@ -198,7 +197,6 @@ export default function PainelTempoETaxaPage() {
                         if (checked) setConfirmDisableOpen(true);
                         else void toggleDeliveryDisabled();
                     }}
-                    className="!items-start !p-6 sm:!items-center"
                 />
                 {deliveryError && <p role="alert" className="mt-3 text-sm text-red-600">{deliveryError}</p>}
             </section>

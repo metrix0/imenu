@@ -1,5 +1,7 @@
 "use client";
 
+import ConfigurationCard from "@/components/ui/ConfigurationCard";
+
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Card from "@/components/ui/Card";
@@ -7,8 +9,7 @@ import Badge from "@/components/ui/Badge";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import Dropdown from "@/components/ui/Dropdown";
-import CollapsibleSection from "@/components/ui/CollapsibleSection";
-import Loader from "@/components/ui/Loader";
+import ListLoader from "@/components/ui/ListLoader";
 import type { SaveState } from "@/components/ui/SaveStatus";
 import { useAutoSave } from "@/lib/utils/useAutoSave";
 import { qrTableAuthenticatedFetch } from "@/lib/qr-table/clientApi";
@@ -72,7 +73,7 @@ export default function DeliveryIntegrations({ restaurantId, onSaveState }: Prop
     return <Card className="mb-6 space-y-6 !p-5 sm:!p-7">
         <h2 className="text-xl font-semibold text-gray-900">Delivery e Parceiros</h2>
         {error && <div role="alert" className="space-y-2 text-sm text-red-600"><p>{error}</p>{!config && <Button variant="secondary" onClick={() => setLoadVersion(value => value + 1)}>Tentar novamente</Button>}</div>}
-        {!config && !error && <div className="flex justify-center py-6"><Loader /></div>}
+        {!config && !error && <div className="py-6" role="status" aria-label="Carregando"><ListLoader lines={3} /></div>}
         {config && <>
             <section aria-labelledby="ifood-title">
                 <div className="flex flex-col items-start gap-3 sm:flex-row sm:gap-4">
@@ -88,18 +89,18 @@ export default function DeliveryIntegrations({ restaurantId, onSaveState }: Prop
                     </div>
                 </div>
             </section>
-            <CollapsibleSection
+            <ConfigurationCard
+                embedded
+                collapse={{}}
                 className="border-t border-gray-200 pt-6"
                 title="Machine (Chama Delivery)"
                 description="Solicite um entregador automaticamente ao aceitar pedidos de entrega."
                 icon={<Image src="/logos/machine.svg" alt="" width={36} height={36} className="h-9 w-9 object-contain" />}
-                badge={config.machine.enabled && !complete.machine && <Badge variant="warning">Não configurado</Badge>}
-                toggle={{
-                    label: "Ativar integração Machine",
-                    checked: config.machine.enabled,
-                    disabled: !available,
-                    onChange: checked => change("machine", "enabled", checked),
-                }}
+                configured={config.machine.enabled ? complete.machine : undefined}
+                ariaLabel="Ativar integração Machine"
+                checked={config.machine.enabled}
+                disabled={!available}
+                onChange={checked => change("machine", "enabled", checked)}
                 footer={failures.map(failure => (
                     <div key={failure.order_id} role="alert" className="mt-4 flex flex-col gap-3 rounded-lg border border-red-200 p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
                         <p>Pedido #{failure.display_id}: {failure.state === "failed" ? failure.error : "Confira a solicitação na Machine antes de solicitar outro entregador."}</p>
@@ -119,7 +120,7 @@ export default function DeliveryIntegrations({ restaurantId, onSaveState }: Prop
                     { value: "", label: "Selecione" }, { value: "F", label: "Faturado" }, { value: "R", label: "Carteira de créditos" },
                     { value: "D", label: "Dinheiro" }, { value: "B", label: "Débito" }, { value: "C", label: "Crédito" }, { value: "X", label: "Pix" },
                 ]} onChange={event => change("machine", "payment", event.target.value)} />
-            </CollapsibleSection>
+            </ConfigurationCard>
         </>}
     </Card>;
 }
