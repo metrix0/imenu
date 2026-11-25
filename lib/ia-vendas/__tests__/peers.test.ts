@@ -83,7 +83,7 @@ describe("potential", () => {
     ] })).toThrow("clientes de Marketing");
   });
 
-  test("keeps the combined upside inside the existing 15% revenue cap", () => {
+  test("does not cap the combined upside at 15% of revenue", () => {
     const result = potential(sales, {
       days: 28,
       assumptions: "",
@@ -110,8 +110,16 @@ describe("potential", () => {
       ],
     });
 
-    expect(result.max_cents).toBe(150_000);
-    expect(result.max_percent).toBe(0.15);
+    expect(result.max_cents).toBe(330_000);
+    expect(result.max_percent).toBe(0.33);
+  });
+
+  test("sets a R$ 150 target without inflating the modeled range", () => {
+    const result = potential({ ...sales, orders: 12, revenue_cents: 85100, ticket_cents: 85100 / 12 }, {
+      opportunities: [{ kind: "menu_clarity", eligible_revenue_cents: 76700 }, { kind: "proven_combo_visibility", eligible_revenue_cents: 8400 }],
+    });
+    expect(result).toMatchObject({ min_cents: 1786, max_cents: 4507, target_cents: 15000, target_orders: 3 });
+    expect(result.target_note).toContain("não previsão");
   });
 
   test("formats scenario assumptions in Brazilian Portuguese without changing the calculation", () => {

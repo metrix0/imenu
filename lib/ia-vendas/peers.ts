@@ -114,6 +114,16 @@ export async function benchmark(restaurant: string, ai: OpenAI) {
       })),
   };
 }
+// A commercial goal must remain distinguishable from the evidence-based estimate.
+function monthlyTarget(minCents: number, days: number, ticketCents: number) {
+  const target = Math.round(15_000 * days / 28);
+  if (minCents >= target) return {};
+  return {
+    target_cents: target,
+    target_orders: ticketCents > 0 ? Math.ceil(target / ticketCents) : null,
+    target_note: "Meta comercial, não previsão. A meta requer demanda adicional.",
+  };
+}
 export function potential(sales: Data, input: Data, items?: Data[]) {
   const days = input.days === undefined ? 28 : Number(input.days);
   if (sales.orders < 10)
@@ -141,18 +151,14 @@ export function potential(sales: Data, input: Data, items?: Data[]) {
         "Use hipóteses conservadoras: pedidos elegíveis observados, adesão até 25% e acréscimo até o ticket atual.",
       );
     const baselineCents = (sales.revenue_cents * days) / sales.days,
-      cents = Math.round(
-        Math.min(
-          (affected * adoption * lift * days) / sales.days,
-          baselineCents * 0.15,
-        ),
-      );
+      cents = Math.round((affected * adoption * lift * days) / sales.days);
     return {
       available: true,
+      ...monthlyTarget(cents, days, Number(sales.ticket_cents)),
       cents,
       days,
       percent: baselineCents > 0 ? cents / baselineCents : 0,
-      formula: `Consideramos ${affected} pedidos em que a mudança pode ajudar, ${adoption.toLocaleString("pt-BR", { style: "percent", maximumFractionDigits: 1 })} deles aderindo e ${(lift / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} extras por adesão, projetados para ${days} dias. Para ser conservador, limitamos o cenário a 15% da receita atual.`,
+      formula: `Consideramos ${affected} pedidos em que a mudança pode ajudar, ${adoption.toLocaleString("pt-BR", { style: "percent", maximumFractionDigits: 1 })} deles aderindo e ${(lift / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} extras por adesão, projetados para ${days} dias.`,
       assumptions: String(input.assumptions || "").slice(0, 2000),
       note: "Base do cálculo: pedidos concluídos e valores dos adicionais em pedidos elegíveis; pagamentos pendentes e cancelados ficam fora.",
     };
@@ -291,14 +297,14 @@ export function potential(sales: Data, input: Data, items?: Data[]) {
 
   const rawMin = [...groups.values()].reduce((sum, group) => sum + group.min, 0),
     rawMax = [...groups.values()].reduce((sum, group) => sum + group.max, 0),
-    cap = baselineCents * 0.15,
-    minCents = Math.round(Math.min(rawMin, cap)),
-    maxCents = Math.round(Math.min(Math.max(rawMax, rawMin), cap)),
+    minCents = Math.round(rawMin),
+    maxCents = Math.round(Math.max(rawMax, rawMin)),
     minPercent = baselineCents > 0 ? minCents / baselineCents : 0,
     maxPercent = baselineCents > 0 ? maxCents / baselineCents : 0;
 
   return {
     available: true,
+    ...monthlyTarget(minCents, days, Number(sales.ticket_cents)),
     min_cents: minCents,
     max_cents: maxCents,
     min_percent: minPercent,
@@ -308,7 +314,7 @@ export function potential(sales: Data, input: Data, items?: Data[]) {
     days,
     breakdown,
     formula:
-      "A faixa combina cenários conservador e de maior adesão para cada mudança. O mesmo grupo de pedidos não é somado duas vezes e o total fica limitado a 15% da receita atual.",
+      "A faixa combina cenários conservador e de maior adesão para cada mudança. O mesmo grupo de pedidos não é somado duas vezes.",
     assumptions: String(input.assumptions || "").slice(0, 2000),
     note: "Base do cálculo: pedidos concluídos e vendas observadas dos produtos envolvidos; oportunidades sem dados suficientes não são somadas.",
   };
