@@ -508,7 +508,7 @@ async function crmPanels(browser) {
         localStorage.setItem("imenu:application-promo-dismissed-at:v1",String(Date.now()));
     },{user,token,restaurantId,authStorageKey:process.env.NEXT_PUBLIC_SUPABASE_AUTH_STORAGE_KEY||"sb-127-auth-token"});
     const customer={habits:[],favorite_product:null,phone:"5511999990000",name:"Cliente CRM",address:{rua:"Rua de teste",numero:"123",bairro:"Centro"},opted_out_at:null,order_count:3,spending_cents:15000,average_ticket_cents:5000,last_purchase:new Date().toISOString(),segment:"Frequente"};
-    let saved=null,saveCount=0,pdfPlus=false;
+    let saved=null,saveCount=0;
     let usageResponse={},usageRequests=0;
     const settings={dailyTotalLimit:10,...Object.fromEntries(["cart","reactivation","habit"].map(kind=>[kind,{enabled:false,message:"Oi, {{nome}}! Vamos pedir na {{restaurante}}?",days:30,dailyLimit:kind==="cart"?7:2,cooldownDays:kind==="reactivation"?120:7,offer:""}]))};
     await page.setRequestInterception(true);
@@ -520,7 +520,7 @@ async function crmPanels(browser) {
             if(request.method()==="PUT") {saved=JSON.parse(request.postData());saveCount++;}
             return request.respond({status:200,contentType:"application/json",body:JSON.stringify(request.method()==="PUT" ? {settings:saved} : {settings,plus:true,offers:[{value:"coupon:10000000-0000-4000-8000-000000000001",label:"Cupom: VOLTE10"}],connected:true})});
         }
-        if(url.origin===BASE && url.pathname==="/api/addons/billing") return request.respond({status:200,contentType:"application/json",body:JSON.stringify({addons:pdfPlus?[{addon:{product_key:"ia_plus"},active:true}]:[]})});
+        if(url.origin===BASE && url.pathname==="/api/addons/billing") return request.respond({status:200,contentType:"application/json",body:JSON.stringify({addons:usageResponse.access?.plus===true?[{addon:{product_key:"ia_plus"},active:true}]:[]})});
         if(url.origin===BASE && url.pathname==="/api/ia-vendas" && url.searchParams.get("usage_only")==="1") {
             usageRequests++;
             return request.respond({status:200,contentType:"application/json",body:JSON.stringify(usageResponse)});
@@ -560,6 +560,7 @@ async function crmPanels(browser) {
         await page.waitForSelector('[aria-label="iMenu Plus ativo"]');
         await screenshot(page,"clientes-mobile");
         assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),"Mobile customer page must not overflow horizontally");
+        usageResponse={access:{plus:false},latest_analysis_finished_at:null};
         await page.goto(BASE+"/painel/configuracoes",{waitUntil:"networkidle2"});
         await page.waitForFunction(()=>document.body.textContent.includes("Desbloquear exportação"));
         await page.evaluate(()=>Array.from(document.querySelectorAll("button")).find(b=>b.textContent.includes("Desbloquear exportação"))?.scrollIntoView({block:"center",behavior:"instant"}));
@@ -567,9 +568,9 @@ async function crmPanels(browser) {
         await click(page,"Desbloquear exportação");
         await page.waitForFunction(()=>document.body.textContent.includes("Com o iMenu Plus, exporte seu cardápio em PDF"));
         await screenshot(page,"pdf-sales-mobile");
-        pdfPlus=true;
+        usageResponse={access:{plus:true},latest_analysis_finished_at:null};
         await page.goto(BASE+"/painel/configuracoes",{waitUntil:"networkidle2"});
-        await page.waitForFunction(()=>Array.from(document.querySelectorAll("button")).some(b=>b.textContent.trim()==="Exportar PDF"));
+        await page.waitForFunction(()=>Array.from(document.querySelectorAll("button")).some(b=>b.textContent.trim()==="Exportar PDF" && !b.disabled));
         await page.setViewport({width:1280,height:900});
     page.on("pageerror",error=>console.error("BROWSER_ERROR",error.message));
         await page.evaluate(()=>Array.from(document.querySelectorAll("button")).find(b=>b.textContent.trim()==="Exportar PDF")?.scrollIntoView({block:"center",behavior:"instant"}));
