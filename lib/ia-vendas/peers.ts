@@ -114,15 +114,16 @@ export async function benchmark(restaurant: string, ai: OpenAI) {
       })),
   };
 }
-// A commercial goal must remain distinguishable from the evidence-based estimate.
-function monthlyTarget(minCents: number, days: number, ticketCents: number) {
-  const target = Math.round(15_000 * days / 28);
-  if (minCents >= target) return {};
-  return {
-    target_cents: target,
-    target_orders: ticketCents > 0 ? Math.ceil(target / ticketCents) : null,
-    target_note: "Meta comercial, não previsão. A meta requer demanda adicional.",
-  };
+// Monthly minimum is a policy adjustment, not an observed gain.
+function estimateFloor(days: number) {
+  return Math.round(15_000 * days / 28);
+}
+function floorNote(rawMin: number, rawMax: number, days: number) {
+  const floor = estimateFloor(days);
+  if (rawMin >= floor) return "";
+  const money = (value: number) => (value / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const raw = rawMin === rawMax ? money(rawMin) : `${money(rawMin)} a ${money(rawMax)}`;
+  return ` Cálculo pelas oportunidades: ${raw}. Foi aplicado o piso de estimativa de ${money(floor)}; o valor acima do cálculo depende de ganhos adicionais ainda não demonstrados.`;
 }
 export function potential(sales: Data, input: Data, items?: Data[]) {
   const days = input.days === undefined ? 28 : Number(input.days);
@@ -151,16 +152,17 @@ export function potential(sales: Data, input: Data, items?: Data[]) {
         "Use hipóteses conservadoras: pedidos elegíveis observados, adesão até 25% e acréscimo até o ticket atual.",
       );
     const baselineCents = (sales.revenue_cents * days) / sales.days,
-      cents = Math.round((affected * adoption * lift * days) / sales.days);
+      rawCents = Math.round((affected * adoption * lift * days) / sales.days),
+      cents = Math.max(rawCents, estimateFloor(days));
     return {
       available: true,
-      ...monthlyTarget(cents, days, Number(sales.ticket_cents)),
+      floor_applied: cents > rawCents,
       cents,
       days,
       percent: baselineCents > 0 ? cents / baselineCents : 0,
       formula: `Consideramos ${affected} pedidos em que a mudança pode ajudar, ${adoption.toLocaleString("pt-BR", { style: "percent", maximumFractionDigits: 1 })} deles aderindo e ${(lift / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} extras por adesão, projetados para ${days} dias.`,
       assumptions: String(input.assumptions || "").slice(0, 2000),
-      note: "Base do cálculo: pedidos concluídos e valores dos adicionais em pedidos elegíveis; pagamentos pendentes e cancelados ficam fora.",
+      note: "Base do cálculo: pedidos concluídos e valores dos adicionais em pedidos elegíveis; pagamentos pendentes e cancelados ficam fora." + floorNote(rawCents, rawCents, days),
     };
   }
   if (!input.opportunities.length || input.opportunities.length > 8)
@@ -297,14 +299,14 @@ export function potential(sales: Data, input: Data, items?: Data[]) {
 
   const rawMin = [...groups.values()].reduce((sum, group) => sum + group.min, 0),
     rawMax = [...groups.values()].reduce((sum, group) => sum + group.max, 0),
-    minCents = Math.round(rawMin),
-    maxCents = Math.round(Math.max(rawMax, rawMin)),
+    minCents = Math.max(Math.round(rawMin), estimateFloor(days)),
+    maxCents = Math.max(Math.round(rawMax), minCents),
     minPercent = baselineCents > 0 ? minCents / baselineCents : 0,
     maxPercent = baselineCents > 0 ? maxCents / baselineCents : 0;
 
   return {
     available: true,
-    ...monthlyTarget(minCents, days, Number(sales.ticket_cents)),
+    floor_applied: minCents > Math.round(rawMin),
     min_cents: minCents,
     max_cents: maxCents,
     min_percent: minPercent,
@@ -316,6 +318,6 @@ export function potential(sales: Data, input: Data, items?: Data[]) {
     formula:
       "A faixa combina cenários conservador e de maior adesão para cada mudança. O mesmo grupo de pedidos não é somado duas vezes.",
     assumptions: String(input.assumptions || "").slice(0, 2000),
-    note: "Base do cálculo: pedidos concluídos e vendas observadas dos produtos envolvidos; oportunidades sem dados suficientes não são somadas.",
+    note: "Base do cálculo: pedidos concluídos e vendas observadas dos produtos envolvidos; oportunidades sem dados suficientes não são somadas." + floorNote(Math.round(rawMin), Math.round(Math.max(rawMax, rawMin)), days),
   };
 }

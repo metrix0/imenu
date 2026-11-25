@@ -1202,16 +1202,14 @@ export function DataCard({ card, expanded = false, presentation = "chat" }: { ca
         Number.isFinite(minCents) &&
         Number.isFinite(maxCents) &&
         maxCents > minCents;
-    const targetCents = Number(card.target_cents || 0),
-      hasTarget = Number.isFinite(targetCents) && targetCents > minCents;
     if (presentation === "report") return (
       <div className={styles.potential}>
         {card.available ? <>
-          {hasTarget && <><p className={styles.gain}>+{money(targetCents)}</p><p className={styles.comparisonNote}>Meta comercial · não é uma previsão{card.target_orders > 0 ? ` · cerca de ${card.target_orders} pedidos extras no ticket atual` : ""}</p></>}
-          <p className={hasTarget ? styles.comparisonNote : `${styles.gain} ${hasRange ? styles.range : ""}`}>{hasTarget && "Estimativa calculada: "}<span>+{money(minCents)}</span>{hasRange && <span className={styles.rangeEnd}><span className={styles.rangeSeparator}>a</span><span>{money(maxCents)}</span></span>}</p>
+          <p className={`${styles.gain} ${hasRange ? styles.range : ""}`}><span>+{money(minCents)}</span>{hasRange && <span className={styles.rangeEnd}><span className={styles.rangeSeparator}>a</span><span>{money(maxCents)}</span></span>}</p>
           {Number.isFinite(minPercent) && Number.isFinite(maxPercent) && <p className={styles.growth}>
             <strong><TrendingUp size={14} aria-hidden="true" />+{minPercent.toLocaleString("pt-BR", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 })}{maxPercent > minPercent ? ` a ${maxPercent.toLocaleString("pt-BR", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 })}` : ""}</strong><span>de receita estimada</span>
           </p>}
+          {card.floor_applied && <p className={styles.comparisonNote}>Piso de estimativa aplicado.</p>}
           <SalesDisclosure label="Como estimamos">
             <div className={styles.calculation}>
               {!!card.breakdown?.length && <ul>{card.breakdown.map((item: Data, index: number) => <li key={index}><strong>{item.label}:</strong> {item.basis}</li>)}</ul>}
@@ -1230,9 +1228,8 @@ export function DataCard({ card, expanded = false, presentation = "chat" }: { ca
                 ? "Potencial na próxima semana"
                 : "Potencial nas próximas 4 semanas"}
             </p>}
-            {hasTarget && <><p className="my-2 text-3xl font-semibold text-[#D93D00]">+{money(targetCents)}</p><p className="text-sm text-gray-600">Meta comercial · não é uma previsão{card.target_orders > 0 ? ` · cerca de ${card.target_orders} pedidos extras no ticket atual` : ""}</p></>}
-            <p className={hasTarget ? "mt-2 text-sm text-gray-600" : "my-2 text-3xl font-semibold text-[#D93D00]"}>
-              {hasTarget && "Estimativa calculada: "}+{money(minCents)}
+            <p className="my-2 text-3xl font-semibold text-[#D93D00]">
+              +{money(minCents)}
               {hasRange ? ` a ${money(maxCents)}` : ""}
             </p>
             {Number.isFinite(minPercent) && Number.isFinite(maxPercent) && (
@@ -1244,6 +1241,7 @@ export function DataCard({ card, expanded = false, presentation = "chat" }: { ca
                 de receita estimada
               </p>
             )}
+            {card.floor_applied && <p className="text-sm text-gray-600">Piso de estimativa aplicado.</p>}
             <details className="mt-2 text-xs text-gray-600">
               <summary className="cursor-pointer">Como estimamos</summary>
               {Array.isArray(card.breakdown) && card.breakdown.length > 0 && (
