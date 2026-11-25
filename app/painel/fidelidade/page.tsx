@@ -4,6 +4,7 @@ import { PageSaveHeader } from "@/components/ui/SaveStatus";
 import { useEffect, useState } from "react";
 import { useLoyaltyStore } from "@/lib/stores/restaurant-owner/loyaltyStore";
 import DataTable from "@/components/ui/DataTable";
+import CustomerDetailsModal from "@/components/restaurant-owner/clientes/CustomerDetailsModal";
 import PanelFeatureCallout from "@/components/ui/PanelFeatureCallout";
 import Pagination from "@/components/ui/Pagination";
 import InitialsAvatar from "@/components/ui/InitialsAvatar";
@@ -53,6 +54,7 @@ const CUSTOMERS_PAGE_SIZE = 10;
 
 function LoyaltyCustomers({ restaurantId, goal }: { restaurantId: string; goal: number }) {
     const [rows, setRows] = useState<LoyaltyCustomer[]>([]);
+    const [selected, setSelected] = useState<LoyaltyCustomer | null>(null);
     const [page, setPage] = useState(0);
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
@@ -88,6 +90,7 @@ function LoyaltyCustomers({ restaurantId, goal }: { restaurantId: string; goal: 
                     <DataTable
                         rows={rows}
                         rowKey={row => row.id}
+                        onRowClick={setSelected}
                         loading={loading}
                         emptyMessage="Os clientes aparecerão aqui quando acumularem selos."
                         columns={[
@@ -117,6 +120,14 @@ function LoyaltyCustomers({ restaurantId, goal }: { restaurantId: string; goal: 
                         <Pagination page={page} pageCount={Math.ceil(total / CUSTOMERS_PAGE_SIZE)} onChange={setPage} disabled={loading} />
                     )}
                 </>
+            )}
+            {selected && (
+                <CustomerDetailsModal
+                    key={selected.id}
+                    restaurantId={restaurantId}
+                    selected={{ phone: selected.customer_phone, name: selected.name }}
+                    onClose={() => setSelected(null)}
+                />
             )}
         </section>
     );

@@ -153,8 +153,11 @@ export async function customerDetails(restaurantId: string, phone: string, order
       `SELECT id,display_id,status,total_cents,created_at FROM orders WHERE restaurant_id=$1 AND public.crm_phone(customer_phone)=$2 ORDER BY created_at DESC,id DESC LIMIT 10 OFFSET $3`,
       [restaurantId, phone, offset],
     ),
-    query<{ total: number }>(
-      "SELECT count(*)::int total FROM orders WHERE restaurant_id=$1 AND public.crm_phone(customer_phone)=$2",
+    query<{ total: number; order_count: number; spending_cents: string | number; average_ticket_cents: number }>(
+      `SELECT count(*)::int total, (count(*) FILTER (WHERE ${PURCHASE_SQL}))::int order_count,
+       coalesce(sum(total_cents) FILTER (WHERE ${PURCHASE_SQL}),0)::bigint spending_cents,
+       coalesce(round(avg(total_cents) FILTER (WHERE ${PURCHASE_SQL})),0)::int average_ticket_cents
+       FROM orders WHERE restaurant_id=$1 AND public.crm_phone(customer_phone)=$2`,
       [restaurantId, phone],
     ),
     query(
@@ -170,6 +173,11 @@ export async function customerDetails(restaurantId: string, phone: string, order
     customer: profile.rows[0] || null,
     orders: orders.rows,
     orderTotal: orderCount.rows[0]?.total || 0,
+    metrics: {
+      order_count: Number(orderCount.rows[0]?.order_count ?? 0),
+      spending_cents: Number(orderCount.rows[0]?.spending_cents ?? 0),
+      average_ticket_cents: Number(orderCount.rows[0]?.average_ticket_cents ?? 0),
+    },
     favorites: favorites.rows,
     habits: purchaseHabits(habitOrders.rows.map((order) => order.created_at)),
   };
