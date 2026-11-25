@@ -96,7 +96,7 @@ export default function DeliveryIntegrations({ restaurantId, onSaveState }: Prop
                 title="Machine (Chama Delivery)"
                 description="Solicite um entregador automaticamente ao aceitar pedidos de entrega."
                 icon={<Image src="/logos/machine.svg" alt="" width={36} height={36} className="h-9 w-9 object-contain" />}
-                configured={config.machine.enabled ? complete.machine : undefined}
+                configured={complete.machine}
                 ariaLabel="Ativar integração Machine"
                 checked={config.machine.enabled}
                 disabled={!available}

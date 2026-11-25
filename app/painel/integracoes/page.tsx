@@ -264,7 +264,7 @@ function IntegracoesContent() {
                             title={title}
                             description={description}
                             icon={<Image src={logo} alt="" width={36} height={36} className="h-9 w-9 object-contain" />}
-                            configured={active ? configured : undefined}
+                            configured={configured}
                             checked={active}
                             disabled={!restaurantId}
                             ariaLabel={`Ativar ${title}`}

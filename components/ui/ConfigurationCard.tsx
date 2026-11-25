@@ -57,6 +57,8 @@ export default function ConfigurationCard({
                 if (!checked && collapse && !collapse.disabled) disclosure.setExpanded(true);
             }} />
     ) : null;
+    const showConfigurationStatus = configured !== undefined && checked !== false;
+    const reserveConfigurationStatus = Boolean(collapse && configured !== undefined);
     const content = <>
         <div className={`flex justify-between gap-3 sm:gap-4 ${compact ? "items-center" : "items-start"}`}>
             {collapse ? <button {...disclosure.triggerProps} disabled={collapse.disabled}
@@ -73,7 +75,12 @@ export default function ConfigurationCard({
                             <CollapsibleChevron expanded={disclosure.expanded} />
                         </button>}
                     </div>}
-                    {configured !== undefined && <span className={collapse ? "sm:order-first" : "order-first"}><Badge variant={configured ? "success" : "warning"}>{configured ? "Configurado" : "Não configurado"}</Badge></span>}
+                    {(showConfigurationStatus || reserveConfigurationStatus) && (
+                        <span className={collapse ? `sm:order-first ${showConfigurationStatus ? "" : "invisible sm:hidden"}` : "order-first"}
+                            aria-hidden={!showConfigurationStatus}>
+                            <Badge variant={configured ? "success" : "warning"}>{configured ? "Configurado" : "Não configurado"}</Badge>
+                        </span>
+                    )}
                 </div>
             )}
         </div>
