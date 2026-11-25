@@ -1,9 +1,8 @@
 # iMenu — AI working rules
 
 ## Scope and conduct
-- **Reference-first implementation:** Before coding, find the closest existing implementation. Reuse its components, layout, calculations, and interactions as the default. Change only what the user explicitly requests; deviate from the established pattern only when the request requires it or reuse is technically impossible.
-- Do only what the user explicitly requests. Do not alter unrelated code, behavior, data, naming, formatting, or architecture. Make the smallest correct change and reuse existing mechanisms.
-- For investigation, explanation, or suggestions: inspect and report; **do not edit** unless expressly asked to implement.
+- **Reference-first implementation:** Before coding, find the closest existing implementation. Reuse its components, layout, calculations, and interactions as the default. Deviate from the established pattern only when the request requires it or reuse is technically impossible.
+- **Scope:** Implement the requested outcome fully, including necessary dependent changes. Prefer the smallest complete and correct solution. Do not introduce unrelated changes or speculative improvements. Investigation, explanation, and suggestion requests remain read-only unless implementation is explicitly requested.
 - Inspect the actual relevant implementation, schema, state, and logs before concluding. Never invent findings or claim validation not performed.
 - For bug fixes, reproduce or verify the failure before editing. Fix the underlying cause, not just the symptom. Never implement speculative fixes.
 - Keep answers brief and direct unless details are requested. Do not unnecessarily ask for information already available.
@@ -18,8 +17,7 @@
 
 ## Access and source of truth
 - Before changing plans, benefits, pricing, access gates or billing, read `docs/imenu-plus.md` and update its feature/surface map with the implementation. `lib/addons/products.ts` owns the iMenu Plus name, price, benefits and bonuses; retain documented legacy payment identifiers.
-- iMenu repository: `metrix0/imenu`; **default working branch: `preview`**; `main` is production. Preview: https://preview.imenuapp.com.br.
-- All iMenu repository changes must go through GitHub, on `preview` by default. Another non-`main` branch may be used only when the user explicitly authorizes it for the task. Never commit to `main`. Other repositories use `main` unless their workflow says otherwise.
+- **GitHub:** All iMenu repository (`metrix0/imenu`) changes must go through GitHub, on `preview` by default. Never commit to `main` (production). Another non-`main` branch requires explicit user authorization for the task. Preview: https://preview.imenuapp.com.br. Other repositories use `main` unless their workflow says otherwise.
 - **GitHub code search can index the default (`main`) branch.** Treat search matches only as discovery hints: get paths from the `preview` tree and fetch every relevant file explicitly with `ref: "preview"`. Do not rely on default-branch file contents or assume a search excerpt matches `preview`.
 - **To list repository directories, use the GitHub connector `fetch`** with `https://api.github.com/repos/metrix0/imenu/git/trees/preview?recursive=1` and filter `tree[].path` by the requested prefix (for example, `components/`); verify `truncated` is false. For a single directory, `fetch` can read `https://api.github.com/repos/metrix0/imenu/contents/<path>?ref=preview`. `fetch_file` reads individual files, not directories; a directory error does not mean the repository is inaccessible.
 - Before editing, inspect related callers/components and current behavior. Immediately before editing or committing, reread each affected existing file from current target-branch HEAD; check whether HEAD advanced and reconcile instead of overwriting others' work.
@@ -57,7 +55,7 @@
 
 ## Changes, validation, and delivery
 1. Locate and inspect only relevant code/DB/logs on the correct source branch; assess dependent behavior.
-2. Make the smallest requested change; no speculative cleanups or parallel implementations.
+2. Implement the complete requested outcome according to the Scope and reference-first rules; no speculative cleanups or parallel implementations.
 3. Validate with the repository's relevant existing commands/tests and, where possible, a targeted behavior check. Clearly separate pre-existing failures and unavailable validation.
 4. Create **one final commit** to the correct branch and push it. Never create extra branches, except unique temporary test branches containing `temp`, based on the target branch. Never reuse an old temporary branch.
 5. Never commit SQL migration files, temporary SQL, schema dumps, or one-off DB scripts. Requested database changes may be executed directly via @iMenu Supabase but are not committed.
