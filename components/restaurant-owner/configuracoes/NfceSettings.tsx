@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { faCircleInfo } from "@fortawesome/free-solid-svg-icons";
 import { FileBadge } from "lucide-react";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -8,8 +9,10 @@ import Card from "@/components/ui/Card";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Dropdown from "@/components/ui/Dropdown";
 import Input from "@/components/ui/Input";
+import { PanelIcon } from "@/components/ui/PanelIcon";
 import SaveStatus from "@/components/ui/SaveStatus";
-import ToggleOptionCard from "@/components/ui/ToggleOptionCard";
+import Switch from "@/components/ui/Switch";
+import Tooltip from "@/components/ui/Tooltip";
 import CollapsibleSection, { useCollapsible } from "@/components/ui/CollapsibleSection";
 import { nfceRequest } from "@/components/restaurant-owner/pedidos/NfceHistory";
 import { useAutoSave } from "@/lib/utils/useAutoSave";
@@ -29,7 +32,7 @@ const blank: Settings = {
     channels: fiscalChannels(),
 };
 
-const orderChannels = [["salon", "Salão"], ["pickup", "Retirada"]] as const;
+const orderChannels = [["salon", "Salão"], ["pickup", "Retirada"], ["delivery", "Delivery"]] as const;
 const taxFields = [["ncm", "NCM"], ["cfop", "CFOP"]] as const;
 const originOptions = [
     { value: "", label: "Selecione a origem" },
@@ -183,15 +186,37 @@ export default function NfceSettings({ restaurant, address, locked = false }: { 
             >
                 <div className="space-y-5">
                     {!locked && !environment && <p className="text-sm text-gray-600">A emissão fiscal não está disponível neste ambiente.</p>}
+                    <div className="divide-y divide-gray-200">
+                        {orderChannels.map(([channel, label]) => (
+                            <div key={channel} className="flex items-center justify-between gap-4 py-3 first:pt-1 last:pb-1">
+                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                    <span className="text-sm font-medium text-gray-900">{label}</span>
+                                    {channel === "delivery" && (
+                                        <Tooltip
+                                            text="A NFC-e de entrega exige identificar o destinatário. Pedir CPF no checkout pode fazer clientes desistirem do pedido."
+                                            size="medium"
+                                            showOnClick
+                                            parentClassName="inline-flex items-center leading-none"
+                                        >
+                                            <button type="button" aria-label="Por que a NFC-e para delivery não é recomendada?" className="inline-flex cursor-help rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
+                                                <Badge variant="notRecommended" className="gap-1">
+                                                    Não recomendado
+                                                    <PanelIcon icon={faCircleInfo} className="text-[11px]" aria-hidden="true" />
+                                                </Badge>
+                                            </button>
+                                        </Tooltip>
+                                    )}
+                                </div>
+                                <Switch aria-label={label} checked={value.channels[channel]} disabled={locked || !environment}
+                                    onClick={() => {
+                                        const checked = !value.channels[channel];
+                                        if (channel === "delivery" && checked) setConfirmDelivery(true);
+                                        else change({ ...value, channels: { ...value.channels, [channel]: checked } });
+                                    }} />
+                            </div>
+                        ))}
+                    </div>
                     <fieldset disabled={locked || !environment} className="min-w-0 space-y-5 disabled:opacity-50">
-                        <div className="grid gap-3 lg:grid-cols-3">
-                            {orderChannels.map(([channel, label]) => <ToggleOptionCard key={channel} label={label}
-                                checked={value.channels[channel]} disabled={locked || !environment}
-                                onChange={checked => change({ ...value, channels: { ...value.channels, [channel]: checked } })} />)}
-                            <ToggleOptionCard label="Delivery" checked={value.channels.delivery} disabled={locked || !environment}
-                                onChange={checked => checked ? setConfirmDelivery(true) : change({ ...value, channels: { ...value.channels, delivery: false } })}
-                                badge={<Badge variant="warning">Não recomendado</Badge>} />
-                        </div>
                         <div className="grid gap-4 sm:grid-cols-3">
                             <Input label="CNPJ" inputMode="numeric" value={value.cnpj} onChange={event => change({ ...value, cnpj: event.target.value })} />
                             <Input label="Inscrição estadual" inputMode="numeric" value={value.ie} onChange={event => change({ ...value, ie: event.target.value })} />
