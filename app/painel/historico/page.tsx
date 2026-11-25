@@ -15,6 +15,7 @@ import CreatePanelOrderModal from "@/components/restaurant-owner/CreatePanelOrde
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Toast from "@/components/ui/Toast";
 import { NfceHistoryButton, NfceOrderSection, NfceUpgradeButton, useNfceHistory } from "@/components/restaurant-owner/pedidos/NfceHistory";
+import { isFiscalChannelEnabled } from "@/lib/nfce/channels";
 import ShortcutDatePicker from "@/components/ui/ShortcutDatePicker";
 import CashRegister, { type CashOrder } from "@/components/restaurant-owner/pedidos/CashRegister";
 
@@ -335,7 +336,7 @@ export default function HistoricoPage() {
                 onViewOrder={handleViewOrder}
                 onEditOrder={handleEditOrder}
                 onViewFiscal={order => handleViewOrder(order, true)}
-                showFiscalActions={fiscal.enabled === true}
+                showFiscalActions={order => fiscalIds.has(order.id) || (fiscal.enabled && isFiscalChannelEnabled(fiscal.channels, order.is_delivery))}
                 fiscalIds={fiscalIds}
                 fiscalPlus={fiscal.plus}
                 restaurantId={restaurantId}
@@ -382,7 +383,8 @@ export default function HistoricoPage() {
                 fiscalSection={isDetailsOpen && restaurantId && selectedOrder && (
                     fiscal.plus === true ? (
                         <NfceOrderSection key={selectedOrder.id} order={selectedOrder} restaurant={restaurantId}
-                            note={fiscal.notes.find(note => note.order_id === selectedOrder.id)} configured={fiscal.configured}
+                            note={fiscal.notes.find(note => note.order_id === selectedOrder.id)} configured={fiscal.configured} channels={fiscal.channels}
+                            hasDeliveryCpf={fiscal.identifiedDeliveryOrders?.includes(selectedOrder.id) === true}
                             focus={focusFiscal} onChange={() => setNfceRefresh(value => value + 1)} />
                     ) : fiscal.plus === false ? (
                         <section className="space-y-1.5">

@@ -51,7 +51,7 @@ test("exposes fiscal UI state to Plus owners without enabling fiscal operations"
     jest.mocked(hasIMenuPlusAccess).mockResolvedValue(true);
 
     const history = await GET(request("action=list"));
-    expect(await history.json()).toEqual({ available: false, plus: true, archive: false, configured: false, enabled: false, notes: [] });
+    expect(await history.json()).toEqual({ available: false, plus: true, archive: false, configured: false, enabled: false, channels: { salon: true, pickup: true, delivery: false }, identifiedDeliveryOrders: [], notes: [] });
     const settings = await GET(request("action=settings"));
     expect(await settings.json()).toEqual({ available: false, plus: true, environment: null, issuer: null, items: [] });
     expect((await GET(request("action=zip"))).status).toBe(503);
@@ -99,4 +99,16 @@ test.each([[true, false], [false, false], [true, true]])("history exposes reques
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ plus: true, enabled, configured });
     expect(jest.mocked(query).mock.calls[1][0]).toContain("requestedEnabled");
+});
+
+test("saves the separately selected salon, pickup and delivery choices", async () => {
+    jest.mocked(hasIMenuPlusAccess).mockResolvedValue(true);
+    jest.mocked(query).mockReset().mockResolvedValue({ rows: [{ enabled: false }], rowCount: 1 });
+    const body = new FormData();
+    body.set("settings", JSON.stringify({ enabled: true, channels: { salon: false, pickup: true, delivery: true } }));
+    const response = await POST(new Request(request("action=settings"), { method: "POST", body }));
+    expect(response.status).toBe(200);
+    const [sql, params] = jest.mocked(query).mock.calls[0];
+    expect(sql).toContain("nfce_issuers.data || excluded.data");
+    expect(JSON.parse(params![2])).toMatchObject({ requestedEnabled: true, channels: { salon: false, pickup: true, delivery: true } });
 });

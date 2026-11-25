@@ -4,8 +4,9 @@ import { Zip, ZipDeflate } from "fflate/browser";
 import { hasIMenuPlusAccess } from "@/lib/addons/access";
 import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
 import { query, withTransaction } from "@/lib/database/sql";
+import { fiscalChannels, type FiscalChannels } from "@/lib/nfce/channels";
 import { certificateIdentity, fiscalEnvironment, paymentCode, sealCertificate, type FiscalAddress, type FiscalTax, type Issuer } from "@/lib/nfce/sefaz";
-import { archiveSnapshot, cancelIssued, FiscalError, processNote, unzipXml, uuid, type NoteSummary, type FiscalHistoryRow } from "@/lib/nfce/service";
+import { archiveSnapshot, cancelIssued, enabledFiscalChannelSql, FiscalError, processNote, unzipXml, uuid, type NoteSummary, type FiscalHistoryRow } from "@/lib/nfce/service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -56,7 +57,7 @@ export async function GET(request: Request) {
                 return NextResponse.json({ available: false, plus, environment: null, issuer: null, items: [] }, { headers });
             }
             if (action !== "list") throw new FiscalError("A emissão fiscal está indisponível neste ambiente.", 503);
-            return NextResponse.json({ available: false, plus, archive: false, configured: false, enabled: false, notes: [] }, { headers });
+            return NextResponse.json({ available: false, plus, archive: false, configured: false, enabled: false, channels: fiscalChannels(), identifiedDeliveryOrders: [], notes: [] }, { headers });
         }
         if (action === "settings") {
             if (!plus) throw new FiscalError("Disponível com iMenu Plus.", 403);
@@ -165,15 +166,21 @@ export async function GET(request: Request) {
         }
         const orderIds = (params.get("orders") ?? "").split(",").filter(Boolean);
         if (orderIds.length > 100 || orderIds.some(id => !uuid.test(id))) throw new FiscalError("Pedidos inválidos.");
-        const [notes, hasArchive, issuer] = await Promise.all([
+        const [notes, hasArchive, issuer, identified] = await Promise.all([
             plus && orderIds.length ? query<NoteSummary>(`
                 SELECT ${fields} FROM public.nfce_documents WHERE restaurant_id=$1 AND environment=$2 AND order_id=ANY($3::uuid[])
                   AND (authorized_xml IS NOT NULL OR status NOT IN ('authorized','canceled'))`,
             [restaurant, env, orderIds]) : Promise.resolve({ rows: [] }),
             query("SELECT 1 FROM public.nfce_documents WHERE restaurant_id=$1 AND environment=$2 AND authorized_xml IS NOT NULL LIMIT 1", [restaurant, env]),
-            plus ? query<{ enabled: boolean; requested_enabled: boolean }>("SELECT enabled, COALESCE((data->>'requestedEnabled') = 'true', enabled) AS requested_enabled FROM public.nfce_issuers WHERE restaurant_id=$1 AND environment=$2 LIMIT 1", [restaurant, env]) : Promise.resolve({ rows: [] }),
+            plus ? query<{ enabled: boolean; requested_enabled: boolean; channels: FiscalChannels | null }>(`
+                SELECT enabled, COALESCE((data->>'requestedEnabled') = 'true', enabled) AS requested_enabled, data->'channels' AS channels
+                FROM public.nfce_issuers WHERE restaurant_id=$1 AND environment=$2 LIMIT 1`, [restaurant, env]) : Promise.resolve({ rows: [] }),
+            plus && orderIds.length ? query<{ order_id: string }>(`SELECT order_id FROM public.nfce_order_details
+                WHERE restaurant_id=$1 AND order_id=ANY($2::uuid[]) AND starts_with(recipient_cpf_encrypted, $3::text || ':')`, [restaurant, orderIds, env]) : Promise.resolve({ rows: [] }),
         ]);
-        return NextResponse.json({ available: true, plus, archive: Boolean(hasArchive.rowCount), configured: issuer.rows[0]?.enabled === true, enabled: issuer.rows[0]?.requested_enabled === true, notes: notes.rows }, { headers });
+        return NextResponse.json({ available: true, plus, archive: Boolean(hasArchive.rowCount), configured: issuer.rows[0]?.enabled === true,
+            enabled: issuer.rows[0]?.requested_enabled === true, channels: fiscalChannels(issuer.rows[0]?.channels),
+            identifiedDeliveryOrders: identified.rows.map(row => row.order_id), notes: notes.rows }, { headers });
     } catch (error) { return failure(error); }
 }
 
@@ -240,6 +247,7 @@ export async function POST(request: Request) {
                 itemTaxes: Object.fromEntries(overrides.map(([key, value]) =>
                     [key, draftTax(value as Record<string, unknown>)])),
                 requestedEnabled: raw.enabled === true,
+                ...(raw.channels != null ? { channels: fiscalChannels(raw.channels) } : {}),
             };
             const requestedNext = Number(raw.nextNumber);
             const next = Number.isInteger(requestedNext) && requestedNext >= 1 && requestedNext <= 999999999
@@ -268,7 +276,7 @@ export async function POST(request: Request) {
             const saved = await query(`
                 INSERT INTO public.nfce_issuers (restaurant_id,environment,data,certificate,next_number,enabled)
                 VALUES ($1,$2,$3,$4,$5,($6::boolean AND $7::boolean AND $4::text IS NOT NULL))
-                ON CONFLICT (restaurant_id,environment) DO UPDATE SET data=excluded.data,
+                ON CONFLICT (restaurant_id,environment) DO UPDATE SET data=nfce_issuers.data || excluded.data,
                     certificate=COALESCE(excluded.certificate,nfce_issuers.certificate),
                     next_number=GREATEST(excluded.next_number,nfce_issuers.next_number),
                     enabled=$6 AND $7 AND COALESCE(excluded.certificate,nfce_issuers.certificate) IS NOT NULL
@@ -295,7 +303,9 @@ export async function POST(request: Request) {
                 SELECT o.id,o.restaurant_id FROM public.orders o
                 JOIN public.nfce_issuers i ON i.restaurant_id=o.restaurant_id AND i.environment=$3 AND i.enabled
                 WHERE o.id=$2 AND o.restaurant_id=$1 AND o.status IN ('preparing','delivering','done')
-                    AND o.total_cents < 1000000
+                    AND (${enabledFiscalChannelSql})
+                    AND (o.is_delivery <> 'mesa' OR (o.status='done' AND COALESCE($4::text, o.payment_method::text) IS NOT NULL))
+                    AND (o.is_delivery IN ('entrega','delivery') OR o.total_cents < 1000000)
                     AND NOT EXISTS (SELECT 1 FROM public.delivery_imported_orders a WHERE a.order_id=o.id)
                     AND NOT EXISTS (SELECT 1 FROM public.nfce_documents d WHERE d.restaurant_id=$1 AND d.order_id=$2 AND d.environment=$3
                         AND (d.access_key IS NOT NULL OR d.status='processing'))

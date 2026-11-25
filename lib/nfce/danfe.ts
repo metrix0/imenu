@@ -6,6 +6,8 @@ export function danfePdf(xml: string) {
     const key = elements(xml, "infNFe")[0].getAttribute("Id")?.slice(3) ?? "";
     const protocol = elements(xml, "infProt")[0];
     const payment = elements(xml, "detPag")[0];
+    const recipient = elements(xml, "dest")[0];
+    const recipientCpf = field(recipient, "CPF");
     const labels: Record<string, string> = { "01": "Dinheiro", "03": "Crédito", "04": "Débito", "17": "Pix", "20": "Pix" };
     const items = elements(xml, "det").flatMap(item => [
         `${field(item, "cProd").slice(0, 8)} ${field(item, "xProd")}`,
@@ -24,7 +26,9 @@ export function danfePdf(xml: string) {
         `${labels[field(payment, "tPag")] ?? "Pagamento"}: R$ ${field(payment, "vPag")}`, "",
         "Consulte pela chave em", field(elements(xml, "infNFeSupl")[0], "urlChave"),
         (key.match(/.{1,4}/g) ?? []).join(" "), "",
-        "Consumidor não identificado",
+        ...(recipientCpf ? [`Consumidor CPF: ${recipientCpf}`, field(recipient, "xNome"),
+            `${field(recipient, "xLgr")}, ${field(recipient, "nro")}, ${field(recipient, "xBairro")}`,
+            `${field(recipient, "xMun")}/SP ${field(recipient, "CEP")}`] : ["Consumidor não identificado"]),
         `NFC-e ${field(elements(xml, "ide")[0], "nNF")} Série ${field(elements(xml, "ide")[0], "serie")}`,
         `Emissão: ${field(elements(xml, "ide")[0], "dhEmi")}`,
         ...(protocol ? [`Protocolo: ${field(protocol, "nProt")}`, field(protocol, "dhRecbto")] : []),

@@ -3,6 +3,8 @@ import { request as httpsRequest } from "node:https";
 import { DOMParser, XMLSerializer } from "@xmldom/xmldom";
 import forge from "node-forge";
 import { SignedXml } from "xml-crypto";
+import type { FiscalChannels } from "./channels";
+import { fiscalCpf } from "./cpf";
 
 const NF = "http://www.portalfiscal.inf.br/nfe";
 const C14N = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
@@ -11,14 +13,15 @@ const serializer = new XMLSerializer();
 
 export type FiscalTax = { ncm: string; cfop: string; csosn: string; origin: string; cest?: string };
 export type FiscalAddress = { street: string; number: string; district: string; cityCode: string; city: string; cep: string };
-export type Issuer = FiscalAddress & { cnpj: string; ie: string; name: string; series: number; defaultTax: FiscalTax; itemTaxes?: Record<string, FiscalTax> };
+export type Issuer = FiscalAddress & { cnpj: string; ie: string; name: string; series: number; defaultTax: FiscalTax; itemTaxes?: Record<string, FiscalTax>; channels?: FiscalChannels };
 export type Sale = {
     items: { uuid: string; name: string; quantity: number; cents: number; tax: FiscalTax }[];
     deliveryCents: number; totalCents: number; payment: string; delivery: boolean;
-    issuedAt: string; recipientAddress?: FiscalAddress;
+    issuedAt: string; recipientAddress?: FiscalAddress; recipientName?: string; recipientCpf?: string;
 };
 type Identity = { key: string; cert: string; pfx: Buffer; password: string };
 export type FiscalEnvironment = 1 | 2;
+export type FiscalRecipient = { cpf: string; city?: string; state?: string };
 type XmlElement = ReturnType<DOMParser["parseFromString"]>["documentElement"];
 
 export function fiscalEnvironment(): FiscalEnvironment | null {
@@ -41,21 +44,38 @@ export function certificateIdentity(pfx: Buffer, password: string): Identity {
     return { key: signer, cert: forge.pki.certificateToPem(cert), pfx, password };
 }
 
-export function sealCertificate(restaurant: string, pfx: Buffer, password: string): string {
+function seal(scope: string, value: string): string {
     const iv = randomBytes(12);
     const cipher = createCipheriv("aes-256-gcm", Buffer.from(process.env.NFCE_KEY!, "hex"), iv);
-    cipher.setAAD(Buffer.from(restaurant));
-    const data = Buffer.concat([cipher.update(JSON.stringify([pfx.toString("base64"), password])), cipher.final()]);
+    cipher.setAAD(Buffer.from(scope));
+    const data = Buffer.concat([cipher.update(value), cipher.final()]);
     return Buffer.concat([iv, cipher.getAuthTag(), data]).toString("base64");
 }
 
-export function readCertificate(restaurant: string, encrypted: string): Identity {
+function unseal(scope: string, encrypted: string): string {
     const data = Buffer.from(encrypted, "base64");
     const decipher = createDecipheriv("aes-256-gcm", Buffer.from(process.env.NFCE_KEY!, "hex"), data.subarray(0, 12));
-    decipher.setAAD(Buffer.from(restaurant));
+    decipher.setAAD(Buffer.from(scope));
     decipher.setAuthTag(data.subarray(12, 28));
-    const [pfx, password] = JSON.parse(Buffer.concat([decipher.update(data.subarray(28)), decipher.final()]).toString());
+    return Buffer.concat([decipher.update(data.subarray(28)), decipher.final()]).toString();
+}
+
+export function sealCertificate(restaurant: string, pfx: Buffer, password: string): string {
+    return seal(restaurant, JSON.stringify([pfx.toString("base64"), password]));
+}
+
+export function readCertificate(restaurant: string, encrypted: string): Identity {
+    const [pfx, password] = JSON.parse(unseal(restaurant, encrypted));
     return certificateIdentity(Buffer.from(pfx, "base64"), password);
+}
+
+export function sealFiscalRecipient(restaurant: string, order: string, environment: FiscalEnvironment, recipient: FiscalRecipient) {
+    return `${environment}:${seal(`nfce:recipient:${restaurant}:${order}:${environment}`, JSON.stringify(recipient))}`;
+}
+
+export function readFiscalRecipient(restaurant: string, order: string, environment: FiscalEnvironment, encrypted: string): FiscalRecipient {
+    if (!encrypted.startsWith(`${environment}:`)) throw new Error("Documento fiscal indisponível neste ambiente.");
+    return JSON.parse(unseal(`nfce:recipient:${restaurant}:${order}:${environment}`, encrypted.slice(2)));
 }
 
 export function escapeXml(value: string | number): string {
@@ -144,10 +164,12 @@ export function buildNote(issuer: Issuer, sale: Sale, identity: Identity, env: F
         + tag("tpImp", 4) + tag("tpEmis", type) + tag("cDV", digit) + tag("tpAmb", env) + tag("finNFe", 1) + tag("indFinal", 1)
         + tag("indPres", sale.delivery ? 4 : 1) + tag("indIntermed", 0) + tag("procEmi", 0) + tag("verProc", "iMenu 1.0")
         + (offline ? tag("dhCont", sale.issuedAt) + tag("xJust", "Indisponibilidade do autorizador SEFAZ") : "");
-    if (sale.delivery && !sale.recipientAddress) throw new Error("Informe o endereço de entrega para a NFC-e.");
-    const dest = sale.recipientAddress
-        ? `<dest><enderDest>${address(sale.recipientAddress)}</enderDest>${tag("indIEDest", 9)}</dest>`
-        : "";
+    let dest = "";
+    const recipientCpf = sale.delivery ? fiscalCpf(sale.recipientCpf) : null;
+    if (sale.delivery) {
+        if (!sale.recipientAddress || !sale.recipientName || !recipientCpf) throw new Error("Informe o CPF, nome e endereço do destinatário para a NFC-e.");
+        dest = `<dest>${tag("CPF", recipientCpf)}${tag("xNome", sale.recipientName)}<enderDest>${address(sale.recipientAddress)}</enderDest>${tag("indIEDest", 9)}</dest>`;
+    }
     const items = sale.items.map((item, index) => {
         const unit = (item.cents / item.quantity / 100).toFixed(10).replace(/0+$/, "").replace(/\.$/, "");
         return `<det nItem="${index + 1}"><prod>${tag("cProd", item.uuid)}${tag("cEAN", "SEM GTIN")}${tag("xProd", env === 2 && index === 0 ? "NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL" : item.name)}${tag("NCM", item.tax.ncm)}${item.tax.cest ? tag("CEST", item.tax.cest) : ""}${tag("CFOP", item.tax.cfop)}${tag("uCom", "UN")}${tag("qCom", item.quantity)}${tag("vUnCom", unit)}${tag("vProd", currency(item.cents))}${tag("cEANTrib", "SEM GTIN")}${tag("uTrib", "UN")}${tag("qTrib", item.quantity)}${tag("vUnTrib", unit)}${freight[index] ? tag("vFrete", currency(freight[index])) : ""}${discounts[index] ? tag("vDesc", currency(discounts[index])) : ""}${tag("indTot", 1)}</prod><imposto><ICMS><ICMSSN102>${tag("orig", item.tax.origin)}${tag("CSOSN", item.tax.csosn)}</ICMSSN102></ICMS></imposto></det>`;
@@ -156,12 +178,15 @@ export function buildNote(issuer: Issuer, sale: Sale, identity: Identity, env: F
     const total = `<total><ICMSTot>${zero(["vBC", "vICMS", "vICMSDeson", "vFCP", "vBCST", "vST", "vFCPST", "vFCPSTRet"])}${tag("vProd", currency(products))}${tag("vFrete", currency(sale.deliveryCents))}${tag("vSeg", "0.00")}${tag("vDesc", currency(discount))}${zero(["vII", "vIPI", "vIPIDevol", "vPIS", "vCOFINS", "vOutro"])}${tag("vNF", currency(sale.totalCents))}</ICMSTot></total>`;
     let qr = [key, "3", env].join("|");
     if (offline) {
-        qr = [qr, sale.issuedAt.slice(8, 10), currency(sale.totalCents), "", ""].join("|");
-        qr += "|" + encodeURIComponent(sign("RSA-SHA1", Buffer.from(qr), identity.key).toString("base64"));
+        qr = [qr, sale.issuedAt.slice(8, 10), currency(sale.totalCents), recipientCpf ? "2" : "", recipientCpf ?? ""].join("|");
+        qr += "|" + sign("RSA-SHA1", Buffer.from(qr), identity.key).toString("base64");
     }
     const { qrBase, lookup } = urls(env);
     const qrCode = qrBase + "?p=" + qr;
-    const body = `<NFe xmlns="${NF}"><infNFe Id="NFe${key}" versao="4.00"><ide>${ide}</ide><emit>${tag("CNPJ", issuer.cnpj)}${tag("xNome", issuer.name)}<enderEmit>${address(issuer)}</enderEmit>${tag("IE", issuer.ie)}${tag("CRT", 1)}</emit>${dest}${items}${total}<transp>${tag("modFrete", sale.delivery ? 3 : 9)}</transp><pag><detPag>${tag("tPag", payment)}${tag("vPag", currency(sale.totalCents))}${["03", "04", "17", "20"].includes(payment) ? "<card><tpIntegra>2</tpIntegra></card>" : ""}</detPag></pag></infNFe><infNFeSupl>${tag("qrCode", qrCode)}${tag("urlChave", lookup)}</infNFeSupl></NFe>`;
+    const transport = sale.delivery
+        ? `${tag("modFrete", 3)}<transporta>${tag("CNPJ", issuer.cnpj)}${tag("xNome", issuer.name)}${tag("xMun", issuer.city)}${tag("UF", "SP")}</transporta>`
+        : tag("modFrete", 9);
+    const body = `<NFe xmlns="${NF}"><infNFe Id="NFe${key}" versao="4.00"><ide>${ide}</ide><emit>${tag("CNPJ", issuer.cnpj)}${tag("xNome", issuer.name)}<enderEmit>${address(issuer)}</enderEmit>${tag("IE", issuer.ie)}${tag("CRT", 1)}</emit>${dest}${items}${total}<transp>${transport}</transp><pag><detPag>${tag("tPag", payment)}${tag("vPag", currency(sale.totalCents))}${["03", "04", "17", "20"].includes(payment) ? "<card><tpIntegra>2</tpIntegra></card>" : ""}</detPag></pag></infNFe><infNFeSupl>${tag("qrCode", qrCode)}${tag("urlChave", lookup)}</infNFeSupl></NFe>`;
     return { key, xml: signed(body, "infNFe", identity), qr: qrCode };
 }
 

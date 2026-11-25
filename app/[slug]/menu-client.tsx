@@ -94,6 +94,7 @@ export default function MenuClientPage({
     selectedCouponCode,
     openedProductId,
     tableOrder,
+    deliveryCpfRequired = false,
     readOnly = false,
     darkTheme = false,
     metaPixelId,
@@ -107,6 +108,7 @@ export default function MenuClientPage({
     openedProductId?: string | null;
     selectedCouponCode?: string | null;
     tableOrder?: QrTableMenuContext | null;
+    deliveryCpfRequired?: boolean;
     readOnly?: boolean;
     darkTheme?: boolean;
     metaPixelId?: string | null;
@@ -1316,6 +1318,7 @@ export default function MenuClientPage({
                     cartOpen={cartOpen}
                     setCartOpenAction={setCartOpen}
                     restaurant={restaurant}
+                    deliveryCpfRequired={deliveryCpfRequired}
                     requiresSchedule={requiresSchedule}
                     closeItemModalOpen={() => setOpenedItem(null)}
                     trackMeta={trackMeta}
@@ -1342,6 +1345,7 @@ export default function MenuClientPage({
                         setHistoryOpen(true);
                     }}
                     restaurant={restaurant}
+                    deliveryCpfRequired={deliveryCpfRequired}
                     onClose={() => {
                         setCartOpen(false);
                         setCartStep("cart");

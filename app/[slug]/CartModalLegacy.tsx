@@ -118,12 +118,13 @@ export default function CartModal({
                                        restaurant,
     catalogItemsByCategory,
     selectedCouponCode, onSelectItem, tableOrder, selectedTableId,
-    selectedTableName, onTableChange, promotionResult, neighborhoodDeliveryRules, smallCityMode = false, requiresSchedule = false, manuallyClosedToday: closedToday, loyaltyOffer, onOpenLoyalty
+    selectedTableName, onTableChange, promotionResult, neighborhoodDeliveryRules, smallCityMode = false, requiresSchedule = false, manuallyClosedToday: closedToday, loyaltyOffer, onOpenLoyalty, deliveryCpfRequired = false
                                    }: {
     promotionResult?: PromotionResult;
     loyaltyOffer?: LoyaltyOffer | null;
     onOpenLoyalty?: () => void;
     requiresSchedule?: boolean;
+    deliveryCpfRequired?: boolean;
     manuallyClosedToday: boolean;
     onClose: () => void;
     restaurant: any;
@@ -1259,7 +1260,7 @@ export default function CartModal({
                         </div>
                     ) : (
                         <>
-                    <CheckoutCustomerFields restaurantId={String(restaurant.id)} />
+                    <CheckoutCustomerFields restaurantId={String(restaurant.id)} requiresFiscalCpf={deliveryCpfRequired && !isPickup && !missingDeliveryOrigin} />
                     {deliveryDisabled && (
                         <div className="mb-5 rounded-xl border border-[var(--im-menu-border,#e5e7eb)] bg-[var(--im-menu-soft,#f9fafb)] p-4">
                             <p className="font-semibold text-md 2xl:text-lg">{restaurant.name} aceita apenas retiradas.</p>

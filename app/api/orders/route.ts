@@ -26,6 +26,7 @@ import type { AppliedPromotion } from "@/lib/promotions/automatic";
 import { promotionPrice } from "@/lib/utils/formatPrice";
 import { notifyOrderReady } from "@/lib/push/server";
 import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
+import { fiscalCpf } from "@/lib/nfce/cpf";
 
 export const dynamic = "force-dynamic";
 
@@ -780,6 +781,11 @@ export async function POST(request: Request) {
                         [restaurantId]
                     );
                     if (!restaurantResult.rows[0]) throw new OrderRequestError("Restaurante não encontrado.");
+                    const fiscalEnvironment = process.env.NFCE_ENV && panel_order !== true && !whatsapp && !isTableOrder && !isCounterOrder && !isPickup
+                        ? await (await import("@/lib/nfce/service")).deliveryFiscalEnvironment(restaurantId, client) : null;
+                    const recipientCpf = fiscalEnvironment ? fiscalCpf(body.recipient_cpf) : null;
+                    if (fiscalEnvironment && !recipientCpf) throw new OrderRequestError("Informe um CPF válido para a nota fiscal da entrega.", 409, { fiscal_cpf_required: true });
+                    if (fiscalEnvironment && !String(customer_name || "").trim()) throw new OrderRequestError("Informe seu nome para a nota fiscal da entrega.");
                     if (!isTableOrder && panel_order !== true &&
                         (isCardAtDeliveryMethod(paymentMethod) || paymentMethod === LEGACY_CARD_METHOD) &&
                         !isCheckoutCardMethodEnabled(paymentMethod, restaurantResult.rows[0].allowed_payment_methods)) {
@@ -1098,7 +1104,7 @@ export async function POST(request: Request) {
                                       ? "balcao"
                                     : isPickup
                                       ? "retirada"
-                                    : is_delivery ??
+                                      : recipientCpf ? "entrega" : is_delivery ??
                                       null,
                                 pointsToDeduct,
                                 isTableOrder || promotionCouponDiscount === 0 ? null : coupon_id ?? null,
@@ -1115,8 +1121,17 @@ export async function POST(request: Request) {
                     const orderId =
                         orderResult.rows[0].id;
 
-                    const crmPhone = normalizeCustomerPhone(customer_phone);
                     const crmAddress = isPickup || isCounterOrder || isTableOrder ? null : structuredAddress(body.customer_address_details);
+                    if (recipientCpf && fiscalEnvironment) {
+                        const { sealFiscalRecipient } = await import("@/lib/nfce/sefaz");
+                        const encrypted = sealFiscalRecipient(restaurantId, orderId, fiscalEnvironment, {
+                            cpf: recipientCpf, city: crmAddress?.cidade, state: crmAddress?.estado,
+                        });
+                        await client.query(`INSERT INTO public.nfce_order_details (restaurant_id,order_id,recipient_cpf_encrypted)
+                            VALUES ($1,$2,$3)`, [restaurantId, orderId, encrypted]);
+                    }
+
+                    const crmPhone = normalizeCustomerPhone(customer_phone);
                     if (crmPhone && !isTableOrder) {
                         await client.query(`UPDATE customers SET address=coalesce($3::jsonb,address),updated_at=now() WHERE restaurant_id=$1 AND phone=$2`,[restaurantId,crmPhone,crmAddress ? JSON.stringify(crmAddress) : null]);
                     }

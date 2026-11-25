@@ -1,6 +1,7 @@
 import { EventEmitter } from "node:events";
 import { request as httpsRequest } from "node:https";
 import { gunzipSync, gzipSync } from "node:zlib";
+import { verify } from "node:crypto";
 import forge from "node-forge";
 import { SignedXml } from "xml-crypto";
 import { DOMParser, XMLSerializer } from "@xmldom/xmldom";
@@ -62,6 +63,16 @@ test("adds the signed QR parameters for offline NFC-e", () => {
     const note = buildNote(issuer, sale, identity, 2, 29, true);
     expect(field(elements(note.xml, "ide")[0], "tpEmis")).toBe("9");
     expect(note.qr).toContain(note.key + "|3|2|22|20.88|||");
+});
+
+test("includes the buyer document in the signed payload for a delivery contingency QR code", () => {
+    const delivery = { ...sale, delivery: true, recipientAddress: address, recipientName: "Consumidor Exemplo", recipientCpf: "52998224725" };
+    const note = buildNote(issuer, delivery, identity, 2, 29, true);
+    const payload = note.qr.split("?p=")[1].split("|");
+    const signature = payload.pop()!;
+    expect(payload.slice(-2)).toEqual(["2", "52998224725"]);
+    expect(signature).toMatch(/^[a-zA-Z0-9+/]+=*$/);
+    expect(verify("RSA-SHA1", Buffer.from(payload.join("|")), identity.cert, Buffer.from(signature, "base64"))).toBe(true);
 });
 
 test("binds the certificate to its restaurant and requires explicit fiscal environment selection", () => {
@@ -133,7 +144,7 @@ test.each([
 ])("serializes the recipient address in the signed delivery XML for %s", (savedAddress, useCityCep, expectedCep) => {
     const recipientAddress = parseFiscalDeliveryAddress(savedAddress, issuer, useCityCep);
     expect(recipientAddress).not.toBeNull();
-    const delivery = { ...sale, delivery: true, recipientAddress: recipientAddress! };
+    const delivery = { ...sale, delivery: true, recipientAddress: recipientAddress!, recipientCpf: "52998224725", recipientName: "Consumidora Exemplo" };
     const note = buildNote(issuer, delivery, identity, 2, 31);
     expect(field(elements(note.xml, "ide")[0], "indPres")).toBe("4");
     const destination = elements(note.xml, "dest");
@@ -144,5 +155,13 @@ test.each([
     expect(field(destination[0], "CEP")).toBe(expectedCep);
     expect(field(destination[0], "cMun")).toBe("3550308");
     expect(field(destination[0], "indIEDest")).toBe("9");
-    expect(note.xml).not.toContain("<CPF>");
+    expect(field(destination[0], "CPF")).toBe("52998224725");
+    expect(field(destination[0], "xNome")).toBe("Consumidora Exemplo");
+    expect(field(elements(note.xml, "transporta")[0], "CNPJ")).toBe(issuer.cnpj);
+});
+
+test("refuses to sign delivery XML without a valid buyer CPF", () => {
+    const delivery = { ...sale, delivery: true, recipientAddress: address, recipientName: "Consumidor Exemplo" };
+    expect(() => buildNote(issuer, delivery, identity, 2, 31)).toThrow("CPF");
+    expect(() => buildNote(issuer, { ...delivery, recipientCpf: "11111111111" }, identity, 2, 31)).toThrow("CPF");
 });

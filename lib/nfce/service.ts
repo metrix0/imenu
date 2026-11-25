@@ -3,9 +3,10 @@ import { promisify } from "node:util";
 import type { PoolClient } from "pg";
 import { hasIMenuPlusAccess } from "@/lib/addons/access";
 import { query, withTransaction } from "@/lib/database/sql";
+import { fiscalOrderChannel, isFiscalChannelEnabled } from "./channels";
 import {
-    authorizedXml, buildNote, cancelNote, consultNote, fiscalEnvironment, paymentCode, readCertificate, sendNote,
-    type FiscalAddress, type FiscalEnvironment, type Issuer, type Sale,
+    authorizedXml, buildNote, cancelNote, consultNote, fiscalEnvironment, paymentCode, readCertificate, readFiscalRecipient, sendNote,
+    type FiscalAddress, type FiscalEnvironment, type FiscalRecipient, type Issuer, type Sale,
 } from "./sefaz";
 
 export const zipXml = promisify(gzip);
@@ -21,16 +22,17 @@ export type FiscalHistoryRow = Pick<NoteSummary, "order_id" | "number" | "series
     customer_name: string | null;
     order_total_cents: number | null;
 };
+type StoredSale = Omit<Sale, "recipientCpf"> & { encryptedCpf?: string };
 type Job = NoteSummary & {
     restaurant_id: string; environment: FiscalEnvironment; signed_xml: Buffer | null;
-    cancellation_xml: Buffer | null; qr_url: string | null; offline: boolean; sale: Sale | null;
+    cancellation_xml: Buffer | null; qr_url: string | null; offline: boolean; sale: StoredSale | null;
     attempts: number; attempt_token: string;
 };
 export type IssuerRow = { data: Issuer; certificate: string | null; enabled: boolean; next_number: number; environment: FiscalEnvironment };
 type OrderRow = {
     id: string; total_cents: number; delivery_cents: number; customer_name: string | null;
     customer_address: string | null; use_city_cep: boolean;
-    status: string; is_delivery: string | null; payment_method: string | null; imported: boolean;
+    status: string; is_delivery: string | null; payment_method: string | null; imported: boolean; external_courier: boolean;
 };
 
 export class FiscalError extends Error {
@@ -51,6 +53,11 @@ export async function activeFiscalIssuer(restaurant: string, client?: PoolClient
     return { environment, data: issuer.data };
 }
 
+export async function deliveryFiscalEnvironment(restaurant: string, client?: PoolClient) {
+    const issuer = await activeFiscalIssuer(restaurant, client);
+    return issuer?.data.channels?.delivery === true ? issuer.environment : null;
+}
+
 export async function hasFiscalDocumentInUse(client: PoolClient, order: string) {
     return Boolean((await client.query(`SELECT 1 FROM public.nfce_documents
         WHERE order_id=$1 AND environment=1 AND status IN ('pending','processing','contingency','authorized')
@@ -63,9 +70,21 @@ export async function hasPendingFiscalDocument(client: PoolClient, order: string
 }
 
 export function needsFiscalNote(status: string, type: string | null) {
-    return (type === "entrega" && ["delivering", "done"].includes(status))
-        || (["balcao", "retirada"].includes(type ?? "") && status === "done");
+    return fiscalOrderChannel(type) === "delivery"
+        ? status === "delivering" || status === "done"
+        : status === "done" && isFiscalChannelEnabled(undefined, type);
 }
+
+// Check the stored order type and issuer settings in the same statement that queues the note.
+export const enabledFiscalChannelSql = `CASE
+    WHEN o.is_delivery IN ('mesa','balcao') THEN i.data->'channels'->>'salon' IS DISTINCT FROM 'false'
+    WHEN o.is_delivery = 'retirada' THEN i.data->'channels'->>'pickup' IS DISTINCT FROM 'false'
+    WHEN o.is_delivery IN ('entrega','delivery') THEN i.data->'channels'->>'delivery' = 'true'
+        AND EXISTS (SELECT 1 FROM public.nfce_order_details fiscal WHERE fiscal.restaurant_id=o.restaurant_id
+            AND fiscal.order_id=o.id AND starts_with(fiscal.recipient_cpf_encrypted, i.environment::text || ':'))
+    ELSE false END`;
+
+const missingRecipient = "O pedido não tem CPF informado para a NFC-e de entrega.";
 
 const cityNames = new Intl.Collator("pt-BR", { sensitivity: "base" });
 
@@ -110,13 +129,31 @@ export function parseFiscalDeliveryAddress(value: string | null, issuer: Issuer,
     return { street, number, district, city: issuer.city, cityCode: issuer.cityCode, cep };
 }
 
+async function deliveryMunicipality(address: FiscalAddress, recipient: FiscalRecipient) {
+    const city = recipient.city?.trim();
+    const state = recipient.state?.trim().toUpperCase();
+    if (state && state !== "SP") throw new FiscalError("A emissão de NFC-e está disponível para entregas dentro de São Paulo.");
+    if (!city || cityNames.compare(city, address.city) === 0) return address;
+    if (address.cep) {
+        const postal = await fetch(`https://viacep.com.br/ws/${address.cep}/json/`, { signal: AbortSignal.timeout(3000) })
+            .then(response => response.ok ? response.json() : null).catch(() => null);
+        if (postal?.uf === "SP" && typeof postal.localidade === "string"
+            && /^35\d{5}$/.test(String(postal.ibge)) && cityNames.compare(city, postal.localidade) === 0) {
+            return { ...address, city: postal.localidade, cityCode: String(postal.ibge) };
+        }
+    }
+    throw new FiscalError("Não foi possível confirmar o município pelo CEP da entrega.");
+}
+
 export async function prepareOrderNote(client: PoolClient, restaurant: string, order: string, status: string, type: string | null) {
-    if (!needsFiscalNote(status, type) || !await activeFiscalIssuer(restaurant, client)) return null;
-    await enqueueOrderNote(client, restaurant, order, 1);
+    if (!needsFiscalNote(status, type)) return null;
+    const issuer = await activeFiscalIssuer(restaurant, client);
+    if (!issuer || !isFiscalChannelEnabled(issuer.data.channels, type)) return null;
+    const queued = await enqueueOrderNote(client, restaurant, order, 1);
     return (await client.query<{ status: string; error: string | null; has_document: boolean }>(`
         SELECT status,error,CASE WHEN offline THEN signed_xml IS NOT NULL ELSE authorized_xml IS NOT NULL END AS has_document
         FROM public.nfce_documents WHERE restaurant_id=$1 AND order_id=$2 AND environment=1`, [restaurant, order])).rows[0]
-        ?? { status: "pending", error: null, has_document: false };
+        ?? (queued ? { status: "pending", error: null, has_document: false } : null);
 }
 
 export async function queueOrderNote(client: PoolClient, restaurant: string, order: string, status: string, type: string | null) {
@@ -129,33 +166,49 @@ export async function queueOrderNote(client: PoolClient, restaurant: string, ord
 async function enqueueOrderNote(client: PoolClient, restaurant: string, order: string, env: FiscalEnvironment) {
     return (await client.query(`
         INSERT INTO public.nfce_documents (restaurant_id, order_id, environment)
-        SELECT restaurant_id, $2, environment FROM public.nfce_issuers
-        WHERE restaurant_id=$1 AND environment=$3 AND enabled AND certificate IS NOT NULL
+        SELECT i.restaurant_id, o.id, i.environment FROM public.nfce_issuers i
+        JOIN public.orders o ON o.restaurant_id=i.restaurant_id AND o.id=$2
+        WHERE i.restaurant_id=$1 AND i.environment=$3 AND i.enabled AND i.certificate IS NOT NULL
+            AND (o.status='done' OR (o.is_delivery IN ('entrega','delivery') AND o.status='delivering'))
+            AND (${enabledFiscalChannelSql})
+            AND (o.is_delivery <> 'mesa' OR o.payment_method IS NOT NULL)
         ON CONFLICT (restaurant_id, order_id, environment) DO NOTHING`, [restaurant, order, env])).rowCount === 1;
 }
 
-async function getSale(job: Job, issuer: Issuer): Promise<Sale> {
+async function getSale(job: Job, issuer: Issuer): Promise<StoredSale> {
     const [orderResult, rows, details] = await Promise.all([
         query<OrderRow>(`
             SELECT o.id,o.total_cents,o.delivery_cents,o.customer_name,o.customer_address,o.status,o.is_delivery,o.payment_method,
             COALESCE(r.delivery_fee_mode = 'neighborhood' AND r.small_city_mode_enabled, false) AS use_city_cep,
-            EXISTS(SELECT 1 FROM public.delivery_imported_orders i WHERE i.order_id=o.id) AS imported
+            EXISTS(SELECT 1 FROM public.delivery_imported_orders i WHERE i.order_id=o.id) AS imported,
+            EXISTS(SELECT 1 FROM public.delivery_dispatches d WHERE d.order_id=o.id AND d.restaurant_id=o.restaurant_id
+                AND d.state IN ('requesting','requested','uncertain')) AS external_courier
             FROM public.orders o JOIN public.restaurants r ON r.id=o.restaurant_id
             WHERE o.id=$1 AND o.restaurant_id=$2`, [job.order_id, job.restaurant_id]),
         query<{ item_id: string; name: string; quantity: number; total_cents: number }>(`
             SELECT i.item_id,i.name,i.quantity,i.total_cents FROM public.order_items i
             JOIN public.orders o ON o.id=i.order_id WHERE o.id=$1 AND o.restaurant_id=$2 ORDER BY i.id`, [job.order_id, job.restaurant_id]),
-        query<{ payment_method: string | null }>(`
-            SELECT payment_method FROM public.nfce_order_details WHERE restaurant_id=$1 AND order_id=$2`, [job.restaurant_id, job.order_id]),
+        query<{ payment_method: string | null; recipient_cpf_encrypted: string | null }>(`
+            SELECT payment_method,recipient_cpf_encrypted FROM public.nfce_order_details WHERE restaurant_id=$1 AND order_id=$2`, [job.restaurant_id, job.order_id]),
     ]);
     const order = orderResult.rows[0];
     if (!order || order.imported || !["pending_physical_payment", "paid", "preparing", "delivering", "done"].includes(order.status)) throw new FiscalError("Pedido indisponível para emissão.");
+    if (!isFiscalChannelEnabled(issuer.channels, order.is_delivery)) throw new FiscalError("Emissão de NFC-e desativada para este tipo de pedido.");
     const payment = details.rows[0]?.payment_method ?? order.payment_method ?? "";
     if (!paymentCode(payment)) throw new FiscalError("Informe o meio de pagamento na seção fiscal do pedido.");
-    const delivery = order.is_delivery === "entrega";
-    if (Number(order.total_cents) >= 1_000_000) throw new FiscalError("Esta operação exige identificação fiscal do destinatário e não está habilitada.");
-    const recipientAddress = delivery ? parseFiscalDeliveryAddress(order.customer_address, issuer, order.use_city_cep) : undefined;
+    const delivery = fiscalOrderChannel(order.is_delivery) === "delivery";
+    const encryptedCpf = details.rows[0]?.recipient_cpf_encrypted;
+    if (delivery && !encryptedCpf?.startsWith(`${job.environment}:`)) throw new FiscalError(missingRecipient);
+    if (delivery && order.external_courier) throw new FiscalError("A emissão para esta entrega exige os dados fiscais da transportadora.");
+    if (!delivery && Number(order.total_cents) >= 1_000_000) throw new FiscalError("Esta operação exige identificação fiscal do destinatário e não está habilitada.");
+    let recipientAddress = delivery ? parseFiscalDeliveryAddress(order.customer_address, issuer, order.use_city_cep) : undefined;
     if (delivery && !recipientAddress) throw new FiscalError("Confira o endereço de entrega do pedido para emissão da NFC-e.");
+    if (recipientAddress && encryptedCpf) {
+        const recipient = readFiscalRecipient(job.restaurant_id, job.order_id, job.environment, encryptedCpf);
+        recipientAddress = await deliveryMunicipality(recipientAddress, recipient);
+    }
+    const recipientName = order.customer_name?.replace(/[\u0000-\u001f]/g, " ").trim().slice(0, 60).trim();
+    if (delivery && !recipientName) throw new FiscalError("Confira o nome do destinatário da NFC-e.");
     if (!rows.rows.length || rows.rows.some(row => !row.item_id || row.quantity <= 0 || row.total_cents < 0)) {
         throw new FiscalError("Revise os itens do pedido.");
     }
@@ -165,11 +218,11 @@ async function getSale(job: Job, issuer: Issuer): Promise<Sale> {
             cents: row.total_cents, tax: issuer.itemTaxes?.[row.item_id] ?? issuer.defaultTax,
         })),
         issuedAt: spNow(), deliveryCents: Number(order.delivery_cents ?? 0), totalCents: Number(order.total_cents), payment, delivery,
-        ...(recipientAddress ? { recipientAddress } : {}),
+        ...(delivery ? { recipientAddress: recipientAddress ?? undefined, recipientName, encryptedCpf: encryptedCpf ?? undefined } : {}),
     };
 }
 
-async function storePendingXml(job: Job, config: IssuerRow, sale: Sale, identity: ReturnType<typeof readCertificate>, offline: boolean) {
+async function storePendingXml(job: Job, config: IssuerRow, sale: StoredSale, identity: ReturnType<typeof readCertificate>, offline: boolean) {
     return withTransaction(async client => {
         const seq = await client.query<{ number: number }>(`
             UPDATE public.nfce_issuers SET next_number=next_number+1
@@ -177,12 +230,15 @@ async function storePendingXml(job: Job, config: IssuerRow, sale: Sale, identity
             RETURNING next_number-1 AS number`, [job.restaurant_id, job.environment]);
         const number = seq.rows[0]?.number;
         if (!number) throw new FiscalError("Numeração fiscal indisponível.");
-        const built = buildNote(config.data, sale, identity, job.environment, number, offline);
+        const recipientCpf = sale.encryptedCpf ? readFiscalRecipient(job.restaurant_id, job.order_id, job.environment, sale.encryptedCpf).cpf : undefined;
+        const built = buildNote(config.data, { ...sale, recipientCpf }, identity, job.environment, number, offline);
+        // The contingency QR embeds the CPF. Retain it in the signed document only.
+        const storedQr = offline && recipientCpf ? null : built.qr;
         const updated = await client.query<Job>(`
             UPDATE public.nfce_documents SET access_key=$4, number=$5, series=$6, signed_xml=$7,
                 sale=$8, qr_url=$9, offline=$10, issued_at=$11
             WHERE restaurant_id=$1 AND order_id=$2 AND attempt_token=$3 RETURNING *`,
-        [job.restaurant_id, job.order_id, job.attempt_token, built.key, number, config.data.series, await zipXml(built.xml), JSON.stringify(sale), built.qr, offline, sale.issuedAt]);
+        [job.restaurant_id, job.order_id, job.attempt_token, built.key, number, config.data.series, await zipXml(built.xml), JSON.stringify(sale), storedQr, offline, sale.issuedAt]);
         if (!updated.rows[0]) throw new Error("A emissão foi retomada por outro processo.");
         return updated.rows[0];
     });
@@ -228,7 +284,9 @@ export async function processNote(orderId?: string) {
                 await finish(job, "rejected", result.message || "Consulte a situação no portal da SEFAZ.");
                 return true;
             }
+            if (result.code === "217" && job.sale?.delivery && !job.sale.encryptedCpf) throw new FiscalError(missingRecipient);
         } else {
+            if (job.sale?.delivery && !job.sale.encryptedCpf) throw new FiscalError(missingRecipient);
             const sale = job.sale ?? await getSale(job, config.data);
             job = await storePendingXml(job, config, sale, identity, false);
         }

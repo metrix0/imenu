@@ -17,10 +17,11 @@ import Pagination from "@/components/ui/Pagination";
 import { getPreviousMonthRange } from "@/lib/utils/dateRange";
 import { supabase } from "@/lib/database/supabaseClient";
 import { CARD_AT_DELIVERY_LABELS } from "@/lib/payments/deliveryMethods";
+import { fiscalChannels, fiscalOrderChannel, isFiscalChannelEnabled, type FiscalChannels } from "@/lib/nfce/channels";
 import type { NoteSummary, FiscalHistoryRow } from "@/lib/nfce/service";
 import type { Order } from "./OrdersTable";
 
-type History = { available: boolean; plus: boolean | null; archive: boolean; configured: boolean; enabled: boolean; notes: NoteSummary[] };
+type History = { available: boolean; plus: boolean | null; archive: boolean; configured: boolean; enabled: boolean; channels: FiscalChannels; identifiedDeliveryOrders: string[]; notes: NoteSummary[] };
 
 export async function nfceRequest(restaurant: string, params: Record<string, string>, init?: RequestInit) {
     const { data: { session } } = await supabase.auth.getSession();
@@ -35,7 +36,7 @@ export async function nfceRequest(restaurant: string, params: Record<string, str
     return response;
 }
 
-const emptyHistory: History = { available: false, plus: null, archive: false, configured: false, enabled: false, notes: [] };
+const emptyHistory: History = { available: false, plus: null, archive: false, configured: false, enabled: false, channels: fiscalChannels(), identifiedDeliveryOrders: [], notes: [] };
 
 export function useNfceHistory(restaurant: string | null, orders: Order[], refresh: number) {
     const [history, setHistory] = useState<History>(emptyHistory);
@@ -55,7 +56,7 @@ export function useNfceHistory(restaurant: string | null, orders: Order[], refre
             .then(value => { if (!controller.signal.aborted) setHistory(value); })
             .catch(() => {
                 if (!controller.signal.aborted) setHistory(current => ({
-                    ...current, available: false, configured: false, enabled: false, notes: [],
+                    ...current, available: false, configured: false, enabled: false, identifiedDeliveryOrders: [], notes: [],
                 }));
             });
         return () => controller.abort();
@@ -275,8 +276,8 @@ const stateLabels: Record<string, string> = {
     rejected: "Rejeitada", authorized: "Autorizada", canceled: "Cancelada",
 };
 
-export function NfceOrderSection({ order, note, restaurant, configured, focus, onChange }: {
-    order: Order; note?: NoteSummary; restaurant: string; configured: boolean; focus: boolean; onChange: () => void;
+export function NfceOrderSection({ order, note, restaurant, configured, channels, hasDeliveryCpf, focus, onChange }: {
+    order: Order; note?: NoteSummary; restaurant: string; configured: boolean; channels: FiscalChannels; hasDeliveryCpf: boolean; focus: boolean; onChange: () => void;
 }) {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
@@ -284,8 +285,15 @@ export function NfceOrderSection({ order, note, restaurant, configured, focus, o
     const [cancel, setCancel] = useState(false);
     const [queued, setQueued] = useState(false);
     const [payment, setPayment] = useState("");
-    const delivery = order.is_delivery === "entrega";
+    const channel = fiscalOrderChannel(order.is_delivery);
+    const channelEnabled = isFiscalChannelEnabled(channels, order.is_delivery);
+    const isTable = order.is_delivery === "mesa";
+    const requiresPayment = isTable && !order.payment_method;
     const pending = !note?.access_key && (!note || note.status === "rejected");
+    const missingDeliveryCpf = channel === "delivery" && !hasDeliveryCpf;
+    const canIssue = pending && configured && channelEnabled && !queued
+        && !missingDeliveryCpf
+        && (isTable ? order.status === "done" : ["preparing", "delivering", "done"].includes(order.status));
     useEffect(() => {
         if (focus) document.getElementById("order-nfce")?.scrollIntoView({ block: "nearest" });
     }, [focus]);
@@ -336,21 +344,22 @@ export function NfceOrderSection({ order, note, restaurant, configured, focus, o
                 )}
             </div>
         </div>
-        <p className="text-xs text-gray-600">{note ? stateLabels[note.status] : queued ? "Aguardando emissão" : "Não emitida"}</p>
+        <p className="text-xs text-gray-600">{note ? stateLabels[note.status] : queued ? "Aguardando emissão"
+            : channel && !channelEnabled ? "Emissão desativada para este tipo de pedido"
+            : missingDeliveryCpf ? "CPF não informado no pedido" : "Não emitida"}</p>
         {note?.number && <p className="text-xs text-gray-600">Nº {note.number} · Série {note.series} · {new Date(note.issued_at).toLocaleString("pt-BR")}</p>}
         {note?.access_key && <p className="break-all text-xs text-gray-600">{note.access_key}</p>}
         {note?.error && <p className="text-xs text-red-700">{note.error}</p>}
         <div className="flex flex-wrap gap-1.5">
             {note?.status === "authorized" && order.status === "canceled" && <Button variant="secondary" className="!min-h-7 !px-2 !py-1 !text-xs !leading-4 !border-transparent !bg-gray-100 hover:!bg-gray-200" onClick={() => setCancel(value => !value)}>Cancelar nota</Button>}
-            {pending && configured && !delivery && !queued && ["preparing", "delivering", "done"].includes(order.status) && <Button variant="secondary" className="!min-h-7 !px-2 !py-1 !text-xs !leading-4 !border-transparent !bg-gray-100 hover:!bg-gray-200" onClick={() => setEdit(value => !value)}>
+            {canIssue && <Button variant="secondary" className="!min-h-7 !px-2 !py-1 !text-xs !leading-4 !border-transparent !bg-gray-100 hover:!bg-gray-200" onClick={() => setEdit(value => !value)}>
                 {note ? "Corrigir e tentar novamente" : "Emitir NFC-e"}
             </Button>}
         </div>
-        {delivery && !note && <p className="text-xs text-gray-600">Emissão fiscal para entregas indisponível nesta configuração.</p>}
-        {edit && <form onSubmit={submit} className="space-y-3">
+        {edit && canIssue && <form onSubmit={submit} className="space-y-3">
             <label className="block text-sm">Pagamento
-                <select className="ml-2 rounded-md border border-gray-300 p-2" value={payment} onChange={event => setPayment(event.target.value)}>
-                    <option value="">Do pedido</option>
+                <select className="ml-2 rounded-md border border-gray-300 p-2" value={payment} required={requiresPayment} onChange={event => setPayment(event.target.value)}>
+                    <option value="" disabled={requiresPayment}>{requiresPayment ? "Selecione" : "Do pedido"}</option>
                     {Object.entries({ dinheiro: "Dinheiro", "pix-entrega": "Pix na entrega", ...CARD_AT_DELIVERY_LABELS }).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
                     <option value="pix">Pix online</option>
                 </select>

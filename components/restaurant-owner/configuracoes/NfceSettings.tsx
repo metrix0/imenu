@@ -5,17 +5,20 @@ import { FileBadge } from "lucide-react";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 import Dropdown from "@/components/ui/Dropdown";
 import Input from "@/components/ui/Input";
 import SaveStatus from "@/components/ui/SaveStatus";
+import ToggleOptionCard from "@/components/ui/ToggleOptionCard";
 import CollapsibleSection, { useCollapsible } from "@/components/ui/CollapsibleSection";
 import { nfceRequest } from "@/components/restaurant-owner/pedidos/NfceHistory";
 import { useAutoSave } from "@/lib/utils/useAutoSave";
+import { fiscalChannels, type FiscalChannels } from "@/lib/nfce/channels";
 import type { AddressData } from "@/lib/types/types";
 import type { FiscalTax, Issuer } from "@/lib/nfce/sefaz";
 
-type Settings = Omit<Issuer, "series"> & {
-    series: string; nextNumber: string; enabled: boolean; password: string; file: File | null;
+type Settings = Omit<Issuer, "series" | "channels"> & {
+    series: string; nextNumber: string; enabled: boolean; password: string; file: File | null; channels: FiscalChannels;
 };
 type StoreAddress = Partial<AddressData> | null;
 
@@ -23,8 +26,10 @@ const blank: Settings = {
     cnpj: "", ie: "", name: "", street: "", number: "", district: "", city: "", cityCode: "", cep: "",
     series: "1", nextNumber: "1", enabled: false, password: "", file: null,
     defaultTax: { ncm: "", cfop: "", csosn: "", origin: "", cest: "" },
+    channels: fiscalChannels(),
 };
 
+const orderChannels = [["salon", "Salão"], ["pickup", "Retirada"]] as const;
 const taxFields = [["ncm", "NCM"], ["cfop", "CFOP"]] as const;
 const originOptions = [
     { value: "", label: "Selecione a origem" },
@@ -83,6 +88,7 @@ export default function NfceSettings({ restaurant, address, locked = false }: { 
     const [hasCertificate, setHasCertificate] = useState(false);
     const [items, setItems] = useState<{ id: string; name: string }[]>([]);
     const [itemId, setItemId] = useState("");
+    const [confirmDelivery, setConfirmDelivery] = useState(false);
     const fileRef = useRef<HTMLInputElement>(null);
     const editor = useCollapsible({ defaultOpen: locked });
     const effective = withStoreAddress(value, address);
@@ -119,6 +125,7 @@ export default function NfceSettings({ restaurant, address, locked = false }: { 
             if (data.issuer) {
                 setValue({ ...blank, ...data.issuer.data, series: String(data.issuer.data.series),
                     nextNumber: String(data.issuer.next_number),
+                    channels: fiscalChannels(data.issuer.data.channels),
                     enabled: data.issuer.data.requestedEnabled ?? data.issuer.enabled });
                 setHasCertificate(data.issuer.has_certificate);
             }
@@ -177,6 +184,14 @@ export default function NfceSettings({ restaurant, address, locked = false }: { 
                 <div className="space-y-5">
                     {!locked && !environment && <p className="text-sm text-gray-600">A emissão fiscal não está disponível neste ambiente.</p>}
                     <fieldset disabled={locked || !environment} className="min-w-0 space-y-5 disabled:opacity-50">
+                        <div className="grid gap-3 lg:grid-cols-3">
+                            {orderChannels.map(([channel, label]) => <ToggleOptionCard key={channel} label={label}
+                                checked={value.channels[channel]} disabled={locked || !environment}
+                                onChange={checked => change({ ...value, channels: { ...value.channels, [channel]: checked } })} />)}
+                            <ToggleOptionCard label="Delivery" checked={value.channels.delivery} disabled={locked || !environment}
+                                onChange={checked => checked ? setConfirmDelivery(true) : change({ ...value, channels: { ...value.channels, delivery: false } })}
+                                badge={<Badge variant="warning">Não recomendado</Badge>} />
+                        </div>
                         <div className="grid gap-4 sm:grid-cols-3">
                             <Input label="CNPJ" inputMode="numeric" value={value.cnpj} onChange={event => change({ ...value, cnpj: event.target.value })} />
                             <Input label="Inscrição estadual" inputMode="numeric" value={value.ie} onChange={event => change({ ...value, ie: event.target.value })} />
@@ -231,6 +246,13 @@ export default function NfceSettings({ restaurant, address, locked = false }: { 
                     {!locked && error && <p role="alert" className="text-sm text-red-700">{error}</p>}
                 </div>
             </CollapsibleSection>
+            <ConfirmModal open={confirmDelivery} onClose={() => setConfirmDelivery(false)}
+                title="Ativar NFC-e para delivery?" variant="primary" confirmLabel="Ativar delivery" cancelLabel="Manter desativado"
+                description="A legislação exige identificar o destinatário na NFC-e de entrega. Seus clientes pessoa física precisarão informar o CPF ao pedir pelo cardápio, o que pode reduzir a conversão. Recomendamos manter a emissão para delivery desativada."
+                onConfirm={() => {
+                    setConfirmDelivery(false);
+                    change({ ...value, channels: { ...value.channels, delivery: true } });
+                }} />
             {!locked && <SaveStatus status={status} />}
         </Card>
     );
