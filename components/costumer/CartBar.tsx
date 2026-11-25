@@ -9,7 +9,8 @@ import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
 import HybridModal from "@/components/ui/HybridModal";
 import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { MenuBackLayer } from "@/lib/menu/navigationHistory";
 import {formatPrice, promotionPrice} from "@/lib/utils/formatPrice";
 import { captureConsumerEvent } from "@/lib/analytics/captureConsumerEvent";
 import { CONSUMER_EVENTS } from "@/lib/analytics/consumerEvents";
@@ -27,7 +28,7 @@ export default function CartBar({
                                     restaurant,
                                     setCartOpenAction,
     closeItemModalOpen, trackMeta, metaPixelId, slug, tableOrder, selectedTableId,
-    selectedTableName, promotionResult, requiresSchedule = false, deliveryCpfRequired = false
+    selectedTableName, promotionResult, requiresSchedule = false, deliveryCpfRequired = false, onBackLayersChange
                                 }: {
     onOpenCartAction: () => void,
     cartOpen: boolean,
@@ -43,6 +44,7 @@ export default function CartBar({
     promotionResult?: PromotionResult;
     requiresSchedule?: boolean;
     deliveryCpfRequired?: boolean;
+    onBackLayersChange?: (layers: MenuBackLayer[]) => void;
 }) {
     const router = useRouter();
     const items = useCartStore((s) => s.items);
@@ -62,6 +64,15 @@ export default function CartBar({
         availableStock?: number;
         requestedQuantity?: number;
     } | null>(null);
+
+    const hasOrderWarning = Boolean(orderWarning);
+    useLayoutEffect(() => {
+        const layers: MenuBackLayer[] = [];
+        if (cartWarningVisible) layers.push({ close: () => setCartWarningVisible(false) });
+        if (hasOrderWarning) layers.push({ close: () => setOrderWarning(null) });
+        onBackLayersChange?.(layers);
+        return () => onBackLayersChange?.([]);
+    }, [cartWarningVisible, hasOrderWarning, onBackLayersChange]);
 
     const checkoutState = useCheckoutStore((s) => s);
     const isTableOrder = Boolean(tableOrder);

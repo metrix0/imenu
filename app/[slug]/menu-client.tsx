@@ -41,6 +41,8 @@ import { isCategoryAvailable } from "@/lib/menu/categorySchedule";
 import { hasOrderHours } from "@/lib/menu/orderAvailability";
 
 import { createMenuRequestCache } from "@/lib/menu/requestCache";
+import { useMenuBackNavigation } from "@/lib/menu/useMenuBackNavigation";
+import type { MenuBackLayer } from "@/lib/menu/navigationHistory";
 
 const loadItemOptions = createMenuRequestCache(async (itemId: string): Promise<Subcategory[]> => {
     const response = await fetch(`/api/items/${itemId}/subcategories`);
@@ -171,7 +173,13 @@ export default function MenuClientPage({
     const coupon_discount_cents = useCheckoutStore((s) => s.coupon_discount_cents);
     const setField = useCheckoutStore((s) => s.setField);
     const [cartOpen, setCartOpen] = useState(false);
-    const [cartStep, setCartStep] = useState<"cart" | "info" | "checkout">("cart");
+    const cartStep = useCheckoutStore(s => s.step);
+    const setCartStep = useCallback<React.Dispatch<React.SetStateAction<"cart" | "info" | "checkout">>>((next) => {
+        const checkout = useCheckoutStore.getState();
+        checkout.setStep(typeof next === "function" ? next(checkout.step) : next);
+    }, []);
+    const [cartBackLayers, setCartBackLayers] = useState<MenuBackLayer[]>([]);
+    const [flavorSearch, setFlavorSearch] = useState(false);
     const [nextOpening, setNextOpening] = useState<Date | null>(null);
     const [isOpenBySchedule, setIsOpenBySchedule] = useState(false);
     const [availabilityChecked, setAvailabilityChecked] = useState(false);
@@ -184,12 +192,16 @@ export default function MenuClientPage({
         loading: boolean;
         error?: string;
     } | null>(null);
+    const closeOpenedItem = useCallback(() => {
+        setFlavorSearch(false);
+        setOpenedItem(null);
+    }, []);
     useEffect(() => {
         if (openedItem && !Object.values(itemsByCategory).some(items =>
             items.some(item => item.id === openedItem.item.id))) {
-            setOpenedItem(null);
+            closeOpenedItem();
         }
-    }, [itemsByCategory, openedItem]);
+    }, [itemsByCategory, openedItem, closeOpenedItem]);
     const [restaurantCartWarningVisible, setRestaurantCartWarningVisible] = useState(false);
     const [orderId, setOrderId] = useState<string | null>(null);
     const isTableOrder = Boolean(tableOrder);
@@ -515,6 +527,7 @@ export default function MenuClientPage({
         if (!item.id) return;
 
         if (!retry) {
+            setFlavorSearch(false);
             trackMeta?.("ViewContent", metaCommerceData([{ id: item.id, quantity: 1 }], item.price_cents));
         }
 
@@ -954,6 +967,26 @@ export default function MenuClientPage({
             </div>
     )), [categories, filteredItemsByCat, handleItemClick]);
 
+    const backLayers: MenuBackLayer[] = [];
+    if (openedItem) {
+        backLayers.push({ close: closeOpenedItem });
+        if (flavorSearch) backLayers.push({ close: () => setFlavorSearch(false) });
+    }
+    if (searchOpen) backLayers.push({ close: () => setSearchOpen(false) });
+    if (!readOnly && canOrderFromMenu && cartOpen) {
+        backLayers.push({ close: () => {
+            setCartOpen(false);
+            setCartStep("cart");
+        } });
+        if (cartStep !== "cart") backLayers.push({ close: () => setCartStep("cart") });
+        if (cartStep === "checkout") backLayers.push({ close: () => setCartStep("info") });
+    }
+    if (!readOnly && canOrderFromMenu) backLayers.push(...cartBackLayers);
+    if (!readOnly && !isTableOrder && historyOpen) backLayers.push({ close: () => setHistoryOpen(false) });
+    if (restaurantInfoOpen) backLayers.push({ close: () => setRestaurantInfoOpen(false) });
+    if (!readOnly && restaurantCartWarningVisible) backLayers.push({ close: () => setRestaurantCartWarningVisible(false) });
+    useMenuBackNavigation(pathname, backLayers);
+
     return (
 
         <div className="imenu-menu-canvas min-h-screen bg-[var(--im-menu-bg,#fff)] text-[var(--im-menu-text,#111827)] pb-10">
@@ -1289,7 +1322,9 @@ export default function MenuClientPage({
                     loading={openedItem.loading}
                     error={openedItem.error}
                     onRetry={() => void handleItemClick(openedItem.item, true)}
-                    onClose={() => setOpenedItem(null)}
+                    onClose={closeOpenedItem}
+                    flavorSearch={flavorSearch}
+                    setFlavorSearch={setFlavorSearch}
                     deliveryTax={deliveryTax}
                     deliveryTime={deliveryTime}
                     trackMeta={trackMeta}
@@ -1320,7 +1355,8 @@ export default function MenuClientPage({
                     restaurant={restaurant}
                     deliveryCpfRequired={deliveryCpfRequired}
                     requiresSchedule={requiresSchedule}
-                    closeItemModalOpen={() => setOpenedItem(null)}
+                    closeItemModalOpen={closeOpenedItem}
+                    onBackLayersChange={setCartBackLayers}
                     trackMeta={trackMeta}
                     metaPixelId={metaPixelId}
                     slug={slug}
@@ -1342,6 +1378,7 @@ export default function MenuClientPage({
                     loyaltyOffer={loyaltyOffer}
                     onOpenLoyalty={() => {
                         setCartOpen(false);
+                        setCartStep("cart");
                         setHistoryOpen(true);
                     }}
                     restaurant={restaurant}
