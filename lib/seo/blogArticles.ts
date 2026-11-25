@@ -17,6 +17,18 @@ export type BlogArticleDefinition = {
 
 export const BLOG_ARTICLES: BlogArticleDefinition[] = [
     {
+        slug: "nfce-para-restaurantes",
+        title: "NFC-e para restaurantes: como emitir nota fiscal no salão e no delivery",
+        shortTitle: "NFC-e para restaurantes",
+        metaTitle: "NFC-e para Restaurantes: Como Emitir Nota Fiscal | iMenu",
+        metaDescription: "Entenda como emitir NFC-e no restaurante, quais dados preparar, quando o delivery exige identificação e como organizar XML e DANFE em PDF.",
+        excerpt: "Guia de emissão de nota fiscal para restaurantes, com checklist de configuração, diferenças entre salão e delivery e organização dos documentos.",
+        category: "Gestão",
+        readingTime: "6 min de leitura",
+        publishedAt: "2026-11-25",
+        updatedAt: "2026-11-25",
+    },
+    {
         slug: "nfce-para-restaurantes-sao-paulo",
         title: "NFC-e para restaurantes em São Paulo: como emitir e organizar suas notas",
         shortTitle: "NFC-e para restaurantes em SP",
