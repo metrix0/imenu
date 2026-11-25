@@ -1,6 +1,7 @@
 "use client";
 import { create } from "zustand";
 import { supabase } from "@/lib/database/supabaseClient";
+import { useCreationStore } from "./creationStore";
 import type { aiAccess } from "@/lib/ia-vendas/access";
 import type { Action, Message, Data } from "@/lib/ia-vendas/types";
 async function headers(json = true) {
@@ -66,9 +67,11 @@ export const useSalesStore = create<State>((set, get) => ({
   usageAccess: null,
   refreshUsage: async (restaurant) => {
     const request = ++usageVersion;
+    const checkedAt = Date.now();
     try {
       const data = await api(`/api/ia-vendas?usage_only=1&restaurant_id=${encodeURIComponent(restaurant)}`);
       if (request === usageVersion && typeof data?.access?.plus === "boolean") {
+        useCreationStore.getState().rememberPlus(restaurant, data.access.plus, checkedAt);
         set({ usageAccess: { restaurant_id: restaurant, access: data.access, latest_analysis_finished_at: data.latest_analysis_finished_at ?? null } });
       }
     } catch { /* Preserve the last known usage on transient network failures. */ }
@@ -96,6 +99,7 @@ export const useSalesStore = create<State>((set, get) => ({
   load: async (restaurant, conversation, older = false) => {
     const request = ++version,
       previous = get();
+    const checkedAt = Date.now();
     set({
       loading: true,
       error: null,
@@ -128,6 +132,7 @@ export const useSalesStore = create<State>((set, get) => ({
       const data = await api(`/api/ia-vendas?${params}`);
       if (request === version) {
         usageVersion += 1;
+        if (typeof data.access?.plus === "boolean") useCreationStore.getState().rememberPlus(data.restaurant_id, data.access.plus, checkedAt);
         set({
           ...data,
           conversation_limit: data.conversation_limit ?? null,

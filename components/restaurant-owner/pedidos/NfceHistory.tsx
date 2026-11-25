@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
+import { useSalesStore } from "@/lib/stores/restaurant-owner/iaVendasStore";
 import { Download, FileBadge, FileText } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
@@ -22,6 +24,7 @@ import type { NoteSummary, FiscalHistoryRow } from "@/lib/nfce/service";
 import type { Order } from "./OrdersTable";
 
 type History = { available: boolean; plus: boolean | null; archive: boolean; configured: boolean; enabled: boolean; channels: FiscalChannels; identifiedDeliveryOrders: string[]; notes: NoteSummary[] };
+type HistoryView = History & { ready: boolean; detailsReady: boolean; error: boolean };
 
 export async function nfceRequest(restaurant: string, params: Record<string, string>, init?: RequestInit) {
     const { data: { session } } = await supabase.auth.getSession();
@@ -33,35 +36,70 @@ export async function nfceRequest(restaurant: string, params: Record<string, str
         const body = await response.json().catch(() => null);
         throw new Error(body?.error || "Não foi possível acessar as notas fiscais.");
     }
+    // Successful settings writes also update the last verified presentation snapshot.
+    // Never store certificates, tax IDs, order notes or customer details in browser storage.
+    if (params.action === "settings" && init?.method === "POST" && init.body instanceof FormData) {
+        try {
+            const saved = await response.clone().json();
+            const settings = JSON.parse(String(init.body.get("settings") ?? "{}"));
+            const store = useCreationStore.getState();
+            const previous = store.fiscalSnapshot;
+            if (previous?.restaurantId === restaurant) {
+                store.rememberFiscal({ ...previous, available: true, configured: saved.enabled === true,
+                    enabled: settings.enabled === true, channels: fiscalChannels(settings.channels ?? previous.channels), checkedAt: Date.now() });
+            }
+        } catch { /* The successful save remains authoritative; the next history read revalidates. */ }
+    }
     return response;
 }
 
 const emptyHistory: History = { available: false, plus: null, archive: false, configured: false, enabled: false, channels: fiscalChannels(), identifiedDeliveryOrders: [], notes: [] };
 
-export function useNfceHistory(restaurant: string | null, orders: Order[], refresh: number) {
-    const [history, setHistory] = useState<History>(emptyHistory);
-    const previousRestaurant = useRef<string | null>(null);
+export function useNfceHistory(restaurant: string | null, orders: Order[], refresh: number, ordersLoading: boolean): HistoryView {
+    const plusSnapshot = useCreationStore(state => state.plusSnapshot);
+    const fiscalSnapshot = useCreationStore(state => state.fiscalSnapshot);
+    const usageAccess = useSalesStore(state => state.usageAccess);
+    const [result, setResult] = useState<{ restaurant: string; ids: string; value: History | null } | null>(null);
     const ids = orders.map(order => order.id).join(",");
+    const current = result?.restaurant === restaurant && result.ids === ids ? result : null;
+    const cached = fiscalSnapshot?.restaurantId === restaurant ? fiscalSnapshot : null;
+    const plus = plusSnapshot?.restaurantId === restaurant ? plusSnapshot.active
+        : usageAccess?.restaurant_id === restaurant ? usageAccess.access.plus : current?.value?.plus ?? null;
+
     useEffect(() => {
-        if (previousRestaurant.current !== restaurant) {
-            previousRestaurant.current = restaurant;
-            setHistory(emptyHistory);
-        }
-        if (!restaurant) return;
+        // Wait for actual visible order IDs instead of starting an empty request
+        // that is immediately canceled when the orders arrive.
+        if (!restaurant || ordersLoading) return;
         const controller = new AbortController();
-        // This authenticated fiscal response already includes the server-verified Plus entitlement.
-        // Do not issue a second billing lookup or optimistically render paid UI before it arrives.
+        const checkedAt = Date.now();
         nfceRequest(restaurant, { orders: ids }, { signal: controller.signal })
-            .then(response => response.json())
-            .then(value => { if (!controller.signal.aborted) setHistory(value); })
+            .then(response => response.json() as Promise<History>)
+            .then(value => {
+                if (controller.signal.aborted) return;
+                const store = useCreationStore.getState();
+                if (typeof value.plus === "boolean") store.rememberPlus(restaurant, value.plus, checkedAt);
+                const { available, archive, configured, enabled, channels } = value;
+                store.rememberFiscal({ restaurantId: restaurant, available, archive, configured, enabled, channels: fiscalChannels(channels), checkedAt });
+                setResult({ restaurant, ids, value });
+            })
             .catch(() => {
-                if (!controller.signal.aborted) setHistory(current => ({
-                    ...current, available: false, configured: false, enabled: false, identifiedDeliveryOrders: [], notes: [],
-                }));
+                if (!controller.signal.aborted) setResult(previous =>
+                    previous?.restaurant === restaurant && previous.ids === ids && previous.value
+                        ? previous : { restaurant, ids, value: null });
             });
         return () => controller.abort();
-    }, [restaurant, ids, refresh]);
-    return history;
+    }, [restaurant, ids, refresh, ordersLoading]);
+
+    return {
+        ...emptyHistory,
+        ...current?.value,
+        ...(cached ? { available: cached.available, archive: cached.archive, configured: cached.configured,
+            enabled: cached.enabled, channels: cached.channels } : {}),
+        plus,
+        ready: Boolean(cached || current),
+        detailsReady: Boolean(current?.value),
+        error: current !== null && current.value === null,
+    };
 }
 
 async function download(restaurant: string, params: Record<string, string>, fallback: string) {
@@ -131,7 +169,7 @@ export function NfceUpgradeButton({ restaurant, onPaid, row = false, compact = f
     </>;
 }
 
-export function NfceHistoryButton({ restaurant, history, onPaid }: { restaurant: string; history: History; onPaid: () => void | Promise<void> }) {
+export function NfceHistoryButton({ restaurant, history, onPaid }: { restaurant: string; history: HistoryView; onPaid: () => void | Promise<void> }) {
     const [open, setOpen] = useState(false);
     const [receipt, setReceipt] = useState<string | null>(null);
     const [confirmDelete, setConfirmDelete] = useState(false);
@@ -145,7 +183,7 @@ export function NfceHistoryButton({ restaurant, history, onPaid }: { restaurant:
     const [exportingPdf, setExportingPdf] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
-    const showTable = history.available && (history.plus === true ? (history.configured || history.archive) : history.plus === false && history.archive && !removed);
+    const showTable = history.ready && history.available && (history.plus === true ? (history.configured || history.archive) : history.plus === false && history.archive && !removed);
     useEffect(() => {
         if (!open || !showTable) return;
         const controller = new AbortController();
@@ -195,7 +233,7 @@ export function NfceHistoryButton({ restaurant, history, onPaid }: { restaurant:
             setError((error as Error).message);
         } finally { setLoading(false); }
     };
-    const showPlusOffer = history.plus === false && (!history.archive || removed);
+    const showPlusOffer = history.ready && !history.error && history.plus === false && (!history.archive || removed);
     return <>
         <Tooltip text="Recurso exclusivo do iMenu Plus" disabled={history.plus !== false} parentClassName="inline-flex">
             <Button variant="secondary" leftIcon={<FileBadge className="panel-icon" size="1em" strokeWidth={1.75} aria-hidden="true" />}
@@ -222,7 +260,9 @@ export function NfceHistoryButton({ restaurant, history, onPaid }: { restaurant:
                         </div>
                     </div>}
                 </div>
-                {history.plus === null ? (
+                {history.error && !history.available ? (
+                    <p className="text-sm text-gray-600" role="alert">Não foi possível carregar as notas fiscais.</p>
+                ) : !history.ready || history.plus === null ? (
                     <p className="text-sm text-gray-600" role="status">Verificando acesso às notas fiscais…</p>
                 ) : history.plus && !showTable ? (
                     <div className="flex items-start gap-3 rounded-[10px] border border-gray-200 bg-gray-50/70 p-4 sm:gap-4 sm:p-5">

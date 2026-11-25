@@ -156,7 +156,7 @@ export default function HistoricoPage() {
     const [cashRefreshKey, setCashRefreshKey] = useState(0);
     const [nfceRefresh, setNfceRefresh] = useState(0);
     const [focusFiscal, setFocusFiscal] = useState(false);
-    const fiscal = useNfceHistory(restaurantId, orders, nfceRefresh);
+    const fiscal = useNfceHistory(restaurantId, orders, nfceRefresh, isLoading);
     const fiscalIds = new Set(fiscal.notes.filter(note => Boolean(note.access_key)).map(note => note.order_id));
     const requestId = useRef(0);
     const historyTitleRef = useRef<HTMLHeadingElement>(null);
@@ -332,11 +332,12 @@ export default function HistoricoPage() {
 
             <OrdersTable
                 orders={orders}
-                isLoading={isLoading}
+                isLoading={isLoading || (orders.length > 0 && !fiscal.ready)}
+                reserveFiscalSpace={fiscal.archive || (fiscal.plus === true && fiscal.enabled && orders.some(order => isFiscalChannelEnabled(fiscal.channels, order.is_delivery)))}
                 onViewOrder={handleViewOrder}
                 onEditOrder={handleEditOrder}
                 onViewFiscal={order => handleViewOrder(order, true)}
-                showFiscalActions={order => fiscalIds.has(order.id) || (fiscal.enabled && isFiscalChannelEnabled(fiscal.channels, order.is_delivery))}
+                showFiscalActions={order => fiscalIds.has(order.id) || (fiscal.plus === true && fiscal.enabled && isFiscalChannelEnabled(fiscal.channels, order.is_delivery))}
                 fiscalIds={fiscalIds}
                 fiscalPlus={fiscal.plus}
                 restaurantId={restaurantId}
@@ -382,10 +383,15 @@ export default function HistoricoPage() {
                 order={selectedOrder}
                 fiscalSection={isDetailsOpen && restaurantId && selectedOrder && (
                     fiscal.plus === true ? (
-                        <NfceOrderSection key={selectedOrder.id} order={selectedOrder} restaurant={restaurantId}
+                        fiscal.detailsReady ? <NfceOrderSection key={selectedOrder.id} order={selectedOrder} restaurant={restaurantId}
                             note={fiscal.notes.find(note => note.order_id === selectedOrder.id)} configured={fiscal.configured} channels={fiscal.channels}
                             hasDeliveryCpf={fiscal.identifiedDeliveryOrders?.includes(selectedOrder.id) === true}
-                            focus={focusFiscal} onChange={() => setNfceRefresh(value => value + 1)} />
+                            focus={focusFiscal} onChange={() => setNfceRefresh(value => value + 1)} /> : (
+                            <section className="space-y-1.5">
+                                <h4 className="text-base 2xl:text-lg font-medium text-gray-900">Nota fiscal (NFC-e)</h4>
+                                <p className="text-xs text-gray-600">{fiscal.error ? "Não foi possível carregar a nota fiscal." : "Carregando nota fiscal…"}</p>
+                            </section>
+                        )
                     ) : fiscal.plus === false ? (
                         <section className="space-y-1.5">
                             <h4 className="text-base 2xl:text-lg font-medium text-gray-900">Nota fiscal (NFC-e)</h4>
