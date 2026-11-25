@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/ui/SaveStatus";
 import { useEffect, useState } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faMobileScreenButton } from "@fortawesome/free-solid-svg-icons";
@@ -36,10 +37,7 @@ export default function AplicativoPage() {
     if (!isMobileViewport) {
         return (
             <div className="p-6 md:p-0">
-                <div className="mb-6">
-                    <h1>Aplicativo</h1>
-                    <p className="mt-2 text-sm text-gray-500">Acesse o painel e receba notificações pelo celular.</p>
-                </div>
+                <PageHeader className="mb-6" title="Aplicativo" description="Acesse o painel e receba notificações pelo celular." />
                 <Card className="mx-auto max-w-xl text-center">
                     <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand/10 text-brand">
                         <FontAwesomeIcon

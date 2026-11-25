@@ -1,12 +1,12 @@
 "use client";
 
-import { CollapsibleChevron, CollapsibleContent, useCollapsible } from "@/components/ui/CollapsibleSection";
+import ConfigurationCard from "@/components/ui/ConfigurationCard";
+import ListLoader from "@/components/ui/ListLoader";
 
 import { useEffect, useState } from "react";
 import type { Category, PizzaSettings } from "@/lib/types/types";
 import { DEFAULT_PIZZA_SETTINGS, MAX_PIZZA_FLAVORS, parsePizzaSettings } from "@/lib/pizza/pricing";
 import { supabase } from "@/lib/database/supabaseClient";
-import Card from "@/components/ui/Card";
 import Switch from "@/components/ui/Switch";
 import SaveStatus from "@/components/ui/SaveStatus";
 import Button from "@/components/ui/Button";
@@ -21,7 +21,6 @@ export default function PizzaSettingsSection({ restaurantId }: { restaurantId: s
     const [error, setError] = useState("");
     const [detailsOpen, setDetailsOpen] = useState(false);
     const canExpand = loaded && settings.enabled;
-    const details = useCollapsible({ open: canExpand && detailsOpen, onOpenChange: setDetailsOpen });
 
     const load = async () => {
         try {
@@ -63,29 +62,23 @@ export default function PizzaSettingsSection({ restaurantId }: { restaurantId: s
         } catch (e) { setStatus("error"); setError(e instanceof Error ? e.message : "Erro ao salvar."); }
     };
 
-    return <Card className="border border-gray-200 shadow-sm">
-        <div className="flex items-center justify-between gap-4 sm:gap-13">
-            <div>
-                <h3 id="pizza-settings-title" className="text-lg font-semibold text-gray-900">Modo Pizza</h3>
-                <p className="mt-2 text-sm text-gray-500">Permita combinar sabores das categorias escolhidas em uma única pizza.</p>
-            </div>
-            <div className="relative flex shrink-0 items-center">
-                <Switch aria-labelledby="pizza-settings-title" checked={settings.enabled} disabled={!loaded || status === "saving"} onClick={() => {
-                    if (!settings.enabled) setDetailsOpen(true);
-                    void save({ ...settings, enabled: !settings.enabled });
-                }} />
-                <button {...details.triggerProps}
-                    aria-label={`${details.expanded ? "Recolher" : "Expandir"} opções do Modo Pizza`}
-                    disabled={!canExpand}
-                    className="absolute left-full ml-3 flex h-6 w-6 cursor-pointer items-center justify-center rounded text-gray-500 disabled:cursor-not-allowed disabled:opacity-50 sm:left-auto sm:right-full sm:ml-0 sm:mr-3">
-                    <CollapsibleChevron expanded={details.expanded} />
-                </button>
-            </div>
-        </div>
-        {!loaded && !error && <p role="status" className="mt-3 text-sm text-gray-500">Carregando...</p>}
-        {error && <div className="mt-3"><p role="alert" className="text-sm text-red-700">{error}</p>{!loaded && <Button variant="secondary" onClick={() => void load()}>Tentar novamente</Button>}</div>}
-        <CollapsibleContent id={details.contentId} expanded={details.expanded}>
-            {loaded && <fieldset className="pt-6 space-y-5">
+    return <ConfigurationCard
+        title="Modo Pizza"
+        description="Permita combinar sabores das categorias escolhidas em uma única pizza."
+        checked={settings.enabled}
+        disabled={!loaded || status === "saving"}
+        onChange={enabled => {
+            if (enabled) setDetailsOpen(true);
+            void save({ ...settings, enabled });
+        }}
+        collapse={{ open: canExpand && detailsOpen, onOpenChange: setDetailsOpen, disabled: !canExpand }}
+        footer={<>
+            {!loaded && !error && <div className="mt-3" role="status" aria-label="Carregando"><ListLoader lines={2} /></div>}
+            {error && <div className="mt-3"><p role="alert" className="text-sm text-red-700">{error}</p>{!loaded && <Button variant="secondary" onClick={() => void load()}>Tentar novamente</Button>}</div>}
+            <SaveStatus status={status} />
+        </>}
+    >
+            {loaded && <fieldset className="space-y-5">
                 <div>
                     <p className="mb-2 font-medium">Preço da pizza</p>
                     <ChoiceCardGroup
@@ -133,7 +126,5 @@ export default function PizzaSettingsSection({ restaurantId }: { restaurantId: s
                 </div>
                 <p className="text-sm text-gray-500">Os complementos são escolhidos no primeiro sabor. Use os mesmos nomes de grupos e opções nos outros sabores (por exemplo, Tamanho → Grande); cada sabor usa os próprios preços.</p>
             </fieldset>}
-        </CollapsibleContent>
-        <SaveStatus status={status} className="mt-3" />
-    </Card>;
+    </ConfigurationCard>;
 }

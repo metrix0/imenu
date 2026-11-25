@@ -27,11 +27,10 @@ export default function Loader({ className = "" }: LoaderProps) {
     );
 }
 
-export function PageLoader({ label = "Carregando", children }: { label?: string; children?: ReactNode }) {
+export function PageLoader({ label = "Carregando" }: { label?: string; children?: ReactNode }) {
     return (
         <div data-ui="page-loader" role="status" aria-label={label} className="flex min-h-48 w-full flex-col items-center justify-center">
             <Loader />
-            {children}
         </div>
     );
 }

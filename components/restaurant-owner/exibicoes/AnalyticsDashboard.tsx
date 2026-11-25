@@ -420,9 +420,6 @@ export default function AnalyticsDashboard({
         return (
             <Card className="min-w-0">
                 <ListLoader lines={7} />
-                <p className="mt-4 text-center text-gray-500">
-                    Carregando Analytics...
-                </p>
             </Card>
         );
     }

@@ -1,6 +1,6 @@
 "use client";
 
-import { PageSaveHeader } from "@/components/ui/SaveStatus";
+import { PageHeader } from "@/components/ui/SaveStatus";
 import { useEffect, useState } from "react";
 import { useLoyaltyStore } from "@/lib/stores/restaurant-owner/loyaltyStore";
 import DataTable from "@/components/ui/DataTable";
@@ -13,11 +13,11 @@ import { formatPhone } from "@/lib/dev/dashboardFormat";
 import Input from "@/components/ui/Input";
 import Toast from "@/components/ui/Toast";
 import SaveStatus from "@/components/ui/SaveStatus";
-import Loader, { PageLoader } from "@/components/ui/Loader";
-import Badge from "@/components/ui/Badge";
+import { PageLoader } from "@/components/ui/Loader";
+import ListLoader from "@/components/ui/ListLoader";
 import Card from "@/components/ui/Card";
 import Dropdown from "@/components/ui/Dropdown";
-import ToggleOptionCard from "@/components/ui/ToggleOptionCard";
+import ConfigurationCard from "@/components/ui/ConfigurationCard";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faStar, faMoneyBillWave, faPlus, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
@@ -312,25 +312,17 @@ export default function FidelidadePage() {
 
     return (
         <div className="mx-auto max-w-6xl space-y-6 px-4 pb-20 pt-8 sm:px-6">
-            <PageSaveHeader>
-                <h1 className="text-3xl font-bold text-gray-900">Programa de Fidelidade</h1>
-                <p className="mt-1 text-gray-500 2xl:text-lg">Defina como seus clientes ganham selos e qual recompensa podem resgatar.</p>
+            <PageHeader title="Programa de Fidelidade" description="Defina como seus clientes ganham selos e qual recompensa podem resgatar.">
                 <SaveStatus status={saveStatus} />
-            </PageSaveHeader>
+            </PageHeader>
 
             {saveError && <Toast key={saveError} type="error" message={saveError} />}
 
-            <ToggleOptionCard
-                label="Status do programa"
-                variant="section"
-                className="flex-nowrap!"
+            <ConfigurationCard
+                title="Status do programa"
                 ariaLabel="Ativar programa de fidelidade"
                 checked={safeProgram.active}
-                switchBadge={safeProgram.active && (
-                    <Badge variant={configured ? "success" : "warning"}>
-                        {configured ? "Ativo" : "Não configurado"}
-                    </Badge>
-                )}
+                configured={safeProgram.active ? configured : undefined}
                 onChange={(active) => updateProgram({ active })}
                 description={safeProgram.active
                     ? "A cada pedido concluído que atingir o valor mínimo, o cliente ganha 1 selo."
@@ -370,8 +362,8 @@ export default function FidelidadePage() {
                 <Card className="min-w-0 space-y-4 lg:col-span-2">
                     <h2 className="text-lg font-semibold text-gray-900">Recompensa</h2>
                     {itemsLoading ? (
-                        <div role="status" aria-label="Carregando itens" className="flex justify-center p-4">
-                            <Loader />
+                        <div role="status" aria-label="Carregando itens" className="p-4">
+                            <ListLoader lines={3} />
                         </div>
                     ) : (
                         <>

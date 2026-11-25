@@ -4,7 +4,8 @@ import { useEffect, useRef, useState, type MouseEvent } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
-import ToggleOptionCard from "@/components/ui/ToggleOptionCard";
+import ConfigurationCard from "@/components/ui/ConfigurationCard";
+import SaveStatus, { PageHeader } from "@/components/ui/SaveStatus";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faDownload,
@@ -164,22 +165,12 @@ export default function ImpressoraPage() {
     return (
         <div className="mx-auto max-w-6xl px-4 pb-20 pt-8 sm:px-6">
             <div>
-                {/* Header */}
-                <div className="mb-8">
-                    <div>
-                        <div>
-                            <h1 className="text-3xl font-medium text-gray-900">
-                                iMenu Impressora
-                            </h1>
-                            <p className="text-gray-500 mt-1">
-                                Imprima os pedidos automaticamente na cozinha.
-                            </p>
-                        </div>
-                    </div>
-                </div>
+                <PageHeader title="iMenu Impressora" description="Imprima os pedidos automaticamente na cozinha." className="mb-8">
+                    <SaveStatus status={settingsError ? "error" : saving ? "saving" : "saved"} />
+                </PageHeader>
 
-                <ToggleOptionCard
-                    label="Impressão automática"
+                <ConfigurationCard
+                    title="Impressão automática"
                     checked={settingsReady && printerSettings.enabled}
                     onChange={(enabled) => { void savePrinterEnabled(enabled); }}
                     disabled={!settingsReady || saving}

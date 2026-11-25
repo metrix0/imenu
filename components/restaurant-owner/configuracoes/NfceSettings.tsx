@@ -5,7 +5,8 @@ import { faCircleInfo } from "@fortawesome/free-solid-svg-icons";
 import { FileBadge } from "lucide-react";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
-import Card from "@/components/ui/Card";
+import ConfigurationCard from "@/components/ui/ConfigurationCard";
+
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Dropdown from "@/components/ui/Dropdown";
 import Input from "@/components/ui/Input";
@@ -168,21 +169,21 @@ export default function NfceSettings({ restaurant, address, locked = false }: { 
     };
 
     return (
-        <Card className="border border-gray-200 shadow-sm">
-            <CollapsibleSection
+        <>
+            <ConfigurationCard
                 title="Emissão automática de Notas Fiscais (NFC-e)"
-                titleClassName="nfce-settings-title"
+                mobileTitle={<>Emitir Notas Fiscais <span className="whitespace-nowrap">(NFC-e)</span></>}
                 description="Emita notas fiscais dos pedidos automaticamente, sem limites. Configure os dados da empresa e o certificado digital."
-                titleBadge={<Badge preset={locked ? "plusIncluded" : "featureAvailable"} />}
-                badge={!locked && value.enabled && !ready(effective, hasCertificate) && <Badge variant="warning">Não configurado</Badge>}
-                open={editor.expanded}
-                onOpenChange={editor.setExpanded}
-                toggle={{
-                    label: "Ativar emissão automática de NFC-e",
-                    checked: !locked && value.enabled,
-                    disabled: locked || !environment,
-                    onChange: enabled => change({ ...value, enabled }),
+                plus={!locked}
+                configured={!locked ? ready(effective, hasCertificate) : undefined}
+                collapse={{ open: editor.expanded, onOpenChange: editor.setExpanded }}
+                checked={!locked && value.enabled}
+                disabled={locked || !environment}
+                onChange={enabled => {
+                    change({ ...value, enabled });
+                    if (enabled) editor.setExpanded(true);
                 }}
+                ariaLabel="Ativar emissão automática de NFC-e"
             >
                 <div className="@container space-y-5">
                     {!locked && !environment && <p className="text-sm text-gray-600">A emissão fiscal não está disponível neste ambiente.</p>}
@@ -268,7 +269,7 @@ export default function NfceSettings({ restaurant, address, locked = false }: { 
                     </CollapsibleSection>
                     {!locked && error && <p role="alert" className="text-sm text-red-700">{error}</p>}
                 </div>
-            </CollapsibleSection>
+            </ConfigurationCard>
             <ConfirmModal open={confirmDelivery} onClose={() => setConfirmDelivery(false)}
                 title="Ativar NFC-e para delivery?" variant="primary" confirmLabel="Ativar delivery" cancelLabel="Manter desativado"
                 description="A legislação exige identificar o destinatário na NFC-e de entrega. Seus clientes pessoa física precisarão informar o CPF ao pedir pelo cardápio, o que pode reduzir a conversão. Recomendamos manter a emissão para delivery desativada."
@@ -277,6 +278,6 @@ export default function NfceSettings({ restaurant, address, locked = false }: { 
                     change({ ...value, channels: { ...value.channels, delivery: true } });
                 }} />
             {!locked && <SaveStatus status={status} />}
-        </Card>
+        </>
     );
 }

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
-import ToggleOptionCard from "@/components/ui/ToggleOptionCard";
+import ConfigurationCard from "@/components/ui/ConfigurationCard";
 import SaveStatus from "@/components/ui/SaveStatus";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
@@ -98,15 +98,15 @@ export default function ItemSettingsModal({ item, restaurantId, open, onClose, o
                 <section className="space-y-2">
                     <h3 className="text-sm font-medium text-gray-900">Disponibilidade</h3>
                     <div className="grid gap-2 md:grid-cols-2">
-                        <ToggleOptionCard
-                            label="Disponível para delivery"
+                        <ConfigurationCard compact
+                            title="Disponível para delivery"
                             ariaLabel="Disponível para delivery"
                             checked={availability.available_for_delivery}
                             onChange={(checked) => updateAvailability({ available_for_delivery: checked })}
                             className="text-sm"
                         />
-                        <ToggleOptionCard
-                            label="Disponível para salão"
+                        <ConfigurationCard compact
+                            title="Disponível para salão"
                             ariaLabel="Disponível para salão"
                             checked={availability.available_for_salao}
                             onChange={(checked) => updateAvailability({ available_for_salao: checked })}

@@ -36,6 +36,8 @@ type Props = {
     onAdd?: () => void;
     trackMeta?: TrackMetaFunnelEvent;
     slug?: string;
+    flavorSearch: boolean;
+    setFlavorSearch: (open: boolean) => void;
 };
 
 export default function ItemModal({
@@ -46,7 +48,7 @@ export default function ItemModal({
                                       onClose,
                                         deliveryTax,
                                       deliveryTime,
-    onAdd, trackMeta, slug, error, onRetry, readOnly = false, canOrder = false, channel = "delivery"
+    onAdd, trackMeta, slug, error, onRetry, readOnly = false, canOrder = false, channel = "delivery", flavorSearch, setFlavorSearch
                                   }: Props) {
     const [qty, setQty] = useState(1);
     const [observation, setObservation] = useState("");
@@ -58,7 +60,11 @@ export default function ItemModal({
     const eligibleForPizza = !readOnly && isPizzaItem(item, pizzaSettings);
     const [flavorCount, setFlavorCount] = useState(1);
     const [extraFlavors, setExtraFlavors] = useState<PizzaCatalogItem[]>([]);
-    const [flavorSearch, setFlavorSearch] = useState(false);
+    const mounted = useRef(true);
+    useEffect(() => {
+        mounted.current = true;
+        return () => { mounted.current = false; };
+    }, []);
     const [catalog, setCatalog] = useState<PizzaCatalogItem[]>([]);
     const [loadingFlavors, setLoadingFlavors] = useState(false);
     const [pizzaError, setPizzaError] = useState("");
@@ -265,6 +271,7 @@ export default function ItemModal({
             const response = await fetch(`/api/restaurants/${restaurant.id}/pizza/catalog?channel=${channel}`);
             const data = await response.json();
             if (!response.ok) throw new Error(data.error);
+            if (!mounted.current) return;
             setCatalog(data.items);
             setFlavorSearch(true);
         } catch (e) { setPizzaError(e instanceof Error ? e.message : "Não foi possível carregar os sabores."); }

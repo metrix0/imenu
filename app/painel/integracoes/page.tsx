@@ -3,16 +3,17 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import DeliveryIntegrations from "@/components/restaurant-owner/configuracoes/DeliveryIntegrations";
-import SaveStatus, { PageSaveHeader, PageSaveStatusProvider, type SaveState } from "@/components/ui/SaveStatus";
+import SaveStatus, { PageHeader, PageSaveStatusProvider, type SaveState } from "@/components/ui/SaveStatus";
 
 import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
+import ConfigurationCard from "@/components/ui/ConfigurationCard";
 import SupportButton, { SupportWhatsappBadge, type SupportButtonRef } from "@/components/common/SupportButton";
 import Input from "@/components/ui/Input";
-import ListLoader from "@/components/ui/ListLoader";
+import { PageLoader } from "@/components/ui/Loader";
 import { useAutoSave } from "@/lib/utils/useAutoSave";
 import { cleanMetaPixelId } from "@/lib/analytics/metaEvents";
 import { supabase } from "@/lib/database/supabaseClient";
@@ -202,24 +203,16 @@ function IntegracoesContent() {
 
     if (loading) {
         return (
-            <div className="flex h-64 items-center justify-center">
-                <ListLoader lines={4} />
-            </div>
+            <PageLoader />
         );
     }
 
     return (
         <div className="mx-auto max-w-4xl px-4 pb-24 pt-8 sm:px-6">
-            <PageSaveHeader>
-                <div className="flex items-start justify-between gap-4">
-                    <h1 className="mb-2 text-3xl font-bold text-gray-900">Integrações</h1>
-                    <SaveStatus status={deliverySaveState} />
-                    <SaveStatus status={autosave.status} />
-                </div>
-            </PageSaveHeader>
-            <p className="mb-6 text-gray-600">
-                Configure o rastreamento dos seus anúncios e solicite novas integrações.
-            </p>
+            <PageHeader title="Integrações" description="Configure o rastreamento dos seus anúncios e solicite novas integrações." className="mb-6">
+                <SaveStatus status={deliverySaveState} />
+                <SaveStatus status={autosave.status} />
+            </PageHeader>
 
             <Card className="mb-6 !p-5 sm:!p-7">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -263,23 +256,19 @@ function IntegracoesContent() {
                     const isMeta = id === "meta_pixel_id";
 
                     return (
-                        <CollapsibleSection
+                        <ConfigurationCard
+                            embedded
+                            collapse={{}}
                             key={id}
                             className={index > 0 ? "border-t border-gray-200 pt-6" : undefined}
                             title={title}
                             description={description}
                             icon={<Image src={logo} alt="" width={36} height={36} className="h-9 w-9 object-contain" />}
-                            badge={active && (
-                                configured
-                                    ? <Badge variant="success">{isMeta ? "Pixel ativado" : "Ativo"}</Badge>
-                                    : <Badge variant="warning">Configurar</Badge>
-                            )}
-                            toggle={{
-                                checked: active,
-                                disabled: !restaurantId,
-                                label: `Ativar ${title}`,
-                                onChange: checked => changeTracking({ [enabled]: checked }),
-                            }}
+                            configured={configured}
+                            checked={active}
+                            disabled={!restaurantId}
+                            ariaLabel={`Ativar ${title}`}
+                            onChange={checked => changeTracking({ [enabled]: checked })}
                         >
                             <div className={isMeta ? "space-y-2" : "space-y-1"}>
                                 <Input
@@ -313,7 +302,7 @@ function IntegracoesContent() {
                                     </div>
                                 </div>
                             )}
-                        </CollapsibleSection>
+                        </ConfigurationCard>
                     );
                 })}
             </Card>

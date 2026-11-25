@@ -10,10 +10,10 @@ import {
 import { SupportWhatsappBadge } from "@/components/common/SupportButton";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
-import Loader from "@/components/ui/Loader";
+import ListLoader from "@/components/ui/ListLoader";
 import ModalFlowStep from "@/components/ui/ModalFlowStep";
 import SaveStatus from "@/components/ui/SaveStatus";
-import ToggleOptionCard from "@/components/ui/ToggleOptionCard";
+import ConfigurationCard from "@/components/ui/ConfigurationCard";
 import { IA_PLUS_WHATSAPP_ORDERING } from "@/lib/addons/products";
 import { nfceRequest } from "@/components/restaurant-owner/pedidos/NfceHistory";
 import { crmRequest } from "@/lib/api/crm";
@@ -275,7 +275,7 @@ export default function IMenuPlusSetup({ restaurantId, onClose, onSavingChange }
                                 </p>
                             )}
                             {SETTINGS.filter((setting) => setting.step === step).map(({ key, title, description, icon: Icon }) => (
-                                <ToggleOptionCard key={key} label={title}
+                                <ConfigurationCard compact key={key} title={title}
                                     description={key === "nfce" ? <>
                                         {description}
                                         {setup.values.nfce && !setup.fiscal.configured && (
@@ -290,9 +290,8 @@ export default function IMenuPlusSetup({ restaurantId, onClose, onSavingChange }
                                     checked={reviewingMarketing && isMarketingSetting(key) ? reviewingMarketing.choices[key] : setup.values[key]}
                                     onChange={(checked) => toggle(key, checked)}
                                     disabled={key === "nfce" && !setup.fiscal.available}
-                                    badge={key === "darkMenu" ? <Badge variant="neutral">Opcional</Badge> : undefined}
-                                    switchBadge={key === "nfce" && setup.values.nfce && !setup.fiscal.configured
-                                        ? <Badge variant="warning" className="font-medium!">Não configurado</Badge> : undefined}
+                                    titleBadge={key === "darkMenu" ? <Badge variant="neutral">Opcional</Badge> : undefined}
+                                    configured={key === "nfce" && setup.values.nfce ? setup.fiscal.configured : undefined}
                                     ariaLabel={title} icon={<Icon size={18} aria-hidden="true" />}
                                     className={key === "nfce"
                                         ? "max-sm:p-3! items-start! [&>div:first-child]:items-start [&>div:first-child>span:first-child]:mt-0.5"
@@ -311,7 +310,7 @@ export default function IMenuPlusSetup({ restaurantId, onClose, onSavingChange }
                                     </Button>
                                 )}
                             </div>
-                        ) : <div className="flex min-h-32 items-center justify-center" role="status" aria-label="Carregando configurações"><Loader /></div>
+                        ) : <div className="min-h-32" role="status" aria-label="Carregando configurações"><ListLoader lines={3} /></div>
                     )}
 
                     {final && (

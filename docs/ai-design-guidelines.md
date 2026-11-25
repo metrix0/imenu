@@ -26,7 +26,9 @@ The design study contains an optional `warm` direction, but the standard `#f7f8f
 - `components/ui/Button.tsx`: `primary` and `secondary` variants, built-in disabled/loading behavior; the panel primary action is `#d93d00`.
 - `components/ui/Input.tsx`, `Textarea.tsx`, `Dropdown.tsx`: established field sizes, labels, outlines, and icon handling.
 - `components/ui/Card.tsx`: `10px` radius, subtle border, white background, context-specific padding. Do not add a competing card shell.
-- `components/ui/Loader.tsx`: reuse for page and section loading. Keep initial loading separate from saving so autosave does not hide or disable the form; use `SaveStatus.tsx` for persistence feedback.
+- `components/ui/Loader.tsx`: use `PageLoader` for initial page loading (one spinner, accessible label only). Use `ListLoader.tsx` for section loading, without visible loading text. Keep initial loading separate from saving; use `SaveStatus.tsx` for persistence feedback.
+- `components/ui/ConfigurationCard.tsx`: use the shared Modo Vitrine typography for feature cards, optional switch, disclosure, configuration status and Plus badge. The switch always precedes the chevron; compact is reserved for inner option rows. Reuse the existing collapse primitives.
+- `PageHeader` in `components/ui/SaveStatus.tsx`: use for panel page headings, descriptions, actions and the single aggregated save indicator.
 - `components/ui/DataTable.tsx`: standard bordered table with `13px` text, soft header, consistent padding, loading/empty states.
 - `components/ui/Modal.tsx`, `HybridModal.tsx`, `ConfirmModal.tsx`: reuse modal conventions; as documented in `components/ui/README.md`, `Modal` requires an explicit height and `HybridModal` uses a viewport fraction.
 - `components/ui/Tabs.tsx`, `Badge.tsx`, `Switch.tsx`, `Tooltip.tsx`, `Toast.tsx`, `Pagination.tsx`: use the existing interactions and feedback patterns.

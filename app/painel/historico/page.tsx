@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/ui/SaveStatus";
 import { LEGACY_CARD_METHOD, isCardAtDeliveryMethod } from "@/lib/payments/deliveryMethods";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
@@ -313,7 +314,8 @@ export default function HistoricoPage() {
 
     return (
         <div className="max-w-7xl 2xl:max-w-9xl mx-auto pb-20 space-y-8 px-4 sm:px-6 pt-8">
-            <div className="flex flex-nowrap items-center justify-between gap-2 sm:gap-3">
+            <PageHeader>
+<div className="flex flex-nowrap items-center justify-between gap-2 sm:gap-3">
                 <h1 ref={historyTitleRef} aria-label="Histórico de Pedidos" className="relative min-w-0 flex-1 overflow-hidden whitespace-nowrap text-3xl font-bold text-gray-900">
                     <span ref={fullTitleRef} aria-hidden="true" className="invisible absolute left-0 top-0 w-max whitespace-nowrap">Histórico de Pedidos</span>
                     {shortHistoryTitle ? "Histórico" : "Histórico de Pedidos"}
@@ -323,6 +325,7 @@ export default function HistoricoPage() {
                         onPaid={() => setNfceRefresh(value => value + 1)} />
                 </div>}
             </div>
+</PageHeader>
 
             <OrdersFilter
                 search={search} onSearchChange={setSearch}
