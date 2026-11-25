@@ -21,7 +21,9 @@ import {
     faVolumeHigh,
 } from "@fortawesome/free-solid-svg-icons";
 import { clearCachedAuthSession, supabase } from "@/lib/database/supabaseClient";
-import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
+import { useCreationStore, useRestaurantPlus } from "@/lib/stores/restaurant-owner/creationStore";
+import { useSalesStore } from "@/lib/stores/restaurant-owner/iaVendasStore";
+import ListLoader from "@/components/ui/ListLoader";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
@@ -364,7 +366,7 @@ export default function ConfiguracoesPage() {
     const [isSavingSmallCityMode, setIsSavingSmallCityMode] = useState(false);
     const [confirmSmallCityModeOpen, setConfirmSmallCityModeOpen] = useState(false);
     const [isExportingMenu, setIsExportingMenu] = useState(false);
-    const [pdfAccess, setPdfAccess] = useState(false);
+    const pdfAccess = useRestaurantPlus(restaurant?.id ?? restaurantId);
     const [pdfSalesOpen, setPdfSalesOpen] = useState(false);
     const [darkThemeSalesOpen, setDarkThemeSalesOpen] = useState(false);
     const [isSavingDarkMenu, setIsSavingDarkMenu] = useState(false);
@@ -380,14 +382,6 @@ export default function ConfiguracoesPage() {
     const vitrineUrl = shareableUrl && restaurant?.url_slug
         ? new URL(`/vitrine/${restaurant.url_slug}`, shareableUrl).href
         : "";
-
-    const loadPdfAccess = useCallback(async (id: string) => {
-        setPdfAccess(false);
-        const response = await qrTableAuthenticatedFetch("/api/addons/billing?restaurantId=" + encodeURIComponent(id), { cache: "no-store" });
-        if (!response.ok) throw new Error("Não foi possível verificar o iMenu Plus.");
-        const data = await response.json() as { addons: { addon: { product_key: string }; active: boolean }[] };
-        setPdfAccess(data.addons.some(item => item.addon.product_key === "ia_plus" && item.active));
-    }, []);
 
     useEffect(() => {
         const audio = new Audio("/sounds/new-order.mp3");
@@ -452,7 +446,6 @@ export default function ConfiguracoesPage() {
                                 `${window.location.origin}/${restData.url_slug}`,
                             );
                         }
-                        await loadPdfAccess(restData.id);
                     }
                 }
             } catch (error) {
@@ -464,7 +457,7 @@ export default function ConfiguracoesPage() {
         };
 
         void loadData();
-    }, [restaurantId, router, setRestaurantId, loadPdfAccess]);
+    }, [restaurantId, router, setRestaurantId]);
 
     const currentRestaurantId = restaurant?.id;
     const saveAddress = useCallback(async (data: AddressData) => {
@@ -574,6 +567,7 @@ export default function ConfiguracoesPage() {
 
     const saveDarkMenuMode = async (enabled: boolean) => {
         if (!restaurant || isSavingDarkMenu) return;
+        if (pdfAccess === null) return;
         if (!pdfAccess) {
             setDarkThemeSalesOpen(true);
             return;
@@ -589,7 +583,7 @@ export default function ConfiguracoesPage() {
             const result = await response.json() as { enabled?: boolean; error?: string };
             if (!response.ok) {
                 if (response.status === 403) {
-                    setPdfAccess(false);
+                    void useSalesStore.getState().refreshUsage(restaurant.id);
                     setDarkThemeSalesOpen(true);
                 }
                 throw new Error(result.error || "Não foi possível salvar o tema.");
@@ -610,6 +604,7 @@ export default function ConfiguracoesPage() {
 
     const exportPrintableMenu = async () => {
         if (!restaurant || isExportingMenu) return;
+        if (pdfAccess === null) return;
         if (!pdfAccess) {
             setPdfSalesOpen(true);
             return;
@@ -863,7 +858,7 @@ export default function ConfiguracoesPage() {
                 onPaid={() => {
                     setPdfSalesOpen(false);
                     setDarkThemeSalesOpen(false);
-                    return loadPdfAccess(restaurant.id);
+                    return useSalesStore.getState().refreshUsage(restaurant.id);
                 }}
             />}
             {toast && (
@@ -995,7 +990,7 @@ export default function ConfiguracoesPage() {
                             </Card>
 
                             <div id="nfce" className="scroll-mt-20">
-                                <NfceSettings key={pdfAccess ? "plus" : "locked"} restaurant={restaurant.id} address={restaurant.address} locked={!pdfAccess} />
+                                {pdfAccess === null ? <Card><ListLoader lines={2} /></Card> : <NfceSettings key={pdfAccess ? "plus" : "locked"} restaurant={restaurant.id} address={restaurant.address} locked={!pdfAccess} />}
                             </div>
 
                             <Card className="border border-gray-200 shadow-sm">
@@ -1005,7 +1000,7 @@ export default function ConfiguracoesPage() {
                                             <h3 className="text-lg font-semibold text-gray-900">
                                                 Cardápio com Tema Escuro
                                             </h3>
-                                            <Badge preset={pdfAccess ? "featureAvailable" : "plusIncluded"} />
+                                            {pdfAccess !== null && <Badge preset={pdfAccess ? "featureAvailable" : "plusIncluded"} />}
                                         </div>
                                         <p id="dark-menu-description" className="mt-2 text-sm text-gray-500">
                                             Exiba seu cardápio com cores escuras, inclusive em Mesas e Vitrine.{" "}
@@ -1022,14 +1017,14 @@ export default function ConfiguracoesPage() {
                                     <div className="flex shrink-0 items-start gap-3">
                                         <SaveStatus status={saveErrors.dark ? "error" : isSavingDarkMenu ? "saving" : "saved"} />
                                         <Tooltip
-                                            text={!pdfAccess ? "Disponível com iMenu Plus. Assine o plano para ativar o tema escuro." : ""}
+                                            text={pdfAccess === false ? "Disponível com iMenu Plus. Assine o plano para ativar o tema escuro." : ""}
                                             parentClassName="!block"
                                         >
                                             <Switch
-                                                checked={restaurant.dark_menu_enabled === true && pdfAccess}
+                                                checked={restaurant.dark_menu_enabled === true && pdfAccess === true}
                                                 aria-label="Cardápio com Tema Escuro"
                                                 aria-describedby="dark-menu-description"
-                                                disabled={isSavingDarkMenu}
+                                                disabled={isSavingDarkMenu || pdfAccess === null}
                                                 onClick={() => void saveDarkMenuMode(restaurant.dark_menu_enabled !== true)}
                                             />
                                         </Tooltip>
@@ -1151,14 +1146,16 @@ export default function ConfiguracoesPage() {
                                             <h3 className="text-lg font-semibold text-gray-900">
                                                 Exportar Cardápio para Impressão
                                             </h3>
-                                            <Badge preset={pdfAccess ? "featureAvailable" : "plusIncluded"} />
+                                            {pdfAccess !== null && <Badge preset={pdfAccess ? "featureAvailable" : "plusIncluded"} />}
                                         </div>
                                         <p className="mt-2 text-sm text-gray-500">
                                             Baixe um PDF pronto para imprimir, com suas categorias, produtos, descrições e preços.
                                         </p>
                                     </div>
                                     <div className="flex shrink-0 items-start">
-                                        {pdfAccess ? (
+                                        {pdfAccess === null ? (
+                                            <Button variant="secondary" disabled>Exportar PDF</Button>
+                                        ) : pdfAccess ? (
                                             <Button
                                                 variant="secondary"
                                                 onClick={() => void exportPrintableMenu()}

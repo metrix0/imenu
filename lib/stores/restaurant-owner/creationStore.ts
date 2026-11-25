@@ -66,3 +66,9 @@ export const useCreationStore = create<CreationState>()(
         }
     )
 );
+
+/** Cached presentation only: every paid operation still requires server authorization. */
+export function useRestaurantPlus(restaurantId: string | null | undefined): boolean | null {
+    return useCreationStore(state => restaurantId && state.plusSnapshot?.restaurantId === restaurantId
+        ? state.plusSnapshot.active : null);
+}

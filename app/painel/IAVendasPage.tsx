@@ -28,7 +28,7 @@ import Modal from "@/components/ui/Modal";
 import Tooltip from "@/components/ui/Tooltip";
 import Loader from "@/components/ui/Loader";
 import { useSalesStore } from "@/lib/stores/restaurant-owner/iaVendasStore";
-import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
+import { useCreationStore, useRestaurantPlus } from "@/lib/stores/restaurant-owner/creationStore";
 import AnalysisReport from "@/components/restaurant-owner/ia-vendas/AnalysisReport";
 import SalesMarkdown from "@/components/restaurant-owner/ia-vendas/SalesMarkdown";
 import PanelTabCard from "@/components/restaurant-owner/ia-vendas/PanelTabCard";
@@ -97,6 +97,7 @@ export default function SalesPage() {
     [batchIds, setBatchIds] = useState<string[]>([]),
     [selectedBatchIds, setSelectedBatchIds] = useState<string[]>([]),
     [newConversation, setNewConversation] = useState(false);
+  const plus = useRestaurantPlus(restaurant);
   const analysisExposureRef = usePlusExposure("sales_section", isAnalysisRoute);
   const end = useRef<HTMLDivElement>(null),
     lastMessage = useRef<HTMLElement>(null),
@@ -265,11 +266,11 @@ export default function SalesPage() {
     window.history.replaceState(null, "", url);
   }, [pathname, modeReady, sales.loading, sales.conversation_id]);
 
-  const locked = sales.access?.plus !== true;
+  const locked = plus !== true;
   const freeApply = !isAnalysis && locked && sales.access?.free_applications_remaining === 1;
   const applyLocked = locked && !freeApply;
   const actionById = new Map(sales.actions.map((action) => [action.id, action]));
-  const freeLimitReached = !isAnalysis && sales.access && !sales.access.plus && (sales.upgradeRequired || Number(sales.access.tokens_remaining) <= 0);
+  const freeLimitReached = !isAnalysis && sales.access && plus === false && (sales.upgradeRequired || Number(sales.access.tokens_remaining) <= 0);
   const openLockedApply = (ids: string[] = []) => {
     const actionIds = [...new Set(ids.filter(Boolean))];
     if (restaurant && actionIds.length) {
@@ -512,7 +513,7 @@ export default function SalesPage() {
                             message={part.content}
                             access={sales.access}
                             onBuyCredits={() => setModal("buy_tokens")}
-                            onSubscribe={sales.access?.plus ? undefined : () => setPlusModal("checkout")}
+                            onSubscribe={plus ? undefined : () => setPlusModal("checkout")}
                           />
                         ) : (
                           <SalesMarkdown
@@ -611,10 +612,10 @@ export default function SalesPage() {
                         return <SalesAnalysisSuggestionCard key={i} />;
                       if (card.type === "image_limit")
                         return <div key={i} className="mt-3 flex flex-wrap items-center gap-2">
-                          {sales.access?.plus
+                          {plus
                             ? <Button variant="secondary" onClick={() => setModal("buy_tokens")}>Comprar tokens</Button>
                             : <Button variant="primary" leftIcon={<Crown size={16} aria-hidden="true" />} onClick={() => setPlusModal("checkout")}>iMenu Plus</Button>}
-                          {sales.access?.plus && <SupportWhatsappBadge />}
+                          {plus && <SupportWhatsappBadge />}
                         </div>;
                       return card.type !== "action" ? (
                         <DataCard key={i} card={card} />
@@ -890,7 +891,7 @@ export default function SalesPage() {
                   onBuyTokens={() => setModal("buy_tokens")}
                 />
               </div>
-              {sales.access?.plus === false && (
+              {plus === false && (
                 <Button className="mt-3 shrink-0" variant="primary" onClick={() => openPlus()}><Crown size={16} className="mr-2" />iMenu Plus</Button>
               )}
             </div>
@@ -910,7 +911,7 @@ export default function SalesPage() {
                     actions={sales.actions}
                     refs={sales.references}
                     disabled={disabled}
-                    loading={sales.loading && sales.access === null}
+                    loading={plus === null || (sales.loading && sales.access === null)}
                     generating={analysisRunning}
                     activeOpportunityId={opportunity?.id}
                     onHistory={() => setModal("history")}
@@ -956,7 +957,7 @@ export default function SalesPage() {
               {conversationPicker}
             </div>
             <div className="ml-auto flex shrink-0 gap-2">
-              {sales.access?.plus === false && (
+              {plus === false && (
                 <span className="hidden md:inline-flex lg:hidden">
                   <Button variant="primary" onClick={() => openPlus()}><Crown size={16} className="mr-2" />iMenu Plus</Button>
                 </span>
@@ -1107,7 +1108,7 @@ export default function SalesPage() {
 
         </section>
       </div>
-      {restaurant && <IaPlusSalesModal active={sales.access?.plus === true} open={plusModal !== null} checkout={plusModal === "checkout"} contextFeature={isAnalysis ? "sales" : "assistant"} contextMessage={plusContext} restaurantId={restaurant} onClose={() => setPlusModal(null)} onPaid={async () => { setPlusModal(null); sales.clearUpgrade(); await sales.load(restaurant, sales.conversation_id || undefined); }} />}
+      {restaurant && <IaPlusSalesModal active={plus === true} open={plusModal !== null} checkout={plusModal === "checkout"} contextFeature={isAnalysis ? "sales" : "assistant"} contextMessage={plusContext} restaurantId={restaurant} onClose={() => setPlusModal(null)} onPaid={async () => { setPlusModal(null); sales.clearUpgrade(); await sales.load(restaurant, sales.conversation_id || undefined); }} />}
       <Modal
         open={modal === "buy_tokens"}
         onClose={() => setModal(null)}

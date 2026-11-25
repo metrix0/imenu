@@ -16,8 +16,8 @@ import ListLoader from "@/components/ui/ListLoader";
 import { useAutoSave } from "@/lib/utils/useAutoSave";
 import { cleanMetaPixelId } from "@/lib/analytics/metaEvents";
 import { supabase } from "@/lib/database/supabaseClient";
-import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
-import { qrTableAuthenticatedFetch } from "@/lib/qr-table/clientApi";
+import { useCreationStore, useRestaurantPlus } from "@/lib/stores/restaurant-owner/creationStore";
+import { useSalesStore } from "@/lib/stores/restaurant-owner/iaVendasStore";
 
 const extractFirst = (value: string, pattern: RegExp) =>
     value.toUpperCase().match(pattern)?.[0] ?? "";
@@ -101,9 +101,9 @@ function IntegracoesContent() {
     const [deliverySaveState, setDeliverySaveState] = useState<SaveState>("idle");
     const [loading, setLoading] = useState(true);
     const [iaPlusOpen, setIaPlusOpen] = useState(false);
-    const [plusAccess, setPlusAccess] = useState<{ restaurantId: string; active: boolean } | null>(null);
-    const hasLoadedPlusAccess = Boolean(restaurantId && plusAccess?.restaurantId === restaurantId);
-    const iaPlusActive = hasLoadedPlusAccess && plusAccess?.active === true;
+    const plusAccess = useRestaurantPlus(restaurantId);
+    const hasLoadedPlusAccess = plusAccess !== null;
+    const iaPlusActive = plusAccess === true;
     const integrationSupportRef = useRef<SupportButtonRef>(null);
     const [tracking, setTracking] = useState(EMPTY_TRACKING);
     const [trackingLoadError, setTrackingLoadError] = useState(false);
@@ -200,33 +200,6 @@ function IntegracoesContent() {
         return () => { canceled = true; };
     }, [restaurantId, setRestaurantId]);
 
-    useEffect(() => {
-        if (!restaurantId) return;
-        let canceled = false;
-        const loadIaPlus = async () => {
-            let active = false;
-            try {
-                const response = await qrTableAuthenticatedFetch(
-                    `/api/addons/billing?restaurantId=${encodeURIComponent(restaurantId)}`,
-                    { cache: "no-store" }
-                );
-                if (!response.ok) return;
-                const payload = await response.json() as {
-                    addons: { addon: { product_key: string }; active: boolean }[];
-                };
-                active = payload.addons.some(
-                    (item) => item.addon.product_key === "ia_plus" && item.active
-                );
-            } catch (error) {
-                console.error("[INTEGRACOES] Erro ao carregar iMenu Plus:", error);
-            } finally {
-                if (!canceled) setPlusAccess({ restaurantId, active });
-            }
-        };
-        void loadIaPlus();
-        return () => { canceled = true; };
-    }, [restaurantId]);
-
     if (loading) {
         return (
             <div className="flex h-64 items-center justify-center">
@@ -255,7 +228,7 @@ function IntegracoesContent() {
                             <h2 className="text-xl font-semibold text-gray-900">
                                 Solicitar integrações
                             </h2>
-                            <Badge preset={iaPlusActive ? "featureAvailable" : "plusIncluded"} />
+                            {hasLoadedPlusAccess && <Badge preset={iaPlusActive ? "featureAvailable" : "plusIncluded"} />}
                         </div>
                         <p className="mt-2 text-sm text-gray-600">
                             Com o iMenu Plus, solicite integrações e novas funcionalidades
@@ -360,7 +333,7 @@ function IntegracoesContent() {
                     contextFeature="exclusive_support"
                     contextMessage="Com o iMenu Plus, você pode solicitar novas integrações e funcionalidades para o seu restaurante."
                     onPaid={() => {
-                        setPlusAccess({ restaurantId, active: true });
+                        void useSalesStore.getState().refreshUsage(restaurantId);
                         setIaPlusOpen(false);
                     }}
                 />

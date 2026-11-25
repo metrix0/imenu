@@ -2,7 +2,7 @@
 import { PageSaveHeader } from "@/components/ui/SaveStatus";
 import { useEffect, useMemo, useRef, useState } from "react";
 import PageBadge from "@/components/ui/PageBadge";
-import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
+import { useCreationStore, useRestaurantPlus } from "@/lib/stores/restaurant-owner/creationStore";
 import { crmRequest } from "@/lib/api/crm";
 import {
   AUTOMATION_KINDS,
@@ -63,7 +63,7 @@ const formattedHistoryDate = (value: string) =>
 
 export default function MarketingPage() {
   const id = useCreationStore((s) => s.restaurantId);
-  const [plus, setPlus] = useState(false);
+  const plus = useRestaurantPlus(id);
   const [plusOpen, setPlusOpen] = useState(false);
   const [settings, setSettings] = useState<AutomationSettings | null>(null),
     [offers, setOffers] = useState<{ value: string; label: string }[]>([]),
@@ -121,18 +121,18 @@ export default function MarketingPage() {
   ], [restaurantName]);
   useEffect(() => {
     setSettings(null);
-    setPlus(false);
     setRestaurantName("");
     setDailyLimitDraft("10");
     setOpenVariables(null);
     setError("");
     if (!id) return;
     const controller = new AbortController();
+    const checkedAt = Date.now();
     void crmRequest("/api/automations", id, { signal: controller.signal })
       .then((data) => {
         if (controller.signal.aborted) return;
         setSettings(data.settings);
-        setPlus(data.plus === true);
+        if (typeof data.plus === "boolean") useCreationStore.getState().rememberPlus(id, data.plus, checkedAt);
         setOffers(data.offers);
         setConnected(data.connected);
         setRestaurantName(data.restaurantName);
@@ -382,7 +382,7 @@ export default function MarketingPage() {
         </>
       ) : null}
       </div>
-      {!plus && settings ? (
+      {plus === false && settings ? (
         <div className="absolute inset-x-0 top-10 z-10 flex justify-center px-3 sm:top-20">
           <Card className="w-full max-w-xl overflow-hidden border border-gray-200 !p-0 text-left shadow-xl">
             <div className="p-5 sm:p-7">

@@ -197,7 +197,11 @@ export default function PainelLayout({
         const refresh = () => { if (document.visibilityState === "visible") void refreshUsage(targetRestaurantId); };
         refresh();
         window.addEventListener("focus", refresh);
-        return () => window.removeEventListener("focus", refresh);
+        window.addEventListener("imenu:ia-plus-activated", refresh);
+        return () => {
+            window.removeEventListener("focus", refresh);
+            window.removeEventListener("imenu:ia-plus-activated", refresh);
+        };
     }, [targetRestaurantId, pathname, isChecking, refreshUsage]);
 
     useEffect(() => {
