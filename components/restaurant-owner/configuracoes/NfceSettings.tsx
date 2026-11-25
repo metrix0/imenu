@@ -184,29 +184,28 @@ export default function NfceSettings({ restaurant, address, locked = false }: { 
                     onChange: enabled => change({ ...value, enabled }),
                 }}
             >
-                <div className="space-y-5">
+                <div className="@container space-y-5">
                     {!locked && !environment && <p className="text-sm text-gray-600">A emissão fiscal não está disponível neste ambiente.</p>}
-                    <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 sm:gap-x-5">
+                    <div className="grid w-full grid-cols-[repeat(3,minmax(min-content,1fr))] items-start gap-x-1 sm:gap-x-4">
                         {orderChannels.map(([channel, label]) => (
-                            <div key={channel} className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                                <div className="inline-flex shrink-0 items-center gap-1.5 sm:gap-2">
-                                    <span className="text-xs font-medium text-gray-900 sm:text-sm">{label}</span>
-                                    <Switch aria-label={label} checked={value.channels[channel]} disabled={locked || !environment}
-                                        onClick={() => {
-                                            const checked = !value.channels[channel];
-                                            if (channel === "delivery" && checked) setConfirmDelivery(true);
-                                            else change({ ...value, channels: { ...value.channels, [channel]: checked } });
-                                        }} />
-                                </div>
+                            <div key={channel} className={`grid grid-cols-[minmax(max-content,1fr)_auto] items-center gap-x-1 gap-y-1 @max-[270px]:gap-x-0.5 sm:gap-x-2 ${channel === "delivery" ? "@min-[700px]:grid-cols-[auto_minmax(0,1fr)_auto]" : ""}`}>
+                                <span className="text-xs font-medium text-gray-900 @max-[270px]:text-[11px] sm:text-sm">{label}</span>
+                                <Switch aria-label={label} checked={value.channels[channel]} disabled={locked || !environment}
+                                    className={`col-start-2 row-start-1 justify-self-end ${channel === "delivery" ? "@min-[700px]:col-start-3" : ""}`}
+                                    onClick={() => {
+                                        const checked = !value.channels[channel];
+                                        if (channel === "delivery" && checked) setConfirmDelivery(true);
+                                        else change({ ...value, channels: { ...value.channels, [channel]: checked } });
+                                    }} />
                                 {channel === "delivery" && (
                                     <Tooltip
                                         text="A NFC-e de entrega exige identificar o destinatário. Pedir CPF no checkout pode fazer clientes desistirem do pedido."
                                         size="medium"
                                         showOnClick
-                                        parentClassName="inline-flex max-w-full items-center leading-none"
+                                        parentClassName="col-span-2 row-start-2 !flex items-center justify-end leading-none [contain:inline-size] @min-[700px]:col-span-1 @min-[700px]:col-start-2 @min-[700px]:row-start-1 @min-[700px]:justify-start"
                                     >
-                                        <button type="button" aria-label="Por que a NFC-e para delivery não é recomendada?" className="inline-flex max-w-full cursor-help rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
-                                            <Badge variant="notRecommended" className="max-w-full gap-1">
+                                        <button type="button" aria-label="Por que a NFC-e para delivery não é recomendada?" className="inline-flex shrink-0 cursor-help rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
+                                            <Badge variant="notRecommended" className="gap-1">
                                                 Não recomendado
                                                 <PanelIcon icon={faCircleInfo} className="text-[11px]" aria-hidden="true" />
                                             </Badge>
