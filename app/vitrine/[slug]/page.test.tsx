@@ -48,7 +48,7 @@ function renderMenu(readOnly?: boolean, availability = restaurant.availability_j
     return renderToStaticMarkup(<MenuClientPage readOnly={readOnly} slug="test" restaurant={{ ...restaurant, availability_json: availability }} categories={[]} itemsByCategory={{}} />);
 }
 function renderItem(readOnly?: boolean) {
-    return renderToStaticMarkup(<ItemModal readOnly={readOnly} restaurant={restaurant} item={item} subcategories={subcategories} loading={false} onClose={() => {}} deliveryTax={null} deliveryTime={null} />);
+    return renderToStaticMarkup(<ItemModal readOnly={readOnly} restaurant={restaurant} item={item} subcategories={subcategories} loading={false} onClose={() => {}} deliveryTax={null} deliveryTime={null} flavorSearch={false} setFlavorSearch={() => {}} />);
 }
 
 beforeEach(() => {
