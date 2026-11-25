@@ -85,6 +85,7 @@ function LoyaltyCustomers({ restaurantId, goal }: { restaurantId: string; goal: 
 
     return (
         <section className="space-y-3">
+            <h2 className="text-lg font-semibold text-gray-900">Clientes com selos</h2>
             {error ? <p role="alert" className="text-sm text-red-600">{error}</p> : (
                 <>
                     <DataTable
