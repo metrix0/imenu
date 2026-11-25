@@ -9,7 +9,7 @@ import Tooltip from "@/components/ui/Tooltip";
 
 type Props = {
     title: string;
-    mobileTitle?: string;
+    mobileTitle?: ReactNode;
     description?: ReactNode;
     icon?: ReactNode;
     titleBadge?: ReactNode;
@@ -45,9 +45,9 @@ export default function ConfigurationCard({
     const heading = <>
         {icon && <span className={`mt-0.5 flex shrink-0 items-center justify-center ${compact ? checked ? "text-brand" : "text-gray-500" : ""}`}>{icon}</span>}
         <span className="min-w-0 flex-1">
-            <span className="flex flex-wrap items-center gap-2">
+            <span className={plus !== undefined ? "block sm:flex sm:flex-wrap sm:items-center sm:gap-2" : "flex flex-wrap items-center gap-2"}>
                 {titleText}
-                {plus !== undefined && <Badge preset={plus ? "featureAvailable" : "plusIncluded"} />}
+                {plus !== undefined && <>{" "}<Badge preset={plus ? "featureAvailable" : "plusIncluded"} className="ml-1 whitespace-nowrap sm:ml-0" /></>}
                 {titleBadge}
             </span>
             {description && <span id={descriptionId} className={compact ? "mt-0.5 block text-xs text-gray-500" : `mt-2 text-sm text-gray-500 ${mobileFullDescription ? "hidden sm:block" : "block"}`}>{description}</span>}
