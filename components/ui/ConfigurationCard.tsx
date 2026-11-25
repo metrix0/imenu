@@ -64,7 +64,7 @@ export default function ConfigurationCard({
                 className="flex min-w-0 flex-1 cursor-pointer items-start gap-3 text-left disabled:cursor-default">{heading}</button>
                 : <div className="flex min-w-0 flex-1 items-start gap-3">{heading}</div>}
             {(toggle || collapse || configured !== undefined) && (
-                <div className="flex shrink-0 flex-col items-end gap-1">
+                <div className={collapse ? "flex shrink-0 flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-3" : "flex shrink-0 items-center gap-2 sm:gap-3"}>
                     {(toggle || collapse) && <div className="flex h-9 items-center gap-2">
                         {toggleTooltip && toggle ? <Tooltip text={toggleTooltip} parentClassName="!block">{toggle}</Tooltip> : toggle}
                         {collapse && <button {...disclosure.triggerProps} disabled={collapse.disabled}
@@ -73,7 +73,7 @@ export default function ConfigurationCard({
                             <CollapsibleChevron expanded={disclosure.expanded} />
                         </button>}
                     </div>}
-                    {configured !== undefined && <Badge variant={configured ? "success" : "warning"}>{configured ? "Configurado" : "Não configurado"}</Badge>}
+                    {configured !== undefined && <span className={collapse ? "sm:order-first" : "order-first"}><Badge variant={configured ? "success" : "warning"}>{configured ? "Configurado" : "Não configurado"}</Badge></span>}
                 </div>
             )}
         </div>
