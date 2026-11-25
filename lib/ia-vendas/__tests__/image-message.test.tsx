@@ -5,6 +5,7 @@ import { useSalesStore } from "@/lib/stores/restaurant-owner/iaVendasStore";
 jest.mock("@/lib/stores/restaurant-owner/iaVendasStore", () => ({ useSalesStore: jest.fn() }));
 jest.mock("@/lib/stores/restaurant-owner/creationStore", () => ({
   useCreationStore: (select: any) => select({ restaurantId: "owner" }),
+  useRestaurantPlus: () => true,
 }));
 jest.mock("next/navigation", () => ({ usePathname: () => "/painel/assistente-ia", useParams: () => ({}) }));
 jest.mock("@/lib/analytics/plusExposure", () => ({ usePlusExposure: jest.fn() }));

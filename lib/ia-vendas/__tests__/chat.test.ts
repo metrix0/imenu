@@ -715,7 +715,7 @@ test("failed product projection can be corrected after a real proposal without c
   expect(potential).toHaveBeenCalledTimes(1);
   const report = (finishRun as jest.Mock).mock.calls.at(-1)[2].report;
   expect(report.status).toBe("complete");
-  expect(report.potential_estimate).toMatchObject({ min_cents: 10000, max_cents: 25000 });
+  expect(report.potential_estimate).toMatchObject({ min_cents: 15000, max_cents: 25000, floor_applied: true });
   expect(create.mock.calls[1][0].input.find((i: any) => i.type === "function_call_output" && i.call_id === "invalid").output).toContain("quais produtos");
 });
 
