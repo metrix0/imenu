@@ -4,6 +4,7 @@ import { PageSaveHeader } from "@/components/ui/SaveStatus";
 import { useEffect, useState } from "react";
 import { useLoyaltyStore } from "@/lib/stores/restaurant-owner/loyaltyStore";
 import DataTable from "@/components/ui/DataTable";
+import PanelFeatureCallout from "@/components/ui/PanelFeatureCallout";
 import Pagination from "@/components/ui/Pagination";
 import InitialsAvatar from "@/components/ui/InitialsAvatar";
 import { crmRequest } from "@/lib/api/crm";
@@ -82,7 +83,6 @@ function LoyaltyCustomers({ restaurantId, goal }: { restaurantId: string; goal: 
 
     return (
         <section className="space-y-3">
-            <h2 className="text-lg font-semibold text-gray-900">Clientes do programa</h2>
             {error ? <p role="alert" className="text-sm text-red-600">{error}</p> : (
                 <>
                     <DataTable
@@ -461,6 +461,7 @@ export default function FidelidadePage() {
                 </Card>
             </fieldset>
             {restaurantId && <LoyaltyCustomers key={restaurantId} restaurantId={restaurantId} goal={safeProgram.goal_count} />}
+            <PanelFeatureCallout feature="crm" />
         </div>
     );
 }

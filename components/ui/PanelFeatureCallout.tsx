@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { faArrowRight, faBullhorn, faRocket, faFileInvoice } from "@fortawesome/free-solid-svg-icons";
+import { faArrowRight, faBullhorn, faRocket, faFileInvoice, faUsers } from "@fortawesome/free-solid-svg-icons";
 import Card from "@/components/ui/Card";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 
@@ -19,6 +19,14 @@ const content = {
         description: "O Vendas IA analisa seus pedidos e seu cardápio para recomendar melhorias em produtos, combinações e promoções.",
         href: "/painel/vendas-ia",
         action: "Abrir Vendas IA",
+    },
+    crm: {
+        icon: faUsers,
+        label: "CRM de clientes",
+        title: "Conheça melhor seus clientes",
+        description: "Acompanhe o histórico de compras, identifique clientes frequentes e descubra seus hábitos de consumo e produtos favoritos.",
+        href: "/painel/clientes",
+        action: "Abrir Clientes",
     },
     marketing: {
         icon: faBullhorn,
