@@ -69,9 +69,10 @@ export default function ConfigurationCard({
                         {toggleTooltip && toggle ? <Tooltip text={toggleTooltip} parentClassName="!block">{toggle}</Tooltip> : toggle}
                         {collapse && <button {...disclosure.triggerProps} disabled={collapse.disabled}
                             aria-label={`${disclosure.expanded ? "Recolher" : "Expandir"} ${title}`}
-                            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50">
-                            <CollapsibleChevron expanded={disclosure.expanded} />
+                            className="flex h-9 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50">
+                            <CollapsibleChevron expanded={disclosure.expanded} size="md" />
                         </button>}
+                        {!collapse && toggle && <span aria-hidden="true" className="w-7 shrink-0" />}
                     </div>}
                     {configured !== undefined && <span className={collapse ? "sm:order-first" : "order-first"}><Badge variant={configured ? "success" : "warning"}>{configured ? "Configurado" : "Não configurado"}</Badge></span>}
                 </div>
