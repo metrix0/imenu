@@ -172,6 +172,7 @@ export default function NfceSettings({ restaurant, address, locked = false }: { 
         <>
             <ConfigurationCard
                 title="Emissão automática de Notas Fiscais (NFC-e)"
+                mobileTitle="Emitir Notas Fiscais (NFC-e)"
                 description="Emita notas fiscais dos pedidos automaticamente, sem limites. Configure os dados da empresa e o certificado digital."
                 plus={!locked}
                 configured={!locked ? ready(effective, hasCertificate) : undefined}

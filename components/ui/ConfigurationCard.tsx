@@ -9,6 +9,7 @@ import Tooltip from "@/components/ui/Tooltip";
 
 type Props = {
     title: string;
+    mobileTitle?: string;
     description?: ReactNode;
     icon?: ReactNode;
     titleBadge?: ReactNode;
@@ -29,15 +30,18 @@ type Props = {
 
 // Shared configuration header, using the Modo Vitrine typography for features.
 export default function ConfigurationCard({
-    title, description, icon, titleBadge, plus, configured, checked, onChange,
+    title, mobileTitle, description, icon, titleBadge, plus, configured, checked, onChange,
     disabled, ariaLabel, toggleTooltip, collapse, children, footer, className = "", embedded = false, compact = false,
 }: Props) {
     const id = useId();
     const disclosure = useCollapsible(collapse);
     const titleId = `${id}-title`;
     const descriptionId = `${id}-description`;
+    const showConfigurationStatus = configured !== undefined && checked !== false;
+    const reserveConfigurationStatus = Boolean(collapse && configured !== undefined);
+    const mobileFullDescription = reserveConfigurationStatus && !compact;
     const titleText = <span id={titleId} role={compact ? undefined : "heading"} aria-level={compact ? undefined : 3}
-        className={compact ? "font-medium text-gray-900" : "!text-base !leading-6 !font-bold text-gray-900"}>{title}</span>;
+        className={compact ? "font-medium text-gray-900" : "!text-base !leading-6 !font-bold text-gray-900"}>{mobileTitle ? <><span className="sm:hidden">{mobileTitle}</span><span className="hidden sm:inline">{title}</span></> : title}</span>;
     const heading = <>
         {icon && <span className={`mt-0.5 flex shrink-0 items-center justify-center ${compact ? checked ? "text-brand" : "text-gray-500" : ""}`}>{icon}</span>}
         <span className="min-w-0 flex-1">
@@ -46,7 +50,7 @@ export default function ConfigurationCard({
                 {plus !== undefined && <Badge preset={plus ? "featureAvailable" : "plusIncluded"} />}
                 {titleBadge}
             </span>
-            {description && <span id={descriptionId} className={compact ? "mt-0.5 block text-xs text-gray-500" : "mt-2 block text-sm text-gray-500"}>{description}</span>}
+            {description && <span id={descriptionId} className={compact ? "mt-0.5 block text-xs text-gray-500" : `mt-2 text-sm text-gray-500 ${mobileFullDescription ? "hidden sm:block" : "block"}`}>{description}</span>}
         </span>
     </>;
     const toggle = checked !== undefined && onChange ? (
@@ -57,8 +61,6 @@ export default function ConfigurationCard({
                 if (!checked && collapse && !collapse.disabled) disclosure.setExpanded(true);
             }} />
     ) : null;
-    const showConfigurationStatus = configured !== undefined && checked !== false;
-    const reserveConfigurationStatus = Boolean(collapse && configured !== undefined);
     const content = <>
         <div className={`flex justify-between gap-3 sm:gap-4 ${compact ? "items-center" : "items-start"}`}>
             {collapse ? <button {...disclosure.triggerProps} disabled={collapse.disabled}
@@ -78,12 +80,18 @@ export default function ConfigurationCard({
                     {(showConfigurationStatus || reserveConfigurationStatus) && (
                         <span className={collapse ? `sm:order-first ${showConfigurationStatus ? "" : "invisible sm:hidden"}` : "order-first"}
                             aria-hidden={!showConfigurationStatus}>
-                            <Badge variant={configured ? "success" : "warning"}>{configured ? "Configurado" : "Não configurado"}</Badge>
+                            {reserveConfigurationStatus ? (
+                                <span className="grid justify-items-end">
+                                    <Badge aria-hidden="true" variant="warning" className="invisible col-start-1 row-start-1 sm:hidden">Não configurado</Badge>
+                                    <Badge variant={configured ? "success" : "warning"} className="col-start-1 row-start-1">{configured ? "Configurado" : "Não configurado"}</Badge>
+                                </span>
+                            ) : <Badge variant={configured ? "success" : "warning"}>{configured ? "Configurado" : "Não configurado"}</Badge>}
                         </span>
                     )}
                 </div>
             )}
         </div>
+        {mobileFullDescription && description && <div className="mt-2 text-sm text-gray-500 sm:hidden">{description}</div>}
         {collapse ? <CollapsibleContent id={disclosure.contentId} expanded={disclosure.expanded}>
             <div className="space-y-4 pt-4">{children}</div>
         </CollapsibleContent> : children}
