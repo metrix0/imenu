@@ -42,11 +42,16 @@ import SaveStatus, { PageHeader, PageSaveStatusProvider, type SaveState } from "
 import { TemplateEditor, VariablePicker, type TemplateEditorHandle } from "@/components/ui/WhatsAppTemplateEditor";
 import OrderBadge from "@/components/restaurant-owner/pedidos/OrderBadge";
 import { getDateRangeForDays } from "@/lib/utils/dateRange";
-import { useEffect, useRef, useState } from "react";
+import { Children, isValidElement, useEffect, useRef, useState, type ReactNode } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faMagnifyingGlass, faCheck, faStar, faCircleInfo, faTriangleExclamation, faPlus, faArrowRight, faLock, faGear, faHouse, faCalendarDays } from "@fortawesome/free-solid-svg-icons";
 
+type ShowcaseArea = "Painel" | "Menu";
+
+const menuComponents = new Set(["Button","Input","Dropdown","Tabs","Loader","ListLoader","Tooltip","Toast","Modal","HybridModal","WarningBox"]);
+
 export default function UIShowcase() {
+    const [area, setArea] = useState<ShowcaseArea>("Painel");
     const [checked, setChecked] = useState(false);
     const [tab, setTab] = useState("Hoje");
 
@@ -88,6 +93,8 @@ export default function UIShowcase() {
                 UI Component Showcase
             </h1>
 
+            <Tabs tabs={["Painel", "Menu"]} active={area} onChange={(next: ShowcaseArea) => { setArea(next); setDialog(null); setShowToast(null); }} />
+            <ShowcaseSections area={area}>
             {/* === BUTTON === */}
             <ComponentBlock
                 title="Button"
@@ -272,12 +279,19 @@ export default function UIShowcase() {
             <ComponentBlock title="PageHeader"><PageHeader title="Configurações" description="Gerencie sua loja" actions={<Button variant="secondary">Editar</Button>} /></ComponentBlock>
             <ComponentBlock title="WarningBox"><WarningBox icon={faTriangleExclamation}>Revise as informações antes de continuar.</WarningBox></ComponentBlock>
             <ComponentBlock title="WhatsAppTemplateEditor"><TemplateEditor ref={editor} value={template} variables={variables} ariaLabel="Mensagem de exemplo" onChange={setTemplate} /><VariablePicker open variables={variables} onSelect={variable => editor.current?.insertVariable(variable)} /></ComponentBlock>
-            <a className="text-sm text-brand underline" href="/dev/ui/design-system">Design system · Painel</a>
+            </ShowcaseSections>
+            {area === "Painel" && <a className="text-sm text-brand underline" href="/dev/ui/design-system">Design system · Painel</a>}
         </div>
     );
 }
 
 /* ---------- helpers ---------- */
+
+function ShowcaseSections({ area, children }: { area: ShowcaseArea; children: ReactNode }) {
+    return <div className="space-y-6">{Children.toArray(children).filter(child =>
+        area === "Painel" || (isValidElement<{ title: string }>(child) && menuComponents.has(child.props.title))
+    )}</div>;
+}
 
 function ComponentBlock({
                             title,
