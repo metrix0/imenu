@@ -186,10 +186,10 @@ export default function NfceSettings({ restaurant, address, locked = false }: { 
             >
                 <div className="@container space-y-5">
                     {!locked && !environment && <p className="text-sm text-gray-600">A emissão fiscal não está disponível neste ambiente.</p>}
-                    <div className="flex w-full items-start justify-between gap-x-1 pt-4 pb-3">
+                    <div className="flex flex-wrap items-center gap-x-6 gap-y-4 py-4">
                         {orderChannels.map(([channel, label]) => (
-                            <div key={channel} className={`grid grid-cols-[max-content_auto] items-center gap-x-2 gap-y-1 @max-[290px]:gap-x-1 ${channel === "delivery" ? "@min-[480px]:grid-cols-[max-content_auto_auto]" : ""}`}>
-                                <span className="text-xs font-medium text-gray-900 @max-[270px]:text-[11px] sm:text-sm">{label}</span>
+                            <div key={channel} className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-gray-900">{label}</span>
                                 <Switch aria-label={label} checked={value.channels[channel]} disabled={locked || !environment}
                                     onClick={() => {
                                         const checked = !value.channels[channel];
@@ -201,7 +201,7 @@ export default function NfceSettings({ restaurant, address, locked = false }: { 
                                         text="A NFC-e de entrega exige identificar o destinatário. Pedir CPF no checkout pode fazer clientes desistirem do pedido."
                                         size="medium"
                                         showOnClick
-                                        parentClassName="col-span-2 row-start-2 !flex items-center justify-end leading-none [contain:inline-size] @min-[480px]:col-span-1 @min-[480px]:col-start-3 @min-[480px]:row-start-1 @min-[480px]:[contain:none]"
+                                        parentClassName="!flex items-center leading-none"
                                     >
                                         <button type="button" aria-label="Por que a NFC-e para delivery não é recomendada?" className="inline-flex shrink-0 cursor-help rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
                                             <Badge variant="notRecommended" className="gap-1">
