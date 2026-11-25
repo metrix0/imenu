@@ -45,11 +45,10 @@ type LoyaltyCustomer = {
     customer_phone: string;
     name: string | null;
     current_count: number;
-    total_lifetime_count: number;
     last_order_at: string | null;
 };
 
-const CUSTOMERS_PAGE_SIZE = 25;
+const CUSTOMERS_PAGE_SIZE = 10;
 
 function LoyaltyCustomers({ restaurantId, goal }: { restaurantId: string; goal: number }) {
     const [rows, setRows] = useState<LoyaltyCustomer[]>([]);
@@ -105,20 +104,21 @@ function LoyaltyCustomers({ restaurantId, goal }: { restaurantId: string; goal: 
                                 ),
                             },
                             {
-                                key: "current", label: "Selos atuais", className: "whitespace-nowrap",
+                                key: "current", label: "Selos", className: "whitespace-nowrap",
                                 render: row => <span className="font-medium text-gray-900">{row.current_count}{goal > 0 ? ` / ${goal}` : ""}</span>,
                             },
-                            { key: "lifetime", label: "Total de selos", className: "whitespace-nowrap", render: row => row.total_lifetime_count },
                             {
                                 key: "last", label: "Último pedido", className: "whitespace-nowrap",
                                 render: row => row.last_order_at ? new Date(row.last_order_at).toLocaleDateString("pt-BR") : "—",
                             },
                         ]}
                     />
-                    {!loading && <p className="text-center text-sm text-gray-500">{total} cliente{total === 1 ? "" : "s"}</p>}
-                    {total > CUSTOMERS_PAGE_SIZE && (
-                        <Pagination page={page} pageCount={Math.ceil(total / CUSTOMERS_PAGE_SIZE)} onChange={setPage} disabled={loading} />
-                    )}
+                    <div className="text-center text-sm text-gray-500">
+                        {!loading && <span>{total} cliente{total === 1 ? "" : "s"}</span>}
+                        {(total > 0 || page > 0) && (
+                            <Pagination page={page} pageCount={Math.ceil(total / CUSTOMERS_PAGE_SIZE)} onChange={setPage} disabled={loading} />
+                        )}
+                    </div>
                 </>
             )}
         </section>
