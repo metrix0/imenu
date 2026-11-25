@@ -4,11 +4,9 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Dropdown from "@/components/ui/Dropdown";
-import ToggleInput from "@/components/ui/ToggleInput";
 import Tabs from "@/components/ui/Tabs";
 import Loader from "@/components/ui/Loader";
 import ListLoader from "@/components/ui/ListLoader";
-import BonusButton from "@/components/ui/BonusButton";
 import Toast from "@/components/ui/Toast";
 import Tooltip from "@/components/ui/Tooltip";
 
@@ -29,7 +27,6 @@ import PageBadge from "@/components/ui/PageBadge";
 import Pagination from "@/components/ui/Pagination";
 import PanelAppearance from "@/components/ui/PanelAppearance";
 import PanelFeatureCallout from "@/components/ui/PanelFeatureCallout";
-import PanelShortcutPrompt from "@/components/ui/PanelShortcutPrompt";
 import RecommendedBadge from "@/components/ui/RecommendedBadge";
 import ShortcutDatePicker from "@/components/ui/ShortcutDatePicker";
 import Switch from "@/components/ui/Switch";
@@ -42,7 +39,7 @@ import SaveStatus, { PageHeader, PageSaveStatusProvider, type SaveState } from "
 import { TemplateEditor, VariablePicker, type TemplateEditorHandle } from "@/components/ui/WhatsAppTemplateEditor";
 import OrderBadge from "@/components/restaurant-owner/pedidos/OrderBadge";
 import { getDateRangeForDays } from "@/lib/utils/dateRange";
-import { Children, isValidElement, useEffect, useRef, useState, type ReactNode } from "react";
+import { Children, cloneElement, isValidElement, useEffect, useRef, useState, type ReactNode } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faMagnifyingGlass, faCheck, faStar, faCircleInfo, faTriangleExclamation, faPlus, faArrowRight, faLock, faGear, faHouse, faCalendarDays } from "@fortawesome/free-solid-svg-icons";
 
@@ -52,7 +49,6 @@ const menuComponents = new Set(["Button","Input","Dropdown","Tabs","Loader","Lis
 
 export default function UIShowcase() {
     const [area, setArea] = useState<ShowcaseArea>("Painel");
-    const [checked, setChecked] = useState(false);
     const [tab, setTab] = useState("Hoje");
 
     // Toast state
@@ -66,7 +62,6 @@ export default function UIShowcase() {
     const [singleDate, setSingleDate] = useState(() => getDateRangeForDays(1));
     const [dialog, setDialog] = useState<"modal" | "fixed" | "hybrid" | "danger" | "primary" | "neutral" | "typed" | "success" | null>(null);
     const [step, setStep] = useState(0);
-    const [prompt, setPrompt] = useState(false);
     const [template, setTemplate] = useState("Olá, {{NOME_DO_CLIENTE}}! Seu pedido está pronto.");
     const editor = useRef<TemplateEditorHandle>(null);
     const variables = [
@@ -148,16 +143,6 @@ export default function UIShowcase() {
                 </div>
             </ComponentBlock>
 
-            {/* === TOGGLE === */}
-            <ComponentBlock
-                title="ToggleInput"
-            >
-                <ToggleInput
-                    label="Ativo"
-                    checked={checked}
-                    onChange={(e) => setChecked(e.target.checked)}
-                />
-            </ComponentBlock>
 
             {/* === TABS === */}
             <ComponentBlock
@@ -184,15 +169,6 @@ export default function UIShowcase() {
                 </div>
             </ComponentBlock>
 
-            {/* === BONUS BUTTON === */}
-            <ComponentBlock
-                title="BonusButton"
-            >
-                <div className="flex flex-wrap gap-5">
-                    <BonusButton>Test</BonusButton>
-                    <BonusButton color={"bg-red-500"} shimmer={false}>Test</BonusButton>
-                </div>
-            </ComponentBlock>
 
             {/* === TOOLTIP === */}
             <ComponentBlock
@@ -218,7 +194,7 @@ export default function UIShowcase() {
                 title="Toast"
             >
                 <div className="flex flex-wrap gap-3">
-                    {(["success", "error", "info"] as const).map(type => <Button key={type} variant="secondary" onClick={() => setShowToast(type)}>{type}</Button>)}
+                    {(["success", "error", "info"] as const).map(type => <Button key={type} data-example-props={`type="${type}" · Toast`} variant="secondary" onClick={() => setShowToast(type)}>{type}</Button>)}
                 </div>
                 {showToast && <Toast key={showToast} message={showToast === "success" ? "Alterações salvas!" : showToast === "error" ? "Não foi possível salvar." : "Informação"} type={showToast} onClose={() => setShowToast(null)} />}
             </ComponentBlock>
@@ -236,12 +212,12 @@ export default function UIShowcase() {
             </ComponentBlock>
             <ComponentBlock title="PageBadge"><div className="flex flex-wrap items-center gap-3">{(["inline", "button"] as const).flatMap(size => (["brand", "inherit"] as const).map(tone => <PageBadge key={size + tone} href="#page-badge" icon={faStar} size={size} tone={tone}>Assistente IA</PageBadge>))}<span id="page-badge" /></div></ComponentBlock>
             <ComponentBlock title="ChoiceCardGroup"><ChoiceCardGroup value={choice} onChange={setChoice} options={[{ value: "delivery", label: "Entrega", description: "Receba em casa" }, { value: "pickup", label: "Retirada", description: "Retire no local" }]} /></ComponentBlock>
-            <ComponentBlock title="Switch"><div className="flex items-center gap-4"><Switch aria-label="Ativo ou inativo" checked={switchOn} onClick={() => setSwitchOn(!switchOn)} /><Switch aria-label="Inativo" checked={false} disabled /><Switch aria-label="Parcial" checked="mixed" onClick={() => setSwitchOn(!switchOn)} /><Switch aria-label="Desativado" checked disabled /></div></ComponentBlock>
+            <ComponentBlock title="Switch"><div className="flex flex-wrap items-center gap-4"><Switch aria-label="Ativo ou inativo" checked={switchOn} onClick={() => setSwitchOn(!switchOn)} /><Switch aria-label="Inativo" checked={false} disabled /><Switch aria-label="Parcial" checked="mixed" onClick={() => setSwitchOn(!switchOn)} /><Switch aria-label="Desativado" checked disabled /></div></ComponentBlock>
             <ComponentBlock title="Textarea"><div className="space-y-3 max-w-md"><Textarea aria-label="Mensagem" className="w-full rounded-lg border border-gray-300 p-3" rows={3} placeholder="Digite uma mensagem..." /><Textarea aria-label="Desativado" className="w-full rounded-lg border border-gray-300 p-3" rows={2} disabled defaultValue="Desativado" /></div></ComponentBlock>
             <ComponentBlock title="CollapsibleSection">
                 <CollapsibleSection title="Configurações" description="Opções adicionais" defaultOpen badge={<Badge variant="info">Novo</Badge>}><div className="py-3"><Input label="Nome" defaultValue="Exemplo" /></div></CollapsibleSection>
                 <CollapsibleSection title="Ativar recurso" toggle={{ checked: featureOn, onChange: setFeatureOn }}><div className="py-3">Configuração do recurso</div></CollapsibleSection>
-                <div className="flex items-center gap-3">{(["sm", "md", "default"] as const).map(size => <CollapsibleChevron key={size} size={size} expanded={false} />)}</div>
+                <div className="flex flex-wrap items-center gap-3">{(["sm", "md", "default"] as const).map(size => <CollapsibleChevron key={size} size={size} expanded={false} />)}</div>
                 <CollapsibleContent id="showcase-collapse" expanded><p>Conteúdo expandido</p></CollapsibleContent>
             </ComponentBlock>
             <ComponentBlock title="ConfigurationCard">
@@ -261,12 +237,12 @@ export default function UIShowcase() {
             <ComponentBlock title="InitialsAvatar"><div className="flex flex-wrap items-center gap-3">{["Maria Silva", "Ana Souza", "Pedro Lima", "Bruno Reis", "Lucas Alves", "Julia Costa"].map((name, index) => <InitialsAvatar key={name} name={name} colorKey={String(index)} />)}<InitialsAvatar name="Maria Silva" size="lg" /><InitialsAvatar name={null} /></div></ComponentBlock>
             <ComponentBlock title="LoadingBar"><LoadingBar progress={25} size="sm" /><LoadingBar progress={60} size="md" label="Progresso" showLabel /><LoadingBar progress={100} size="lg" colorClass="bg-green-500" /><LoadingBar indeterminate /><LoadingBar durationSeconds={10} targetProgress={90} showLabel /></ComponentBlock>
             <ComponentBlock title="Modal">
-                <div className="flex flex-wrap gap-3"><Button onClick={() => setDialog("modal")}>Abrir modal</Button><Button variant="secondary" onClick={() => setDialog("fixed")}>Altura fixa</Button></div>
+                <div className="flex flex-wrap gap-3"><Button data-example-props="height=300 · fixedHeight=false · showCloseButton=true" onClick={() => setDialog("modal")}>Abrir modal</Button><Button data-example-props="height=300 · fixedHeight=true · showCloseButton=true" variant="secondary" onClick={() => setDialog("fixed")}>Altura fixa</Button></div>
                 <Modal height={300} open={dialog === "modal" || dialog === "fixed"} fixedHeight={dialog === "fixed"} onClose={closeDialog} showCloseButton><div className="p-5 space-y-4"><h3 className="font-semibold">Modal</h3><Input label="Nome" /><Button onClick={closeDialog}>Fechar</Button></div></Modal>
             </ComponentBlock>
-            <ComponentBlock title="HybridModal"><Button onClick={() => setDialog("hybrid")}>Abrir modal</Button><HybridModal height={0.6} open={dialog === "hybrid"} onClose={closeDialog}><div className="space-y-4 p-5"><h3>HybridModal</h3><Button onClick={closeDialog}>Fechar</Button></div></HybridModal></ComponentBlock>
+            <ComponentBlock title="HybridModal"><Button data-example-props="height=0.6 · handle=true" onClick={() => setDialog("hybrid")}>Abrir modal</Button><HybridModal height={0.6} open={dialog === "hybrid"} onClose={closeDialog}><div className="space-y-4 p-5"><h3>HybridModal</h3><Button onClick={closeDialog}>Fechar</Button></div></HybridModal></ComponentBlock>
             <ComponentBlock title="ConfirmModal">
-                <div className="flex flex-wrap gap-3">{(["danger", "primary", "neutral", "typed", "success"] as const).map(kind => <Button key={kind} variant="secondary" onClick={() => setDialog(kind)}>{kind}</Button>)}</div>
+                <div className="flex flex-wrap gap-3">{(["danger", "primary", "neutral", "typed", "success"] as const).map(kind => <Button key={kind} data-example-props={kind === "typed" ? 'variant="danger" · confirmationText="CONFIRMAR"' : kind === "success" ? 'variant="danger" · confirmTone="success"' : `variant="${kind}"`} variant="secondary" onClick={() => setDialog(kind)}>{kind}</Button>)}</div>
                 <ConfirmModal open={dialog === "danger" || dialog === "primary" || dialog === "neutral" || dialog === "typed" || dialog === "success"} onClose={closeDialog} onConfirm={closeDialog} title="Confirmar ação" description="Deseja continuar?" variant={dialog === "primary" || dialog === "neutral" ? dialog : "danger"} confirmationText={dialog === "typed" ? "CONFIRMAR" : undefined} confirmTone={dialog === "success" ? "success" : undefined} />
             </ComponentBlock>
             <ComponentBlock title="ModalCloseButton"><div className="relative h-16 w-24 rounded-lg border border-gray-200"><ModalCloseButton onClose={() => setShowToast("info")} /></div></ComponentBlock>
@@ -274,7 +250,6 @@ export default function UIShowcase() {
             <ComponentBlock title="PanelAppearance"><PanelAppearance><div className="flex flex-wrap items-end gap-3"><Input label="Campo" defaultValue="Exemplo" /><Button>Salvar</Button></div></PanelAppearance></ComponentBlock>
             <ComponentBlock title="PanelIcon"><div className="flex flex-wrap items-center gap-5 text-xl">{[faHouse, faMagnifyingGlass, faCheck, faStar, faCircleInfo, faTriangleExclamation, faPlus, faArrowRight, faLock, faGear, faCalendarDays].map(icon => <PanelIcon key={icon.iconName} icon={icon} />)}</div></ComponentBlock>
             <ComponentBlock title="PanelFeatureCallout">{(["nfce", "vendas-ia", "crm", "marketing"] as const).map(feature => <PanelFeatureCallout key={feature} feature={feature} />)}</ComponentBlock>
-            <ComponentBlock title="PanelShortcutPrompt"><div className="relative min-h-64"><Button onClick={() => setPrompt(true)}>Mostrar</Button><PanelShortcutPrompt open={prompt} onAccept={() => setPrompt(false)} onDismiss={() => setPrompt(false)} className="!top-12" /></div></ComponentBlock>
             <ComponentBlock title="SaveStatus">{(["idle", "saving", "saved", "error"] as const).map(status => <SaveStatusExample key={status} status={status} />)}</ComponentBlock>
             <ComponentBlock title="PageHeader"><PageHeader title="Configurações" description="Gerencie sua loja" actions={<Button variant="secondary">Editar</Button>} /></ComponentBlock>
             <ComponentBlock title="WarningBox"><WarningBox icon={faTriangleExclamation}>Revise as informações antes de continuar.</WarningBox></ComponentBlock>
@@ -303,9 +278,54 @@ function ComponentBlock({
     return (
         <section className="border border-gray-200 rounded-xl p-6 shadow-sm space-y-5">
             <h2 className="text-lg font-semibold">{title}</h2>
-            <div>{children}</div>
+            <div className="space-y-3">{annotateExamples(children)}</div>
         </section>
     );
+}
+
+
+function exampleValue(value: unknown): string {
+    if (value === null) return "null";
+    if (typeof value === "string") return JSON.stringify(value);
+    if (typeof value === "number" || typeof value === "boolean") return String(value);
+    if (typeof value === "function") return "callback";
+    if (isValidElement<{ icon?: unknown }>(value)) {
+        return value.props.icon ? exampleValue(value.props.icon) : "ReactNode";
+    }
+    if (Array.isArray(value)) {
+        if (value.length === 0) return "[]";
+        if (value.every(item => typeof item === "string" || typeof item === "number")) return "[" + value.map(exampleValue).join(", ") + "]";
+        return "[" + value.length + " itens]";
+    }
+    if (typeof value === "object" && value !== null) {
+        const entries = Object.entries(value);
+        if ("iconName" in value) return String(value.iconName);
+        return "{ " + entries.map(([key, item]) => key + ": " + exampleValue(item)).join(", ") + " }";
+    }
+    return String(value);
+}
+
+function annotateExamples(children: ReactNode): ReactNode {
+    return Children.map(children, child => {
+        if (!isValidElement<Record<string, unknown>>(child)) return child;
+        const props = child.props;
+        if (typeof child.type === "string") {
+            return props.children === undefined ? child : cloneElement(child, { children: annotateExamples(props.children as ReactNode) });
+        }
+        // Dialog variants are labeled on their opening buttons, not on the hidden portal.
+        if (child.type === Modal || child.type === HybridModal || child.type === ConfirmModal || child.type === Toast) return child;
+        const omitted = new Set(["children", "ref", "key", "className", "aria-label", "id", "data-example-props"]);
+        const parameters = typeof props["data-example-props"] === "string"
+            ? props["data-example-props"]
+            : Object.entries(props)
+                .filter(([key, value]) => !omitted.has(key) && value !== undefined && typeof value !== "function")
+                .map(([key, value]) => key + "=" + exampleValue(value))
+                .join(" · ");
+        return <div className="min-w-0 space-y-1.5">
+            {child}
+            <p className="break-words text-[11px] leading-4 text-gray-500">{parameters || "Parâmetros padrão"}</p>
+        </div>;
+    });
 }
 
 function SaveStatusExample({ status }: { status: SaveState }) {
