@@ -3,11 +3,7 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import {
-    Bot, ChevronDown, Crown, ExternalLink, FileDown, Headset, Info, Megaphone, MessageCircle,
-    Film, Moon, ScanLine, ShoppingCart, TrendingUp,
-    type LucideIcon,
-} from "lucide-react";
+import { ChevronDown, Crown, ExternalLink, Info } from "lucide-react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faArrowRight,
@@ -142,23 +138,6 @@ const FREE_PLAN_FEATURES = [
     "Painel financeiro e fechamento de caixa",
     "Google Analytics e Pixel Meta",
 ] as const;
-
-const PLUS_BENEFIT_ICONS: Record<string, LucideIcon> = {
-    "Automações de Marketing WhatsApp": Megaphone,
-    "Assistente IA": Bot,
-    "Vendas IA": TrendingUp,
-};
-
-const PLUS_BONUS_ICONS: Record<string, LucideIcon> = {
-    "Robô WhatsApp com IA": Bot,
-    "Atendimento exclusivo": Headset,
-    "Upsells automáticos": ShoppingCart,
-    "Atualizações de pedidos pelo WhatsApp": MessageCircle,
-    "Scan de cardápio com IA": ScanLine,
-    "Download Cardápio em PDF": FileDown,
-    "Cardápio Tema Escuro": Moon,
-    "Múltiplas fotos e vídeo no cardápio": Film,
-};
 
 const LANDING_HERO_PRIMARY_BUTTON =
     "!min-h-12 !rounded-lg !border !border-[#d93d00] !bg-[#d93d00] !px-6 !py-[13px] !text-base !leading-5 !font-medium !whitespace-nowrap !text-white !shadow-none hover:!border-[#c43700] hover:!bg-[#c43700] focus:!ring-[#d93d00]";
@@ -847,12 +826,12 @@ export default function LandingPage() {
                                 </p>
                                 <ul className="space-y-4">
                                     {IA_PLUS_BENEFITS.map((benefit) => {
-                                        const Icon = PLUS_BENEFIT_ICONS[benefit.title];
+                                        const Icon = benefit.icon;
                                         return (
                                             <li key={benefit.title} className="flex items-start gap-3">
                                                 <Icon size={19} strokeWidth={1.8} aria-hidden="true" className="mt-0.5 shrink-0 text-brand" />
                                                 <div>
-                                                    <strong className="text-sm font-semibold text-gray-900">{benefit.title === "Assistente IA" ? "Assistente IA: para Melhorar o Cardápio" : benefit.title}</strong>
+                                                    <strong className="text-sm font-semibold text-gray-900">{benefit.landingTitle}</strong>
                                                     <p className="mt-0.5 text-xs leading-5 text-gray-500">{benefit.description}</p>
                                                 </div>
                                             </li>
@@ -863,7 +842,7 @@ export default function LandingPage() {
                                     <p className="mb-3 text-sm font-semibold text-gray-900">+{IA_PLUS_BONUSES.length} Bônus no Plus</p>
                                     <ul className="grid gap-x-5 gap-y-3 sm:grid-cols-2">
                                         {IA_PLUS_BONUSES.map((bonus) => {
-                                            const Icon = PLUS_BONUS_ICONS[bonus.title];
+                                            const Icon = bonus.icon;
                                             return (
                                                 <li key={bonus.title} className="flex items-start gap-2.5 text-xs leading-5 text-gray-700">
                                                     <Icon size={17} strokeWidth={1.8} aria-hidden="true" className="mt-0.5 shrink-0 text-brand" />

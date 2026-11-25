@@ -1,3 +1,4 @@
+import { cardAtDeliveryLabel, isCardAtDeliveryMethod } from "@/lib/payments/deliveryMethods";
 import { NextResponse } from "next/server";
 
 import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
@@ -200,7 +201,9 @@ export async function POST(request: Request) {
                     ),
                 ]);
                 return ok({
-                    order,
+                    order: isCardAtDeliveryMethod(order.payment_method)
+                        ? { ...order, payment_method: cardAtDeliveryLabel(order.payment_method, order.is_delivery) }
+                        : order,
                     items: itemsResult.rows,
                     subitems: subitemsResult.rows,
                 });

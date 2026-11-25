@@ -14,7 +14,8 @@ import Card from "@/components/ui/Card";
 import SaveStatus from "@/components/ui/SaveStatus";
 import Tooltip from "@/components/ui/Tooltip";
 import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
-import { qrTableAuthenticatedFetch } from "@/lib/qr-table/clientApi";
+import { useRestaurantPlus } from "@/lib/stores/restaurant-owner/creationStore";
+import { useSalesStore } from "@/lib/stores/restaurant-owner/iaVendasStore";
 
 type Props = {
     restaurantId: string;
@@ -32,7 +33,7 @@ export default function UpsellTab({ restaurantId, items }: Props) {
     const [automaticLoading, setAutomaticLoading] = useState(true);
     const [automaticSaving, setAutomaticSaving] = useState(false);
     const [automaticError, setAutomaticError] = useState<string | null>(null);
-    const [plusActive, setPlusActive] = useState<boolean | null>(null);
+    const plusActive = useRestaurantPlus(restaurantId);
     const [plusModalOpen, setPlusModalOpen] = useState(false);
 
 
@@ -97,27 +98,6 @@ export default function UpsellTab({ restaurantId, items }: Props) {
         return () => { active = false; };
     }, [restaurantId]);
 
-    const loadPlusAccess = async () => {
-        setPlusActive(null);
-        try {
-            const response = await qrTableAuthenticatedFetch(
-                `/api/addons/billing?restaurantId=${encodeURIComponent(restaurantId)}`,
-                { cache: "no-store" }
-            );
-            if (!response.ok) throw new Error("Não foi possível verificar sua assinatura.");
-            const data = (await response.json()) as {
-                addons?: Array<{ addon: { product_key: string }; active: boolean }>;
-            };
-            setPlusActive(data.addons?.some(row => row.addon.product_key === "ia_plus" && row.active) === true);
-        } catch (error) {
-            setAutomaticError(error instanceof Error ? error.message : "Não foi possível verificar sua assinatura.");
-        }
-    };
-
-    useEffect(() => {
-        void loadPlusAccess();
-    }, [restaurantId]);
-
     const toggleAutomatic = async () => {
         if (plusActive === false) {
             setPlusModalOpen(true);
@@ -134,7 +114,7 @@ export default function UpsellTab({ restaurantId, items }: Props) {
         );
         if (error) {
             if (error.code === "42501") {
-                setPlusActive(false);
+                void useSalesStore.getState().refreshUsage(restaurantId);
                 setPlusModalOpen(true);
             }
             setAutomaticError("Não foi possível salvar. Tente novamente.");
@@ -319,8 +299,9 @@ export default function UpsellTab({ restaurantId, items }: Props) {
                 open={plusModalOpen}
                 onClose={() => setPlusModalOpen(false)}
                 restaurantId={restaurantId}
+                contextFeature="automatic_upsell"
                 contextMessage="Para ativar o Upsell Automático e recomendar produtos com base nas compras, assine o iMenu Plus."
-                onPaid={() => { setPlusModalOpen(false); void loadPlusAccess(); }}
+                onPaid={() => { setPlusModalOpen(false); void useSalesStore.getState().refreshUsage(restaurantId); }}
             />
 
             {/* Modal */}

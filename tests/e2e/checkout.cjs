@@ -254,7 +254,7 @@ async function flow(browser, method, pickupMode = "only", width = 800) {
             });
             const forced = pickupMode === "automatic";
             assert.deepEqual(fulfillment, {
-                pickupSelected: forced, pickupLocked: forced, addressLocked: forced,
+                pickupSelected: forced, pickupLocked: false, addressLocked: forced,
                 addressFaded: forced, warning: forced,
             });
             if (!forced) await page.evaluate(() => Array.from(document.querySelectorAll("label"))
@@ -264,12 +264,40 @@ async function flow(browser, method, pickupMode = "only", width = 800) {
         assert.ok(phoneFirst,"Phone must come before name in checkout");
         await page.type('input[autocomplete="name"]', "Cliente E2E");
         await page.type('input[autocomplete="tel"]', "11999990000");
+        if (pickupMode === "automatic") {
+            const togglePickup = () => page.evaluate(() => Array.from(document.querySelectorAll("label"))
+                .find(label => label.textContent.includes("Retirar pedido no balcão")).click());
+            await togglePickup();
+            await page.waitForFunction(() => {
+                const pickup = Array.from(document.querySelectorAll("label"))
+                    .find(label => label.textContent.includes("Retirar pedido no balcão"))?.querySelector("input");
+                const next = Array.from(document.querySelectorAll("button"))
+                    .find(button => button.textContent.trim() === "Continuar");
+                return pickup && !pickup.checked && !pickup.disabled && next?.disabled &&
+                    document.querySelector('input[autocomplete="postal-code"]')?.matches(":disabled");
+            });
+            assert.equal(orderPayload, undefined, "Unavailable delivery must not submit an order");
+            await togglePickup();
+            await page.waitForFunction(() => {
+                const pickup = Array.from(document.querySelectorAll("label"))
+                    .find(label => label.textContent.includes("Retirar pedido no balcão"))?.querySelector("input");
+                const next = Array.from(document.querySelectorAll("button"))
+                    .find(button => button.textContent.trim() === "Continuar");
+                return pickup?.checked && next && !next.disabled;
+            });
+        }
         await screenshot(page,"checkout-"+method);
         assert.ok(await page.evaluate(()=>{const input=document.querySelector('input[autocomplete="tel"]').getBoundingClientRect();return input.left>=0 && input.right<=innerWidth;}),"Phone input must stay fully visible after checkout reordering");
         await click(page, "Continuar");
         await page.waitForFunction(() => document.body.textContent.includes("Pagamento"));
         await screenshot(page,"checkout-payment-"+method);
-        await click(page, method === "pix" ? "Pix (Online)" : "Dinheiro");
+        const paymentLabel = {
+            pix: "Pix (Online)",
+            dinheiro: "Dinheiro",
+            "credito-entrega": "Crédito (Na retirada)",
+            "debito-entrega": "Débito (Na retirada)",
+        }[method];
+        await click(page, paymentLabel);
         await click(page, "Confirmar");
         await page.waitForFunction(() => location.pathname === "/restaurante/login", { timeout: 15000 });
         assert.ok(orderPayload, "Checkout must submit to the real order API boundary");
@@ -286,6 +314,81 @@ async function flow(browser, method, pickupMode = "only", width = 800) {
         console.log("PASS menu → cart → " + pickupMode + " pickup checkout → " + method + " at " + width + "px (order/payment API simulated)");
     } finally {
         await context.close();
+    }
+}
+
+async function cachedPanelSession(browser) {
+    const loginPath = "/restaurante/login";
+    const authStorageKey = process.env.NEXT_PUBLIC_SUPABASE_AUTH_STORAGE_KEY || "sb-127-auth-token";
+    const expiry = Math.floor(Date.now() / 1000) + 3600;
+    const user = { id: "60000000-0000-4000-8000-000000000001", aud: "authenticated",
+        role: "authenticated", email: "e2e@example.invalid", email_confirmed_at: "2026-01-01T00:00:00Z" };
+    const token = ["eyJhbGciOiJIUzI1NiJ9", Buffer.from(JSON.stringify({ sub: user.id, aud: "authenticated", exp: expiry }))
+        .toString("base64url"), "testsignature"].join(".");
+    const session = { access_token: token, refresh_token: "fixture", token_type: "bearer", expires_at: expiry, user };
+
+    for (const revoked of [true, false]) {
+        const context = await browser.createBrowserContext();
+        try {
+            const page = await context.newPage();
+            let verificationRequests = 0;
+            let logoutRequests = 0;
+            await page.evaluateOnNewDocument(({ authStorageKey, session, restaurantId }) => {
+                if (sessionStorage.getItem("e2e-auth-seeded")) return;
+                sessionStorage.setItem("e2e-auth-seeded", "1");
+                localStorage.setItem(authStorageKey, JSON.stringify(session));
+                localStorage.setItem(authStorageKey + "-code-verifier", "fixture");
+                localStorage.setItem(authStorageKey + "-user", JSON.stringify({ user: session.user }));
+                localStorage.setItem("imenu:landing-panel-auto-redirect", "true");
+                localStorage.setItem("restaurant-creation-storage", JSON.stringify({
+                    state: { restaurantId, email: session.user.email, productSelectionCompleted: true },
+                    version: 0,
+                }));
+                sessionStorage.setItem("imenu-creation-complete:" + session.user.id, "true");
+            }, { authStorageKey, session, restaurantId });
+            await page.setRequestInterception(true);
+            page.on("request", request => {
+                const url = new URL(request.url());
+                const respond = (status, body) => request.respond({ status, contentType: "application/json",
+                    headers: { "Access-Control-Allow-Origin": "*" }, body: JSON.stringify(body) });
+                if (url.port === String(SUPABASE_PORT) && request.method() !== "OPTIONS") {
+                    if (url.pathname === "/auth/v1/user") {
+                        verificationRequests++;
+                        return revoked ? respond(403, { code: "session_not_found", msg: "Session not found" }) : respond(200, user);
+                    }
+                    if (url.pathname === "/auth/v1/logout") {
+                        logoutRequests++;
+                        return respond(503, { msg: "Unavailable" });
+                    }
+                }
+                return request.continue();
+            });
+
+            await page.goto(BASE + loginPath, { waitUntil: "networkidle2" });
+            if (revoked) {
+                assert.ok(verificationRequests > 0, "A cached session must be verified with Supabase");
+                assert.equal(new URL(page.url()).pathname, loginPath);
+                assert.ok(await page.$('input[autocomplete="current-password"]'), "The sign-in form must remain accessible");
+                console.log("PASS revoked cached session stays at sign-in");
+                continue;
+            }
+
+            await page.waitForFunction(() => location.pathname === "/painel");
+            assert.ok(verificationRequests > 0, "A valid cached session must be verified before redirect");
+            await page.goto(BASE + "/painel/configuracoes", { waitUntil: "networkidle2" });
+            await click(page, "Sair da conta");
+            await page.waitForFunction(path => location.pathname === path, {}, loginPath);
+            assert.ok(logoutRequests > 0, "Logout must attempt to revoke the session");
+            const cachedKeys = await page.evaluate(key =>
+                [key, key + "-code-verifier", key + "-user", "imenu:landing-panel-auto-redirect"]
+                    .filter(entry => localStorage.getItem(entry) !== null), authStorageKey);
+            assert.deepEqual(cachedKeys, [], "Logout must clear the configured auth cache after a server error");
+            await page.reload({ waitUntil: "networkidle2" });
+            assert.equal(new URL(page.url()).pathname, loginPath);
+            console.log("PASS valid session auto-login and local logout after a server error");
+        } finally {
+            await context.close();
+        }
     }
 }
 
@@ -325,7 +428,8 @@ async function panelOrders(browser) {
     try {
         const response = await page.goto(BASE + "/painel", { waitUntil: "networkidle2" });
         assert.equal(response.status(), 200, "The owner panel must load");
-        for (const method of ["dinheiro", "pix-entrega"]) {
+        for (const method of ["dinheiro", "pix-entrega", "credito-entrega", "debito-entrega"]) {
+            const previousSubmissions = submitted.length;
             await click(page, "Adicionar Pedido");
             await page.waitForSelector(".panel-create-order");
             // Locator re-resolves the button if React replaces it while loading.
@@ -362,13 +466,13 @@ async function panelOrders(browser) {
                 return Boolean(panel.closest('[aria-hidden="true"]') &&
                     dialog && getComputedStyle(dialog).opacity === "0");
             }, { timeout: 15000 });
-            assert.equal(submitted.length, method === "dinheiro" ? 1 : 2, "One order request per form submission");
+            assert.equal(submitted.length, previousSubmissions + 1, "One order request per form submission");
             const { payload, auth } = submitted.at(-1);
             assert.equal(auth, "Bearer " + token, "Panel requests must include the owner session");
             assert.equal(payload.restaurantId, restaurantId);
             assert.equal(payload.panel_order, true);
             assert.equal(payload.is_delivery, "balcao");
-            assert.equal(payload.paymentMethod, method, "Counter PIX must be offline (pix-entrega), never online (pix)");
+            assert.equal(payload.paymentMethod, method, "The counter order must use the selected payment method");
             assert.equal(payload.customer_name, "Cliente painel E2E");
             assert.equal(payload.delivery_fee_cents, 0);
             assert.equal(payload.expected_promotion.total_cents, 2500);
@@ -404,7 +508,7 @@ async function crmPanels(browser) {
         localStorage.setItem("imenu:application-promo-dismissed-at:v1",String(Date.now()));
     },{user,token,restaurantId,authStorageKey:process.env.NEXT_PUBLIC_SUPABASE_AUTH_STORAGE_KEY||"sb-127-auth-token"});
     const customer={habits:[],favorite_product:null,phone:"5511999990000",name:"Cliente CRM",address:{rua:"Rua de teste",numero:"123",bairro:"Centro"},opted_out_at:null,order_count:3,spending_cents:15000,average_ticket_cents:5000,last_purchase:new Date().toISOString(),segment:"Frequente"};
-    let saved=null,saveCount=0,pdfPlus=false;
+    let saved=null,saveCount=0;
     let usageResponse={},usageRequests=0;
     const settings={dailyTotalLimit:10,...Object.fromEntries(["cart","reactivation","habit"].map(kind=>[kind,{enabled:false,message:"Oi, {{nome}}! Vamos pedir na {{restaurante}}?",days:30,dailyLimit:kind==="cart"?7:2,cooldownDays:kind==="reactivation"?120:7,offer:""}]))};
     await page.setRequestInterception(true);
@@ -416,7 +520,7 @@ async function crmPanels(browser) {
             if(request.method()==="PUT") {saved=JSON.parse(request.postData());saveCount++;}
             return request.respond({status:200,contentType:"application/json",body:JSON.stringify(request.method()==="PUT" ? {settings:saved} : {settings,plus:true,offers:[{value:"coupon:10000000-0000-4000-8000-000000000001",label:"Cupom: VOLTE10"}],connected:true})});
         }
-        if(url.origin===BASE && url.pathname==="/api/addons/billing") return request.respond({status:200,contentType:"application/json",body:JSON.stringify({addons:pdfPlus?[{addon:{product_key:"ia_plus"},active:true}]:[]})});
+        if(url.origin===BASE && url.pathname==="/api/addons/billing") return request.respond({status:200,contentType:"application/json",body:JSON.stringify({addons:usageResponse.access?.plus===true?[{addon:{product_key:"ia_plus"},active:true}]:[]})});
         if(url.origin===BASE && url.pathname==="/api/ia-vendas" && url.searchParams.get("usage_only")==="1") {
             usageRequests++;
             return request.respond({status:200,contentType:"application/json",body:JSON.stringify(usageResponse)});
@@ -456,6 +560,7 @@ async function crmPanels(browser) {
         await page.waitForSelector('[aria-label="iMenu Plus ativo"]');
         await screenshot(page,"clientes-mobile");
         assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),"Mobile customer page must not overflow horizontally");
+        usageResponse={access:{plus:false},latest_analysis_finished_at:null};
         await page.goto(BASE+"/painel/configuracoes",{waitUntil:"networkidle2"});
         await page.waitForFunction(()=>document.body.textContent.includes("Desbloquear exportação"));
         await page.evaluate(()=>Array.from(document.querySelectorAll("button")).find(b=>b.textContent.includes("Desbloquear exportação"))?.scrollIntoView({block:"center",behavior:"instant"}));
@@ -463,9 +568,9 @@ async function crmPanels(browser) {
         await click(page,"Desbloquear exportação");
         await page.waitForFunction(()=>document.body.textContent.includes("Com o iMenu Plus, exporte seu cardápio em PDF"));
         await screenshot(page,"pdf-sales-mobile");
-        pdfPlus=true;
+        usageResponse={access:{plus:true},latest_analysis_finished_at:null};
         await page.goto(BASE+"/painel/configuracoes",{waitUntil:"networkidle2"});
-        await page.waitForFunction(()=>Array.from(document.querySelectorAll("button")).some(b=>b.textContent.trim()==="Exportar PDF"));
+        await page.waitForFunction(()=>Array.from(document.querySelectorAll("button")).some(b=>b.textContent.trim()==="Exportar PDF" && !b.disabled));
         await page.setViewport({width:1280,height:900});
     page.on("pageerror",error=>console.error("BROWSER_ERROR",error.message));
         await page.evaluate(()=>Array.from(document.querySelectorAll("button")).find(b=>b.textContent.trim()==="Exportar PDF")?.scrollIntoView({block:"center",behavior:"instant"}));
@@ -528,8 +633,11 @@ async function run() {
         });
         await landingPlanSpacing(browser);
         await signup(browser);
+        await cachedPanelSession(browser);
         await flow(browser, "dinheiro");
         await flow(browser, "pix");
+        await flow(browser, "credito-entrega");
+        await flow(browser, "debito-entrega", "only", 390);
         const restaurant = data.restaurants[0];
         const originalRestaurant = { ...restaurant };
         try {

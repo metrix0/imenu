@@ -3,6 +3,13 @@
 import { PageSaveHeader } from "@/components/ui/SaveStatus";
 import { useEffect, useState } from "react";
 import { useLoyaltyStore } from "@/lib/stores/restaurant-owner/loyaltyStore";
+import DataTable from "@/components/ui/DataTable";
+import CustomerDetailsModal from "@/components/restaurant-owner/clientes/CustomerDetailsModal";
+import PanelFeatureCallout from "@/components/ui/PanelFeatureCallout";
+import Pagination from "@/components/ui/Pagination";
+import InitialsAvatar from "@/components/ui/InitialsAvatar";
+import { crmRequest } from "@/lib/api/crm";
+import { formatPhone } from "@/lib/dev/dashboardFormat";
 import Input from "@/components/ui/Input";
 import Toast from "@/components/ui/Toast";
 import SaveStatus from "@/components/ui/SaveStatus";
@@ -34,6 +41,98 @@ type ItemDetails = {
         }[];
     }[];
 };
+
+type LoyaltyCustomer = {
+    id: string;
+    customer_phone: string;
+    name: string | null;
+    current_count: number;
+    last_order_at: string | null;
+};
+
+const CUSTOMERS_PAGE_SIZE = 10;
+
+function LoyaltyCustomers({ restaurantId, goal }: { restaurantId: string; goal: number }) {
+    const [rows, setRows] = useState<LoyaltyCustomer[]>([]);
+    const [selected, setSelected] = useState<LoyaltyCustomer | null>(null);
+    const [page, setPage] = useState(0);
+    const [total, setTotal] = useState(0);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+
+    useEffect(() => {
+        const controller = new AbortController();
+        setLoading(true);
+        setError("");
+        void crmRequest(`/api/loyalty/customers?page=${page + 1}`, restaurantId, { signal: controller.signal })
+            .then(data => {
+                if (controller.signal.aborted) return;
+                setRows(data.customers);
+                setTotal(data.total);
+            })
+            .catch(() => {
+                if (!controller.signal.aborted) {
+                    setRows([]);
+                    setTotal(0);
+                    setError("Não foi possível carregar os clientes do programa.");
+                }
+            })
+            .finally(() => {
+                if (!controller.signal.aborted) setLoading(false);
+            });
+        return () => controller.abort();
+    }, [restaurantId, page]);
+
+    return (
+        <section className="space-y-3">
+            <h2 className="text-lg font-semibold text-gray-900">Clientes com selos</h2>
+            {error ? <p role="alert" className="text-sm text-red-600">{error}</p> : (
+                <>
+                    <DataTable
+                        rows={rows}
+                        rowKey={row => row.id}
+                        onRowClick={setSelected}
+                        loading={loading}
+                        emptyMessage="Os clientes aparecerão aqui quando acumularem selos."
+                        columns={[
+                            {
+                                key: "customer", label: "Cliente",
+                                render: row => (
+                                    <div className="flex items-center gap-3">
+                                        <InitialsAvatar name={row.name} colorKey={row.customer_phone} />
+                                        <div className="min-w-0">
+                                            <p className="font-medium text-gray-900">{row.name || "Sem nome"}</p>
+                                            <p className="mt-1 whitespace-nowrap text-gray-500">{formatPhone(row.customer_phone)}</p>
+                                        </div>
+                                    </div>
+                                ),
+                            },
+                            {
+                                key: "current", label: "Selos", className: "whitespace-nowrap",
+                                render: row => <span className="font-medium text-gray-900">{row.current_count}{goal > 0 ? ` / ${goal}` : ""}</span>,
+                            },
+                            {
+                                key: "last", label: "Último pedido", className: "whitespace-nowrap",
+                                render: row => row.last_order_at ? new Date(row.last_order_at).toLocaleDateString("pt-BR") : "—",
+                            },
+                        ]}
+                    />
+                    {(total > 0 || page > 0) && (
+                        <Pagination page={page} pageCount={Math.ceil(total / CUSTOMERS_PAGE_SIZE)} onChange={setPage} disabled={loading} />
+                    )}
+                </>
+            )}
+            {selected && (
+                <CustomerDetailsModal
+                    key={selected.id}
+                    restaurantId={restaurantId}
+                    selected={{ phone: selected.customer_phone, name: selected.name }}
+                    onClose={() => setSelected(null)}
+                />
+            )}
+        </section>
+    );
+}
 
 export default function FidelidadePage() {
     const restaurantId = useCreationStore((state) => state.restaurantId);
@@ -370,6 +469,8 @@ export default function FidelidadePage() {
                     )}
                 </Card>
             </fieldset>
+            {restaurantId && <LoyaltyCustomers key={restaurantId} restaurantId={restaurantId} goal={safeProgram.goal_count} />}
+            <PanelFeatureCallout feature="crm" />
         </div>
     );
 }

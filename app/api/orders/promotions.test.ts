@@ -6,6 +6,8 @@ import { POST } from "./route";
 import { query, withTransaction } from "@/lib/database/sql";
 import { createMercadoPagoPixCharge } from "@/lib/payments/mercadoPagoPix";
 import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
+import { deliveryFiscalEnvironment } from "@/lib/nfce/service";
+import { readFiscalRecipient } from "@/lib/nfce/sefaz";
 import type { AutomaticPromotion } from "@/lib/promotions/automatic";
 
 jest.mock("@/lib/database/sql", () => ({
@@ -13,6 +15,7 @@ jest.mock("@/lib/database/sql", () => ({
   withTransaction: jest.fn(),
 }));
 jest.mock("@/lib/payments/mercadoPagoPix", () => ({ createMercadoPagoPixCharge: jest.fn() }));
+jest.mock("@/lib/nfce/service", () => ({ deliveryFiscalEnvironment: jest.fn() }));
 jest.mock("@/lib/auth/restaurantOwner", () => ({
   ...jest.requireActual("@/lib/auth/restaurantOwner"),
   requireRestaurantOwner: jest.fn(),
@@ -61,8 +64,10 @@ let writes: string[];
 let transactions: string[];
 let client: { query: jest.Mock };
 let loyaltyBalance: boolean;
+let allowedPaymentMethods: string[];
 
 beforeEach(() => {
+  jest.mocked(deliveryFiscalEnvironment).mockReset().mockResolvedValue(null);
   (after as jest.Mock).mockReset();
   (notifyOrderReady as jest.Mock).mockReset();
   (requireRestaurantOwner as jest.Mock).mockReset().mockResolvedValue({});
@@ -71,6 +76,7 @@ beforeEach(() => {
   activeProductPromotion = null;
   giftProductEnabled = false;
   loyaltyBalance = false;
+  allowedPaymentMethods = ["pix", "dinheiro", "trazer-maquininha"];
   insert = null;
   writes = [];
   transactions = [];
@@ -86,7 +92,7 @@ beforeEach(() => {
       if (/INSERT|UPDATE/.test(sql) && !sql.includes("FOR UPDATE"))
         writes.push(sql);
       if (sql.includes("SELECT url_slug, automatic_promotions"))
-        return { rows: [{ url_slug: "teste", automatic_promotions: offers }] };
+        return { rows: [{ url_slug: "teste", automatic_promotions: offers, allowed_payment_methods: allowedPaymentMethods }] };
       if (sql.includes("LEFT JOIN promotions"))
         return {
           rows: [
@@ -160,6 +166,49 @@ const send = (patch: Record<string, any> = {}, headers: Record<string, string> =
     }),
   );
 const saved = () => insert as unknown as any[];
+
+describe("fiscal CPF for web delivery", () => {
+  const previousEnv = process.env.NFCE_ENV, previousKey = process.env.NFCE_KEY;
+  beforeEach(() => {
+    process.env.NFCE_ENV = "homologacao";
+    process.env.NFCE_KEY = "a".repeat(64);
+    jest.mocked(deliveryFiscalEnvironment).mockResolvedValue(2);
+  });
+  afterEach(() => {
+    if (previousEnv === undefined) delete process.env.NFCE_ENV;
+    else process.env.NFCE_ENV = previousEnv;
+    if (previousKey === undefined) delete process.env.NFCE_KEY;
+    else process.env.NFCE_KEY = previousKey;
+  });
+
+  test.each([undefined, "111.111.111-11", "529.982.247-24"])("rejects missing or invalid CPF %s before writing the order", async recipient_cpf => {
+    const response = await send({ recipient_cpf });
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ fiscal_cpf_required: true });
+    expect(insert).toBeNull();
+  });
+
+  it("stores the CPF encrypted with the order in its transaction", async () => {
+    const response = await send({ recipient_cpf: "529.982.247-25", customer_address_details: { rua: "Rua A", numero: "10", cidade: "Limeira", estado: "SP" } });
+    expect(response.status).toBe(200);
+    const detailSave = client.query.mock.calls.find(([sql]) => sql.includes("recipient_cpf_encrypted"));
+    expect(detailSave?.[1].slice(0, 2)).toEqual([restaurantId, orderId]);
+    const encrypted = detailSave?.[1][2];
+    expect(encrypted).not.toContain("52998224725");
+    expect(readFiscalRecipient(restaurantId, orderId, 2, encrypted)).toEqual({ cpf: "52998224725", city: "Limeira", state: "SP" });
+    expect(() => readFiscalRecipient(restaurantId, "other-order", 2, encrypted)).toThrow();
+    expect(() => readFiscalRecipient(restaurantId, orderId, 1, encrypted)).toThrow();
+    expect(transactions[0]).toBe("commit");
+    expect(JSON.stringify(await response.json())).not.toContain("52998224725");
+  });
+
+  test.each([false, true])("an order that does not require CPF ignores a submitted value (pickup=%s)", async pickup => {
+    if (!pickup) jest.mocked(deliveryFiscalEnvironment).mockResolvedValue(null);
+    const response = await send({ recipient_cpf: "529.982.247-25", ...(pickup ? { is_delivery: "retirada" } : {}) });
+    expect(response.status).toBe(200);
+    expect(writes.some(sql => sql.includes("recipient_cpf_encrypted"))).toBe(false);
+  });
+});
 
 const enablePreorders = () => {
   (query as jest.Mock).mockImplementation(async (sql: string) =>
@@ -271,14 +320,14 @@ it.each(["pix", "invalid-method"])(
       { Authorization: "Bearer owner-token" },
     );
     expect(response.status).toBe(400);
-    expect((await response.json()).error).toMatch(/Pix na entrega/);
+    expect((await response.json()).error).toMatch(/cartão ou Pix/);
     expect(insert).toBeNull();
     expect(writes).toEqual([]);
     expect(createMercadoPagoPixCharge).not.toHaveBeenCalled();
   },
 );
 
-it.each(["pix-entrega", "dinheiro", "trazer-maquininha"])(
+it.each(["pix-entrega", "dinheiro", "trazer-maquininha", "credito-entrega", "debito-entrega"])(
   "allows a Balcão order with the valid offline payment %s",
   async (paymentMethod) => {
     const response = await send(
@@ -293,6 +342,31 @@ it.each(["pix-entrega", "dinheiro", "trazer-maquininha"])(
     expect(createMercadoPagoPixCharge).not.toHaveBeenCalled();
   },
 );
+
+it.each(["credito-entrega", "debito-entrega"])(
+  "accepts %s as a physical payment for a restaurant using the legacy card setting",
+  async (paymentMethod) => {
+    const response = await send({ paymentMethod });
+    expect(response.status).toBe(200);
+    expect(saved()[1]).toBe("pending_physical_payment");
+    expect(saved()[10]).toBe(paymentMethod);
+    expect(createMercadoPagoPixCharge).not.toHaveBeenCalled();
+  },
+);
+
+it.each([
+  ["credito-entrega", "debito-entrega"],
+  ["debito-entrega", "credito-entrega"],
+  ["credito-entrega", "trazer-maquininha"],
+  ["dinheiro", "debito-entrega"],
+])("rejects %s's unconfigured checkout payment %s without inserting an order", async (enabled, paymentMethod) => {
+  allowedPaymentMethods = [enabled];
+  const response = await send({ paymentMethod });
+  expect(response.status).toBe(409);
+  expect(insert).toBeNull();
+  expect(writes).toEqual([]);
+  expect(createMercadoPagoPixCharge).not.toHaveBeenCalled();
+});
 
 it("rejects a manual-order flag without owner authentication", async () => {
   enablePreorders();

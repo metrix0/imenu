@@ -20,8 +20,10 @@ import {
     faTrash,
     faVolumeHigh,
 } from "@fortawesome/free-solid-svg-icons";
-import { supabase } from "@/lib/database/supabaseClient";
-import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
+import { clearCachedAuthSession, supabase } from "@/lib/database/supabaseClient";
+import { useCreationStore, useRestaurantPlus } from "@/lib/stores/restaurant-owner/creationStore";
+import { useSalesStore } from "@/lib/stores/restaurant-owner/iaVendasStore";
+import ListLoader from "@/components/ui/ListLoader";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
@@ -33,6 +35,7 @@ import Toast from "@/components/ui/Toast";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Tooltip from "@/components/ui/Tooltip";
 import ChoiceCardGroup from "@/components/ui/ChoiceCardGroup";
+import NfceSettings from "@/components/restaurant-owner/configuracoes/NfceSettings";
 import ResetOrderCountSection from "@/components/restaurant-owner/configuracoes/ResetOrderCountSection";
 import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
 import { qrTableAuthenticatedFetch } from "@/lib/qr-table/clientApi";
@@ -66,6 +69,14 @@ const SETTINGS_SECTIONS = {
 
 function SettingsSection({ id, children }: { id: keyof typeof SETTINGS_SECTIONS; children: ReactNode }) {
     const { label, icon } = SETTINGS_SECTIONS[id];
+    useEffect(() => {
+        // Sections load after restaurant data; scroll when a tab link targets a section.
+        if (window.location.hash !== `#${id}`) return;
+        const frame = window.requestAnimationFrame(() => {
+            document.getElementById(id)?.scrollIntoView({ block: "start" });
+        });
+        return () => window.cancelAnimationFrame(frame);
+    }, [id]);
     return (
         <section id={id} aria-labelledby={`${id}-heading`} className="scroll-mt-20 space-y-4">
             <h2 id={`${id}-heading`} className="flex items-center gap-2.5 text-xl font-semibold text-gray-900">
@@ -355,7 +366,7 @@ export default function ConfiguracoesPage() {
     const [isSavingSmallCityMode, setIsSavingSmallCityMode] = useState(false);
     const [confirmSmallCityModeOpen, setConfirmSmallCityModeOpen] = useState(false);
     const [isExportingMenu, setIsExportingMenu] = useState(false);
-    const [pdfAccess, setPdfAccess] = useState(false);
+    const pdfAccess = useRestaurantPlus(restaurant?.id ?? restaurantId);
     const [pdfSalesOpen, setPdfSalesOpen] = useState(false);
     const [darkThemeSalesOpen, setDarkThemeSalesOpen] = useState(false);
     const [isSavingDarkMenu, setIsSavingDarkMenu] = useState(false);
@@ -371,14 +382,6 @@ export default function ConfiguracoesPage() {
     const vitrineUrl = shareableUrl && restaurant?.url_slug
         ? new URL(`/vitrine/${restaurant.url_slug}`, shareableUrl).href
         : "";
-
-    const loadPdfAccess = useCallback(async (id: string) => {
-        setPdfAccess(false);
-        const response = await qrTableAuthenticatedFetch("/api/addons/billing?restaurantId=" + encodeURIComponent(id), { cache: "no-store" });
-        if (!response.ok) throw new Error("Não foi possível verificar o iMenu Plus.");
-        const data = await response.json() as { addons: { addon: { product_key: string }; active: boolean }[] };
-        setPdfAccess(data.addons.some(item => item.addon.product_key === "ia_plus" && item.active));
-    }, []);
 
     useEffect(() => {
         const audio = new Audio("/sounds/new-order.mp3");
@@ -443,7 +446,6 @@ export default function ConfiguracoesPage() {
                                 `${window.location.origin}/${restData.url_slug}`,
                             );
                         }
-                        await loadPdfAccess(restData.id);
                     }
                 }
             } catch (error) {
@@ -455,7 +457,7 @@ export default function ConfiguracoesPage() {
         };
 
         void loadData();
-    }, [restaurantId, router, setRestaurantId, loadPdfAccess]);
+    }, [restaurantId, router, setRestaurantId]);
 
     const currentRestaurantId = restaurant?.id;
     const saveAddress = useCallback(async (data: AddressData) => {
@@ -565,6 +567,7 @@ export default function ConfiguracoesPage() {
 
     const saveDarkMenuMode = async (enabled: boolean) => {
         if (!restaurant || isSavingDarkMenu) return;
+        if (pdfAccess === null) return;
         if (!pdfAccess) {
             setDarkThemeSalesOpen(true);
             return;
@@ -580,7 +583,7 @@ export default function ConfiguracoesPage() {
             const result = await response.json() as { enabled?: boolean; error?: string };
             if (!response.ok) {
                 if (response.status === 403) {
-                    setPdfAccess(false);
+                    void useSalesStore.getState().refreshUsage(restaurant.id);
                     setDarkThemeSalesOpen(true);
                 }
                 throw new Error(result.error || "Não foi possível salvar o tema.");
@@ -601,6 +604,7 @@ export default function ConfiguracoesPage() {
 
     const exportPrintableMenu = async () => {
         if (!restaurant || isExportingMenu) return;
+        if (pdfAccess === null) return;
         if (!pdfAccess) {
             setPdfSalesOpen(true);
             return;
@@ -718,14 +722,8 @@ export default function ConfiguracoesPage() {
         }
 
         try {
-            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-            if (!supabaseUrl) throw new Error("Supabase URL missing");
-            const projectRef = new URL(supabaseUrl).hostname.split(".")[0];
-            const storageKey = `sb-${projectRef}-auth-token`;
-
             // Supabase can leave the cached session behind when server sign-out fails.
-            window.localStorage.removeItem(storageKey);
-            window.localStorage.removeItem(`${storageKey}-code-verifier`);
+            clearCachedAuthSession();
             window.localStorage.removeItem("imenu:landing-panel-auto-redirect");
 
             clear();
@@ -775,9 +773,19 @@ export default function ConfiguracoesPage() {
             });
 
             if (!response.ok) throw new Error("Erro ao deletar conta.");
-            await supabase.auth.signOut();
+            const deletion = await response.json().catch(() => null);
+            await supabase.auth.signOut({ scope: "local" }).catch(() => null);
             clear();
-            router.push("/restaurante");
+            try {
+                if (typeof deletion?.feedbackToken === "string") {
+                    sessionStorage.setItem("imenu:account-deletion-feedback", deletion.feedbackToken);
+                    window.location.replace("/restaurante/conta-excluida");
+                    return;
+                }
+            } catch {
+                // Feedback is optional and must never block account deletion.
+            }
+            window.location.replace("/restaurante");
         } catch (error) {
             setToast({
                 message:
@@ -843,13 +851,14 @@ export default function ConfiguracoesPage() {
                 open={pdfSalesOpen || darkThemeSalesOpen}
                 onClose={() => { setPdfSalesOpen(false); setDarkThemeSalesOpen(false); }}
                 restaurantId={restaurant.id}
+                contextFeature={darkThemeSalesOpen ? "dark_menu" : "menu_pdf"}
                 contextMessage={darkThemeSalesOpen
                     ? "Com o iMenu Plus, ofereça seu cardápio com tema escuro."
                     : "Com o iMenu Plus, exporte seu cardápio em PDF para imprimir ou compartilhar."}
                 onPaid={() => {
                     setPdfSalesOpen(false);
                     setDarkThemeSalesOpen(false);
-                    return loadPdfAccess(restaurant.id);
+                    return useSalesStore.getState().refreshUsage(restaurant.id);
                 }}
             />}
             {toast && (
@@ -980,6 +989,10 @@ export default function ConfiguracoesPage() {
                                 )}
                             </Card>
 
+                            <div id="nfce" className="scroll-mt-20">
+                                {pdfAccess === null ? <Card><ListLoader lines={2} /></Card> : <NfceSettings key={pdfAccess ? "plus" : "locked"} restaurant={restaurant.id} address={restaurant.address} locked={!pdfAccess} />}
+                            </div>
+
                             <Card className="border border-gray-200 shadow-sm">
                                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                     <div className="min-w-0">
@@ -987,7 +1000,7 @@ export default function ConfiguracoesPage() {
                                             <h3 className="text-lg font-semibold text-gray-900">
                                                 Cardápio com Tema Escuro
                                             </h3>
-                                            <Badge preset={pdfAccess ? "featureAvailable" : "plusIncluded"} />
+                                            {pdfAccess !== null && <Badge preset={pdfAccess ? "featureAvailable" : "plusIncluded"} />}
                                         </div>
                                         <p id="dark-menu-description" className="mt-2 text-sm text-gray-500">
                                             Exiba seu cardápio com cores escuras, inclusive em Mesas e Vitrine.{" "}
@@ -1004,14 +1017,14 @@ export default function ConfiguracoesPage() {
                                     <div className="flex shrink-0 items-start gap-3">
                                         <SaveStatus status={saveErrors.dark ? "error" : isSavingDarkMenu ? "saving" : "saved"} />
                                         <Tooltip
-                                            text={!pdfAccess ? "Disponível com iMenu Plus. Assine o plano para ativar o tema escuro." : ""}
+                                            text={pdfAccess === false ? "Disponível com iMenu Plus. Assine o plano para ativar o tema escuro." : ""}
                                             parentClassName="!block"
                                         >
                                             <Switch
-                                                checked={restaurant.dark_menu_enabled === true && pdfAccess}
+                                                checked={restaurant.dark_menu_enabled === true && pdfAccess === true}
                                                 aria-label="Cardápio com Tema Escuro"
                                                 aria-describedby="dark-menu-description"
-                                                disabled={isSavingDarkMenu}
+                                                disabled={isSavingDarkMenu || pdfAccess === null}
                                                 onClick={() => void saveDarkMenuMode(restaurant.dark_menu_enabled !== true)}
                                             />
                                         </Tooltip>
@@ -1133,14 +1146,16 @@ export default function ConfiguracoesPage() {
                                             <h3 className="text-lg font-semibold text-gray-900">
                                                 Exportar Cardápio para Impressão
                                             </h3>
-                                            <Badge preset={pdfAccess ? "featureAvailable" : "plusIncluded"} />
+                                            {pdfAccess !== null && <Badge preset={pdfAccess ? "featureAvailable" : "plusIncluded"} />}
                                         </div>
                                         <p className="mt-2 text-sm text-gray-500">
                                             Baixe um PDF pronto para imprimir, com suas categorias, produtos, descrições e preços.
                                         </p>
                                     </div>
                                     <div className="flex shrink-0 items-start">
-                                        {pdfAccess ? (
+                                        {pdfAccess === null ? (
+                                            <Button variant="secondary" disabled>Exportar PDF</Button>
+                                        ) : pdfAccess ? (
                                             <Button
                                                 variant="secondary"
                                                 onClick={() => void exportPrintableMenu()}
@@ -1181,8 +1196,9 @@ export default function ConfiguracoesPage() {
                         )}
 
                         {restaurant && <ResetOrderCountSection restaurantId={restaurant.id} />}
+                    </SettingsSection>
 
-                        <Card className="border-red-200 bg-red-50/30">
+                    <Card className="border-red-200 bg-red-50/30">
                             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                                 <div>
                                     <h3 className="mb-2 text-lg font-medium text-red-700">
@@ -1206,7 +1222,6 @@ export default function ConfiguracoesPage() {
                                 </Button>
                             </div>
                         </Card>
-                    </SettingsSection>
                 </div>
             </div>
         </>

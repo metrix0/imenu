@@ -1,3 +1,4 @@
+import { CHECKOUT_PAYMENT_METHODS, LEGACY_CARD_METHOD, normalizeAllowedPaymentMethods } from "@/lib/payments/deliveryMethods";
 import { validateCategorySchedule } from "@/lib/menu/categorySchedule";
 import { FIELDS } from "./fields";
 import { object, SalesError, type Data } from "./types";
@@ -160,9 +161,10 @@ const ACTION_SPECIAL_SCHEMAS: Record<string, Data> = {
     type: "array",
     items: {
       type: "string",
-      enum: ["pix", "dinheiro", "trazer-maquininha"],
+      enum: CHECKOUT_PAYMENT_METHODS,
     },
-    maxItems: 3,
+    minItems: 1,
+    maxItems: CHECKOUT_PAYMENT_METHODS.length,
   },
   delivery_fee_mode: {
     type: "string",
@@ -456,13 +458,13 @@ export function validate(entity: string, input: unknown, create = false): Data {
         throw new SalesError(`Informe ${name}.`);
   if (value.url_slug && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value.url_slug))
     throw new SalesError("Link público inválido.");
-  if (
-    value.allowed_payment_methods &&
-    value.allowed_payment_methods.some(
-      (x: string) => !["pix", "dinheiro", "trazer-maquininha"].includes(x),
-    )
-  )
-    throw new SalesError("Forma de pagamento inválida.");
+  if (value.allowed_payment_methods) {
+    if (value.allowed_payment_methods.length === 0 ||
+        value.allowed_payment_methods.some((method: string) => method !== LEGACY_CARD_METHOD && !CHECKOUT_PAYMENT_METHODS.includes(method))) {
+      throw new SalesError("Forma de pagamento inválida.");
+    }
+    value.allowed_payment_methods = normalizeAllowedPaymentMethods(value.allowed_payment_methods);
+  }
   if (
     value.origins &&
     value.origins.some(

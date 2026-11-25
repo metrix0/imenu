@@ -9,21 +9,20 @@ import ToggleOptionCard from "@/components/ui/ToggleOptionCard";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import { useState } from "react";
 
-export const DEFAULT_ALLOWED_PAYMENT_METHODS = [
-    "pix",
-    "dinheiro",
-    "trazer-maquininha",
-];
+import { CARD_AT_DELIVERY_LABELS, CARD_AT_DELIVERY_METHODS, normalizeAllowedPaymentMethods } from "@/lib/payments/deliveryMethods";
+
+export { DEFAULT_ALLOWED_PAYMENT_METHODS } from "@/lib/payments/deliveryMethods";
 
 const PAYMENT_OPTIONS = [
     { value: "pix", label: "Pix (Online)", icon: faPix, recommended: true },
     { value: "pix-entrega", label: "Pix (Na entrega)", icon: faPix },
     { value: "dinheiro", label: "Dinheiro", icon: icons.faMoneyBill },
-    {
-        value: "trazer-maquininha",
-        label: "Maquininha",
-        icon: icons.faPersonBiking,
-    },
+    ...CARD_AT_DELIVERY_METHODS.map(value => ({
+        value,
+        label: CARD_AT_DELIVERY_LABELS[value],
+        icon: icons.faCreditCard,
+        recommended: false,
+    })),
 ];
 
 type Props = {
@@ -38,10 +37,7 @@ export default function AllowedPaymentMethods({
     className = "",
 }: Props) {
     const [confirmPixDisableOpen, setConfirmPixDisableOpen] = useState(false);
-    const selected =
-        Array.isArray(value) && value.length
-            ? value
-            : DEFAULT_ALLOWED_PAYMENT_METHODS;
+    const selected = normalizeAllowedPaymentMethods(value);
 
     const toggle = (method: string) => {
         if (method === "pix" && selected.includes("pix")) {

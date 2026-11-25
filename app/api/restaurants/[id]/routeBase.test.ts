@@ -117,3 +117,14 @@ test("completing onboarding gives an unnamed restaurant a six-digit name and pub
     expect(clientQuery.mock.calls[3][1]).toEqual(["restaurant", "Sem Nome 325000", "sem-nome-325000"]);
     random.mockRestore();
 });
+
+test.each([
+    [["pix", "pix-entrega", "trazer-maquininha"], ["pix", "pix-entrega", "credito-entrega", "debito-entrega"]],
+    [["pix", "credito-entrega"], ["pix", "credito-entrega"]],
+    [["pix", "debito-entrega"], ["pix", "debito-entrega"]],
+    [["pix", "dinheiro"], ["pix", "dinheiro"]],
+])("persists %j as %j without enabling other payment methods", async (methods, expected) => {
+    const response = await PATCH(request({ allowed_payment_methods: methods }), context);
+    expect(response.status).toBe(200);
+    expect(query).toHaveBeenLastCalledWith(expect.stringContaining("allowed_payment_methods = $2"), ["restaurant", expected]);
+});

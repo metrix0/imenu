@@ -1,5 +1,6 @@
 "use client";
 
+import { CARD_AT_DELIVERY_LABELS } from "@/lib/payments/deliveryMethods";
 import { useEffect, useMemo, useState } from "react";
 import {
     ArcElement,
@@ -144,6 +145,7 @@ function paymentLabel(value: string): string {
         "pix-entrega": "Pix na entrega",
         dinheiro: "Dinheiro",
         "trazer-maquininha": "Cartão na entrega",
+        ...CARD_AT_DELIVERY_LABELS,
         cartao: "Cartão",
         unknown: "Não informado",
     };

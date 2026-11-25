@@ -51,15 +51,17 @@ const PANEL_TAB_ICONS: Record<PanelTabKey, IconDefinition> = {
 export default function PanelTabCard({
   tab,
   inline = false,
+  sectionId,
 }: {
   tab: PanelTabKey;
   inline?: boolean;
+  sectionId?: string;
 }) {
   const item = PANEL_TABS[tab];
 
   return (
     <PageBadge
-      href={item.href}
+      href={sectionId ? `${item.href}#${encodeURIComponent(sectionId)}` : item.href}
       icon={PANEL_TAB_ICONS[tab]}
       size={inline ? "inline" : "button"}
       newTab

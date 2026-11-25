@@ -1,10 +1,11 @@
 "use client";
 
+import { cardAtDeliveryLabel, isCardAtDeliveryMethod } from "@/lib/payments/deliveryMethods";
 import { LegacyModalClose } from "@/components/ui/ModalCloseButton";
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import { faTimes, faUser, faMapMarkerAlt, faClock, faReceipt, faCheck, faMotorcycle, faCalendarDays, faChair, faPenToSquare, faBan, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faTimes, faUser, faPhone, faBagShopping, faStore, faMapMarkerAlt, faClock, faCheck, faMotorcycle, faCalendarDays, faChair, faPenToSquare, faBan, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { icons } from "@/lib/utils/fontawesome";
 import Modal from "@/components/ui/Modal";
 import ConfirmModal from "@/components/ui/ConfirmModal";
@@ -17,6 +18,7 @@ import { withCashChangeAmount } from "./cashChange";
 import OrderBadge from "./OrderBadge";
 
 interface OrderDetailsModalProps {
+    fiscalSection?: React.ReactNode;
     isOpen: boolean;
     onClose: () => void;
     order: Order | null; 
@@ -58,7 +60,7 @@ type OrderDetail = Omit<Order, "status"> & {
     }>;
 };
 
-export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdate, onEditOrder, onDeleteOrder, onCourierError, showStatusActions = false }: OrderDetailsModalProps) {
+export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdate, onEditOrder, onDeleteOrder, onCourierError, showStatusActions = false, fiscalSection }: OrderDetailsModalProps) {
     const [isLoading, setIsLoading] = useState(true);
     const [isUpdating, setIsUpdating] = useState(false);
     const [details, setDetails] = useState<OrderDetail | null>(null);
@@ -244,7 +246,11 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
         retirada: "Retirada",
         balcao: "Balcão",
     };
-    const payment = isCounterOrder ? "balcao" : isPickup ? "retirada" : order?.payment_method;
+    const method = details?.payment_method ?? order?.payment_method;
+    const cardLabel = isCardAtDeliveryMethod(method)
+        ? cardAtDeliveryLabel(method, isCounterOrder ? "balcao" : isPickup ? "retirada" : null)
+        : null;
+    const payment = isCounterOrder ? "balcao" : isPickup ? "retirada" : method;
 
     const canReject = showStatusActions && !isUpdating && details && (
         details.status === "pending_online_payment" ||
@@ -299,7 +305,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                     <div className="p-4 sm:p-5 border-b border-gray-100 flex justify-between items-start gap-3">
                         <div>
                             <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3 mb-1">
-                                <h2 className="text-xl 2xl:text-2xl font-bold text-gray-900">
+                                <h2 className="text-xl 2xl:text-2xl font-bold text-gray-900 pr-0!">
                                     Pedido #{order?.display_id}
                                 </h2>
                                 {status && <OrderBadge status={status} readyOnSite={isReadyOnSite}>{pendingLabels[status]}</OrderBadge>}
@@ -307,7 +313,8 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                     <OrderBadge kind="table">
                                         {details?.table_name_snapshot || order.table_name_snapshot || "Mesa"}
                                     </OrderBadge>
-                                ) : payment && <OrderBadge kind="payment">{paymentLabels[payment] || payment}</OrderBadge>)}
+                                ) : method === "ifood" ? <OrderBadge kind="ifood" /> : payment && <OrderBadge kind="payment">{(isReadyOnSite ? null : cardLabel) || paymentLabels[payment] || payment}</OrderBadge>)}
+                                {isReadyOnSite && !isTableOrder && cardLabel && <OrderBadge kind="payment">{cardLabel}</OrderBadge>}
                             </div>
                             <p className="text-xs text-gray-500 flex items-center gap-1 2xl:text-base">
                                 <FontAwesomeIcon icon={faClock} /> Realizado em {order && fmtDate(order.created_at)}
@@ -330,46 +337,39 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                             <div className="space-y-8">
                                 {/* Cliente */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="space-y-3 2xl:space-y-6">
-                                        <h4 className="text-sm 2xl:text-base font-bold text-gray-900 uppercase tracking-wider pb-1">Cliente</h4>
-                                        <div className="text-sm 2xl:text-base">
-                                            <p className="font-medium text-gray-900 flex items-center gap-2 2xl:gap-3">
-                                                <FontAwesomeIcon icon={faUser} className="text-gray-400 w-4" />
-                                                {details.customer_name}
+                                    <div className="min-w-0 space-y-2">
+                                        <h4 className="flex items-start gap-2 text-base 2xl:text-lg font-medium text-gray-900">
+                                            <FontAwesomeIcon icon={faUser} className="w-4 shrink-0 text-gray-400 mt-1" />
+                                            <span className="min-w-0 break-words">{details.customer_name}</span>
+                                        </h4>
+                                        {details.customer_phone && (
+                                            <p className="flex items-center gap-2 text-sm 2xl:text-base text-gray-500">
+                                                <FontAwesomeIcon icon={faPhone} className="w-4 shrink-0 text-gray-400" />
+                                                {details.customer_phone}
                                             </p>
-                                            {details.customer_phone && (
-                                                <p className="text-gray-500 ml-6 2xl:ml-8 mt-1 2xl:text-base">{details.customer_phone}</p>
-                                            )}
-                                        </div>
+                                        )}
                                     </div>
-                                    <div className="space-y-3 2xl:space-y-6">
-                                        <h4 className="text-sm 2xl:text-base font-bold text-gray-900 uppercase tracking-wider pb-1">{isTableOrder ? "Mesa" : isCounterOrder ? "Balcão" : isPickup ? "Retirada" : "Entrega"}</h4>
+                                    <div className="min-w-0 space-y-2">
+                                        {isReadyOnSite ? (
+                                            <h4 className="flex items-start gap-2 text-base 2xl:text-lg font-medium text-gray-900">
+                                                <FontAwesomeIcon icon={isTableOrder ? faChair : isCounterOrder ? faStore : faBagShopping} className="w-4 shrink-0 text-gray-400 mt-1" />
+                                                <span className="min-w-0 break-words">{isTableOrder ? details.table_name_snapshot || "Mesa" : isCounterOrder ? "Venda no balcão" : "Retirada no balcão"}</span>
+                                            </h4>
+                                        ) : (
+                                            <p className="flex items-start gap-2 text-sm 2xl:text-base text-gray-900">
+                                                <FontAwesomeIcon icon={faMapMarkerAlt} className="w-4 shrink-0 text-gray-400 mt-0.5" />
+                                                <span className="min-w-0 break-words">{details.customer_address || "Endereço não informado"}</span>
+                                            </p>
+                                        )}
                                         <div className="text-sm 2xl:text-[1.1rem]">
-                                            {isTableOrder ? (
-                                                <p className="flex items-center gap-2 font-medium text-gray-600">
-                                                    <FontAwesomeIcon icon={faChair} className="w-4 text-gray-400" />
-                                                    {details.table_name_snapshot || "Mesa"}
-                                                </p>
-                                            ) : isCounterOrder ? (
-                                                <p className="text-gray-600 font-medium">Venda no balcão</p>
-                                            ) : isPickup ? (
-                                                <p className="text-gray-600 font-medium">Retirada no balcão</p>
-                                            ) : details.customer_address ? (
-                                                <p className="text-gray-600 flex items-start gap-2">
-                                                    <FontAwesomeIcon icon={faMapMarkerAlt} className="text-gray-400 w-4 mt-0.5 2xl:mt-0.8" />
-                                                    {details.customer_address}
-                                                </p>
-                                            ) : (
-                                                <p className="text-gray-500 italic">Retirada no local</p>
-                                            )}
                                             {isScheduled && scheduledLabel ? (
-                                                <p className="mt-2 flex items-center gap-2 font-medium text-green-700">
+                                                <p className="flex items-center gap-2 font-medium text-green-700">
                                                     <FontAwesomeIcon icon={faCalendarDays} className="w-4" />
                                                     Agendado para {scheduledLabel}
                                                 </p>
                                             ) : etaRange ? (
-                                                <p className="mt-2 flex items-center gap-2 text-gray-500">
-                                                    <FontAwesomeIcon icon={faClock} className="w-4" />
+                                                <p className="flex items-center gap-2 text-gray-500">
+                                                    <FontAwesomeIcon icon={faClock} className="w-4 text-gray-400" />
                                                     {isPickup ? "Previsão de retirada" : "Previsão de entrega"}: {etaRange}
                                                 </p>
                                             ) : null}
@@ -379,9 +379,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
 
                                 {/* Itens */}
                                 <div>
-                                    <h4 className="text-sm 2xl:text-base font-bold text-gray-900 uppercase tracking-wider pb-2 mb-3 flex items-center gap-2">
-                                        <FontAwesomeIcon icon={faReceipt} className="text-gray-400" /> Resumo do Pedido
-                                    </h4>
+                                    <h4 className="text-base 2xl:text-lg font-medium text-gray-900 pb-2 mb-3">Pedido</h4>
                                     <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
                                         {details.order_items.map((item, idx) => (
                                             <div
@@ -420,8 +418,9 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                 </div>
 
                                 {/* Totais */}
-                                <div className="flex justify-end">
-                                    <div className="w-full md:w-1/2 space-y-2 2xl:space-y-3 sm:mx-4">
+                                <div className="flex flex-col-reverse gap-4 md:flex-row md:items-start md:justify-end md:gap-6">
+                                    {fiscalSection && <div className="min-w-0 flex-1">{fiscalSection}</div>}
+                                    <div className="w-full md:w-1/2 md:shrink-0 space-y-2 2xl:space-y-3 sm:mx-4">
                                         <div className="flex justify-between text-sm 2xl:text-base text-gray-500">
                                             <span>Subtotal</span>
                                             <span>{fmtMoney(details.subtotal_cents || 0)}</span>

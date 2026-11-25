@@ -249,6 +249,21 @@
     margin-top: 0;
     color: var(--panel-action);
 }
+/* Balance the global benefit list and bonus group by their rendered heights. */
+@container (min-width: 760px) {
+    .panel-essencial .plans-plus-body {
+        display: block;
+        columns: 2;
+        column-gap: 24px;
+        column-fill: balance;
+    }
+    .panel-essencial .plans-plus-feature-list { display: block; }
+    .panel-essencial .plans-plus-feature-list li {
+        break-inside: avoid;
+        margin-bottom: 16px;
+    }
+    .panel-essencial .plans-plus-extras { break-inside: avoid; padding-top: 8px; }
+}
 @container (max-width: 759px) {
     .panel-essencial .plans-plus-header {
         align-items: flex-start;

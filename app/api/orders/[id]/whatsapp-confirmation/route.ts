@@ -1,3 +1,4 @@
+import { cardAtDeliveryLabel, isCardAtDeliveryMethod } from "@/lib/payments/deliveryMethods";
 import { NextResponse } from "next/server";
 import { query } from "@/lib/database/sql";
 
@@ -51,8 +52,9 @@ function isPickupOrder(value: unknown): boolean {
     );
 }
 
-function paymentLabel(value: unknown): string {
+function paymentLabel(value: unknown, destination?: string | null): string {
     const method = String(value ?? "");
+    if (isCardAtDeliveryMethod(method)) return cardAtDeliveryLabel(method, destination);
     const labels: Record<string, string> = {
         dinheiro: "Dinheiro",
         "pix-entrega": "Pix na entrega",
@@ -155,7 +157,7 @@ function buildComanda(
     }
 
     if (!tableOrder && order.payment_method) {
-        lines.push(`💳 Pagamento: ${paymentLabel(order.payment_method)}`);
+        lines.push(`💳 Pagamento: ${paymentLabel(order.payment_method, order.is_delivery === "balcao" ? "balcao" : pickup ? "retirada" : null)}`);
     }
 
     lines.push(separator);

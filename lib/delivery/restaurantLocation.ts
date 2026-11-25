@@ -57,7 +57,7 @@ export function getCheckoutFulfillment(
     const deliveryDisabled = !isTableOrder && restaurant.delivery_disabled === true;
     const missingDeliveryOrigin = !isTableOrder && !deliveryDisabled && !neighborhoodMode && !location.hasRadiusOrigin;
     const pickupAvailable = !isTableOrder && restaurant.pickup_enabled === true;
-    const pickupRequired = deliveryDisabled || (pickupAvailable && missingDeliveryOrigin);
+    const pickupRequired = deliveryDisabled;
 
     return {
         ...location,
@@ -79,3 +79,28 @@ export function getCheckoutDeliveryDistanceKm(
 ): number {
     return neighborhoodMode ? 0 : calculateDistanceKm(originLat, originLon, destinationLat, destinationLon);
 }
+
+export function findCheckoutDeliveryTier(distanceKm: number, tiersAny: any) {
+    if (typeof tiersAny === "string") {
+        try { tiersAny = JSON.parse(tiersAny); }
+        catch { return null; }
+    }
+    if (!tiersAny) return null;
+
+    let tiers = Array.isArray(tiersAny)
+        ? tiersAny
+        : Array.isArray(tiersAny.entrega)
+            ? tiersAny.entrega.map((t: any) => ({
+                fee_cents: t.taxa !== undefined ? Math.round(t.taxa * 100) : t.fee_cents,
+                radius_km: t.distancia_km ?? t.radius_km,
+                time_minutes: t.time_minutes ?? 0,
+            }))
+            : null;
+
+    if (!tiers?.length) return null;
+
+    return [...tiers]
+        .sort((a, b) => (a.radius_km ?? 0) - (b.radius_km ?? 0))
+        .find(tier => distanceKm <= tier.radius_km) ?? null;
+}
+

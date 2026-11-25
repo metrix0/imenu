@@ -4,6 +4,7 @@ import Input from "@/components/ui/Input";
 import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
 import { fetchAddressByCEP } from "@/lib/api/geocoding";
 import { useCartStore } from "@/lib/stores/costumer/cartStore";
+import { formatFiscalCpf } from "@/lib/nfce/cpf";
 import {
   normalizeCustomerPhone,
   legacyCheckoutAddress,
@@ -52,11 +53,14 @@ export function useCheckoutSession(restaurantId: string, enabled: boolean) {
 }
 export default function CheckoutCustomerFields({
   restaurantId,
+  requiresFiscalCpf = false,
 }: {
   restaurantId: string;
+  requiresFiscalCpf?: boolean;
 }) {
   const phone = useCheckoutStore((s) => s.celular),
     name = useCheckoutStore((s) => s.nome),
+    cpf = useCheckoutStore((s) => s.fiscalCpf),
     setField = useCheckoutStore((s) => s.setField);
   const lookupController = useRef<AbortController | null>(null);
   const lookupTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -152,14 +156,26 @@ export default function CheckoutCustomerFields({
         }}
         className="md:text-sm 2xl:text-lg"
       />
-      <Input
-        autoComplete="name"
-        label="Nome"
-        placeholder="Como podemos chamar você?"
-        value={name}
-        onChange={(e) => setField("nome", e.target.value)}
-        className="md:text-sm 2xl:text-lg"
-      />
+      <div className={requiresFiscalCpf ? "grid grid-cols-[minmax(0,1fr)_minmax(8.25rem,0.75fr)] gap-3" : undefined}>
+        <Input
+          autoComplete="name"
+          label="Nome"
+          placeholder={requiresFiscalCpf ? "Seu nome" : "Como podemos chamar você?"}
+          value={name}
+          onChange={(e) => setField("nome", e.target.value)}
+          className="md:text-sm 2xl:text-lg"
+        />
+        {requiresFiscalCpf && <Input
+          autoComplete="off"
+          inputMode="numeric"
+          label="CPF"
+          placeholder="000.000.000-00"
+          value={cpf}
+          onChange={e => setField("fiscalCpf", formatFiscalCpf(e.target.value))}
+          required
+          className="ph-no-capture rr-block md:text-sm 2xl:text-lg"
+        />}
+      </div>
     </div>
   );
 }

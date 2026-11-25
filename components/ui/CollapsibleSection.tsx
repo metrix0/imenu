@@ -77,9 +77,12 @@ export function CollapsibleContent({ id, expanded, children }: {
 
 type CollapsibleSectionProps = {
     title: string;
+    titleClassName?: string;
     description?: string;
     icon?: ReactNode;
     badge?: ReactNode;
+    titleBadge?: ReactNode;
+    badgeFirst?: boolean;
     children: ReactNode;
     footer?: ReactNode;
     chevronSize?: ChevronSize;
@@ -98,9 +101,12 @@ type CollapsibleSectionProps = {
 
 export default function CollapsibleSection({
     title,
+    titleClassName = "text-sm font-medium",
     description,
     icon,
     badge,
+    titleBadge,
+    badgeFirst = false,
     children,
     footer,
     chevronSize,
@@ -139,20 +145,21 @@ export default function CollapsibleSection({
                     <span className="min-w-0 flex-1">
                         <span
                             id={titleId}
-                            className={`${inlineChevron ? "flex items-center gap-2" : "block"} text-sm font-medium text-gray-900`}
+                            className={`${inlineChevron || titleBadge ? "flex flex-wrap items-center gap-2" : "block"} ${titleClassName} text-gray-900`}
                         >
                             {inlineChevron ? (
                                 <>
                                     <span>{title}</span>
+                                    {titleBadge}
                                     <CollapsibleChevron expanded={expanded} size={chevronSize} />
                                 </>
-                            ) : title}
+                            ) : <>{title}{titleBadge}</>}
                         </span>
                         {description && <span id={descriptionId} className="mt-1 block text-sm text-gray-500">{description}</span>}
                     </span>
                 </button>
                 {(!inlineChevron || toggle || badge) && (
-                    <div className="flex shrink-0 flex-col items-end sm:flex-row sm:items-center sm:gap-3">
+                    <div className={badgeFirst ? "flex shrink-0 flex-row items-center gap-2 sm:gap-3" : "flex shrink-0 flex-col items-end sm:flex-row sm:items-center sm:gap-3"}>
                         {(toggle || !inlineChevron) && (
                             <div className="flex h-9 items-center gap-2 sm:gap-3">
                                 {toggle && (
@@ -174,7 +181,7 @@ export default function CollapsibleSection({
                                 )}
                             </div>
                         )}
-                        {badge && <span className="sm:order-first">{badge}</span>}
+                        {badge && <span className={badgeFirst ? "order-first self-center" : "sm:order-first"}>{badge}</span>}
                     </div>
                 )}
             </div>

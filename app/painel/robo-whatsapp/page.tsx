@@ -38,7 +38,7 @@ import type {
     WhatsAppMessageTemplates,
     WhatsAppTemplateKey,
 } from "@/lib/services/whatsappMessageTemplates";
-import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
+import { useCreationStore, useRestaurantPlus } from "@/lib/stores/restaurant-owner/creationStore";
 
 type RestaurantInfo = {
     id: string;
@@ -237,10 +237,11 @@ function connectionPresentation(connection: WhatsAppConnection | null): { label:
 
 export default function RoboWhatsAppPage() {
     const { restaurantId, setRestaurantId } = useCreationStore();
+    const plus = useRestaurantPlus(restaurantId);
     const [messagesChanged, setMessagesChanged] = useState(false);
     const [notificationTemplateChanged, setNotificationTemplateChanged] = useState(false);
     const editorRefs = useRef<Record<string, TemplateEditorHandle | null>>({});
-    const [notificationSettings,setNotificationSettings]=useState<{plus:boolean;enabled:boolean;aiEnabled:boolean}|null>(null);
+    const [notificationSettings,setNotificationSettings]=useState<{enabled:boolean;aiEnabled:boolean}|null>(null);
     const [loading, setLoading] = useState(true);
     const [whatsAppAction, setWhatsAppAction] = useState<
         "connect" | "reconnect" | "refresh_qr" | "disconnect" | null
@@ -333,6 +334,7 @@ export default function RoboWhatsAppPage() {
 
             const headers = { Authorization: `Bearer ${session.access_token}` };
             const query = `restaurantId=${encodeURIComponent(resolvedRestaurantId)}`;
+            const checkedAt = Date.now();
             const [connectionResponse, settingsResponse] = await Promise.all([
                 fetch(`/api/whatsapp/connection?${query}`, {
                     headers,
@@ -359,7 +361,8 @@ export default function RoboWhatsAppPage() {
             }
 
             if (settingsResponse.ok) {
-                setNotificationSettings({plus:settingsData.plus===true,enabled:settingsData.orderNotificationsEnabled===true,aiEnabled:settingsData.aiEnabled===true});
+                if (typeof settingsData.plus === "boolean") useCreationStore.getState().rememberPlus(resolvedRestaurantId, settingsData.plus, checkedAt);
+                setNotificationSettings({enabled:settingsData.orderNotificationsEnabled===true,aiEnabled:settingsData.aiEnabled===true});
                 setTemplates(settingsData.templates);
                 setVariables(settingsData.variables || []);
                 setHandoffs(settingsData.conversations || []);
@@ -939,21 +942,21 @@ export default function RoboWhatsAppPage() {
                     </Card>
                 )}
 
-                {restaurantId && notificationSettings && (
+                {restaurantId && notificationSettings && plus !== null && (
                     <OrderNotificationSettings
                         key={`${restaurantId}:ai`}
                         restaurantId={restaurantId}
-                        plus={notificationSettings.plus}
+                        plus={plus}
                         initialEnabled={notificationSettings.aiEnabled}
                         feature="ai"
                     />
                 )}
 
-                {restaurantId && notificationSettings && (
+                {restaurantId && notificationSettings && plus !== null && (
                     <OrderNotificationSettings
                         key={restaurantId}
                         restaurantId={restaurantId}
-                        plus={notificationSettings.plus}
+                        plus={plus}
                         initialEnabled={notificationSettings.enabled}
                         templateSaveStatus={notificationTemplateChanged ? saveStatus : "idle"}
                     >

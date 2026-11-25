@@ -1,5 +1,5 @@
 // app/api/orders/[id]/status-order/route.ts
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { MercadoPagoConfig, PaymentRefund } from "mercadopago";
 
 import { requestIfoodStatus, IfoodStatusError } from "@/lib/delivery/ifoodStatus";
@@ -95,7 +95,7 @@ export async function PATCH(
             throw new OrderStatusError("Invalid status provided", 400);
         }
 
-        const updateResult = await withTransaction(async (client) => {
+        const changeStatus = () => withTransaction(async (client) => {
             const orderResult = await client.query(
                 `
                         SELECT
@@ -135,7 +135,8 @@ export async function PATCH(
             if (order.is_imported) {
                 await requestIfoodStatus(id, order.status, status);
                 return { isTableOrder: false, isCounterOrder: false, statusChanged: false,
-                    isImported: true, accepted: false, ifoodPending: status !== order.status, confirmedStatus: order.status };
+                    isImported: true, accepted: false, ifoodPending: status !== order.status, confirmedStatus: order.status,
+                    fiscalOrder: null };
             }
 
             if (
@@ -463,6 +464,7 @@ export async function PATCH(
             );
 
             return {
+                fiscalOrder: { restaurant: order.restaurant_id as string, type: order.is_delivery as string | null },
                 isTableOrder:
                     String(order.is_delivery || "").toLowerCase() === "mesa",
                 isCounterOrder: order.is_delivery === "balcao",
@@ -473,6 +475,29 @@ export async function PATCH(
                 accepted: status === "preparing" && ["paid", "pending_physical_payment"].includes(order.status),
             };
         });
+
+        const updateResult = await changeStatus();
+
+        // Fiscal work must never delay, reject, or roll back an order status change.
+        // Schedule it only after the order transaction commits and the HTTP response is sent.
+        if (process.env.NFCE_ENV && updateResult.fiscalOrder) {
+            const fiscalOrder = updateResult.fiscalOrder;
+            try {
+                after(async () => {
+                    try {
+                        const fiscal = await import("@/lib/nfce/service");
+                        if (!fiscal.needsFiscalNote(status, fiscalOrder.type)) return;
+                        const queued = await withTransaction(client =>
+                            fiscal.queueOrderNote(client, fiscalOrder.restaurant, id, status, fiscalOrder.type));
+                        if (queued) await fiscal.processNote(id);
+                    } catch (error) {
+                        console.error("[NFC-E] Falha ao enfileirar ou processar nota fiscal:", error);
+                    }
+                });
+            } catch (error) {
+                console.error("[NFC-E] Falha ao agendar emissão fiscal:", error);
+            }
+        }
 
         let courierError: string | null = null;
         if (updateResult.accepted) {

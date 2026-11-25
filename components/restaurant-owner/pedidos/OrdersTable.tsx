@@ -1,15 +1,18 @@
 "use client";
 
+import type { PhysicalPaymentMethod } from "@/lib/payments/deliveryMethods";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import { faChair, faEye, faTrash, faStore, faBagShopping, faPersonBiking } from "@fortawesome/free-solid-svg-icons";
+import { faChair, faEye, faPenToSquare, faTrash, faStore, faBagShopping, faPersonBiking } from "@fortawesome/free-solid-svg-icons";
+import { FileBadge } from "lucide-react";
 import DataTable from "@/components/ui/DataTable";
 import Card from "@/components/ui/Card";
 import ListLoader from "@/components/ui/ListLoader";
 import type { OrderStatus } from "../OrderCard";
 import OrderBadge from "./OrderBadge";
+import { NfceUpgradeButton } from "./NfceHistory";
 
 export type Order = {
-    payment_method: "dinheiro" | "cartao" | "pix" | "trazer-maquininha";
+    payment_method: PhysicalPaymentMethod | "cartao" | "pix" | "ifood" | null;
     id: string;
     display_id: number;
     created_at: string;
@@ -24,11 +27,19 @@ export type Order = {
 interface OrdersTableProps {
     orders: Order[];
     isLoading: boolean;
-    onViewOrder?: (order: Order) => void; // Nova prop para ação
+    onViewOrder?: (order: Order) => void;
+    onEditOrder?: (order: Order) => void;
+    showFiscalActions?: (order: Order) => boolean;
+    reserveFiscalSpace?: boolean;
+    fiscalIds?: ReadonlySet<string>;
+    fiscalPlus?: boolean | null;
+    restaurantId?: string | null;
+    onPaid?: () => void | Promise<void>;
+    onViewFiscal?: (order: Order) => void;
     onDeleteOrder?: (order: Order) => void;
 }
 
-export default function OrdersTable({ orders, isLoading, onViewOrder, onDeleteOrder }: OrdersTableProps) {
+export default function OrdersTable({ orders, isLoading, onViewOrder, onEditOrder, onDeleteOrder, showFiscalActions, reserveFiscalSpace, fiscalIds, fiscalPlus, restaurantId, onPaid, onViewFiscal }: OrdersTableProps) {
 
     const fmtMoney = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
     const fmtDate = (dateStr: string) => new Date(dateStr).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
@@ -38,6 +49,53 @@ export default function OrdersTable({ orders, isLoading, onViewOrder, onDeleteOr
             status={order.status}
             readyOnSite={order.is_delivery === "mesa" || order.is_delivery === "retirada" || order.is_delivery === "balcao"}
         />
+    );
+
+    const actionIconClass = "panel-history-action inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-gray-500 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand";
+
+    const fiscalButton = (order: Order) => {
+        const generated = Boolean(fiscalIds?.has(order.id));
+        if (fiscalPlus === false && restaurantId && onPaid) {
+            return <NfceUpgradeButton key="fiscal" iconOnly restaurant={restaurantId} onPaid={onPaid} />;
+        }
+        return (
+            <button type="button" title={generated ? "Ver nota fiscal" : "Nota fiscal não emitida"}
+                aria-label={generated ? "Ver nota fiscal do pedido" : "Nota fiscal ainda não emitida"}
+                data-fiscal-muted={!generated}
+                disabled={!generated || !onViewFiscal}
+                className={`${actionIconClass} ${generated ? "" : "opacity-35"} disabled:cursor-default`}
+                onKeyDown={event => event.stopPropagation()}
+                onClick={event => { event.stopPropagation(); onViewFiscal?.(order); }}>
+                <FileBadge className="panel-icon" size="1em" strokeWidth={1.75} aria-hidden="true" />
+            </button>
+        );
+    };
+
+    const actionButtons = (order: Order) => (
+        <div className="flex shrink-0 items-center justify-end gap-1" style={reserveFiscalSpace ? { minWidth: 32 + 36 * (1 + Number(Boolean(onEditOrder)) + Number(Boolean(onDeleteOrder))) } : undefined}>
+            {(showFiscalActions?.(order) ?? true) && fiscalButton(order)}
+            <button type="button" title="Ver detalhes"
+                aria-label={`Ver detalhes do pedido #${order.display_id || order.id.slice(0, 4)}`}
+                className={actionIconClass}
+                onKeyDown={event => event.stopPropagation()}
+                onClick={event => { event.stopPropagation(); onViewOrder?.(order); }}>
+                <FontAwesomeIcon icon={faEye} />
+            </button>
+            {onEditOrder && <button type="button" title="Editar pedido"
+                aria-label={`Editar pedido #${order.display_id || order.id.slice(0, 4)}`}
+                className={actionIconClass}
+                onKeyDown={event => event.stopPropagation()}
+                onClick={event => { event.stopPropagation(); onEditOrder(order); }}>
+                <FontAwesomeIcon icon={faPenToSquare} />
+            </button>}
+            {onDeleteOrder && <button type="button" title="Excluir pedido"
+                aria-label={`Excluir pedido #${order.display_id || order.id.slice(0, 4)}`}
+                className={`${actionIconClass} panel-history-action-delete`}
+                onKeyDown={event => event.stopPropagation()}
+                onClick={event => { event.stopPropagation(); onDeleteOrder(order); }}>
+                <FontAwesomeIcon icon={faTrash} />
+            </button>}
+        </div>
     );
 
     return (
@@ -91,34 +149,7 @@ export default function OrdersTable({ orders, isLoading, onViewOrder, onDeleteOr
                                         </p>
                                     </div>
 
-                                    <div className="flex shrink-0 items-center gap-1">
-                                        <button
-                                            type="button"
-                                            onClick={(event) => {
-                                                event.stopPropagation();
-                                                onViewOrder?.(order);
-                                            }}
-                                            className="cursor-pointer rounded-md p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-brand"
-                                            title="Ver detalhes"
-                                            aria-label={`Ver detalhes do pedido #${order.display_id || order.id.slice(0, 4)}`}
-                                        >
-                                            <FontAwesomeIcon icon={faEye} />
-                                        </button>
-                                        {onDeleteOrder && (
-                                            <button
-                                                type="button"
-                                                onClick={(event) => {
-                                                    event.stopPropagation();
-                                                    onDeleteOrder(order);
-                                                }}
-                                                className="cursor-pointer rounded-md p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
-                                                title="Excluir pedido"
-                                                aria-label={`Excluir pedido #${order.display_id || order.id.slice(0, 4)}`}
-                                            >
-                                                <FontAwesomeIcon icon={faTrash} />
-                                            </button>
-                                        )}
-                                    </div>
+                                    {actionButtons(order)}
                                 </div>
 
                                 <div className="flex items-center justify-between border-t border-gray-100 pt-3 text-sm">
@@ -142,10 +173,7 @@ export default function OrdersTable({ orders, isLoading, onViewOrder, onDeleteOr
                         { key: "date", label: "Data", render: order => <span className="whitespace-nowrap text-gray-500">{fmtDate(order.created_at)}</span> },
                         { key: "total", label: "Valor", render: order => <span className="whitespace-nowrap font-medium">{fmtMoney(order.total_cents)}</span> },
                         { key: "status", label: "Situação", render: order => statusBadge(order) },
-                        { key: "action", label: "", render: order => <div className="flex items-center gap-1">
-                            <button type="button" title="Ver detalhes" aria-label={"Ver detalhes do pedido #" + (order.display_id || order.id.slice(0, 4))} onClick={event => { event.stopPropagation(); onViewOrder?.(order); }} className="cursor-pointer rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-brand"><FontAwesomeIcon icon={faEye} /></button>
-                            {onDeleteOrder && <button type="button" title="Excluir pedido" aria-label={"Excluir pedido #" + (order.display_id || order.id.slice(0, 4))} onClick={event => { event.stopPropagation(); onDeleteOrder(order); }} className="cursor-pointer rounded-md p-2 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600"><FontAwesomeIcon icon={faTrash} /></button>}
-                        </div> },
+                        { key: "action", label: "", render: order => actionButtons(order) },
                     ]} />
             </div>
         </Card>

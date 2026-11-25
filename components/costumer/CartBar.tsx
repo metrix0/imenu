@@ -19,6 +19,7 @@ import { useRouter } from "next/navigation";
 import type { PromotionResult } from "@/lib/promotions/automatic";
 import type { QrTableMenuContext } from "@/lib/qr-table/types";
 import { getCheckoutFulfillment } from "@/lib/delivery/restaurantLocation";
+import { fiscalCpf } from "@/lib/nfce/cpf";
 
 export default function CartBar({
                                     onOpenCartAction,
@@ -26,7 +27,7 @@ export default function CartBar({
                                     restaurant,
                                     setCartOpenAction,
     closeItemModalOpen, trackMeta, metaPixelId, slug, tableOrder, selectedTableId,
-    selectedTableName, promotionResult, requiresSchedule = false
+    selectedTableName, promotionResult, requiresSchedule = false, deliveryCpfRequired = false
                                 }: {
     onOpenCartAction: () => void,
     cartOpen: boolean,
@@ -41,12 +42,14 @@ export default function CartBar({
     selectedTableName?: string | null;
     promotionResult?: PromotionResult;
     requiresSchedule?: boolean;
+    deliveryCpfRequired?: boolean;
 }) {
     const router = useRouter();
     const items = useCartStore((s) => s.items);
     const metaCheckout = useRef({ started: false, payment: false });
     useEffect(() => {
         if (!cartOpen || items.length === 0) metaCheckout.current = { started: false, payment: false };
+        if (!cartOpen && useCheckoutStore.getState().fiscalCpf) useCheckoutStore.setState({ fiscalCpf: "" });
     }, [cartOpen, items.length]);
 
     const step = useCheckoutStore((s) => s.step);
@@ -67,6 +70,7 @@ export default function CartBar({
         restaurant ?? {}, isTableOrder, Boolean((checkoutState as any).is_pickup),
     );
     const smallCityMode = restaurant?.delivery_fee_mode === "neighborhood" && restaurant?.small_city_mode_enabled === true;
+    const requiresFiscalCpf = deliveryCpfRequired && !isTableOrder && !isPickup && !missingDeliveryOrigin;
     const missingDeliveryRanges = !isTableOrder && !isPickup && restaurant?.delivery_fee_mode !== "neighborhood" && (() => {
         let configured = restaurant?.delivery_fee_json;
         if (typeof configured === "string") {
@@ -165,6 +169,7 @@ export default function CartBar({
         : Boolean(
               checkoutState.nome &&
                   checkoutState.celular &&
+                  (!requiresFiscalCpf || fiscalCpf(checkoutState.fiscalCpf)) &&
                   (isPickup ||
                       ((checkoutState.cep?.length >= 8 || (smallCityMode && !checkoutState.cep)) &&
                           checkoutState.rua &&
@@ -188,6 +193,7 @@ export default function CartBar({
     }
     if (!checkoutState.nome) missingFields.push("Nome");
     if (!isTableOrder && !checkoutState.celular) missingFields.push("Celular");
+    if (requiresFiscalCpf && !fiscalCpf(checkoutState.fiscalCpf)) missingFields.push("CPF válido");
 
     const tooltipText =
         missingFields.length > 0
@@ -519,7 +525,7 @@ export default function CartBar({
 
         const res = await fetch("/api/orders", {
             method: "POST",
-            body: JSON.stringify(body),
+            body: JSON.stringify({ ...body, ...(requiresFiscalCpf ? { recipient_cpf: fiscalCpf(checkout.fiscalCpf) } : {}) }),
             headers: { "Content-Type": "application/json" }
         });
 
@@ -528,6 +534,7 @@ export default function CartBar({
         if (!res.ok) {
             closeWhatsappWindow();
             if (res.status === 409) router.refresh();
+            if (data?.fiscal_cpf_required) setStep("info");
             setOrderWarning({
                 message:
                     data?.error ||
@@ -574,7 +581,7 @@ export default function CartBar({
             console.error("[CART] Failed to clear cart-storage:", err);
         }
 
-        useCheckoutStore.setState({ is_pickup: false, scheduled_for: null } as any);
+        useCheckoutStore.setState({ is_pickup: false, scheduled_for: null, fiscalCpf: "" } as any);
 
         const createdOrderId = data.order_id || data.id;
         if (data.meta_purchase && metaPixelId && createdOrderId) {

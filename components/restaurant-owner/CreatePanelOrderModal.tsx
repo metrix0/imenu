@@ -1,5 +1,7 @@
 "use client";
 
+import { CARD_AT_DELIVERY_METHODS, LEGACY_CARD_METHOD, cardAtDeliveryLabel, isPhysicalPaymentMethod, type PhysicalPaymentMethod } from "@/lib/payments/deliveryMethods";
+
 import { LegacyModalClose } from "@/components/ui/ModalCloseButton";
 import { CollapsibleChevron, CollapsibleContent, useCollapsible } from "@/components/ui/CollapsibleSection";
 import Textarea from "@/components/ui/Textarea";
@@ -106,7 +108,7 @@ export default function CreatePanelOrderModal({
     const [customerName, setCustomerName] = useState("");
     const [customerPhone, setCustomerPhone] = useState("");
     const [customerAddress, setCustomerAddress] = useState("");
-    const [paymentMethod, setPaymentMethod] = useState<"dinheiro" | "trazer-maquininha" | "pix-entrega">("dinheiro");
+    const [paymentMethod, setPaymentMethod] = useState<PhysicalPaymentMethod>("dinheiro");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoadingExisting, setIsLoadingExisting] = useState(false);
     const [editBlockReason, setEditBlockReason] = useState<string | null>(null);
@@ -249,8 +251,7 @@ export default function CreatePanelOrderModal({
                 setCustomerAddress(data.customer_address || "");
                 setSelectedTableId(data.is_delivery === "mesa" ? data.table_id || "" : data.is_delivery === "balcao" ? "balcao" : "");
                 setOriginalDeliveryType(data.is_delivery);
-                setPaymentMethod((["dinheiro", "trazer-maquininha", "pix-entrega"].includes(data.payment_method || "")
-                    ? data.payment_method : "dinheiro") as "dinheiro" | "trazer-maquininha" | "pix-entrega");
+                setPaymentMethod(isPhysicalPaymentMethod(data.payment_method) ? data.payment_method : "dinheiro");
                 setIsOnlinePayment(data.payment_method === "pix" || data.payment_method === "cartao");
                 setDeliveryFeeInput((Number(data.delivery_cents || 0) / 100).toFixed(2).replace(".", ","));
                 if (data.coupon_code || Number(data.loyalty_points_used) > 0 || data.loyalty_credited) {
@@ -973,13 +974,18 @@ export default function CreatePanelOrderModal({
                                                             label="Tipo de Pagamento" value={paymentMethod}
                                                             disabled={isOnlinePayment}
                                                             onChange={(e) =>
-                                                                setPaymentMethod(e.target.value as "dinheiro" | "trazer-maquininha" | "pix-entrega")
+                                                                setPaymentMethod(e.target.value as PhysicalPaymentMethod)
                                                             }
                                                             className="w-full appearance-none rounded-xl border border-gray-200 bg-white px-4 py-3 pr-10 text-gray-700 outline-none transition hover:border-gray-300 focus:border-brand focus:ring-2 focus:ring-brand/10"
                                                         >
                                                             {isOnlinePayment && <option value={paymentMethod}>Pagamento online (mantido)</option>}
                                                             <option value="dinheiro">Dinheiro</option>
-                                                            <option value="trazer-maquininha">Cartão</option>
+                                                            {paymentMethod === LEGACY_CARD_METHOD && <option value={LEGACY_CARD_METHOD}>Cartão</option>}
+                                                            {CARD_AT_DELIVERY_METHODS.map(method => (
+                                                                <option key={method} value={method}>
+                                                                    {cardAtDeliveryLabel(method, isCounterOrder ? "balcao" : editingOrder ? originalDeliveryType : null)}
+                                                                </option>
+                                                            ))}
                                                             <option value="pix-entrega">Pix</option>
                                                         </Dropdown>
                                                     </div>

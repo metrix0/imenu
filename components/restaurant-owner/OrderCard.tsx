@@ -1,5 +1,6 @@
 "use client";
 
+import { cardAtDeliveryLabel, isCardAtDeliveryMethod, isPhysicalPaymentMethod } from "@/lib/payments/deliveryMethods";
 import {useEffect, useState} from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { 
@@ -271,7 +272,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
             prevStatus = "delivering";
         }
         else if (order.status === "preparing") {
-            const isPhysical = ["trazer-maquininha", "dinheiro", "pix-entrega"].includes(order.payment_method || "");
+            const isPhysical = isPhysicalPaymentMethod(order.payment_method);
             prevStatus = isTableOrder || isPhysical ? "pending_physical_payment" : "paid";
         }
 
@@ -359,7 +360,9 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
     };
 
     const paymentMethod = order.payment_method || "";
-    const paymentLabel = isCounterOrder && paymentMethod === "pix-entrega" ? "Pix" : paymentLabels[paymentMethod] || paymentMethod || "Pagamento";
+    const paymentLabel = isCardAtDeliveryMethod(paymentMethod)
+        ? cardAtDeliveryLabel(paymentMethod, order.is_delivery)
+        : isCounterOrder && paymentMethod === "pix-entrega" ? "Pix" : paymentLabels[paymentMethod] || paymentMethod || "Pagamento";
     const cashChangeObservation = paymentMethod === "dinheiro"
         ? order.order_items
             .map((item) => item.observation?.match(CASH_CHANGE_OBSERVATION)?.[0].trim())
@@ -389,7 +392,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
     const deliveryEtaTooltip = !isScheduled && !isCounterOrder ? formatEtaRange(order.delivery_eta) : "";
     const paymentBadge = (
         <OrderBadge
-            kind={paymentMethod === "pix" ? "paymentConfirmed" : "payment"}
+            kind={paymentMethod === "ifood" ? "ifood" : paymentMethod === "pix" ? "paymentConfirmed" : "payment"}
             tabIndex={cashChangeObservation ? 0 : undefined}
             aria-label={cashChangeObservation ? "Informações sobre troco" : undefined}
             className={cashChangeObservation ? "-ml-1 cursor-help" : "-ml-1"}

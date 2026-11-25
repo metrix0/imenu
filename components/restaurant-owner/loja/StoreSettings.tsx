@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import type { SaveState } from "@/components/ui/SaveStatus";
 import StoreProfileManager from "@/components/restaurant-owner/loja/StoreProfileManager";
-import AllowedPaymentMethods, {
-    DEFAULT_ALLOWED_PAYMENT_METHODS,
-} from "@/components/restaurant-owner/configuracoes/AllowedPaymentMethods";
+import AllowedPaymentMethods from "@/components/restaurant-owner/configuracoes/AllowedPaymentMethods";
+import { normalizeAllowedPaymentMethods } from "@/lib/payments/deliveryMethods";
+import { useAutoSave } from "@/lib/utils/useAutoSave";
 
 export type StoreSettingsRestaurant = {
     id: string;
@@ -42,22 +42,25 @@ export default function StoreSettings({
     onSaveStatusChange,
 }: Props) {
     const [profileStatus, setProfileStatus] = useState<SaveState>("saved");
-    const [paymentStatus, setPaymentStatus] = useState<SaveState>("saved");
-    const [allowedPaymentMethods, setAllowedPaymentMethods] = useState<string[]>(
-        DEFAULT_ALLOWED_PAYMENT_METHODS
+    const [allowedPaymentMethods, setAllowedPaymentMethods] = useState(
+        () => normalizeAllowedPaymentMethods(restaurant.allowed_payment_methods)
     );
+    const paymentSave = useAutoSave<string[]>(restaurant.id, async (methods) => {
+        const response = await fetch(`/api/restaurants/${restaurant.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ allowed_payment_methods: methods }),
+        });
+        if (!response.ok) throw new Error("Não foi possível salvar as formas de pagamento.");
+    });
+    const paymentStatus = paymentSave.status;
 
     useEffect(() => {
-        setAllowedPaymentMethods(
-            Array.isArray(restaurant.allowed_payment_methods) &&
-                restaurant.allowed_payment_methods.length > 0
-                ? restaurant.allowed_payment_methods
-                : DEFAULT_ALLOWED_PAYMENT_METHODS
-        );
-    }, [restaurant.allowed_payment_methods]);
+        setAllowedPaymentMethods(normalizeAllowedPaymentMethods(restaurant.allowed_payment_methods));
+    }, [restaurant.id, restaurant.allowed_payment_methods]);
 
     useEffect(() => {
-        const statuses = [profileStatus, paymentStatus];
+        const statuses = [profileStatus, paymentStatus === "idle" ? "saved" : paymentStatus];
         const status: SaveState = statuses.includes("error")
             ? "error"
             : statuses.includes("saving")
@@ -68,21 +71,10 @@ export default function StoreSettings({
         onSaveStatusChange?.(status);
     }, [onSaveStatusChange, paymentStatus, profileStatus]);
 
-    const handleAllowedPaymentMethodsChange = async (methods: string[]) => {
+    const handleAllowedPaymentMethodsChange = (methods: string[]) => {
         setAllowedPaymentMethods(methods);
         onAllowedPaymentMethodsChange?.(methods);
-        setPaymentStatus("saving");
-
-        try {
-            const response = await fetch(`/api/restaurants/${restaurant.id}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ allowed_payment_methods: methods }),
-            });
-            setPaymentStatus(response.ok ? "saved" : "error");
-        } catch {
-            setPaymentStatus("error");
-        }
+        paymentSave.schedule(methods);
     };
 
     return (
@@ -98,7 +90,7 @@ export default function StoreSettings({
 
             <AllowedPaymentMethods
                 value={allowedPaymentMethods}
-                onChange={(methods) => void handleAllowedPaymentMethodsChange(methods)}
+                onChange={handleAllowedPaymentMethodsChange}
             />
         </div>
     );

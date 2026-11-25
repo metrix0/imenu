@@ -1,6 +1,7 @@
 // lib/stores/costumer/checkoutStore.ts
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { PhysicalPaymentMethod } from "@/lib/payments/deliveryMethods";
 
 export type CouponDiscountType = "percent" | "fixed" | "delivery";
 
@@ -20,8 +21,9 @@ interface CheckoutState {
 
     nome: string;
     celular: string;
+    fiscalCpf: string;
 
-    pagamento: "pix" | "pix-entrega" | "cartao" | "dinheiro" | "trazer-maquininha";
+    pagamento: "pix" | "cartao" | PhysicalPaymentMethod;
 
     delivery_fee_cents: number | null | boolean;
     delivery_time_minutes: number | null;
@@ -69,6 +71,7 @@ export const useCheckoutStore = create<CheckoutState>()(
             referencia: "",
             nome: "",
             celular: "",
+            fiscalCpf: "",
             pagamento: "pix",
 
             delivery_fee_cents: false, // false = nao calculado, null = muito longe, number = valor
@@ -119,7 +122,7 @@ export const useCheckoutStore = create<CheckoutState>()(
                 set({ showAddressWarning: v }),
 
             setRestaurantId: (id) =>
-                set({ restaurantId: id }),
+                set(current => current.restaurantId === id ? current : { restaurantId: id, fiscalCpf: "" }),
 
             isContinueBlocked: false,
             setContinueBlocked: (v) => set({ isContinueBlocked: v }),

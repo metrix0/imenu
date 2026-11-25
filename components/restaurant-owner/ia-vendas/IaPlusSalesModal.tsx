@@ -7,6 +7,7 @@ import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import {
   ArrowRight,
   Sparkles,
+  Info,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import ModalFlowStep from "@/components/ui/ModalFlowStep";
@@ -14,7 +15,6 @@ import Button from "@/components/ui/Button";
 import QrCodeMesaCheckoutModal from "@/components/restaurant-owner/mesas/QrCodeMesaCheckoutModal";
 import { IA_PLUS_BENEFITS, IA_PLUS_BONUSES, IA_PLUS_PRICE_LABEL } from "@/lib/addons/products";
 import { PROMO_QR_CODE, PROMO_QR_PRICE_LABEL } from "@/lib/addons/promoQr";
-import { PLUS_BONUS_ICONS, PLUS_FEATURE_ICONS } from "@/components/restaurant-owner/mesas/MenuProductCard";
 import type { QrTableSource } from "@/lib/qr-table/types";
 import { usePlusExposure } from "@/lib/analytics/plusExposure";
 
@@ -26,7 +26,7 @@ export function IaPlusDetails() {
     <h2 className="text-xl font-bold text-gray-900">iMenu Plus</h2>
     <p className="mt-2 text-sm text-gray-600">Marketing e inteligência artificial para ajudar seu restaurante a vender mais.</p>
     <ul className="mt-5 space-y-4">{IA_PLUS_BENEFITS.map(benefit => {
-      const Icon = PLUS_FEATURE_ICONS[benefit.title] ?? Sparkles;
+      const Icon = benefit.icon;
       return <li key={benefit.title} className="flex gap-3">
         <Icon size={20} strokeWidth={1.9} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" />
         <div><h3 className="text-sm font-semibold text-gray-900">{benefit.title}</h3><p className="mt-1 text-sm leading-6 text-gray-600">{benefit.description}</p></div>
@@ -34,7 +34,7 @@ export function IaPlusDetails() {
     })}</ul>
     <h3 className="mt-5 text-sm font-semibold text-gray-900">+{IA_PLUS_BONUSES.length} Bônus no Plus</h3>
     <ul className="mt-3 space-y-3 text-sm text-gray-600">{IA_PLUS_BONUSES.map(bonus => {
-      const Icon = PLUS_BONUS_ICONS[bonus.title] ?? Sparkles;
+      const Icon = bonus.icon;
       return <li key={bonus.title} className="flex items-center gap-2">
         <Icon size={18} strokeWidth={1.85} className="shrink-0 text-brand" aria-hidden="true" />
         {bonus.title}
@@ -59,9 +59,12 @@ export function IaPlusLimitMessage({ onCheckout }: {
     </div>
   </article>;
 }
-export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout = false, active = false, onPaid, contextMessage, coupon, source = "settings" }: {
-  open: boolean; onClose: () => void; restaurantId: string; checkout?: boolean; active?: boolean; onPaid?: () => void | Promise<void>; contextMessage?: string; coupon?: string; source?: QrTableSource;
+export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout = false, active = false, onPaid, contextMessage, contextFeature, coupon, source = "settings" }: {
+  open: boolean; onClose: () => void; restaurantId: string; checkout?: boolean; active?: boolean; onPaid?: () => void | Promise<void>; contextMessage?: string; contextFeature?: (typeof IA_PLUS_BENEFITS)[number]["id"] | (typeof IA_PLUS_BONUSES)[number]["id"]; coupon?: string; source?: QrTableSource;
 }) {
+  const ContextIcon = [...IA_PLUS_BENEFITS, ...IA_PLUS_BONUSES].find(feature => feature.id === contextFeature)?.icon ?? Info;
+  const benefitCount = Number(IA_PLUS_BENEFITS.length);
+  const threeColumnBenefitCount = 3 * Math.max(0, benefitCount - 2 * Math.ceil(benefitCount / 3));
   const [step, setStep] = useState(checkout);
   const [navigated, setNavigated] = useState(false);
   const exposureRef = usePlusExposure("sales_modal", open && !step);
@@ -123,7 +126,7 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
             </div>
             {contextMessage?.trim() && (
               <div role="note" className="mt-5 flex items-start gap-3">
-                <Sparkles size={17} strokeWidth={1.9} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" />
+                <ContextIcon size={17} strokeWidth={1.9} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" />
                 <p className="text-sm leading-6 text-gray-700">{contextMessage.trim()}</p>
               </div>
             )}
@@ -135,10 +138,10 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
           </header>
 
           <div className="px-5 py-6 sm:px-8">
-            <div className="grid gap-5 sm:grid-cols-3">
-              {IA_PLUS_BENEFITS.map(benefit => {
-                const Icon = PLUS_FEATURE_ICONS[benefit.title] ?? Sparkles;
-                return <section key={benefit.title} className="min-w-0">
+            <div className="grid gap-5 sm:grid-cols-6">
+              {IA_PLUS_BENEFITS.map((benefit, index) => {
+                const Icon = benefit.icon;
+                return <section key={benefit.title} className={`min-w-0 ${benefitCount === 1 ? "sm:col-span-6" : index < threeColumnBenefitCount ? "sm:col-span-2" : "sm:col-span-3"}`}>
                   <div className="flex flex-col items-start gap-3 text-brand">
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand/5">
                       <Icon size={21} strokeWidth={1.9} aria-hidden="true" />
@@ -148,10 +151,10 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
                   <p className="mt-2 text-sm leading-6 text-gray-600">{benefit.description}</p>
                 </section>;
               })}
-              <section className="mt-1 pt-5 sm:col-span-3">
+              <section className="mt-1 pt-5 sm:col-span-6">
                 <h3 className="text-sm font-semibold text-gray-900">+{IA_PLUS_BONUSES.length} Bônus no Plus</h3>
                 <ul className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2">{IA_PLUS_BONUSES.map(bonus => {
-                  const Icon = PLUS_BONUS_ICONS[bonus.title] ?? Sparkles;
+                  const Icon = bonus.icon;
                   return <li key={bonus.title} className="flex gap-3 text-sm text-gray-600">
                     <Icon size={21} strokeWidth={1.85} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" />
                     <div><h4 className="font-semibold text-gray-900">{bonus.title}</h4><p className="mt-1 text-xs leading-5 text-gray-500">{bonus.description}</p></div>

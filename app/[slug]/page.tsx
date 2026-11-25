@@ -23,6 +23,7 @@ import { query } from "@/lib/database/sql";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 import { getPublicMenuRestaurant } from "./restaurant-data";
 import { hasIMenuPlusAccess } from "@/lib/addons/access";
+import { deliveryFiscalEnvironment } from "@/lib/nfce/service";
 import type {
   QrTableMenuContext,
 } from "@/lib/qr-table/types";
@@ -272,6 +273,7 @@ export default async function Page({
     { itemsRaw, plusActive },
     promotionsResult,
     startingPriceItemIds,
+    deliveryCpfRequired,
   ] = await Promise.all([
     supabase
       .from("loyalty_programs")
@@ -298,6 +300,7 @@ export default async function Page({
       .lte("starts_at", now)
       .or(`ends_at.gte.${now},ends_at.is.null`),
     startingPrices,
+    !readOnly && !tableOrder ? deliveryFiscalEnvironment(restaurant.id).then(Boolean).catch(() => false) : false,
   ]);
 
   const loyaltyProgram = loyaltyResult.data;
@@ -396,6 +399,7 @@ export default async function Page({
           openedProductId={p.p}
           selectedCouponCode={readOnly || tableOrder ? undefined : p.c?.toUpperCase()}
           tableOrder={tableOrder}
+          deliveryCpfRequired={deliveryCpfRequired}
         />
         </StartingPriceLabels>
       </div>

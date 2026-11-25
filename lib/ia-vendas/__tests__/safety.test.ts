@@ -118,7 +118,7 @@ describe("grounded projections", () => {
         },
       ).available,
     ).toBe(available));
-  test("calculates one capped four-week scenario", () =>
+  test("calculates one uncapped four-week scenario", () =>
     expect(
       potential(sales, {
         eligible_orders: 100,
@@ -127,7 +127,7 @@ describe("grounded projections", () => {
         assumptions: "25 conversions",
         days: 28,
       }).cents,
-    ).toBe(15000));
+    ).toBe(25000));
   test("calculates weekly gain and revenue percentage", () => {
     const result = potential(sales, {
       eligible_orders: 100,
@@ -136,9 +136,9 @@ describe("grounded projections", () => {
       assumptions: "25 conversions",
       days: 7,
     });
-    expect(result.cents).toBe(3750);
+    expect(result.cents).toBe(6250);
     expect(result.days).toBe(7);
-    expect(result.percent).toBeCloseTo(0.15);
+    expect(result.percent).toBeCloseTo(0.25);
   });
   test.each([
     { eligible_orders: 101, adoption_rate: 0.1, extra_cents: 100 },

@@ -8,24 +8,7 @@ import type { MouseEvent } from "react";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
-import { Bot, FileDown, Film, Headset, Megaphone, MessageCircle, Moon, ScanLine, ShoppingCart, Sparkles, TrendingUp, type LucideIcon } from "lucide-react";
-
-export const PLUS_FEATURE_ICONS: Record<string, LucideIcon> = {
-    "Automações de Marketing WhatsApp": Megaphone,
-    "Assistente IA": Bot,
-    "Vendas IA": TrendingUp,
-};
-
-export const PLUS_BONUS_ICONS: Record<string, LucideIcon> = {
-    "Robô WhatsApp com IA": Bot,
-    "Atendimento exclusivo": Headset,
-    "Upsells automáticos": ShoppingCart,
-    "Atualizações de pedidos pelo WhatsApp": MessageCircle,
-    "Scan de cardápio com IA": ScanLine,
-    "Download Cardápio em PDF": FileDown,
-    "Cardápio Tema Escuro": Moon,
-    "Múltiplas fotos e vídeo no cardápio": Film,
-};
+import { Sparkles, type LucideIcon } from "lucide-react";
 
 type ProductCardContent = {
     presentation?: "default" | "plans";
@@ -37,9 +20,9 @@ type ProductCardContent = {
     originalPriceLabel?: string;
     priceSuffix?: string;
     features: readonly string[];
-    featureDetails?: readonly { title: string; description: string }[];
+    featureDetails?: readonly { title: string; description: string; icon?: LucideIcon }[];
     bonuses?: readonly string[];
-    bonusDetails?: readonly { title: string; description: string }[];
+    bonusDetails?: readonly { title: string; description: string; icon?: LucideIcon }[];
 };
 type MenuProductCardProps = ProductCardContent & (
     | { variant: "included"; learnMoreLink: { href: string; label: string } }
@@ -111,8 +94,8 @@ export default function MenuProductCard(props: MenuProductCardProps) {
             );
         }
 
-        const planFeatures = props.featureDetails ?? props.features.map((title) => ({ title, description: "" }));
-        const planBonuses = props.bonusDetails ?? props.bonuses?.map((title) => ({ title, description: "" })) ?? [];
+        const planFeatures: NonNullable<ProductCardContent["featureDetails"]> = props.featureDetails ?? props.features.map((title) => ({ title, description: "" }));
+        const planBonuses: NonNullable<ProductCardContent["bonusDetails"]> = props.bonusDetails ?? props.bonuses?.map((title) => ({ title, description: "" })) ?? [];
 
         return (
             <article className="plans-product plans-plus" data-active={active} aria-label={props.name}>
@@ -144,7 +127,7 @@ export default function MenuProductCard(props: MenuProductCardProps) {
                     <section className="plans-plus-main" aria-label="Recursos do iMenu Plus">
                         <ul className="plans-plus-feature-list">
                             {planFeatures.map((feature) => {
-                                const FeatureIcon = PLUS_FEATURE_ICONS[feature.title] ?? Sparkles;
+                                const FeatureIcon = feature.icon ?? Sparkles;
                                 return (
                                     <li key={feature.title}>
                                         <FeatureIcon className="plans-plus-feature-icon" size={22} strokeWidth={1.9} aria-hidden="true" />
@@ -163,7 +146,7 @@ export default function MenuProductCard(props: MenuProductCardProps) {
                         </div>
                         <ul className="plans-plus-bonus-grid">
                             {planBonuses.map((bonus) => {
-                                const BonusIcon = PLUS_BONUS_ICONS[bonus.title] ?? Sparkles;
+                                const BonusIcon = bonus.icon ?? Sparkles;
                                 return (
                                     <li key={bonus.title} title={bonus.description || undefined}>
                                         <BonusIcon className="plans-plus-bonus-icon" size={21} strokeWidth={1.85} aria-hidden="true" />

@@ -109,6 +109,7 @@ export default function PainelLayout({
     const onboardingCompletion = useCreationStore(state => state.onboardingCompletion);
     const refreshUsage = useSalesStore(state => state.refreshUsage);
     const usageAccess = useSalesStore(state => state.usageAccess);
+    const plusSnapshot = useCreationStore(state => state.plusSnapshot);
     const supportButtonRef = useRef<SupportButtonRef>(null);
     const productPageViewRef = useRef<string | null>(null);
 
@@ -196,7 +197,11 @@ export default function PainelLayout({
         const refresh = () => { if (document.visibilityState === "visible") void refreshUsage(targetRestaurantId); };
         refresh();
         window.addEventListener("focus", refresh);
-        return () => window.removeEventListener("focus", refresh);
+        window.addEventListener("imenu:ia-plus-activated", refresh);
+        return () => {
+            window.removeEventListener("focus", refresh);
+            window.removeEventListener("imenu:ia-plus-activated", refresh);
+        };
     }, [targetRestaurantId, pathname, isChecking, refreshUsage]);
 
     useEffect(() => {
@@ -506,7 +511,7 @@ export default function PainelLayout({
                 menuItems={menuItems}
                 onNavigate={trackPanelTabOpen}
                 collapsePath="/painel/assistente-ia"
-                hasPlus={restaurantUsageAccess?.access?.plus === true}
+                hasPlus={plusSnapshot?.restaurantId === targetRestaurantId ? plusSnapshot.active : restaurantUsageAccess?.access?.plus === true}
                 footerAction={{ label: "Ajuda", icon: faCircleQuestion, onClick: () => supportButtonRef.current?.open() }}
                 status={storeStatusButton(true)}
                 collapsedStatus={

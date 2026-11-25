@@ -1,5 +1,6 @@
 "use client";
 
+import { LEGACY_CARD_METHOD, isCardAtDeliveryMethod } from "@/lib/payments/deliveryMethods";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; // Store Global
@@ -13,6 +14,8 @@ import OrderDetailsModal from "@/components/restaurant-owner/pedidos/OrderDetail
 import CreatePanelOrderModal from "@/components/restaurant-owner/CreatePanelOrderModal";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Toast from "@/components/ui/Toast";
+import { NfceHistoryButton, NfceOrderSection, NfceUpgradeButton, useNfceHistory } from "@/components/restaurant-owner/pedidos/NfceHistory";
+import { isFiscalChannelEnabled } from "@/lib/nfce/channels";
 import ShortcutDatePicker from "@/components/ui/ShortcutDatePicker";
 import CashRegister, { type CashOrder } from "@/components/restaurant-owner/pedidos/CashRegister";
 
@@ -53,7 +56,7 @@ function summarizeCashOrders(orders: CashOrder[]) {
         confirmed++;
 
         if (method === "pix" || method === "pix-entrega") pix += cents;
-        else if (method === "cartao" || method === "trazer-maquininha") card += cents;
+        else if (method === "cartao" || method === LEGACY_CARD_METHOD || isCardAtDeliveryMethod(method)) card += cents;
         else if (method === "dinheiro") cash += cents;
         else unspecified += cents;
 
@@ -151,7 +154,26 @@ export default function HistoricoPage() {
     const [page, setPage] = useState(0);
     const [totalCount, setTotalCount] = useState(0);
     const [cashRefreshKey, setCashRefreshKey] = useState(0);
+    const [nfceRefresh, setNfceRefresh] = useState(0);
+    const [focusFiscal, setFocusFiscal] = useState(false);
+    const fiscal = useNfceHistory(restaurantId, orders, nfceRefresh, isLoading);
+    const fiscalIds = new Set(fiscal.notes.filter(note => Boolean(note.access_key)).map(note => note.order_id));
     const requestId = useRef(0);
+    const historyTitleRef = useRef<HTMLHeadingElement>(null);
+    const fullTitleRef = useRef<HTMLSpanElement>(null);
+    const [shortHistoryTitle, setShortHistoryTitle] = useState(false);
+
+    useEffect(() => {
+        const heading = historyTitleRef.current;
+        const fullTitle = fullTitleRef.current;
+        if (!heading || !fullTitle) return;
+        const update = () => setShortHistoryTitle(fullTitle.getBoundingClientRect().width > heading.getBoundingClientRect().width);
+        update();
+        const observer = new ResizeObserver(update);
+        observer.observe(heading);
+        observer.observe(fullTitle);
+        return () => observer.disconnect();
+    }, []);
 
     // Filtros
     const [search, setSearch] = useState("");
@@ -163,6 +185,7 @@ export default function HistoricoPage() {
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
     const [editingOrder, setEditingOrder] = useState<{ id: string } | null>(null);
+    const [orderToEditWithFiscal, setOrderToEditWithFiscal] = useState<Order | null>(null);
     const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
@@ -233,7 +256,8 @@ export default function HistoricoPage() {
         }
     };
 
-    const handleViewOrder = (order: Order) => {
+    const handleViewOrder = (order: Order, fiscal = false) => {
+        setFocusFiscal(fiscal);
         setSelectedOrder(order);
         setIsDetailsOpen(true);
     };
@@ -242,6 +266,13 @@ export default function HistoricoPage() {
     const handleOrderUpdate = () => {
         setCashRefreshKey(value => value + 1);
         if (restaurantId) fetchOrders(restaurantId);
+    };
+
+    const handleEditOrder = (order: Order) => {
+        setIsDetailsOpen(false);
+        const note = fiscal?.notes.find(note => note.order_id === order.id && note.status !== "rejected");
+        if (note) setOrderToEditWithFiscal(order);
+        else setEditingOrder({ id: order.id });
     };
 
     const handleDeleteOrder = async () => {
@@ -282,8 +313,15 @@ export default function HistoricoPage() {
 
     return (
         <div className="max-w-7xl 2xl:max-w-9xl mx-auto pb-20 space-y-8 px-4 sm:px-6 pt-8">
-            <div>
-                <h1 className="text-3xl font-bold text-gray-900">Histórico de Pedidos</h1>
+            <div className="flex flex-nowrap items-center justify-between gap-2 sm:gap-3">
+                <h1 ref={historyTitleRef} aria-label="Histórico de Pedidos" className="relative min-w-0 flex-1 overflow-hidden whitespace-nowrap text-3xl font-bold text-gray-900">
+                    <span ref={fullTitleRef} aria-hidden="true" className="invisible absolute left-0 top-0 w-max whitespace-nowrap">Histórico de Pedidos</span>
+                    {shortHistoryTitle ? "Histórico" : "Histórico de Pedidos"}
+                </h1>
+                {restaurantId && <div className="flex shrink-0 flex-wrap items-center gap-2 whitespace-nowrap">
+                    <NfceHistoryButton restaurant={restaurantId} history={fiscal}
+                        onPaid={() => setNfceRefresh(value => value + 1)} />
+                </div>}
             </div>
 
             <OrdersFilter
@@ -294,8 +332,16 @@ export default function HistoricoPage() {
 
             <OrdersTable
                 orders={orders}
-                isLoading={isLoading}
+                isLoading={isLoading || (orders.length > 0 && !fiscal.ready)}
+                reserveFiscalSpace={fiscal.archive || (fiscal.plus === true && fiscal.enabled && orders.some(order => isFiscalChannelEnabled(fiscal.channels, order.is_delivery)))}
                 onViewOrder={handleViewOrder}
+                onEditOrder={handleEditOrder}
+                onViewFiscal={order => handleViewOrder(order, true)}
+                showFiscalActions={order => fiscalIds.has(order.id) || (fiscal.plus === true && fiscal.enabled && isFiscalChannelEnabled(fiscal.channels, order.is_delivery))}
+                fiscalIds={fiscalIds}
+                fiscalPlus={fiscal.plus}
+                restaurantId={restaurantId}
+                onPaid={() => setNfceRefresh(value => value + 1)}
                 onDeleteOrder={setOrderToDelete}
             />
 
@@ -316,19 +362,49 @@ export default function HistoricoPage() {
                 variant="danger"
             />
 
+            <ConfirmModal
+                open={orderToEditWithFiscal !== null}
+                onClose={() => setOrderToEditWithFiscal(null)}
+                onConfirm={() => {
+                    if (orderToEditWithFiscal) setEditingOrder({ id: orderToEditWithFiscal.id });
+                    setOrderToEditWithFiscal(null);
+                }}
+                title="Editar pedido com NFC-e?"
+                description="Editar o pedido não altera a NFC-e emitida. Se precisar corrigir a nota, verifique se ainda é possível cancelá-la e emitir outra."
+                confirmLabel="Continuar edição"
+                variant="primary"
+            />
+
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
             <OrderDetailsModal
                 isOpen={isDetailsOpen}
                 onClose={() => setIsDetailsOpen(false)}
                 order={selectedOrder}
+                fiscalSection={isDetailsOpen && restaurantId && selectedOrder && (
+                    fiscal.plus === true ? (
+                        fiscal.detailsReady ? <NfceOrderSection key={selectedOrder.id} order={selectedOrder} restaurant={restaurantId}
+                            note={fiscal.notes.find(note => note.order_id === selectedOrder.id)} configured={fiscal.configured} channels={fiscal.channels}
+                            hasDeliveryCpf={fiscal.identifiedDeliveryOrders?.includes(selectedOrder.id) === true}
+                            focus={focusFiscal} onChange={() => setNfceRefresh(value => value + 1)} /> : (
+                            <section className="space-y-1.5">
+                                <h4 className="text-base 2xl:text-lg font-medium text-gray-900">Nota fiscal (NFC-e)</h4>
+                                <p className="text-xs text-gray-600">{fiscal.error ? "Não foi possível carregar a nota fiscal." : "Carregando nota fiscal…"}</p>
+                            </section>
+                        )
+                    ) : fiscal.plus === false ? (
+                        <section className="space-y-1.5">
+                            <h4 className="text-base 2xl:text-lg font-medium text-gray-900">Nota fiscal (NFC-e)</h4>
+                            <NfceUpgradeButton compact restaurant={restaurantId} onPaid={() => setNfceRefresh(value => value + 1)} />
+                        </section>
+                    ) : null
+                )}
                 onOrderUpdate={handleOrderUpdate}
                 onDeleteOrder={(order) => { setIsDetailsOpen(false); setOrderToDelete(order); }}
-                onEditOrder={(order) => { setIsDetailsOpen(false); setEditingOrder({ id: order.id }); }}
+                onEditOrder={handleEditOrder}
             />
             {restaurantId && (
                 <CreatePanelOrderModal
-                    key={editingOrder?.id || "create"}
                     isOpen={editingOrder !== null}
                     onClose={() => setEditingOrder(null)}
                     restaurantId={restaurantId}

@@ -1,4 +1,5 @@
 "use client";
+import { CARD_AT_DELIVERY_LABELS, normalizeAllowedPaymentMethods } from "@/lib/payments/deliveryMethods";
 import Image from "next/image";
 import type { ReactNode } from "react";
 import { ArrowUpRight, Lock, TrendingUp } from "lucide-react";
@@ -140,7 +141,8 @@ const values: Record<string, string> = {
   autoatendimento: "Mesa",
   pix: "Pix",
   dinheiro: "Dinheiro",
-  "trazer-maquininha": "Maquininha",
+  "pix-entrega": "Pix (Na entrega)",
+  ...CARD_AT_DELIVERY_LABELS,
   radius: "Por raio",
   neighborhood: "Por bairro",
   highest: "Maior valor",
@@ -195,7 +197,9 @@ function display(
   if (Array.isArray(v)) {
     if (k === "available_days")
       return v.map((day) => weekdayNames[Number(day)] || String(day)).join(", ");
-    if (["allowed_payment_methods", "origins"].includes(k))
+    if (k === "allowed_payment_methods")
+      return normalizeAllowedPaymentMethods(v).map((value) => values[value] || value).join(", ");
+    if (k === "origins")
       return v.map((value) => values[String(value)] || String(value)).join(", ");
     if (k === "additional_rewards")
       return v.length ? v.map((reward) => {
@@ -1205,6 +1209,7 @@ export function DataCard({ card, expanded = false, presentation = "chat" }: { ca
           {Number.isFinite(minPercent) && Number.isFinite(maxPercent) && <p className={styles.growth}>
             <strong><TrendingUp size={14} aria-hidden="true" />+{minPercent.toLocaleString("pt-BR", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 })}{maxPercent > minPercent ? ` a ${maxPercent.toLocaleString("pt-BR", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 })}` : ""}</strong><span>de receita estimada</span>
           </p>}
+          {card.floor_applied && <p className={styles.comparisonNote}>Piso de estimativa aplicado.</p>}
           <SalesDisclosure label="Como estimamos">
             <div className={styles.calculation}>
               {!!card.breakdown?.length && <ul>{card.breakdown.map((item: Data, index: number) => <li key={index}><strong>{item.label}:</strong> {item.basis}</li>)}</ul>}
@@ -1236,6 +1241,7 @@ export function DataCard({ card, expanded = false, presentation = "chat" }: { ca
                 de receita estimada
               </p>
             )}
+            {card.floor_applied && <p className="text-sm text-gray-600">Piso de estimativa aplicado.</p>}
             <details className="mt-2 text-xs text-gray-600">
               <summary className="cursor-pointer">Como estimamos</summary>
               {Array.isArray(card.breakdown) && card.breakdown.length > 0 && (

@@ -8,6 +8,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { Restaurant, Menu, Category, ItemsByCategory, Item, Subitem, Subcategory } from "@/lib/types/types";
+import { cardAtDeliveryLabel, isCardAtDeliveryMethod, normalizeAllowedPaymentMethods } from "@/lib/payments/deliveryMethods";
 import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
 import { useCartStore } from "@/lib/stores/costumer/cartStore";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -61,7 +62,6 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
     pix: "Pix (Online)",
     "pix-entrega": "Pix (Na entrega)",
     dinheiro: "Dinheiro",
-    "trazer-maquininha": "Maquininha",
     cartao: "Cartão (Online)",
 };
 
@@ -94,6 +94,7 @@ export default function MenuClientPage({
     selectedCouponCode,
     openedProductId,
     tableOrder,
+    deliveryCpfRequired = false,
     readOnly = false,
     darkTheme = false,
     metaPixelId,
@@ -107,6 +108,7 @@ export default function MenuClientPage({
     openedProductId?: string | null;
     selectedCouponCode?: string | null;
     tableOrder?: QrTableMenuContext | null;
+    deliveryCpfRequired?: boolean;
     readOnly?: boolean;
     darkTheme?: boolean;
     metaPixelId?: string | null;
@@ -876,10 +878,7 @@ export default function MenuClientPage({
         return Array.isArray(slots) ? slots : [];
     })();
 
-    const infoPaymentMethods =
-        Array.isArray(restaurant.allowed_payment_methods) && restaurant.allowed_payment_methods.length > 0
-            ? restaurant.allowed_payment_methods
-            : ["pix", "dinheiro", "trazer-maquininha"];
+    const infoPaymentMethods = normalizeAllowedPaymentMethods(restaurant.allowed_payment_methods);
 
     const catalog = useMemo(() => categories.filter(cat => filteredItemsByCat[cat.id]?.length > 0).map((cat) => (
             <div key={cat.id}>
@@ -1319,6 +1318,7 @@ export default function MenuClientPage({
                     cartOpen={cartOpen}
                     setCartOpenAction={setCartOpen}
                     restaurant={restaurant}
+                    deliveryCpfRequired={deliveryCpfRequired}
                     requiresSchedule={requiresSchedule}
                     closeItemModalOpen={() => setOpenedItem(null)}
                     trackMeta={trackMeta}
@@ -1345,6 +1345,7 @@ export default function MenuClientPage({
                         setHistoryOpen(true);
                     }}
                     restaurant={restaurant}
+                    deliveryCpfRequired={deliveryCpfRequired}
                     onClose={() => {
                         setCartOpen(false);
                         setCartStep("cart");
@@ -1440,7 +1441,9 @@ export default function MenuClientPage({
                                     key={method}
                                     className="rounded-full border border-[var(--im-menu-border,#e5e7eb)] bg-[var(--im-menu-soft,#f9fafb)] px-3 py-1.5 text-sm text-[var(--im-menu-text-soft,#374151)] 2xl:text-base"
                                 >
-                                    {restaurant.delivery_disabled === true && method === "pix-entrega" ? "Pix (Na retirada)" : PAYMENT_METHOD_LABELS[method] || method}
+                                    {isCardAtDeliveryMethod(method)
+                                        ? cardAtDeliveryLabel(method, restaurant.delivery_disabled ? "retirada" : null)
+                                        : restaurant.delivery_disabled === true && method === "pix-entrega" ? "Pix (Na retirada)" : PAYMENT_METHOD_LABELS[method] || method}
                                 </span>
                             ))}
                         </div>

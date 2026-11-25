@@ -14,6 +14,28 @@ beforeEach(() => {
 });
 
 describe("support knowledge search", () => {
+    it("prioritizes official Plus knowledge without quoting a price for benefits questions", async () => {
+        mockedQuery.mockResolvedValue({
+            rows: [{ id: "article", title: "iMenu Plus", content: "Support article" }],
+            rowCount: 1,
+        });
+
+        const results = await searchSupportKnowledge("Quais os bônus do iMenu Plus?", 5);
+
+        expect(results.map(({ id }) => id)).toEqual(["product:imenu-plus", "article"]);
+        expect(results[0].content).not.toMatch(/R\$/);
+    });
+
+    it("includes Plus price only for pricing questions", async () => {
+        const results = await searchSupportKnowledge("Quanto custa o iMenu Plus?", 5);
+        expect(results[0].content).toContain("R$");
+        expect(results[0].content).toContain("por mês");
+    });
+
+    it("does not inject Plus details into unrelated support topics", async () => {
+        await expect(searchSupportKnowledge("Preciso configurar complementos", 5)).resolves.toEqual([]);
+    });
+
     it.each(["Oi", "Ok", "Sim", "?"])(
         "uses a safe weighted fallback query for short/stop-word input %s",
         async (message) => {

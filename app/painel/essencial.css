@@ -326,6 +326,23 @@
 .panel-essencial .panel-complements .shadow-sm { box-shadow:none; }
 .panel-essencial [data-ui="card"].panel-history-table { padding:0; }
 .panel-essencial .panel-history-table [data-ui="table"] { border:0; border-radius:0; }
+/* Order actions change only the glyph color, never the button background. */
+.panel-essencial .panel-history-table .panel-history-action,
+.panel-essencial .panel-history-table .panel-history-action:hover {
+  background-color: transparent;
+}
+.panel-essencial .panel-history-table .panel-history-action:not(.panel-history-action-delete):hover:not(:disabled):not([data-fiscal-muted="true"]),
+.panel-essencial .panel-history-table .panel-history-action:not(.panel-history-action-delete):hover:not(:disabled):not([data-fiscal-muted="true"]) .panel-icon {
+  color: var(--panel-text);
+}
+.panel-essencial .panel-history-table .panel-history-action-delete:hover:not(:disabled),
+.panel-essencial .panel-history-table .panel-history-action-delete:hover:not(:disabled) .panel-icon {
+  color: #dc2626;
+}
+.panel-essencial .panel-fiscal-download:hover:not(:disabled) {
+  color: var(--panel-text);
+  background-color: transparent;
+}
 .panel-essencial .panel-sidebar-header { padding-inline:8px; }
 .panel-essencial .panel-sidebar-toggle { width:48px; height:36px; }
 .panel-essencial .panel-sidebar[data-expanded="true"] .panel-sidebar-toggle { width:36px; }
@@ -415,6 +432,7 @@
 .panel-essencial [data-panel-path="/painel/configuracoes"] h2,
 .panel-essencial [data-panel-path="/painel/analytics"] h2 { font-size:21px; line-height:28px; font-weight: 700; letter-spacing:normal; }
 .panel-essencial [data-panel-path="/painel/configuracoes"] h3,
+.panel-essencial [data-panel-path="/painel/configuracoes"] .nfce-settings-title,
 .panel-essencial [data-panel-path="/painel/analytics"] h3 { font-size:16px; line-height:24px; font-weight: 700; }
 @media (max-width:767px) {
   .panel-essencial [data-panel-path="/painel/configuracoes"] h1,

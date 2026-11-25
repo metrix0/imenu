@@ -18,7 +18,7 @@ describe("potential", () => {
 
       expect(result.available).toBe(available);
       if (available)
-        expect(result).toMatchObject({ min_cents: orders * 60, max_cents: orders * 120 });
+        expect(result).toMatchObject({ min_cents: 15000, max_cents: 15000, floor_applied: true });
       else
         expect(result.reason).toBe("Ainda não há pedidos suficientes para uma estimativa responsável.");
     },
@@ -53,9 +53,9 @@ describe("potential", () => {
 
     expect(result).toMatchObject({
       available: true,
-      min_cents: 8_400,
+      min_cents: 15_000,
       max_cents: 20_800,
-      min_percent: 0.0084,
+      min_percent: 0.015,
       max_percent: 0.0208,
     });
     expect(result.breakdown).toHaveLength(3);
@@ -83,7 +83,7 @@ describe("potential", () => {
     ] })).toThrow("clientes de Marketing");
   });
 
-  test("keeps the combined upside inside the existing 15% revenue cap", () => {
+  test("does not cap the combined upside at 15% of revenue", () => {
     const result = potential(sales, {
       days: 28,
       assumptions: "",
@@ -110,8 +110,22 @@ describe("potential", () => {
       ],
     });
 
-    expect(result.max_cents).toBe(150_000);
-    expect(result.max_percent).toBe(0.15);
+    expect(result.max_cents).toBe(330_000);
+    expect(result.max_percent).toBe(0.33);
+  });
+
+  test("applies the R$ 150 minimum to the estimate and discloses the original calculation", () => {
+    const result = potential({ ...sales, orders: 12, revenue_cents: 85100, ticket_cents: 85100 / 12 }, {
+      opportunities: [{ kind: "menu_clarity", eligible_revenue_cents: 76700 }, { kind: "proven_combo_visibility", eligible_revenue_cents: 8400 }],
+    });
+    expect(result).toMatchObject({ min_cents: 15000, max_cents: 15000, cents: 15000, floor_applied: true });
+    expect(result).not.toHaveProperty("target_cents");
+    expect(result.note?.replace(/\s/g, " ")).toContain("R$ 17,86 a R$ 45,07");
+  });
+
+  test("prorates the monthly floor to seven days", () => {
+    const result = potential(sales, { days: 7, opportunities: [{ kind: "cart_addon", eligible_orders: 10, extra_cents: 600 }] });
+    expect(result).toMatchObject({ min_cents: 3750, max_cents: 3750, floor_applied: true });
   });
 
   test("formats scenario assumptions in Brazilian Portuguese without changing the calculation", () => {
@@ -119,7 +133,7 @@ describe("potential", () => {
       days: 28, eligible_orders: 48, adoption_rate: 0.1,
       extra_cents: 600, assumptions: "",
     });
-    expect(result.cents).toBe(2880);
+    expect(result.cents).toBe(15000);
     expect(result.formula).toContain("10%");
     expect(result.formula?.replace(/\s/g, " ")).toContain("R$ 6,00");
     expect(result.formula).not.toContain("10.0%");
@@ -131,7 +145,7 @@ describe("potential", () => {
       { kind: "menu_clarity", item_ids: ["p", "p"], eligible_revenue_cents: 999999, overlap_group: "copy" },
       { kind: "menu_clarity", item_ids: ["p"], overlap_group: "photo" },
     ] });
-    expect(result).toMatchObject({ min_cents: 2000, max_cents: 5000 });
+    expect(result).toMatchObject({ min_cents: 15000, max_cents: 15000 });
     expect(result.breakdown?.[1]).toMatchObject({ min_cents: 0, max_cents: 0 });
   });
 
@@ -141,7 +155,7 @@ describe("potential", () => {
       { kind: "proven_combo_visibility", item_ids: ["combo"], overlap_group: "combo" },
     ];
     const result = potential({ ...sales, products: [{ item_id: "combo", gross_cents: 200000 }, { item_id: "item", gross_cents: 100000 }] }, { opportunities: reverse ? opportunities.reverse() : opportunities });
-    expect(result).toMatchObject({ min_cents: 8000, max_cents: 21000 });
+    expect(result).toMatchObject({ min_cents: 15000, max_cents: 21000 });
   });
 
   test("rejects foreign, unavailable and out-of-stock products in presentation revenue", () => {

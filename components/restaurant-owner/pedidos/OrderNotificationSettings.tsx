@@ -9,12 +9,13 @@ import Switch from "@/components/ui/Switch";
 import SaveStatus, { type SaveState } from "@/components/ui/SaveStatus";
 import Tooltip from "@/components/ui/Tooltip";
 import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
+import { IA_PLUS_WHATSAPP_ORDERING } from "@/lib/addons/products";
 import { useAutoSave } from "@/lib/utils/useAutoSave";
 import { supabase } from "@/lib/database/supabaseClient";
 
 export default function OrderNotificationSettings({ restaurantId, plus, initialEnabled, children, templateSaveStatus = "idle", feature = "orderNotifications" }: { restaurantId: string; plus: boolean; initialEnabled: boolean; children?: ReactNode; templateSaveStatus?: SaveState; feature?: "orderNotifications" | "ai" }) {
     const ai = feature === "ai";
-    const title = ai ? "Robô com IA" : "Atualizar cliente sobre pedido automaticamente";
+    const title = ai ? IA_PLUS_WHATSAPP_ORDERING.title : "Atualizar cliente sobre pedido automaticamente";
     const descriptionId = ai ? "whatsapp-ai-description" : "order-notification-description";
     const [enabled, setEnabled] = useState(initialEnabled);
     const [sales, setSales] = useState(false);
@@ -56,14 +57,14 @@ export default function OrderNotificationSettings({ restaurantId, plus, initialE
                         <Badge preset={plus ? "featureAvailable" : "plusIncluded"} />
                     </div>
                     <p id={descriptionId} className="mt-2 text-sm text-gray-500">
-                        {ai ? "Atendimento automático por Whatsapp, respondendo dúvidas sobre produtos, preços e opções do cardápio. Usa IA para conhecer seu cardápio e responder ao cliente." : "Avise quando o pedido sair para entrega ou estiver pronto no balcão. Apenas clientes que enviaram mensagens nos últimos 7 dias recebem o aviso."}
+                        {ai ? IA_PLUS_WHATSAPP_ORDERING.description : "Avise quando o pedido sair para entrega ou estiver pronto no balcão. Apenas clientes que enviaram mensagens nos últimos 7 dias recebem o aviso."}
                     </p>
                     {save.status === "error" && <p role="alert" className="mt-2 text-sm text-red-600">{save.error}</p>}
                 </div>
                 <div className={`relative flex shrink-0 items-center gap-3 ${!ai && children ? "sm:pl-9" : ""}`}>
                     <SaveStatus status={status} />
                     <Tooltip
-                        text={!plus ? (ai ? "Disponível com iMenu Plus. Assine o plano para ativar o Robô com IA." : "Disponível com iMenu Plus. Assine o plano para ativar as atualizações automáticas de pedidos.") : ""}
+                        text={!plus ? (ai ? "Disponível com iMenu Plus. Assine o plano para finalizar pedidos pelo WhatsApp com IA." : "Disponível com iMenu Plus. Assine o plano para ativar as atualizações automáticas de pedidos.") : ""}
                         parentClassName="!block"
                     >
                         <Switch
@@ -93,7 +94,8 @@ export default function OrderNotificationSettings({ restaurantId, plus, initialE
                 open={sales}
                 onClose={() => setSales(false)}
                 restaurantId={restaurantId}
-                contextMessage={ai ? "Para responder dúvidas dos clientes com o Robô com IA, assine o iMenu Plus." : "Para avisar automaticamente quando um pedido sair para entrega ou ficar pronto para retirada, assine o iMenu Plus."}
+                contextFeature={ai ? "whatsapp_ai" : "order_notifications"}
+                contextMessage={ai ? "Para responder dúvidas e finalizar pedidos pelo WhatsApp com IA, assine o iMenu Plus." : "Para avisar automaticamente quando um pedido sair para entrega ou ficar pronto para retirada, assine o iMenu Plus."}
                 onPaid={() => window.location.reload()}
             />
         </Card>

@@ -1,5 +1,6 @@
 "use client";
 
+import { cardAtDeliveryLabel, isCardAtDeliveryMethod } from "@/lib/payments/deliveryMethods";
 import PromotionSummary from "@/components/costumer/PromotionSummary";
 import TrackingScripts from "@/components/costumer/TrackingScripts";
 import { readPixPixelPurchase, trackPixPixelPurchase, type PixPixelPurchase } from "@/lib/analytics/metaBrowser";
@@ -265,7 +266,8 @@ export default function PedidoPage({
     }
 
     const eta = formatEtaFromTimestamp(order.delivery_eta);
-    const paymentIcon = iconMap[paymentMethod];
+    const isDeliveryCard = isCardAtDeliveryMethod(paymentMethod);
+    const paymentIcon = isDeliveryCard ? icons.faCreditCard : iconMap[paymentMethod];
     const paymentText =
         paymentMethod === "pix"
             ? "Pix"
@@ -275,7 +277,9 @@ export default function PedidoPage({
                     ? "Cartão"
                     : paymentMethod === "dinheiro"
                         ? "Dinheiro"
-                        : "Maquininha";
+                        : isDeliveryCard
+                            ? cardAtDeliveryLabel(paymentMethod, isCounterOrder ? "balcao" : isPickup ? "retirada" : null)
+                            : "Maquininha";
 
     const totalDisplay =
         typeof order.total_cents === "number"

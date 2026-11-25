@@ -162,10 +162,8 @@ export async function PATCH(
     }
 
     try {
-        await query(
-            `UPDATE orders SET ${fieldsToUpdate.join(", ")} WHERE id = $1`,
-            values
-        );
+        const update = `UPDATE orders SET ${fieldsToUpdate.join(", ")} WHERE id = $1`;
+        await query(update, values);
 
 
         return NextResponse.json({ ok: true });
@@ -221,6 +219,10 @@ export async function DELETE(
             const lockedOrder = order.rows[0];
             if (!lockedOrder) {
                 throw new RestaurantOwnerAuthError("Pedido não encontrado.", 404);
+            }
+
+            if (process.env.NFCE_ENV === "producao" && await (await import("@/lib/nfce/service")).hasFiscalDocumentInUse(client, id)) {
+                throw new RestaurantOwnerAuthError("Resolva a NFC-e deste pedido antes de excluí-lo.", 409);
             }
 
             // The first payout after this payment's eligibility cutoff must be settled.

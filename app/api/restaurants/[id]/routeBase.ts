@@ -1,3 +1,4 @@
+import { normalizeAllowedPaymentMethods } from "@/lib/payments/deliveryMethods";
 import { query, withTransaction } from "@/lib/database/sql";
 import { DEFAULT_DELIVERY_RANGES } from "@/lib/delivery/defaultRanges";
 import { hasOrderHours } from "@/lib/menu/orderAvailability";
@@ -184,7 +185,6 @@ export async function PATCH(
             "delivery_fee_json",
             "availability_json",
         ];
-        const arrayFields = ["allowed_payment_methods"];
         const fieldsToUpdate: string[] = [];
         const values: unknown[] = [id];
 
@@ -198,11 +198,8 @@ export async function PATCH(
                 value = JSON.stringify(value);
             }
 
-            if (arrayFields.includes(dbColumn)) {
-                value =
-                    Array.isArray(value) && value.length > 0
-                        ? value
-                        : ["pix", "dinheiro", "trazer-maquininha"];
+            if (dbColumn === "allowed_payment_methods") {
+                value = normalizeAllowedPaymentMethods(value);
             }
 
             if (dbColumn === "store_whatsapp" || dbColumn === "phone") {
