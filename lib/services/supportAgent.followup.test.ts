@@ -1,7 +1,7 @@
-import OpenAI from "openai";
+import OpenAI, { toFile } from "openai";
 import { query } from "@/lib/database/sql";
 import { searchSupportKnowledge } from "./supportMcp";
-import { analyzeSupportImage, classifySupportFollowup, generateSupportFollowup, generateSupportReply, SUPPORT_FOLLOWUP_OFFER } from "./supportAgent";
+import { transcribeSupportAudio, analyzeSupportImage, classifySupportFollowup, generateSupportFollowup, generateSupportReply, SUPPORT_FOLLOWUP_OFFER } from "./supportAgent";
 
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn() }));
 jest.mock("@/lib/services/supportMcp", () => ({
@@ -270,4 +270,15 @@ test.each([
     expect(activityQuery?.[0]).toContain("INTERVAL '2 minutes'");
     expect(activityQuery?.[0]).toContain("INTERVAL '15 minutes'");
     expect(activityQuery?.[0]).toContain("INTERVAL '17 minutes'");
+});
+
+
+test("support audio uses the dedicated transcription model and key", async () => {
+    process.env.OPENAI_SUPPORT_AUDIO_API_KEY = "audio-test-key";
+    const transcribe = jest.fn().mockResolvedValue({ text: "Olá, tudo bem?" });
+    (toFile as jest.Mock).mockResolvedValue("audio-file");
+    (OpenAI as jest.MockedClass<typeof OpenAI>).mockImplementation(() => ({ audio: { transcriptions: { create: transcribe } } }) as unknown as OpenAI);
+    await expect(transcribeSupportAudio(Buffer.from("audio"), "audio/mpeg", "audio.mp3")).resolves.toBe("Olá, tudo bem?");
+    expect(OpenAI).toHaveBeenCalledWith(expect.objectContaining({ apiKey: "audio-test-key" }));
+    expect(transcribe).toHaveBeenCalledWith(expect.objectContaining({ model: "gpt-transcribe" }), expect.anything());
 });

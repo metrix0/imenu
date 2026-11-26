@@ -208,7 +208,7 @@ export async function previewImage(
       prompt,
       n: 1,
       quality: "low" as const,
-      // gpt-image-2 accepts custom dimensions; 816px is the smallest valid
+      // GPT Image supports custom dimensions; 816px is the smallest valid
       // square that still exceeds the final 500/640px product/logo sizes.
       size: generationSize as never,
     };
@@ -217,6 +217,7 @@ export async function previewImage(
     const result = reference
     ? await ai.images.edit({
         ...args,
+        ...(/^gpt-image-2\.[56]-(?:flare|sunburst)(?:-|$)/.test(MODELS.image) ? { input_fidelity: "high" as const } : {}),
         image: await toFile(
           await sharp(reference, { limitInputPixels: 40_000_000 })
             .rotate()
