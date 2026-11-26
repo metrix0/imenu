@@ -300,8 +300,8 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
 
     return (
         <>
-            <Modal height={760} open={isOpen} onClose={onClose}>
-                <div className="w-full max-w-2xl bg-white rounded-lg flex flex-col max-h-[92dvh] sm:max-h-[85vh]">
+            <Modal height={760} open={isOpen} onClose={onClose} bodyClassName="flex flex-col !overflow-hidden">
+                <div className="w-full max-w-2xl min-h-0 bg-white rounded-lg flex flex-col">
                     {/* Header */}
                     <div className="shrink-0 p-4 sm:p-5 border-b border-gray-100 flex justify-between items-start gap-3">
                         <div>
