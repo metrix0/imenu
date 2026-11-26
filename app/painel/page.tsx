@@ -25,6 +25,7 @@ import OrderCard, {
 } from "@/components/restaurant-owner/OrderCard"; // Ajustado imports
 import ShareMenuModal from "@/components/restaurant-owner/ShareMenuModal";
 import OrderDetailsModal from "@/components/restaurant-owner/pedidos/OrderDetailsModal";
+import MobilePrintButton, { useMobilePrintSettings } from "@/components/restaurant-owner/pedidos/MobilePrintButton";
 import CreatePanelOrderModal from "@/components/restaurant-owner/CreatePanelOrderModal";
 import TablesOrdersModal from "@/components/restaurant-owner/mesas/TablesOrdersModal";
 import {
@@ -75,6 +76,7 @@ export default function PainelPedidosAtivosPage() {
         restaurantSlug,
     } = useCreationStore();
 
+    const mobilePrint = useMobilePrintSettings(restaurantId);
     const [orders, setOrders] = useState<OrderData[]>([]);
     const [courierError, setCourierError] = useState<{ id: number; message: string } | null>(null);
     const showCourierError = (message: string) => setCourierError({ id: Date.now(), message });
@@ -412,6 +414,7 @@ export default function PainelPedidosAtivosPage() {
                             order={order}
                             onStatusChange={() => fetchOrders(restaurantId)}
                             onViewOrder={handleViewOrder}
+                            mobilePrintAction={mobilePrint?.enabled && <MobilePrintButton iconOnly restaurantId={restaurantId} orderId={order.id} settings={mobilePrint} />}
                             onCourierError={showCourierError}
                         />
                     ))}
@@ -433,6 +436,7 @@ export default function PainelPedidosAtivosPage() {
                     onClose={() => setIsDetailsOpen(false)}
                     order={selectedOrder}
                     showStatusActions
+                    mobilePrintAction={mobilePrint?.enabled && <MobilePrintButton restaurantId={restaurantId} orderId={selectedOrder.id} settings={mobilePrint} />}
                     onOrderUpdate={() => void fetchOrders(restaurantId)}
                     onCourierError={showCourierError}
                     onEditOrder={(order) => {

@@ -19,6 +19,7 @@ import OrderBadge from "./OrderBadge";
 
 interface OrderDetailsModalProps {
     fiscalSection?: React.ReactNode;
+    mobilePrintAction?: React.ReactNode;
     isOpen: boolean;
     onClose: () => void;
     order: Order | null; 
@@ -60,7 +61,7 @@ type OrderDetail = Omit<Order, "status"> & {
     }>;
 };
 
-export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdate, onEditOrder, onDeleteOrder, onCourierError, showStatusActions = false, fiscalSection }: OrderDetailsModalProps) {
+export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdate, onEditOrder, onDeleteOrder, onCourierError, showStatusActions = false, fiscalSection, mobilePrintAction }: OrderDetailsModalProps) {
     const [isLoading, setIsLoading] = useState(true);
     const [isUpdating, setIsUpdating] = useState(false);
     const [details, setDetails] = useState<OrderDetail | null>(null);
@@ -461,6 +462,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                     <FontAwesomeIcon icon={faPenToSquare} className="mr-2" /> Editar
                                 </Button>
                             )}
+                            {order && details && mobilePrintAction}
                             {canReject && (
                                 <Button variant="secondary" onClick={() => setShowRefundConfirmation(true)} className="text-red-600 hover:bg-red-50 border-red-200">
                                     <FontAwesomeIcon icon={faBan} className="mr-2" /> Rejeitar
