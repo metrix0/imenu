@@ -1,5 +1,6 @@
 "use client";
 
+import ScrollLoading, { countGroupedItems, visibleGroups } from "@/components/ui/ScrollLoading";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
@@ -367,6 +368,8 @@ export default function CardapioTab({
         return matchesSearch && matchesSelect;
     });
 
+    const groupedCategories = displayCategories.map(category => ({ category, items: matchingItems(category) }));
+
     const scanAction = (className = "") => (
         <Button
             type="button"
@@ -510,7 +513,7 @@ export default function CardapioTab({
             </div>
 
             <div className="min-w-0 max-w-full space-y-4 overflow-x-clip">
-                {displayCategories.map((category) => (
+                <ScrollLoading key={JSON.stringify([restaurantId, normalizedSearch, selectedCategoryId])} total={countGroupedItems(groupedCategories, group => group.items.length)} batchSize={30}>{limit => visibleGroups(groupedCategories, group => group.items.length, limit).map(({ group: { category, items }, count }) => (
                     <div
                         key={category.id}
                         data-category-id={category.id}
@@ -531,7 +534,8 @@ export default function CardapioTab({
                     >
                         <CategorySection
                             category={category}
-                            items={matchingItems(category)}
+                            items={items}
+                            visibleCount={count}
                             restaurantId={restaurantId}
                             onRefresh={onRefresh}
                             onItemUpdated={onItemUpdated}
@@ -565,7 +569,7 @@ export default function CardapioTab({
                             }
                         />
                     </div>
-                ))}
+                ))}</ScrollLoading>
 
                 {displayCategories.length === 0 && (
                     <p className="py-10 text-center text-gray-500">

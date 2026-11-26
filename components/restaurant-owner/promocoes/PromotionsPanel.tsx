@@ -1,5 +1,6 @@
 "use client";
 
+import ScrollLoading, { countGroupedItems, visibleGroups } from "@/components/ui/ScrollLoading";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { Item, Category, Promotion } from "@/lib/types/types";
@@ -312,7 +313,7 @@ export default function PromotionsPanel({
             </div>
             {data.length === 0 && <Card><p className="py-8 text-center text-sm text-gray-500">Nenhum produto disponível para criar promoções.</p></Card>}
 
-            {data.map(({ category, items }) => {
+            <ScrollLoading key={restaurantId} total={countGroupedItems(data, group => group.items.length)} batchSize={10}>{limit => visibleGroups(data, group => group.items.length, limit).map(({ group: { category, items }, count }) => {
                 const anySelected = items.some(i => selected[i.id]);
 
                 return (
@@ -340,7 +341,7 @@ export default function PromotionsPanel({
                             />
                         </div>}
                         <div>
-                            {items.map(item => (
+                            {items.slice(0, count).map(item => (
                                 <PromotionRow
                                     key={item.id}
                                     item={item}
@@ -364,7 +365,7 @@ export default function PromotionsPanel({
                         </div>
                     </Card>
                 );
-            })}
+            })}</ScrollLoading>
         </div>
     );
 }

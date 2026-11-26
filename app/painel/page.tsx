@@ -1,6 +1,7 @@
 // app/painel/page.tsx
 "use client";
 
+import ScrollLoading from "@/components/ui/ScrollLoading";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { supabase } from "@/lib/database/supabaseClient"; // Ajustado para o seu import padrão
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; // Ajustado para o seu import padrão
@@ -403,8 +404,9 @@ export default function PainelPedidosAtivosPage() {
                     </div>
                 </div>
             ) : (
+                <ScrollLoading key={restaurantId} total={orders.length} batchSize={30}>{limit => (
                 <div className="panel-orders">
-                    {orders.map((order) => (
+                    {orders.slice(0, limit).map((order) => (
                         <OrderCard
                             key={order.id}
                             order={order}
@@ -414,6 +416,7 @@ export default function PainelPedidosAtivosPage() {
                         />
                     ))}
                 </div>
+                )}</ScrollLoading>
             )}
 
             {/* Modal de Compartilhamento */}

@@ -1,5 +1,6 @@
 "use client";
 
+import ScrollLoading from "@/components/ui/ScrollLoading";
 import { useEffect, useState } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
@@ -395,7 +396,7 @@ export default function ComplementosTab({
             </div>
 
             <div className="grid grid-cols-1 gap-3">
-                {filteredGroups.map((group) => {
+                <ScrollLoading key={JSON.stringify([restaurantId, searchTerm])} total={filteredGroups.length} batchSize={30}>{limit => filteredGroups.slice(0, limit).map((group) => {
                     const productsCount = group.itemIds.length;
                     const productsPreview = group.itemNames
                         .slice(0, 3)
@@ -476,7 +477,7 @@ export default function ComplementosTab({
                             </div>
                         </div>
                     );
-                })}
+                })}</ScrollLoading>
 
                 {filteredGroups.length === 0 && searchTerm && (
                     <p className="py-10 text-center text-gray-500">

@@ -1,5 +1,6 @@
 "use client";
 
+import ScrollLoading from "@/components/ui/ScrollLoading";
 import { useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
 import PromotionCard from "./PromotionCard";
@@ -137,7 +138,7 @@ export default function CouponsList({
                 </div>
             )}
 
-            {!loading && coupons.map(c => (
+            {!loading && <ScrollLoading key={restaurantId} total={coupons.length} batchSize={10}>{limit => coupons.slice(0, limit).map(c => (
                 <PromotionCard key={c.id} title={c.code} active={c.active}
                     onToggle={() => void toggleActive(c, !c.active)}
                     description={c.discount_type === "percent" ? `${Math.round(c.discount_value * 100)}% de desconto` : c.discount_type === "fixed" ? `${Number(c.discount_value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} de desconto` : "Entrega grátis"}
@@ -152,7 +153,7 @@ export default function CouponsList({
                     <span><strong className="font-medium text-gray-700">Usos:</strong> {c.usage_count ?? 0}{c.unlimited_quantity ? " · sem limite" : ` de ${c.quantity ?? "-"}`}</span>
                     <span><strong className="font-medium text-gray-700">Validade:</strong> {c.start_date ? formatDateBR(c.start_date) : "Imediata"} · {c.end_date ? `até ${formatDateBR(c.end_date)}` : "Sem data final"}</span>
                 </PromotionCard>
-            ))}
+            ))}</ScrollLoading>}
 
             {/* Delete modal */}
             <Modal height={240} open={!!deleteTarget} onClose={() => setDeleteTarget(null)}>
