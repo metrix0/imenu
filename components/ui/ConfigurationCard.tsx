@@ -39,6 +39,7 @@ export default function ConfigurationCard({
     const descriptionId = `${id}-description`;
     const showConfigurationStatus = configured !== undefined && checked !== false;
     const reserveConfigurationStatus = Boolean(collapse && configured !== undefined);
+    const groupMobileBadges = reserveConfigurationStatus && plus !== undefined && !compact;
     const titleText = <span id={titleId} role={compact ? undefined : "heading"} aria-level={compact ? undefined : 3}
         className={compact ? "font-medium text-gray-900" : "!text-base !leading-6 !font-bold text-gray-900"}>{mobileTitle ? <><span className="sm:hidden">{mobileTitle}</span><span className="hidden sm:inline">{title}</span></> : title}</span>;
     const heading = <>
@@ -46,7 +47,7 @@ export default function ConfigurationCard({
         <span className="min-w-0 flex-1">
             <span className={plus !== undefined ? "block sm:flex sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-1" : "flex flex-wrap items-center gap-x-2 gap-y-1"}>
                 {titleText}
-                {plus !== undefined && <>{" "}<Badge preset={plus ? "featureAvailable" : "plusIncluded"} className="ml-1 whitespace-nowrap sm:ml-0" /></>}
+                {plus !== undefined && <>{" "}<Badge preset={plus ? "featureAvailable" : "plusIncluded"} className={`ml-1 whitespace-nowrap sm:ml-0 ${groupMobileBadges ? "max-sm:hidden" : ""}`} /></>}
                 {titleBadge}
             </span>
         </span>
@@ -76,7 +77,7 @@ export default function ConfigurationCard({
                         </button>}
                     </div>}
                     {(showConfigurationStatus || reserveConfigurationStatus) && (
-                        <span className={collapse ? `sm:order-first ${showConfigurationStatus ? "" : "invisible sm:hidden"}` : "order-first"}
+                        <span className={collapse ? `sm:order-first ${showConfigurationStatus ? "" : "invisible sm:hidden"} ${groupMobileBadges ? "max-sm:hidden" : ""}` : "order-first"}
                             aria-hidden={!showConfigurationStatus}>
                             {reserveConfigurationStatus ? (
                                 <span className="grid justify-items-end">
@@ -89,6 +90,15 @@ export default function ConfigurationCard({
                 </div>
             )}
         </div>
+        {groupMobileBadges && <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 sm:hidden">
+            <Badge preset={plus ? "featureAvailable" : "plusIncluded"} className="whitespace-nowrap" />
+            <span className={showConfigurationStatus ? "" : "invisible"} aria-hidden={!showConfigurationStatus}>
+                <span className="grid justify-items-start">
+                    <Badge aria-hidden="true" variant="warning" className="invisible col-start-1 row-start-1">Não configurado</Badge>
+                    <Badge variant={configured ? "success" : "warning"} className="col-start-1 row-start-1">{configured ? "Configurado" : "Não configurado"}</Badge>
+                </span>
+            </span>
+        </div>}
         {description && <div id={descriptionId} className={`min-w-0 break-words ${compact ? "mt-0.5 text-xs" : "mt-1 text-sm"} text-gray-500`}>{description}</div>}
         {collapse ? <CollapsibleContent id={disclosure.contentId} expanded={disclosure.expanded} className="[overflow-anchor:none]">
             <div className="min-w-0 space-y-3 pt-3">{children}</div>
