@@ -4,7 +4,7 @@ import ConfigurationCard from "@/components/ui/ConfigurationCard";
 import Badge from "@/components/ui/Badge";
 import Tooltip from "@/components/ui/Tooltip";
 import { PanelIcon } from "@/components/ui/PanelIcon";
-import { faCircleInfo } from "@fortawesome/free-solid-svg-icons";
+import { faCircleInfo, faDownload, faRotateLeft } from "@fortawesome/free-solid-svg-icons";
 import Dropdown from "@/components/ui/Dropdown";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
@@ -66,8 +66,24 @@ export default function MobilePrintSettingsSection({ restaurantId }: { restauran
         </>}
     >
         <p className="text-sm text-gray-600">Ao ativar, use o botão de impressão nos pedidos para baixar a comanda em PDF. Abra o arquivo no aplicativo compatível com sua impressora. Não há impressão automática pelo celular.</p>
-        {loaded && <div className="grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(240px,0.65fr)]">
-        <fieldset className="min-w-0 space-y-4" disabled={!settings.enabled}>
+        {loaded && <div className="grid min-w-0 items-start gap-4 lg:gap-x-6 lg:grid-rows-[auto_1fr] lg:grid-cols-[minmax(0,1fr)_minmax(240px,0.65fr)]">
+        <div className="min-w-0 lg:col-start-2 lg:row-start-1 lg:row-span-2 rounded-xl border border-gray-200 bg-gray-50 p-4" data-mobile-receipt-preview>
+            <p className="mb-3 text-center text-sm font-medium text-gray-700">Prévia da comanda</p>
+            <div className="flex flex-col items-center gap-3">
+                {preview.map((page, index) => <svg key={index} viewBox={`0 0 ${page.width} ${page.height}`} role="img"
+                    aria-label={`Prévia da comanda, página ${index + 1}`} className="h-auto w-full border border-gray-200 bg-white shadow-sm"
+                    style={{ maxWidth: settings.paper === "58" ? 232 : settings.paper === "80" ? 320 : 360 }}>
+                    {page.lines.filter(line => line.text).map((line, lineIndex) => <text key={lineIndex}
+                        x={line.x} y={line.y} fontSize={line.size} fontWeight={line.bold ? 700 : 400}
+                        fontFamily="Courier New, monospace" fill="#111111" xmlSpace="preserve" textLength={line.textWidth} lengthAdjust="spacingAndGlyphs">{line.text}</text>)}
+                </svg>)}
+            </div>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:col-start-1 lg:row-start-2">
+            <Button type="button" variant="primary" disabled={!settings.enabled} leftIcon={<PanelIcon icon={faDownload} />} onClick={() => downloadReceipt(SAMPLE_RECEIPT, settings, "comanda-teste.pdf")}>Baixar comanda de teste</Button>
+            <Button type="button" variant="secondary" disabled={!settings.enabled} leftIcon={<PanelIcon icon={faRotateLeft} />} onClick={() => update({ ...DEFAULT_MOBILE_PRINT, enabled: settings.enabled })}>Restaurar padrão</Button>
+        </div>
+        <fieldset className="min-w-0 space-y-4 lg:col-start-1 lg:row-start-1" disabled={!settings.enabled}>
             <div className="grid gap-4 sm:grid-cols-2">
                 <Dropdown custom label="Largura do papel" value={settings.paper} onChange={e => update({ ...settings, paper: e.target.value as MobilePrintSettings["paper"] })}
                     options={[{ value: "58", label: "58 mm" }, { value: "80", label: "80 mm" }, { value: "a4", label: "A4" }]} />
@@ -83,23 +99,7 @@ export default function MobilePrintSettingsSection({ restaurantId }: { restauran
                     </label>
                 )}
             </div>
-            <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="secondary" onClick={() => downloadReceipt(SAMPLE_RECEIPT, settings, "comanda-teste.pdf")}>Baixar comanda de teste</Button>
-                <Button type="button" variant="secondary" onClick={() => update({ ...DEFAULT_MOBILE_PRINT, enabled: settings.enabled })}>Restaurar padrão</Button>
-            </div>
         </fieldset>
-        <div className="min-w-0 rounded-xl border border-gray-200 bg-gray-50 p-4" data-mobile-receipt-preview>
-            <p className="mb-3 text-center text-sm font-medium text-gray-700">Prévia da comanda · {settings.paper === "a4" ? "A4" : `${settings.paper} mm`}</p>
-            <div className="flex flex-col items-center gap-3">
-                {preview.map((page, index) => <svg key={index} viewBox={`0 0 ${page.width} ${page.height}`} role="img"
-                    aria-label={`Prévia da comanda, página ${index + 1}`} className="h-auto w-full border border-gray-200 bg-white shadow-sm"
-                    style={{ maxWidth: settings.paper === "58" ? 232 : settings.paper === "80" ? 320 : 360 }}>
-                    {page.lines.filter(line => line.text).map((line, lineIndex) => <text key={lineIndex}
-                        x={line.x} y={line.y} fontSize={line.size} fontWeight={line.bold ? 700 : 400}
-                        fontFamily="Courier New, monospace" fill="#111111" xmlSpace="preserve" textLength={line.textWidth} lengthAdjust="spacingAndGlyphs">{line.text}</text>)}
-                </svg>)}
-            </div>
-        </div>
         </div>}
     </ConfigurationCard>;
 }
