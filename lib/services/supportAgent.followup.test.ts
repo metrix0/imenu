@@ -22,7 +22,8 @@ beforeEach(() => {
     jest.replaceProperty(process, "env", {
         ...process.env,
         OPENAI_API_KEY: "test-only",
-        OPENAI_SUPPORT_MODEL: "gpt-5.6-luna",
+        OPENAI_SUPPORT_MODEL: "gpt-6-luna",
+        OPENAI_SUPPORT_FOLLOWUP_MODEL: "",
         IMENU_SUPPORT_PUBLIC_URL: "https://support.example.com",
     });
     (OpenAI as jest.MockedClass<typeof OpenAI>).mockImplementation(() => ({
@@ -43,6 +44,7 @@ test("classifies unanswered technical questions separately from resolved support
     await expect(classifySupportFollowup("conversation-1")).resolves.toBe("awaiting_customer");
     expect(create).toHaveBeenCalledTimes(1);
     expect(create.mock.calls[0][0].instructions).toContain("awaiting_support");
+    expect(create.mock.calls[0][0]).toMatchObject({ model: "gpt-6-luna", reasoning: { effort: "none" } });
 });
 
 test("unknown classification fails closed", async () => {
@@ -83,6 +85,7 @@ test("support chat caches its fixed rules and still receives current knowledge a
 });
 
 test.each([
+    ["gpt-6-luna", { mode: "explicit" }],
     ["gpt-5.6-luna", { mode: "explicit" }],
     ["gpt-4o-mini", undefined],
 ])("support image requests avoid writes for one-off images on %s", async (model, cacheOptions) => {

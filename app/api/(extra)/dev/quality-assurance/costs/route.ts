@@ -53,14 +53,17 @@ function usageForLineItem(lineItem: string): string {
     // Model usage can span features; this is a code association, not exact
     // attribution of organization-wide OpenAI costs to individual features.
     const uses: Array<{ model: string; feature: string }> = [
-        { model: process.env.IA_VENDAS_CHAT_MODEL?.trim() || "gpt-5.6-luna", feature: "Assistente IA — Chat; Vendas IA — Chat da análise" },
-        { model: process.env.IA_VENDAS_ANALYSIS_MODEL?.trim() || "gpt-5.6-terra", feature: "Vendas IA — Análise via API" },
+        { model: process.env.IA_VENDAS_CHAT_MODEL?.trim() || "gpt-6-luna", feature: "Assistente IA — Chat; Vendas IA — Chat da análise" },
+        { model: process.env.IA_VENDAS_ANALYSIS_MODEL?.trim() || "gpt-6.1-terra", feature: "Vendas IA — Análise via API" },
         { model: process.env.IA_VENDAS_IMAGE_MODEL?.trim() || "gpt-image-2", feature: "Assistente IA — Gerar imagens" },
-        { model: process.env.OPENAI_WHATSAPP_BOT_MODEL?.trim() || "gpt-4o-mini", feature: "Robô WhatsApp IA — Chat" },
-        { model: process.env.OPENAI_SUPPORT_MODEL?.trim() || "gpt-5.6-luna", feature: "Suporte Chatbot IA — Chat e visão de imagens" },
-        { model: process.env.OPENAI_SUPPORT_FOLLOWUP_MODEL?.trim() || "gpt-4o-mini", feature: "Suporte Chatbot IA — Acompanhamento" },
+        { model: process.env.OPENAI_WHATSAPP_BOT_MODEL?.trim() || "gpt-6-luna", feature: "Robô WhatsApp IA — Chat" },
+        { model: process.env.OPENAI_SUPPORT_MODEL?.trim() || "gpt-6-luna", feature: "Suporte Chatbot IA — Chat e visão de imagens" },
+        { model: process.env.OPENAI_SUPPORT_FOLLOWUP_MODEL?.trim() || "gpt-6-luna", feature: "Suporte Chatbot IA — Acompanhamento" },
         { model: "gpt-4o-mini-transcribe", feature: "Suporte Chatbot IA — Transcrever áudios" },
         { model: process.env.OPENAI_MENU_SCAN_MODEL?.trim() || "gpt-6-luna", feature: "Importação de Cardápio — Leitura IA" },
+        { model: "gpt-5.6-luna", feature: "Assistente IA — Chat; Vendas IA — Chat da análise; Suporte Chatbot IA — Chat e visão de imagens" },
+        { model: "gpt-5.6-terra", feature: "Vendas IA — Análise via API" },
+        { model: "gpt-4o-mini", feature: "Robô WhatsApp IA — Chat; Suporte Chatbot IA — Acompanhamento" },
         { model: "gpt-4.1", feature: "Importação de Cardápio — Leitura IA" },
         { model: "text-embedding-3-small", feature: "Vendas IA — Comparação de cardápios" },
     ];

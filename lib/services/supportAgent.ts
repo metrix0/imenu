@@ -411,7 +411,7 @@ export async function analyzeSupportImage(
 
     const client = getSupportOpenAIClient();
     const model =
-        process.env.OPENAI_SUPPORT_MODEL?.trim() || "gpt-5.6-luna";
+        process.env.OPENAI_SUPPORT_MODEL?.trim() || "gpt-6-luna";
     const captionText = caption.trim()
         ? `O cliente escreveu junto da imagem: "${caption.trim().slice(0, 1_000)}"`
         : "O cliente não enviou legenda.";
@@ -697,7 +697,7 @@ export async function generateSupportReply(
     if (shouldReviewLoop) contextInstructions += SUPPORT_LOOP_REVIEW_RULE;
 
     const model =
-        process.env.OPENAI_SUPPORT_MODEL?.trim() || "gpt-5.6-luna";
+        process.env.OPENAI_SUPPORT_MODEL?.trim() || "gpt-6-luna";
     const cacheSupport = supportsExplicitPromptCache(model);
     const client = new OpenAI({ apiKey, fetch: openAiAlertFetch("Suporte IA") });
     const serverUrl =
@@ -868,8 +868,10 @@ export async function classifySupportFollowup(conversationId: string): Promise<S
     const context = await recentFollowupContext(conversationId);
     if (!context.trim()) return "resolved";
     const client = getSupportOpenAIClient();
+    const model = process.env.OPENAI_SUPPORT_FOLLOWUP_MODEL?.trim() || "gpt-6-luna";
     const response = await client.responses.create({
-        model: process.env.OPENAI_SUPPORT_FOLLOWUP_MODEL?.trim() || "gpt-4o-mini",
+        model,
+        ...(/^gpt-6-luna(?:-|$)/.test(model) ? { reasoning: { effort: "none" as const } } : {}),
         instructions: [
             "Classifique o estado após a última resposta da IA do suporte iMenu.",
             "Responda APENAS com: resolved, awaiting_customer ou awaiting_support.",
@@ -895,8 +897,10 @@ export async function generateSupportFollowup(conversationId: string): Promise<s
     const context = await recentFollowupContext(conversationId);
     if (!context.trim()) return "";
     const client = getSupportOpenAIClient();
+    const model = process.env.OPENAI_SUPPORT_FOLLOWUP_MODEL?.trim() || "gpt-6-luna";
     const response = await client.responses.create({
-        model: process.env.OPENAI_SUPPORT_FOLLOWUP_MODEL?.trim() || "gpt-4o-mini",
+        model,
+        ...(/^gpt-6-luna(?:-|$)/.test(model) ? { reasoning: { effort: "none" as const } } : {}),
         instructions: [
             "Escreva UMA mensagem curta de acompanhamento do suporte iMenu em português brasileiro.",
             "A última resposta da IA deixou uma pendência, e o cliente ficou em silêncio por mais de uma hora.",

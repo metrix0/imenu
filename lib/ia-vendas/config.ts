@@ -1,9 +1,9 @@
 // Server-only capacity budgets; free Assistant allowances are defined in access.ts.
 export const DEEP_ANALYSIS_MODEL =
-  process.env.IA_VENDAS_ANALYSIS_MODEL || "gpt-5.6-terra";
+  process.env.IA_VENDAS_ANALYSIS_MODEL || "gpt-6.1-terra";
 
 export const MODELS = {
-  chat: process.env.IA_VENDAS_CHAT_MODEL || "gpt-5.6-luna",
+  chat: process.env.IA_VENDAS_CHAT_MODEL || "gpt-6-luna",
   analysis: DEEP_ANALYSIS_MODEL,
   image: process.env.IA_VENDAS_IMAGE_MODEL || "gpt-image-2",
 };

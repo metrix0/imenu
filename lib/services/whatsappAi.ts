@@ -115,9 +115,11 @@ export async function getWhatsAppAiReply({
         const openingHours = buildWhatsAppOpeningContext(restaurantHours);
         const maxRounds = checkout ? 6 : 3;
         const tools = checkout && orderModule ? [...TOOLS, ...orderModule.WHATSAPP_ORDER_TOOLS] : TOOLS;
+        const model = process.env.OPENAI_WHATSAPP_BOT_MODEL?.trim() || "gpt-6-luna";
         for (let round = 0; round < maxRounds; round++) {
             const response = await client.responses.create({
-                model: process.env.OPENAI_WHATSAPP_BOT_MODEL?.trim() || "gpt-4o-mini",
+                model,
+                ...(/^gpt-6-luna(?:-|$)/.test(model) ? { reasoning: { effort: "none" as const } } : {}),
                 instructions: [
                     "Você atende os clientes deste restaurante pelo WhatsApp. Responda em português, com naturalidade, em até 3 frases curtas.",
                     "Use somente os dados fornecidos e search_menu para fatos sobre o cardápio. Nunca invente produtos, ingredientes, alergênicos, preços, descontos, horários ou disponibilidade.",

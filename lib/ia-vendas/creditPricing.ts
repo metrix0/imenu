@@ -7,6 +7,8 @@ import { aiAccess } from "./access";
 // Rates from https://developers.openai.com/api/docs/pricing (USD, standard API).
 // Keep model prices in one place; an unknown configured model must not show an incorrect price.
 const CHAT_RATES: Record<string, { input: number; output: number }> = {
+  "gpt-6-luna": { input: 0.10, output: 0.50 },
+  "gpt-6.1-terra": { input: 1.00, output: 5.00 },
   "gpt-5.6-luna": { input: 0.20, output: 1.20 },
   "gpt-5.6-terra": { input: 2.00, output: 12.00 },
   "gpt-5.6-sol": { input: 4.00, output: 20.00 },
