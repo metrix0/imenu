@@ -4,7 +4,7 @@ import ConfigurationCard from "@/components/ui/ConfigurationCard";
 import Badge from "@/components/ui/Badge";
 import Tooltip from "@/components/ui/Tooltip";
 import { PanelIcon } from "@/components/ui/PanelIcon";
-import { faCircleInfo, faDownload, faRotateLeft } from "@fortawesome/free-solid-svg-icons";
+import { faCircleInfo, faDownload, faPrint, faRotateLeft } from "@fortawesome/free-solid-svg-icons";
 import Dropdown from "@/components/ui/Dropdown";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
@@ -65,7 +65,9 @@ export default function MobilePrintSettingsSection({ restaurantId }: { restauran
             <SaveStatus status={autosave.status} />
         </>}
     >
-        <p className="text-sm text-gray-600">Ao ativar, use o botão de impressão nos pedidos para baixar a comanda em PDF. Abra o arquivo no aplicativo compatível com sua impressora. Não há impressão automática pelo celular.</p>
+        <p className="text-sm text-gray-600">
+            Após ativar, toque no botão <span className="inline-flex items-center justify-center rounded-[6px] border border-[#e2e5e9] bg-white px-1.5 py-0.5 align-middle text-gray-900" aria-label="Imprimir"><PanelIcon icon={faPrint} /></span> do pedido para baixar a comanda em PDF. Abra o PDF no aplicativo da sua impressora e imprima manualmente.
+        </p>
         {loaded && <div className="grid min-w-0 items-start gap-4 lg:gap-x-6 lg:grid-rows-[auto_1fr] lg:grid-cols-[minmax(0,1fr)_minmax(240px,0.65fr)]">
         <div className="min-w-0 lg:col-start-2 lg:row-start-1 lg:row-span-2 rounded-xl border border-gray-200 bg-gray-50 p-4" data-mobile-receipt-preview>
             <p className="mb-3 text-center text-sm font-medium text-gray-700">Prévia da comanda</p>
