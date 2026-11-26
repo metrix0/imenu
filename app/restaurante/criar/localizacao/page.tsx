@@ -263,18 +263,8 @@ export default function LocalizacaoPage() {
                             initialData={address}
                             onSubmit={saveAddress}
                             isLoading={savingAddress}
-                            onValidityChange={() => {}}
+                            onDone={() => setEditingAddress(false)}
                         />
-                        {addressComplete && (
-                            <button
-                                type="button"
-                                onClick={() => setEditingAddress(false)}
-                                disabled={savingAddress}
-                                className="mt-3 cursor-pointer text-sm font-medium text-gray-500 hover:text-gray-700 disabled:cursor-not-allowed"
-                            >
-                                Concluir
-                            </button>
-                        )}
                     </div>
                 )}
             </section>
