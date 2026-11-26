@@ -40,14 +40,15 @@ export default function ConfigurationCard({
     const showConfigurationStatus = configured !== undefined && checked !== false;
     const reserveConfigurationStatus = Boolean(collapse && configured !== undefined);
     const groupMobileBadges = reserveConfigurationStatus && plus !== undefined && !compact;
+    const spaceWrappedPlusBadge = plus !== undefined && !groupMobileBadges && !titleBadge;
     const titleText = <span id={titleId} role={compact ? undefined : "heading"} aria-level={compact ? undefined : 3}
         className={compact ? "font-medium text-gray-900" : "!text-base !leading-6 !font-bold text-gray-900"}>{mobileTitle ? <><span className="sm:hidden">{mobileTitle}</span><span className="hidden sm:inline">{title}</span></> : title}</span>;
     const heading = <>
         {icon && <span className={`mt-0.5 flex shrink-0 items-center justify-center ${compact ? checked ? "text-brand" : "text-gray-500" : ""}`}>{icon}</span>}
         <span className="min-w-0 flex-1">
-            <span className={plus !== undefined ? "block sm:flex sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-1" : "flex flex-wrap items-center gap-x-2 gap-y-1"}>
+            <span className={plus !== undefined ? `block sm:flex sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-1 ${spaceWrappedPlusBadge ? "max-sm:flex max-sm:flex-wrap max-sm:items-center max-sm:gap-2" : ""}` : "flex flex-wrap items-center gap-x-2 gap-y-1"}>
                 {titleText}
-                {plus !== undefined && <>{" "}<Badge preset={plus ? "featureAvailable" : "plusIncluded"} className={`ml-1 whitespace-nowrap sm:ml-0 ${groupMobileBadges ? "max-sm:hidden" : ""}`} /></>}
+                {plus !== undefined && <>{" "}<Badge preset={plus ? "featureAvailable" : "plusIncluded"} className={`ml-1 whitespace-nowrap sm:ml-0 ${groupMobileBadges ? "max-sm:hidden" : ""} ${spaceWrappedPlusBadge ? "max-sm:ml-0" : ""}`} /></>}
                 {titleBadge}
             </span>
         </span>
