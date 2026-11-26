@@ -68,7 +68,7 @@ export default function ConfigurationCard({
                 : <div className="flex min-w-0 flex-1 items-start gap-2">{heading}</div>}
             {(toggle || collapse || configured !== undefined) && (
                 <div className={collapse ? "flex shrink-0 flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-3" : "flex shrink-0 items-center gap-2 sm:gap-3"}>
-                    {(toggle || collapse) && <div className="flex h-9 items-center gap-2">
+                    {(toggle || collapse) && <div className={`flex h-9 items-center gap-2 ${groupMobileBadges ? "max-sm:h-6" : ""}`}>
                         {toggleTooltip && toggle ? <Tooltip text={toggleTooltip} parentClassName="!block">{toggle}</Tooltip> : toggle}
                         {collapse && <button {...disclosure.triggerProps} disabled={collapse.disabled}
                             aria-label={`${disclosure.expanded ? "Recolher" : "Expandir"} ${title}`}
@@ -90,7 +90,7 @@ export default function ConfigurationCard({
                 </div>
             )}
         </div>
-        {groupMobileBadges && <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 sm:hidden">
+        {groupMobileBadges && <div className="flex flex-wrap items-center gap-x-2 gap-y-1 sm:hidden">
             <Badge preset={plus ? "featureAvailable" : "plusIncluded"} className="whitespace-nowrap" />
             <span className={showConfigurationStatus ? "" : "invisible"} aria-hidden={!showConfigurationStatus}>
                 <span className="grid justify-items-start">
