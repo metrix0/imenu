@@ -1,3 +1,4 @@
+import { openAiFeatureKey } from "@/lib/api/openAiFeatureKeys";
 import sharp from "sharp";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -172,7 +173,7 @@ export async function previewImage(
   sourceRun = run,
 ): Promise<Action> {
   const t = await target(restaurant, input),
-    ai = new OpenAI({ maxRetries: 0, timeout: 90000, fetch: openAiAlertFetch("Vendas IA (imagens)") });
+    ai = new OpenAI({ apiKey: openAiFeatureKey("images"), maxRetries: 0, timeout: 90000, fetch: openAiAlertFetch("Vendas IA (imagens)") });
   if (!(await imageAllowed(restaurant, sourceRun, input, t.row.name)))
     throw new SalesError("Esta imagem já foi aplicada. Para refazê-la, peça explicitamente a alteração e o nome do produto.", 409);
   const style = resolveImageStyle(await approvedImageStyles(restaurant), input, t.row.id);

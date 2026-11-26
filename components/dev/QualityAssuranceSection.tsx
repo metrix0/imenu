@@ -117,7 +117,7 @@ type OpenAiCosts =
         usdBrlRate: number;
         totalUsd: number;
         daily: { date: string; usd: number }[];
-        models?: { id: string; dailyUsd: number[] }[];
+        features?: { id: string; dailyUsd: number[] }[];
         breakdown: { label: string; usd: number; share: number; usage: string }[];
     };
 
@@ -170,7 +170,7 @@ export default function QualityAssuranceSection() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [costs, setCosts] = useState<OpenAiCosts | null>(null);
-    const [selectedModel, setSelectedModel] = useState("");
+    const [selectedFeature, setSelectedFeature] = useState("");
     const { openProfile } = useDevProfile();
 
     useEffect(() => {
@@ -216,9 +216,9 @@ export default function QualityAssuranceSection() {
     const openRestaurant = (restaurantId: string, restaurantName: string) =>
         openProfile({ id: restaurantId, name: restaurantName });
 
-    const models = costs?.status === "ok" ? costs.models ?? [] : [];
-    const modelDailyUsd = models.find(model => model.id === selectedModel)?.dailyUsd;
-    const modelTotalUsd = modelDailyUsd?.reduce((sum, usd) => sum + usd, 0);
+    const features = costs?.status === "ok" ? costs.features ?? [] : [];
+    const featureDailyUsd = features.find(feature => feature.id === selectedFeature)?.dailyUsd;
+    const featureTotalUsd = featureDailyUsd?.reduce((sum, usd) => sum + usd, 0);
     if (!data && loading) return <PageLoader />;
 
     return <div className="space-y-6">
@@ -359,12 +359,12 @@ export default function QualityAssuranceSection() {
                                 <h3 className="text-sm font-semibold text-[#1d1d1d]">Gasto OpenAI por dia</h3>
                                 <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
                                     <span className="text-sm font-medium tabular-nums">
-                                        {formatBrl((modelTotalUsd ?? costs.totalUsd) * costs.usdBrlRate)} no período
+                                        {formatBrl((featureTotalUsd ?? costs.totalUsd) * costs.usdBrlRate)} no período
                                     </span>
                                     <div className="w-56 max-w-full">
-                                        <Dropdown aria-label="Modelo OpenAI" value={selectedModel}
-                                            onChange={event => setSelectedModel(event.target.value)}
-                                            options={[{ value: "", label: "Todos" }, ...models.map(model => ({ value: model.id, label: model.id }))]}
+                                        <Dropdown aria-label="Recurso de IA" value={selectedFeature}
+                                            onChange={event => setSelectedFeature(event.target.value)}
+                                            options={[{ value: "", label: "Todos" }, ...features.map(feature => ({ value: feature.id, label: feature.id }))]}
                                         />
                                     </div>
                                 </div>
@@ -375,7 +375,7 @@ export default function QualityAssuranceSection() {
                                         labels: costs.daily.map(point => dayLabel(point.date)),
                                         datasets: [{
                                             label: "Gasto (R$)",
-                                            data: costs.daily.map((point, index) => (modelDailyUsd?.[index] ?? point.usd) * costs.usdBrlRate),
+                                            data: costs.daily.map((point, index) => (featureDailyUsd?.[index] ?? point.usd) * costs.usdBrlRate),
                                             borderColor: CHART_BRAND,
                                             backgroundColor: createBrandAreaGradient,
                                             fill: true, tension: 0.25, pointRadius: 2, pointHoverRadius: 5,
@@ -462,7 +462,7 @@ function CostSources({ costs }: { costs: OpenAiCosts }) {
     const columns: TableColumn<CostSourceRow>[] = [
         {
             key: "item",
-            label: "Item de cobrança",
+            label: "Fonte de custo",
             render: row => row.id === "other"
                 ? <button {...disclosure.triggerProps} className="inline-flex cursor-pointer items-center gap-2 text-left font-medium hover:text-brand">
                     {row.label}

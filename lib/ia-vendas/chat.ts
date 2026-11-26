@@ -1,3 +1,4 @@
+import { openAiFeatureKey } from "@/lib/api/openAiFeatureKeys";
 import {
   aiAccess,
   FREE_AI_MESSAGE_TOKENS,
@@ -583,7 +584,7 @@ export async function runChat(args: {
       if (!access.plus && Number(access.images_remaining) <= 0)
         throw new IaImageLimitReached(false, access.images_reset_at);
     }
-    const ai = new OpenAI({ maxRetries: 0, timeout: 60000, fetch: openAiAlertFetch("Vendas IA") });
+    const ai = new OpenAI({ apiKey: deep ? process.env.OPENAI_API_KEY?.trim() : openAiFeatureKey(conv.kind === "analysis" || args.report_id ? "salesChat" : "assistant"), maxRetries: 0, timeout: 60000, fetch: openAiAlertFetch("Vendas IA") });
     let ctx: Data,
       input: any[],
       freeAssistant = false;

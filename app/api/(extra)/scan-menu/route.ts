@@ -1,3 +1,4 @@
+import { openAiFeatureKey } from "@/lib/api/openAiFeatureKeys";
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { openAiAlertFetch } from "@/lib/services/openAiAlerts";
@@ -1082,7 +1083,7 @@ export async function POST(req: Request) {
     // OpenAI-only trial for menu imports. Explicitly opt back into the previous Gemini-first flow.
     const useGemini = process.env.MENU_SCAN_PROVIDER === "gemini";
     const geminiApiKey = useGemini ? geminiApiKeys[Math.floor(Math.random() * geminiApiKeys.length)] : undefined;
-    const openAiApiKey = process.env.OPENAI_API_KEY?.trim();
+    const openAiApiKey = openAiFeatureKey("menuScan");
 
     const startedAt = Date.now();
     const timingsMs: MenuScanTimings = {};
@@ -1120,7 +1121,7 @@ export async function POST(req: Request) {
             return NextResponse.json(
                 {
                     error: "A análise por IA está temporariamente indisponível.",
-                    details: useGemini ? "GEMINI_API_KEY e OPENAI_API_KEY não estão configuradas." : "OPENAI_API_KEY não está configurada.",
+                    details: useGemini ? "GEMINI_API_KEY e a chave OpenAI de importação não estão configuradas." : "A chave OpenAI de importação não está configurada.",
                 },
                 { status: 503 },
             );

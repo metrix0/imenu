@@ -1,3 +1,4 @@
+import { loadFeatureKeys } from "@/lib/api/openAiCostKeys";
 import { NextResponse } from "next/server";
 import { authorize } from "@/lib/dev/authorize";
 import { getUsdBrlRate } from "@/lib/ia-vendas/creditPricing";
@@ -11,6 +12,7 @@ const CACHE_MS = 15 * 60 * 1000;
 type CostResult = {
     amount?: { value?: number; currency?: string } | null;
     line_item?: string | null;
+    api_key_id?: string | null;
 };
 type CostBucket = { start_time: number; results: CostResult[] };
 type CostPage = {
@@ -26,6 +28,7 @@ type CostPayload = {
     totalUsd: number;
     daily: { date: string; usd: number }[];
     models: { id: string; dailyUsd: number[] }[];
+    features: { id: string; dailyUsd: number[] }[];
     breakdown: { label: string; usd: number; share: number; usage: string }[];
 };
 let cached: { until: number; value: CostPayload } | null = null;
@@ -83,12 +86,16 @@ function modelFromLineItem(lineItem: string): string | undefined {
 }
 
 async function loadCosts(adminKey: string): Promise<CostPayload> {
+    // Keep provider billing totals even if the key directory is temporarily unavailable.
+    // Unmapped/shared/deleted keys are never guessed to belong to a specific feature.
+    const featureKeys = await loadFeatureKeys(adminKey).catch(() => new Map<string, string>());
     // Complete UTC days, excluding the current (possibly incomplete) billing day.
     const end = Math.floor(Date.now() / 86400000) * 86400;
     const start = end - DAYS * 86400;
     const daily = new Map<string, number>();
-    const categories = new Map<string, number>();
+    const categories = new Map<string, { usd: number; usage: string }>();
     const dailyByModel = new Map<string, Map<string, number>>();
+    const dailyByFeature = new Map<string, Map<string, number>>();
     let page: string | null = null;
     let complete = false;
 
@@ -99,6 +106,7 @@ async function loadCosts(adminKey: string): Promise<CostPayload> {
         url.searchParams.set("bucket_width", "1d");
         url.searchParams.set("limit", "31");
         url.searchParams.append("group_by", "line_item");
+        url.searchParams.append("group_by", "api_key_id");
         if (page) url.searchParams.set("page", page);
 
         const response = await fetch(url, {
@@ -125,7 +133,14 @@ async function loadCosts(adminKey: string): Promise<CostPayload> {
                 const usd = Number(amount.value);
                 const label = result.line_item?.trim() || "Não categorizado";
                 daily.set(date, (daily.get(date) || 0) + usd);
-                categories.set(label, (categories.get(label) || 0) + usd);
+                const feature = result.api_key_id ? featureKeys.get(result.api_key_id) : undefined;
+                const category = feature ? `OpenAI · ${feature}` : `Sem atribuição · ${label}`;
+                const usage = feature ?? "Chave compartilhada ou não identificada. Uso possível: " + usageForLineItem(label);
+                const featureDays = dailyByFeature.get(feature ?? "Sem atribuição") ?? new Map<string, number>();
+                featureDays.set(date, (featureDays.get(date) ?? 0) + usd);
+                dailyByFeature.set(feature ?? "Sem atribuição", featureDays);
+                const previous = categories.get(category);
+                categories.set(category, { usd: (previous?.usd ?? 0) + usd, usage });
                 const model = modelFromLineItem(label);
                 if (model) {
                     const modelDays = dailyByModel.get(model) ?? new Map<string, number>();
@@ -147,7 +162,7 @@ async function loadCosts(adminKey: string): Promise<CostPayload> {
         return { date, usd: daily.get(date) || 0 };
     });
     const totalUsd = series.reduce((sum, day) => sum + day.usd, 0);
-    const breakdown = Array.from(categories, ([label, usd]) => ({ label, usd }))
+    const breakdown = Array.from(categories, ([label, item]) => ({ label, ...item }))
         .filter(item => item.usd !== 0).sort((a, b) => b.usd - a.usd);
     const usdBrlRate = await getUsdBrlRate();
 
@@ -165,9 +180,12 @@ async function loadCosts(adminKey: string): Promise<CostPayload> {
         models: Array.from(dailyByModel.keys()).sort().map(id => ({
             id, dailyUsd: series.map(({ date }) => dailyByModel.get(id)?.get(date) ?? 0),
         })),
+        features: Array.from(dailyByFeature.keys()).sort().map(id => ({
+            id, dailyUsd: series.map(({ date }) => dailyByFeature.get(id)?.get(date) ?? 0),
+        })),
         breakdown: breakdown.map(item => ({
             ...item, share: totalUsd === 0 ? 0 : (item.usd / totalUsd) * 100,
-            usage: usageForLineItem(item.label),
+            usage: item.usage,
         })),
     };
 }

@@ -1,3 +1,4 @@
+import { openAiFeatureKey } from "@/lib/api/openAiFeatureKeys";
 import type { ResponseInput, Tool } from "openai/resources/responses/responses";
 import { hasIMenuPlusAccess } from "@/lib/addons/access";
 import { query } from "@/lib/database/sql";
@@ -70,7 +71,7 @@ export async function getWhatsAppAiReply({
     let typingUpdate = Promise.resolve();
     try {
         if (!body.trim()) return null;
-        const apiKey = process.env.OPENAI_API_KEY?.trim();
+        const apiKey = openAiFeatureKey("whatsapp");
         const customerPhone = normalizeCustomerPhone(phone);
         const canOrder = Boolean(customerPhone && variables.LINK_DO_CARDAPIO);
         if ((orderingOnly && !canOrder) || (!canOrder && !apiKey) ||

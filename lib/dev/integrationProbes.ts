@@ -1,3 +1,5 @@
+import { OPENAI_FEATURES, openAiFeatureKey, type OpenAIFeature } from "@/lib/api/openAiFeatureKeys";
+import { loadFeatureKeys } from "@/lib/api/openAiCostKeys";
 import { query } from "@/lib/database/sql";
 import { checkCnefe } from "@/lib/delivery/cnefe";
 import { getPostHogConfig, postHogApiHost } from "@/lib/analytics/posthogQuery";
@@ -141,24 +143,43 @@ async function checkOpenAiDailySpend(): Promise<void> {
 }
 
 async function openai(): Promise<ProbeResult> {
-    const key = configured("OPENAI_API_KEY");
-    // Listing models does not generate model tokens or images.
-    const [probe] = await Promise.all([
-        key ? remote("openai", "Modelos", "https://api.openai.com/v1/models", {
-            Authorization: `Bearer ${key}`,
-        }) : missing("openai", "Modelos"),
+    // Probe each distinct effective key once; shared fallback is not eight requests.
+    // Listing models does not generate tokens or images.
+    const groups = new Map<string, string[]>();
+    const absent: string[] = [];
+    for (const feature of Object.keys(OPENAI_FEATURES) as OpenAIFeature[]) {
+        const key = openAiFeatureKey(feature);
+        const name = OPENAI_FEATURES[feature].name.replace(/^imenu-/, "");
+        if (!key) { absent.push(name); continue; }
+        groups.set(key, [...(groups.get(key) ?? []), name]);
+    }
+    if (!groups.size) {
+        await checkOpenAiDailySpend();
+        return missing("openai", "Modelos");
+    }
+    const [checks] = await Promise.all([
+        Promise.all(Array.from(groups, async ([key, names]) => ({
+            names, ...await httpCheck("Modelos", "https://api.openai.com/v1/models", { Authorization: `Bearer ${key}` }),
+        }))),
         checkOpenAiDailySpend(),
     ]);
-    return probe;
+    const failures = checks.filter(check => !check.ok);
+    const detail = [
+        ...failures.map(check => `${check.names.join(",")}: ${check.detail}`),
+        ...(absent.length ? [`Sem chave: ${absent.join(",")}`] : []),
+        `${checks.length - failures.length}/${checks.length} chaves verificadas`,
+    ].join(" · ");
+    // Keep the existing outage/notification debounce in recordIntegrationProbe.
+    return { id: "openai", operation: "Modelos", state: failures.length || absent.length ? "failed" : "connected",
+        status: failures[0]?.status ?? (absent.length ? null : 200), detail };
 }
 
 const GEMINI_COST_ALERT_USD = 2;
 
-// GPT-4.1 is the configured menu-import fallback model, but these organization
-// charges can include other OpenAI uses; never present them as exact fallback spend.
+// Dedicated menu-scan key identifies import spend (primary and fallback); legacy GPT-4.1 remains a historical estimate.
 async function geminiRelatedCost(): Promise<string> {
     const adminKey = configured("OPENAI_ADMIN_KEY");
-    if (!adminKey) return "Custo GPT-4.1 não verificado: chave administrativa ausente.";
+    if (!adminKey) return "Custo OpenAI da importação não verificado: chave administrativa ausente.";
     const end = Math.floor(Date.now() / 86400000) * 86400;
     const start = end - 86400;
     const url = new URL("https://api.openai.com/v1/organization/costs");
@@ -167,43 +188,50 @@ async function geminiRelatedCost(): Promise<string> {
     url.searchParams.set("bucket_width", "1d");
     url.searchParams.set("limit", "1");
     url.searchParams.append("group_by", "line_item");
+    url.searchParams.append("group_by", "api_key_id");
     try {
+        const featureKeys = await loadFeatureKeys(adminKey).catch(() => new Map<string, string>());
+        const scanKeys = new Set([...featureKeys].filter(([, label]) => label === OPENAI_FEATURES.menuScan.label).map(([id]) => id));
         const response = await fetch(url, {
             headers: { Authorization: `Bearer ${adminKey}`, Accept: "application/json" },
             cache: "no-store",
             signal: AbortSignal.timeout(8000),
         });
-        if (!response.ok) return `Custo GPT-4.1 não verificado: HTTP ${response.status}.`;
+        if (!response.ok) return `Custo OpenAI da importação não verificado: HTTP ${response.status}.`;
         const payload = await response.json() as {
-            data?: { start_time: number; results?: { line_item?: string; amount?: { value?: number; currency?: string } }[] }[];
+            data?: { start_time: number; results?: { line_item?: string; api_key_id?: string | null; amount?: { value?: number; currency?: string } }[] }[];
             has_more?: boolean;
         };
         if (!Array.isArray(payload.data) || payload.has_more)
-            return "Custo GPT-4.1 não verificado: resposta incompleta.";
+            return "Custo OpenAI da importação não verificado: resposta incompleta.";
         let usd = 0;
+        let legacyUsd = 0;
         for (const day of payload.data) {
             if (day.start_time < start || day.start_time >= end) continue;
             for (const item of day.results || []) {
-                if (!/\bgpt-4\.1(?:-[0-9]{4}-[0-9]{2}-[0-9]{2})?(?![a-z0-9._-])/i.test(item.line_item || "")) continue;
                 if (item.amount?.currency?.toLowerCase() !== "usd" || !Number.isFinite(item.amount.value)) continue;
-                usd += Number(item.amount.value);
+                if (item.api_key_id && scanKeys.has(item.api_key_id)) usd += Number(item.amount.value);
+                else if (!item.api_key_id || !featureKeys.has(item.api_key_id)) {
+                    if (/\bgpt-4\.1(?:-[0-9]{4}-[0-9]{2}-[0-9]{2})?(?![a-z0-9._-])/i.test(item.line_item || "")) legacyUsd += Number(item.amount.value);
+                }
             }
         }
-        if (usd >= GEMINI_COST_ALERT_USD) {
+        const monitoredUsd = usd + legacyUsd;
+        if (monitoredUsd >= GEMINI_COST_ALERT_USD) {
             const day = new Date(start * 1000).toISOString().slice(0, 10);
             await recordDevAlert({
                 source: "gemini",
-                title: "Gasto elevado com GPT-4.1 — possível fallback",
-                message: `OpenAI cobrou US$ ${usd.toFixed(2)} pelo GPT-4.1 em ${day} (limite US$ ${GEMINI_COST_ALERT_USD.toFixed(2)}/dia). Pode incluir outros usos; confira os eventos de fallback da importação.`,
+                title: "Gasto elevado com OpenAI — importação de cardápio",
+                message: `OpenAI registrou US$ ${monitoredUsd.toFixed(2)} em ${day} (limite US$ ${GEMINI_COST_ALERT_USD.toFixed(2)}/dia): importação identificada US$ ${usd.toFixed(2)}, GPT-4.1 histórico compartilhado US$ ${legacyUsd.toFixed(2)}. Confira os eventos de fallback.`,
                 severity: "warning",
                 trigger: "notification",
                 operation: "Gastos da importação de cardápio",
                 incidentKey: `gemini:possible-fallback-cost:${day}`,
             });
         }
-        return `GPT-4.1 ontem: US$ ${usd.toFixed(2)} (custo compartilhado).`;
+        return (scanKeys.size ? `OpenAI importação ontem: US$ ${usd.toFixed(2)} (chave dedicada).` : "Chave de importação sem atribuição de custo.") + (legacyUsd ? ` GPT-4.1 histórico: US$ ${legacyUsd.toFixed(2)} (compartilhado).` : "");
     } catch {
-        return "Custo GPT-4.1 não verificado: consulta indisponível.";
+        return "Custo OpenAI da importação não verificado: consulta indisponível.";
     }
 }
 

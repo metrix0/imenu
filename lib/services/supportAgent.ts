@@ -1,3 +1,4 @@
+import { openAiFeatureKey, type OpenAIFeature } from "@/lib/api/openAiFeatureKeys";
 import OpenAI, { toFile } from "openai";
 import type { ResponseOutputItem } from "openai/resources/responses/responses";
 import { cacheDeveloperInstructions, explicitPromptCache, supportsExplicitPromptCache } from "@/lib/api/openAiPromptCache";
@@ -382,8 +383,8 @@ const MAX_SUPPORT_AUDIO_BYTES = 12 * 1024 * 1024;
 const MAX_SUPPORT_AUDIO_SECONDS = 12 * 60;
 const SUPPORT_AUDIO_SAMPLE_RATE = 16_000;
 
-function getSupportOpenAIClient(): OpenAI {
-    const apiKey = process.env.OPENAI_API_KEY?.trim();
+function getSupportOpenAIClient(feature: OpenAIFeature = "support"): OpenAI {
+    const apiKey = openAiFeatureKey(feature);
     if (!apiKey) throw new Error("OPENAI_API_KEY is not configured.");
     return new OpenAI({ apiKey, fetch: openAiAlertFetch("Suporte IA") });
 }
@@ -580,7 +581,7 @@ export async function transcribeSupportAudio(
           }
         : getSupportedAudioUpload(data, mimetype, filename);
 
-    const client = getSupportOpenAIClient();
+    const client = getSupportOpenAIClient("supportAudio");
     const transcription = await client.audio.transcriptions.create(
         {
             file: await toFile(upload.data, upload.filename, {
@@ -599,7 +600,7 @@ export async function transcribeSupportAudio(
 export async function generateSupportReply(
     conversationId: string
 ): Promise<SupportAgentReply> {
-    const apiKey = process.env.OPENAI_API_KEY?.trim();
+    const apiKey = openAiFeatureKey("support");
     if (!apiKey) throw new Error("OPENAI_API_KEY is not configured.");
 
     const [history, conversationResult, incidentResult, loopReviewResult] = await Promise.all([
@@ -867,7 +868,7 @@ async function recentFollowupContext(conversationId: string): Promise<string> {
 export async function classifySupportFollowup(conversationId: string): Promise<SupportFollowupState> {
     const context = await recentFollowupContext(conversationId);
     if (!context.trim()) return "resolved";
-    const client = getSupportOpenAIClient();
+    const client = getSupportOpenAIClient("supportFollowup");
     const model = process.env.OPENAI_SUPPORT_FOLLOWUP_MODEL?.trim() || "gpt-6-luna";
     const response = await client.responses.create({
         model,
@@ -896,7 +897,7 @@ export const SUPPORT_FOLLOWUP_OFFER =
 export async function generateSupportFollowup(conversationId: string): Promise<string> {
     const context = await recentFollowupContext(conversationId);
     if (!context.trim()) return "";
-    const client = getSupportOpenAIClient();
+    const client = getSupportOpenAIClient("supportFollowup");
     const model = process.env.OPENAI_SUPPORT_FOLLOWUP_MODEL?.trim() || "gpt-6-luna";
     const response = await client.responses.create({
         model,
