@@ -16,7 +16,7 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip,
 type Health = {
     latest: { reported_at: string; data: { cpu_used_percent?: number; memory_used_percent: number; disk_used_percent: number; containers?: Record<string, string>; operations?: { alerts?: string[] } } } | null;
     history: { reported_at: string; cpu_percent: number | null; memory_percent: number; disk_percent: number }[];
-    connections: { id: string; name: string; priority: number; observation: { state: "connected" | "degraded" | "failed" | "unverified"; status: number | null; checkedAt: string; operation: string | null; detail: string | null } | null }[];
+    connections: { id: string; name: string; priority: number; observation: { state: "connected" | "degraded" | "failed" | "unverified" | "disabled"; status: number | null; checkedAt: string | null; operation: string | null; detail: string | null } | null }[];
     failures: { source: string; created_at: string; message: string }[];
 };
 
@@ -45,8 +45,8 @@ export default function HealthSection({range}:{range:DateRange}) {
                     { key: "status", label: "Status", render: row => {
                         const observation = row.observation;
                         const state = observation?.state || "unverified";
-                        const variants = {connected:"success",degraded:"warning",failed:"danger",unverified:"neutral"} as const;
-                        const labels = {connected:"Conectado",degraded:"Degradado",failed:"Falha",unverified:"Sem verificação"};
+                        const variants = {connected:"success",degraded:"warning",failed:"danger",unverified:"neutral",disabled:"neutral"} as const;
+                        const labels = {connected:"Conectado",degraded:"Degradado",failed:"Falha",unverified:"Sem verificação",disabled:"Desativado"};
                         return <Badge variant={variants[state]}>{labels[state]}</Badge>;
                     } },
                     { key:"details",label:"Diagnóstico",render:row=>row.observation?.detail||"—" },
