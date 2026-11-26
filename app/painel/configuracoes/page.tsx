@@ -29,7 +29,6 @@ import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import ConfigurationCard from "@/components/ui/ConfigurationCard";
-import MobilePrintSettingsSection from "@/components/restaurant-owner/configuracoes/MobilePrintSettingsSection";
 import SaveStatus from "@/components/ui/SaveStatus";
 import { PageLoader } from "@/components/ui/Loader";
 import Toast from "@/components/ui/Toast";
@@ -949,7 +948,6 @@ export default function ConfiguracoesPage() {
                     {restaurant && (
                         <SettingsSection id="modos">
                             <PizzaSettingsSection restaurantId={restaurant.id} />
-                            <MobilePrintSettingsSection key={restaurant.id} restaurantId={restaurant.id} />
 
                             <ConfigurationCard
                                 title="Modo Vitrine"

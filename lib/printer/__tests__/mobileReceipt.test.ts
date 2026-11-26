@@ -1,4 +1,4 @@
-import { buildMobileReceiptPdf, DEFAULT_MOBILE_PRINT, parseMobilePrintSettings, SAMPLE_RECEIPT } from "../mobileReceipt";
+import { buildMobileReceiptPdf, layoutMobileReceipt, DEFAULT_MOBILE_PRINT, parseMobilePrintSettings, SAMPLE_RECEIPT } from "../mobileReceipt";
 
 function pdfText(bytes: Uint8Array) { return Buffer.from(bytes).toString("ascii"); }
 function contentText(pdf: string) {
@@ -9,6 +9,8 @@ describe("mobile receipt PDF", () => {
     it("defaults to disabled and normalizes untrusted settings", () => {
         expect(parseMobilePrintSettings(null)).toEqual(DEFAULT_MOBILE_PRINT);
         expect(parseMobilePrintSettings({ enabled: "true", paper: 80, showTotals: false })).toMatchObject({ enabled: false, paper: "58", showTotals: false });
+        const legacy = parseMobilePrintSettings({ itemSize: "normal", orderSize: "normal", totalSize: "normal", spacing: "compact", showOrderNumber: false, showOrderTime: false, showSubitems: false, showObservations: false });
+        expect(legacy).toEqual(DEFAULT_MOBILE_PRINT);
     });
     it.each([["58", "164.41"], ["80", "226.77"], ["a4", "595.28"]] as const)("generates valid %s paper with correct PDF offsets", (paper, width) => {
         const pdf = pdfText(buildMobileReceiptPdf(SAMPLE_RECEIPT, { ...DEFAULT_MOBILE_PRINT, paper }));
@@ -24,13 +26,23 @@ describe("mobile receipt PDF", () => {
         expect(contentText(pdf)).toContain("R$ 46,00");
     });
     it("preserves receipt data and conditional fields", () => {
-        const settings = { ...DEFAULT_MOBILE_PRINT, showCustomerName: false, showObservations: false, showSubitems: false, showItemPrices: false, showTotals: false, showPayment: false };
+        const settings = { ...DEFAULT_MOBILE_PRINT, showCustomerName: false, showItemPrices: false, showTotals: false, showPayment: false };
         const text = contentText(pdfText(buildMobileReceiptPdf(SAMPLE_RECEIPT, settings)));
         expect(text).not.toContain("Maria");
-        expect(text).not.toContain("Bacon");
-        expect(text).not.toContain("Sem cebola");
+        expect(text).toContain("Bacon");
+        expect(text).toContain("Sem cebola");
+        expect(text).toContain("PEDIDO #42");
         expect(text).not.toContain("R$");
         expect(text).toContain("X-Burger");
+    });
+    it("shares the preview layout with the PDF and scales all text together", () => {
+        const normal = layoutMobileReceipt(SAMPLE_RECEIPT, DEFAULT_MOBILE_PRINT)[0];
+        const settings = { ...DEFAULT_MOBILE_PRINT, textSize: "large" as const, title: "TESTE" };
+        const large = layoutMobileReceipt(SAMPLE_RECEIPT, settings)[0];
+        expect(large.lines.find(line => line.text === "TESTE")?.size).toBeGreaterThan(normal.lines[0].size);
+        const pdf = pdfText(buildMobileReceiptPdf(SAMPLE_RECEIPT, settings));
+        expect(contentText(pdf)).toContain("TESTE");
+        expect(pdf).toContain(`/MediaBox [0 0 ${large.width.toFixed(2)} ${large.height.toFixed(2)}]`);
     });
     it("handles table, pickup and scheduled delivery correctly", () => {
         const table = { ...SAMPLE_RECEIPT, order: { ...SAMPLE_RECEIPT.order, is_delivery: "mesa", table_name_snapshot: "Mesa 5" } };

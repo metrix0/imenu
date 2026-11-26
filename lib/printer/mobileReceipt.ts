@@ -1,38 +1,32 @@
 // Manual PDF receipts are deliberately independent of the automatic printer queue.
 export const RECEIPT_FIELDS = {
-    showOrderNumber: "Número do pedido", showOrderTime: "Horário do pedido",
     showCustomerName: "Nome do cliente", showCustomerPhone: "Telefone",
     showAddress: "Endereço", showPayment: "Pagamento", showItemPrices: "Preços",
-    showSubitems: "Complementos", showObservations: "Observações", showTotals: "Totais",
+    showTotals: "Totais",
 } as const;
 type Field = keyof typeof RECEIPT_FIELDS;
 type Size = "normal" | "large";
 type ExtendedSize = Size | "extra";
 export type MobilePrintSettings = Record<Field, boolean> & {
     enabled: boolean; paper: "58" | "80" | "a4"; title: string; footer: string;
-    textSize: Size; itemSize: Size; orderSize: ExtendedSize; totalSize: ExtendedSize;
-    spacing: "compact" | "normal" | "spacious";
+    textSize: Size;
 };
 export const DEFAULT_MOBILE_PRINT: MobilePrintSettings = {
     enabled: false, paper: "58", title: "COZINHA", footer: "",
-    textSize: "normal", itemSize: "large", orderSize: "extra", totalSize: "extra",
-    spacing: "normal",
-    showOrderNumber: true, showOrderTime: true, showCustomerName: true,
+    textSize: "normal",
+    showCustomerName: true,
     showCustomerPhone: true, showAddress: true, showPayment: true, showItemPrices: true,
-    showSubitems: true, showObservations: true, showTotals: true,
+    showTotals: true,
 };
 export function parseMobilePrintSettings(raw: unknown): MobilePrintSettings {
     const v = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
     const size = (value: unknown, fallback: Size): Size => value === "normal" || value === "large" ? value : fallback;
-    const extended = (value: unknown, fallback: ExtendedSize): ExtendedSize => value === "normal" || value === "large" || value === "extra" ? value : fallback;
     const result: MobilePrintSettings = {
         ...DEFAULT_MOBILE_PRINT, enabled: v.enabled === true,
         paper: v.paper === "80" || v.paper === "a4" ? v.paper : "58",
         title: typeof v.title === "string" ? v.title.slice(0, 24) : "COZINHA",
         footer: typeof v.footer === "string" ? v.footer.slice(0, 120) : "",
-        textSize: size(v.textSize, "normal"), itemSize: size(v.itemSize, "large"),
-        orderSize: extended(v.orderSize, "extra"), totalSize: extended(v.totalSize, "extra"),
-        spacing: v.spacing === "compact" || v.spacing === "spacious" ? v.spacing : "normal",
+        textSize: size(v.textSize, "normal"),
     };
     for (const field of Object.keys(RECEIPT_FIELDS) as Field[]) result[field] = v[field] !== false;
     return result;
@@ -82,23 +76,23 @@ function paymentLabel(method: string) {
     return labels[method] || method;
 }
 // Courier/WinAnsi provides predictable character widths and Portuguese accents without a new dependency.
-export function buildMobileReceiptPdf(data: ReceiptData, settings: MobilePrintSettings): Uint8Array<ArrayBuffer> {
+export function layoutMobileReceipt(data: ReceiptData, settings: MobilePrintSettings) {
     const width = settings.paper === "a4" ? 595.28 : settings.paper === "80" ? 226.77 : 164.41;
     const margin = settings.paper === "a4" ? 42 : 9;
     const available = width - margin * 2;
-    const base = settings.paper === "a4" ? 11 : 7.5;
+    const base = (settings.paper === "a4" ? 11 : 7.5) * (settings.textSize === "large" ? 1.2 : 1);
     const font = (size: ExtendedSize) => base * (size === "extra" ? 1.8 : size === "large" ? 1.35 : 1);
     const columns = (size: number) => Math.max(1, Math.floor(available / (size * 0.6)));
     const lines: Line[] = [];
-    const add = (text: unknown, size = font(settings.textSize), bold = false, align: Line["align"] = "left") => {
+    const add = (text: unknown, size = font("normal"), bold = false, align: Line["align"] = "left") => {
         for (const line of wrap(printable(text), columns(size))) lines.push({ text: line, size, bold, align, height: size * 1.32 });
     };
     const gap = () => {
-        const height = settings.spacing === "compact" ? 0 : settings.spacing === "spacious" ? base * 1.5 : base * 0.75;
+        const height = base * 0.75;
         if (height) lines.push({ text: "", size: base, bold: false, align: "left", height });
     };
     const separator = () => { gap(); add("-".repeat(columns(base)), base); gap(); };
-    const row = (left: string, right: string, size = font(settings.textSize), bold = false) => {
+    const row = (left: string, right: string, size = font("normal"), bold = false) => {
         const a = printable(left), b = printable(right), count = columns(size);
         if (!b) { add(a, size, bold); return; }
         if (a.length + b.length + 1 <= count) {
@@ -111,10 +105,10 @@ export function buildMobileReceiptPdf(data: ReceiptData, settings: MobilePrintSe
     const table = destination === "mesa";
     const pickup = ["retirada", "pickup", "balcao", "balcão", "false", "0"].includes(destination);
     if (settings.title.trim()) { add(settings.title.trim(), base, true, "center"); gap(); }
-    if (settings.showOrderNumber) add("PEDIDO #" + (order.display_id ?? "-"), font(settings.orderSize), true, "center");
+    add("PEDIDO #" + (order.display_id ?? "-"), font("extra"), true, "center");
     const scheduled = dateLabel(order.scheduled_for);
     if (scheduled && !table) {
-        separator(); add("AGENDADO", font(settings.orderSize), true, "center");
+        separator(); add("AGENDADO", font("extra"), true, "center");
         add((pickup ? "RETIRADA: " : "ENTREGA: ") + scheduled, base, true, "center"); separator();
     }
     if (table) { add("Tipo: Mesa"); add("Mesa: " + (order.table_name_snapshot || "Mesa")); }
@@ -128,12 +122,12 @@ export function buildMobileReceiptPdf(data: ReceiptData, settings: MobilePrintSe
     for (const item of items) {
         const qty = quantity(item.quantity);
         const label = qty + "x " + item.name;
-        row(label, settings.showItemPrices ? money(numeric(item.total_cents, numeric(item.price_cents) * qty)) : "", font(settings.itemSize), true);
-        if (settings.showSubitems) for (const sub of grouped.get(item.id) || []) {
+        row(label, settings.showItemPrices ? money(numeric(item.total_cents, numeric(item.price_cents) * qty)) : "", font("large"), true);
+        for (const sub of grouped.get(item.id) || []) {
             const qty = quantity(sub.quantity), price = numeric(sub.price_cents);
             row("  " + qty + "x " + sub.name, settings.showItemPrices && price > 0 ? "+" + money(price * qty) : "");
         }
-        if (settings.showObservations && item.observation) add("OBS: " + item.observation, font(settings.textSize), true);
+        if (item.observation) add("OBS: " + item.observation, font("normal"), true);
     }
     separator();
     const subtotal = numeric(order.subtotal_cents), delivery = pickup || table ? 0 : numeric(order.delivery_cents);
@@ -145,14 +139,12 @@ export function buildMobileReceiptPdf(data: ReceiptData, settings: MobilePrintSe
         if (delivery > 0) row("Entrega", money(delivery));
         if (discount > 0) row("Desconto", "-" + money(discount));
         gap();
-        const size = font(settings.totalSize);
+        const size = font("extra");
         row("TOTAL", money(total), size === font("extra") && ("TOTAL".length + money(total).length + 1 > columns(size) || settings.paper === "58") ? font("large") : size, true);
     }
     if (settings.showPayment && !table && order.payment_method) row(paymentLabel(order.payment_method), money(total));
-    if (settings.footer.trim() || settings.showOrderTime) {
-        gap(); add(settings.footer, font(settings.textSize), false, "center");
-        if (settings.showOrderTime) add(dateLabel(order.created_at), font(settings.textSize), false, "center");
-    }
+    gap(); add(settings.footer, font("normal"), false, "center");
+    add(dateLabel(order.created_at), font("normal"), false, "center");
     // Fixed A4 pages, or variable-height thermal pages with a bounded maximum for mobile PDF viewers.
     const maxHeight = settings.paper === "a4" ? 841.89 : 1800;
     const pages: { lines: Line[]; used: number }[] = [{ lines: [], used: 0 }];
@@ -163,6 +155,21 @@ export function buildMobileReceiptPdf(data: ReceiptData, settings: MobilePrintSe
         }
         page.lines.push(line); page.used += line.height;
     }
+    return pages.map(page => {
+        const height = settings.paper === "a4" ? maxHeight : Math.max(72, page.used + 2 * margin + 8);
+        let y = margin;
+        const positioned = page.lines.map(line => {
+            const baseline = y + line.size; y += line.height;
+            const textWidth = line.text.length * line.size * 0.6;
+            const x = line.align === "center" ? (width - textWidth) / 2 : line.align === "right" ? width - margin - textWidth : margin;
+            return { ...line, x, y: baseline, textWidth };
+        });
+        return { width, height, lines: positioned };
+    });
+}
+
+export function buildMobileReceiptPdf(data: ReceiptData, settings: MobilePrintSettings): Uint8Array<ArrayBuffer> {
+    const pages = layoutMobileReceipt(data, settings);
     const objects: string[] = [
         "<< /Type /Catalog /Pages 2 0 R >>",
         "<< /Type /Pages /Kids [" + pages.map((_, i) => (5 + i * 2) + " 0 R").join(" ") + "] /Count " + pages.length + " >>",
@@ -171,15 +178,11 @@ export function buildMobileReceiptPdf(data: ReceiptData, settings: MobilePrintSe
     ];
     const n = (v: number) => v.toFixed(2);
     for (const [index, page] of pages.entries()) {
-        const height = settings.paper === "a4" ? maxHeight : Math.max(72, page.used + 2 * margin + 8);
-        let y = height - margin;
+        const { width, height } = page;
         const content = page.lines.map(line => {
-            const baseline = y - line.size; y -= line.height;
             if (!line.text) return "";
-            const textWidth = line.text.length * line.size * 0.6;
-            const x = line.align === "center" ? (width - textWidth) / 2 : line.align === "right" ? width - margin - textWidth : margin;
             const hex = Array.from(line.text, char => char.charCodeAt(0).toString(16).padStart(2, "0")).join("");
-            return "0 g BT /" + (line.bold ? "F2" : "F1") + " " + n(line.size) + " Tf 1 0 0 1 " + n(x) + " " + n(baseline) + " Tm <" + hex + "> Tj ET";
+            return "0 g BT /" + (line.bold ? "F2" : "F1") + " " + n(line.size) + " Tf 1 0 0 1 " + n(line.x) + " " + n(height - line.y) + " Tm <" + hex + "> Tj ET";
         }).join("\n") + "\n";
         objects.push("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 " + n(width) + " " + n(height) + "] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents " + (6 + index * 2) + " 0 R >>");
         objects.push("<< /Length " + content.length + " >>\nstream\n" + content + "endstream");
