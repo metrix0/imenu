@@ -55,7 +55,7 @@ export default function MobilePrintSettingsSection({ restaurantId }: { restauran
                 </Tooltip>
             </span>
         }
-        description="Somente para restaurantes sem computador Windows. Recomendamos o iMenu Impressora para impressão automática."
+        description="Somente para restaurantes sem computador Windows. Recomendamos o uso pelo computador/laptop."
         checked={settings.enabled} onChange={enabled => update({ ...settings, enabled })}
         disabled={!loaded} collapse={{ defaultOpen: false }}
         footer={<>
