@@ -238,7 +238,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
 
         const changeMode = (nextMode: DeliveryFeeMode) => {
             if (nextMode === "radius" && smallCityModeEnabled) {
-                setModeToast("É necessário desativar o Modo cidade CEP único em Configurações para usar Entrega por KM.");
+                setModeToast("É necessário desativar o Modo Cidade CEP único em Configurações para usar Entrega por KM.");
                 return;
             }
             if (nextMode === mode) return;
