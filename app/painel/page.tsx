@@ -1,6 +1,7 @@
 // app/painel/page.tsx
 "use client";
 
+import ScrollLoading from "@/components/ui/ScrollLoading";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { supabase } from "@/lib/database/supabaseClient"; // Ajustado para o seu import padrão
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; // Ajustado para o seu import padrão
@@ -24,6 +25,7 @@ import OrderCard, {
 } from "@/components/restaurant-owner/OrderCard"; // Ajustado imports
 import ShareMenuModal from "@/components/restaurant-owner/ShareMenuModal";
 import OrderDetailsModal from "@/components/restaurant-owner/pedidos/OrderDetailsModal";
+import MobilePrintButton, { useMobilePrintSettings } from "@/components/restaurant-owner/pedidos/MobilePrintButton";
 import CreatePanelOrderModal from "@/components/restaurant-owner/CreatePanelOrderModal";
 import TablesOrdersModal from "@/components/restaurant-owner/mesas/TablesOrdersModal";
 import {
@@ -74,6 +76,7 @@ export default function PainelPedidosAtivosPage() {
         restaurantSlug,
     } = useCreationStore();
 
+    const mobilePrint = useMobilePrintSettings(restaurantId);
     const [orders, setOrders] = useState<OrderData[]>([]);
     const [courierError, setCourierError] = useState<{ id: number; message: string } | null>(null);
     const showCourierError = (message: string) => setCourierError({ id: Date.now(), message });
@@ -403,17 +406,20 @@ export default function PainelPedidosAtivosPage() {
                     </div>
                 </div>
             ) : (
+                <ScrollLoading key={restaurantId} total={orders.length} batchSize={30}>{limit => (
                 <div className="panel-orders">
-                    {orders.map((order) => (
+                    {orders.slice(0, limit).map((order) => (
                         <OrderCard
                             key={order.id}
                             order={order}
                             onStatusChange={() => fetchOrders(restaurantId)}
                             onViewOrder={handleViewOrder}
+                            mobilePrintAction={mobilePrint?.enabled && <MobilePrintButton iconOnly restaurantId={restaurantId} orderId={order.id} settings={mobilePrint} />}
                             onCourierError={showCourierError}
                         />
                     ))}
                 </div>
+                )}</ScrollLoading>
             )}
 
             {/* Modal de Compartilhamento */}
@@ -430,6 +436,7 @@ export default function PainelPedidosAtivosPage() {
                     onClose={() => setIsDetailsOpen(false)}
                     order={selectedOrder}
                     showStatusActions
+                    mobilePrintAction={mobilePrint?.enabled && <MobilePrintButton restaurantId={restaurantId} orderId={selectedOrder.id} settings={mobilePrint} />}
                     onOrderUpdate={() => void fetchOrders(restaurantId)}
                     onCourierError={showCourierError}
                     onEditOrder={(order) => {

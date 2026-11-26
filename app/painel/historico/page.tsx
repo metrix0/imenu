@@ -12,6 +12,7 @@ import type { DateRange } from "@/lib/utils/dateRange";
 import OrdersFilter from "@/components/restaurant-owner/pedidos/OrdersFilter";
 import OrdersTable, { Order } from "@/components/restaurant-owner/pedidos/OrdersTable";
 import OrderDetailsModal from "@/components/restaurant-owner/pedidos/OrderDetailsModal";
+import MobilePrintButton, { useMobilePrintSettings } from "@/components/restaurant-owner/pedidos/MobilePrintButton";
 import CreatePanelOrderModal from "@/components/restaurant-owner/CreatePanelOrderModal";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Toast from "@/components/ui/Toast";
@@ -148,6 +149,7 @@ const PAGE_SIZE = 10;
 
 export default function HistoricoPage() {
     const { restaurantId, setRestaurantId } = useCreationStore();
+    const mobilePrint = useMobilePrintSettings(restaurantId);
     const [isLoading, setIsLoading] = useState(true);
     const [orders, setOrders] = useState<Order[]>([]);
 
@@ -384,6 +386,7 @@ export default function HistoricoPage() {
                 isOpen={isDetailsOpen}
                 onClose={() => setIsDetailsOpen(false)}
                 order={selectedOrder}
+                mobilePrintAction={mobilePrint?.enabled && restaurantId && selectedOrder && <MobilePrintButton restaurantId={restaurantId} orderId={selectedOrder.id} settings={mobilePrint} />}
                 fiscalSection={isDetailsOpen && restaurantId && selectedOrder && (
                     fiscal.plus === true ? (
                         fiscal.detailsReady ? <NfceOrderSection key={selectedOrder.id} order={selectedOrder} restaurant={restaurantId}

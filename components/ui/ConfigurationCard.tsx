@@ -39,18 +39,16 @@ export default function ConfigurationCard({
     const descriptionId = `${id}-description`;
     const showConfigurationStatus = configured !== undefined && checked !== false;
     const reserveConfigurationStatus = Boolean(collapse && configured !== undefined);
-    const mobileFullDescription = reserveConfigurationStatus && !compact;
     const titleText = <span id={titleId} role={compact ? undefined : "heading"} aria-level={compact ? undefined : 3}
         className={compact ? "font-medium text-gray-900" : "!text-base !leading-6 !font-bold text-gray-900"}>{mobileTitle ? <><span className="sm:hidden">{mobileTitle}</span><span className="hidden sm:inline">{title}</span></> : title}</span>;
     const heading = <>
         {icon && <span className={`mt-0.5 flex shrink-0 items-center justify-center ${compact ? checked ? "text-brand" : "text-gray-500" : ""}`}>{icon}</span>}
         <span className="min-w-0 flex-1">
-            <span className={plus !== undefined ? "block sm:flex sm:flex-wrap sm:items-center sm:gap-2" : "flex flex-wrap items-center gap-2"}>
+            <span className={plus !== undefined ? "block sm:flex sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-1" : "flex flex-wrap items-center gap-x-2 gap-y-1"}>
                 {titleText}
                 {plus !== undefined && <>{" "}<Badge preset={plus ? "featureAvailable" : "plusIncluded"} className="ml-1 whitespace-nowrap sm:ml-0" /></>}
                 {titleBadge}
             </span>
-            {description && <span id={descriptionId} className={compact ? "mt-0.5 block text-xs text-gray-500" : `mt-2 text-sm text-gray-500 ${mobileFullDescription ? "hidden sm:block" : "block"}`}>{description}</span>}
         </span>
     </>;
     const toggle = checked !== undefined && onChange ? (
@@ -62,11 +60,11 @@ export default function ConfigurationCard({
             }} />
     ) : null;
     const content = <>
-        <div className={`flex justify-between gap-3 sm:gap-4 ${compact ? "items-center" : "items-start"}`}>
+        <div className={`flex min-w-0 justify-between gap-2 sm:gap-3 ${compact ? "items-center" : "items-start"}`}>
             {collapse ? <button {...disclosure.triggerProps} disabled={collapse.disabled}
                 aria-labelledby={titleId} aria-describedby={description ? descriptionId : undefined}
-                className="flex min-w-0 flex-1 cursor-pointer items-start gap-3 text-left disabled:cursor-default">{heading}</button>
-                : <div className="flex min-w-0 flex-1 items-start gap-3">{heading}</div>}
+                className="flex min-w-0 flex-1 cursor-pointer items-start gap-2 text-left disabled:cursor-default">{heading}</button>
+                : <div className="flex min-w-0 flex-1 items-start gap-2">{heading}</div>}
             {(toggle || collapse || configured !== undefined) && (
                 <div className={collapse ? "flex shrink-0 flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-3" : "flex shrink-0 items-center gap-2 sm:gap-3"}>
                     {(toggle || collapse) && <div className="flex h-9 items-center gap-2">
@@ -91,13 +89,13 @@ export default function ConfigurationCard({
                 </div>
             )}
         </div>
-        {mobileFullDescription && description && <div className="mt-2 text-sm text-gray-500 sm:hidden">{description}</div>}
-        {collapse ? <CollapsibleContent id={disclosure.contentId} expanded={disclosure.expanded}>
-            <div className="space-y-4 pt-4">{children}</div>
+        {description && <div id={descriptionId} className={`min-w-0 break-words ${compact ? "mt-0.5 text-xs" : "mt-1 text-sm"} text-gray-500`}>{description}</div>}
+        {collapse ? <CollapsibleContent id={disclosure.contentId} expanded={disclosure.expanded} className="[overflow-anchor:none]">
+            <div className="min-w-0 space-y-3 pt-3">{children}</div>
         </CollapsibleContent> : children}
         {footer}
     </>;
     return embedded
-        ? <section data-configuration-card="" aria-labelledby={titleId} className={className}>{content}</section>
-        : <Card data-configuration-card="" aria-labelledby={titleId} className={`${compact ? "!p-4 min-h-[68px]" : ""} ${className}`}>{content}</Card>;
+        ? <section data-configuration-card="" aria-labelledby={titleId} className={`min-w-0 ${className}`}>{content}</section>
+        : <Card data-configuration-card="" aria-labelledby={titleId} className={`min-w-0 ${compact ? "!p-3" : "!p-3 sm:!p-4"} ${className}`}>{content}</Card>;
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import ScrollLoading from "@/components/ui/ScrollLoading";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
@@ -317,7 +318,7 @@ export default function UpsellTab({ restaurantId, items }: Props) {
                     />
 
                     <div className="grid px-4 grid-cols-2 sm:grid-cols-3 gap-3 max-h-[58vh] overflow-y-auto">
-                        {filteredItems.map(item => (
+                        <ScrollLoading key={JSON.stringify([restaurantId, open, search])} total={filteredItems.length} batchSize={30}>{limit => filteredItems.slice(0, limit).map(item => (
                             <button
                                 key={item.id}
                                 onClick={() => addItem(item)}
@@ -335,7 +336,7 @@ export default function UpsellTab({ restaurantId, items }: Props) {
                                     </p>
                                 </div>
                             </button>
-                        ))}
+                        ))}</ScrollLoading>
 
                         {filteredItems.length === 0 && (
                             <p className="col-span-full text-sm text-gray-400 text-center py-6">

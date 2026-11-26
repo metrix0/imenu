@@ -1,5 +1,6 @@
 "use client";
 
+import ScrollLoading from "@/components/ui/ScrollLoading";
 import { PageHeader } from "@/components/ui/SaveStatus";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
@@ -629,7 +630,7 @@ export default function MesasPage() {
                             </Card>
 
                             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                                {(active ? tables : DEMO_TABLES).map((item) => {
+                                <ScrollLoading key={restaurantId} total={(active ? tables : DEMO_TABLES).length} batchSize={30}>{limit => (active ? tables : DEMO_TABLES).slice(0, limit).map((item) => {
                                     if (typeof item === "string") {
                                         return <DemoTableCard key={item} name={item} />;
                                     }
@@ -744,7 +745,7 @@ export default function MesasPage() {
                                             </Button>
                                         </Card>
                                     );
-                                })}
+                                })}</ScrollLoading>
 
                                 {active && tables.length === 0 && (
                                     <button

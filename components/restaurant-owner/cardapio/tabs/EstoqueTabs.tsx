@@ -1,5 +1,6 @@
 "use client";
 
+import ScrollLoading, { countGroupedItems, visibleGroups } from "@/components/ui/ScrollLoading";
 import Input from "@/components/ui/Input";
 import Switch from "@/components/ui/Switch";
 import { supabase } from "@/lib/database/supabaseClient";
@@ -290,6 +291,8 @@ export default function EstoqueTab({
         );
     }
 
+    const groupedStock = categories.map(category => ({ category, items: itemsByCategory[category.id] || [] })).filter(group => group.items.length > 0);
+
     return (
         <div className="space-y-4">
             <div>
@@ -302,19 +305,14 @@ export default function EstoqueTab({
             </div>
 
             <div className="space-y-6">
-                {categories
-                    .filter(
-                        (category) =>
-                            (itemsByCategory[category.id] || []).length > 0
-                    )
-                    .map((category) => (
+                <ScrollLoading key={restaurantId} total={countGroupedItems(groupedStock, group => group.items.length)} batchSize={30}>{limit => visibleGroups(groupedStock, group => group.items.length, limit).map(({ group: { category, items }, count }) => (
                         <div key={category.id}>
                             <h3 className="mb-3 text-lg font-semibold text-gray-900">
                                 {category.name}
                             </h3>
 
                             <div className="space-y-2">
-                                {(itemsByCategory[category.id] || []).map(
+                                {items.slice(0, count).map(
                                     (item) => {
                                         const enabled = !!item.stock_enabled;
                                         const isSaving = savingId === item.id;
@@ -380,7 +378,7 @@ export default function EstoqueTab({
                                 )}
                             </div>
                         </div>
-                    ))}
+                    ))}</ScrollLoading>
             </div>
         </div>
     );

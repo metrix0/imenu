@@ -17,6 +17,18 @@ export type BlogArticleDefinition = {
 
 export const BLOG_ARTICLES: BlogArticleDefinition[] = [
     {
+        slug: "como-imprimir-pedidos-delivery-pelo-celular",
+        title: "Como imprimir pedidos de delivery pelo celular sem computador",
+        shortTitle: "Imprimir pedidos pelo celular",
+        metaTitle: "Como Imprimir Pedidos de Delivery pelo Celular | iMenu",
+        metaDescription: "Aprenda a imprimir comandas de delivery pelo celular em impressoras térmicas, baixar pedidos em PDF e entender a diferença para a impressão automática.",
+        excerpt: "Veja como imprimir comandas de pedidos pelo celular sem computador, escolher um aplicativo compatível e organizar a impressão manual na cozinha.",
+        category: "Delivery",
+        readingTime: "5 min de leitura",
+        publishedAt: "2026-11-26",
+        updatedAt: "2026-11-26",
+    },
+    {
         slug: "nfce-para-restaurantes",
         title: "NFC-e para restaurantes: como emitir nota fiscal no salão e no delivery",
         shortTitle: "NFC-e para restaurantes",

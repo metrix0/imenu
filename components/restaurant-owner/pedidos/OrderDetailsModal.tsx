@@ -19,6 +19,7 @@ import OrderBadge from "./OrderBadge";
 
 interface OrderDetailsModalProps {
     fiscalSection?: React.ReactNode;
+    mobilePrintAction?: React.ReactNode;
     isOpen: boolean;
     onClose: () => void;
     order: Order | null; 
@@ -60,7 +61,7 @@ type OrderDetail = Omit<Order, "status"> & {
     }>;
 };
 
-export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdate, onEditOrder, onDeleteOrder, onCourierError, showStatusActions = false, fiscalSection }: OrderDetailsModalProps) {
+export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdate, onEditOrder, onDeleteOrder, onCourierError, showStatusActions = false, fiscalSection, mobilePrintAction }: OrderDetailsModalProps) {
     const [isLoading, setIsLoading] = useState(true);
     const [isUpdating, setIsUpdating] = useState(false);
     const [details, setDetails] = useState<OrderDetail | null>(null);
@@ -299,10 +300,10 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
 
     return (
         <>
-            <Modal height={760} open={isOpen} onClose={onClose}>
-                <div className="w-full max-w-2xl bg-white rounded-lg flex flex-col max-h-[92dvh] sm:max-h-[85vh]">
+            <Modal height={760} open={isOpen} onClose={onClose} bodyClassName="flex flex-col !overflow-hidden">
+                <div className="w-full max-w-2xl min-h-0 bg-white rounded-lg flex flex-col">
                     {/* Header */}
-                    <div className="p-4 sm:p-5 border-b border-gray-100 flex justify-between items-start gap-3">
+                    <div className="shrink-0 p-4 sm:p-5 border-b border-gray-100 flex justify-between items-start gap-3">
                         <div>
                             <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3 mb-1">
                                 <h2 className="text-xl 2xl:text-2xl font-bold text-gray-900 pr-0!">
@@ -326,7 +327,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                     </div>
 
                     {/* Body */}
-                    <div className="p-4 sm:p-6 overflow-y-auto flex-1">
+                    <div className="min-h-0 p-4 sm:p-6 overflow-y-auto flex-1">
                         {isLoading || !details ? (
                             <div className="space-y-4">
                                 <ListLoader lines={2} />
@@ -454,8 +455,8 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                     </div>
 
                     {/* Footer */}
-                    <div className="p-4 sm:p-5 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-gray-50/50">
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <div className="shrink-0 p-4 sm:p-5 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-gray-50/50">
+                        <div className="flex min-w-0 items-center gap-1.5 sm:gap-2 max-sm:[&>button]:flex-1 max-sm:[&>button]:min-w-0 max-sm:[&>button]:px-1 max-sm:[&>button]:whitespace-nowrap max-sm:[&>button]:!text-xs max-sm:[&>button_svg]:!mr-1 max-sm:[&>button_svg]:!text-[12px]">
                             {onEditOrder && order && details && (
                                 <Button variant="secondary" onClick={() => onEditOrder(order)} disabled={isUpdating}>
                                     <FontAwesomeIcon icon={faPenToSquare} className="mr-2" /> Editar
@@ -471,6 +472,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                     <FontAwesomeIcon icon={faTrash} className="mr-2" /> Excluir
                                 </Button>
                             )}
+                            {order && details && mobilePrintAction}
                         </div>
                         <div className="flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-end gap-2">
                             {renderActions()}

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import ConfigurationCard from "@/components/ui/ConfigurationCard";
+import MobilePrintSettingsSection from "@/components/restaurant-owner/configuracoes/MobilePrintSettingsSection";
 import SaveStatus, { PageHeader } from "@/components/ui/SaveStatus";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
@@ -285,6 +286,12 @@ export default function ImpressoraPage() {
                         <li>Faça um teste de impressão.</li>
                     </ol>
                 </div>
+
+                {settingsReady && restaurantId && (
+                    <div className="mt-6">
+                        <MobilePrintSettingsSection key={restaurantId} restaurantId={restaurantId} />
+                    </div>
+                )}
             </div>
         </div>
     );

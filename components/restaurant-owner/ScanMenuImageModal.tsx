@@ -474,7 +474,10 @@ function ScanModal({
             const response = await fetch("/api/scan-menu", {
                 method: "POST",
                 headers: attempt.headers,
-                body: JSON.stringify({ restaurantId, urls, attemptId: attempt.id, menuUrl: pastedMenuUrl }),
+                body: JSON.stringify({
+                    restaurantId, urls, attemptId: attempt.id, menuUrl: pastedMenuUrl,
+                    ...(pathname === "/restaurante/criar/cardapio" ? { extractRestaurantName: true } : {}),
+                }),
             });
             const json = await response.json();
             if (scanAttempt.current !== attempt) return;

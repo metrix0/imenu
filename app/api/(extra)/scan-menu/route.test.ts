@@ -171,6 +171,38 @@ it("retries a hydrated public menu with OpenAI when Gemini returns HTTP 503", as
     }
 });
 
+it.each([
+    { requested: true, eligible: true, name: "  Pizzaria da Casa  ", saved: "Pizzaria da Casa" },
+    { requested: true, eligible: true, name: null, saved: null },
+    { requested: false, eligible: true, name: "Pizzaria da Casa", saved: null },
+    { requested: true, eligible: false, name: "Pizzaria da Casa", saved: null },
+])("only fills a missing name for the initial onboarding scan: %j", async ({ requested, eligible, name, saved }) => {
+    (query as jest.Mock).mockImplementation(async (sql: string) => {
+        if (sql.includes("AS eligible")) return { rows: [{ eligible }] };
+        if (sql.includes("existing_items")) return { rows: [{ present: false }] };
+        return { rows: [] };
+    });
+    (readPublicMenuLink as jest.Mock).mockResolvedValue({ text: "Pizzaria da Casa - Pizza R$ 20", images: [] });
+    mockOpenAiCreate.mockResolvedValue({ output_text: JSON.stringify({
+        restaurant_name: name, items: [{ name: "Pizza", category_name: "Pizzas", price_cents: 2000 }], categories: [],
+    }) });
+    const response = await POST(new Request(url, {
+        method: "POST", headers: { Authorization: "Bearer test", "Content-Type": "application/json" },
+        body: JSON.stringify({ restaurantId, menuUrl: "https://example.test/menu", urls: [], extractRestaurantName: requested }),
+    }));
+    expect(response.status).toBe(200);
+    const schema = mockOpenAiCreate.mock.calls[0][0].text.format.schema;
+    expect(schema.required.includes("restaurant_name")).toBe(requested && eligible);
+    const updates = (query as jest.Mock).mock.calls.filter(([sql]) => sql.includes("UPDATE public.restaurants SET name"));
+    if (saved) {
+        expect(updates).toEqual([[expect.stringContaining("AND NULLIF(BTRIM(name), '') IS NULL"), [restaurantId, saved]]]);
+        expect(updates[0][0]).toContain("creation_step = 1");
+    } else {
+        expect(updates).toHaveLength(0);
+    }
+    expect((await response.json()).restaurant_name).toBe(saved ?? undefined);
+});
+
 it("honors the OpenAI model override when Gemini is unavailable", async () => {
     setExistingItems(0);
     process.env.OPENAI_MENU_SCAN_MODEL = "gpt-4.1";

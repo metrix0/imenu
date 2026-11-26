@@ -74,7 +74,7 @@ export async function PATCH(
             );
             if (rows[0]?.small_city_mode_enabled) {
                 return NextResponse.json(
-                    { error: "Desative o Modo Cidade Pequena em Configurações antes de mudar para Entrega por Raio." },
+                    { error: "Desative o Modo Cidade CEP único em Configurações antes de mudar para Entrega por Raio." },
                     { status: 409 }
                 );
             }

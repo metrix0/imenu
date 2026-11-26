@@ -31,6 +31,8 @@ export default function LocalizacaoPage() {
     const [address, setAddress] = useState<Partial<AddressData>>({});
     const [editingAddress, setEditingAddress] = useState(false);
     const [savingAddress, setSavingAddress] = useState(false);
+    const [smallCityModeEnabled, setSmallCityModeEnabled] = useState(false);
+    const [deliveryRulesRevision, setDeliveryRulesRevision] = useState(0);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [skipping, setSkipping] = useState(false);
@@ -52,7 +54,7 @@ export default function LocalizacaoPage() {
 
             const { data: restaurant, error } = await supabase
                 .from("restaurants")
-                .select("id,address,latitude,longitude")
+                .select("id,address,latitude,longitude,small_city_mode_enabled")
                 .eq("user_id", session.user.id)
                 .single();
 
@@ -74,6 +76,7 @@ export default function LocalizacaoPage() {
             setId(restaurant.id);
             setRestaurantId(restaurant.id);
             setAddress(initialAddress);
+            setSmallCityModeEnabled(restaurant.small_city_mode_enabled === true);
             setEditingAddress(!hasCompleteAddress(initialAddress));
             setLoading(false);
         })();
@@ -215,6 +218,7 @@ export default function LocalizacaoPage() {
             </div>
 
             <DeliveryRules
+                key={`${restaurantId}:${deliveryRulesRevision}`}
                 ref={rulesRef}
                 restaurantId={restaurantId}
                 isNew={false}
@@ -250,21 +254,17 @@ export default function LocalizacaoPage() {
                     <div className="mt-6 rounded-md border border-gray-200 bg-white p-4 sm:p-6">
                         <AddressForm
                             embedded
+                            restaurantId={restaurantId}
+                            smallCityModeEnabled={smallCityModeEnabled}
+                            onSmallCityModeActivated={() => {
+                                setSmallCityModeEnabled(true);
+                                setDeliveryRulesRevision(revision => revision + 1);
+                            }}
                             initialData={address}
                             onSubmit={saveAddress}
                             isLoading={savingAddress}
-                            onValidityChange={() => {}}
+                            onDone={() => setEditingAddress(false)}
                         />
-                        {addressComplete && (
-                            <button
-                                type="button"
-                                onClick={() => setEditingAddress(false)}
-                                disabled={savingAddress}
-                                className="mt-3 cursor-pointer text-sm font-medium text-gray-500 hover:text-gray-700 disabled:cursor-not-allowed"
-                            >
-                                Concluir
-                            </button>
-                        )}
                     </div>
                 )}
             </section>

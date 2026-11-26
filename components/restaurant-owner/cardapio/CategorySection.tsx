@@ -13,6 +13,7 @@ import type { Category } from "@/lib/types/types";
 interface CategorySectionProps {
     category: Category;
     items: MenuItemType[];
+    visibleCount?: number;
     restaurantId: string;
     onRefresh: () => void;
     onItemUpdated: (item: MenuItemType) => void;
@@ -25,6 +26,7 @@ interface CategorySectionProps {
 export default function CategorySection({
     category,
     items,
+    visibleCount,
     restaurantId,
     onRefresh,
     onItemUpdated,
@@ -278,7 +280,7 @@ export default function CategorySection({
             </div>
 
             <div className="bg-white border border-gray-200 rounded-xl 2xl:mt-4 overflow-hidden shadow-sm 2xl:shadow-lg">
-                {localItems.map((item) => (
+                {localItems.slice(0, visibleCount ?? localItems.length).map((item) => (
                     <div
                         key={item.id}
                         data-menu-item-id={item.id}

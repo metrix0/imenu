@@ -84,9 +84,11 @@ type ScanRequest = {
     restaurantId: string;
     menuUrl?: string;
     attemptId?: string;
+    extractRestaurantName?: boolean;
 };
 
 type ParsedMenu = {
+    restaurant_name?: string | null;
     single_product_photo: boolean;
     items: Array<{
         name: string;
@@ -227,6 +229,20 @@ const MENU_RESPONSE_SCHEMA = {
     required: ["items", "categories", "single_product_photo"],
 } as const;
 
+const RESTAURANT_NAME_INSTRUCTION = "Extraia também restaurant_name: o nome comercial do restaurante explicitamente identificável no título, logotipo, cabeçalho ou identificação da loja no material enviado. Não use nomes de produtos, categorias ou plataformas de cardápio. Se estiver ilegível, ambíguo ou ausente, retorne null; nunca invente.";
+
+function menuResponseSchema(extractRestaurantName: boolean) {
+    if (!extractRestaurantName) return MENU_RESPONSE_SCHEMA;
+    return {
+        ...MENU_RESPONSE_SCHEMA,
+        properties: {
+            ...MENU_RESPONSE_SCHEMA.properties,
+            restaurant_name: { type: ["string", "null"], description: RESTAURANT_NAME_INSTRUCTION },
+        },
+        required: [...MENU_RESPONSE_SCHEMA.required, "restaurant_name"],
+    };
+}
+
 class GeminiHttpError extends Error {
     status: number;
     responseBody: string;
@@ -363,7 +379,9 @@ function parseMenuJson(outputText: string): ParsedMenu {
         );
     }
 
+    const restaurantName = typeof candidate.restaurant_name === "string" ? candidate.restaurant_name.trim() : "";
     return {
+        restaurant_name: restaurantName && restaurantName.length <= 120 ? restaurantName : null,
         single_product_photo: candidate.single_product_photo === true,
         categories: candidate.categories
             .filter(
@@ -621,7 +639,8 @@ async function generateGeminiMenuJson(
     files: GeminiFile[],
     generationTimeoutMs: number,
     pageText?: string,
-    existingMenuContext?: string
+    existingMenuContext?: string,
+    extractRestaurantName = false
 ): Promise<string> {
     const response = await fetch(
         `${GEMINI_BASE_URL}/v1beta/models/${encodeURIComponent(
@@ -653,6 +672,7 @@ Regras:
 - Não combine itens diferentes.
 - Preserve nomes e descrições conforme aparecem no cardápio.
 - ${SINGLE_PRODUCT_PHOTO_INSTRUCTIONS}
+${extractRestaurantName ? RESTAURANT_NAME_INSTRUCTION : ""}
 `,
                         },
                     ],
@@ -679,7 +699,7 @@ Regras:
                 generationConfig: {
                     maxOutputTokens: 65536,
                     responseMimeType: "application/json",
-                    responseJsonSchema: MENU_RESPONSE_SCHEMA,
+                    responseJsonSchema: menuResponseSchema(extractRestaurantName),
                 },
             }),
             signal: AbortSignal.timeout(generationTimeoutMs),
@@ -713,7 +733,8 @@ async function scanWithGemini(
     timings: MenuScanTimings,
     generationTimeoutMs: number,
     pageText?: string,
-    existingMenuContext?: string
+    existingMenuContext?: string,
+    extractRestaurantName = false
 ): Promise<ParsedMenu> {
     const uploadedFiles: GeminiFile[] = [];
 
@@ -732,7 +753,8 @@ async function scanWithGemini(
             uploadedFiles,
             generationTimeoutMs,
             pageText,
-            existingMenuContext
+            existingMenuContext,
+            extractRestaurantName
         ));
 
         return parseMenuJson(outputText);
@@ -812,7 +834,8 @@ async function scanWithOpenAI(
     apiKey: string,
     urls: string[],
     pageText?: string,
-    existingMenuContext?: string
+    existingMenuContext?: string,
+    extractRestaurantName = false
 ): Promise<ParsedMenu> {
     const client = new OpenAI({ apiKey, fetch: openAiAlertFetch("Importação de cardápio") });
 
@@ -830,7 +853,7 @@ async function scanWithOpenAI(
                 type: "json_schema",
                 name: "menu_scan",
                 strict: true,
-                schema: MENU_RESPONSE_SCHEMA,
+                schema: menuResponseSchema(extractRestaurantName),
             },
         },
         input: [
@@ -845,7 +868,7 @@ Você analisa fotos, capturas e PDFs de cardápios de restaurantes.
 Retorne somente um objeto JSON neste formato:
 {
   "single_product_photo": false,
-  "items": [
+${extractRestaurantName ? '  "restaurant_name": null,\n' : ""}  "items": [
     {
       "name": "string",
       "description": "string ou null",
@@ -871,6 +894,7 @@ Regras:
 - image_path deve ser sempre null.
 - ${PIZZA_SCAN_INSTRUCTIONS}
 - ${SINGLE_PRODUCT_PHOTO_INSTRUCTIONS}
+${extractRestaurantName ? RESTAURANT_NAME_INSTRUCTION : ""}
 `,
                     },
                 ],
@@ -947,7 +971,7 @@ function shouldUseOpenAIFallback(error: unknown): boolean {
     ].some((fragment) => message.includes(fragment));
 }
 
-function buildResponse(parsed: ParsedMenu, restaurantId: string, isSingleFile: boolean) {
+function buildResponse(parsed: ParsedMenu, restaurantId: string, isSingleFile: boolean, extractRestaurantName = false) {
     const categoryNames = new Set(
         parsed.categories.map((category) => category.name)
     );
@@ -975,7 +999,11 @@ function buildResponse(parsed: ParsedMenu, restaurantId: string, isSingleFile: b
     }));
 
     const singleProductPhoto = isSingleFile && parsed.single_product_photo && items.length === 1;
-    return { items, categories, ...(singleProductPhoto ? { single_product_photo: true as const } : {}) };
+    return {
+        items, categories,
+        ...(singleProductPhoto ? { single_product_photo: true as const } : {}),
+        ...(extractRestaurantName && parsed.restaurant_name ? { restaurant_name: parsed.restaurant_name } : {}),
+    };
 }
 
 async function attachScannedProductPhoto(
@@ -1020,6 +1048,17 @@ export async function PATCH(request: Request) {
     }
 }
 
+async function saveScannedRestaurantName(restaurantId: string, name?: string) {
+    if (!name) return;
+    // Never overwrite a name entered by the owner, even while the scan is running.
+    await query(
+        `UPDATE public.restaurants SET name = $2, updated_at = NOW()
+         WHERE id = $1 AND first_time IS TRUE AND creation_step = 1
+           AND NULLIF(BTRIM(name), '') IS NULL`,
+        [restaurantId, name],
+    ).catch(() => console.warn("[SCAN_MENU] Não foi possível preencher o nome do restaurante."));
+}
+
 function emptyMenuScanResponse(isLinkImport: boolean) {
     return NextResponse.json(
         {
@@ -1048,7 +1087,7 @@ export async function POST(req: Request) {
     let diagnostic: MenuScanDiagnostics | undefined;
     let isLinkImport = false;
     try {
-        const { urls, restaurantId, menuUrl, attemptId } = (await req.json()) as ScanRequest;
+        const { urls, restaurantId, menuUrl, attemptId, extractRestaurantName: requestedRestaurantName } = (await req.json()) as ScanRequest;
 
         if (attemptId !== undefined && (typeof attemptId !== "string" || !scanAttemptIdPattern.test(attemptId))) {
             return NextResponse.json({ error: "Tentativa de scan inválida." }, { status: 400 });
@@ -1085,6 +1124,10 @@ export async function POST(req: Request) {
             );
         }
 
+        const extractRestaurantName = requestedRestaurantName === true && (await query<{ eligible: boolean }>(
+            "SELECT EXISTS (SELECT 1 FROM public.restaurants WHERE id = $1 AND first_time IS TRUE AND creation_step = 1) AS eligible",
+            [restaurantId],
+        )).rows[0]?.eligible === true;
         const access = await getScanAccess(restaurantId);
         const existingMenuContext = access.hasItems ? await getExistingMenuContext(restaurantId) : undefined;
 
@@ -1123,7 +1166,8 @@ export async function POST(req: Request) {
         if (source && "files" in source && user?.id && source.files.length === urls.length &&
             urls.every(url => !/[?#]/.test(url))) {
             try {
-                const metadata = await menuScanFileMetadata(user.id, source.files, existingMenuContext);
+                const metadata = await menuScanFileMetadata(user.id, source.files,
+                    extractRestaurantName ? JSON.stringify([existingMenuContext ?? "", "restaurant-name-v1"]) : existingMenuContext);
                 source.totalBytes = metadata?.totalBytes;
                 if (metadata && urls.length === 1) ownedSingleSourceUrl = urls[0];
                 if (attemptId) retryFingerprint = metadata?.fingerprint;
@@ -1145,6 +1189,7 @@ export async function POST(req: Request) {
                     const finished = await waitForMenuScanResult(restaurantId, prior, req.signal);
                     if (finished?.outcome === "success" && finished.result) {
                         await attachScannedProductPhoto(finished.result, restaurantId, ownedSingleSourceUrl);
+                        if (extractRestaurantName) await saveScannedRestaurantName(restaurantId, finished.result.restaurant_name);
                         if (diagnostic) diagnostic.outcome = "success";
                         return NextResponse.json(finished.result);
                     }
@@ -1172,7 +1217,7 @@ export async function POST(req: Request) {
                     ? GEMINI_FILE_FALLBACK_TIMEOUT_MS
                     : GEMINI_GENERATION_TIMEOUT_MS;
                 parsed = await scanWithGemini(
-                    geminiApiKey, urls, timingsMs, generationTimeoutMs, pageText, existingMenuContext,
+                    geminiApiKey, urls, timingsMs, generationTimeoutMs, pageText, existingMenuContext, extractRestaurantName,
                 );
                 diagnostic.geminiItems = parsed.items.length;
             } catch (geminiError) {
@@ -1192,7 +1237,7 @@ export async function POST(req: Request) {
             await recordGeminiMenuFallback(fallbackReason);
             try {
                 parsed = await timeScanStage(timingsMs, "openai_fallback", () =>
-                    scanWithOpenAI(openAiApiKey, urls, pageText, existingMenuContext),
+                    scanWithOpenAI(openAiApiKey, urls, pageText, existingMenuContext, extractRestaurantName),
                 );
                 diagnostic.openAiItems = parsed.items.length;
             } catch (error) {
@@ -1216,8 +1261,9 @@ export async function POST(req: Request) {
                 console.warn("[SCAN_MENU] Não foi possível preparar as fotos do cardápio.");
             });
         }
-        const result = buildResponse(parsed, restaurantId, !isLinkImport && urls.length === 1);
+        const result = buildResponse(parsed, restaurantId, !isLinkImport && urls.length === 1, extractRestaurantName);
         await attachScannedProductPhoto(result, restaurantId, ownedSingleSourceUrl);
+        if (extractRestaurantName) await saveScannedRestaurantName(restaurantId, result.restaurant_name);
         diagnostic.outcome = "success";
         // The interruption event can arrive just after the analysis finishes.
         if (retryFingerprint) diagnostic.retryDraft = { fingerprint: retryFingerprint, result };

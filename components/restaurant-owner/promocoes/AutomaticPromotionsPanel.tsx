@@ -1,5 +1,6 @@
 "use client";
 
+import ScrollLoading from "@/components/ui/ScrollLoading";
 import { CollapsibleChevron, CollapsibleContent, useCollapsible } from "@/components/ui/CollapsibleSection";
 
 import { useEffect, useState } from "react";
@@ -660,7 +661,7 @@ export default function AutomaticPromotionsPanel({
           </p>
         </div>
       )}
-      {promotions.map((p) => {
+      <ScrollLoading key={restaurantId} total={promotions.length} batchSize={10}>{limit => promotions.slice(0, limit).map((p) => {
         const description = promotionDescription(p, products, categories);
         return (
           <PromotionCard
@@ -682,7 +683,7 @@ export default function AutomaticPromotionsPanel({
             {p.show_on_menu && <span className="rounded-full bg-brand/5 px-2 py-1 text-brand">Banner no cardápio</span>}
           </PromotionCard>
         );
-      })}
+      })}</ScrollLoading>
       <ConfirmModal
         open={Boolean(deleting)}
         onClose={() => {

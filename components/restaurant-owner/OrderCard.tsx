@@ -72,6 +72,7 @@ export interface OrderData {
 }
 
 interface OrderCardProps {
+    mobilePrintAction?: React.ReactNode;
     order: OrderData;
     onStatusChange: () => void; 
     onViewOrder?: (order: OrderData) => void; // NOVA PROP
@@ -123,7 +124,7 @@ function TimeInfo({ text, time, scheduled }: { text: string; time: string; sched
     );
 }
 
-export default function OrderCard({ order, onStatusChange, onViewOrder, deliveryOnly = false, onCourierError }: OrderCardProps) {
+export default function OrderCard({ order, onStatusChange, onViewOrder, deliveryOnly = false, onCourierError, mobilePrintAction }: OrderCardProps) {
     const [loading, setLoading] = useState(false);
     const [currentTime, setCurrentTime] = useState(() => Date.now());
     const [allowFutureOrderScheduling, setAllowFutureOrderScheduling] = useState(false);
@@ -528,7 +529,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
                     </div>
 
                     {/* Botões de Ação */}
-                    {(actionLabel || (deliveryOnly && onViewOrder)) && (
+                    {(actionLabel || (deliveryOnly && onViewOrder) || mobilePrintAction) && (
                         <div className="panel-order-actions flex gap-2 mt-2 min-[1800px]:mt-5">
                             {showBackButton && (
                                 <Button 
@@ -555,6 +556,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
                                 {actionLabel}
                             </Button>}
 
+                            {mobilePrintAction}
                             {/* Botão de Ver Detalhes (Olho) */}
                             <Button 
                                 variant="secondary"

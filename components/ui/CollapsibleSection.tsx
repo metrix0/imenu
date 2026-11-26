@@ -58,19 +58,20 @@ export function CollapsibleChevron({ expanded, size = "default", className = "" 
     );
 }
 
-export function CollapsibleContent({ id, expanded, children }: {
+export function CollapsibleContent({ id, expanded, children, className = "" }: {
     id: string;
     expanded: boolean;
     children: ReactNode;
+    className?: string;
 }) {
     return (
         <div
             id={id}
             aria-hidden={!expanded}
             inert={!expanded}
-            className={`grid transition-[grid-template-rows,opacity] duration-200 ease-in-out motion-reduce:transition-none ${expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+            className={`grid min-w-0 grid-cols-[minmax(0,1fr)] transition-[grid-template-rows,opacity] duration-200 ease-in-out motion-reduce:transition-none ${expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"} ${className}`}
         >
-            <div className="min-h-0 overflow-hidden">{children}</div>
+            <div className="min-h-0 min-w-0 overflow-hidden">{children}</div>
         </div>
     );
 }

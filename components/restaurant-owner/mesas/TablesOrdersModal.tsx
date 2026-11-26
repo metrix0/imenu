@@ -1,5 +1,6 @@
 "use client";
 
+import ScrollLoading from "@/components/ui/ScrollLoading";
 import { useEffect, useMemo, useState } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faChair, faEye } from "@fortawesome/free-solid-svg-icons";
@@ -147,7 +148,7 @@ export default function TablesOrdersModal({
 
                 {!loading && !error && tables.length > 0 && (
                     <div className="grid gap-4 md:grid-cols-2">
-                        {tables.map((table) => {
+                        <ScrollLoading key={`${restaurantId}:${open}`} total={tables.length} batchSize={30}>{limit => tables.slice(0, limit).map((table) => {
                             const tableOrders =
                                 ordersByTable.get(table.id) || [];
                             const firstOrderAt = tableOrders.reduce<number | null>(
@@ -236,7 +237,7 @@ export default function TablesOrdersModal({
                                     )}
                                 </Card>
                             );
-                        })}
+                        })}</ScrollLoading>
                     </div>
                 )}
             </div>
