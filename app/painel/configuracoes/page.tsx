@@ -523,7 +523,7 @@ export default function ConfiguracoesPage() {
 
         if (error || !data) {
             setSaveErrors(previous => ({ ...previous, smallCity: true }));
-            setToast({ message: "Erro ao salvar o Modo Cidade Pequena.", type: "error" });
+            setToast({ message: "Erro ao salvar o Modo cidade CEP único.", type: "error" });
             return;
         }
 
@@ -988,7 +988,7 @@ export default function ConfiguracoesPage() {
                             />
 
                             <ConfigurationCard
-                                title="Modo Cidade Pequena (CEP opcional)"
+                                title="Modo cidade CEP único (CEP opcional)"
                                 description="Permite pedidos sem CEP, calculando a entrega pelo bairro e oferecendo um campo de ponto de referência."
                                 checked={restaurant.small_city_mode_enabled === true}
                                 disabled={isSavingSmallCityMode}

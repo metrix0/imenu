@@ -41,8 +41,8 @@ export function SmallCityModeConfirmModal({ open, suggested = false, isLoading, 
         open={open}
         onClose={() => { if (!isLoading) onClose(); }}
         onConfirm={onConfirm}
-        title={suggested ? "Sua cidade possui CEP único?" : "Ativar Modo Cidade Pequena?"}
-        description={suggested ? "Ative o Modo Cidade Pequena para facilitar o cadastro de endereços dos seus clientes." : smallCityModeWarning}
+        title={suggested ? "Sua cidade possui CEP único?" : "Ativar Modo cidade CEP único?"}
+        description={suggested ? "Ative o Modo cidade CEP único para facilitar o cadastro de endereços dos seus clientes." : smallCityModeWarning}
         descriptionAfter={suggested ? <>{smallCityModeWarning}{error ? ` ${error}` : ""}</> : error || undefined}
         confirmLabel="Ativar modo"
         cancelLabel={suggested ? "Agora não" : "Cancelar"}
