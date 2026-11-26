@@ -46,7 +46,7 @@ export default function ConfigurationCard({
     const heading = <>
         {icon && <span className={`mt-0.5 flex shrink-0 items-center justify-center ${compact ? checked ? "text-brand" : "text-gray-500" : ""}`}>{icon}</span>}
         <span className="min-w-0 flex-1">
-            <span className={plus !== undefined ? `block sm:flex sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-1 ${spaceWrappedPlusBadge ? "max-sm:flex max-sm:flex-wrap max-sm:items-center max-sm:gap-2" : ""}` : "flex flex-wrap items-center gap-x-2 gap-y-1"}>
+            <span className={plus !== undefined ? `block sm:flex sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-1 ${spaceWrappedPlusBadge ? "max-sm:flex max-sm:flex-wrap max-sm:items-center max-sm:gap-x-2 max-sm:gap-y-1" : ""}` : "flex flex-wrap items-center gap-x-2 gap-y-1"}>
                 {titleText}
                 {plus !== undefined && <>{" "}<Badge preset={plus ? "featureAvailable" : "plusIncluded"} className={`ml-1 whitespace-nowrap sm:ml-0 ${groupMobileBadges ? "max-sm:hidden" : ""} ${spaceWrappedPlusBadge ? "max-sm:ml-0" : ""}`} /></>}
                 {titleBadge}
@@ -91,7 +91,7 @@ export default function ConfigurationCard({
                 </div>
             )}
         </div>
-        {groupMobileBadges && <div className="flex flex-wrap items-center gap-x-2 gap-y-1 sm:hidden">
+        {groupMobileBadges && <div className="mt-px flex flex-wrap items-center gap-x-2 gap-y-1 sm:hidden">
             <Badge preset={plus ? "featureAvailable" : "plusIncluded"} className="whitespace-nowrap" />
             <span className={showConfigurationStatus ? "" : "invisible"} aria-hidden={!showConfigurationStatus}>
                 <span className="grid justify-items-start">
