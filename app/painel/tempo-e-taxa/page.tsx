@@ -18,6 +18,8 @@ export default function PainelTempoETaxaPage() {
     const [address, setAddress] = useState<Partial<AddressData>>({});
     const [editingAddress, setEditingAddress] = useState(false);
     const [savingAddress, setSavingAddress] = useState(false);
+    const [smallCityModeEnabled, setSmallCityModeEnabled] = useState(false);
+    const [deliveryRulesRevision, setDeliveryRulesRevision] = useState(0);
     const [deliveryDisabled, setDeliveryDisabled] = useState(false);
     const [confirmDisableOpen, setConfirmDisableOpen] = useState(false);
     const [savingDeliveryDisabled, setSavingDeliveryDisabled] = useState(false);
@@ -56,12 +58,13 @@ export default function PainelTempoETaxaPage() {
 
             const { data: restaurantData } = await supabase
                 .from("restaurants")
-                .select("address,latitude,longitude,delivery_disabled")
+                .select("address,latitude,longitude,delivery_disabled,small_city_mode_enabled")
                 .eq("id", id)
                 .single();
 
             if (restaurantData) {
                 setDeliveryDisabled(restaurantData.delivery_disabled === true);
+                setSmallCityModeEnabled(restaurantData.small_city_mode_enabled === true);
                 setAddress({
                     ...(restaurantData.address || {}),
                     latitude: restaurantData.latitude,
@@ -139,6 +142,7 @@ export default function PainelTempoETaxaPage() {
 </PageSaveHeader>
 
             <DeliveryRules
+                key={`${restaurantId}:${deliveryRulesRevision}`}
                 restaurantId={restaurantId}
                 isNew={false}
             />
@@ -169,6 +173,12 @@ export default function PainelTempoETaxaPage() {
                     <div className="mt-6 rounded-md border border-gray-200 bg-white p-4 sm:p-6">
                         <AddressForm
                             embedded
+                            restaurantId={restaurantId}
+                            smallCityModeEnabled={smallCityModeEnabled}
+                            onSmallCityModeActivated={() => {
+                                setSmallCityModeEnabled(true);
+                                setDeliveryRulesRevision(revision => revision + 1);
+                            }}
                             initialData={address}
                             onSubmit={saveAddress}
                             isLoading={savingAddress}

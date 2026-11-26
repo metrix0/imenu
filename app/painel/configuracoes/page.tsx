@@ -40,7 +40,7 @@ import ResetOrderCountSection from "@/components/restaurant-owner/configuracoes/
 import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
 import { qrTableAuthenticatedFetch } from "@/lib/qr-table/clientApi";
 import PizzaSettingsSection from "@/components/restaurant-owner/configuracoes/PizzaSettingsSection";
-import AddressForm, { saveRestaurantAddress } from "@/components/restaurant-owner/configuracoes/AddressForm";
+import AddressForm, { saveRestaurantAddress, saveRestaurantSmallCityMode, SmallCityModeConfirmModal } from "@/components/restaurant-owner/configuracoes/AddressForm";
 import StoreWhatsappField, { ResponsiblePhoneField } from "@/components/restaurant-owner/loja/StoreWhatsappField";
 import { CollapsibleContent, useCollapsible } from "@/components/ui/CollapsibleSection";
 import type { AddressData } from "@/lib/types/types";
@@ -90,7 +90,7 @@ function SettingsSection({ id, children }: { id: keyof typeof SETTINGS_SECTIONS;
     );
 }
 
-function StoreDetails({ restaurant, onSaveAddress }: { restaurant: Restaurant; onSaveAddress: (data: AddressData) => Promise<void> }) {
+function StoreDetails({ restaurant, onSaveAddress, onSmallCityModeActivated }: { restaurant: Restaurant; onSaveAddress: (data: AddressData) => Promise<void>; onSmallCityModeActivated: () => void }) {
     const addressEditor = useCollapsible();
     const [robotConnected, setRobotConnected] = useState<boolean | null>(null);
     const restaurantId = restaurant.id;
@@ -148,6 +148,9 @@ function StoreDetails({ restaurant, onSaveAddress }: { restaurant: Restaurant; o
                     <div className="py-5">
                         <AddressForm
                             embedded
+                            restaurantId={restaurantId}
+                            smallCityModeEnabled={restaurant.small_city_mode_enabled === true}
+                            onSmallCityModeActivated={onSmallCityModeActivated}
                             initialData={{ ...address, latitude: restaurant.latitude, longitude: restaurant.longitude }}
                             onSubmit={onSaveAddress}
                         />
@@ -514,14 +517,7 @@ export default function ConfiguracoesPage() {
 
         setIsSavingSmallCityMode(true);
         setSaveErrors(previous => ({ ...previous, smallCity: false }));
-        const { data, error } = await supabase
-            .from("restaurants")
-            .update(enabled
-                ? { small_city_mode_enabled: true, delivery_fee_mode: "neighborhood" }
-                : { small_city_mode_enabled: false })
-            .eq("id", restaurant.id)
-            .select("id, delivery_fee_mode")
-            .single();
+        const { data, error } = await saveRestaurantSmallCityMode(restaurant.id, enabled);
         setIsSavingSmallCityMode(false);
 
         if (error || !data) {
@@ -824,15 +820,11 @@ export default function ConfiguracoesPage() {
 
     return (
         <>
-            <ConfirmModal
+            <SmallCityModeConfirmModal
                 open={confirmSmallCityModeOpen}
                 onClose={() => setConfirmSmallCityModeOpen(false)}
                 onConfirm={() => void saveSmallCityMode(true)}
-                title="Ativar Modo Cidade Pequena?"
-                description="O modo de entrega será alterado automaticamente para Entrega por Bairro. Configure os bairros e suas taxas em Tempo e Taxa."
-                confirmLabel="Ativar modo"
                 isLoading={isSavingSmallCityMode}
-                variant="primary"
             />
 
             <ConfirmModal
@@ -923,7 +915,7 @@ export default function ConfiguracoesPage() {
                             {restaurant && (
                                 <Card className="space-y-4">
                                     <h2 className="flex min-h-7 items-center text-lg font-semibold text-gray-900">Loja</h2>
-                                    <StoreDetails key={restaurant.id} restaurant={restaurant} onSaveAddress={saveAddress} />
+                                    <StoreDetails key={restaurant.id} restaurant={restaurant} onSaveAddress={saveAddress} onSmallCityModeActivated={() => setRestaurant(current => current?.id === restaurant.id ? { ...current, small_city_mode_enabled: true, delivery_fee_mode: "neighborhood" } : current)} />
                                 </Card>
                             )}
                         </div>
