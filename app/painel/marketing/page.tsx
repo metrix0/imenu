@@ -194,7 +194,7 @@ export default function MarketingPage() {
             <WarningBox icon={faTriangleExclamation} className="w-fit max-w-full">
               <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
                 <span>Conecte seu</span>
-                <PageBadge href="/painel/robo-whatsapp" icon={faRobot} tone="inherit">
+                <PageBadge href="/painel/robo-whatsapp" icon={faRobot}>
                   Robô WhatsApp
                 </PageBadge>
                 <span>para realizar os envios. Você já pode configurar as mensagens.</span>
