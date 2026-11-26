@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip } from "chart.js";
 import { Line } from "react-chartjs-2";
-import { faCircleInfo, faCopy } from "@fortawesome/free-solid-svg-icons";
+import { faCircleInfo, faCopy, faArrowRightArrowLeft } from "@fortawesome/free-solid-svg-icons";
 import { PanelIcon } from "@/components/ui/PanelIcon";
 import InfoTooltip from "@/components/ui/Tooltip";
 import DataTable, { type TableColumn } from "@/components/ui/DataTable";
@@ -57,6 +57,7 @@ type MenuScans = {
         items: number | null;
         provider: "Gemini" | "OpenAI" | null;
         reused: boolean;
+        fallback: boolean;
         analysis_elapsed_ms: number | null;
     }>;
 };
@@ -326,14 +327,20 @@ export default function QualityAssuranceSection() {
                                 { key: "outcome", label: "Resultado", render: row => <Badge variant={scanOutcomes[row.outcome].variant}>{scanOutcomes[row.outcome].label}</Badge> },
                                 { key: "items", label: "Identificados", render: row => row.items == null ? "—" : formatCount(row.items) },
                                 { key: "provider", label: "IA", render: row => row.reused
-                                    ? <InfoTooltip text="Resultado reaproveitado de uma análise anterior.">
+                                    ? <InfoTooltip text={row.fallback ? "Resultado reaproveitado de uma análise que usou OpenAI como fallback do Gemini." : "Resultado reaproveitado de uma análise anterior."}>
                                         <Badge variant="info" className="gap-1">
                                             <PanelIcon icon={faCopy} className="h-3 w-3" aria-hidden="true" />
+                                            {row.fallback && <PanelIcon icon={faArrowRightArrowLeft} className="h-3 w-3" aria-hidden="true" />}
                                             {row.provider ?? "Reutilizada"}
                                             {row.provider && <span className="sr-only"> (análise reutilizada)</span>}
                                         </Badge>
                                     </InfoTooltip>
-                                    : row.provider ?? "—" },
+                                    : row.fallback ? <InfoTooltip text="OpenAI usado como fallback do Gemini.">
+                                        <Badge variant="warning" className="gap-1">
+                                            <PanelIcon icon={faArrowRightArrowLeft} className="h-3 w-3" aria-hidden="true" />
+                                            OpenAI<span className="sr-only"> (fallback)</span>
+                                        </Badge>
+                                    </InfoTooltip> : row.provider ?? "—" },
                                 { key: "analysisElapsed", label: "Tempo de IA", className: "whitespace-nowrap", render: row => row.analysis_elapsed_ms == null ? "—" : formatAverage(row.analysis_elapsed_ms / 1000) + " s" },
                             ]} />
                     </>}

@@ -11,7 +11,7 @@ const PAGE_SIZE = 10;
 
 const scansSql = `
     WITH recent AS (
-        SELECT id, restaurant_id, created_at, input_type, attempt_id, gemini_items, openai_items, openai_error,
+        SELECT id, restaurant_id, created_at, input_type, attempt_id, gemini_items, gemini_error, openai_items, openai_error,
             reused_from_attempt_id,
             CASE WHEN elapsed_ms > 0 AND (attempt_id IS NULL OR analysis_finished_at IS NOT NULL)
                 AND (gemini_items IS NOT NULL OR gemini_error IS NOT NULL OR openai_items IS NOT NULL OR openai_error IS NOT NULL)
@@ -32,7 +32,7 @@ const scansSql = `
         WHERE created_at >= NOW() - INTERVAL '14 days'
     ), summary AS (
         SELECT COUNT(*)::int AS total,
-            COUNT(*) FILTER (WHERE openai_items IS NOT NULL OR openai_error IS NOT NULL)::int AS fallback_attempts,
+            COUNT(*) FILTER (WHERE gemini_error IS NOT NULL AND (openai_items IS NOT NULL OR openai_error IS NOT NULL))::int AS fallback_attempts,
             COUNT(DISTINCT restaurant_id)::int AS restaurants_tried,
             COUNT(DISTINCT restaurant_id) FILTER (WHERE attempt_id IS NOT NULL)::int AS restaurants_tracked,
             COUNT(DISTINCT restaurant_id) FILTER (WHERE status = 'success')::int AS restaurants_completed,
@@ -51,6 +51,8 @@ const scansSql = `
                      WHEN scan.gemini_items IS NOT NULL THEN 'Gemini'
                      WHEN original.openai_items IS NOT NULL OR original.openai_error IS NOT NULL THEN 'OpenAI'
                      WHEN original.gemini_items IS NOT NULL THEN 'Gemini' END AS provider,
+                (COALESCE(scan.gemini_error, original.gemini_error) IS NOT NULL AND
+                    (COALESCE(scan.openai_items, original.openai_items) IS NOT NULL OR COALESCE(scan.openai_error, original.openai_error) IS NOT NULL)) AS fallback,
                 scan.reused_from_attempt_id IS NOT NULL AS reused,
                 scan.analysis_elapsed_ms
             FROM (
@@ -80,6 +82,7 @@ type ScanHistoryResult = {
         items: number | null;
         provider: string | null;
         reused: boolean;
+        fallback: boolean;
         analysis_elapsed_ms: number | null;
     }[];
 };

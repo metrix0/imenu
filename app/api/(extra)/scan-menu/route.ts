@@ -1079,7 +1079,9 @@ export async function POST(req: Request) {
         process.env.GEMINI_API_KEY_2,
         process.env.GEMINI_API_KEY_3,
     ].map(key => key?.trim()).filter(Boolean);
-    const geminiApiKey = geminiApiKeys[Math.floor(Math.random() * geminiApiKeys.length)];
+    // OpenAI-only trial for menu imports. Explicitly opt back into the previous Gemini-first flow.
+    const useGemini = process.env.MENU_SCAN_PROVIDER === "gemini";
+    const geminiApiKey = useGemini ? geminiApiKeys[Math.floor(Math.random() * geminiApiKeys.length)] : undefined;
     const openAiApiKey = process.env.OPENAI_API_KEY?.trim();
 
     const startedAt = Date.now();
@@ -1118,7 +1120,7 @@ export async function POST(req: Request) {
             return NextResponse.json(
                 {
                     error: "A análise por IA está temporariamente indisponível.",
-                    details: "GEMINI_API_KEY e OPENAI_API_KEY não estão configuradas.",
+                    details: useGemini ? "GEMINI_API_KEY e OPENAI_API_KEY não estão configuradas." : "OPENAI_API_KEY não está configurada.",
                 },
                 { status: 503 },
             );
@@ -1229,14 +1231,14 @@ export async function POST(req: Request) {
                 console.warn("[SCAN_MENU] Gemini failed; using OpenAI fallback:", diagnostic.geminiError);
                 fallbackReason = diagnostic.geminiError;
             }
-        } else {
+        } else if (useGemini) {
             diagnostic.geminiError = fallbackReason = "GEMINI_API_KEY ausente";
         }
 
-        if (fallbackReason && openAiApiKey) {
-            await recordGeminiMenuFallback(fallbackReason);
+        if ((!useGemini || fallbackReason) && openAiApiKey) {
+            if (fallbackReason) await recordGeminiMenuFallback(fallbackReason);
             try {
-                parsed = await timeScanStage(timingsMs, "openai_fallback", () =>
+                parsed = await timeScanStage(timingsMs, fallbackReason ? "openai_fallback" : "openai_generation", () =>
                     scanWithOpenAI(openAiApiKey, urls, pageText, existingMenuContext, extractRestaurantName),
                 );
                 diagnostic.openAiItems = parsed.items.length;

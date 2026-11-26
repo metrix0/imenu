@@ -25,7 +25,7 @@ export function menuScanFilePaths(urls: string[]): string[] {
 
 export type MenuScanTimings = Partial<Record<
     "source_fetch" | "link_read" | "gemini_upload" | "gemini_file_ready" |
-    "gemini_generation" | "gemini_cleanup" | "openai_fallback",
+    "gemini_generation" | "gemini_cleanup" | "openai_fallback" | "openai_generation",
     number
 >>;
 

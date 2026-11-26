@@ -54,16 +54,20 @@ const setExistingItems = (itemCount: number) => {
 };
 
 const configuredMenuModel = process.env.OPENAI_MENU_SCAN_MODEL;
+const configuredProvider = process.env.MENU_SCAN_PROVIDER;
 
 beforeEach(() => {
     jest.resetAllMocks();
     (requireRestaurantOwner as jest.Mock).mockResolvedValue({});
     process.env.OPENAI_API_KEY = "test-only-key";
+    process.env.MENU_SCAN_PROVIDER = "gemini";
     delete process.env.OPENAI_MENU_SCAN_MODEL;
 });
 
 afterEach(() => {
     delete process.env.OPENAI_API_KEY;
+    if (configuredProvider === undefined) delete process.env.MENU_SCAN_PROVIDER;
+    else process.env.MENU_SCAN_PROVIDER = configuredProvider;
     delete process.env.GEMINI_API_KEY;
     delete process.env.GEMINI_API_KEY_2;
     delete process.env.GEMINI_API_KEY_3;
@@ -368,6 +372,23 @@ it("keeps the source as a PDF if the photo inspection fails", async () => {
     expect(mockOpenAiCreate.mock.calls[0][0].input[1].content.at(-1)).toEqual({
         type: "input_file", file_url: photoUrl,
     });
+});
+
+it.each(["link", "files"] as const)("uses OpenAI directly by default even with Gemini configured (%s)", async inputType => {
+    delete process.env.MENU_SCAN_PROVIDER;
+    process.env.GEMINI_API_KEY = "test-gemini-key";
+    setExistingItems(0);
+    (readPublicMenuLink as jest.Mock).mockResolvedValue({ text: "Suco R$ 9,00", images: [] });
+    const providerFetch = jest.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected fetch"));
+    mockOpenAiCreate.mockResolvedValue({ output_text: JSON.stringify({ items: [{ name: "Suco", description: null, price_cents: 900, image_path: null, category_name: "Bebidas", is_pizza_flavor: false, pizza_sizes: [], pizza_crusts: [] }], categories: [{ name: "Bebidas" }] }) });
+    const response = await POST(inputType === "files" ? post() : submitLink());
+    expect(response.status).toBe(200);
+    expect(mockOpenAiCreate).toHaveBeenCalledTimes(1);
+    expect(providerFetch).not.toHaveBeenCalled();
+    expect(recordGeminiMenuFallback).not.toHaveBeenCalled();
+    const params = diagnostics()[0][1];
+    expect(params.slice(2, 6)).toEqual(["success", null, null, 1]);
+    expect(params[17]).toEqual({ ...(inputType === "link" ? { link_read: expect.any(Number) } : {}), openai_generation: expect.any(Number) });
 });
 
 it("records a Gemini rate-limit fallback without exposing the response body", async () => {
