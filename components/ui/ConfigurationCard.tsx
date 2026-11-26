@@ -52,7 +52,7 @@ export default function ConfigurationCard({
         </span>
     </>;
     const toggle = checked !== undefined && onChange ? (
-        <Switch checked={checked} disabled={disabled} aria-label={ariaLabel ?? title}
+        <Switch checked={collapse && checked && configured === false ? "mixed" : checked} disabled={disabled} aria-label={ariaLabel ?? title}
             aria-describedby={description ? descriptionId : undefined}
             onClick={() => {
                 onChange(!checked);
