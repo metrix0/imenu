@@ -52,8 +52,9 @@ test("POST recalculates quote and ignores client-side price fields", async () =>
   const body = await response.json();
   expect(body.priceCents).toBeGreaterThan(0);
   expect(body.quote.outputTokens).toBe(60_000);
-  expect(body.priceCents).toBe(200); // (US$ 0,20 + 0,072 + 0,06) * ceil(5,5 + 0,5)
-  expect(body.quote.totalUsd).toBeCloseTo(0.332);
+  // GPT-6 Luna: $0.10 input + $0.03 output; Flare: 10 × $0.00588.
+  expect(body.quote.totalUsd).toBeCloseTo(0.1888);
+  expect(body.priceCents).toBe(114); // ceil(0.1888 * ceil(5.5 + 0.5) * 100)
 });
 
 test("POST rejects tampered or empty selections without payment", async () => {
