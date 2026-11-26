@@ -587,7 +587,7 @@ export async function transcribeSupportAudio(
             file: await toFile(upload.data, upload.filename, {
                 type: upload.mimetype,
             }),
-            model: "gpt-transcribe",
+            model: "gpt-4o-mini-transcribe",
         },
         { timeout: 30_000 }
     );

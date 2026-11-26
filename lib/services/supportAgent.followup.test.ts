@@ -280,5 +280,5 @@ test("support audio uses the dedicated transcription model and key", async () =>
     (OpenAI as jest.MockedClass<typeof OpenAI>).mockImplementation(() => ({ audio: { transcriptions: { create: transcribe } } }) as unknown as OpenAI);
     await expect(transcribeSupportAudio(Buffer.from("audio"), "audio/mpeg", "audio.mp3")).resolves.toBe("Olá, tudo bem?");
     expect(OpenAI).toHaveBeenCalledWith(expect.objectContaining({ apiKey: "audio-test-key" }));
-    expect(transcribe).toHaveBeenCalledWith(expect.objectContaining({ model: "gpt-transcribe" }), expect.anything());
+    expect(transcribe).toHaveBeenCalledWith(expect.objectContaining({ model: "gpt-4o-mini-transcribe" }), expect.anything());
 });
