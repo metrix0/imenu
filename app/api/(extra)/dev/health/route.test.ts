@@ -42,3 +42,22 @@ test("shows the local IBGE check in the existing Health connections", async () =
         }),
     ]));
 });
+
+
+test.each([undefined, "openai", "gemini"])("Gemini health reflects the scan provider (%s)", async provider => {
+    const previous = process.env.MENU_SCAN_PROVIDER;
+    try {
+        if (provider === undefined) delete process.env.MENU_SCAN_PROVIDER;
+        else process.env.MENU_SCAN_PROVIDER = provider;
+        (query as jest.Mock).mockImplementation(async (sql: string) => ({ rows: sql.includes("FROM public.dev_integration_status") ? [{ source: "gemini", check_kind: "probe", state: "degraded", http_status: 200, checked_at: new Date().toISOString(), operation: "Modelo de importação de cardápio", detail: "6 fallback(s)" }] : [] }));
+        const response = await GET(new Request("https://example.com/api/dev/health"));
+        expect(response.status).toBe(200);
+        const gemini = (await response.json()).connections.find((item: { id: string }) => item.id === "gemini");
+        expect(gemini.observation).toMatchObject(provider === "gemini"
+            ? { state: "degraded", status: 200, detail: "6 fallback(s)" }
+            : { state: "disabled", status: null, checkedAt: null, detail: "Importação de cardápio utiliza OpenAI." });
+    } finally {
+        if (previous === undefined) delete process.env.MENU_SCAN_PROVIDER;
+        else process.env.MENU_SCAN_PROVIDER = previous;
+    }
+});

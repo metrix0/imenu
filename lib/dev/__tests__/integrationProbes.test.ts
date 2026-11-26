@@ -24,7 +24,7 @@ const mockQuery = query as jest.Mock;
 const mockProbe = recordIntegrationProbe as jest.Mock;
 const mockCnefe = checkCnefe as jest.Mock;
 const originalFetch = global.fetch;
-const keys = ["NEXT_PUBLIC_TOMTOM_API_KEY", "NEXT_PUBLIC_ARCGIS_API_KEY", "NTFY_TOPIC"] as const;
+const keys = ["NEXT_PUBLIC_TOMTOM_API_KEY", "NEXT_PUBLIC_ARCGIS_API_KEY", "NTFY_TOPIC", "OPENAI_API_KEY", "OPENAI_ASSISTANT_API_KEY", "OPENAI_SUPPORT_API_KEY"] as const;
 const saved = Object.fromEntries(keys.map(key => [key, process.env[key]]));
 let previousCheck: string | null = null;
 let lastDeliveryError: string | null = null;
@@ -139,4 +139,23 @@ test("scheduled integration checks include the local CNEFE failure", async () =>
         state: "failed", operation: "Geocodificação local",
         detail: "Base CNEFE indisponível.", status: null,
     });
+});
+
+
+test("checks dedicated OpenAI keys and shared fallback once each, reporting failed feature keys", async () => {
+    process.env.OPENAI_API_KEY = "shared-key";
+    process.env.OPENAI_ASSISTANT_API_KEY = "assistant-key";
+    process.env.OPENAI_SUPPORT_API_KEY = "support-key";
+    const fetchBefore = global.fetch;
+    global.fetch = jest.fn(async (url, init) => {
+        if (String(url).endsWith("/v1/models"))
+            return new Response("{}", { status: new Headers(init?.headers).get("Authorization") === "Bearer support-key" ? 401 : 200 });
+        return fetchBefore(url, init);
+    }) as typeof fetch;
+    await runIntegrationChecks();
+    const calls = (global.fetch as jest.Mock).mock.calls.filter(([url]) => String(url).endsWith("/v1/models"));
+    expect(calls).toHaveLength(3);
+    expect(observed("openai")).toMatchObject({ state: "failed", status: 401 });
+    expect(observed("openai").detail).toContain("support");
+    expect(observed("openai").detail).not.toContain("support-key");
 });

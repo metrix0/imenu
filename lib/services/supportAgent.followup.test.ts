@@ -1,7 +1,7 @@
-import OpenAI from "openai";
+import OpenAI, { toFile } from "openai";
 import { query } from "@/lib/database/sql";
 import { searchSupportKnowledge } from "./supportMcp";
-import { analyzeSupportImage, classifySupportFollowup, generateSupportFollowup, generateSupportReply, SUPPORT_FOLLOWUP_OFFER } from "./supportAgent";
+import { transcribeSupportAudio, analyzeSupportImage, classifySupportFollowup, generateSupportFollowup, generateSupportReply, SUPPORT_FOLLOWUP_OFFER } from "./supportAgent";
 
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn() }));
 jest.mock("@/lib/services/supportMcp", () => ({
@@ -22,7 +22,8 @@ beforeEach(() => {
     jest.replaceProperty(process, "env", {
         ...process.env,
         OPENAI_API_KEY: "test-only",
-        OPENAI_SUPPORT_MODEL: "gpt-5.6-luna",
+        OPENAI_SUPPORT_MODEL: "gpt-6-luna",
+        OPENAI_SUPPORT_FOLLOWUP_MODEL: "",
         IMENU_SUPPORT_PUBLIC_URL: "https://support.example.com",
     });
     (OpenAI as jest.MockedClass<typeof OpenAI>).mockImplementation(() => ({
@@ -43,6 +44,7 @@ test("classifies unanswered technical questions separately from resolved support
     await expect(classifySupportFollowup("conversation-1")).resolves.toBe("awaiting_customer");
     expect(create).toHaveBeenCalledTimes(1);
     expect(create.mock.calls[0][0].instructions).toContain("awaiting_support");
+    expect(create.mock.calls[0][0]).toMatchObject({ model: "gpt-6-luna", reasoning: { effort: "none" } });
 });
 
 test("unknown classification fails closed", async () => {
@@ -83,6 +85,7 @@ test("support chat caches its fixed rules and still receives current knowledge a
 });
 
 test.each([
+    ["gpt-6-luna", { mode: "explicit" }],
     ["gpt-5.6-luna", { mode: "explicit" }],
     ["gpt-4o-mini", undefined],
 ])("support image requests avoid writes for one-off images on %s", async (model, cacheOptions) => {
@@ -267,4 +270,15 @@ test.each([
     expect(activityQuery?.[0]).toContain("INTERVAL '2 minutes'");
     expect(activityQuery?.[0]).toContain("INTERVAL '15 minutes'");
     expect(activityQuery?.[0]).toContain("INTERVAL '17 minutes'");
+});
+
+
+test("support audio uses the dedicated transcription model and key", async () => {
+    process.env.OPENAI_SUPPORT_AUDIO_API_KEY = "audio-test-key";
+    const transcribe = jest.fn().mockResolvedValue({ text: "Olá, tudo bem?" });
+    (toFile as jest.Mock).mockResolvedValue("audio-file");
+    (OpenAI as jest.MockedClass<typeof OpenAI>).mockImplementation(() => ({ audio: { transcriptions: { create: transcribe } } }) as unknown as OpenAI);
+    await expect(transcribeSupportAudio(Buffer.from("audio"), "audio/mpeg", "audio.mp3")).resolves.toBe("Olá, tudo bem?");
+    expect(OpenAI).toHaveBeenCalledWith(expect.objectContaining({ apiKey: "audio-test-key" }));
+    expect(transcribe).toHaveBeenCalledWith(expect.objectContaining({ model: "gpt-4o-mini-transcribe" }), expect.anything());
 });

@@ -54,6 +54,10 @@ export async function GET(request: Request) {
         const delivery = latest.rows[0]?.data?.operations?.webhook_delivery;
         return NextResponse.json({ latest: latest.rows[0] || null, history: history.rows, connections: INTEGRATIONS.map(item=>{
             if(item.id==="ibge") return { ...item, observation: cnefe };
+            if(item.id==="gemini" && process.env.MENU_SCAN_PROVIDER !== "gemini") return { ...item, observation: {
+                state: "disabled", status: null, checkedAt: null,
+                operation: "Modelo de importação de cardápio", detail: "Importação de cardápio utiliza OpenAI.",
+            } };
             if(item.id==="waha_webhooks"){
                 if(!delivery)return {id:item.id,name:item.name,priority:item.priority,observation:null};
                 const checkedAt=typeof delivery.checked_at==="string" ? delivery.checked_at : null;

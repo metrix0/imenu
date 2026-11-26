@@ -1,3 +1,4 @@
+import { openAiFeatureKey } from "@/lib/api/openAiFeatureKeys";
 import sharp from "sharp";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -172,7 +173,7 @@ export async function previewImage(
   sourceRun = run,
 ): Promise<Action> {
   const t = await target(restaurant, input),
-    ai = new OpenAI({ maxRetries: 0, timeout: 90000, fetch: openAiAlertFetch("Vendas IA (imagens)") });
+    ai = new OpenAI({ apiKey: openAiFeatureKey("images"), maxRetries: 0, timeout: 90000, fetch: openAiAlertFetch("Vendas IA (imagens)") });
   if (!(await imageAllowed(restaurant, sourceRun, input, t.row.name)))
     throw new SalesError("Esta imagem já foi aplicada. Para refazê-la, peça explicitamente a alteração e o nome do produto.", 409);
   const style = resolveImageStyle(await approvedImageStyles(restaurant), input, t.row.id);
@@ -207,7 +208,7 @@ export async function previewImage(
       prompt,
       n: 1,
       quality: "low" as const,
-      // gpt-image-2 accepts custom dimensions; 816px is the smallest valid
+      // GPT Image supports custom dimensions; 816px is the smallest valid
       // square that still exceeds the final 500/640px product/logo sizes.
       size: generationSize as never,
     };
@@ -216,6 +217,7 @@ export async function previewImage(
     const result = reference
     ? await ai.images.edit({
         ...args,
+        ...(/^gpt-image-2\.[56]-(?:flare|sunburst)(?:-|$)/.test(MODELS.image) ? { input_fidelity: "high" as const } : {}),
         image: await toFile(
           await sharp(reference, { limitInputPixels: 40_000_000 })
             .rotate()

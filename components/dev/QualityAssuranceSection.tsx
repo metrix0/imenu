@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip } from "chart.js";
 import { Line } from "react-chartjs-2";
-import { faCircleInfo, faCopy } from "@fortawesome/free-solid-svg-icons";
+import { faCircleInfo, faCopy, faArrowRightArrowLeft } from "@fortawesome/free-solid-svg-icons";
 import { PanelIcon } from "@/components/ui/PanelIcon";
 import InfoTooltip from "@/components/ui/Tooltip";
 import DataTable, { type TableColumn } from "@/components/ui/DataTable";
@@ -57,6 +57,7 @@ type MenuScans = {
         items: number | null;
         provider: "Gemini" | "OpenAI" | null;
         reused: boolean;
+        fallback: boolean;
         analysis_elapsed_ms: number | null;
     }>;
 };
@@ -116,7 +117,7 @@ type OpenAiCosts =
         usdBrlRate: number;
         totalUsd: number;
         daily: { date: string; usd: number }[];
-        models?: { id: string; dailyUsd: number[] }[];
+        features?: { id: string; dailyUsd: number[] }[];
         breakdown: { label: string; usd: number; share: number; usage: string }[];
     };
 
@@ -169,7 +170,7 @@ export default function QualityAssuranceSection() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [costs, setCosts] = useState<OpenAiCosts | null>(null);
-    const [selectedModel, setSelectedModel] = useState("");
+    const [selectedFeature, setSelectedFeature] = useState("");
     const { openProfile } = useDevProfile();
 
     useEffect(() => {
@@ -215,9 +216,9 @@ export default function QualityAssuranceSection() {
     const openRestaurant = (restaurantId: string, restaurantName: string) =>
         openProfile({ id: restaurantId, name: restaurantName });
 
-    const models = costs?.status === "ok" ? costs.models ?? [] : [];
-    const modelDailyUsd = models.find(model => model.id === selectedModel)?.dailyUsd;
-    const modelTotalUsd = modelDailyUsd?.reduce((sum, usd) => sum + usd, 0);
+    const features = costs?.status === "ok" ? costs.features ?? [] : [];
+    const featureDailyUsd = features.find(feature => feature.id === selectedFeature)?.dailyUsd;
+    const featureTotalUsd = featureDailyUsd?.reduce((sum, usd) => sum + usd, 0);
     if (!data && loading) return <PageLoader />;
 
     return <div className="space-y-6">
@@ -326,14 +327,20 @@ export default function QualityAssuranceSection() {
                                 { key: "outcome", label: "Resultado", render: row => <Badge variant={scanOutcomes[row.outcome].variant}>{scanOutcomes[row.outcome].label}</Badge> },
                                 { key: "items", label: "Identificados", render: row => row.items == null ? "—" : formatCount(row.items) },
                                 { key: "provider", label: "IA", render: row => row.reused
-                                    ? <InfoTooltip text="Resultado reaproveitado de uma análise anterior.">
+                                    ? <InfoTooltip text={row.fallback ? "Resultado reaproveitado de uma análise que usou OpenAI como fallback do Gemini." : "Resultado reaproveitado de uma análise anterior."}>
                                         <Badge variant="info" className="gap-1">
                                             <PanelIcon icon={faCopy} className="h-3 w-3" aria-hidden="true" />
+                                            {row.fallback && <PanelIcon icon={faArrowRightArrowLeft} className="h-3 w-3" aria-hidden="true" />}
                                             {row.provider ?? "Reutilizada"}
                                             {row.provider && <span className="sr-only"> (análise reutilizada)</span>}
                                         </Badge>
                                     </InfoTooltip>
-                                    : row.provider ?? "—" },
+                                    : row.fallback ? <InfoTooltip text="OpenAI usado como fallback do Gemini.">
+                                        <Badge variant="warning" className="gap-1">
+                                            <PanelIcon icon={faArrowRightArrowLeft} className="h-3 w-3" aria-hidden="true" />
+                                            OpenAI<span className="sr-only"> (fallback)</span>
+                                        </Badge>
+                                    </InfoTooltip> : row.provider ?? "—" },
                                 { key: "analysisElapsed", label: "Tempo de IA", className: "whitespace-nowrap", render: row => row.analysis_elapsed_ms == null ? "—" : formatAverage(row.analysis_elapsed_ms / 1000) + " s" },
                             ]} />
                     </>}
@@ -352,12 +359,12 @@ export default function QualityAssuranceSection() {
                                 <h3 className="text-sm font-semibold text-[#1d1d1d]">Gasto OpenAI por dia</h3>
                                 <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
                                     <span className="text-sm font-medium tabular-nums">
-                                        {formatBrl((modelTotalUsd ?? costs.totalUsd) * costs.usdBrlRate)} no período
+                                        {formatBrl((featureTotalUsd ?? costs.totalUsd) * costs.usdBrlRate)} no período
                                     </span>
                                     <div className="w-56 max-w-full">
-                                        <Dropdown aria-label="Modelo OpenAI" value={selectedModel}
-                                            onChange={event => setSelectedModel(event.target.value)}
-                                            options={[{ value: "", label: "Todos" }, ...models.map(model => ({ value: model.id, label: model.id }))]}
+                                        <Dropdown aria-label="Recurso de IA" value={selectedFeature}
+                                            onChange={event => setSelectedFeature(event.target.value)}
+                                            options={[{ value: "", label: "Todos" }, ...features.map(feature => ({ value: feature.id, label: feature.id }))]}
                                         />
                                     </div>
                                 </div>
@@ -368,7 +375,7 @@ export default function QualityAssuranceSection() {
                                         labels: costs.daily.map(point => dayLabel(point.date)),
                                         datasets: [{
                                             label: "Gasto (R$)",
-                                            data: costs.daily.map((point, index) => (modelDailyUsd?.[index] ?? point.usd) * costs.usdBrlRate),
+                                            data: costs.daily.map((point, index) => (featureDailyUsd?.[index] ?? point.usd) * costs.usdBrlRate),
                                             borderColor: CHART_BRAND,
                                             backgroundColor: createBrandAreaGradient,
                                             fill: true, tension: 0.25, pointRadius: 2, pointHoverRadius: 5,
@@ -455,7 +462,7 @@ function CostSources({ costs }: { costs: OpenAiCosts }) {
     const columns: TableColumn<CostSourceRow>[] = [
         {
             key: "item",
-            label: "Item de cobrança",
+            label: "Fonte de custo",
             render: row => row.id === "other"
                 ? <button {...disclosure.triggerProps} className="inline-flex cursor-pointer items-center gap-2 text-left font-medium hover:text-brand">
                     {row.label}

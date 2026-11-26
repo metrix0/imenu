@@ -38,7 +38,12 @@ test.each([
 
 test("published rates are tied to the configured model and quota ratio", () => {
   const current = getCreditRates();
+  expect(current).not.toBeNull();
   if (current) {
+    if (current.chatModel === "gpt-6-luna") {
+      expect(current.inputUsdPerMillion).toBe(0.10);
+      expect(current.outputUsdPerMillion).toBe(0.50);
+    }
     expect(current.outputRatio).toBeGreaterThan(0);
     expect(current.inputUsdPerMillion).toBeGreaterThan(0);
     expect(current.outputUsdPerMillion).toBeGreaterThan(0);
