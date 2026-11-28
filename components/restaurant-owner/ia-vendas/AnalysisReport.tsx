@@ -160,7 +160,6 @@ export default function AnalysisReport({
             <div className={styles.noAnalysisIntro}>
               <h2>Seu restaurante não tem pedidos suficientes.</h2>
               <p>Com 10 pedidos concluídos, o Vendas IA inicia sua análise automaticamente para identificar as melhores oportunidades de aumentar suas vendas.</p>
-              <p>Descubra quais preços, produtos, fotos e combos podem vender mais e aplique as melhorias sugeridas com IA em poucos cliques.</p>
             </div>
             {analysisSteps}
             <p>Não quer esperar? Você já pode solicitar uma análise do seu cardápio agora.</p>
