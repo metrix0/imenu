@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import type { PoolClient } from "pg";
 import { analysisPreview } from "@/lib/ia-vendas/paywall";
 import { aiAccess, requireIaPlus, IaPlusRequired, IaImageLimitReached, saveImageLimitNotice } from "@/lib/ia-vendas/access";
 import { API_ANALYSIS_ENABLED, analysisConversation } from "@/lib/ia-vendas/analysis";
@@ -13,6 +14,7 @@ import { execute } from "@/lib/ia-vendas/actions";
 import { applyProposal } from "@/lib/ia-vendas/application";
 import { imageUrl } from "@/lib/ia-vendas/data";
 import { LIMITS } from "@/lib/ia-vendas/config";
+import { hasIMenuPlusAccess } from "@/lib/addons/access";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 async function latestCompletedAnalysisAt(restaurant: string): Promise<string | null> {
@@ -22,6 +24,21 @@ async function latestCompletedAnalysisAt(restaurant: string): Promise<string | n
   );
   return result.rows[0]?.finished_at || null;
 }
+const ANALYSIS_REQUEST_CARD = JSON.stringify([{ type: "analysis_request" }]);
+
+async function analysisRequestState(restaurant: string, conversation: string, client?: Pick<PoolClient, "query">) {
+  const sql = `SELECT
+    (SELECT count(*) FROM (SELECT 1 FROM public.orders WHERE restaurant_id=$1 AND status='done' LIMIT 10) completed_orders) < 10 AS below_threshold,
+    (SELECT min(m.created_at) FROM public.ia_vendas_messages m
+      JOIN public.restaurant_addons a ON a.restaurant_id=m.restaurant_id AND a.product_key='ia_plus'
+      WHERE m.restaurant_id=$1 AND m.conversation_id=$2 AND m.role='user'
+        AND m.cards @> $3::jsonb AND m.created_at>=coalesce(a.activated_at,a.created_at)) AS requested_at`;
+  const params = [restaurant, conversation, ANALYSIS_REQUEST_CARD];
+  const result = client ? await client.query(sql, params) : await query(sql, params);
+  const row = result.rows[0];
+  return { below_threshold: row?.below_threshold === true, requested_at: row?.requested_at ?? null };
+}
+
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url),
@@ -58,10 +75,10 @@ export async function GET(request: Request) {
       await Promise.all([
         query(
           analysisConversation
-            ? "SELECT m.*, (SELECT r.result->>'report_id' FROM public.ia_vendas_runs r WHERE r.restaurant_id=$1 AND (r.result->>'message_id'=m.id::text OR r.result->>'user_message_id'=m.id::text) LIMIT 1) report_id, (SELECT r.result->>'opportunity_id' FROM public.ia_vendas_runs r WHERE r.restaurant_id=$1 AND (r.result->>'message_id'=m.id::text OR r.result->>'user_message_id'=m.id::text) LIMIT 1) opportunity_id FROM public.ia_vendas_messages m WHERE restaurant_id=$1 AND conversation_id=$2 AND ($3::timestamptz IS NULL OR created_at<$3) AND ($4::boolean=false OR NOT EXISTS(SELECT 1 FROM public.ia_vendas_runs r WHERE r.restaurant_id=$1 AND r.kind='analysis' AND (r.result->>'message_id'=m.id::text OR r.result->>'user_message_id'=m.id::text))) ORDER BY created_at DESC,(role='assistant') DESC,id DESC LIMIT 51"
+            ? "SELECT m.*, (SELECT r.result->>'report_id' FROM public.ia_vendas_runs r WHERE r.restaurant_id=$1 AND (r.result->>'message_id'=m.id::text OR r.result->>'user_message_id'=m.id::text) LIMIT 1) report_id, (SELECT r.result->>'opportunity_id' FROM public.ia_vendas_runs r WHERE r.restaurant_id=$1 AND (r.result->>'message_id'=m.id::text OR r.result->>'user_message_id'=m.id::text) LIMIT 1) opportunity_id FROM public.ia_vendas_messages m WHERE restaurant_id=$1 AND conversation_id=$2 AND NOT (m.cards @> $5::jsonb) AND ($3::timestamptz IS NULL OR created_at<$3) AND ($4::boolean=false OR NOT EXISTS(SELECT 1 FROM public.ia_vendas_runs r WHERE r.restaurant_id=$1 AND r.kind='analysis' AND (r.result->>'message_id'=m.id::text OR r.result->>'user_message_id'=m.id::text))) ORDER BY created_at DESC,(role='assistant') DESC,id DESC LIMIT 51"
             : "SELECT * FROM public.ia_vendas_messages WHERE restaurant_id=$1 AND conversation_id=$2 AND ($3::timestamptz IS NULL OR created_at<$3) ORDER BY created_at DESC,(role='assistant') DESC,id DESC LIMIT 51",
           analysisConversation
-            ? [restaurant, id, before, true]
+            ? [restaurant, id, before, true, ANALYSIS_REQUEST_CARD]
             : [restaurant, id, before],
         ),
         query<Action>(
@@ -179,6 +196,11 @@ export async function GET(request: Request) {
     const access = await aiAccess(restaurant);
     const visibleAnalyses = access.plus ? hydratedAnalyses : hydratedAnalyses.map(analysisPreview);
     const latest_analysis_finished_at = await latestCompletedAnalysisAt(restaurant);
+    const requestState = analysisConversation && access.plus && !hydratedAnalyses.length
+      ? await analysisRequestState(restaurant, id)
+      : null;
+    const analysis_requestable = !!(requestState?.below_threshold && !requestState.requested_at &&
+      !running.rows.some((run) => run.kind === "analysis"));
     const visibleIds = new Set(visibleAnalyses.flatMap(a => [...(a.result?.report?.opportunities || []), ...(a.result?.report?.review_items || [])].flatMap(o => o.action_ids || [])));
     return Response.json(
       {
@@ -192,6 +214,8 @@ export async function GET(request: Request) {
         actions: analysisConversation && !access.plus ? hydratedActions.filter(a => visibleIds.has(a.id)) : hydratedActions,
         instructions: memory.rows[0]?.instructions || "",
         analysis_available_at: null,
+        analysis_requestable,
+        analysis_requested_at: requestState?.requested_at ?? null,
         latest_analysis_finished_at,
         running: running.rows[0] || null,
         has_more: messages.rows.length > 50,
@@ -207,6 +231,29 @@ export async function POST(request: Request) {
   try {
     const body = await request.json(),
       restaurant = await authorize(request, body.restaurant_id);
+    if (body.command === "request_analysis") {
+      await requireIaPlus(restaurant);
+      const conversation = await analysisConversation(restaurant);
+      const requested = await withTransaction(async (c) => {
+        // Serialize requests for the fixed conversation; this marker is not an analysis run.
+        await c.query("SELECT id FROM public.ia_vendas_conversations WHERE restaurant_id=$1 AND id=$2 FOR UPDATE", [restaurant, conversation]);
+        if (!(await hasIMenuPlusAccess(restaurant, c))) throw new IaPlusRequired();
+        const existing = await c.query(
+          "SELECT 1 FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND kind='analysis' AND (status='running' OR (status='completed' AND result->>'detached_at' IS NULL AND result->'report'->>'status'='complete')) LIMIT 1",
+          [restaurant],
+        );
+        if (existing.rowCount) return false;
+        const state = await analysisRequestState(restaurant, conversation, c);
+        if (state.requested_at) return true;
+        if (!state.below_threshold) return false;
+        await c.query(
+          "INSERT INTO public.ia_vendas_messages (restaurant_id,conversation_id,role,content,cards) VALUES ($1,$2,'user','Solicitar análise',$3::jsonb)",
+          [restaurant, conversation, ANALYSIS_REQUEST_CARD],
+        );
+        return true;
+      });
+      return Response.json({ requested });
+    }
     if (body.command === "start_analysis") {
       if (!API_ANALYSIS_ENABLED)
         throw new SalesError("Análises via API desativadas. Use o ChatGPT.", 410);

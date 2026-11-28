@@ -14,6 +14,7 @@ type Candidate = {
     restaurant_name: string;
     owner_email: string | null;
     activated_at: string | Date;
+    eligible_at: string | Date;
     delay_hours: number | string;
     latest_status: string | null;
     latest_created_at: string | Date | null;
@@ -76,11 +77,12 @@ function buildMessage(row: Candidate, delayHours: number): string {
         : ["Última análise: nenhuma"];
 
     return [
-        `iMenu Plus comprado há ${delayHours}h e ainda sem análise concluída nos últimos 28 dias.`,
+        `iMenu Plus elegível para análise há ${delayHours}h e ainda sem análise concluída nos últimos 28 dias.`,
         `Restaurante: ${row.restaurant_name}`,
         row.owner_email ? `E-mail: ${row.owner_email}` : null,
         `Restaurante ID: ${row.restaurant_id}`,
         `Ativado em: ${formatDate(row.activated_at)}`,
+        `Elegível para análise em: ${formatDate(row.eligible_at)}`,
         ...latest,
     ]
         .filter(Boolean)
@@ -100,7 +102,8 @@ export async function GET(request: Request) {
             restaurant.name AS restaurant_name,
             owner.email AS owner_email,
             addon.activated_at,
-            FLOOR(EXTRACT(EPOCH FROM (NOW() - addon.activated_at)) / 3600)::int AS delay_hours,
+            eligibility.eligible_at,
+            FLOOR(EXTRACT(EPOCH FROM (NOW() - eligibility.eligible_at)) / 3600)::int AS delay_hours,
             latest.status AS latest_status,
             latest.created_at AS latest_created_at,
             latest.error AS latest_error,
@@ -110,6 +113,27 @@ export async function GET(request: Request) {
           ON restaurant.id = addon.restaurant_id
         LEFT JOIN auth.users owner
           ON owner.id = restaurant.user_id
+        LEFT JOIN LATERAL (
+            SELECT GREATEST(o.created_at, o.updated_at AT TIME ZONE 'UTC') AS completed_at
+            FROM public.orders o
+            WHERE o.restaurant_id = addon.restaurant_id AND o.status = 'done'
+            ORDER BY GREATEST(o.created_at, o.updated_at AT TIME ZONE 'UTC'), o.id
+            OFFSET 9 LIMIT 1
+        ) tenth ON TRUE
+        LEFT JOIN LATERAL (
+            SELECT min(m.created_at) AS requested_at
+            FROM public.ia_vendas_conversations c
+            JOIN public.ia_vendas_messages m ON m.conversation_id=c.id AND m.restaurant_id=c.restaurant_id
+            WHERE c.restaurant_id=addon.restaurant_id AND c.kind='analysis'
+              AND m.role='user' AND m.cards @> '[{"type":"analysis_request"}]'::jsonb
+              AND m.created_at>=addon.activated_at
+        ) requested ON TRUE
+        CROSS JOIN LATERAL (
+            SELECT LEAST(
+                CASE WHEN tenth.completed_at IS NOT NULL THEN GREATEST(addon.activated_at, tenth.completed_at) END,
+                requested.requested_at
+            ) AS eligible_at
+        ) eligibility
         LEFT JOIN LATERAL (
             SELECT
                 run.status,
@@ -124,8 +148,8 @@ export async function GET(request: Request) {
         ) latest ON TRUE
         WHERE addon.product_key = 'ia_plus'
           AND addon.activated_at IS NOT NULL
-          AND addon.activated_at <= NOW() - INTERVAL '2 hours'
-          AND addon.activated_at > NOW() - INTERVAL '14 hours'
+          AND eligibility.eligible_at <= NOW() - INTERVAL '2 hours'
+          AND eligibility.eligible_at > NOW() - INTERVAL '14 hours'
           AND (
               addon.status = 'active'
               OR (
@@ -143,7 +167,7 @@ export async function GET(request: Request) {
                 AND completed.result->'report'->>'status' = 'complete'
                 AND completed.created_at >= NOW() - INTERVAL '28 days'
           )
-        ORDER BY addon.activated_at ASC
+        ORDER BY eligibility.eligible_at ASC
         LIMIT 100
         `
     );
@@ -167,10 +191,11 @@ export async function GET(request: Request) {
                 delay_hours
             )
             VALUES ($1, $2)
-            ON CONFLICT (addon_id, delay_hours) DO NOTHING
+            ON CONFLICT (addon_id, delay_hours) DO UPDATE SET sent_at=EXCLUDED.sent_at
+            WHERE ia_plus_analysis_alerts.sent_at < $3::timestamptz
             RETURNING addon_id
             `,
-            [candidate.addon_id, delayHours]
+            [candidate.addon_id, delayHours, candidate.eligible_at]
         );
 
         if (claim.rowCount === 0) {

@@ -39,6 +39,8 @@ type State = {
   actions: Action[];
   instructions: string;
   analysis_available_at: string | null;
+  analysis_requestable: boolean | null;
+  analysis_requested_at: string | null;
   running: Data | null;
   references: Record<string, string>;
   has_more: boolean;
@@ -87,6 +89,8 @@ export const useSalesStore = create<State>((set, get) => ({
   actions: [],
   instructions: "",
   analysis_available_at: null,
+  analysis_requestable: null,
+  analysis_requested_at: null,
   running: null,
   references: {},
   has_more: false,
@@ -109,6 +113,8 @@ export const useSalesStore = create<State>((set, get) => ({
             upgradeRequired: false,
             messages: [],
             analyses: [],
+            analysis_requestable: null,
+            analysis_requested_at: null,
             actions: [],
             conversations: [],
             instructions: "",
