@@ -24,6 +24,7 @@ import Dropdown from "@/components/ui/Dropdown";
 import Input from "@/components/ui/Input";
 import { PageLoader } from "@/components/ui/Loader";
 import DevDialog from "./DevDialog";
+import SupportBlacklistDialog from "./SupportBlacklistDialog";
 import DevPage from "./DevPage";
 import Badge from "@/components/ui/Badge";
 import styles from "./dashboard.module.css";
@@ -214,6 +215,7 @@ export default function SupportSection({ section = "support" }: { section?: "sup
         useState<AccessState>("checking");
     const [supportPage, setSupportPage] = useState(0);
     const [handoffPage, setHandoffPage] = useState(0);
+    const [blacklistOpen, setBlacklistOpen] = useState(false);
     const [knowledgePage, setKnowledgePage] = useState(0);
     const [data, setData] = useState<DashboardData | null>(null);
     const [loading, setLoading] = useState(true);
@@ -527,6 +529,7 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                     const payload = (await response.json()) as {
                         error?: string;
                         skippedRecent?: boolean;
+                        skippedBlacklisted?: boolean;
                         duplicate?: boolean;
                     };
 
@@ -538,7 +541,7 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                         failed += 1;
                         continue;
                     }
-                    if (payload.skippedRecent || payload.duplicate) {
+                    if (payload.skippedRecent || payload.skippedBlacklisted || payload.duplicate) {
                         skipped += 1;
                     } else {
                         sent += 1;
@@ -716,7 +719,11 @@ export default function SupportSection({ section = "support" }: { section?: "sup
                     </div>
                 </dl>
                 <section className={`${styles.tableSection} ${styles.supportTable} ${styles.supportHandoffs}`}>
-                    <h2>Atendimento humano</h2>
+                    <div className="mb-3.5 flex items-center justify-between gap-3">
+                        <h2 className="text-[18px] font-semibold">Atendimento humano</h2>
+                        {section === "support" && <Button variant="secondary" onClick={() => setBlacklistOpen(true)}>Blacklist</Button>}
+                    </div>
+                    {blacklistOpen && <SupportBlacklistDialog onClose={() => setBlacklistOpen(false)} />}
                     <DataTable rows={data?.handedOff || []} rowKey={conversation => conversation.id} emptyMessage="Nenhuma conversa em atendimento humano." columns={[
                         { key: "restaurant", label: "Restaurante", render: conversation => <div className="flex min-w-0 items-center gap-2">{conversation.restaurant_id ? <button type="button" className={`${styles.profileLink} underline decoration-gray-400 hover:text-brand`} title="Abrir perfil do restaurante" onClick={() => openProfile({id:conversation.restaurant_id!,name:conversation.restaurant_name || "Restaurante"})}>{conversation.restaurant_name || "Restaurante"}</button> : <span>Restaurante não identificado</span>}{conversation.plus && <Badge variant="brand" className="shrink-0 whitespace-nowrap">iMenu Plus</Badge>}</div> },
                         { key: "attended", label: "Situação", render: conversation => <Badge variant={conversation.attended ? "success" : "danger"}>{conversation.attended ? "Atendido" : "Aguardando"}</Badge> },

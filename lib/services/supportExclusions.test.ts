@@ -21,7 +21,7 @@ test("checks the database exclusion list without sending any WAHA message", asyn
     await expect(isSupportContactExcluded({ phone: "5511988576886" })).resolves.toBe(true);
     expect(query).toHaveBeenCalledWith(
         expect.stringContaining("FROM support_contact_exclusions"),
-        [[sha("phone:5511988576886")]]
+        [expect.arrayContaining([sha("phone:5511988576886")])]
     );
 });
 
@@ -30,4 +30,11 @@ test("other contacts are unaffected; missing identifiers perform no query", asyn
     await expect(isSupportContactExcluded({ chatId: "5511999991234@c.us" })).resolves.toBe(false);
     await expect(isSupportContactExcluded({})).resolves.toBe(false);
     expect(query).toHaveBeenCalledTimes(1);
+});
+
+test("canonicalizes international prefixes and both Brazilian mobile aliases", () => {
+    const full = sha("phone:5511991234567");
+    const old = sha("phone:551191234567");
+    expect(supportExclusionHashes({ phone: "0055 11 99123-4567" })).toEqual(expect.arrayContaining([full, old]));
+    expect(supportExclusionHashes({ phone: "11 9123-4567" })).toEqual(expect.arrayContaining([full, old]));
 });

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { authorize } from "@/lib/dev/authorize";
 import { query, withTransaction } from "@/lib/database/sql";
 import { sendTrackedSupportText } from "@/lib/services/supportWhatsApp";
+import { supportBlacklistMatchSql } from "@/lib/services/supportExclusions";
 import { devPage, DEV_PAGE_SIZE, paged } from "@/lib/dev/pagination";
 
 export const runtime = "nodejs";
@@ -11,12 +12,7 @@ const CONVERSATION_JOIN = `LEFT JOIN support_conversations c ON c.id=d.conversat
     OR (d.conversation_id IS NULL AND c.chat_id=CASE WHEN d.session_name='imenu-blast'
     THEN 'imenu-blast:' || d.chat_id ELSE d.chat_id END)`;
 const UUID = /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i;
-const VISIBLE_DRAFT_SQL = [
-    "NOT EXISTS (SELECT 1 FROM support_contact_exclusions e WHERE",
-    "e.identifier_hash = encode(sha256(convert_to('chat:' || replace(d.chat_id,'imenu-blast:',''), 'UTF8')), 'hex')",
-    "OR e.identifier_hash = encode(sha256(convert_to('phone:' ||",
-    "regexp_replace(COALESCE(c.phone,''), '[^0-9]', '', 'g'), 'UTF8')), 'hex'))",
-].join(" ");
+const VISIBLE_DRAFT_SQL = "NOT " + supportBlacklistMatchSql("c.phone", "d.chat_id", true);
 
 export async function GET(request: Request) {
     const denied = await authorize(request);

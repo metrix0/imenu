@@ -5,6 +5,7 @@ import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGES } from "./plusFeedbackBlast";
 import { DID_NOT_ACTIVATE_BLAST_MESSAGE } from "./didNotActivateBlast";
 import { MESSAGE_ROWS_SQL } from "./messageHistory";
 import { query } from "@/lib/database/sql";
+import { supportBlacklistMatchSql } from "@/lib/services/supportExclusions";
 import { DEV_BLAST_PAGE_SIZE, devPage, paged } from "./pagination";
 
 // Existing campaign and send logs are the source of truth; no additional registry/table.
@@ -34,12 +35,7 @@ const RECOVERY_CAMPAIGN_DAYS = `
 `;
 
 
-const visiblePhoneSql = (alias: string) => `NOT EXISTS (
-    SELECT 1 FROM support_contact_exclusions exclusion
-    WHERE exclusion.identifier_hash = encode(sha256(convert_to(
-        'phone:' || regexp_replace(COALESCE(${alias}.phone, ''), '[^0-9]', '', 'g'),
-        'UTF8')), 'hex')
-)`;
+const visiblePhoneSql = (alias: string) => "NOT " + supportBlacklistMatchSql(alias + ".phone", "NULL::text", true);
 
 const standaloneSender = `COALESCE(o.context->>'sender',CASE WHEN o.dedupe_key LIKE 'support:bulk:support:%' OR o.dedupe_key LIKE 'support:addon-expiry:%' THEN 'support' ELSE 'blast' END)`;
 const standaloneBlast = `(o.dedupe_key LIKE 'support:bulk:%' OR o.dedupe_key LIKE 'support:payout:%' OR o.dedupe_key LIKE 'support:payout-pix-warning:%' OR o.dedupe_key LIKE 'support:addon-expiry:%')

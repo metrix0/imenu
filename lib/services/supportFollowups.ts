@@ -1,4 +1,5 @@
 import { query, withAdvisoryLock } from "@/lib/database/sql";
+import { SUPPORT_CONVERSATION_BLACKLISTED_SQL } from "@/lib/services/supportExclusions";
 import { generateSupportFollowup } from "@/lib/services/supportAgent";
 import { isSupportConversationBlacklisted } from "@/lib/services/supportWhatsApp";
 import { sendWahaText, SUPPORT_WAHA_SESSION_NAME } from "@/lib/services/wahaClient";
@@ -18,7 +19,7 @@ export async function processSupportFollowups(): Promise<number> {
                 c.followup_last_ai_at::text AS followup_last_ai_at
          FROM support_conversations c
          WHERE c.mode = 'ai'
-           AND NOT c.blacklisted AND NOT c.blocked_handoff
+           AND NOT ${SUPPORT_CONVERSATION_BLACKLISTED_SQL} AND NOT c.blocked_handoff
            AND c.handoff_prompted_at IS NULL
            AND (c.ai_paused_until IS NULL OR c.ai_paused_until <= NOW())
            AND (c.last_human_reply_at IS NULL
@@ -61,7 +62,7 @@ export async function processSupportFollowups(): Promise<number> {
              WHERE c.id = $1
                AND c.chat_id = $2
                AND c.mode = 'ai'
-               AND NOT c.blacklisted AND NOT c.blocked_handoff
+               AND NOT ${SUPPORT_CONVERSATION_BLACKLISTED_SQL} AND NOT c.blocked_handoff
                AND c.handoff_prompted_at IS NULL
                AND (c.ai_paused_until IS NULL OR c.ai_paused_until <= NOW())
                AND (c.last_human_reply_at IS NULL
@@ -99,6 +100,10 @@ export async function processSupportFollowups(): Promise<number> {
         if (!messageId) return 0;
 
         try {
+            if (await isSupportConversationBlacklisted(candidate.id)) {
+                await query("DELETE FROM support_messages WHERE id = $1 AND send_status = 'pending'", [messageId]);
+                return 0;
+            }
             await sendWahaText(SUPPORT_WAHA_SESSION_NAME, candidate.chat_id, text);
             await query("UPDATE support_messages SET send_status = 'sent', error = NULL WHERE id = $1", [messageId]);
             await query("UPDATE support_conversations SET last_outbound_at = NOW(), updated_at = NOW() WHERE id = $1", [candidate.id]);

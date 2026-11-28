@@ -1,4 +1,4 @@
-import { SUPPORT_CONVERSATION_VISIBLE_SQL } from "@/lib/services/supportExclusions";
+import { SUPPORT_CONVERSATION_VISIBLE_SQL, getSupportBlacklist, addSupportBlacklistPhone, removeSupportBlacklistPhone, normalizeSupportBlacklistPhone, isSupportContactExcluded } from "@/lib/services/supportExclusions";
 import { devPage } from "@/lib/dev/pagination";
 import { getBlastHistory, getDailyBlastSends } from "@/lib/dev/blastHistory";
 import { NextResponse } from "next/server";
@@ -246,6 +246,7 @@ export async function GET(request: Request) {
         if (!authorization.ok) return authorization.response;
 
         const searchParams = new URL(request.url).searchParams;
+        if (searchParams.get("section") === "blacklist") return NextResponse.json(await getSupportBlacklist(), { headers: { "Cache-Control": "no-store" } });
         if (searchParams.get("section") === "blasts") return NextResponse.json(await getBlastHistory(searchParams));
         if (searchParams.get("section") === "blast-sends") return NextResponse.json(await getDailyBlastSends());
         if (searchParams.get("blast_history") === "1") {
@@ -301,6 +302,14 @@ export async function POST(request: Request) {
             body.connection === "blast" ? "blast" : "support";
         connectionId =
             connectionTarget === "blast" ? "blast" : "default";
+
+        if (action === "add_blacklist" || action === "remove_blacklist") {
+            const phone = normalizeSupportBlacklistPhone(String(body.phone || ""));
+            if (!phone) return NextResponse.json({ error: "Informe um número de WhatsApp válido." }, { status: 400 });
+            if (action === "add_blacklist") await addSupportBlacklistPhone(phone);
+            else await removeSupportBlacklistPhone(phone);
+            return NextResponse.json(await getSupportBlacklist());
+        }
 
         if (action === "create_blast") {
             if (body.dailyLimit === null && !imageFile) {
@@ -470,6 +479,7 @@ export async function POST(request: Request) {
                 );
             }
 
+            if (await isSupportContactExcluded({ phone })) return NextResponse.json({ ok: true, skippedBlacklisted: true });
             const localPhone = phone.slice(2);
             const recipients = await query<{
                 restaurant_id: string;
@@ -572,6 +582,10 @@ export async function POST(request: Request) {
                 }
 
                 const resolvedChatId = contact.chatId || chatId;
+                if (await isSupportContactExcluded({ phone, chatId: resolvedChatId })) {
+                    await query("UPDATE whatsapp_outbound_messages SET status = 'failed', last_error = 'Contato bloqueado.', updated_at = NOW() WHERE dedupe_key = $1", [dedupeKey]);
+                    return NextResponse.json({ ok: true, skippedBlacklisted: true });
+                }
 
                 try {
                     await sendWahaText(
@@ -585,6 +599,7 @@ export async function POST(request: Request) {
                     }
 
                     await sleep(BULK_SEND_RETRY_DELAY_MS);
+                    if (await isSupportContactExcluded({ phone, chatId: resolvedChatId })) throw new Error("Contato bloqueado.");
                     await sendWahaText(
                         connection.session_name,
                         resolvedChatId,
