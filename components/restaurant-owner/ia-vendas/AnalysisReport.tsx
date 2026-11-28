@@ -66,6 +66,32 @@ export default function AnalysisReport({
   const pending = withGenerated(ids).filter((id) => actionById.get(id)?.status === "pending");
   const gate = (content: React.ReactNode) => locked ? <div data-ia-plus-action><Tooltip text={IA_PLUS_FEATURE_MESSAGE} parentClassName="!block">{content}</Tooltip></div> : content;
 
+  const analysisSteps = (
+    <div className={styles.analysisSteps} aria-label="Como funciona a análise">
+      <article>
+        <span><Rocket size={18} aria-hidden="true" /></span>
+        <div>
+          <strong>Aplica melhorias automaticamente</strong>
+          <p>Você só revisa e aprova as melhorias sugeridas.</p>
+        </div>
+      </article>
+      <article>
+        <span><ClipboardList size={18} aria-hidden="true" /></span>
+        <div>
+          <strong>Dados reais</strong>
+          <p>Usa dados de milhares de restaurantes no iMenu para indicar as melhores modificações.</p>
+        </div>
+      </article>
+      <article>
+        <span><Target size={18} aria-hidden="true" /></span>
+        <div>
+          <strong>Encontra o que vale priorizar</strong>
+          <p>Prioriza as melhores oportunidades, mostra as evidências e estima o impacto nas próximas 4 semanas.</p>
+        </div>
+      </article>
+    </div>
+  );
+
   if (!selected) {
     return (
       <div className={styles.report}>
@@ -92,29 +118,7 @@ export default function AnalysisReport({
               </div>
             </div>
 
-            <div className={styles.analysisSteps} aria-label="Como funciona a análise">
-              <article>
-                <span><Rocket size={18} aria-hidden="true" /></span>
-                <div>
-                  <strong>Aplica melhorias automaticamente</strong>
-                  <p>Você só revisa e aprova as melhorias sugeridas.</p>
-                </div>
-              </article>
-              <article>
-                <span><ClipboardList size={18} aria-hidden="true" /></span>
-                <div>
-                  <strong>Dados reais</strong>
-                  <p>Usa dados de milhares de restaurantes no iMenu para indicar as melhores modificações.</p>
-                </div>
-              </article>
-              <article>
-                <span><Target size={18} aria-hidden="true" /></span>
-                <div>
-                  <strong>Encontra o que vale priorizar</strong>
-                  <p>Prioriza as melhores oportunidades, mostra as evidências e estima o impacto nas próximas 4 semanas.</p>
-                </div>
-              </article>
-            </div>
+            {analysisSteps}
 
             <div className={styles.freeReleaseNote}>
               <strong>Como funciona o acesso gratuito</strong>
@@ -152,9 +156,14 @@ export default function AnalysisReport({
           </section>
         ) : requestable && !generating ? (
           <section className={styles.noAnalysisState}>
-            <div className={styles.stateIcon}><Sparkles size={24} aria-hidden="true" /></div>
-            <h2>Solicite sua análise de vendas</h2>
-            <p>Sua análise começa automaticamente quando seu restaurante tiver 10 pedidos concluídos. Se preferir, você já pode solicitá-la agora.</p>
+            <div className={styles.stateIcon}><Rocket size={24} aria-hidden="true" /></div>
+            <div className={styles.noAnalysisIntro}>
+              <h2>Seu restaurante não tem pedidos suficientes.</h2>
+              <p>Com 10 pedidos concluídos, o Vendas IA inicia sua análise automaticamente para identificar as melhores oportunidades de aumentar suas vendas.</p>
+              <p>Descubra quais preços, produtos, fotos e combos podem vender mais e aplique as melhorias sugeridas com IA em poucos cliques.</p>
+            </div>
+            {analysisSteps}
+            <p>Não quer esperar? Você já pode solicitar uma análise do seu cardápio agora.</p>
             <Button disabled={disabled} onClick={onRequest}>Solicitar análise</Button>
           </section>
         ) : (

@@ -112,6 +112,9 @@ test("Plus without ten completed orders can request an analysis", () => {
   const html = renderToStaticMarkup(<AnalysisReport {...props} analyses={[]} selected={undefined} requestable onRequest={jest.fn()} />);
   expect(html).toContain("Solicitar análise");
   expect(html).toContain("10 pedidos concluídos");
+  expect(html).toContain("Seu restaurante não tem pedidos suficientes.");
+  expect(html).toContain("Aplica melhorias automaticamente");
+  expect(html).toContain("Encontra o que vale priorizar");
   expect(html).not.toContain("Preparando sua análise");
 });
 
