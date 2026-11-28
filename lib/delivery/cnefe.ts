@@ -1,7 +1,7 @@
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { calculateDistanceKm, type Coordinates } from "../api/geocodingBase";
+import { calculateDistanceKm, streetNamesMatch, streetNameVariants, type Coordinates } from "../api/geocodingBase";
 import { normalizeNeighborhoodName } from "./neighborhood";
 
 const directory = () => process.env.IMENU_CNEFE_DIRECTORY || "/var/lib/imenu/cnefe";
@@ -17,7 +17,7 @@ const maximumPoints = 10_000;
 
 type Municipalities = Record<string, Record<string, number>>;
 type Address = { city: string; uf: string; street: string; bairro: string; number: string; cep: string };
-type IndexedPoint = { lat: number; lon: number; number: string; cep: number };
+type IndexedPoint = { lat: number; lon: number; number: string; cep: number; bairro: string; street: string };
 
 export type CnefeMatch = {
     point: Coordinates;
@@ -34,7 +34,7 @@ export async function lookupCnefe(address: Address, origin?: Coordinates): Promi
     const cityName = normalize(address.city);
     const street = normalize(address.street).split(" ").map(word => streetAliases[word] || word).join(" ");
     const bairro = normalizeNeighborhoodName(address.bairro);
-    if (!cityName || !street || !bairro) return null;
+    if (!cityName || !street) return null;
 
     let db: DatabaseSync | undefined;
     try {
@@ -42,36 +42,58 @@ export async function lookupCnefe(address: Address, origin?: Coordinates): Promi
         const city = municipalities[address.uf]?.[cityName];
         if (!Number.isInteger(city)) return null;
         db = new DatabaseSync(join(root, address.uf + ".sqlite"), { readOnly: true });
+        const number = normalize(address.number).replace(/ /g, "").replace(/^0+(?=\d)/, "");
         const select = db.prepare(
-            "SELECT lat, lon, number, cep FROM points WHERE city = ? AND street = ? AND bairro = ? LIMIT ?",
+            "SELECT lat, lon, number, cep, bairro, street FROM points WHERE city = ? AND street = ? LIMIT ?",
         );
-        let points = select.all(city, street, bairro, maximumPoints + 1) as IndexedPoint[];
-        if (!points.length && !streetTypes.test(street)) {
-            const names = ["rua", "avenida", "travessa", "estrada", "rodovia", "praca", "alameda", "largo", "viela", "beco"];
-            for (const type of names) {
-                const candidate = select.all(city, `${type} ${street}`, bairro, maximumPoints + 1) as IndexedPoint[];
-                if (!candidate.length) continue;
-                if (points.length) return null;
-                points = candidate;
-            }
-        }
-        if (!points.length && address.uf === "DF" && /^\d{8}$/.test(address.cep)) {
-            // Correios and the census use different names for Brasília's commercial blocks.
+        const selectNumber = db.prepare(
+            "SELECT lat, lon, number, cep, bairro, street FROM points WHERE city = ? AND street = ? AND number = ? LIMIT ?",
+        );
+        const names = [street, ...(!streetTypes.test(street)
+            ? ["rua", "avenida", "travessa", "estrada", "rodovia", "praca", "alameda", "largo", "viela", "beco"].map(type => type + " " + street)
+            : [])];
+        const queryPoints = (streets: string[], exactNumber: boolean) => streets.flatMap(name =>
+            (exactNumber ? selectNumber.all(city, name, number, maximumPoints + 1)
+                : select.all(city, name, maximumPoints + 1)) as IndexedPoint[]);
+        let exact = number ? queryPoints(names, true) : [];
+        let points: IndexedPoint[] = [];
+        if (!exact.length && address.uf === "DF" && /^\d{8}$/.test(address.cep)) {
+            // Preserve the existing exact-CEP rule for Brasília commercial blocks.
             const block = /^(?:quadra )?(q[a-z]+ \d+[a-z]? conjunto [a-z0-9]+)(?: comercio)?$/.exec(street)?.[1];
             if (block) {
                 const district = normalizeNeighborhoodName(address.bairro.split("(")[0]);
                 const selectBlock = db.prepare(
-                    "SELECT lat, lon, number, cep FROM points WHERE city = ? AND street IN (?, ?) AND bairro = ? AND cep = ? LIMIT ?",
+                    "SELECT lat, lon, number, cep, bairro, street FROM points WHERE city = ? AND street IN (?, ?) AND bairro = ? AND cep = ? LIMIT ?",
                 );
-                points = selectBlock.all(city, `edf ${block} comercio`, `edf ${block}`, district, Number(address.cep), maximumPoints + 1) as IndexedPoint[];
+                points = selectBlock.all(city, "edf " + block + " comercio", "edf " + block, district, Number(address.cep), maximumPoints + 1) as IndexedPoint[];
+                exact = number ? points.filter(point => point.number === number) : [];
+                if (!points.length) return null;
             }
         }
-        if (!points.length || points.length > maximumPoints) return null;
-
-        const number = normalize(address.number).replace(/ /g, "").replace(/^0+(?=\d)/, "");
-        const exact = number ? points.filter(point => point.number === number) : [];
-        const postal = address.cep ? exact.filter(point => point.cep === Number(address.cep)) : [];
-        const matches = postal.length ? postal : exact.length ? exact : points;
+        if (!exact.length && !points.length) {
+            // Search the city's distinct street names only when the exact number/street failed.
+            const candidates = db.prepare("SELECT DISTINCT street FROM points WHERE city = ?").all(city) as { street: string }[];
+            const similar = candidates.map(row => row.street)
+                .filter(name => !names.includes(name) && streetNamesMatch(address.street, name));
+            const wantedVariants = streetNameVariants(address.street);
+            const equivalent = similar.filter(name => streetNameVariants(name).some(value => wantedVariants.includes(value)));
+            const fuzzy = similar.filter(name => !equivalent.includes(name));
+            if (number) {
+                exact = queryPoints(equivalent, true);
+                if (!exact.length) exact = queryPoints(fuzzy, true);
+            }
+            if (!exact.length) {
+                points = queryPoints(names, false);
+                if (!points.length) points = queryPoints(equivalent.length ? equivalent : fuzzy, false);
+            }
+        }
+        // Rank duplicate numbered matches by CEP, then neighborhood. Neither is mandatory.
+        const pool = exact.length ? exact : points;
+        if (!pool.length || pool.length > maximumPoints) return null;
+        const postal = exact.length && address.cep ? pool.filter(point => point.cep === Number(address.cep)) : [];
+        const ranked = postal.length ? postal : pool;
+        const local = bairro ? ranked.filter(point => point.bairro === bairro) : [];
+        const matches = local.length ? local : ranked;
         const locations = matches.map(row => ({ latitude: row.lat / 1_000_000, longitude: row.lon / 1_000_000 }));
         if (!origin) {
             const center = {

@@ -1,6 +1,6 @@
 import { query } from "@/lib/database/sql";
 import { isProductionAlertRuntime, recordDevAlert } from "@/lib/dev/health";
-import { SUPPORT_CONVERSATION_VISIBLE_SQL } from "@/lib/services/supportExclusions";
+import { SUPPORT_CONVERSATION_BLACKLISTED_SQL } from "@/lib/services/supportExclusions";
 
 const OVERDUE_WAITS_SQL = `
     WITH pending AS (
@@ -26,9 +26,8 @@ const OVERDUE_WAITS_SQL = `
               AND (m.dedupe_key LIKE 'support:human:%' OR m.dedupe_key LIKE 'support:draft:%')
         ) reply
         WHERE c.mode = 'human' AND c.human_started_at IS NOT NULL
-          AND NOT c.blacklisted AND NOT c.blocked_handoff
+          AND NOT ${SUPPORT_CONVERSATION_BLACKLISTED_SQL} AND NOT c.blocked_handoff
           AND (a.status = 'active' OR (a.status IN ('canceled','past_due') AND a.current_period_ends_at > NOW()))
-          AND ${SUPPORT_CONVERSATION_VISIBLE_SQL}
     )
     SELECT p.name, alarm.delivery_key
     FROM pending p

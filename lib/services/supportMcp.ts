@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 import { query } from "@/lib/database/sql";
+import { SUPPORT_CONVERSATION_BLACKLISTED_SQL } from "@/lib/services/supportExclusions";
 import { getIMenuPlusProductKnowledge } from "@/lib/addons/products";
 import { calculateOnePercentPayout } from "@/lib/services/payoutSafety";
 import { getWahaWebhookHmacKey } from "@/lib/services/wahaClient";
@@ -25,6 +26,8 @@ const BLOCKED_TABLES = new Set([
     "support_conversations",
     "support_messages",
     "support_knowledge",
+    "support_blacklist",
+    "support_contact_exclusions",
 ]);
 
 const SENSITIVE_COLUMN_PATTERNS = [
@@ -427,7 +430,7 @@ async function getConversation(
     conversationId: string
 ): Promise<SupportConversation> {
     const result = await query<SupportConversation>(
-        "SELECT id, phone, restaurant_id, handoff_prompted_at, blacklisted, blocked_handoff FROM support_conversations WHERE id = $1 LIMIT 1",
+        `SELECT id, phone, restaurant_id, handoff_prompted_at, (${SUPPORT_CONVERSATION_BLACKLISTED_SQL}) AS blacklisted, blocked_handoff FROM support_conversations c WHERE id = $1 LIMIT 1`,
         [conversationId]
     );
 

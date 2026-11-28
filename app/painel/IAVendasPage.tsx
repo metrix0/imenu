@@ -211,16 +211,15 @@ export default function SalesPage() {
     input.current.style.height = `${input.current.scrollHeight}px`;
   }, [text, wideAnalysis, analysisChatOpen]);
   useEffect(() => {
-    if (!sales.running || sales.busy) return;
-    const timer = setInterval(
-      () =>
-        void useSalesStore
-          .getState()
-          .load(restaurant, sales.conversation_id || undefined),
-      10000,
-    );
+    const waitingForAnalysis = isAnalysisRoute && plus === true && sales.analysis_requestable !== null && !sales.analyses.length;
+    if ((!sales.running && !waitingForAnalysis) || sales.busy || sales.acting) return;
+    const timer = setInterval(() => {
+      const current = useSalesStore.getState();
+      if (!current.loading && !current.acting && !current.busy)
+        void current.load(restaurant, sales.conversation_id || undefined);
+    }, sales.running ? 10000 : 30000);
     return () => clearInterval(timer);
-  }, [sales.running?.id, sales.busy, sales.conversation_id, restaurant]);
+  }, [sales.running?.id, sales.busy, sales.acting, sales.conversation_id, sales.analysis_requestable, sales.analyses.length, isAnalysisRoute, plus, restaurant]);
   const conversation = sales.conversations.find(
       (c) => c.id === sales.conversation_id,
     ),
@@ -911,8 +910,11 @@ export default function SalesPage() {
                     actions={sales.actions}
                     refs={sales.references}
                     disabled={disabled}
-                    loading={plus === null || (sales.loading && sales.access === null)}
+                    loading={plus === null || !modeReady || (sales.loading && sales.access === null)}
                     generating={analysisRunning}
+                    requestable={sales.analysis_requestable === true}
+                    requestedAt={sales.analysis_requested_at}
+                    onRequest={() => { void sales.command("request_analysis"); }}
                     activeOpportunityId={opportunity?.id}
                     onHistory={() => setModal("history")}
                     onChat={() => {

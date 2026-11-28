@@ -5,6 +5,7 @@ import { cacheDeveloperInstructions, explicitPromptCache, supportsExplicitPrompt
 import { openAiAlertFetch } from "@/lib/services/openAiAlerts";
 
 import { query } from "@/lib/database/sql";
+import { SUPPORT_CONVERSATION_BLACKLISTED_SQL } from "@/lib/services/supportExclusions";
 import {
     createSupportMcpToken,
     searchSupportKnowledge,
@@ -609,7 +610,7 @@ export async function generateSupportReply(
             [conversationId]
         ),
         query<SupportConversation>(
-            "SELECT phone, mode, handoff_prompted_at, blacklisted, blocked_handoff FROM support_conversations WHERE id = $1 LIMIT 1",
+            `SELECT phone, mode, handoff_prompted_at, (${SUPPORT_CONVERSATION_BLACKLISTED_SQL}) AS blacklisted, blocked_handoff FROM support_conversations c WHERE id = $1 LIMIT 1`,
             [conversationId]
         ),
         query<{ has_known_incident: boolean }>(

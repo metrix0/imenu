@@ -1,4 +1,4 @@
-import { isSupportContactExcluded } from "@/lib/services/supportExclusions";
+import { isSupportContactExcluded, SUPPORT_CONVERSATION_BLACKLISTED_SQL } from "@/lib/services/supportExclusions";
 import { query, withAdvisoryLock } from "@/lib/database/sql";
 import { recordDevAlert, resolveDevIncident } from "@/lib/dev/health";
 import {
@@ -144,7 +144,7 @@ export async function releaseExpiredSupportHandoffs(
 ): Promise<void> {
     await query(
         `
-            UPDATE support_conversations
+            UPDATE support_conversations c
             SET
                 mode = 'ai',
                 human_started_at = NULL,
@@ -152,7 +152,7 @@ export async function releaseExpiredSupportHandoffs(
                 handoff_prompted_at = NULL,
                 updated_at = NOW()
             WHERE mode = 'human'
-              AND NOT blacklisted
+              AND NOT ${SUPPORT_CONVERSATION_BLACKLISTED_SQL}
               AND (ai_paused_until IS NULL OR ai_paused_until <= NOW())
               AND last_human_reply_at IS NOT NULL
               AND (
@@ -223,7 +223,6 @@ function phoneCandidates(value: string | null): string[] {
 
 type SupportContactRules = {
     phone: string | null;
-    blacklisted: boolean;
     blockedHandoff: boolean;
     unresolvedLid: boolean;
 };
@@ -245,9 +244,8 @@ async function getSupportContactRules(
         (!chatId.endsWith("@lid") ? chatId.split("@")[0].replace(/\D/g, "") : null) ||
         null;
     const candidates = phoneCandidates(phone);
-    const flags = await query<{ blacklisted: boolean; blocked_handoff: boolean }>(
-        `SELECT COALESCE(bool_or(blacklisted), false) AS blacklisted,
-                COALESCE(bool_or(blocked_handoff), false) AS blocked_handoff
+    const flags = await query<{ blocked_handoff: boolean }>(
+        `SELECT COALESCE(bool_or(blocked_handoff), false) AS blocked_handoff
          FROM support_conversations
          WHERE chat_id = $2
             OR regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g') = ANY($1::text[])`,
@@ -255,29 +253,20 @@ async function getSupportContactRules(
     );
     return {
         phone,
-        blacklisted: flags.rows[0]?.blacklisted || false,
         blockedHandoff: flags.rows[0]?.blocked_handoff || false,
         unresolvedLid: chatId.endsWith("@lid") && !candidates.length,
     };
 }
 
 export async function isSupportConversationBlacklisted(conversationId: string): Promise<boolean> {
-    const current = await query<{ phone: string | null; blacklisted: boolean }>(
-        "SELECT phone, blacklisted FROM support_conversations WHERE id = $1 LIMIT 1",
+    const current = await query<{ phone: string | null; chat_id: string }>(
+        "SELECT phone, chat_id FROM support_conversations WHERE id = $1 LIMIT 1",
         [conversationId]
     );
     const conversation = current.rows[0];
-    if (!conversation || conversation.blacklisted) return true;
-    const candidates = phoneCandidates(conversation.phone);
-    if (!candidates.length) return true;
-    const blocked = await query(
-        `SELECT 1 FROM support_conversations
-         WHERE blacklisted
-           AND regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g') = ANY($1::text[])
-         LIMIT 1`,
-        [candidates]
-    );
-    return blocked.rowCount > 0;
+    if (!conversation) return true;
+    if (await isSupportContactExcluded({ phone: conversation.phone, chatId: conversation.chat_id })) return true;
+    return !phoneCandidates(conversation.phone).length;
 }
 
 async function findSingleRestaurantId(
@@ -1020,7 +1009,7 @@ export async function processSupportIncomingWhatsAppMessage(input: {
 }): Promise<void> {
     const rules = await getSupportContactRules(input.sessionName, input.chatId);
     const excluded = await isSupportContactExcluded({ chatId: input.chatId, phone: rules.phone });
-    if (rules.unresolvedLid || (rules.blacklisted && !excluded)) return;
+    if (rules.unresolvedLid) return;
     const conversation = await prepareConversation({
         sessionName: input.sessionName,
         chatId: input.chatId,
@@ -1042,6 +1031,7 @@ export async function processSupportIncomingWhatsAppMessage(input: {
 
     if (
         input.hasMedia &&
+        !excluded &&
         conversation.mode === "ai" &&
         input.botEnabled
     ) {
@@ -1312,14 +1302,14 @@ export async function processSupportIncomingWhatsAppMessage(input: {
                     try {
                         const state = await classifySupportFollowup(conversation.id);
                         await query(
-                            `UPDATE support_conversations
+                            `UPDATE support_conversations c
                              SET followup_state = $3,
                                  followup_anchor_inbound_at = $2::timestamptz,
                                  followup_last_ai_at = last_outbound_at,
                                  followup_attempted_at = CASE
                                      WHEN followup_anchor_inbound_at IS DISTINCT FROM $2::timestamptz
                                      THEN NULL ELSE followup_attempted_at END
-                             WHERE id = $1 AND mode = 'ai' AND NOT blacklisted
+                             WHERE id = $1 AND mode = 'ai' AND NOT ${SUPPORT_CONVERSATION_BLACKLISTED_SQL}
                                AND last_inbound_at = $2::timestamptz`,
                             [conversation.id, stateResult.rows[0].last_inbound_at, state]
                         );

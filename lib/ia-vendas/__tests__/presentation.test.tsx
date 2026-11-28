@@ -100,12 +100,36 @@ test("free restaurant without analysis explains the analysis and iMenu Plus imme
   expect(html.indexOf("Aplica melhorias automaticamente")).toBeLessThan(html.indexOf("Dados reais"));
   expect(html).toContain("Como funciona o acesso gratuito");
   expect(html).toContain("Sem esperar pela seleção gratuita");
-  expect(html).toContain("Análise iniciada automaticamente");
+  expect(html).toContain("Análise automática ou sob solicitação");
   expect(html).toContain("Acesso completo às oportunidades encontradas");
   expect(html).toContain("PlusCombinationMarkLogo_Brand.png");
   expect(html).toContain("Começar análise agora");
-  expect(html).toContain("A análise profunda pode levar até 1 hora para ser concluída após ativar o plano.");
+  expect(html).toContain("A análise profunda pode levar até 1 hora para ser concluída.");
   expect(html).toContain("49,99");
+});
+
+test("Plus without ten completed orders can request an analysis", () => {
+  const html = renderToStaticMarkup(<AnalysisReport {...props} analyses={[]} selected={undefined} requestable onRequest={jest.fn()} />);
+  expect(html).toContain("Solicitar análise");
+  expect(html).toContain("10 pedidos concluídos");
+  expect(html).toContain("Seu restaurante não tem pedidos suficientes.");
+  expect(html).toContain("Aplica melhorias automaticamente");
+  expect(html).toContain("Encontra o que vale priorizar");
+  expect(html).not.toContain("Preparando sua análise");
+});
+
+test("eligible Plus keeps the preparing state, including manual requests", () => {
+  const html = renderToStaticMarkup(<AnalysisReport {...props} analyses={[]} selected={undefined} />);
+  expect(html).toContain("Preparando sua análise");
+  expect(html).not.toContain("Solicitar análise");
+  const requested = renderToStaticMarkup(<AnalysisReport {...props} analyses={[]} selected={undefined} requestedAt="2026-11-28T12:00:00Z" />);
+  expect(requested).toContain("Preparando sua análise");
+  expect(requested).toContain("após a solicitação");
+});
+
+test("existing reports take priority over the request button", () => {
+  const html = renderToStaticMarkup(<AnalysisReport {...props} requestable />);
+  expect(html).not.toContain("Solicitar análise");
 });
 
 test("free analysis preview keeps the complete report", () => {

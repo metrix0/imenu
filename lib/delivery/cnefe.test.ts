@@ -39,7 +39,7 @@ afterEach(async () => {
 });
 
 test("looks up the requested city, street and bairro despite a differing CEP", async () => {
-    const match = await lookupCnefe(address, origin);
+    const match = await lookupCnefe({ ...address, number: "999" }, origin);
     const range = match?.range;
     ok(range, "Expected a distance range for the matched address");
     expect(range.min).toBeGreaterThan(7);
@@ -58,8 +58,8 @@ test("returns a mapped point for a store without a delivery origin", async () =>
     expect(match).toEqual({ point: { latitude: -27.612958, longitude: -52.225898 } });
 });
 
-test("rejects another bairro and reports partial coverage", async () => {
-    expect(await lookupCnefe({ ...address, bairro: "Outro" }, origin)).toBeNull();
+test("finds the exact number across neighborhoods and reports partial coverage", async () => {
+    expect((await lookupCnefe({ ...address, bairro: "Outro" }, origin))?.point).toEqual({ latitude: -27.64, longitude: -52.28 });
     expect(await checkCnefe()).toMatchObject({ state: "degraded", detail: expect.stringContaining("1/27") });
     await rm(join(directory, "RS.sqlite"));
     expect(await checkCnefe()).toMatchObject({ state: "failed" });
@@ -88,4 +88,18 @@ test("matches a Brasília commercial block by its IBGE name and exact CEP", asyn
     expect(result?.point).toEqual({ latitude: -15.863013, longitude: -48.09107 });
     expect(result?.range?.max).toBeLessThan(1.5);
     expect(await lookupCnefe({ ...address, cep: "72322999" }, origin)).toBeNull();
+});
+
+test("finds a similar street name with an exact house number across neighborhoods", async () => {
+    const result = await lookupCnefe({ ...address, street: "José Demoline", bairro: "Outro", number: "570" }, origin);
+    expect(result?.point).toEqual({ latitude: -27.612958, longitude: -52.225898 });
+});
+
+test("ranks duplicate house numbers by CEP and then neighborhood", async () => {
+    const db = new DatabaseSync(join(directory, "RS.sqlite"));
+    try {
+        db.exec("INSERT INTO points VALUES (4307005, 'rua jose demoliner', 'demoliner', '148', 99704735, -27612958, -52225898)");
+    } finally { db.close(); }
+    expect((await lookupCnefe(address, origin))?.point).toEqual({ latitude: -27.64, longitude: -52.28 });
+    expect((await lookupCnefe({ ...address, cep: "99999999" }, origin))?.point).toEqual({ latitude: -27.612958, longitude: -52.225898 });
 });

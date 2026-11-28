@@ -158,7 +158,7 @@ describe("approved draft delivery",()=>{
  const input={conversationId:"conversation",sessionName:"imenu-support",chatId:"5511999999999@c.us",text:"Resposta revisada",dedupeKey:"support:draft:id",replaceUnsentText:true};
  function mockDelivery(status:string|null){
   (query as jest.Mock).mockImplementation(async(sql:string)=>{
-   if(sql.startsWith("SELECT phone, blacklisted"))return {rows:[{phone:"5511999999999",blacklisted:false}],rowCount:1};
+   if(sql.startsWith("SELECT phone, chat_id"))return {rows:[{phone:"5511999999999",blacklisted:false}],rowCount:1};
    if(sql.includes("WHERE blacklisted"))return {rows:[],rowCount:0};
    if(sql.startsWith("SELECT id, body, send_status"))return {rows:status?[{id:"message",body:"Texto anterior",send_status:status}]:[],rowCount:status?1:0};
    return {rows:[{id:"message"}],rowCount:1};
@@ -203,7 +203,7 @@ test("excluded blacklisted contact saves incoming history but never sends replie
     };
     (query as jest.Mock).mockImplementation(async (sql: string) => {
         if (sql.startsWith("SELECT phone FROM support_conversations")) return { rows: [{ phone: row.phone }], rowCount: 1 };
-        if (sql.includes("bool_or(blacklisted)")) return { rows: [{ blacklisted: true, blocked_handoff: true }], rowCount: 1 };
+        if (sql.includes("bool_or(blocked_handoff)")) return { rows: [{ blacklisted: true, blocked_handoff: true }], rowCount: 1 };
         if (sql.includes("SELECT id, chat_id, phone") && sql.includes("support_conversations")) return { rows: [row], rowCount: 1 };
         if (sql.startsWith("UPDATE support_conversations SET phone")) return { rows: [row], rowCount: 1 };
         return { rows: [], rowCount: 0 };
@@ -250,7 +250,7 @@ describe("short confirmation while human handoff is pending", () => {
         (sendWahaText as jest.Mock).mockResolvedValue(undefined);
         (query as jest.Mock).mockImplementation(async (sql: string) => {
             if (sql.startsWith("SELECT phone FROM support_conversations")) return { rows: [{ phone: conversation.phone }], rowCount: 1 };
-            if (sql.includes("bool_or(blacklisted)")) return { rows: [{ blacklisted: false, blocked_handoff: false }], rowCount: 1 };
+            if (sql.includes("bool_or(blocked_handoff)")) return { rows: [{ blacklisted: false, blocked_handoff: false }], rowCount: 1 };
             if (sql.includes("SELECT id, chat_id, phone") && sql.includes("support_conversations"))
                 return { rows: [{ ...conversation, handoff_prompted_at: pending ? conversation.handoff_prompted_at : null }], rowCount: 1 };
             if (sql.startsWith("UPDATE support_conversations SET phone"))
@@ -263,7 +263,7 @@ describe("short confirmation while human handoff is pending", () => {
             // Model the historical bug: a previous "sim" was already answered.
             if (sql.includes("AS already_answered"))
                 return { rows: [{ already_answered: true }], rowCount: 1 };
-            if (sql.startsWith("SELECT phone, blacklisted"))
+            if (sql.startsWith("SELECT phone, chat_id"))
                 return { rows: [{ phone: conversation.phone, blacklisted: false }], rowCount: 1 };
             if (sql.startsWith("INSERT INTO support_messages") && sql.includes("'outbound'"))
                 return { rows: [{ id: "outbound-message" }], rowCount: 1 };
@@ -302,7 +302,7 @@ test("preserves PostgreSQL microseconds when classifying a sent AI reply", async
     (query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
         if (sql.startsWith("SELECT phone FROM support_conversations"))
             return { rows: [{ phone: conversation.phone }], rowCount: 1 };
-        if (sql.includes("bool_or(blacklisted)"))
+        if (sql.includes("bool_or(blocked_handoff)"))
             return { rows: [{ blacklisted: false, blocked_handoff: false }], rowCount: 1 };
         if (sql.startsWith("SELECT id, chat_id, phone") && sql.includes("support_conversations"))
             return { rows: [conversation], rowCount: 1 };
@@ -320,7 +320,7 @@ test("preserves PostgreSQL microseconds when classifying a sent AI reply", async
         }
         if (sql.startsWith("SELECT provider_message_id FROM support_messages"))
             return { rows: [{ provider_message_id: messageId }], rowCount: 1 };
-        if (sql.startsWith("SELECT phone, blacklisted"))
+        if (sql.startsWith("SELECT phone, chat_id"))
             return { rows: [{ phone: conversation.phone, blacklisted: false }], rowCount: 1 };
         if (sql.startsWith("SELECT id, body, send_status"))
             return { rows: [], rowCount: 0 };
@@ -363,7 +363,7 @@ test("an AI loop stop sends no message and schedules no follow-up", async () => 
     (query as jest.Mock).mockImplementation(async (sql: string) => {
         if (sql.startsWith("SELECT phone FROM support_conversations"))
             return { rows: [{ phone: conversation.phone }], rowCount: 1 };
-        if (sql.includes("bool_or(blacklisted)"))
+        if (sql.includes("bool_or(blocked_handoff)"))
             return { rows: [{ blacklisted: false, blocked_handoff: false }], rowCount: 1 };
         if (sql.startsWith("SELECT id, chat_id, phone"))
             return { rows: [conversation], rowCount: 1 };
@@ -373,7 +373,7 @@ test("an AI loop stop sends no message and schedules no follow-up", async () => 
             return { rows: [{ mode: "ai", last_inbound_at: new Date().toISOString(), handoff_prompted_at: null }], rowCount: 1 };
         if (sql.startsWith("SELECT provider_message_id FROM support_messages"))
             return { rows: [{ provider_message_id: incomingId }], rowCount: 1 };
-        if (sql.startsWith("SELECT phone, blacklisted"))
+        if (sql.startsWith("SELECT phone, chat_id"))
             return { rows: [{ phone: conversation.phone, blacklisted: false }], rowCount: 1 };
         if (sql.includes("WHERE blacklisted"))
             return { rows: [], rowCount: 0 };
@@ -393,4 +393,14 @@ test("an AI loop stop sends no message and schedules no follow-up", async () => 
     expect((query as jest.Mock).mock.calls.some(([sql]) =>
         /INSERT INTO support_messages\s*\([^)]*\)\s*VALUES\s*\(\$1,\s*'outbound'/.test(String(sql))
     )).toBe(false);
+});
+
+test("a newly blacklisted conversation cannot send a tracked reply", async () => {
+    (query as jest.Mock).mockResolvedValue({ rows: [{ phone: "5511999999999", chat_id: "5511999999999@c.us" }], rowCount: 1 });
+    (isSupportContactExcluded as jest.Mock).mockResolvedValue(true);
+    await expect(sendTrackedSupportText({
+        conversationId: "test", sessionName: "imenu-support",
+        chatId: "5511999999999@c.us", text: "Teste", dedupeKey: "test",
+    })).resolves.toBe(false);
+    expect(sendWahaText).not.toHaveBeenCalled();
 });

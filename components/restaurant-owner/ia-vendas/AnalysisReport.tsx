@@ -20,8 +20,10 @@ const SHOW_MEASUREMENT_HISTORY = false;
 export default function AnalysisReport({
   analyses, selected, actions, refs, disabled, loading, generating, locked = false, onUpgrade,
   activeOpportunityId, onSelect, onDiscuss, onChat, onHistory, onAction, onBatch,
+  requestable = false, requestedAt, onRequest,
 }: {
   locked?: boolean; onUpgrade?: (ids?: string[]) => void;
+  requestable?: boolean; requestedAt?: string | null; onRequest?: () => void;
   analyses: Data[]; selected?: Data; actions: Action[]; refs: Record<string, string>;
   disabled: boolean; loading: boolean; generating: boolean;
   activeOpportunityId?: string;
@@ -64,6 +66,32 @@ export default function AnalysisReport({
   const pending = withGenerated(ids).filter((id) => actionById.get(id)?.status === "pending");
   const gate = (content: React.ReactNode) => locked ? <div data-ia-plus-action><Tooltip text={IA_PLUS_FEATURE_MESSAGE} parentClassName="!block">{content}</Tooltip></div> : content;
 
+  const analysisSteps = (
+    <div className={styles.analysisSteps} aria-label="Como funciona a análise">
+      <article>
+        <span><Rocket size={18} aria-hidden="true" /></span>
+        <div>
+          <strong>Aplica melhorias automaticamente</strong>
+          <p>Você só revisa e aprova as melhorias sugeridas.</p>
+        </div>
+      </article>
+      <article>
+        <span><ClipboardList size={18} aria-hidden="true" /></span>
+        <div>
+          <strong>Dados reais</strong>
+          <p>Usa dados de milhares de restaurantes no iMenu para indicar as melhores modificações.</p>
+        </div>
+      </article>
+      <article>
+        <span><Target size={18} aria-hidden="true" /></span>
+        <div>
+          <strong>Encontra o que vale priorizar</strong>
+          <p>Prioriza as melhores oportunidades, mostra as evidências e estima o impacto nas próximas 4 semanas.</p>
+        </div>
+      </article>
+    </div>
+  );
+
   if (!selected) {
     return (
       <div className={styles.report}>
@@ -90,33 +118,11 @@ export default function AnalysisReport({
               </div>
             </div>
 
-            <div className={styles.analysisSteps} aria-label="Como funciona a análise">
-              <article>
-                <span><Rocket size={18} aria-hidden="true" /></span>
-                <div>
-                  <strong>Aplica melhorias automaticamente</strong>
-                  <p>Você só revisa e aprova as melhorias sugeridas.</p>
-                </div>
-              </article>
-              <article>
-                <span><ClipboardList size={18} aria-hidden="true" /></span>
-                <div>
-                  <strong>Dados reais</strong>
-                  <p>Usa dados de milhares de restaurantes no iMenu para indicar as melhores modificações.</p>
-                </div>
-              </article>
-              <article>
-                <span><Target size={18} aria-hidden="true" /></span>
-                <div>
-                  <strong>Encontra o que vale priorizar</strong>
-                  <p>Prioriza as melhores oportunidades, mostra as evidências e estima o impacto nas próximas 4 semanas.</p>
-                </div>
-              </article>
-            </div>
+            {analysisSteps}
 
             <div className={styles.freeReleaseNote}>
               <strong>Como funciona o acesso gratuito</strong>
-              <p>Estamos liberando análises gratuitas para alguns restaurantes por vez. Quando o seu for selecionado, a análise aparecerá aqui automaticamente. Para liberar a análise imediatamente e aplicar as melhorias com IA, conheça o Plano iMenu Plus.</p>
+              <p>Estamos liberando análises gratuitas para alguns restaurantes por vez. Quando o seu for selecionado, a análise aparecerá aqui automaticamente. Para solicitar sua análise e aplicar as melhorias com IA, conheça o Plano iMenu Plus.</p>
             </div>
 
             <div className={styles.upgradeState}>
@@ -133,10 +139,10 @@ export default function AnalysisReport({
                 <div>
                   <span className={styles.upgradeEyebrow}>Sem esperar pela seleção gratuita</span>
                   <h3>Comece sua análise agora</h3>
-                  <p>Com o iMenu Plus, sua análise começa automaticamente, sem esperar pela seleção gratuita. A análise profunda pode levar até 1 hora para ser concluída após ativar o plano.</p>
+                  <p>Com o iMenu Plus, sua análise começa automaticamente a partir de 10 pedidos concluídos ou pode ser solicitada antes, sem esperar pela seleção gratuita. A análise profunda pode levar até 1 hora para ser concluída.</p>
                 </div>
                 <ul className={styles.upgradeBenefits}>
-                  <li>Análise iniciada automaticamente</li>
+                  <li>Análise automática ou sob solicitação</li>
                   <li>Acesso completo às oportunidades encontradas</li>
                   <li>Converse com a IA e revise e aplique as mudanças sugeridas</li>
                 </ul>
@@ -148,11 +154,22 @@ export default function AnalysisReport({
               </div>
             </div>
           </section>
+        ) : requestable && !generating ? (
+          <section className={styles.noAnalysisState}>
+            <div className={styles.stateIcon}><Rocket size={24} aria-hidden="true" /></div>
+            <div className={styles.noAnalysisIntro}>
+              <h2>Seu restaurante não tem pedidos suficientes.</h2>
+              <p>Com 10 pedidos concluídos, o Vendas IA inicia sua análise automaticamente para identificar as melhores oportunidades de aumentar suas vendas.</p>
+            </div>
+            {analysisSteps}
+            <p>Não quer esperar? Você já pode solicitar uma análise do seu cardápio agora.</p>
+            <Button disabled={disabled} onClick={onRequest}>Solicitar análise</Button>
+          </section>
         ) : (
           <section className={styles.noAnalysisState} role="status" aria-live="polite" aria-busy={generating}>
             <div className={styles.preparingIcon}><Loader /></div>
             <h2>Preparando sua análise</h2>
-            <p>A IA está analisando seus pedidos, cardápio e oportunidades de venda. A análise profunda pode levar até 1 hora para ser concluída após ativar o plano. Seu relatório aparecerá aqui assim que estiver pronto.</p>
+            <p>A IA está analisando seus pedidos, cardápio e oportunidades de venda. A análise profunda pode levar até 1 hora para ser concluída {requestedAt ? "após a solicitação" : "após ativar o plano"}. Seu relatório aparecerá aqui assim que estiver pronto.</p>
           </section>
         )}
       </div>

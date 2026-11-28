@@ -68,6 +68,35 @@ export async function fetchAddressByCEP(cep: string): Promise<GeoAddress | null>
 /**
  * 2. Transforma Endereço (texto) em Coordenadas
  */
+// A coded street may have an official name after a dash (e.g. Rua VN 58 - Helena ...).
+export function streetNameVariants(value: unknown): string[] {
+    const raw = String(value ?? "");
+    const alias = /^(?:(?:rua|r\.?|avenida|av\.?)\s+)?[a-z]{1,8}\s+\d+[a-z]?\s*[-–—]\s*(.+)$/i.exec(raw)?.[1];
+    const normalized = (name: string) => name.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase().replace(/[^a-z0-9]+/g, " ")
+        .replace(/\b(rua|avenida|av|r|travessa|estrada|rodovia|praca|alameda|doutor|dr|de|da|do|dos|das)\b/g, " ")
+        .replace(/\s+/g, " ").trim();
+    return [...new Set([normalized(raw), ...(alias ? [normalized(alias)] : [])].filter(Boolean))];
+}
+
+export function streetNamesMatch(left: unknown, right: unknown): boolean {
+    return streetNameVariants(left).some(expected => streetNameVariants(right).some(found => {
+        if (expected === found) return true;
+        if (Math.min(expected.length, found.length) < 8 || Math.abs(expected.length - found.length) > 1) return false;
+        // Keep numbered street identifiers distinct; allow one typo in a name.
+        if ((expected.match(/\d+/g) || []).join("|") !== (found.match(/\d+/g) || []).join("|")) return false;
+        let a = 0, b = 0, differences = 0;
+        while (a < expected.length && b < found.length) {
+            if (expected[a] === found[b]) { a++; b++; continue; }
+            if (++differences > 1) return false;
+            if (expected.length > found.length) a++;
+            else if (found.length > expected.length) b++;
+            else { a++; b++; }
+        }
+        return differences + Number(a < expected.length) + Number(b < found.length) <= 1;
+    }));
+}
+
 export type Coordinates = { latitude: number; longitude: number };
 export type StreetFallback = {
     origin: Coordinates;
@@ -130,27 +159,7 @@ export async function fetchCoordinates(
         return knownNames.some(neighborhoodMatches) ? "match" : "mismatch";
     };
 
-    const normalizeStreet = (value: unknown) => normalize(value)
-        .replace(/\b(rua|avenida|av|r|travessa|estrada|rodovia|praca|alameda|doutor|dr|de|da|do|dos|das)\b/g, " ")
-        .replace(/\s+/g, " ").trim();
-
-    const streetMatches = (actual: unknown) => {
-        const expected = normalizeStreet(wantedStreet);
-        const found = normalizeStreet(actual);
-        if (!expected || !found) return false;
-        if (expected === found) return true;
-        if (Math.min(expected.length, found.length) < 8 || Math.abs(expected.length - found.length) > 1) return false;
-        // Permit one spelling difference (e.g. Sodero/Sodrero), not a different street.
-        let a = 0, b = 0, differences = 0;
-        while (a < expected.length && b < found.length) {
-            if (expected[a] === found[b]) { a++; b++; continue; }
-            if (++differences > 1) return false;
-            if (expected.length > found.length) a++;
-            else if (found.length > expected.length) b++;
-            else { a++; b++; }
-        }
-        return differences + Number(a < expected.length) + Number(b < found.length) <= 1;
-    };
+    const streetMatches = (actual: unknown) => streetNamesMatch(wantedStreet, actual);
 
     const cityMatches = (actual: unknown) =>
         Boolean(wantedCity) && normalize(actual) === normalize(wantedCity);
@@ -231,7 +240,7 @@ export async function fetchCoordinates(
             const exact = [...candidates].sort((a, b) => b.score - a.score).find((candidate: any) => {
                 const details = candidate.attributes || {};
                 const type = details.Addr_type;
-                const matchesAddress = candidate.score >= 95 &&
+                const matchesAddress = candidate.score >= (wantedNumber ? 94 : 95) &&
                     streetMatches(details.StName) &&
                     cityMatches(details.City) && stateMatches(details.RegionAbbr) &&
                     (!wantedNumber ||
@@ -239,7 +248,7 @@ export async function fetchCoordinates(
                             normalize(details.AddNum) === normalize(wantedNumber))) &&
                     (wantedNumber || ["PointAddress", "StreetAddress", "StreetAddressExt", "StreetName"].includes(type)) &&
                     position(candidate.location?.y, candidate.location?.x);
-                const neighborhood = neighborhoodStatus(details.Nbrhd, details.District);
+                const neighborhood = neighborhoodStatus(details.Nbrhd);
                 if (matchesAddress && neighborhood === "mismatch") exactNeighborhoodMismatch = true;
                 return matchesAddress && neighborhood !== "mismatch";
             });
@@ -259,7 +268,7 @@ export async function fetchCoordinates(
                 const point = position(numberedStreet.location.y, numberedStreet.location.x);
                 if (point) arcgisInterpolation.location = {
                     point,
-                    neighborhood: neighborhoodStatus(numberedStreet.attributes.Nbrhd, numberedStreet.attributes.District),
+                    neighborhood: neighborhoodStatus(numberedStreet.attributes.Nbrhd),
                 };
             }
             if (!approximate) return null;
@@ -271,7 +280,7 @@ export async function fetchCoordinates(
             const street = streets
                 .filter((candidate: any) => {
                     const details = candidate.attributes || {};
-                    const neighborhood = neighborhoodStatus(details.Nbrhd, details.District);
+                    const neighborhood = neighborhoodStatus(details.Nbrhd);
                     return candidate.score >= 70 && streetMatches(details.StName) &&
                         cityMatches(details.City) && stateMatches(details.RegionAbbr) &&
                         neighborhood !== "mismatch" &&

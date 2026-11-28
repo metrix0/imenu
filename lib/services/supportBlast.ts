@@ -170,7 +170,7 @@ export async function getSupportBlastRecipients(id: string) {
         id: number; phone: string; status: string; error: string | null;
         scheduled_at: string; sent_at: string | null;
     }>(
-        "SELECT r.id, r.phone, r.status, r.error, r.scheduled_at, r.sent_at FROM support_blast_recipients r WHERE r.campaign_id = $1 AND NOT EXISTS (SELECT 1 FROM support_contact_exclusions e WHERE e.identifier_hash = encode(sha256(convert_to('phone:' || regexp_replace(r.phone, '[^0-9]', '', 'g'), 'UTF8')), 'hex')) ORDER BY r.scheduled_at, r.id LIMIT 500",
+        `SELECT r.id, r.phone, r.status, r.error, r.scheduled_at, r.sent_at FROM support_blast_recipients r WHERE r.campaign_id = $1 ORDER BY r.scheduled_at, r.id LIMIT 500`,
         [id]
     )).rows;
 }
@@ -550,6 +550,11 @@ LIMIT 1`, [accountIds]);
             );
             return "skipped";
         }
+        if (await isSupportContactExcluded({ phone, chatId: resolvedChatId })) {
+            await query("UPDATE whatsapp_outbound_messages SET status = 'failed', last_error = 'Contato bloqueado.', updated_at = NOW() WHERE dedupe_key = $1", [dedupeKey]);
+            await finishRecipient(item.id, "skipped_reactivated", "Contato bloqueado.");
+            return "skipped";
+        }
         if (item.campaign_image_path) {
             // Sign just before dispatch: multi-day campaigns must not use expired URLs.
             const { data, error } = await createSupabaseServerClient().storage
@@ -570,6 +575,7 @@ LIMIT 1`, [accountIds]);
                     throw firstError;
                 }
                 await new Promise((resolve) => setTimeout(resolve, 1000));
+                if (await isSupportContactExcluded({ phone, chatId: resolvedChatId })) throw new Error("Contato bloqueado.");
                 await sendWahaText(session.session_name, resolvedChatId, item.message);
             }
         }

@@ -80,9 +80,9 @@ it("accepts a numbered StreetAddress when no rooftop exists", async () => {
 });
 describe("ArcGIS interpolation in a different neighborhood", () => {
     const c = cases[0];
-    const wrongNeighborhood = candidate(c, "StreetAddress", { District: "Outro Bairro" });
+    const wrongNeighborhood = candidate(c, "StreetAddress", { Nbrhd: "Outro Bairro" });
     const correctStreet = {
-        ...candidate(c, "StreetName", { AddNum: "", District: "Canudos" }),
+        ...candidate(c, "StreetName", { AddNum: "", Nbrhd: "Canudos" }),
         score: 96,
         location: { y: -29.69, x: -51.13 },
     };
@@ -121,7 +121,7 @@ it.each(["TomTom", "Nominatim"])("checks the neighborhood returned by %s", async
     providers(url => {
         if (url.hostname.includes("arcgis.com")) {
             return reply({ candidates: [{
-                ...candidate(c, "StreetName", { AddNum: "", District: "Canudos" }),
+                ...candidate(c, "StreetName", { AddNum: "", Nbrhd: "Canudos" }),
                 location: { y: alternate.latitude, x: alternate.longitude },
             }] });
         }
@@ -147,8 +147,8 @@ it("tries the matching street when TomTom omits the neighborhood and ArcGIS dete
     providers(url => {
         if (url.hostname.includes("arcgis.com")) {
             return reply({ candidates: [
-                candidate(c, "StreetAddress", { District: "Outro Bairro" }),
-                { ...candidate(c, "StreetName", { AddNum: "", District: "Canudos" }), location: { y: -29.69, x: -51.13 } },
+                candidate(c, "StreetAddress", { Nbrhd: "Outro Bairro" }),
+                { ...candidate(c, "StreetName", { AddNum: "", Nbrhd: "Canudos" }), location: { y: -29.69, x: -51.13 } },
             ] });
         }
         if (url.hostname === "api.tomtom.com") return reply({ results: [{
@@ -304,8 +304,8 @@ describe("IBGE street fallback", () => {
         const c = cases[0];
         const valid = { latitude: -29.69, longitude: -51.13 };
         arcgisOnly([
-            candidate(c, "PointAddress", { District: "Outro Bairro" }),
-            { ...candidate(c, "PointAddress", { District: "Canudos" }), score: 97, location: { y: valid.latitude, x: valid.longitude } },
+            candidate(c, "PointAddress", { Nbrhd: "Outro Bairro" }),
+            { ...candidate(c, "PointAddress", { Nbrhd: "Canudos" }), score: 97, location: { y: valid.latitude, x: valid.longitude } },
         ]);
         expect(await fetchCoordinates(c.input)).toEqual(valid);
     });
@@ -343,5 +343,16 @@ describe("specific geocoding for a citywide CEP", () => {
             : reply(String(input).includes("arcgis.com") ? { candidates: [] } : [])) as typeof fetch;
         expect(await fetchCoordinates(address, undefined, { origin: point, acceptsRange: ({ max }) => max <= 0.5 }, true)).toEqual(point);
         expect(await fetchCoordinates(address, undefined, { origin: point, acceptsRange: ({ max }) => max <= 0.3 }, true)).toBeNull();
+    });
+});
+
+describe("Barretos delivery fee regressions", () => {
+    test.each([
+        ["Avenida Ranulfo Prata, 637, Jardim Universitário, Barretos - SP, 14784478, Brasil", "Ranulfo Prata", "637", 97.08, -20.581761, -48.563061],
+        ["Rua VN 58 - Helena do Nascimento Botacini, 252, Conjunto Habitacional Vida Nova, Barretos - SP, 14784846, Brasil", "Helena Do Nascimento Botacini", "252", 94.75, -20.581702, -48.520419],
+        ["Rua Termita Cândida de Vasconcelos, 405, Zona de Uso Diversificado Pedro Pinto Paixão, Barretos - SP, 14781140, Brasil", "Termita Candida De Vasconcelos", "405", 96, -20.520547, -48.564261],
+    ] as const)("accepts the verified house despite an empty neighborhood: %s", async (input, street, number, score, lat, lon) => {
+        arcgisOnly([{ score, attributes: { Addr_type: "PointAddress", StName: street, AddNum: number, City: "Barretos", RegionAbbr: "SP", Nbrhd: "", District: "Barretos" }, location: { y: lat, x: lon } }]);
+        expect(await fetchCoordinates(input)).toEqual({ latitude: lat, longitude: lon });
     });
 });
