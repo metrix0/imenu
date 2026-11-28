@@ -9,7 +9,7 @@ import { devJson } from "@/lib/dev/client";
 import { formatPhone } from "@/lib/dev/supportView";
 import DevDialog from "./DevDialog";
 
-type Blacklist = { contacts: { phone: string; created_at: string }[]; protectedIdentifiers: number; protectedConversations: number };
+type Blacklist = { contacts: { phone: string; created_at: string }[] };
 
 export default function SupportBlacklistDialog({ onClose }: { onClose: () => void }) {
     const [data, setData] = useState<Blacklist | null>(null);
@@ -53,12 +53,9 @@ export default function SupportBlacklistDialog({ onClose }: { onClose: () => voi
                     </div>
                     <Button type="submit" disabled={!phone.trim() || busy}>Bloquear</Button>
                 </form>
-                <DataTable rows={[
-                    ...data.contacts.map(contact => ({ key: contact.phone, phone: contact.phone })),
-                    ...(data.protectedIdentifiers > 0 ? [{ key: "protected", phone: null }] : []),
-                ]} rowKey={contact => contact.key} emptyMessage="Nenhum contato na blacklist." columns={[
-                    { key: "phone", label: "WhatsApp", render: contact => contact.phone ? formatPhone(contact.phone) : <span>Contatos protegidos · {data.protectedIdentifiers} identificador(es)</span> },
-                    { key: "actions", label: "", render: contact => contact.phone ? <div className="flex justify-end"><Button variant="secondary" disabled={busy} onClick={() => void update("remove_blacklist", contact.phone!)}>Desbloquear</Button></div> : <span className="text-gray-500">Identidade protegida</span> },
+                <DataTable rows={data.contacts} rowKey={contact => contact.phone} emptyMessage="Nenhum contato na blacklist." columns={[
+                    { key: "phone", label: "WhatsApp", render: contact => formatPhone(contact.phone) },
+                    { key: "actions", label: "", render: contact => <div className="flex justify-end"><Button variant="secondary" disabled={busy} onClick={() => void update("remove_blacklist", contact.phone)}>Desbloquear</Button></div> },
                 ]} />
             </>}
         </div>

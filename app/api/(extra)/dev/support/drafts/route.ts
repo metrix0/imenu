@@ -12,7 +12,7 @@ const CONVERSATION_JOIN = `LEFT JOIN support_conversations c ON c.id=d.conversat
     OR (d.conversation_id IS NULL AND c.chat_id=CASE WHEN d.session_name='imenu-blast'
     THEN 'imenu-blast:' || d.chat_id ELSE d.chat_id END)`;
 const UUID = /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i;
-const VISIBLE_DRAFT_SQL = "NOT " + supportBlacklistMatchSql("c.phone", "d.chat_id", true);
+const VISIBLE_DRAFT_SQL = "NOT " + supportBlacklistMatchSql("c.phone", "d.chat_id");
 
 export async function GET(request: Request) {
     const denied = await authorize(request);

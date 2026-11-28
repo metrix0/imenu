@@ -26,6 +26,7 @@ const BLOCKED_TABLES = new Set([
     "support_conversations",
     "support_messages",
     "support_knowledge",
+    "support_blacklist",
     "support_contact_exclusions",
 ]);
 

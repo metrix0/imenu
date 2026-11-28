@@ -96,7 +96,7 @@ test("legacy Cadastro query parameter no longer affects filtering", async () => 
     expect(sql).not.toContain("r.created_at >= NOW() - INTERVAL '30 days'");
 });
 
-test("last support message uses the visible real conversation and sorts by message date", async () => {
+test("last support message uses the real conversation and sorts by message date", async () => {
     await getCrm(new URLSearchParams({ sort: "last_message", direction: "desc" }));
     const [sql] = sqlQuery.mock.calls[0];
     expect(sql).toContain("support.conversation_id AS support_conversation_id");
@@ -105,7 +105,7 @@ test("last support message uses the visible real conversation and sorts by messa
     expect(sql).toContain("c.restaurant_id=r.id");
     expect(sql).toContain("c.chat_id NOT LIKE 'imenu-blast:%'");
     expect(sql).toContain("sm.direction='inbound' OR sm.send_status='sent'");
-    expect(sql).toContain("support_contact_exclusions");
+    expect(sql).not.toContain("support_contact_exclusions");
 });
 
 test("restaurant profile includes the same support conversation lookup", async () => {

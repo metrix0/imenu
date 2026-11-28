@@ -5,7 +5,6 @@ import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGES } from "./plusFeedbackBlast";
 import { DID_NOT_ACTIVATE_BLAST_MESSAGE } from "./didNotActivateBlast";
 import { MESSAGE_ROWS_SQL } from "./messageHistory";
 import { query } from "@/lib/database/sql";
-import { supportBlacklistMatchSql } from "@/lib/services/supportExclusions";
 import { DEV_BLAST_PAGE_SIZE, devPage, paged } from "./pagination";
 
 // Existing campaign and send logs are the source of truth; no additional registry/table.
@@ -35,7 +34,6 @@ const RECOVERY_CAMPAIGN_DAYS = `
 `;
 
 
-const visiblePhoneSql = (alias: string) => "NOT " + supportBlacklistMatchSql(alias + ".phone", "NULL::text", true);
 
 const standaloneSender = `COALESCE(o.context->>'sender',CASE WHEN o.dedupe_key LIKE 'support:bulk:support:%' OR o.dedupe_key LIKE 'support:addon-expiry:%' THEN 'support' ELSE 'blast' END)`;
 const standaloneBlast = `(o.dedupe_key LIKE 'support:bulk:%' OR o.dedupe_key LIKE 'support:payout:%' OR o.dedupe_key LIKE 'support:payout-pix-warning:%' OR o.dedupe_key LIKE 'support:addon-expiry:%')
@@ -72,7 +70,7 @@ const EVENTS = `WITH notifications AS (${MESSAGE_ROWS_SQL}),recovery_days AS (${
     UNION ALL SELECT CASE WHEN n.category='automation' THEN 'customer:'||n.subtype||':'||(n.created_at AT TIME ZONE 'America/Sao_Paulo')::date::text ELSE n.id END,
     COALESCE(n.sent_at,n.created_at),COALESCE(n.message,'Texto não registrado no histórico antigo.'),CASE WHEN n.category='automation' THEN 'restaurant' ELSE 'support' END,n.status,n.phone,n.error,NULL,n.restaurant_id,1,(n.status='sent')::int,(n.status='failed')::int
     FROM notifications n WHERE n.category <> 'automation'
-),events AS (SELECT * FROM events_raw e WHERE e.phone IS NULL OR ${visiblePhoneSql('e')})`;
+),events AS (SELECT * FROM events_raw)`;
 
 export async function getDailyBlastSends() {
     const { rows } = await query<{ label: string; support: number; blast: number }>(`
@@ -100,7 +98,6 @@ export async function getDailyBlastSends() {
             FROM sends s CROSS JOIN period p
             WHERE s.sent_at >= ((p.today - 29)::timestamp AT TIME ZONE 'America/Sao_Paulo')
                 AND s.sent_at < ((p.today + 1)::timestamp AT TIME ZONE 'America/Sao_Paulo')
-                AND (s.phone IS NULL OR ${visiblePhoneSql('s')})
             GROUP BY 1
         )
         SELECT to_char(p.today - days.ago, 'DD/MM') AS label,
@@ -159,7 +156,7 @@ export async function getBlastHistory(params:URLSearchParams) {
       UNION ALL
       SELECT group_id||':'||row_number() OVER()::text,phone,message,status,error,created_at,NULL::timestamptz,created_at,restaurant_id
       FROM events WHERE group_id=$2 AND campaign_id IS NULL
-  ),recipients AS (SELECT * FROM recipients_raw r WHERE r.phone IS NULL OR ${visiblePhoneSql('r')})`;
+  ),recipients AS (SELECT * FROM recipients_raw)`;
   const [rows,count]=await Promise.all([query(`${recipients} SELECT * FROM recipients ORDER BY created_at DESC,id LIMIT $3 OFFSET $4`,[patterns,id,pageSize,offset]),query<{total:number}>(`${recipients} SELECT COUNT(*)::int total FROM recipients`,[patterns,id])]);return paged(await withDestinations(rows.rows),count.rows[0].total,page,pageSize);
  }
  const [rows,count]=await Promise.all([query(`${EVENTS} SELECT group_id id,MAX(created_at) created_at,MIN(message) message,MIN(sender) sender,CASE WHEN COUNT(DISTINCT restaurant_id)=1 THEN MIN(restaurant_id::text) END restaurant_id,CASE WHEN COUNT(DISTINCT phone)=1 THEN MIN(phone) END phone,CASE WHEN COUNT(*)=1 THEN MAX(campaign_id) END campaign_id,SUM(total)::int total,COALESCE(SUM(sent),0)::int sent,COALESCE(SUM(failed),0)::int failed FROM events GROUP BY group_id ORDER BY MAX(created_at) DESC,group_id LIMIT $2 OFFSET $3`,[patterns,pageSize,offset]),query<{total:number}>(`${EVENTS} SELECT COUNT(DISTINCT group_id)::int total FROM events`,[patterns])]);

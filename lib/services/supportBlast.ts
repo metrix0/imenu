@@ -1,4 +1,4 @@
-import { isSupportContactExcluded, supportBlacklistMatchSql } from "@/lib/services/supportExclusions";
+import { isSupportContactExcluded } from "@/lib/services/supportExclusions";
 import { randomUUID } from "node:crypto";
 import { ABANDONED_BLAST_MESSAGE, LEGACY_PLUS_ABANDONED_BLAST_MESSAGE, PLUS_EXPIRY_BLAST_MESSAGES, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE, RECOVERY_DAILY_LIMIT, RECOVERY_COOLDOWN_DAYS, RECOVERY_SHARED_COOLDOWN_DAYS, RECOVERY_SHARED_COOLDOWN_MESSAGES } from "@/lib/dev/abandonedBlast";
 import { ACTIVE_PLUS_FOR_ACCOUNT, PLUS_CHURN_EVENTS, RECOVERY_CUTOFF } from "@/lib/dev/plusChurn";
@@ -170,7 +170,7 @@ export async function getSupportBlastRecipients(id: string) {
         id: number; phone: string; status: string; error: string | null;
         scheduled_at: string; sent_at: string | null;
     }>(
-        `SELECT r.id, r.phone, r.status, r.error, r.scheduled_at, r.sent_at FROM support_blast_recipients r WHERE r.campaign_id = $1 AND NOT ${supportBlacklistMatchSql("r.phone", "NULL::text", true)} ORDER BY r.scheduled_at, r.id LIMIT 500`,
+        `SELECT r.id, r.phone, r.status, r.error, r.scheduled_at, r.sent_at FROM support_blast_recipients r WHERE r.campaign_id = $1 ORDER BY r.scheduled_at, r.id LIMIT 500`,
         [id]
     )).rows;
 }

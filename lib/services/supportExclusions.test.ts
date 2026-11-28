@@ -1,40 +1,37 @@
-import { createHash } from "node:crypto";
 import { query } from "@/lib/database/sql";
-import { isSupportContactExcluded, supportExclusionHashes } from "./supportExclusions";
+import { isSupportContactExcluded, normalizeSupportBlacklistPhone, getSupportBlacklist, addSupportBlacklistPhone, removeSupportBlacklistPhone } from "./supportExclusions";
 
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn() }));
-const sha = (value: string) => createHash("sha256").update(value).digest("hex");
 
 beforeEach(() => jest.clearAllMocks());
 
-test("matches a phone, national form and WAHA LID without storing plaintext", () => {
-    const phoneHash = sha("phone:5511988576886");
-    expect(supportExclusionHashes({ phone: "+55 11 98857-6886" })).toContain(phoneHash);
-    expect(supportExclusionHashes({ chatId: "5511988576886@c.us" })).toContain(phoneHash);
-    expect(supportExclusionHashes({ chatId: "imenu-blast:99389989204047@lid" }))
-        .toContain(sha("chat:99389989204047@lid"));
-    expect(supportExclusionHashes({ phone: "11 8857-6886" })).toContain(phoneHash);
+test("normalizes national, international and old mobile formats", () => {
+    expect(normalizeSupportBlacklistPhone("+55 11 99123-4567")).toBe("5511991234567");
+    expect(normalizeSupportBlacklistPhone("0055 11 99123-4567")).toBe("5511991234567");
+    expect(normalizeSupportBlacklistPhone("11 9123-4567")).toBe("5511991234567");
+    expect(normalizeSupportBlacklistPhone("123")).toBeNull();
 });
 
-test("checks the database exclusion list without sending any WAHA message", async () => {
+test("matches a plain phone or WhatsApp phone chat ID", async () => {
     (query as jest.Mock).mockResolvedValue({ rows: [{ value: 1 }], rowCount: 1 });
-    await expect(isSupportContactExcluded({ phone: "5511988576886" })).resolves.toBe(true);
-    expect(query).toHaveBeenCalledWith(
-        expect.stringContaining("FROM support_contact_exclusions"),
-        [expect.arrayContaining([sha("phone:5511988576886")])]
-    );
+    await expect(isSupportContactExcluded({ chatId: "imenu-blast:5511991234567@c.us" })).resolves.toBe(true);
+    expect(query).toHaveBeenCalledWith(expect.stringContaining("FROM support_blacklist"), [["5511991234567"]]);
+    await expect(isSupportContactExcluded({ phone: "11 9123-4567", chatId: "123456789@lid" })).resolves.toBe(true);
 });
 
-test("other contacts are unaffected; missing identifiers perform no query", async () => {
+test("other contacts are unaffected and unresolved IDs do not query", async () => {
     (query as jest.Mock).mockResolvedValue({ rows: [], rowCount: 0 });
-    await expect(isSupportContactExcluded({ chatId: "5511999991234@c.us" })).resolves.toBe(false);
-    await expect(isSupportContactExcluded({})).resolves.toBe(false);
+    await expect(isSupportContactExcluded({ phone: "5511999991234" })).resolves.toBe(false);
+    await expect(isSupportContactExcluded({ chatId: "123456789@lid" })).resolves.toBe(false);
     expect(query).toHaveBeenCalledTimes(1);
 });
 
-test("canonicalizes international prefixes and both Brazilian mobile aliases", () => {
-    const full = sha("phone:5511991234567");
-    const old = sha("phone:551191234567");
-    expect(supportExclusionHashes({ phone: "0055 11 99123-4567" })).toEqual(expect.arrayContaining([full, old]));
-    expect(supportExclusionHashes({ phone: "11 9123-4567" })).toEqual(expect.arrayContaining([full, old]));
+test("lists, inserts and deletes plain phone numbers", async () => {
+    const contacts = [{ phone: "5511991234567", created_at: "2026-11-28" }];
+    (query as jest.Mock).mockResolvedValue({ rows: contacts, rowCount: 1 });
+    await expect(getSupportBlacklist()).resolves.toEqual({ contacts });
+    await addSupportBlacklistPhone(contacts[0].phone);
+    await removeSupportBlacklistPhone(contacts[0].phone);
+    expect(query).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO support_blacklist (phone)"), [contacts[0].phone]);
+    expect(query).toHaveBeenCalledWith(expect.stringContaining("DELETE FROM support_blacklist"), [contacts[0].phone]);
 });

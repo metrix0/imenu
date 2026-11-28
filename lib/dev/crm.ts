@@ -6,7 +6,6 @@ import {
     PLUS_EXPIRY_BLAST_MESSAGES,
     SINGLE_ORDER_DAY_RECOVERY_MESSAGE,
 } from "./abandonedBlast";
-import { SUPPORT_CONVERSATION_VISIBLE_SQL } from "@/lib/services/supportExclusions";
 import { brazilClock, getTodayRecoveryForecast } from "./abandonedBlastPlan";
 import { PLUS_CHURN_EVENTS, RECOVERY_CUTOFF } from "./plusChurn";
 import { PLUS_FIRST_MONTH_FEEDBACK_MESSAGES } from "./plusFeedbackBlast";
@@ -72,7 +71,6 @@ const LAST_SUPPORT_JOIN = `LEFT JOIN LATERAL (
         ORDER BY sm.created_at DESC, sm.id DESC LIMIT 1
     ) message ON TRUE
     WHERE c.restaurant_id=r.id AND c.chat_id NOT LIKE 'imenu-blast:%'
-      AND ${SUPPORT_CONVERSATION_VISIBLE_SQL}
     ORDER BY message.created_at DESC, message.id DESC LIMIT 1
 ) support ON TRUE`;
 
